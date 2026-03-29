@@ -230,8 +230,9 @@ export default function Home() {
   useEffect(() => {
     if (signals.length === 0 || scanning) return;
 
+    // Auto-analyze signals that don't have AI analysis (no structured sections in description AND no analysis field)
     const unanalyzed = signals.filter(
-      (s) => !s.analysis && s.strength >= 40 && !analyzingRef.current.has(s.id)
+      (s) => !s.analysis && !(s.description || "").includes("🔧") && s.signal_type === "dev_spike" && !analyzingRef.current.has(s.id)
     );
     if (unanalyzed.length === 0) return;
 
@@ -252,6 +253,7 @@ export default function Home() {
             description: sig.description,
             subnet_name: sig.subnet_name,
             netuid: sig.netuid,
+            source_url: sig.source_url,
             composite_score: subnetData?.composite_score,
             alpha_price: subnetData?.alpha_price,
             price_change_24h: subnetData?.price_change_24h,
@@ -261,8 +263,9 @@ export default function Home() {
         if (res.ok) {
           const data = await res.json();
           if (data.analysis) {
+            // Replace the description with the AI analysis
             setSignals((prev) =>
-              prev.map((s) => (s.id === sig.id ? { ...s, analysis: data.analysis } : s))
+              prev.map((s) => (s.id === sig.id ? { ...s, description: data.analysis, analysis: data.analysis } : s))
             );
           }
         }

@@ -471,19 +471,33 @@ Now write your intelligence report using this EXACT format. Each section should 
     return desc || `${ctx.act.commits_1d} commits and ${ctx.act.prs_merged_1d} PRs merged today.`;
   }
 
-  // Run ALL AI analyses in parallel (8 calls to Haiku ~3-4s total)
-  const timeLeftForAI = 58000 - (Date.now() - startTime);
-  console.log(`[scan] Running AI analysis on ${devContexts.length} signals (${(timeLeftForAI/1000).toFixed(0)}s left)...`);
+  // Try AI analysis for as many signals as time allows
+  const timeLeftForAI = 57000 - (Date.now() - startTime);
+  console.log(`[scan] AI analysis: ${devContexts.length} signals, ${(timeLeftForAI/1000).toFixed(0)}s left`);
 
   const analyzedDevSignals: { ctx: DevContext; analysis: string }[] = [];
-  if (timeLeftForAI > 5000 && ANTHROPIC_KEY) {
-    const aiResults = await Promise.all(
-      devContexts.map(async (ctx) => ({ ctx, analysis: await analyzeDevActivity(ctx) }))
-    );
-    analyzedDevSignals.push(...aiResults);
+
+  if (timeLeftForAI > 8000 && ANTHROPIC_KEY) {
+    // Analyze ALL in parallel — Haiku is fast (~1-2s per call)
+    try {
+      const aiResults = await Promise.race([
+        Promise.all(devContexts.map(async (ctx) => ({ ctx, analysis: await analyzeDevActivity(ctx) }))),
+        // Timeout after available time minus 3s buffer
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error("AI timeout")), timeLeftForAI - 3000)),
+      ]);
+      analyzedDevSignals.push(...aiResults);
+      console.log(`[scan] AI done: ${aiResults.length} analyzed`);
+    } catch {
+      console.log("[scan] AI timed out, using fallback for remaining");
+      // Use whatever we have + fallback for the rest
+      if (analyzedDevSignals.length === 0) {
+        for (const ctx of devContexts) {
+          analyzedDevSignals.push({ ctx, analysis: buildFallbackDescription(ctx) });
+        }
+      }
+    }
   } else {
-    // Out of time or no API key — use fallback
-    console.log(`[scan] Skipping AI (${timeLeftForAI < 5000 ? 'no time' : 'no key'}), using fallback`);
+    console.log(`[scan] No time for AI, using fallback descriptions`);
     for (const ctx of devContexts) {
       analyzedDevSignals.push({ ctx, analysis: buildFallbackDescription(ctx) });
     }
