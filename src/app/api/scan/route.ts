@@ -344,7 +344,7 @@ export async function GET() {
 
     if (Math.abs(priceChange) > 10) {
       const direction = priceChange > 0 ? "surged" : "dropped";
-      const strength = Math.min(90, 40 + Math.abs(priceChange));
+      const strength = Math.round(Math.min(90, 40 + Math.abs(priceChange)));
       addSignal({
         netuid,
         signal_type: priceChange > 0 ? "price_surge" : "price_drop",
@@ -366,7 +366,7 @@ export async function GET() {
         addSignal({
           netuid,
           signal_type: "buy_pressure",
-          strength: Math.min(80, 40 + volRatio * 10),
+          strength: Math.round(Math.min(80, 40 + volRatio * 10)),
           title: `Buy pressure: ${buyVol.toFixed(0)}t bought vs ${sellVol.toFixed(0)}t sold`,
           description: `${volRatio.toFixed(1)}x buy/sell volume ratio on ${name}. ${pool.buyers_24_hr} unique buyers, ${pool.sellers_24_hr} sellers. Price ${priceChange > 0 ? "+" : ""}${priceChange.toFixed(1)}%.`,
           source: "taostats",
@@ -376,7 +376,7 @@ export async function GET() {
         addSignal({
           netuid,
           signal_type: "sell_pressure",
-          strength: Math.min(70, 30 + (1 / volRatio) * 10),
+          strength: Math.round(Math.min(70, 30 + (1 / volRatio) * 10)),
           title: `Sell pressure: ${sellVol.toFixed(0)}t sold vs ${buyVol.toFixed(0)}t bought`,
           description: `${(1 / volRatio).toFixed(1)}x sell/buy volume ratio on ${name}. ${pool.sellers_24_hr} unique sellers, ${pool.buyers_24_hr} buyers. Price ${priceChange.toFixed(1)}%.`,
           source: "taostats",
