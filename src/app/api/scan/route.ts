@@ -19,6 +19,7 @@ import {
   listDatasetsByAuthor,
   listSpacesByAuthor,
 } from "@/lib/huggingface";
+import { fetchRecentCommits, fetchRecentPRs, fetchLatestRelease } from "@/lib/context-fetcher";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -393,32 +394,173 @@ export async function GET() {
     }
   }
 
-  // Dev activity signals (lowered threshold: >2 commits OR >0 merged PRs)
-  for (const act of devActivity) {
-    if (act.commits_1d > 2 || act.prs_merged_1d > 0) {
-      let repoName = act.repo_url;
-      if (repoName.includes("github.com/")) repoName = repoName.split("github.com/")[1];
-      repoName = repoName.replace(/^\/|\/$/g, "");
-      const name = identityMap.get(act.netuid)?.subnet_name || `SN${act.netuid}`;
-      const parts: string[] = [];
-      if (act.commits_1d > 0) parts.push(`${act.commits_1d} commit${act.commits_1d > 1 ? "s" : ""}`);
-      if (act.prs_merged_1d > 0) parts.push(`${act.prs_merged_1d} merged PR${act.prs_merged_1d > 1 ? "s" : ""}`);
-      if (act.prs_opened_1d > 0) parts.push(`${act.prs_opened_1d} opened PR${act.prs_opened_1d > 1 ? "s" : ""}`);
-      if (act.issues_opened_1d > 0) parts.push(`${act.issues_opened_1d} new issue${act.issues_opened_1d > 1 ? "s" : ""}`);
-      addSignal({
-        netuid: act.netuid,
-        signal_type: "dev_spike",
-        strength: Math.min(90, 30 + act.commits_1d * 2 + act.prs_merged_1d * 10),
-        title: `${name} dev: ${parts.join(", ")} today`,
-        description: `Repo: ${repoName}. ${act.unique_contributors_1d} active contributor${act.unique_contributors_1d !== 1 ? "s" : ""}. 7d trend: ${act.commits_7d} commits, ${act.prs_merged_7d} PRs merged.`,
-        source: "github",
-        source_url: act.repo_url,
-        subnet_name: name,
+  // ── RICH DEV SIGNALS: Fetch actual commits/PRs and analyze with AI ──
+  // Sort by activity level, take top 20 most active subnets for deep analysis
+  const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
+  const activeDevSubnets = devActivity
+    .filter(a => a.commits_1d > 0 || a.prs_merged_1d > 0)
+    .sort((a, b) => (b.commits_1d + b.prs_merged_1d * 5) - (a.commits_1d + a.prs_merged_1d * 5))
+    .slice(0, 20);
+
+  console.log(`[scan] Fetching commit/PR details for ${activeDevSubnets.length} active subnets...`);
+
+  // Fetch actual commit messages + PRs for each active subnet (parallel, 5 at a time)
+  type DevContext = { act: GithubActivity; owner: string; repo: string; commits: string[]; prs: string[]; release: { tag: string; name: string; body: string; date: string } | null };
+  const devContexts: DevContext[] = [];
+
+  for (let batch = 0; batch < activeDevSubnets.length; batch += 5) {
+    const batchItems = activeDevSubnets.slice(batch, batch + 5);
+    const results = await Promise.allSettled(
+      batchItems.map(async (act) => {
+        let repoPath = act.repo_url;
+        if (repoPath.includes("github.com/")) repoPath = repoPath.split("github.com/")[1];
+        repoPath = repoPath.replace(/^\/|\/$/g, "").replace(/\.git$/, "");
+        const parts = repoPath.split("/");
+        if (parts.length < 2) return null;
+        const [owner, repo] = parts;
+        const [commits, prs, release] = await Promise.all([
+          fetchRecentCommits(owner, repo, 10),
+          fetchRecentPRs(owner, repo, 5),
+          fetchLatestRelease(owner, repo),
+        ]);
+        return { act, owner, repo, commits, prs, release };
+      })
+    );
+    for (const r of results) {
+      if (r.status === "fulfilled" && r.value) devContexts.push(r.value);
+    }
+    if (batch + 5 < activeDevSubnets.length) await new Promise(r => setTimeout(r, 200));
+  }
+
+  console.log(`[scan] Got context for ${devContexts.length} repos. Analyzing with AI...`);
+
+  // Analyze with Claude Haiku — batch 5 at a time
+  async function analyzeDevActivity(ctx: DevContext): Promise<string> {
+    if (!ANTHROPIC_KEY) return buildFallbackDescription(ctx);
+
+    const name = identityMap.get(ctx.act.netuid)?.subnet_name || `SN${ctx.act.netuid}`;
+    const pool = poolMap.get(ctx.act.netuid);
+    const price = pool ? (parseFloat(pool.price || "0") / RAO * taoPrice).toFixed(2) : "?";
+    const mcap = pool ? "$" + (parseFloat(pool.market_cap || "0") / RAO * taoPrice / 1e6).toFixed(1) + "M" : "?";
+
+    const commitText = ctx.commits.slice(0, 8).join("\n");
+    const prText = ctx.prs.slice(0, 4).join("\n");
+    const releaseText = ctx.release ? `Latest release: ${ctx.release.name} (${ctx.release.tag})\n${ctx.release.body.slice(0, 500)}` : "";
+
+    const prompt = `You are AlphaGap, a Bittensor subnet intelligence analyst. Analyze this subnet's recent GitHub activity and explain in plain English what they are building and why it matters.
+
+Subnet: ${name} (SN${ctx.act.netuid})
+Repo: ${ctx.owner}/${ctx.repo}
+Price: $${price} | MCap: ${mcap}
+Activity: ${ctx.act.commits_1d} commits, ${ctx.act.prs_merged_1d} merged PRs today (${ctx.act.unique_contributors_1d} contributors)
+
+RECENT COMMITS:
+${commitText || "No commit details available"}
+
+RECENT MERGED PRs:
+${prText || "No PR details available"}
+
+${releaseText}
+
+Write a 3-4 sentence analysis in this format:
+- WHAT they built/changed (be specific — mention features, fixes, models, algorithms)
+- WHY it matters for this subnet's mission
+- IMPACT: How this could affect the alpha token price and investor sentiment
+
+Be specific and actionable. No headers, no bullets, no emoji. Write as flowing prose.`;
+
+    try {
+      const res = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": ANTHROPIC_KEY,
+          "anthropic-version": "2023-06-01",
+        },
+        body: JSON.stringify({
+          model: "claude-haiku-4-5-20251001",
+          max_tokens: 300,
+          messages: [{ role: "user", content: prompt }],
+        }),
       });
+      if (!res.ok) return buildFallbackDescription(ctx);
+      const data = await res.json();
+      return data.content?.[0]?.text || buildFallbackDescription(ctx);
+    } catch {
+      return buildFallbackDescription(ctx);
     }
   }
 
-  // HuggingFace update signals
+  function buildFallbackDescription(ctx: DevContext): string {
+    const commitSummary = ctx.commits.slice(0, 5).map(c => {
+      const match = c.match(/\]: .{7}: (.+)/);
+      return match ? match[1].split("\n")[0] : c;
+    }).join("; ");
+    const prSummary = ctx.prs.slice(0, 3).map(p => {
+      const match = p.match(/PR: (.+)/);
+      return match ? match[1].split("\n")[0] : p;
+    }).join("; ");
+    let desc = "";
+    if (commitSummary) desc += `Recent commits: ${commitSummary}. `;
+    if (prSummary) desc += `Merged PRs: ${prSummary}. `;
+    if (ctx.release) desc += `Latest release: ${ctx.release.name}. `;
+    return desc || `${ctx.act.commits_1d} commits and ${ctx.act.prs_merged_1d} PRs merged today.`;
+  }
+
+  // Run AI analysis in parallel batches of 5
+  const analyzedDevSignals: { ctx: DevContext; analysis: string }[] = [];
+  for (let batch = 0; batch < devContexts.length; batch += 5) {
+    const batchItems = devContexts.slice(batch, batch + 5);
+    const timeLeft = 55000 - (Date.now() - startTime);
+    if (timeLeft < 5000) {
+      // Out of time — use fallback for remaining
+      for (const ctx of devContexts.slice(batch)) {
+        analyzedDevSignals.push({ ctx, analysis: buildFallbackDescription(ctx) });
+      }
+      break;
+    }
+    const results = await Promise.all(
+      batchItems.map(async (ctx) => ({ ctx, analysis: await analyzeDevActivity(ctx) }))
+    );
+    analyzedDevSignals.push(...results);
+  }
+
+  console.log(`[scan] Analyzed ${analyzedDevSignals.length} dev signals with AI.`);
+
+  // Create rich dev signals
+  for (const { ctx, analysis } of analyzedDevSignals) {
+    const name = identityMap.get(ctx.act.netuid)?.subnet_name || `SN${ctx.act.netuid}`;
+    addSignal({
+      netuid: ctx.act.netuid,
+      signal_type: "dev_spike",
+      strength: Math.min(95, 30 + ctx.act.commits_1d * 2 + ctx.act.prs_merged_1d * 10 + (ctx.release ? 15 : 0)),
+      title: `${name}: What SN${ctx.act.netuid} is building right now`,
+      description: analysis,
+      source: "github",
+      source_url: ctx.act.repo_url,
+      subnet_name: name,
+    });
+  }
+
+  // Also create signals for subnets with dev activity that didn't get deep analysis
+  for (const act of devActivity) {
+    if (act.commits_1d <= 0 && act.prs_merged_1d <= 0) continue;
+    // Skip if already analyzed
+    if (analyzedDevSignals.some(s => s.ctx.act.netuid === act.netuid)) continue;
+    const name = identityMap.get(act.netuid)?.subnet_name || `SN${act.netuid}`;
+    addSignal({
+      netuid: act.netuid,
+      signal_type: "dev_spike",
+      strength: Math.min(70, 20 + act.commits_1d * 2 + act.prs_merged_1d * 8),
+      title: `${name}: ${act.commits_1d} commits, ${act.prs_merged_1d} PRs merged today`,
+      description: `${act.unique_contributors_1d} contributor${act.unique_contributors_1d !== 1 ? "s" : ""} active. 7d trend: ${act.commits_7d} commits, ${act.prs_merged_7d} PRs. Full analysis pending — check back after next scan.`,
+      source: "github",
+      source_url: act.repo_url,
+      subnet_name: name,
+    });
+  }
+
+  // HuggingFace update signals — also enriched
   for (const { org, netuid } of SEED_HF_ORGS) {
     if (!netuid) continue;
     const hf = hfActivityMap.get(netuid);
@@ -433,8 +575,8 @@ export async function GET() {
       netuid,
       signal_type: "hf_update",
       strength: Math.min(80, 25 + hf.models * 8 + hf.datasets * 5 + hf.spaces * 3 + Math.min(hf.downloads / 500, 20)),
-      title: `${name} HF: ${parts.join(", ")} on HuggingFace`,
-      description: `${org} published ${parts.join(", ")}. Total downloads: ${hf.downloads.toLocaleString()}.`,
+      title: `${name}: New AI assets on HuggingFace`,
+      description: `${org} has ${parts.join(", ")} published on HuggingFace with ${hf.downloads.toLocaleString()} total downloads. This indicates active model development and deployment — check their HuggingFace page for specific model architectures and benchmarks.`,
       source: "huggingface",
       source_url: `https://huggingface.co/${org}`,
       subnet_name: name,
@@ -797,7 +939,6 @@ export async function GET() {
   // ── Step 7: Analyze top signals with AI (if time permits) ─────
   const elapsed7 = Date.now() - startTime;
   const timeLeftForAI = 55000 - elapsed7;
-  const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
 
   if (ANTHROPIC_KEY && timeLeftForAI > 8000) {
     const topSignals = signals.slice(0, Math.min(3, Math.floor(timeLeftForAI / 3000)));

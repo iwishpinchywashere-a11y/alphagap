@@ -461,9 +461,11 @@ export default function Home() {
                         </div>
                       </div>
                     ) : sig.description ? (
-                      <p className="text-xs text-gray-500 mb-2">
-                        {sig.description}
-                      </p>
+                      <div className="bg-gray-800/50 border border-gray-700/50 rounded-lg p-3 mb-2">
+                        <p className="text-sm text-gray-300 leading-relaxed">
+                          {sig.description}
+                        </p>
+                      </div>
                     ) : null}
 
                     {/* Footer with links */}
