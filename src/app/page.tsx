@@ -124,6 +124,7 @@ export default function Home() {
   const [selectedSubnet, setSelectedSubnet] = useState<number | null>(null);
   const [sortCol, setSortCol] = useState<keyof SubnetScore>("composite_score");
   const [sortAsc, setSortAsc] = useState(false);
+  const [infoPopup, setInfoPopup] = useState<string | null>(null);
 
   const hasAutoScanned = useRef(false);
 
@@ -213,6 +214,15 @@ export default function Home() {
         });
     }
   }, [loadData, runScan]);
+
+  // Close info popup when clicking anywhere else
+  useEffect(() => {
+    if (infoPopup) {
+      const handler = () => setInfoPopup(null);
+      document.addEventListener('click', handler);
+      return () => document.removeEventListener('click', handler);
+    }
+  }, [infoPopup]);
 
   // Lazy-load AI analysis for signals that don't have it
   const analyzingRef = useRef(new Set<number>());
@@ -526,7 +536,18 @@ export default function Home() {
                         >
                           {label}
                           {tooltip && (
-                            <span className="ml-0.5 text-gray-600 cursor-help" title={tooltip}>{"\u24D8"}</span>
+                            <span
+                              className="ml-1 text-gray-500 hover:text-gray-300 cursor-help relative inline-block"
+                              onClick={(e) => { e.stopPropagation(); setInfoPopup(infoPopup === key ? null : key); }}
+                            >
+                              {"\u24D8"}
+                              {infoPopup === key && (
+                                <div className="absolute z-50 top-6 left-0 w-64 p-3 bg-gray-800 border border-gray-600 rounded-lg shadow-xl text-xs text-gray-300 font-normal whitespace-normal">
+                                  {tooltip}
+                                  <div className="mt-2 text-gray-500 text-[10px]">Click {"\u24D8"} again to close</div>
+                                </div>
+                              )}
+                            </span>
                           )}
                           {sortCol === key && (
                             <span className="ml-1 text-green-400">

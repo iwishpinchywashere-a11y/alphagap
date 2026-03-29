@@ -335,6 +335,10 @@ export async function GET() {
       { query: "bittensor subnet", count: 100, sort: "Latest" as const },
       { query: "$TAO subnet", count: 50, sort: "Top" as const },
       { query: "bittensor alpha", count: 50, sort: "Latest" as const },
+      { query: "templar bittensor", count: 50, sort: "Top" as const },
+      { query: "chutes bittensor", count: 50, sort: "Top" as const },
+      { query: "bittensor SN", count: 50, sort: "Latest" as const },
+      { query: "tao alpha subnet", count: 50, sort: "Latest" as const },
     ];
 
     // Run searches sequentially to avoid rate limits (each takes ~2-3s)
@@ -581,52 +585,54 @@ export async function GET() {
   const alphaSharesFailed = alphaSharesResult.status === "rejected" || alphaShares.length === 0;
 
   function computeStakingScore(d: RawSubnet): number {
-    // If alphaShares API failed/empty, use fallback based on market cap and identity presence
+    // Fallback if staking API failed
     if (alphaSharesFailed) {
-      let fallback = 0;
       const mcap = d.marketCapUsd || 0;
-      if (mcap >= 50000000) fallback = 40;
-      else if (mcap >= 20000000) fallback = 32;
-      else if (mcap >= 5000000) fallback = 25;
-      else if (mcap >= 1000000) fallback = 18;
-      else if (mcap >= 100000) fallback = 12;
+      let fallback = 0;
+      if (mcap >= 50000000) fallback = 45;
+      else if (mcap >= 20000000) fallback = 38;
+      else if (mcap >= 10000000) fallback = 32;
+      else if (mcap >= 5000000) fallback = 26;
+      else if (mcap >= 1000000) fallback = 20;
+      else if (mcap >= 100000) fallback = 14;
       else if (mcap > 0) fallback = 10;
-      // Boost if subnet has identity (validators likely present)
       const hasIdentity = identityMap.has(d.netuid);
       if (hasIdentity) fallback += 5;
       return Math.min(100, fallback);
     }
 
-    let score = 0;
+    // Composite raw score from all staking dimensions
+    let rawScore = 0;
+
+    // Total alpha staked (primary signal - how much value validators put in)
     const totalStaked = d.totalAlphaStaked;
-    if (totalStaked >= 2000000) score += 35;
-    else if (totalStaked >= 1500000) score += 30;
-    else if (totalStaked >= 1000000) score += 25;
-    else if (totalStaked >= 500000) score += 18;
-    else if (totalStaked >= 100000) score += 12;
-    else if (totalStaked >= 10000) score += 6;
-    else if (totalStaked > 0) score += 2;
-
-    const valCount = d.validatorCount;
-    if (valCount >= 5) score += 20;
-    else if (valCount >= 4) score += 16;
-    else if (valCount >= 3) score += 12;
-    else if (valCount >= 2) score += 8;
-    else if (valCount >= 1) score += 4;
-
-    const topShare = d.topValidatorShare || 1;
-    if (topShare <= 0.25) score += 20;
-    else if (topShare <= 0.35) score += 16;
-    else if (topShare <= 0.45) score += 12;
-    else if (topShare <= 0.55) score += 8;
-    else if (topShare <= 0.75) score += 4;
-
-    // If staking data exists but subnet has 0 staked, give base score if it has market cap
-    if (score === 0 && (d.marketCapUsd || 0) > 0) {
-      score = 10;
+    if (totalStaked > 0) {
+      rawScore += Math.log10(totalStaked + 1) * 8; // log scale: 1M staked = 48, 100K = 40, 10K = 32
     }
 
-    return Math.min(100, score);
+    // Validator count bonus
+    const valCount = d.validatorCount;
+    rawScore += Math.min(20, valCount * 5); // 4 validators = 20 pts max
+
+    // Decentralization bonus (lower top share = more decentralized = better)
+    const topShare = d.topValidatorShare || 1;
+    rawScore += Math.round((1 - topShare) * 25); // if top val has 40%, bonus = 15
+
+    // Market cap as proxy for overall confidence
+    const mcap = d.marketCapUsd || 0;
+    if (mcap > 0) {
+      rawScore += Math.min(15, Math.log10(mcap + 1) * 2); // $10M mcap = ~14 pts
+    }
+
+    // Registration cost bonus (high cost = high demand)
+    const regCost = d.regCost || 0;
+    if (regCost > 0) {
+      rawScore += Math.min(10, Math.log10(regCost + 1) * 3);
+    }
+
+    // Scale to 0-100 range. Max realistic rawScore is about 120
+    const scaled = Math.min(100, Math.round((rawScore / 100) * 100));
+    return Math.max(1, scaled);
   }
 
   // ── Revenue score formula ───────────────────────────────────────
@@ -680,32 +686,21 @@ export async function GET() {
 
   function computeSocialScore(netuid: number, mentions: number, engagement: number): number {
     if (mentions <= 0 && engagement <= 0) {
-      // Fallback: if Desearch failed or returned nothing, give base score for subnets with a twitter handle
       if (desearchFailed) {
         const identity = identityMap.get(netuid);
-        if (identity?.twitter) return 8;
-        if (identity?.subnet_name) return 5;
+        if (identity?.twitter) return 15;
+        if (identity?.subnet_name) return 8;
       }
       return 0;
     }
-    let mentionPts = 0;
-    if (mentions >= 50) mentionPts = 40;
-    else if (mentions >= 20) mentionPts = 30;
-    else if (mentions >= 10) mentionPts = 22;
-    else if (mentions >= 5) mentionPts = 15;
-    else if (mentions >= 2) mentionPts = 8;
-    else mentionPts = 3;
-
-    let engagePts = 0;
-    if (engagement >= 5000) engagePts = 60;
-    else if (engagement >= 1000) engagePts = 50;
-    else if (engagement >= 500) engagePts = 40;
-    else if (engagement >= 100) engagePts = 28;
-    else if (engagement >= 30) engagePts = 18;
-    else if (engagement >= 10) engagePts = 10;
-    else engagePts = 3;
-
-    return Math.min(100, mentionPts + engagePts);
+    // Weighted raw score: mentions * 5 + engagement
+    const rawScore = mentions * 5 + engagement;
+    // Use log scale to spread scores better (social data is very skewed)
+    const logScore = Math.log10(rawScore + 1);
+    // Scale: log10(1) = 0, log10(10) ~= 1, log10(100) = 2, log10(1000) = 3, log10(10000) = 4, log10(100000) = 5
+    // Map to 0-100: anything above log10(10000)=4 gets ~100
+    const scaled = Math.min(100, Math.round((logScore / 4) * 100));
+    return Math.max(5, scaled); // minimum 5 if they have ANY mentions
   }
 
   // ── Build leaderboard ───────────────────────────────────────────
