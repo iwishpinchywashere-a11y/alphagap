@@ -167,13 +167,21 @@ export async function GET() {
   const flows = flowsResult.status === "fulfilled" ? flowsResult.value : [];
   const emissions = emissionsResult.status === "fulfilled" ? emissionsResult.value : [];
 
-  await new Promise(r => setTimeout(r, 1000));
+  await new Promise(r => setTimeout(r, 2000));
 
   console.log("[scan] Fetching dev activity...");
   let devActivity: Awaited<ReturnType<typeof getGithubActivity>> = [];
-  try { devActivity = await getGithubActivity(); } catch (e) { console.error("[scan] devActivity failed:", e); }
+  try {
+    devActivity = await getGithubActivity();
+  } catch {
+    // Retry once after 3s if rate-limited
+    console.log("[scan] dev_activity failed, retrying in 3s...");
+    await new Promise(r => setTimeout(r, 3000));
+    try { devActivity = await getGithubActivity(); } catch (e2) { console.error("[scan] devActivity retry failed:", e2); }
+  }
+  console.log(`[scan] Dev activity: ${devActivity.length} subnets`);
 
-  await new Promise(r => setTimeout(r, 1000));
+  await new Promise(r => setTimeout(r, 1500));
 
   // Batch 3: Staking + revenue data (sequential)
   console.log("[scan] Fetching staking + revenue data...");
