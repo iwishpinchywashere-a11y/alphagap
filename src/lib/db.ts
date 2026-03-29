@@ -1,7 +1,13 @@
 import Database from "better-sqlite3";
 import path from "path";
+import os from "os";
+import fs from "fs";
 
-const DB_PATH = path.join(process.cwd(), "alphagap.db");
+// On Vercel (serverless), use /tmp which is writable (ephemeral but functional).
+// Locally, use the project root.
+const isVercel = !!process.env.VERCEL;
+const DB_DIR = isVercel ? "/tmp" : process.cwd();
+const DB_PATH = path.join(DB_DIR, "alphagap.db");
 
 let _db: Database.Database | null = null;
 

@@ -4,6 +4,8 @@ import { collectAll } from "@/lib/collectors";
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
+// Local dev: calls all collectors sequentially in one request
+// On Vercel, use the individual endpoints instead (each under 60s)
 export async function POST() {
   try {
     const result = await collectAll();
@@ -18,6 +20,6 @@ export async function POST() {
 
 export async function GET() {
   return NextResponse.json({
-    message: "POST to this endpoint to trigger data collection",
+    message: "POST to this endpoint to trigger data collection. On Vercel, use individual endpoints: /api/collect/taostats, /api/collect/github, etc.",
   });
 }

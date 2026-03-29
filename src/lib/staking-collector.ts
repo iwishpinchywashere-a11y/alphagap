@@ -75,7 +75,7 @@ export async function collectStakingData(): Promise<{ subnets: number; validator
   const topSubnets = db.prepare(
     `SELECT DISTINCT netuid FROM subnet_metrics
      WHERE market_cap IS NOT NULL AND netuid > 0
-     ORDER BY market_cap DESC LIMIT 30`
+     ORDER BY market_cap DESC LIMIT 10`
   ).all() as Array<{ netuid: number }>;
 
   const metagraphMap = new Map<number, {
@@ -104,7 +104,7 @@ export async function collectStakingData(): Promise<{ subnets: number; validator
           avgTrust,
         });
       }
-      await new Promise(r => setTimeout(r, 800)); // rate limit
+      await new Promise(r => setTimeout(r, 500)); // rate limit
     } catch (e) {
       console.error(`Failed to fetch metagraph for SN${sub.netuid}:`, e);
     }
@@ -114,12 +114,12 @@ export async function collectStakingData(): Promise<{ subnets: number; validator
   const regCountMap = new Map<number, { regs: number; deregs: number }>();
   const since24h = new Date(Date.now() - 86400000).toISOString();
 
-  // Only check top 15 subnets for registration events (expensive call)
-  for (const sub of topSubnets.slice(0, 15)) {
+  // Only check top 10 subnets for registration events (expensive call)
+  for (const sub of topSubnets.slice(0, 10)) {
     try {
       const regs = await taostats.getNeuronRegistrations(sub.netuid, since24h);
       regCountMap.set(sub.netuid, { regs: regs.length, deregs: 0 }); // deregistrations would need a separate endpoint
-      await new Promise(r => setTimeout(r, 800));
+      await new Promise(r => setTimeout(r, 500));
     } catch (e) {
       // ignore individual failures
     }
