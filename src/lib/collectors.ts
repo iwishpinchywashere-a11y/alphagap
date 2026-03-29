@@ -61,14 +61,13 @@ export async function collectTaoStats(): Promise<{
 
   // 2. Fetch flows, pools, emissions and TAO price, then merge into metrics
   try {
-    // Sequential with delays to avoid TaoStats 429 rate limits
-    const flows = await taostats.getTaoFlows();
-    await new Promise(r => setTimeout(r, 300));
-    const pools = await taostats.getSubnetPools();
-    await new Promise(r => setTimeout(r, 300));
-    const emissions = await taostats.getSubnetEmissions();
-    await new Promise(r => setTimeout(r, 300));
-    const taoUsdPrice = await taostats.getTaoPrice();
+    // Parallel fetch to save time on Vercel
+    const [flows, pools, emissions, taoUsdPrice] = await Promise.all([
+      taostats.getTaoFlows(),
+      taostats.getSubnetPools(),
+      taostats.getSubnetEmissions(),
+      taostats.getTaoPrice(),
+    ]);
 
     console.log(`TAO/USD price: $${taoUsdPrice.toFixed(2)}`);
 
@@ -494,9 +493,19 @@ export async function collectAllFast() {
     results.github = { error: String(e) };
   }
 
-  // 3. HuggingFace ~10s
+  // 3. HuggingFace — skip org discovery on Vercel (too slow), just fetch items for known orgs
   try {
-    const hfResult = await collectHuggingFace();
+    // Seed the orgs from seed list without discovery
+    const hfDb = getDb();
+    const SEED_ORGS = [
+      "bittensor", "opentensor", "macrocosm-os", "SocialTensor", "bitmind-ai",
+      "tenstorrent", "MyShell-TTS", "NousResearch", "targon-hubai", "manifold-inc",
+      "TensorAlchemy", "corcel-api", "omega-labs-ai", "datura-mining", "fractal-inc",
+    ];
+    const upsertOrg = hfDb.prepare("INSERT OR IGNORE INTO hf_orgs (netuid, org_name) VALUES (?, ?)");
+    for (const org of SEED_ORGS) upsertOrg.run(null, org);
+
+    const hfResult = await collectHuggingFaceItems();
     results.huggingface = hfResult;
   } catch (e) {
     results.huggingface = { error: String(e) };
@@ -567,6 +576,45 @@ export async function collectAllFast() {
     duration_ms: Date.now() - startTime,
     results,
   };
+}
+
+// ── HuggingFace Items Only (skip discovery) ──────────────────────
+async function collectHuggingFaceItems(): Promise<{ orgs: number; items: number; signals: number }> {
+  const db = getDb();
+  let itemCount = 0;
+  let signalCount = 0;
+
+  const insertItem = db.prepare(`
+    INSERT INTO huggingface_items
+      (netuid, org, item_type, item_id, name, description, url, downloads, likes, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(item_id) DO UPDATE SET
+      downloads = excluded.downloads,
+      likes = excluded.likes,
+      updated_at = excluded.updated_at
+  `);
+
+  const orgItems = await hf.fetchAllOrgItems();
+  for (const oi of orgItems) {
+    const processItems = (items: hf.HFItem[], type: string) => {
+      for (const item of items) {
+        const itemId = `${type}:${item.id}`;
+        const urlPrefix = type === "model" ? "" : type + "s/";
+        insertItem.run(
+          oi.netuid || null, oi.org, type, itemId, item.id, null,
+          `https://huggingface.co/${urlPrefix}${item.id}`,
+          item.downloads || 0, item.likes || 0,
+          item.createdAt || item.lastModified, item.lastModified
+        );
+        itemCount++;
+      }
+    };
+    processItems(oi.models, "model");
+    processItems(oi.datasets, "dataset");
+    processItems(oi.spaces, "space");
+  }
+
+  return { orgs: orgItems.length, items: itemCount, signals: signalCount };
 }
 
 // ── GitHub Fast (TaoStats dev_activity only, no direct polling) ──
