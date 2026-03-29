@@ -135,37 +135,46 @@ export async function GET() {
     });
   }
 
-  // ── Step 1: Parallel API calls ──────────────────────────────────
-  console.log("[scan] Starting parallel API calls...");
-
-  const [
-    identitiesResult,
-    poolsResult,
-    flowsResult,
-    emissionsResult,
-    taoPriceResult,
-    devActivityResult,
-    alphaSharesResult,
-    regCostsResult,
-    burnedAlphaResult,
-  ] = await Promise.allSettled([
+  // ── Step 1: Staggered API calls (avoid TaoStats rate limits) ───
+  // Batch 1: Critical data (identities + pools + TAO price)
+  console.log("[scan] Batch 1: identities, pools, tao price...");
+  const [identitiesResult, poolsResult, taoPriceResult] = await Promise.allSettled([
     getSubnetIdentities(),
     getSubnetPools(),
+    getTaoPrice(),
+  ]);
+
+  const identities = identitiesResult.status === "fulfilled" ? identitiesResult.value : [];
+  const pools = poolsResult.status === "fulfilled" ? poolsResult.value : [];
+  const taoPrice = taoPriceResult.status === "fulfilled" ? taoPriceResult.value : 0;
+
+  console.log(`[scan] Batch 1 done: ${identities.length} identities, ${pools.length} pools, TAO=$${taoPrice.toFixed(2)}`);
+
+  // Small delay to avoid rate limits
+  await new Promise(r => setTimeout(r, 500));
+
+  // Batch 2: Flows, emissions, dev activity
+  console.log("[scan] Batch 2: flows, emissions, dev activity...");
+  const [flowsResult, emissionsResult, devActivityResult] = await Promise.allSettled([
     getTaoFlows(),
     getSubnetEmissions(),
-    getTaoPrice(),
     getGithubActivity(),
+  ]);
+
+  const flows = flowsResult.status === "fulfilled" ? flowsResult.value : [];
+  const emissions = emissionsResult.status === "fulfilled" ? emissionsResult.value : [];
+  const devActivity = devActivityResult.status === "fulfilled" ? devActivityResult.value : [];
+
+  await new Promise(r => setTimeout(r, 500));
+
+  // Batch 3: Staking + revenue (lower priority)
+  console.log("[scan] Batch 3: staking, reg costs, burned alpha...");
+  const [alphaSharesResult, regCostsResult, burnedAlphaResult] = await Promise.allSettled([
     getValidatorAlphaShares(),
     getRegistrationCosts(),
     getBurnedAlpha(),
   ]);
 
-  const identities = identitiesResult.status === "fulfilled" ? identitiesResult.value : [];
-  const pools = poolsResult.status === "fulfilled" ? poolsResult.value : [];
-  const flows = flowsResult.status === "fulfilled" ? flowsResult.value : [];
-  const emissions = emissionsResult.status === "fulfilled" ? emissionsResult.value : [];
-  const taoPrice = taoPriceResult.status === "fulfilled" ? taoPriceResult.value : 0;
-  const devActivity = devActivityResult.status === "fulfilled" ? devActivityResult.value : [];
   const alphaShares = alphaSharesResult.status === "fulfilled" ? alphaSharesResult.value : [];
   const regCosts = regCostsResult.status === "fulfilled" ? regCostsResult.value : [];
   const burnedAlpha = burnedAlphaResult.status === "fulfilled" ? burnedAlphaResult.value : [];
@@ -457,8 +466,8 @@ export async function GET() {
     const staking = stakingMap.get(netuid);
     const social = socialMap.get(netuid);
 
-    const name = identity?.subnet_name || `Subnet ${netuid}`;
-    if (name === "Unknown") continue;
+    const name = identity?.subnet_name || pool?.name || `Subnet ${netuid}`;
+    if (name === "Unknown" || name === "") continue;
 
     const priceChange = pool?.price_change_1_day ? parseFloat(pool.price_change_1_day) : 0;
     const alphaPriceUsd = pool ? parseFloat(pool.price) * taoPrice : null;
