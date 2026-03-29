@@ -461,10 +461,22 @@ export default function Home() {
                         </div>
                       </div>
                     ) : sig.description ? (
-                      <div className="bg-gray-800/50 border border-gray-700/50 rounded-lg p-3 mb-2">
-                        <p className="text-sm text-gray-300 leading-relaxed">
-                          {sig.description}
-                        </p>
+                      <div className="bg-gray-800/50 border border-gray-700/50 rounded-lg p-3 mb-2 space-y-2">
+                        {sig.description.split("\n").filter((l: string) => l.trim()).map((line: string, i: number) => {
+                          // Style section headers (emoji + bold text)
+                          if (line.match(/^[🔧📡💡🎯🚀]\s/)) {
+                            return (
+                              <p key={i} className="text-sm font-semibold text-green-400 mt-2 first:mt-0">
+                                {line}
+                              </p>
+                            );
+                          }
+                          return (
+                            <p key={i} className="text-sm text-gray-300 leading-relaxed pl-1">
+                              {line}
+                            </p>
+                          );
+                        })}
                       </div>
                     ) : null}
 

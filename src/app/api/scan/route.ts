@@ -365,34 +365,8 @@ export async function GET() {
     console.log(`[scan] Desearch done. ${allTweets.size} tweets matched to ${socialMap.size} subnets.`);
   }
 
-  // ── Step 5: Generate signals (dev + HF + flow only) ─────────────
-  // NOTE: price_surge, price_drop, buy_pressure, sell_pressure signals removed — dev-only feed
-
-  // Flow inflection / spike signals from pool data
-  for (const [netuid, pool] of poolMap) {
-    if (netuid === 0) continue;
-    const name = identityMap.get(netuid)?.subnet_name || `SN${netuid}`;
-    const priceChange = pool.price_change_1_day ? parseFloat(pool.price_change_1_day) : 0;
-    const buyVol = parseFloat(pool.tao_buy_volume_24_hr || "0") / RAO;
-    const sellVol = parseFloat(pool.tao_sell_volume_24_hr || "0") / RAO;
-    const netFlow = buyVol - sellVol;
-    const taoPool = parseFloat(pool.total_tao || "0") / RAO;
-
-    // Flow inflection: significant net flow relative to pool depth
-    if (taoPool > 0 && Math.abs(netFlow) > taoPool * 0.05) {
-      const direction = netFlow > 0 ? "inflow" : "outflow";
-      const pct = ((Math.abs(netFlow) / taoPool) * 100).toFixed(1);
-      addSignal({
-        netuid,
-        signal_type: netFlow > 0 ? "flow_inflection" : "flow_spike",
-        strength: Math.round(Math.min(85, 35 + (Math.abs(netFlow) / taoPool) * 200)),
-        title: `${name}: ${direction} of ${Math.abs(netFlow).toFixed(0)} TAO (${pct}% of pool)`,
-        description: `Net ${direction} of ${Math.abs(netFlow).toFixed(0)} TAO in 24h on ${name}. Buy vol: ${buyVol.toFixed(0)}t, Sell vol: ${sellVol.toFixed(0)}t. Price: ${priceChange > 0 ? "+" : ""}${priceChange.toFixed(1)}%.`,
-        source: "taostats",
-        subnet_name: name,
-      });
-    }
-  }
+  // ── Step 5: Generate signals (dev + HF ONLY) ───────────────────
+  // Flow/price signals REMOVED — this feed is purely about development intelligence
 
   // ── RICH DEV SIGNALS: Fetch actual commits/PRs and analyze with AI ──
   // Sort by activity level, take top 20 most active subnets for deep analysis
@@ -442,32 +416,40 @@ export async function GET() {
     const pool = poolMap.get(ctx.act.netuid);
     const price = pool ? (parseFloat(pool.price || "0") / RAO * taoPrice).toFixed(2) : "?";
     const mcap = pool ? "$" + (parseFloat(pool.market_cap || "0") / RAO * taoPrice / 1e6).toFixed(1) + "M" : "?";
+    const priceChange = pool?.price_change_1_day ? parseFloat(pool.price_change_1_day).toFixed(1) : "?";
 
     const commitText = ctx.commits.slice(0, 8).join("\n");
     const prText = ctx.prs.slice(0, 4).join("\n");
     const releaseText = ctx.release ? `Latest release: ${ctx.release.name} (${ctx.release.tag})\n${ctx.release.body.slice(0, 500)}` : "";
 
-    const prompt = `You are AlphaGap, a Bittensor subnet intelligence analyst. Analyze this subnet's recent GitHub activity and explain in plain English what they are building and why it matters.
+    const prompt = `You are AlphaGap's intelligence engine. Your job is to read a Bittensor subnet's GitHub commits and PRs and break down what they are building for regular people who want to understand if this subnet is worth paying attention to.
 
 Subnet: ${name} (SN${ctx.act.netuid})
 Repo: ${ctx.owner}/${ctx.repo}
-Price: $${price} | MCap: ${mcap}
-Activity: ${ctx.act.commits_1d} commits, ${ctx.act.prs_merged_1d} merged PRs today (${ctx.act.unique_contributors_1d} contributors)
+Token Price: $${price} (24h: ${priceChange}%) | MCap: ${mcap}
+Activity: ${ctx.act.commits_1d} commits, ${ctx.act.prs_merged_1d} merged PRs today
 
 RECENT COMMITS:
-${commitText || "No commit details available"}
+${commitText || "None available"}
 
 RECENT MERGED PRs:
-${prText || "No PR details available"}
+${prText || "None available"}
 
 ${releaseText}
 
-Write a 3-4 sentence analysis in this format:
-- WHAT they built/changed (be specific — mention features, fixes, models, algorithms)
-- WHY it matters for this subnet's mission
-- IMPACT: How this could affect the alpha token price and investor sentiment
+Write your analysis using EXACTLY this format (keep each section to 1-2 sentences max):
 
-Be specific and actionable. No headers, no bullets, no emoji. Write as flowing prose.`;
+🔧 What they built:
+[Describe the specific features, fixes, or improvements in plain English. Be concrete — name the actual things.]
+
+📡 Why it matters:
+[Explain why this development is significant for the subnet's mission and the Bittensor ecosystem.]
+
+💡 In simple terms:
+[Explain this like you're telling a friend who knows nothing about tech. Make it dead simple.]
+
+🎯 The AlphaGap take:
+[Give an actionable insight on what this means for the subnet's alpha token demand, price potential, and whether this creates a gap between building activity and market price.]`;
 
     try {
       const res = await fetch("https://api.anthropic.com/v1/messages", {
@@ -479,7 +461,7 @@ Be specific and actionable. No headers, no bullets, no emoji. Write as flowing p
         },
         body: JSON.stringify({
           model: "claude-haiku-4-5-20251001",
-          max_tokens: 300,
+          max_tokens: 500,
           messages: [{ role: "user", content: prompt }],
         }),
       });
@@ -527,14 +509,21 @@ Be specific and actionable. No headers, no bullets, no emoji. Write as flowing p
 
   console.log(`[scan] Analyzed ${analyzedDevSignals.length} dev signals with AI.`);
 
-  // Create rich dev signals
+  // Create rich dev signals with dates
+  const today = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
   for (const { ctx, analysis } of analyzedDevSignals) {
     const name = identityMap.get(ctx.act.netuid)?.subnet_name || `SN${ctx.act.netuid}`;
+    // Extract latest commit date from commit data
+    const lastDate = ctx.act.last_event_at ? new Date(ctx.act.last_event_at).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : today;
+    const activitySummary = [
+      ctx.act.commits_1d > 0 ? `${ctx.act.commits_1d} commits` : "",
+      ctx.act.prs_merged_1d > 0 ? `${ctx.act.prs_merged_1d} PRs merged` : "",
+    ].filter(Boolean).join(" & ");
     addSignal({
       netuid: ctx.act.netuid,
       signal_type: "dev_spike",
       strength: Math.min(95, 30 + ctx.act.commits_1d * 2 + ctx.act.prs_merged_1d * 10 + (ctx.release ? 15 : 0)),
-      title: `${name}: What SN${ctx.act.netuid} is building right now`,
+      title: `${name} pushed ${activitySummary} to GitHub (${lastDate})`,
       description: analysis,
       source: "github",
       source_url: ctx.act.repo_url,
@@ -545,7 +534,6 @@ Be specific and actionable. No headers, no bullets, no emoji. Write as flowing p
   // Also create signals for subnets with dev activity that didn't get deep analysis
   for (const act of devActivity) {
     if (act.commits_1d <= 0 && act.prs_merged_1d <= 0) continue;
-    // Skip if already analyzed
     if (analyzedDevSignals.some(s => s.ctx.act.netuid === act.netuid)) continue;
     const name = identityMap.get(act.netuid)?.subnet_name || `SN${act.netuid}`;
     addSignal({
