@@ -37,17 +37,6 @@ interface SubnetScore {
   price_change_24h?: number;
 }
 
-interface SubnetInfo {
-  netuid: number;
-  name: string;
-  description: string;
-  github_url: string;
-  alpha_price?: number;
-  market_cap?: number;
-  net_flow_24h?: number;
-  emission_pct?: number;
-}
-
 // ── Helpers ──────────────────────────────────────────────────────
 function timeAgo(dateStr: string): string {
   const now = Date.now();
@@ -63,7 +52,7 @@ function timeAgo(dateStr: string): string {
 }
 
 function formatNum(n: number | undefined | null, decimals = 2): string {
-  if (n == null) return "—";
+  if (n == null) return "\u2014";
   if (Math.abs(n) >= 1e6) return `${(n / 1e6).toFixed(1)}M`;
   if (Math.abs(n) >= 1e3) return `${(n / 1e3).toFixed(1)}K`;
   return n.toFixed(decimals);
@@ -89,28 +78,19 @@ function signalColor(type: string): string {
 
 function signalIcon(type: string): string {
   switch (type) {
-    case "flow_inflection": return "↗";
-    case "flow_spike": return "⚡";
-    case "flow_warning": return "⚠";
-    case "dev_spike": return "🔨";
-    case "release": return "🚀";
-    case "hf_drop": return "🤗";
-    case "cross_signal": return "✦";
-    case "price_surge": return "📈";
-    case "price_drop": return "📉";
-    case "buy_pressure": return "🟢";
-    case "sell_pressure": return "🔴";
-    case "social_buzz": return "📣";
-    default: return "•";
-  }
-}
-
-function sourceIcon(source: string): string {
-  switch (source) {
-    case "taostats": return "τ";
-    case "github": return "⌥";
-    case "huggingface": return "🤗";
-    default: return "•";
+    case "flow_inflection": return "\u2197";
+    case "flow_spike": return "\u26A1";
+    case "flow_warning": return "\u26A0";
+    case "dev_spike": return "\uD83D\uDD28";
+    case "release": return "\uD83D\uDE80";
+    case "hf_drop": return "\uD83E\uDD17";
+    case "cross_signal": return "\u2726";
+    case "price_surge": return "\uD83D\uDCC8";
+    case "price_drop": return "\uD83D\uDCC9";
+    case "buy_pressure": return "\uD83D\uDFE2";
+    case "sell_pressure": return "\uD83D\uDD34";
+    case "social_buzz": return "\uD83D\uDCE3";
+    default: return "\u2022";
   }
 }
 
@@ -131,23 +111,25 @@ function flowColor(flow: number | null | undefined): string {
 export default function Home() {
   const [signals, setSignals] = useState<Signal[]>([]);
   const [leaderboard, setLeaderboard] = useState<SubnetScore[]>([]);
-  const [subnets, setSubnets] = useState<SubnetInfo[]>([]);
-  const [collecting, setCollecting] = useState(false);
-  const [collectStep, setCollectStep] = useState<string | null>(null);
-  const [lastCollect, setLastCollect] = useState<string | null>(null);
-  const [collectResult, setCollectResult] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"signals" | "leaderboard">("signals");
+  const [taoPrice, setTaoPrice] = useState<number | null>(null);
+  const [scanning, setScanning] = useState(false);
+  const [scanStep, setScanStep] = useState<string | null>(null);
+  const [lastScan, setLastScan] = useState<string | null>(null);
+  const [scanResult, setScanResult] = useState<string | null>(null);
+  const [scanError, setScanError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"signals" | "leaderboard">("leaderboard");
   const [selectedSubnet, setSelectedSubnet] = useState<number | null>(null);
-  const [subnetDetail, setSubnetDetail] = useState<Record<string, unknown> | null>(null);
   const [sortCol, setSortCol] = useState<keyof SubnetScore>("composite_score");
   const [sortAsc, setSortAsc] = useState(false);
+
+  const hasAutoScanned = useRef(false);
 
   const handleSort = (col: keyof SubnetScore) => {
     if (sortCol === col) {
       setSortAsc(!sortAsc);
     } else {
       setSortCol(col);
-      setSortAsc(false); // default descending
+      setSortAsc(false);
     }
   };
 
@@ -159,102 +141,79 @@ export default function Home() {
     return 0;
   });
 
-  const fetchData = useCallback(async () => {
+  // ── Run scan: calls /api/scan and stores everything in state ────
+  const runScan = useCallback(async () => {
+    setScanning(true);
+    setScanResult(null);
+    setScanError(null);
+    setScanStep("Scanning all sources...");
+
     try {
-      const [sigRes, lbRes, subRes] = await Promise.all([
-        fetch("/api/signals?limit=100"),
-        fetch("/api/leaderboard"),
-        fetch("/api/subnets"),
-      ]);
-      const sigData = await sigRes.json();
-      const lbData = await lbRes.json();
-      const subData = await subRes.json();
-      setSignals(sigData.signals || []);
-      setLeaderboard(lbData.leaderboard || []);
-      setSubnets(subData.subnets || []);
-    } catch {
-      // silently fail on initial load before any collection
+      const res = await fetch("/api/scan");
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`Scan failed (${res.status}): ${text}`);
+      }
+      const data = await res.json();
+
+      setLeaderboard(data.leaderboard || []);
+      setSignals(data.signals || []);
+      setTaoPrice(data.taoPrice || null);
+      setLastScan(new Date().toLocaleTimeString());
+
+      const duration = data.duration_ms ? `${(data.duration_ms / 1000).toFixed(1)}s` : "";
+      const counts = data.counts || {};
+      setScanResult(
+        `${counts.subnets || 0} subnets, ${counts.signals || 0} signals${duration ? ` in ${duration}` : ""}`
+      );
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setScanError(msg);
+      console.error("Scan error:", e);
+
+      // Fallback: try individual endpoints (for local dev with DB)
+      try {
+        const [sigRes, lbRes] = await Promise.all([
+          fetch("/api/signals?limit=100"),
+          fetch("/api/leaderboard"),
+        ]);
+        if (sigRes.ok) {
+          const sigData = await sigRes.json();
+          setSignals(sigData.signals || []);
+        }
+        if (lbRes.ok) {
+          const lbData = await lbRes.json();
+          setLeaderboard(lbData.leaderboard || []);
+        }
+      } catch {
+        // both paths failed
+      }
+    } finally {
+      setScanning(false);
+      setScanStep(null);
     }
   }, []);
 
-  // Auto-scan on page load if no data
-  const hasAutoScanned = useRef(false);
-
+  // Auto-scan on first load
   useEffect(() => {
-    fetchData();
-    const interval = setInterval(fetchData, 30000);
-    return () => clearInterval(interval);
-  }, [fetchData]);
-
-  // Auto-trigger scan when page loads and no data exists
-  useEffect(() => {
-    if (!hasAutoScanned.current && signals.length === 0 && leaderboard.length === 0 && !collecting) {
+    if (!hasAutoScanned.current) {
       hasAutoScanned.current = true;
-      // Small delay to let initial fetch complete first
-      const timer = setTimeout(() => {
-        if (signals.length === 0 && leaderboard.length === 0) {
-          runCollector();
-        }
-      }, 2000);
-      return () => clearTimeout(timer);
+      runScan();
     }
-  }, [signals.length, leaderboard.length, collecting]);
+  }, [runScan]);
 
-  const runCollector = async () => {
-    setCollecting(true);
-    setCollectResult(null);
-
-    const steps = [
-      { name: "TaoStats", url: "/api/collect/taostats" },
-      { name: "GitHub", url: "/api/collect/github" },
-      { name: "HuggingFace", url: "/api/collect/huggingface" },
-      { name: "Social", url: "/api/collect/social" },
-      { name: "Staking", url: "/api/collect/staking" },
-      { name: "Revenue", url: "/api/collect/revenue" },
-      { name: "AI Analysis", url: "/api/collect/analyze" },
-    ];
-
-    const startTime = Date.now();
-    let completed = 0;
-    let lastError: string | null = null;
-
-    for (const step of steps) {
-      setCollectStep(`⟳ ${step.name}... (${completed + 1}/${steps.length})`);
-      try {
-        const res = await fetch(step.url, { method: "POST" });
-        const data = await res.json();
-        if (!data.ok) {
-          console.error(`${step.name} error:`, data.error);
-        }
-      } catch (e) {
-        lastError = `${step.name}: ${e}`;
-        console.error(`${step.name} error:`, e);
-      }
-      completed++;
-      // Refresh data after each step so user sees progress
-      if (completed === 1 || completed === 3 || completed === steps.length) {
-        await fetchData();
-      }
-    }
-
-    const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-    setLastCollect(new Date().toLocaleTimeString());
-    setCollectResult(`Done in ${elapsed}s`);
-    setCollectStep(null);
-    await fetchData();
-    setCollecting(false);
-  };
-
-  const fetchSubnetDetail = async (netuid: number) => {
+  // Get detail for a selected subnet from the leaderboard/signals data we already have
+  const getSubnetDetail = (netuid: number) => {
     setSelectedSubnet(netuid);
-    try {
-      const res = await fetch(`/api/subnets?netuid=${netuid}`);
-      const data = await res.json();
-      setSubnetDetail(data);
-    } catch {
-      setSubnetDetail(null);
-    }
   };
+
+  const selectedSubnetData = selectedSubnet != null
+    ? leaderboard.find((s) => s.netuid === selectedSubnet)
+    : null;
+
+  const selectedSubnetSignals = selectedSubnet != null
+    ? signals.filter((s) => s.netuid === selectedSubnet)
+    : [];
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -268,31 +227,41 @@ export default function Home() {
           <span className="text-xs text-gray-500 border border-gray-700 rounded px-2 py-0.5">
             Bittensor Subnet Intelligence
           </span>
-        </div>
-        <div className="flex items-center gap-4">
-          {lastCollect && (
-            <span className="text-xs text-gray-500">
-              Last scan: {lastCollect}
+          {taoPrice != null && (
+            <span className="text-xs text-gray-400">
+              TAO ${taoPrice.toFixed(2)}
             </span>
           )}
-          {collectResult && (
-            <span className="text-xs text-green-400">{collectResult}</span>
+        </div>
+        <div className="flex items-center gap-4">
+          {lastScan && (
+            <span className="text-xs text-gray-500">
+              Last scan: {lastScan}
+            </span>
+          )}
+          {scanResult && (
+            <span className="text-xs text-green-400">{scanResult}</span>
+          )}
+          {scanError && (
+            <span className="text-xs text-red-400 max-w-xs truncate" title={scanError}>
+              Error: {scanError.slice(0, 60)}
+            </span>
           )}
           <button
-            onClick={runCollector}
-            disabled={collecting}
+            onClick={runScan}
+            disabled={scanning}
             className="bg-green-500/10 border border-green-500/30 text-green-400 px-4 py-2 rounded text-sm hover:bg-green-500/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {collecting
-              ? (collectStep || "⟳ Scanning...")
-              : "⚡ Scan All Sources"}
+            {scanning
+              ? (scanStep || "Scanning...")
+              : "Scan All Sources"}
           </button>
         </div>
       </header>
 
       {/* Tab bar */}
       <nav className="border-b border-gray-800 px-6 flex gap-1">
-        {(["signals", "leaderboard"] as const).map((tab) => (
+        {(["leaderboard", "signals"] as const).map((tab) => (
           <button
             key={tab}
             onClick={() => { setActiveTab(tab); setSelectedSubnet(null); }}
@@ -302,8 +271,8 @@ export default function Home() {
                 : "border-transparent text-gray-500 hover:text-gray-300"
             }`}
           >
-            {tab === "signals" && `⚡ Signals ${signals.length > 0 ? `(${signals.length})` : ""}`}
-            {tab === "leaderboard" && "📊 Alpha Leaderboard"}
+            {tab === "signals" && `Signals ${signals.length > 0 ? `(${signals.length})` : ""}`}
+            {tab === "leaderboard" && "Alpha Leaderboard"}
           </button>
         ))}
       </nav>
@@ -312,22 +281,35 @@ export default function Home() {
       <main className="flex-1 flex">
         {/* Left panel */}
         <div className="flex-1 overflow-auto p-6">
-          {/* Empty state */}
-          {signals.length === 0 && leaderboard.length === 0 && subnets.length === 0 && (
+          {/* Loading state */}
+          {scanning && signals.length === 0 && leaderboard.length === 0 && (
             <div className="flex flex-col items-center justify-center h-96 text-center">
-              <div className="text-6xl mb-4">🔍</div>
+              <div className="text-4xl mb-4 animate-spin">&#x21BB;</div>
+              <h2 className="text-xl font-bold mb-2">Scanning All Sources</h2>
+              <p className="text-gray-500 max-w-md mb-4">
+                Pulling data from TaoStats, GitHub, HuggingFace, and Desearch.
+                This takes 30-50 seconds on the first load.
+              </p>
+              <div className="w-64 h-2 bg-gray-800 rounded-full overflow-hidden">
+                <div className="h-full bg-green-400 rounded-full animate-pulse" style={{ width: "60%" }} />
+              </div>
+            </div>
+          )}
+
+          {/* Empty state (not scanning) */}
+          {!scanning && signals.length === 0 && leaderboard.length === 0 && (
+            <div className="flex flex-col items-center justify-center h-96 text-center">
+              <div className="text-6xl mb-4">&#x1F50D;</div>
               <h2 className="text-xl font-bold mb-2">No Data Yet</h2>
               <p className="text-gray-500 max-w-md mb-6">
-                Hit the <span className="text-green-400">&quot;Scan All Sources&quot;</span> button to pull data from TaoStats, GitHub, and HuggingFace across all 128 Bittensor subnets.
+                Hit the <span className="text-green-400">&quot;Scan All Sources&quot;</span> button to pull data from TaoStats, GitHub, and HuggingFace across all Bittensor subnets.
               </p>
               <button
-                onClick={runCollector}
-                disabled={collecting}
+                onClick={runScan}
+                disabled={scanning}
                 className="bg-green-500/20 border border-green-500/40 text-green-400 px-6 py-3 rounded-lg text-base hover:bg-green-500/30 transition-colors disabled:opacity-50"
               >
-                {collecting
-                  ? (collectStep || "⟳ Scanning all sources...")
-                  : "⚡ Run First Scan"}
+                Run First Scan
               </button>
             </div>
           )}
@@ -337,16 +319,9 @@ export default function Home() {
             <div className="space-y-4">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-bold">Intelligence Feed</h2>
-                <div className="flex items-center gap-3">
-                  {signals.some(s => s.analysis_status === "analyzing") && (
-                    <span className="text-xs text-yellow-400 animate-pulse">
-                      🧠 AI analyzing signals...
-                    </span>
-                  )}
-                  <span className="text-xs text-gray-500">
-                    {signals.filter(s => s.analysis).length} analyzed / {signals.length} total
-                  </span>
-                </div>
+                <span className="text-xs text-gray-500">
+                  {signals.length} signals detected
+                </span>
               </div>
               {signals.map((sig) => (
                 <div
@@ -358,7 +333,7 @@ export default function Home() {
                       ? "border-yellow-900/40"
                       : "border-gray-800"
                   } hover:border-gray-600`}
-                  onClick={() => fetchSubnetDetail(sig.netuid)}
+                  onClick={() => getSubnetDetail(sig.netuid)}
                 >
                   {/* Header bar */}
                   <div className={`px-4 py-2.5 flex items-center justify-between ${
@@ -396,40 +371,19 @@ export default function Home() {
                   <div className="px-4 py-3">
                     <h3 className="font-medium text-sm mb-2">{sig.title}</h3>
 
-                    {/* AI Analysis — the star of the show */}
                     {sig.analysis ? (
                       <div className="bg-gray-800/40 border border-gray-700/50 rounded-lg p-3 mb-2">
                         <div className="flex items-center gap-1.5 mb-2">
-                          <span className="text-xs font-medium text-green-400">🧠 AlphaGap Analysis</span>
+                          <span className="text-xs font-medium text-green-400">AlphaGap Analysis</span>
                         </div>
                         <div className="space-y-2">
                           {sig.analysis.split("\n").filter(Boolean).map((line, i) => {
-                            const isWhat = line.startsWith("🔍");
-                            const isWhy = line.startsWith("💡");
-                            const isAlpha = line.startsWith("🎯");
-                            if (isWhat || isWhy || isAlpha) {
-                              const [header, ...rest] = line.split(": ");
-                              return (
-                                <div key={i}>
-                                  <span className={`text-xs font-bold ${
-                                    isWhat ? "text-blue-400" : isWhy ? "text-yellow-400" : "text-green-400"
-                                  }`}>{header}:</span>
-                                  <span className="text-sm text-gray-300 ml-1">{rest.join(": ")}</span>
-                                </div>
-                              );
-                            }
                             if (line.trim()) {
                               return <p key={i} className="text-sm text-gray-300">{line}</p>;
                             }
                             return null;
                           })}
                         </div>
-                      </div>
-                    ) : sig.analysis_status === "analyzing" ? (
-                      <div className="bg-gray-800/40 border border-gray-700/50 rounded-lg p-3 mb-2">
-                        <span className="text-xs text-yellow-400 animate-pulse">
-                          🧠 Analyzing with AI...
-                        </span>
                       </div>
                     ) : sig.description ? (
                       <p className="text-xs text-gray-500 mb-2">
@@ -440,7 +394,6 @@ export default function Home() {
                     {/* Footer with links */}
                     <div className="flex items-center justify-between mt-2">
                       <div className="flex items-center gap-3">
-                        {/* Strength bar */}
                         <div className="w-24 h-1.5 bg-gray-800 rounded-full overflow-hidden">
                           <div
                             className={`h-full rounded-full transition-all ${
@@ -462,7 +415,7 @@ export default function Home() {
                           className="text-xs text-blue-400 hover:underline"
                           onClick={(e) => e.stopPropagation()}
                         >
-                          View source →
+                          View source
                         </a>
                       )}
                     </div>
@@ -508,7 +461,7 @@ export default function Home() {
                           {label}
                           {sortCol === key && (
                             <span className="ml-1 text-green-400">
-                              {sortAsc ? "▲" : "▼"}
+                              {sortAsc ? "\u25B2" : "\u25BC"}
                             </span>
                           )}
                         </th>
@@ -520,7 +473,7 @@ export default function Home() {
                       <tr
                         key={sub.netuid}
                         className="border-b border-gray-800/50 hover:bg-gray-900/50 cursor-pointer transition-colors"
-                        onClick={() => fetchSubnetDetail(sub.netuid)}
+                        onClick={() => getSubnetDetail(sub.netuid)}
                       >
                         <td className="py-2.5 px-3 text-gray-500">{i + 1}</td>
                         <td className="py-2.5 px-3">
@@ -553,7 +506,7 @@ export default function Home() {
                           {sub.social_score || 0}
                         </td>
                         <td className="py-2.5 px-3 text-right text-gray-400">
-                          {sub.alpha_price != null ? `$${formatNum(sub.alpha_price, 2)}` : "—"}
+                          {sub.alpha_price != null ? `$${formatNum(sub.alpha_price, 2)}` : "\u2014"}
                         </td>
                         <td className={`py-2.5 px-3 text-right font-medium ${
                           sub.price_change_24h == null ? "text-gray-600" :
@@ -562,15 +515,15 @@ export default function Home() {
                         }`}>
                           {sub.price_change_24h != null
                             ? `${sub.price_change_24h > 0 ? "+" : ""}${sub.price_change_24h.toFixed(1)}%`
-                            : "—"}
+                            : "\u2014"}
                         </td>
                         <td className="py-2.5 px-3 text-right text-gray-400">
-                          {sub.market_cap != null ? `$${formatNum(sub.market_cap)}` : "—"}
+                          {sub.market_cap != null ? `$${formatNum(sub.market_cap)}` : "\u2014"}
                         </td>
                         <td className={`py-2.5 px-3 text-right ${flowColor(sub.net_flow_24h)}`}>
                           {sub.net_flow_24h != null
-                            ? `${sub.net_flow_24h > 0 ? "+" : ""}${formatNum(sub.net_flow_24h)} τ`
-                            : "—"}
+                            ? `${sub.net_flow_24h > 0 ? "+" : ""}${formatNum(sub.net_flow_24h)} \u03C4`
+                            : "\u2014"}
                         </td>
                         <td className="py-2.5 px-3 text-right">
                           {sub.signal_count > 0 ? (
@@ -588,12 +541,10 @@ export default function Home() {
               </div>
             </div>
           )}
-
-          {/* Subnets tab removed */}
         </div>
 
-        {/* Right panel - Subnet Detail */}
-        {selectedSubnet !== null && subnetDetail && (
+        {/* Right panel - Subnet Detail (from in-memory data) */}
+        {selectedSubnet !== null && selectedSubnetData && (
           <div className="w-96 border-l border-gray-800 overflow-auto p-4 bg-gray-900/30">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-bold">
@@ -603,123 +554,125 @@ export default function Home() {
                 onClick={() => setSelectedSubnet(null)}
                 className="text-gray-500 hover:text-gray-300 text-sm"
               >
-                ✕
+                &#x2715;
               </button>
             </div>
 
-            {/* Subnet info */}
-            {(subnetDetail as { subnet?: SubnetInfo }).subnet && (
-              <div className="mb-4">
-                <h4 className="font-medium text-sm">
-                  {((subnetDetail as { subnet: SubnetInfo }).subnet).name}
-                </h4>
-                <p className="text-xs text-gray-500 mt-1">
-                  {((subnetDetail as { subnet: SubnetInfo }).subnet).description}
-                </p>
-              </div>
-            )}
+            {/* Subnet info from leaderboard data */}
+            <div className="mb-4">
+              <h4 className="font-medium text-sm">{selectedSubnetData.name}</h4>
+            </div>
 
-            {/* Recent metrics */}
-            {Array.isArray((subnetDetail as { metrics?: unknown[] }).metrics) &&
-              ((subnetDetail as { metrics: unknown[] }).metrics).length > 0 && (
-              <div className="mb-4">
-                <h4 className="text-xs text-gray-500 uppercase mb-2">Latest Metrics</h4>
-                {(() => {
-                  const m = ((subnetDetail as { metrics: Record<string, number>[] }).metrics)[0];
-                  return (
-                    <div className="grid grid-cols-2 gap-2 text-xs">
-                      <div className="bg-gray-800/50 rounded p-2">
-                        <span className="text-gray-500 block">Price</span>
-                        <span className="text-white">${formatNum(m.alpha_price, 4)}</span>
-                      </div>
-                      <div className="bg-gray-800/50 rounded p-2">
-                        <span className="text-gray-500 block">MCap</span>
-                        <span className="text-white">${formatNum(m.market_cap)}</span>
-                      </div>
-                      <div className="bg-gray-800/50 rounded p-2">
-                        <span className="text-gray-500 block">24h Flow</span>
-                        <span className={flowColor(m.net_flow_24h)}>
-                          {m.net_flow_24h > 0 ? "+" : ""}{formatNum(m.net_flow_24h)} τ
-                        </span>
-                      </div>
-                      <div className="bg-gray-800/50 rounded p-2">
-                        <span className="text-gray-500 block">7d Flow</span>
-                        <span className={flowColor(m.net_flow_7d)}>
-                          {m.net_flow_7d > 0 ? "+" : ""}{formatNum(m.net_flow_7d)} τ
-                        </span>
-                      </div>
-                      <div className="bg-gray-800/50 rounded p-2">
-                        <span className="text-gray-500 block">Emission</span>
-                        <span className="text-white">
-                          {m.emission_pct != null ? `${(m.emission_pct * 100).toFixed(2)}%` : "—"}
-                        </span>
-                      </div>
-                      <div className="bg-gray-800/50 rounded p-2">
-                        <span className="text-gray-500 block">Pool τ</span>
-                        <span className="text-white">{formatNum(m.tao_reserve)}</span>
-                      </div>
-                    </div>
-                  );
-                })()}
-              </div>
-            )}
-
-            {/* GitHub Events */}
-            {Array.isArray((subnetDetail as { githubEvents?: unknown[] }).githubEvents) &&
-              ((subnetDetail as { githubEvents: unknown[] }).githubEvents).length > 0 && (
-              <div className="mb-4">
-                <h4 className="text-xs text-gray-500 uppercase mb-2">
-                  GitHub Activity ({((subnetDetail as { githubEvents: unknown[] }).githubEvents).length})
-                </h4>
-                <div className="space-y-1.5">
-                  {((subnetDetail as { githubEvents: Array<{
-                    id: number; event_type: string; title: string; author: string;
-                    created_at: string; url: string;
-                  }> }).githubEvents).slice(0, 10).map((ev) => (
-                    <div key={ev.id} className="text-xs bg-gray-800/30 rounded p-2">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-blue-400">{ev.event_type}</span>
-                        <span className="text-gray-600">by {ev.author}</span>
-                        <span className="text-gray-600 ml-auto">{timeAgo(ev.created_at)}</span>
-                      </div>
-                      <div className="text-gray-400 mt-0.5 truncate">{ev.title}</div>
-                    </div>
-                  ))}
+            {/* Metrics from leaderboard */}
+            <div className="mb-4">
+              <h4 className="text-xs text-gray-500 uppercase mb-2">Scores</h4>
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div className="bg-gray-800/50 rounded p-2">
+                  <span className="text-gray-500 block">aGap Score</span>
+                  <span className={`font-bold ${scoreColor(selectedSubnetData.composite_score)}`}>
+                    {selectedSubnetData.composite_score}
+                  </span>
+                </div>
+                <div className="bg-gray-800/50 rounded p-2">
+                  <span className="text-gray-500 block">Dev</span>
+                  <span className={scoreColor(selectedSubnetData.dev_score)}>
+                    {selectedSubnetData.dev_score}
+                  </span>
+                </div>
+                <div className="bg-gray-800/50 rounded p-2">
+                  <span className="text-gray-500 block">Flow</span>
+                  <span className={scoreColor(selectedSubnetData.flow_score)}>
+                    {selectedSubnetData.flow_score}
+                  </span>
+                </div>
+                <div className="bg-gray-800/50 rounded p-2">
+                  <span className="text-gray-500 block">Staking</span>
+                  <span className={scoreColor(selectedSubnetData.staking_score)}>
+                    {selectedSubnetData.staking_score}
+                  </span>
+                </div>
+                <div className="bg-gray-800/50 rounded p-2">
+                  <span className="text-gray-500 block">Revenue</span>
+                  <span className={scoreColor(selectedSubnetData.revenue_score)}>
+                    {selectedSubnetData.revenue_score}
+                  </span>
+                </div>
+                <div className="bg-gray-800/50 rounded p-2">
+                  <span className="text-gray-500 block">Social</span>
+                  <span className={scoreColor(selectedSubnetData.social_score)}>
+                    {selectedSubnetData.social_score}
+                  </span>
                 </div>
               </div>
-            )}
+            </div>
 
-            {/* HuggingFace Items */}
-            {Array.isArray((subnetDetail as { hfItems?: unknown[] }).hfItems) &&
-              ((subnetDetail as { hfItems: unknown[] }).hfItems).length > 0 && (
+            {/* Market data */}
+            <div className="mb-4">
+              <h4 className="text-xs text-gray-500 uppercase mb-2">Market Data</h4>
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div className="bg-gray-800/50 rounded p-2">
+                  <span className="text-gray-500 block">Price</span>
+                  <span className="text-white">
+                    {selectedSubnetData.alpha_price != null
+                      ? `$${formatNum(selectedSubnetData.alpha_price, 4)}`
+                      : "\u2014"}
+                  </span>
+                </div>
+                <div className="bg-gray-800/50 rounded p-2">
+                  <span className="text-gray-500 block">MCap</span>
+                  <span className="text-white">
+                    {selectedSubnetData.market_cap != null
+                      ? `$${formatNum(selectedSubnetData.market_cap)}`
+                      : "\u2014"}
+                  </span>
+                </div>
+                <div className="bg-gray-800/50 rounded p-2">
+                  <span className="text-gray-500 block">24h Change</span>
+                  <span className={
+                    selectedSubnetData.price_change_24h == null ? "text-gray-500" :
+                    selectedSubnetData.price_change_24h > 0 ? "text-green-400" :
+                    selectedSubnetData.price_change_24h < 0 ? "text-red-400" : "text-gray-500"
+                  }>
+                    {selectedSubnetData.price_change_24h != null
+                      ? `${selectedSubnetData.price_change_24h > 0 ? "+" : ""}${selectedSubnetData.price_change_24h.toFixed(1)}%`
+                      : "\u2014"}
+                  </span>
+                </div>
+                <div className="bg-gray-800/50 rounded p-2">
+                  <span className="text-gray-500 block">24h Net Flow</span>
+                  <span className={flowColor(selectedSubnetData.net_flow_24h)}>
+                    {selectedSubnetData.net_flow_24h != null
+                      ? `${selectedSubnetData.net_flow_24h > 0 ? "+" : ""}${formatNum(selectedSubnetData.net_flow_24h)} \u03C4`
+                      : "\u2014"}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Signals for this subnet */}
+            {selectedSubnetSignals.length > 0 && (
               <div className="mb-4">
                 <h4 className="text-xs text-gray-500 uppercase mb-2">
-                  HuggingFace ({((subnetDetail as { hfItems: unknown[] }).hfItems).length})
+                  Signals ({selectedSubnetSignals.length})
                 </h4>
                 <div className="space-y-1.5">
-                  {((subnetDetail as { hfItems: Array<{
-                    id: number; item_type: string; name: string; downloads: number;
-                    likes: number; url: string;
-                  }> }).hfItems).slice(0, 10).map((item) => (
-                    <div key={item.id} className="text-xs bg-gray-800/30 rounded p-2">
+                  {selectedSubnetSignals.slice(0, 10).map((sig) => (
+                    <div key={sig.id} className="text-xs bg-gray-800/30 rounded p-2">
                       <div className="flex items-center gap-1.5">
-                        <span className="text-yellow-400">{item.item_type}</span>
-                        <span className="text-gray-400 truncate flex-1">{item.name}</span>
+                        <span className={signalColor(sig.signal_type)}>
+                          {signalIcon(sig.signal_type)}
+                        </span>
+                        <span className="text-gray-400 truncate flex-1">{sig.title}</span>
+                        <span className={`font-bold ${
+                          sig.strength >= 80 ? "text-green-400" :
+                          sig.strength >= 50 ? "text-yellow-400" : "text-gray-500"
+                        }`}>
+                          {sig.strength}
+                        </span>
                       </div>
-                      <div className="flex gap-3 mt-0.5 text-gray-600">
-                        <span>↓ {item.downloads}</span>
-                        <span>♥ {item.likes}</span>
-                        {item.url && (
-                          <a
-                            href={item.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-blue-400 hover:underline ml-auto"
-                          >
-                            View →
-                          </a>
-                        )}
-                      </div>
+                      {sig.description && (
+                        <p className="text-gray-600 mt-1">{sig.description}</p>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -731,10 +684,10 @@ export default function Home() {
 
       {/* Footer */}
       <footer className="border-t border-gray-800 px-6 py-3 flex items-center justify-between text-xs text-gray-600">
-        <span>AlphaGap v0.1 — Bittensor Subnet Intelligence</span>
+        <span>AlphaGap v0.2 -- Bittensor Subnet Intelligence (Serverless)</span>
         <div className="flex items-center gap-4">
-          <span>Sources: TaoStats + GitHub + HuggingFace</span>
-          <span>{subnets.length} subnets tracked</span>
+          <span>Sources: TaoStats + GitHub + HuggingFace + Desearch</span>
+          <span>{leaderboard.length} subnets tracked</span>
         </div>
       </footer>
     </div>
