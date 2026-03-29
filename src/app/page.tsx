@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 
 // ── Types ────────────────────────────────────────────────────────
 interface Signal {
@@ -177,32 +177,72 @@ export default function Home() {
     }
   }, []);
 
+  // Auto-scan on page load if no data
+  const hasAutoScanned = useRef(false);
+
   useEffect(() => {
     fetchData();
     const interval = setInterval(fetchData, 30000);
     return () => clearInterval(interval);
   }, [fetchData]);
 
+  // Auto-trigger scan when page loads and no data exists
+  useEffect(() => {
+    if (!hasAutoScanned.current && signals.length === 0 && leaderboard.length === 0 && !collecting) {
+      hasAutoScanned.current = true;
+      // Small delay to let initial fetch complete first
+      const timer = setTimeout(() => {
+        if (signals.length === 0 && leaderboard.length === 0) {
+          runCollector();
+        }
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [signals.length, leaderboard.length, collecting]);
+
   const runCollector = async () => {
     setCollecting(true);
     setCollectResult(null);
-    setCollectStep("⟳ Scanning all sources...");
-    try {
-      const res = await fetch("/api/collect", { method: "POST" });
-      const data = await res.json();
-      setLastCollect(new Date().toLocaleTimeString());
-      setCollectResult(
-        data.ok
-          ? `Done in ${(data.duration_ms / 1000).toFixed(1)}s`
-          : `Error: ${data.error}`
-      );
-      await fetchData();
-    } catch (e) {
-      setCollectResult(`Error: ${e}`);
-    } finally {
-      setCollectStep(null);
-      setCollecting(false);
+
+    const steps = [
+      { name: "TaoStats", url: "/api/collect/taostats" },
+      { name: "GitHub", url: "/api/collect/github" },
+      { name: "HuggingFace", url: "/api/collect/huggingface" },
+      { name: "Social", url: "/api/collect/social" },
+      { name: "Staking", url: "/api/collect/staking" },
+      { name: "Revenue", url: "/api/collect/revenue" },
+      { name: "AI Analysis", url: "/api/collect/analyze" },
+    ];
+
+    const startTime = Date.now();
+    let completed = 0;
+    let lastError: string | null = null;
+
+    for (const step of steps) {
+      setCollectStep(`⟳ ${step.name}... (${completed + 1}/${steps.length})`);
+      try {
+        const res = await fetch(step.url, { method: "POST" });
+        const data = await res.json();
+        if (!data.ok) {
+          console.error(`${step.name} error:`, data.error);
+        }
+      } catch (e) {
+        lastError = `${step.name}: ${e}`;
+        console.error(`${step.name} error:`, e);
+      }
+      completed++;
+      // Refresh data after each step so user sees progress
+      if (completed === 1 || completed === 3 || completed === steps.length) {
+        await fetchData();
+      }
     }
+
+    const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+    setLastCollect(new Date().toLocaleTimeString());
+    setCollectResult(`Done in ${elapsed}s`);
+    setCollectStep(null);
+    await fetchData();
+    setCollecting(false);
   };
 
   const fetchSubnetDetail = async (netuid: number) => {
