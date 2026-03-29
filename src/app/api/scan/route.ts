@@ -374,7 +374,7 @@ export async function GET() {
   const activeDevSubnets = devActivity
     .filter(a => a.commits_1d > 0 || a.prs_merged_1d > 0)
     .sort((a, b) => (b.commits_1d + b.prs_merged_1d * 5) - (a.commits_1d + a.prs_merged_1d * 5))
-    .slice(0, 20);
+    .slice(0, 12);
 
   console.log(`[scan] Fetching commit/PR details for ${activeDevSubnets.length} active subnets...`);
 
@@ -393,8 +393,8 @@ export async function GET() {
         if (parts.length < 2) return null;
         const [owner, repo] = parts;
         const [commits, prs, release] = await Promise.all([
-          fetchRecentCommits(owner, repo, 10),
-          fetchRecentPRs(owner, repo, 5),
+          fetchRecentCommits(owner, repo, 7),
+          fetchRecentPRs(owner, repo, 3),
           fetchLatestRelease(owner, repo),
         ]);
         return { act, owner, repo, commits, prs, release };
@@ -493,11 +493,13 @@ Now write your intelligence report using this EXACT format. Each section should 
   }
 
   // Run AI analysis in parallel batches of 5
+  const aiStartTime = Date.now();
   const analyzedDevSignals: { ctx: DevContext; analysis: string }[] = [];
   for (let batch = 0; batch < devContexts.length; batch += 5) {
     const batchItems = devContexts.slice(batch, batch + 5);
-    const timeLeft = 55000 - (Date.now() - startTime);
-    if (timeLeft < 5000) {
+    const timeLeft = 57000 - (Date.now() - startTime);
+    console.log(`[scan] AI batch ${batch/5 + 1}: ${batchItems.length} signals, ${(timeLeft/1000).toFixed(0)}s left`);
+    if (timeLeft < 4000) {
       // Out of time — use fallback for remaining
       for (const ctx of devContexts.slice(batch)) {
         analyzedDevSignals.push({ ctx, analysis: buildFallbackDescription(ctx) });
