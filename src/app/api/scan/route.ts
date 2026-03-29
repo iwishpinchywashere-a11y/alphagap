@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { put } from "@vercel/blob";
 import {
   getSubnetIdentities,
   getSubnetPools,
@@ -783,7 +784,7 @@ MCap: $${subnetData?.market_cap ? (subnetData.market_cap / 1e6).toFixed(1) + "M"
   const duration = Date.now() - startTime;
   console.log(`[scan] Complete in ${duration}ms. ${leaderboard.length} subnets, ${signals.length} signals.`);
 
-  return NextResponse.json({
+  const responseData = {
     leaderboard,
     signals,
     taoPrice,
@@ -798,5 +799,21 @@ MCap: $${subnetData?.market_cap ? (subnetData.market_cap / 1e6).toFixed(1) + "M"
       hfOrgs: hfActivityMap.size,
       socialSubnets: socialMap.size,
     },
-  });
+  };
+
+  // Cache result to Vercel Blob for instant page loads
+  try {
+    if (process.env.BLOB_READ_WRITE_TOKEN) {
+      await put("scan-latest.json", JSON.stringify(responseData), {
+        access: "public",
+        addRandomSuffix: false,
+        contentType: "application/json",
+      });
+      console.log("[scan] Cached to Vercel Blob.");
+    }
+  } catch (e) {
+    console.error("[scan] Failed to cache to Blob:", e);
+  }
+
+  return NextResponse.json(responseData);
 }

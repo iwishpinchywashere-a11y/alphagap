@@ -142,6 +142,21 @@ export default function Home() {
   });
 
   // ── Run scan: calls /api/scan and stores everything in state ────
+  // Load cached data, optionally refresh in background
+  const loadData = useCallback((data: Record<string, unknown>) => {
+    setLeaderboard((data.leaderboard as SubnetScore[]) || []);
+    setSignals((data.signals as Signal[]) || []);
+    setTaoPrice((data.taoPrice as number) || null);
+    const lastScanTime = data.lastScan ? new Date(data.lastScan as string).toLocaleTimeString() : new Date().toLocaleTimeString();
+    setLastScan(lastScanTime);
+    const duration = data.duration_ms ? `${((data.duration_ms as number) / 1000).toFixed(1)}s` : "";
+    const counts = (data.counts || {}) as Record<string, number>;
+    const cached = data.cached ? " (cached)" : "";
+    setScanResult(
+      `${counts.subnets || 0} subnets, ${counts.signals || 0} signals${duration ? ` in ${duration}` : ""}${cached}`
+    );
+  }, []);
+
   const runScan = useCallback(async () => {
     setScanning(true);
     setScanResult(null);
@@ -155,52 +170,46 @@ export default function Home() {
         throw new Error(`Scan failed (${res.status}): ${text}`);
       }
       const data = await res.json();
-
-      setLeaderboard(data.leaderboard || []);
-      setSignals(data.signals || []);
-      setTaoPrice(data.taoPrice || null);
-      setLastScan(new Date().toLocaleTimeString());
-
-      const duration = data.duration_ms ? `${(data.duration_ms / 1000).toFixed(1)}s` : "";
-      const counts = data.counts || {};
-      setScanResult(
-        `${counts.subnets || 0} subnets, ${counts.signals || 0} signals${duration ? ` in ${duration}` : ""}`
-      );
+      loadData(data);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       setScanError(msg);
       console.error("Scan error:", e);
-
-      // Fallback: try individual endpoints (for local dev with DB)
-      try {
-        const [sigRes, lbRes] = await Promise.all([
-          fetch("/api/signals?limit=100"),
-          fetch("/api/leaderboard"),
-        ]);
-        if (sigRes.ok) {
-          const sigData = await sigRes.json();
-          setSignals(sigData.signals || []);
-        }
-        if (lbRes.ok) {
-          const lbData = await lbRes.json();
-          setLeaderboard(lbData.leaderboard || []);
-        }
-      } catch {
-        // both paths failed
-      }
     } finally {
       setScanning(false);
       setScanStep(null);
     }
-  }, []);
+  }, [loadData]);
 
-  // Auto-scan on first load
+  // On first load: try cached data first, then refresh in background
   useEffect(() => {
     if (!hasAutoScanned.current) {
       hasAutoScanned.current = true;
-      runScan();
+
+      // Step 1: Load cached data instantly
+      fetch("/api/cached-scan")
+        .then((res) => {
+          if (!res.ok) throw new Error("no cache");
+          return res.json();
+        })
+        .then((data) => {
+          loadData(data);
+          // Check if cache is stale (>15 minutes old)
+          const lastScanTime = data.lastScan ? new Date(data.lastScan).getTime() : 0;
+          const cacheAge = Date.now() - lastScanTime;
+          if (cacheAge > 15 * 60 * 1000) {
+            // Cache is stale, refresh in background
+            console.log("Cache is stale, refreshing...");
+            runScan();
+          }
+        })
+        .catch(() => {
+          // No cache available, do a full scan
+          console.log("No cache, running full scan...");
+          runScan();
+        });
     }
-  }, [runScan]);
+  }, [loadData, runScan]);
 
   // Lazy-load AI analysis for signals that don't have it
   const analyzingRef = useRef(new Set<number>());
