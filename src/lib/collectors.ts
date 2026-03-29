@@ -502,36 +502,65 @@ export async function collectAllFast() {
     results.huggingface = { error: String(e) };
   }
 
-  // 4. Social (Desearch + Reddit) ~8s
-  try {
-    const social = await collectSocial();
-    results.social = social;
-  } catch (e) {
-    results.social = { error: String(e) };
+  // 4. Check time budget — skip optional collectors if running low
+  const elapsed = Date.now() - startTime;
+  const timeLeft = 50000 - elapsed; // 50s hard limit (leave 10s buffer)
+
+  if (timeLeft > 15000) {
+    // 4a. Social (Desearch + Reddit) ~8s
+    try {
+      const social = await collectSocial();
+      results.social = social;
+    } catch (e) {
+      results.social = { error: String(e) };
+    }
+  } else {
+    results.social = { skipped: "time budget exceeded" };
   }
 
-  // 5. Staking — LIGHT version (alpha shares + reg costs only, no metagraph) ~5s
-  try {
-    const staking = await collectStakingData();
-    results.staking = staking;
-  } catch (e) {
-    results.staking = { error: String(e) };
+  const elapsed2 = Date.now() - startTime;
+  const timeLeft2 = 50000 - elapsed2;
+
+  if (timeLeft2 > 8000) {
+    // 4b. Staking — LIGHT version ~5s
+    try {
+      const staking = await collectStakingData();
+      results.staking = staking;
+    } catch (e) {
+      results.staking = { error: String(e) };
+    }
+  } else {
+    results.staking = { skipped: "time budget exceeded" };
   }
 
-  // 6. Revenue ~5s
-  try {
-    const revenue = await collectRevenueData();
-    results.revenue = revenue;
-  } catch (e) {
-    results.revenue = { error: String(e) };
+  const elapsed3 = Date.now() - startTime;
+  const timeLeft3 = 50000 - elapsed3;
+
+  if (timeLeft3 > 8000) {
+    // 4c. Revenue ~5s
+    try {
+      const revenue = await collectRevenueData();
+      results.revenue = revenue;
+    } catch (e) {
+      results.revenue = { error: String(e) };
+    }
+  } else {
+    results.revenue = { skipped: "time budget exceeded" };
   }
 
-  // 7. AI Analysis — limit to 5 signals to stay under 60s ~15s
-  try {
-    const analyzed = await analyzePendingSignals(5);
-    results.analyzer = { analyzed };
-  } catch (e) {
-    results.analyzer = { error: String(e) };
+  // 5. AI Analysis — only if we have >10s left, limit to 3 signals
+  const elapsed4 = Date.now() - startTime;
+  const timeLeft4 = 55000 - elapsed4;
+
+  if (timeLeft4 > 10000) {
+    try {
+      const analyzed = await analyzePendingSignals(3);
+      results.analyzer = { analyzed };
+    } catch (e) {
+      results.analyzer = { error: String(e) };
+    }
+  } else {
+    results.analyzer = { skipped: "time budget exceeded" };
   }
 
   return {
