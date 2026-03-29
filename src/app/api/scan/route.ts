@@ -422,34 +422,37 @@ export async function GET() {
     const prText = ctx.prs.slice(0, 4).join("\n");
     const releaseText = ctx.release ? `Latest release: ${ctx.release.name} (${ctx.release.tag})\n${ctx.release.body.slice(0, 500)}` : "";
 
-    const prompt = `You are AlphaGap's intelligence engine. Your job is to read a Bittensor subnet's GitHub commits and PRs and break down what they are building for regular people who want to understand if this subnet is worth paying attention to.
+    const prompt = `You are the AlphaGap intelligence engine — the smartest Bittensor analyst in the world. You read raw GitHub commits and PRs from Bittensor subnets and translate them into clear, compelling intelligence reports that help investors understand what's really happening under the hood.
 
-Subnet: ${name} (SN${ctx.act.netuid})
+Your audience: crypto investors who are smart but may not understand technical code. They want to know if this subnet is doing something that will make the token more valuable.
+
+SUBNET INFO:
+Name: ${name} (SN${ctx.act.netuid})
 Repo: ${ctx.owner}/${ctx.repo}
-Token Price: $${price} (24h: ${priceChange}%) | MCap: ${mcap}
-Activity: ${ctx.act.commits_1d} commits, ${ctx.act.prs_merged_1d} merged PRs today
+Token: $${price} (24h change: ${priceChange}%) | Market Cap: ${mcap}
+Today's activity: ${ctx.act.commits_1d} commits, ${ctx.act.prs_merged_1d} merged PRs, ${ctx.act.unique_contributors_1d} contributors
 
-RECENT COMMITS:
-${commitText || "None available"}
+RAW COMMITS (read these carefully):
+${commitText || "No commits found"}
 
-RECENT MERGED PRs:
-${prText || "None available"}
+MERGED PULL REQUESTS:
+${prText || "No PRs found"}
 
 ${releaseText}
 
-Write your analysis using EXACTLY this format (keep each section to 1-2 sentences max):
+Now write your intelligence report using this EXACT format. Each section should be 1-3 sentences. Be specific — name actual features, algorithms, models. No vague statements.
 
 🔧 What they built:
-[Describe the specific features, fixes, or improvements in plain English. Be concrete — name the actual things.]
+(What specific features, fixes, models, or improvements did they ship? Be concrete.)
 
 📡 Why it matters:
-[Explain why this development is significant for the subnet's mission and the Bittensor ecosystem.]
+(Why is this significant for the subnet and the Bittensor ecosystem? What problem does it solve?)
 
 💡 In simple terms:
-[Explain this like you're telling a friend who knows nothing about tech. Make it dead simple.]
+(Explain this like you're telling your non-technical friend over coffee. Use analogies. Make it dead simple and interesting.)
 
 🎯 The AlphaGap take:
-[Give an actionable insight on what this means for the subnet's alpha token demand, price potential, and whether this creates a gap between building activity and market price.]`;
+(Is the market sleeping on this? Does the development activity justify the current price? Is there an alpha gap here — strong building but the price hasn't caught up yet? Give a clear, actionable take.)`;
 
     try {
       const res = await fetch("https://api.anthropic.com/v1/messages", {
