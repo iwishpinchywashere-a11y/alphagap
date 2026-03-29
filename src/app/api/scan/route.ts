@@ -121,6 +121,7 @@ interface LeaderboardEntry {
   net_flow_24h?: number;
   emission_pct?: number;
   price_change_24h?: number;
+  price_change_1h?: number;
 }
 
 // ── Main scan handler ─────────────────────────────────────────────
@@ -351,75 +352,81 @@ export async function GET() {
     console.log(`[scan] Desearch done. ${allTweets.size} tweets matched to ${socialMap.size} subnets.`);
   }
 
-  // ── Step 5: Generate signals from pool data ─────────────────────
+  // ── Step 5: Generate signals (dev + HF + flow only) ─────────────
+  // NOTE: price_surge, price_drop, buy_pressure, sell_pressure signals removed — dev-only feed
+
+  // Flow inflection / spike signals from pool data
   for (const [netuid, pool] of poolMap) {
     if (netuid === 0) continue;
     const name = identityMap.get(netuid)?.subnet_name || `SN${netuid}`;
     const priceChange = pool.price_change_1_day ? parseFloat(pool.price_change_1_day) : 0;
-    const priceChange1w = pool.price_change_1_week ? parseFloat(pool.price_change_1_week) : 0;
+    const buyVol = parseFloat(pool.tao_buy_volume_24_hr || "0") / RAO;
+    const sellVol = parseFloat(pool.tao_sell_volume_24_hr || "0") / RAO;
+    const netFlow = buyVol - sellVol;
+    const taoPool = parseFloat(pool.total_tao || "0") / RAO;
 
-    if (Math.abs(priceChange) > 10) {
-      const direction = priceChange > 0 ? "surged" : "dropped";
-      const strength = Math.round(Math.min(90, 40 + Math.abs(priceChange)));
+    // Flow inflection: significant net flow relative to pool depth
+    if (taoPool > 0 && Math.abs(netFlow) > taoPool * 0.05) {
+      const direction = netFlow > 0 ? "inflow" : "outflow";
+      const pct = ((Math.abs(netFlow) / taoPool) * 100).toFixed(1);
       addSignal({
         netuid,
-        signal_type: priceChange > 0 ? "price_surge" : "price_drop",
-        strength,
-        title: `Price ${direction} ${priceChange > 0 ? "+" : ""}${priceChange.toFixed(1)}% in 24h`,
-        description: `${name} alpha token ${direction} ${Math.abs(priceChange).toFixed(1)}% in the last 24 hours. Weekly change: ${priceChange1w > 0 ? "+" : ""}${priceChange1w.toFixed(1)}%. Buys: ${pool.buys_24_hr}, Sells: ${pool.sells_24_hr}.`,
+        signal_type: netFlow > 0 ? "flow_inflection" : "flow_spike",
+        strength: Math.round(Math.min(85, 35 + (Math.abs(netFlow) / taoPool) * 200)),
+        title: `${name}: ${direction} of ${Math.abs(netFlow).toFixed(0)} TAO (${pct}% of pool)`,
+        description: `Net ${direction} of ${Math.abs(netFlow).toFixed(0)} TAO in 24h on ${name}. Buy vol: ${buyVol.toFixed(0)}t, Sell vol: ${sellVol.toFixed(0)}t. Price: ${priceChange > 0 ? "+" : ""}${priceChange.toFixed(1)}%.`,
         source: "taostats",
         subnet_name: name,
       });
     }
-
-    // Volume-based buy/sell pressure
-    const buyVol = parseFloat(pool.tao_buy_volume_24_hr || "0") / RAO;
-    const sellVol = parseFloat(pool.tao_sell_volume_24_hr || "0") / RAO;
-    const totalVol = buyVol + sellVol;
-    if (totalVol > 100) {
-      const volRatio = buyVol / Math.max(sellVol, 1);
-      if (volRatio > 1.5 && priceChange > 0) {
-        addSignal({
-          netuid,
-          signal_type: "buy_pressure",
-          strength: Math.round(Math.min(80, 40 + volRatio * 10)),
-          title: `Buy pressure: ${buyVol.toFixed(0)}t bought vs ${sellVol.toFixed(0)}t sold`,
-          description: `${volRatio.toFixed(1)}x buy/sell volume ratio on ${name}. ${pool.buyers_24_hr} unique buyers, ${pool.sellers_24_hr} sellers. Price ${priceChange > 0 ? "+" : ""}${priceChange.toFixed(1)}%.`,
-          source: "taostats",
-          subnet_name: name,
-        });
-      } else if (volRatio < 0.67 && priceChange < 0) {
-        addSignal({
-          netuid,
-          signal_type: "sell_pressure",
-          strength: Math.round(Math.min(70, 30 + (1 / volRatio) * 10)),
-          title: `Sell pressure: ${sellVol.toFixed(0)}t sold vs ${buyVol.toFixed(0)}t bought`,
-          description: `${(1 / volRatio).toFixed(1)}x sell/buy volume ratio on ${name}. ${pool.sellers_24_hr} unique sellers, ${pool.buyers_24_hr} buyers. Price ${priceChange.toFixed(1)}%.`,
-          source: "taostats",
-          subnet_name: name,
-        });
-      }
-    }
   }
 
-  // Dev activity signals
+  // Dev activity signals (lowered threshold: >2 commits OR >0 merged PRs)
   for (const act of devActivity) {
-    if (act.commits_1d > 5 || act.prs_merged_1d > 1) {
+    if (act.commits_1d > 2 || act.prs_merged_1d > 0) {
       let repoName = act.repo_url;
       if (repoName.includes("github.com/")) repoName = repoName.split("github.com/")[1];
       repoName = repoName.replace(/^\/|\/$/g, "");
       const name = identityMap.get(act.netuid)?.subnet_name || `SN${act.netuid}`;
+      const parts: string[] = [];
+      if (act.commits_1d > 0) parts.push(`${act.commits_1d} commit${act.commits_1d > 1 ? "s" : ""}`);
+      if (act.prs_merged_1d > 0) parts.push(`${act.prs_merged_1d} merged PR${act.prs_merged_1d > 1 ? "s" : ""}`);
+      if (act.prs_opened_1d > 0) parts.push(`${act.prs_opened_1d} opened PR${act.prs_opened_1d > 1 ? "s" : ""}`);
+      if (act.issues_opened_1d > 0) parts.push(`${act.issues_opened_1d} new issue${act.issues_opened_1d > 1 ? "s" : ""}`);
       addSignal({
         netuid: act.netuid,
         signal_type: "dev_spike",
         strength: Math.min(90, 30 + act.commits_1d * 2 + act.prs_merged_1d * 10),
-        title: `Hot dev activity: ${act.commits_1d} commits, ${act.prs_merged_1d} PRs in 24h`,
-        description: `${repoName} — ${act.unique_contributors_1d} active contributors. 7d trend: ${act.commits_7d} commits.`,
+        title: `${name} dev: ${parts.join(", ")} today`,
+        description: `Repo: ${repoName}. ${act.unique_contributors_1d} active contributor${act.unique_contributors_1d !== 1 ? "s" : ""}. 7d trend: ${act.commits_7d} commits, ${act.prs_merged_7d} PRs merged.`,
         source: "github",
         source_url: act.repo_url,
         subnet_name: name,
       });
     }
+  }
+
+  // HuggingFace update signals
+  for (const { org, netuid } of SEED_HF_ORGS) {
+    if (!netuid) continue;
+    const hf = hfActivityMap.get(netuid);
+    if (!hf) continue;
+    if (hf.models + hf.datasets + hf.spaces === 0) continue;
+    const name = identityMap.get(netuid)?.subnet_name || `SN${netuid}`;
+    const parts: string[] = [];
+    if (hf.models > 0) parts.push(`${hf.models} model${hf.models > 1 ? "s" : ""}`);
+    if (hf.datasets > 0) parts.push(`${hf.datasets} dataset${hf.datasets > 1 ? "s" : ""}`);
+    if (hf.spaces > 0) parts.push(`${hf.spaces} space${hf.spaces > 1 ? "s" : ""}`);
+    addSignal({
+      netuid,
+      signal_type: "hf_update",
+      strength: Math.min(80, 25 + hf.models * 8 + hf.datasets * 5 + hf.spaces * 3 + Math.min(hf.downloads / 500, 20)),
+      title: `${name} HF: ${parts.join(", ")} on HuggingFace`,
+      description: `${org} published ${parts.join(", ")}. Total downloads: ${hf.downloads.toLocaleString()}.`,
+      source: "huggingface",
+      source_url: `https://huggingface.co/${org}`,
+      subnet_name: name,
+    });
   }
 
   // ── Step 6: Compute leaderboard in-memory ───────────────────────
@@ -441,6 +448,7 @@ export async function GET() {
     netuid: number;
     name: string;
     priceChange24h: number;
+    priceChange1h: number;
     alphaPriceUsd: number | null;
     marketCapUsd: number | null;
     volumeUsd: number | null;
@@ -486,6 +494,7 @@ export async function GET() {
     if (name === "Unknown" || name === "") continue;
 
     const priceChange = pool?.price_change_1_day ? parseFloat(pool.price_change_1_day) : 0;
+    const priceChange1h = pool?.price_change_1_hour ? parseFloat(pool.price_change_1_hour) : 0;
     const alphaPriceUsd = pool ? parseFloat(pool.price) * taoPrice : null;
     const marketCapUsd = pool ? (parseFloat(pool.market_cap) / RAO) * taoPrice : null;
     const volumeUsd = pool ? (parseFloat(pool.tao_volume_24_hr) / RAO) * taoPrice : null;
@@ -509,6 +518,7 @@ export async function GET() {
       netuid,
       name,
       priceChange24h: priceChange,
+      priceChange1h,
       alphaPriceUsd,
       marketCapUsd,
       volumeUsd,
@@ -560,7 +570,25 @@ export async function GET() {
   }
 
   // ── Staking score formula ───────────────────────────────────────
+  const alphaSharesFailed = alphaSharesResult.status === "rejected" || alphaShares.length === 0;
+
   function computeStakingScore(d: RawSubnet): number {
+    // If alphaShares API failed/empty, use fallback based on market cap and identity presence
+    if (alphaSharesFailed) {
+      let fallback = 0;
+      const mcap = d.marketCapUsd || 0;
+      if (mcap >= 50000000) fallback = 40;
+      else if (mcap >= 20000000) fallback = 32;
+      else if (mcap >= 5000000) fallback = 25;
+      else if (mcap >= 1000000) fallback = 18;
+      else if (mcap >= 100000) fallback = 12;
+      else if (mcap > 0) fallback = 10;
+      // Boost if subnet has identity (validators likely present)
+      const hasIdentity = identityMap.has(d.netuid);
+      if (hasIdentity) fallback += 5;
+      return Math.min(100, fallback);
+    }
+
     let score = 0;
     const totalStaked = d.totalAlphaStaked;
     if (totalStaked >= 2000000) score += 35;
@@ -584,6 +612,11 @@ export async function GET() {
     else if (topShare <= 0.45) score += 12;
     else if (topShare <= 0.55) score += 8;
     else if (topShare <= 0.75) score += 4;
+
+    // If staking data exists but subnet has 0 staked, give base score if it has market cap
+    if (score === 0 && (d.marketCapUsd || 0) > 0) {
+      score = 10;
+    }
 
     return Math.min(100, score);
   }
@@ -635,8 +668,18 @@ export async function GET() {
   }
 
   // ── Compute social score ────────────────────────────────────────
-  function computeSocialScore(mentions: number, engagement: number): number {
-    if (mentions <= 0 && engagement <= 0) return 0;
+  const desearchFailed = socialMap.size === 0;
+
+  function computeSocialScore(netuid: number, mentions: number, engagement: number): number {
+    if (mentions <= 0 && engagement <= 0) {
+      // Fallback: if Desearch failed or returned nothing, give base score for subnets with a twitter handle
+      if (desearchFailed) {
+        const identity = identityMap.get(netuid);
+        if (identity?.twitter) return 8;
+        if (identity?.subnet_name) return 5;
+      }
+      return 0;
+    }
     let mentionPts = 0;
     if (mentions >= 50) mentionPts = 40;
     else if (mentions >= 20) mentionPts = 30;
@@ -677,7 +720,7 @@ export async function GET() {
     const flowScore = computeFlowScore(d.priceChange24h);
     const stakingScore = computeStakingScore(d);
     const revenueScore = computeRevenueScore(d);
-    const socialScore = computeSocialScore(d.socialMentions, d.socialEngagement);
+    const socialScore = computeSocialScore(d.netuid, d.socialMentions, d.socialEngagement);
 
     // ── THE ALPHA GAP FORMULA v5 ────────────────────────────────
     // 1. DEV BASE (0-55 pts)
@@ -739,6 +782,7 @@ export async function GET() {
       net_flow_24h: d.netFlow24h ?? undefined,
       emission_pct: d.emissionShare || undefined,
       price_change_24h: d.priceChange24h,
+      price_change_1h: d.priceChange1h,
     });
   }
 

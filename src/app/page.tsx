@@ -35,6 +35,7 @@ interface SubnetScore {
   net_flow_24h?: number;
   emission_pct?: number;
   price_change_24h?: number;
+  price_change_1h?: number;
 }
 
 // ── Helpers ──────────────────────────────────────────────────────
@@ -65,6 +66,7 @@ function signalColor(type: string): string {
     case "flow_warning": return "text-red-400";
     case "dev_spike": return "text-blue-400";
     case "release": return "text-purple-400";
+    case "hf_update": return "text-yellow-400";
     case "hf_drop": return "text-yellow-400";
     case "cross_signal": return "text-pink-400";
     case "price_surge": return "text-green-300";
@@ -83,6 +85,7 @@ function signalIcon(type: string): string {
     case "flow_warning": return "\u26A0";
     case "dev_spike": return "\uD83D\uDD28";
     case "release": return "\uD83D\uDE80";
+    case "hf_update": return "\uD83E\uDD17";
     case "hf_drop": return "\uD83E\uDD17";
     case "cross_signal": return "\u2726";
     case "price_surge": return "\uD83D\uDCC8";
@@ -503,24 +506,28 @@ export default function Home() {
                       <th className="text-left py-2 px-3">#</th>
                       <th className="text-left py-2 px-3">Subnet</th>
                       {([
-                        ["composite_score", "aGap"],
-                        ["flow_score", "Flow"],
-                        ["dev_score", "Dev"],
-                        ["staking_score", "Staking"],
-                        ["revenue_score", "Revenue"],
-                        ["social_score", "Social"],
-                        ["alpha_price", "Price"],
-                        ["price_change_24h", "24h %"],
-                        ["market_cap", "MCap"],
-                        ["net_flow_24h", "24h Net"],
-                        ["signal_count", "Signals"],
-                      ] as [keyof SubnetScore, string][]).map(([key, label]) => (
+                        ["composite_score", "aGap", "Alpha Gap Score (0-100). High when subnet is building hard but price hasn't caught up. Weighted: Dev activity 55%, Price lag 25%, Social gap 10%, Confidence 10%."],
+                        ["flow_score", "Flow", "Flow Score (0-100). Based on 24h price change. High = price rising, Low = price falling. Uses absolute thresholds, not relative."],
+                        ["dev_score", "Dev", "Development Score (0-100). Percentile rank of GitHub + HuggingFace activity. Measures commits, PRs, models published, and contributor count."],
+                        ["staking_score", "Staking", "Staking Score (0-100). Validator confidence. Measures total alpha staked, validator count, decentralization, and miner ecosystem health."],
+                        ["revenue_score", "Revenue", "Revenue Score (0-100). Market health. Measures 24h volume, TAO pool depth, buy/sell coverage ratio, market cap, and token burns."],
+                        ["social_score", "Social", "Social Score (0-100). Social velocity from X/Twitter and Reddit. Measures mention count and engagement (likes, retweets, views)."],
+                        ["alpha_price", "Price", ""],
+                        ["market_cap", "MCap", ""],
+                        ["price_change_1h", "1h %", ""],
+                        ["price_change_24h", "24h %", ""],
+                        ["net_flow_24h", "24h Net", ""],
+                        ["signal_count", "Signals", ""],
+                      ] as [keyof SubnetScore, string, string][]).map(([key, label, tooltip]) => (
                         <th
                           key={key}
                           className="text-right py-2 px-3 cursor-pointer hover:text-gray-300 transition-colors select-none"
                           onClick={() => handleSort(key)}
                         >
                           {label}
+                          {tooltip && (
+                            <span className="ml-0.5 text-gray-600 cursor-help" title={tooltip}>{"\u24D8"}</span>
+                          )}
                           {sortCol === key && (
                             <span className="ml-1 text-green-400">
                               {sortAsc ? "\u25B2" : "\u25BC"}
@@ -570,6 +577,18 @@ export default function Home() {
                         <td className="py-2.5 px-3 text-right text-gray-400">
                           {sub.alpha_price != null ? `$${formatNum(sub.alpha_price, 2)}` : "\u2014"}
                         </td>
+                        <td className="py-2.5 px-3 text-right text-gray-400">
+                          {sub.market_cap != null ? `$${formatNum(sub.market_cap)}` : "\u2014"}
+                        </td>
+                        <td className={`py-2.5 px-3 text-right font-medium ${
+                          sub.price_change_1h == null ? "text-gray-600" :
+                          sub.price_change_1h > 0 ? "text-green-400" :
+                          sub.price_change_1h < 0 ? "text-red-400" : "text-gray-500"
+                        }`}>
+                          {sub.price_change_1h != null
+                            ? `${sub.price_change_1h > 0 ? "+" : ""}${sub.price_change_1h.toFixed(1)}%`
+                            : "\u2014"}
+                        </td>
                         <td className={`py-2.5 px-3 text-right font-medium ${
                           sub.price_change_24h == null ? "text-gray-600" :
                           sub.price_change_24h > 0 ? "text-green-400" :
@@ -578,9 +597,6 @@ export default function Home() {
                           {sub.price_change_24h != null
                             ? `${sub.price_change_24h > 0 ? "+" : ""}${sub.price_change_24h.toFixed(1)}%`
                             : "\u2014"}
-                        </td>
-                        <td className="py-2.5 px-3 text-right text-gray-400">
-                          {sub.market_cap != null ? `$${formatNum(sub.market_cap)}` : "\u2014"}
                         </td>
                         <td className={`py-2.5 px-3 text-right ${flowColor(sub.net_flow_24h)}`}>
                           {sub.net_flow_24h != null
