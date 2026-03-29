@@ -356,7 +356,7 @@ export async function GET() {
   const activeDevSubnets = devActivity
     .filter(a => a.commits_1d > 0 || a.prs_merged_1d > 0)
     .sort((a, b) => (b.commits_1d + b.prs_merged_1d * 5) - (a.commits_1d + a.prs_merged_1d * 5))
-    .slice(0, 12);
+    .slice(0, 8);
 
   console.log(`[scan] Fetching commit/PR details for ${activeDevSubnets.length} active subnets...`);
 
@@ -364,28 +364,25 @@ export async function GET() {
   type DevContext = { act: GithubActivity; owner: string; repo: string; commits: string[]; prs: string[]; release: { tag: string; name: string; body: string; date: string } | null };
   const devContexts: DevContext[] = [];
 
-  for (let batch = 0; batch < activeDevSubnets.length; batch += 5) {
-    const batchItems = activeDevSubnets.slice(batch, batch + 5);
-    const results = await Promise.allSettled(
-      batchItems.map(async (act) => {
-        let repoPath = act.repo_url;
-        if (repoPath.includes("github.com/")) repoPath = repoPath.split("github.com/")[1];
-        repoPath = repoPath.replace(/^\/|\/$/g, "").replace(/\.git$/, "");
-        const parts = repoPath.split("/");
-        if (parts.length < 2) return null;
-        const [owner, repo] = parts;
-        const [commits, prs, release] = await Promise.all([
-          fetchRecentCommits(owner, repo, 7),
-          fetchRecentPRs(owner, repo, 3),
-          fetchLatestRelease(owner, repo),
-        ]);
-        return { act, owner, repo, commits, prs, release };
-      })
-    );
-    for (const r of results) {
-      if (r.status === "fulfilled" && r.value) devContexts.push(r.value);
-    }
-    if (batch + 5 < activeDevSubnets.length) await new Promise(r => setTimeout(r, 200));
+  // Fetch all in parallel (8 repos × 3 calls = 24 requests, well within GitHub 5K/hr limit)
+  const results = await Promise.allSettled(
+    activeDevSubnets.map(async (act) => {
+      let repoPath = act.repo_url;
+      if (repoPath.includes("github.com/")) repoPath = repoPath.split("github.com/")[1];
+      repoPath = repoPath.replace(/^\/|\/$/g, "").replace(/\.git$/, "");
+      const parts = repoPath.split("/");
+      if (parts.length < 2) return null;
+      const [owner, repo] = parts;
+      const [commits, prs, release] = await Promise.all([
+        fetchRecentCommits(owner, repo, 5),
+        fetchRecentPRs(owner, repo, 3),
+        fetchLatestRelease(owner, repo),
+      ]);
+      return { act, owner, repo, commits, prs, release };
+    })
+  );
+  for (const r of results) {
+    if (r.status === "fulfilled" && r.value) devContexts.push(r.value);
   }
 
   console.log(`[scan] Got context for ${devContexts.length} repos. Analyzing with AI...`);
@@ -474,24 +471,22 @@ Now write your intelligence report using this EXACT format. Each section should 
     return desc || `${ctx.act.commits_1d} commits and ${ctx.act.prs_merged_1d} PRs merged today.`;
   }
 
-  // Run AI analysis in parallel batches of 5
-  const aiStartTime = Date.now();
+  // Run ALL AI analyses in parallel (8 calls to Haiku ~3-4s total)
+  const timeLeftForAI = 58000 - (Date.now() - startTime);
+  console.log(`[scan] Running AI analysis on ${devContexts.length} signals (${(timeLeftForAI/1000).toFixed(0)}s left)...`);
+
   const analyzedDevSignals: { ctx: DevContext; analysis: string }[] = [];
-  for (let batch = 0; batch < devContexts.length; batch += 5) {
-    const batchItems = devContexts.slice(batch, batch + 5);
-    const timeLeft = 57000 - (Date.now() - startTime);
-    console.log(`[scan] AI batch ${batch/5 + 1}: ${batchItems.length} signals, ${(timeLeft/1000).toFixed(0)}s left`);
-    if (timeLeft < 4000) {
-      // Out of time — use fallback for remaining
-      for (const ctx of devContexts.slice(batch)) {
-        analyzedDevSignals.push({ ctx, analysis: buildFallbackDescription(ctx) });
-      }
-      break;
-    }
-    const results = await Promise.all(
-      batchItems.map(async (ctx) => ({ ctx, analysis: await analyzeDevActivity(ctx) }))
+  if (timeLeftForAI > 5000 && ANTHROPIC_KEY) {
+    const aiResults = await Promise.all(
+      devContexts.map(async (ctx) => ({ ctx, analysis: await analyzeDevActivity(ctx) }))
     );
-    analyzedDevSignals.push(...results);
+    analyzedDevSignals.push(...aiResults);
+  } else {
+    // Out of time or no API key — use fallback
+    console.log(`[scan] Skipping AI (${timeLeftForAI < 5000 ? 'no time' : 'no key'}), using fallback`);
+    for (const ctx of devContexts) {
+      analyzedDevSignals.push({ ctx, analysis: buildFallbackDescription(ctx) });
+    }
   }
 
   console.log(`[scan] Analyzed ${analyzedDevSignals.length} dev signals with AI.`);
