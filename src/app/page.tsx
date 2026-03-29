@@ -202,6 +202,59 @@ export default function Home() {
     }
   }, [runScan]);
 
+  // Lazy-load AI analysis for signals that don't have it
+  const analyzingRef = useRef(new Set<number>());
+
+  useEffect(() => {
+    if (signals.length === 0 || scanning) return;
+
+    const unanalyzed = signals.filter(
+      (s) => !s.analysis && s.strength >= 40 && !analyzingRef.current.has(s.id)
+    );
+    if (unanalyzed.length === 0) return;
+
+    // Analyze up to 5 at a time, staggered
+    const batch = unanalyzed.slice(0, 5);
+    for (const sig of batch) {
+      analyzingRef.current.add(sig.id);
+    }
+
+    const analyzeSignal = async (sig: Signal) => {
+      const subnetData = leaderboard.find((s) => s.netuid === sig.netuid);
+      try {
+        const res = await fetch("/api/analyze-signal", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: sig.title,
+            description: sig.description,
+            subnet_name: sig.subnet_name,
+            netuid: sig.netuid,
+            composite_score: subnetData?.composite_score,
+            alpha_price: subnetData?.alpha_price,
+            price_change_24h: subnetData?.price_change_24h,
+            market_cap: subnetData?.market_cap,
+          }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.analysis) {
+            setSignals((prev) =>
+              prev.map((s) => (s.id === sig.id ? { ...s, analysis: data.analysis } : s))
+            );
+          }
+        }
+      } catch {
+        // silently fail
+      }
+    };
+
+    // Stagger calls with 500ms delay between each
+    batch.forEach((sig, i) => {
+      setTimeout(() => analyzeSignal(sig), i * 500);
+    });
+  }, [signals, leaderboard, scanning]);
+
   // Get detail for a selected subnet from the leaderboard/signals data we already have
   const getSubnetDetail = (netuid: number) => {
     setSelectedSubnet(netuid);

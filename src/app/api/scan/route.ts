@@ -100,6 +100,7 @@ interface ScanSignal {
   source_url?: string;
   created_at: string;
   subnet_name?: string;
+  analysis?: string;
 }
 
 interface LeaderboardEntry {
@@ -730,6 +731,54 @@ export async function GET() {
 
   // Sort signals by strength desc
   signals.sort((a, b) => b.strength - a.strength);
+
+  // ── Step 7: Analyze top signals with AI (if time permits) ─────
+  const elapsed7 = Date.now() - startTime;
+  const timeLeftForAI = 55000 - elapsed7;
+  const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
+
+  if (ANTHROPIC_KEY && timeLeftForAI > 8000) {
+    const topSignals = signals.slice(0, Math.min(3, Math.floor(timeLeftForAI / 3000)));
+    console.log(`[scan] Analyzing ${topSignals.length} signals with AI (${(timeLeftForAI/1000).toFixed(0)}s left)...`);
+
+    const analyzePromises = topSignals.map(async (sig) => {
+      try {
+        const subnetData = leaderboard.find(s => s.netuid === sig.netuid);
+        const prompt = `You are AlphaGap, a Bittensor subnet intelligence analyst. Analyze this signal and explain it in 2-3 sentences. Be specific about WHAT happened and WHY it matters for the subnet's alpha token price. No emoji, no headers.
+
+Signal: ${sig.title}
+Details: ${sig.description || ""}
+Subnet: ${sig.subnet_name || `SN${sig.netuid}`} (aGap score: ${subnetData?.composite_score || "?"})
+Price: $${subnetData?.alpha_price?.toFixed(2) || "?"} (24h: ${subnetData?.price_change_24h?.toFixed(1) || "?"}%)
+MCap: $${subnetData?.market_cap ? (subnetData.market_cap / 1e6).toFixed(1) + "M" : "?"}`;
+
+        const res = await fetch("https://api.anthropic.com/v1/messages", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": ANTHROPIC_KEY,
+            "anthropic-version": "2023-06-01",
+          },
+          body: JSON.stringify({
+            model: "claude-haiku-4-5-20251001",
+            max_tokens: 200,
+            messages: [{ role: "user", content: prompt }],
+          }),
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          const text = data.content?.[0]?.text;
+          if (text) sig.analysis = text;
+        }
+      } catch (e) {
+        console.error(`[scan] AI analysis failed for signal ${sig.id}:`, e);
+      }
+    });
+
+    await Promise.all(analyzePromises);
+    console.log(`[scan] AI analysis done.`);
+  }
 
   const duration = Date.now() - startTime;
   console.log(`[scan] Complete in ${duration}ms. ${leaderboard.length} subnets, ${signals.length} signals.`);
