@@ -41,7 +41,7 @@ export async function collectRevenueData(): Promise<{ subnets: number; burnedAlp
     console.error("Failed to fetch emissions for revenue:", e);
   }
 
-  await new Promise(r => setTimeout(r, 1500));
+  await new Promise(r => setTimeout(r, 500));
 
   // 2. Get burned alpha
   const burnedMap = new Map<number, number>();
@@ -58,7 +58,7 @@ export async function collectRevenueData(): Promise<{ subnets: number; burnedAlp
     console.error("Failed to fetch burned alpha:", e);
   }
 
-  await new Promise(r => setTimeout(r, 1500));
+  await new Promise(r => setTimeout(r, 500));
 
   // 3. Get pool data for inflow/outflow/liquidity (re-use from current metrics)
   const poolData = db.prepare(

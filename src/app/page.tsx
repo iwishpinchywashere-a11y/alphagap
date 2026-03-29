@@ -186,48 +186,23 @@ export default function Home() {
   const runCollector = async () => {
     setCollecting(true);
     setCollectResult(null);
-    setCollectStep(null);
-
-    const steps = [
-      { name: "TaoStats", url: "/api/collect/taostats" },
-      { name: "GitHub", url: "/api/collect/github" },
-      { name: "HuggingFace", url: "/api/collect/huggingface" },
-      { name: "Social", url: "/api/collect/social" },
-      { name: "Staking", url: "/api/collect/staking" },
-      { name: "Revenue", url: "/api/collect/revenue" },
-      { name: "AI Analysis", url: "/api/collect/analyze" },
-    ];
-
-    const startTime = Date.now();
-    let completed = 0;
-    let lastError: string | null = null;
-
-    for (const step of steps) {
-      setCollectStep(`Scanning ${step.name}... (${completed + 1}/${steps.length})`);
-      try {
-        const res = await fetch(step.url, { method: "POST" });
-        const data = await res.json();
-        if (!data.ok) {
-          lastError = `${step.name}: ${data.error}`;
-          console.error(`Collector step ${step.name} failed:`, data.error);
-        }
-      } catch (e) {
-        lastError = `${step.name}: ${e}`;
-        console.error(`Collector step ${step.name} error:`, e);
-      }
-      completed++;
+    setCollectStep("⟳ Scanning all sources...");
+    try {
+      const res = await fetch("/api/collect", { method: "POST" });
+      const data = await res.json();
+      setLastCollect(new Date().toLocaleTimeString());
+      setCollectResult(
+        data.ok
+          ? `Done in ${(data.duration_ms / 1000).toFixed(1)}s`
+          : `Error: ${data.error}`
+      );
+      await fetchData();
+    } catch (e) {
+      setCollectResult(`Error: ${e}`);
+    } finally {
+      setCollectStep(null);
+      setCollecting(false);
     }
-
-    const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-    setLastCollect(new Date().toLocaleTimeString());
-    setCollectResult(
-      lastError
-        ? `Done in ${elapsed}s (some errors — check console)`
-        : `Done in ${elapsed}s`
-    );
-    setCollectStep(null);
-    await fetchData();
-    setCollecting(false);
   };
 
   const fetchSubnetDetail = async (netuid: number) => {

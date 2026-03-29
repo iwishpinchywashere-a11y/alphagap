@@ -55,7 +55,7 @@ export async function collectStakingData(): Promise<{ subnets: number; validator
     console.error("Failed to fetch validator alpha shares:", e);
   }
 
-  await new Promise(r => setTimeout(r, 1500));
+  await new Promise(r => setTimeout(r, 500));
 
   // 2. Get registration costs (demand for subnet slots)
   const regCostMap = new Map<number, number>();
@@ -68,64 +68,12 @@ export async function collectStakingData(): Promise<{ subnets: number; validator
     console.error("Failed to fetch registration costs:", e);
   }
 
-  await new Promise(r => setTimeout(r, 1500));
-
-  // 3. Sample metagraph for a few key subnets (top 30 by market cap)
-  // Full metagraph for all 128 would be too many API calls
-  const topSubnets = db.prepare(
-    `SELECT DISTINCT netuid FROM subnet_metrics
-     WHERE market_cap IS NOT NULL AND netuid > 0
-     ORDER BY market_cap DESC LIMIT 10`
-  ).all() as Array<{ netuid: number }>;
-
-  const metagraphMap = new Map<number, {
-    minerCount: number;
-    avgIncentive: number;
-    avgTrust: number;
-  }>();
-
-  for (const sub of topSubnets) {
-    try {
-      const neurons = await taostats.getMetagraph(sub.netuid);
-      if (neurons.length > 0) {
-        const miners = neurons.filter(n => !n.validator_permit);
-        const activeNeurons = neurons.filter(n => n.active);
-
-        const avgIncentive = activeNeurons.length > 0
-          ? activeNeurons.reduce((sum, n) => sum + parseFloat(n.incentive || "0"), 0) / activeNeurons.length
-          : 0;
-        const avgTrust = activeNeurons.length > 0
-          ? activeNeurons.reduce((sum, n) => sum + parseFloat(n.trust || "0"), 0) / activeNeurons.length
-          : 0;
-
-        metagraphMap.set(sub.netuid, {
-          minerCount: miners.length,
-          avgIncentive,
-          avgTrust,
-        });
-      }
-      await new Promise(r => setTimeout(r, 500)); // rate limit
-    } catch (e) {
-      console.error(`Failed to fetch metagraph for SN${sub.netuid}:`, e);
-    }
-  }
-
-  // 4. Get recent registration events for the top subnets
+  // Skip metagraph and registration event polling on Vercel (too slow).
+  // Alpha shares + reg costs are the high-value data anyway.
+  const metagraphMap = new Map<number, { minerCount: number; avgIncentive: number; avgTrust: number }>();
   const regCountMap = new Map<number, { regs: number; deregs: number }>();
-  const since24h = new Date(Date.now() - 86400000).toISOString();
 
-  // Only check top 10 subnets for registration events (expensive call)
-  for (const sub of topSubnets.slice(0, 10)) {
-    try {
-      const regs = await taostats.getNeuronRegistrations(sub.netuid, since24h);
-      regCountMap.set(sub.netuid, { regs: regs.length, deregs: 0 }); // deregistrations would need a separate endpoint
-      await new Promise(r => setTimeout(r, 500));
-    } catch (e) {
-      // ignore individual failures
-    }
-  }
-
-  // 5. Insert everything into DB
+  // Insert everything into DB
   const allNetuids = new Set([
     ...alphaSharesMap.keys(),
     ...regCostMap.keys(),

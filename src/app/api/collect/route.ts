@@ -1,14 +1,15 @@
 import { NextResponse } from "next/server";
-import { collectAll } from "@/lib/collectors";
+import { collectAll, collectAllFast } from "@/lib/collectors";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 300;
+export const maxDuration = 60;
 
-// Local dev: calls all collectors sequentially in one request
-// On Vercel, use the individual endpoints instead (each under 60s)
 export async function POST() {
   try {
-    const result = await collectAll();
+    // On Vercel, use the fast version that fits in 60s
+    // Locally, use the full version with direct GitHub polling
+    const isVercel = !!process.env.VERCEL;
+    const result = isVercel ? await collectAllFast() : await collectAll();
     return NextResponse.json({ ok: true, ...result });
   } catch (e) {
     return NextResponse.json(
@@ -20,6 +21,6 @@ export async function POST() {
 
 export async function GET() {
   return NextResponse.json({
-    message: "POST to this endpoint to trigger data collection. On Vercel, use individual endpoints: /api/collect/taostats, /api/collect/github, etc.",
+    message: "POST to this endpoint to trigger data collection",
   });
 }

@@ -133,7 +133,7 @@ Rules:
 }
 
 // ── Analyze all pending signals ──────────────────────────────────
-export async function analyzePendingSignals(): Promise<number> {
+export async function analyzePendingSignals(maxBatch: number = 200): Promise<number> {
   const db = getDb();
 
   // Get signals that need analysis
@@ -144,9 +144,9 @@ export async function analyzePendingSignals(): Promise<number> {
        AND s.analysis_status != 'failed'
        AND s.strength >= 20
        ORDER BY s.strength DESC
-       LIMIT 200`
+       LIMIT ?`
     )
-    .all() as RawSignal[];
+    .all(maxBatch) as RawSignal[];
 
   if (pending.length === 0) return 0;
 

@@ -63,11 +63,11 @@ export async function collectTaoStats(): Promise<{
   try {
     // Sequential with delays to avoid TaoStats 429 rate limits
     const flows = await taostats.getTaoFlows();
-    await new Promise(r => setTimeout(r, 1000));
+    await new Promise(r => setTimeout(r, 300));
     const pools = await taostats.getSubnetPools();
-    await new Promise(r => setTimeout(r, 1000));
+    await new Promise(r => setTimeout(r, 300));
     const emissions = await taostats.getSubnetEmissions();
-    await new Promise(r => setTimeout(r, 1000));
+    await new Promise(r => setTimeout(r, 300));
     const taoUsdPrice = await taostats.getTaoPrice();
 
     console.log(`TAO/USD price: $${taoUsdPrice.toFixed(2)}`);
@@ -470,7 +470,159 @@ export async function collectHuggingFace(): Promise<{
   return { orgs: orgCount, items: itemCount, signals: signalCount };
 }
 
-// ── Run all collectors ───────────────────────────────────────────
+// ── Fast collector for Vercel (fits in 60s) ─────────────────────
+// Skips direct GitHub repo polling and heavy metagraph calls.
+// Uses TaoStats dev_activity for GitHub data instead.
+export async function collectAllFast() {
+  const db = getDb();
+  const startTime = Date.now();
+  const results: Record<string, unknown> = {};
+
+  // 1. TaoStats (subnets, flows, pools, emissions, signals) ~8s
+  try {
+    const tao = await collectTaoStats();
+    results.taostats = tao;
+  } catch (e) {
+    results.taostats = { error: String(e) };
+  }
+
+  // 2. GitHub — ONLY TaoStats dev_activity (skip direct repo polling) ~3s
+  try {
+    const gh = await collectGitHubFast();
+    results.github = gh;
+  } catch (e) {
+    results.github = { error: String(e) };
+  }
+
+  // 3. HuggingFace ~10s
+  try {
+    const hfResult = await collectHuggingFace();
+    results.huggingface = hfResult;
+  } catch (e) {
+    results.huggingface = { error: String(e) };
+  }
+
+  // 4. Social (Desearch + Reddit) ~8s
+  try {
+    const social = await collectSocial();
+    results.social = social;
+  } catch (e) {
+    results.social = { error: String(e) };
+  }
+
+  // 5. Staking — LIGHT version (alpha shares + reg costs only, no metagraph) ~5s
+  try {
+    const staking = await collectStakingData();
+    results.staking = staking;
+  } catch (e) {
+    results.staking = { error: String(e) };
+  }
+
+  // 6. Revenue ~5s
+  try {
+    const revenue = await collectRevenueData();
+    results.revenue = revenue;
+  } catch (e) {
+    results.revenue = { error: String(e) };
+  }
+
+  // 7. AI Analysis — limit to 5 signals to stay under 60s ~15s
+  try {
+    const analyzed = await analyzePendingSignals(5);
+    results.analyzer = { analyzed };
+  } catch (e) {
+    results.analyzer = { error: String(e) };
+  }
+
+  return {
+    duration_ms: Date.now() - startTime,
+    results,
+  };
+}
+
+// ── GitHub Fast (TaoStats dev_activity only, no direct polling) ──
+async function collectGitHubFast(): Promise<{ repos: number; events: number; signals: number }> {
+  const db = getDb();
+  let repoCount = 0;
+  let eventCount = 0;
+  let signalCount = 0;
+
+  // Build repo registry from subnets table
+  const subnetsWithGithub = db
+    .prepare("SELECT netuid, github_url FROM subnets WHERE github_url IS NOT NULL AND github_url != ''")
+    .all() as Array<{ netuid: number; github_url: string }>;
+
+  const upsertRepo = db.prepare(`
+    INSERT INTO github_repos (netuid, org, repo, full_name)
+    VALUES (?, ?, ?, ?)
+    ON CONFLICT(full_name) DO UPDATE SET netuid = excluded.netuid
+  `);
+
+  for (const s of subnetsWithGithub) {
+    let fullName = s.github_url;
+    if (fullName.includes("github.com/")) fullName = fullName.split("github.com/")[1];
+    fullName = fullName.replace(/^\/|\/$/g, "").replace(/\.git$/, "");
+    const parts = fullName.split("/");
+    if (parts.length >= 2) {
+      upsertRepo.run(s.netuid, parts[0], parts[1], `${parts[0]}/${parts[1]}`);
+      repoCount++;
+    }
+  }
+
+  // Use TaoStats dev_activity (much faster than polling 100+ repos)
+  try {
+    await new Promise(r => setTimeout(r, 300));
+    const devActivity = await taostats.getGithubActivity();
+    const insertEvent = db.prepare(`
+      INSERT OR IGNORE INTO github_events
+        (netuid, repo, event_type, event_id, title, description, url, author, created_at, significance)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+
+    for (const act of devActivity) {
+      let repoName = act.repo_url;
+      if (repoName.includes("github.com/")) repoName = repoName.split("github.com/")[1];
+      repoName = repoName.replace(/^\/|\/$/g, "");
+
+      const eventId = `taostats-${act.netuid}-${act.as_of_day}`;
+      const significance = Math.min(100, act.commits_1d * 3 + act.prs_merged_1d * 20 + act.reviews_1d * 5);
+
+      if (significance > 5) {
+        insertEvent.run(act.netuid, repoName, "DevActivity", eventId,
+          `${act.commits_1d} commits, ${act.prs_merged_1d} PRs merged (${act.unique_contributors_1d} contributors)`,
+          `7d: ${act.commits_7d} commits, ${act.prs_merged_7d} PRs. 30d: ${act.commits_30d} commits, ${act.unique_contributors_30d} contributors.`,
+          act.repo_url, `${act.unique_contributors_1d} contributors`, act.last_event_at || act.as_of_day, significance
+        );
+        eventCount++;
+      }
+
+      if (act.commits_1d > 5 || act.prs_merged_1d > 1) {
+        insertSignal({
+          netuid: act.netuid, signal_type: "dev_spike",
+          strength: Math.min(90, 30 + act.commits_1d * 2 + act.prs_merged_1d * 10),
+          title: `Hot dev activity: ${act.commits_1d} commits, ${act.prs_merged_1d} PRs in 24h`,
+          description: `${repoName} — ${act.unique_contributors_1d} active contributors. 7d trend: ${act.commits_7d} commits.`,
+          source: "github", source_url: act.repo_url,
+        });
+        signalCount++;
+      }
+    }
+  } catch (e) {
+    console.error("Failed to fetch TaoStats dev activity:", e);
+  }
+
+  // Detect dev spikes
+  try {
+    const devSignals = detectDevSpikes();
+    for (const sig of devSignals) { insertSignal(sig); signalCount++; }
+  } catch (e) {
+    console.error("Failed to detect dev signals:", e);
+  }
+
+  return { repos: repoCount, events: eventCount, signals: signalCount };
+}
+
+// ── Run all collectors (full version for local dev) ──────────────
 export async function collectAll() {
   const db = getDb();
   const startTime = Date.now();
