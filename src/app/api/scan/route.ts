@@ -805,7 +805,7 @@ MCap: $${subnetData?.market_cap ? (subnetData.market_cap / 1e6).toFixed(1) + "M"
   try {
     if (process.env.BLOB_READ_WRITE_TOKEN) {
       await put("scan-latest.json", JSON.stringify(responseData), {
-        access: "public",
+        access: "private",
         addRandomSuffix: false,
         contentType: "application/json",
       });

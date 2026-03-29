@@ -1,25 +1,27 @@
 import { NextResponse } from "next/server";
-import { head } from "@vercel/blob";
+import { list } from "@vercel/blob";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
-    // Check if cached scan exists
-    const blobInfo = await head("scan-latest.json");
-    if (!blobInfo?.url) {
+    // List blobs to find scan-latest.json
+    const { blobs } = await list({ prefix: "scan-latest.json", limit: 1 });
+    if (!blobs || blobs.length === 0) {
       return NextResponse.json({ cached: false }, { status: 404 });
     }
 
-    // Fetch the cached JSON from the public blob URL
-    const res = await fetch(blobInfo.url, { cache: "no-store" });
+    const blob = blobs[0];
+    // Fetch the blob content via its download URL
+    const res = await fetch(blob.downloadUrl, { cache: "no-store" });
     if (!res.ok) {
       return NextResponse.json({ cached: false }, { status: 404 });
     }
 
     const data = await res.json();
     return NextResponse.json({ ...data, cached: true });
-  } catch {
-    return NextResponse.json({ cached: false }, { status: 404 });
+  } catch (e) {
+    console.error("[cached-scan] Error:", e);
+    return NextResponse.json({ cached: false, error: String(e) }, { status: 404 });
   }
 }
