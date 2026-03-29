@@ -236,7 +236,8 @@ export async function GET() {
 
   // ── Step 3: HuggingFace (parallel, top 15 orgs) ────────────────
   const timeLeftForHF = 50000 - (Date.now() - startTime);
-  const hfActivityMap = new Map<number, { models: number; datasets: number; spaces: number; downloads: number }>();
+  type HFActivity = { models: number; datasets: number; spaces: number; downloads: number; modelNames: string[]; datasetNames: string[]; spaceNames: string[] };
+  const hfActivityMap = new Map<number, HFActivity>();
 
   if (timeLeftForHF > 10000) {
     console.log("[scan] Fetching HuggingFace data...");
@@ -267,6 +268,9 @@ export async function GET() {
         datasets: (existing?.datasets || 0) + datasets.length,
         spaces: (existing?.spaces || 0) + spaces.length,
         downloads: (existing?.downloads || 0) + totalDownloads,
+        modelNames: [...(existing?.modelNames || []), ...models.map(m => `${m.id} (${(m.downloads||0).toLocaleString()} downloads)`)],
+        datasetNames: [...(existing?.datasetNames || []), ...datasets.map(d => `${d.id} (${(d.downloads||0).toLocaleString()} downloads)`)],
+        spaceNames: [...(existing?.spaceNames || []), ...spaces.map(s => `${s.id}`)],
       });
     }
     console.log(`[scan] HuggingFace done. ${hfActivityMap.size} subnets with HF data.`);
@@ -555,12 +559,19 @@ Now write your intelligence report using this EXACT format. Each section should 
     if (hf.models > 0) parts.push(`${hf.models} model${hf.models > 1 ? "s" : ""}`);
     if (hf.datasets > 0) parts.push(`${hf.datasets} dataset${hf.datasets > 1 ? "s" : ""}`);
     if (hf.spaces > 0) parts.push(`${hf.spaces} space${hf.spaces > 1 ? "s" : ""}`);
+    // Build detailed description with actual model/dataset names for AI analysis
+    const detailParts: string[] = [];
+    if (hf.modelNames.length > 0) detailParts.push(`Models: ${hf.modelNames.slice(0, 5).join("; ")}`);
+    if (hf.datasetNames.length > 0) detailParts.push(`Datasets: ${hf.datasetNames.slice(0, 5).join("; ")}`);
+    if (hf.spaceNames.length > 0) detailParts.push(`Spaces: ${hf.spaceNames.slice(0, 3).join("; ")}`);
+    const detailedDesc = `${org} has ${parts.join(", ")} on HuggingFace (${hf.downloads.toLocaleString()} total downloads).\n${detailParts.join("\n")}`;
+
     addSignal({
       netuid,
       signal_type: "hf_update",
       strength: Math.min(80, 25 + hf.models * 8 + hf.datasets * 5 + hf.spaces * 3 + Math.min(hf.downloads / 500, 20)),
-      title: `${name}: New AI assets on HuggingFace`,
-      description: `${org} has ${parts.join(", ")} published on HuggingFace with ${hf.downloads.toLocaleString()} total downloads. This indicates active model development and deployment — check their HuggingFace page for specific model architectures and benchmarks.`,
+      title: `${name}: AI models & datasets on HuggingFace`,
+      description: detailedDesc,
       source: "huggingface",
       source_url: `https://huggingface.co/${org}`,
       subnet_name: name,

@@ -230,9 +230,9 @@ export default function Home() {
   useEffect(() => {
     if (signals.length === 0 || scanning) return;
 
-    // Auto-analyze signals that don't have AI analysis (no structured sections in description AND no analysis field)
+    // Auto-analyze ALL signals that don't have AI analysis (no 🔧 in description)
     const unanalyzed = signals.filter(
-      (s) => !s.analysis && !(s.description || "").includes("🔧") && s.signal_type === "dev_spike" && !analyzingRef.current.has(s.id)
+      (s) => !s.analysis && !(s.description || "").includes("🔧") && (s.signal_type === "dev_spike" || s.signal_type === "hf_update") && !analyzingRef.current.has(s.id)
     );
     if (unanalyzed.length === 0) return;
 
