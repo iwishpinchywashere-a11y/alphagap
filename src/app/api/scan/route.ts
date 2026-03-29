@@ -807,6 +807,7 @@ MCap: $${subnetData?.market_cap ? (subnetData.market_cap / 1e6).toFixed(1) + "M"
       await put("scan-latest.json", JSON.stringify(responseData), {
         access: "private",
         addRandomSuffix: false,
+        allowOverwrite: true,
         contentType: "application/json",
       });
       console.log("[scan] Cached to Vercel Blob.");
