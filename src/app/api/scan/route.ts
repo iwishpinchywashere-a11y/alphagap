@@ -142,62 +142,44 @@ export async function GET() {
   // ── Step 1: Sequential TaoStats calls to avoid 429 rate limits ──
   // Each call separated by 1s delay. TaoStats enforces strict rate limiting.
   console.log("[scan] Fetching identities...");
-  let identities: Awaited<ReturnType<typeof getSubnetIdentities>> = [];
-  try { identities = await getSubnetIdentities(); } catch (e) { console.error("[scan] identities failed:", e); }
-
-  await new Promise(r => setTimeout(r, 1000));
-
-  console.log("[scan] Fetching pools + price...");
-  const [poolsResult, taoPriceResult] = await Promise.allSettled([
+  // With upgraded TaoStats API, we can parallelize more aggressively
+  // Batch 1: identities + pools + price (all parallel)
+  console.log("[scan] Batch 1: identities + pools + price...");
+  const [idResult, poolsResult, taoPriceResult] = await Promise.allSettled([
+    getSubnetIdentities(),
     getSubnetPools(),
     getTaoPrice(),
   ]);
+  let identities = idResult.status === "fulfilled" ? idResult.value : ([] as Awaited<ReturnType<typeof getSubnetIdentities>>);
   const pools = poolsResult.status === "fulfilled" ? poolsResult.value : [];
   const taoPrice = taoPriceResult.status === "fulfilled" ? taoPriceResult.value : 0;
+  console.log(`[scan] Batch 1 done: ${identities.length} ids, ${pools.length} pools, TAO=$${taoPrice.toFixed(2)}`);
 
-  console.log(`[scan] Got ${identities.length} identities, ${pools.length} pools, TAO=$${taoPrice.toFixed(2)}`);
+  await new Promise(r => setTimeout(r, 500));
 
-  await new Promise(r => setTimeout(r, 1000));
-
-  // Batch 2: Flows, emissions, dev activity (2 parallel + 1 sequential)
-  console.log("[scan] Fetching flows + emissions...");
-  const [flowsResult, emissionsResult] = await Promise.allSettled([
+  // Batch 2: flows + emissions + dev activity (all parallel)
+  console.log("[scan] Batch 2: flows + emissions + dev activity...");
+  const [flowsResult, emissionsResult, devResult] = await Promise.allSettled([
     getTaoFlows(),
     getSubnetEmissions(),
+    getGithubActivity(),
   ]);
   const flows = flowsResult.status === "fulfilled" ? flowsResult.value : [];
   const emissions = emissionsResult.status === "fulfilled" ? emissionsResult.value : [];
+  let devActivity = devResult.status === "fulfilled" ? devResult.value : ([] as Awaited<ReturnType<typeof getGithubActivity>>);
+  console.log(`[scan] Batch 2 done: ${flows.length} flows, ${emissions.length} emissions, ${devActivity.length} dev`);
 
-  await new Promise(r => setTimeout(r, 2000));
+  await new Promise(r => setTimeout(r, 500));
 
-  console.log("[scan] Fetching dev activity...");
-  let devActivity: Awaited<ReturnType<typeof getGithubActivity>> = [];
-  try {
-    devActivity = await getGithubActivity();
-  } catch {
-    // Retry once after 3s if rate-limited
-    console.log("[scan] dev_activity failed, retrying in 3s...");
-    await new Promise(r => setTimeout(r, 3000));
-    try { devActivity = await getGithubActivity(); } catch (e2) { console.error("[scan] devActivity retry failed:", e2); }
-  }
-  console.log(`[scan] Dev activity: ${devActivity.length} subnets`);
-
-  await new Promise(r => setTimeout(r, 1500));
-
-  // Batch 3: Staking + revenue data (sequential)
-  console.log("[scan] Fetching staking + revenue data...");
+  // Batch 3: staking + revenue (all parallel)
+  console.log("[scan] Batch 3: staking + revenue...");
   let alphaSharesResult: PromiseSettledResult<Awaited<ReturnType<typeof getValidatorAlphaShares>>>;
   let regCostsResult: PromiseSettledResult<Awaited<ReturnType<typeof getRegistrationCosts>>>;
   let burnedAlphaResult: PromiseSettledResult<Awaited<ReturnType<typeof getBurnedAlpha>>>;
 
-  [alphaSharesResult, regCostsResult] = await Promise.allSettled([
+  [alphaSharesResult, regCostsResult, burnedAlphaResult] = await Promise.allSettled([
     getValidatorAlphaShares(),
     getRegistrationCosts(),
-  ]);
-
-  await new Promise(r => setTimeout(r, 1000));
-
-  [burnedAlphaResult] = await Promise.allSettled([
     getBurnedAlpha(),
   ]);
 
