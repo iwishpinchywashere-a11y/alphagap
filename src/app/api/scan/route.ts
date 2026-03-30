@@ -78,13 +78,19 @@ async function fetchTweets(
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 12000);
     const params = new URLSearchParams({ query, sort, count: count.toString(), lang: "en" });
-    const res = await fetch(`${DESEARCH_API}/twitter?${params}`, {
+    const url = `${DESEARCH_API}/twitter?${params}`;
+    const res = await fetch(url, {
       headers: { Authorization: DESEARCH_KEY },
       signal: controller.signal,
     });
     clearTimeout(timeout);
-    if (!res.ok) return [];
-    return await res.json();
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      console.error(`[desearch] ${res.status} for query "${query}": ${text}`);
+      return [];
+    }
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
   } catch {
     return [];
   }
