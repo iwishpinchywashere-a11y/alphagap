@@ -374,7 +374,64 @@ export async function GET() {
       existing.engagement += engagement;
       socialMap.set(netuid, existing);
     }
-    console.log(`[scan] Desearch done. ${allTweets.size} tweets matched to ${socialMap.size} subnets.`);
+    console.log(`[scan] Desearch broad search done. ${allTweets.size} tweets matched to ${socialMap.size} subnets.`);
+
+    // PASS 2: Search for tweets FROM official subnet X handles
+    // This captures the subnet's own posting activity + engagement
+    const twitterHandleMap = new Map<string, number>(); // handle -> netuid
+    for (const id of identities) {
+      if (id.twitter) {
+        let handle = id.twitter.replace(/https?:\/\/(twitter|x)\.com\//g, "").replace("@", "").replace(/\/$/,"");
+        if (handle) twitterHandleMap.set(handle.toLowerCase(), id.netuid);
+      }
+    }
+
+    // Search for top 15 subnet handles (batch into 3 queries of 5 handles each)
+    // Prioritize subnets with high emissions or dev activity
+    const priorityNetuids = new Set([
+      ...devActivity.filter(a => a.commits_1d > 0).map(a => a.netuid).slice(0, 10),
+      ...[...poolMap.entries()].sort((a, b) => parseFloat(b[1].root_prop || "0") - parseFloat(a[1].root_prop || "0")).slice(0, 10).map(([n]) => n),
+    ]);
+
+    const handleEntries = [...twitterHandleMap.entries()]
+      .filter(([, netuid]) => priorityNetuids.has(netuid))
+      .slice(0, 15);
+
+    if (handleEntries.length > 0) {
+      // Batch handles into groups of 5 for Desearch "from:" queries
+      const handleBatches: string[][] = [];
+      for (let i = 0; i < handleEntries.length; i += 5) {
+        handleBatches.push(handleEntries.slice(i, i + 5).map(([h]) => h));
+      }
+
+      try {
+        const handleResults = await Promise.allSettled(
+          handleBatches.map(batch => {
+            const query = batch.map(h => `from:${h}`).join(" OR ");
+            return fetchTweets(query, 50, "Latest");
+          })
+        );
+
+        for (const r of handleResults) {
+          if (r.status !== "fulfilled") continue;
+          for (const tweet of r.value) {
+            // Match by tweet author handle
+            const authorHandle = tweet.user?.username?.toLowerCase() || "";
+            const netuid = twitterHandleMap.get(authorHandle);
+            if (!netuid) continue;
+
+            const engagement = tweet.like_count + tweet.retweet_count + tweet.reply_count + (tweet.quote_count || 0);
+            const existing = socialMap.get(netuid) || { mentions: 0, engagement: 0 };
+            existing.mentions++;
+            existing.engagement += engagement;
+            socialMap.set(netuid, existing);
+          }
+        }
+        console.log(`[scan] Desearch handle search done. ${socialMap.size} subnets with social data.`);
+      } catch (e) {
+        console.error("[scan] Desearch handle search error:", e);
+      }
+    }
   }
 
   // ── Step 5: Generate signals (dev + HF ONLY) ───────────────────
