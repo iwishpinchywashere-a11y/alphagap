@@ -646,20 +646,20 @@ export default function Home() {
                       <th className="text-left py-2 px-3">#</th>
                       <th className="text-left py-2 px-3">Subnet</th>
                       {([
-                        ["composite_score", "aGap", "Alpha Gap Score (0-100). High when subnet is building hard but price hasn't caught up. Weighted: Dev activity 55%, Price lag 25%, Social gap 10%, Confidence 10%."],
-                        ["flow_score", "Flow", "Flow Score (0-100). Based on 24h price change. High = price rising, Low = price falling. Uses absolute thresholds, not relative."],
-                        ["dev_score", "Dev", "Development Score (0-100). Percentile rank of GitHub + HuggingFace activity. Measures commits, PRs, models published, and contributor count."],
-                        ["eval_score", "eVal", "eVal Score (0-100). Emissions-to-Valuation ratio. Finds subnets where network emission share outpaces market cap — the network is paying them more than the market realizes. High eVal + low price = value gap."],
-                        ["social_score", "Social", "Social Score (0-100). Social velocity from X/Twitter and Reddit. Measures mention count and engagement (likes, retweets, views)."],
-                        ["emission_pct", "Em %", "Emission share — percentage of total network emissions allocated to this subnet by root validators."],
-                        ["alpha_price", "Price", ""],
-                        ["market_cap", "MCap", ""],
-                        ["price_change_1h", "1h %", ""],
-                        ["price_change_24h", "24h %", ""],
-                        ["price_change_7d", "7d %", ""],
-                        ["price_change_30d", "30d %", ""],
-                        ["net_flow_24h", "24h Net", ""],
-                        ["signal_count", "Signals", ""],
+                        ["composite_score", "aGap", "Alpha Gap Score (0-100). The core metric. Finds subnets building quality work where the price hasn't caught up yet. Formula: Dev quality (50pts) + Price lag across 24h/7d/30d (30pts) + Social gap (15pts) + Emission value gap (15pts) - Market cap penalty. A reversal bonus is added when a subnet is down long-term but starting to turn up short-term."],
+                        ["flow_score", "Flow", "Price Momentum (0-100). Multi-timeframe momentum combining 24h (40pts), 7d (30pts), and 30d (20pts) price changes. Includes a reversal bonus (10pts) when price is down long-term but turning up short-term — the 'just starting to perk up' signal."],
+                        ["dev_score", "Dev", "Development Score (0-100). Measures actual GitHub + HuggingFace activity quality. Based on: daily commits, PRs merged, unique contributors, 7d/30d trends, and AI models/datasets published. Multiple subnets can share the same score — this is absolute quality, not a ranking."],
+                        ["eval_score", "eVal", "Emissions-to-Valuation (0-100). Finds the gap between what the network pays a subnet (emissions) vs what the market values it (market cap). High eVal = the network allocates more emissions than the market cap suggests = undervalued. Includes emission rank, valuation ratio, and price trend divergence. Tiny mcap subnets are penalized for inflated ratios."],
+                        ["social_score", "Social", "Social Velocity (0-100). How much buzz surrounds this subnet on X/Twitter and Reddit. Uses Desearch API to track mentions and engagement (likes, retweets, views). Also monitors Stitch3 marketing campaigns. Low social + high dev = nobody knows about it yet = alpha gap."],
+                        ["emission_pct", "Em %", "Emission share — the percentage of total Bittensor network emissions allocated to this subnet. Higher % means validators trust this subnet more. A rising emission % with flat price is a value gap signal."],
+                        ["alpha_price", "Price", "Current alpha token price in USD."],
+                        ["market_cap", "MCap", "Total market capitalization in USD."],
+                        ["price_change_1h", "1h %", "Price change in the last 1 hour."],
+                        ["price_change_24h", "24h %", "Price change in the last 24 hours."],
+                        ["price_change_7d", "7d %", "Price change over the last 7 days."],
+                        ["price_change_30d", "30d %", "Price change over the last 30 days. Compare with dev activity — if dev is high but 30d price is down, that's a significant alpha gap."],
+                        ["net_flow_24h", "24h Net", "Net TAO flow in the last 24 hours. Positive = more buying than selling. Negative = more selling than buying."],
+                        ["signal_count", "Signals", "Number of intelligence signals detected for this subnet from GitHub commits, HuggingFace updates, and social media activity. Click to view details in the Signals tab."],
                       ] as [keyof SubnetScore, string, string][]).map(([key, label, tooltip]) => (
                         <th
                           key={key}
@@ -670,14 +670,14 @@ export default function Home() {
                           {label}
                           {tooltip && (
                             <span
-                              className="ml-1 text-gray-500 hover:text-gray-300 cursor-help relative inline-block"
-                              onClick={(e) => { e.stopPropagation(); setInfoPopup(infoPopup === key ? null : key); }}
+                              className="ml-1 inline-flex items-center justify-center w-3.5 h-3.5 rounded-full border border-gray-600 text-[9px] text-gray-500 hover:text-green-400 hover:border-green-400 cursor-help relative"
+                              onClick={(e) => { e.stopPropagation(); e.preventDefault(); setInfoPopup(infoPopup === key ? null : key); }}
                             >
-                              {"\u24D8"}
+                              i
                               {infoPopup === key && (
-                                <div className="absolute z-50 top-6 left-0 w-64 p-3 bg-gray-800 border border-gray-600 rounded-lg shadow-xl text-xs text-gray-300 font-normal whitespace-normal">
+                                <div className="absolute z-50 top-5 right-0 w-72 p-3 bg-gray-900 border border-green-800/50 rounded-lg shadow-xl text-xs text-gray-300 font-normal whitespace-normal leading-relaxed" onClick={(e) => e.stopPropagation()}>
+                                  <div className="font-semibold text-green-400 mb-1">{label}</div>
                                   {tooltip}
-                                  <div className="mt-2 text-gray-500 text-[10px]">Click {"\u24D8"} again to close</div>
                                 </div>
                               )}
                             </span>
