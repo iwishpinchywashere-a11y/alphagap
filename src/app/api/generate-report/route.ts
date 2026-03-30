@@ -83,13 +83,16 @@ export async function POST(req: Request) {
     const lbEntry = lb.find(s => s.netuid === targetNetuid) || {};
 
     // Price data
-    const price = pool ? (parseFloat(pool.price || "0") / RAO * taoPrice).toFixed(2) : "?";
+    // pool.price is already decimal (e.g. 0.0776), NOT in rao
+    const price = pool ? (parseFloat(pool.price || "0") * taoPrice).toFixed(2) : "?";
+    // market_cap is in rao, needs conversion
     const mcap = pool ? (parseFloat(pool.market_cap || "0") / RAO * taoPrice / 1e6).toFixed(1) : "?";
     const pch24h = pool?.price_change_1_day ? parseFloat(pool.price_change_1_day).toFixed(1) : "?";
     const pch1w = pool?.price_change_1_week ? parseFloat(pool.price_change_1_week).toFixed(1) : "?";
     const pch1m = pool?.price_change_1_month ? parseFloat(pool.price_change_1_month).toFixed(1) : "?";
     const rootProp = pool?.root_prop ? (parseFloat(pool.root_prop) * 100).toFixed(2) : "?";
     const rank = pool?.rank || "?";
+    // Volume fields are in rao
     const volume24h = pool ? (parseFloat(pool.tao_volume_24_hr || "0") / RAO * taoPrice).toFixed(0) : "?";
     const buyVol = pool ? (parseFloat(pool.tao_buy_volume_24_hr || "0") / RAO).toFixed(0) : "?";
     const sellVol = pool ? (parseFloat(pool.tao_sell_volume_24_hr || "0") / RAO).toFixed(0) : "?";
