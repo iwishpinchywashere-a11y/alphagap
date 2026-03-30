@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { put, list } from "@vercel/blob";
+import { put, get } from "@vercel/blob";
 import { fetchRecentCommits, fetchRecentPRs, fetchLatestRelease } from "@/lib/context-fetcher";
 import {
   getSubnetIdentities,
@@ -26,12 +26,23 @@ export async function POST(req: Request) {
     // Step 1: Get current scan data for context
     let scanData: Record<string, unknown> | null = null;
     try {
-      const { blobs } = await list({ prefix: "scan-latest.json", limit: 1 });
-      if (blobs.length > 0) {
-        const res = await fetch(blobs[0].downloadUrl, { cache: "no-store" });
-        if (res.ok) scanData = await res.json();
+      const result = await get("scan-latest.json", {
+        token: process.env.BLOB_READ_WRITE_TOKEN!,
+        access: "private",
+      });
+      if (result?.stream) {
+        const reader = result.stream.getReader();
+        const chunks: Uint8Array[] = [];
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          chunks.push(value);
+        }
+        scanData = JSON.parse(Buffer.concat(chunks).toString("utf-8"));
       }
-    } catch { /* no cache available */ }
+    } catch (e) {
+      console.error("[report] Failed to read scan cache:", e);
+    }
 
     // Step 2: Determine which subnet to report on
     let targetNetuid: number;
