@@ -354,7 +354,7 @@ export default function Home() {
   return (
     <div className="flex flex-col min-h-screen">
       {/* Header */}
-      <header className="border-b border-gray-800 px-6 py-4 flex items-center justify-between">
+      <header className="border-b border-gray-800 px-4 md:px-6 py-3 md:py-4 flex items-center justify-between flex-wrap gap-2 max-w-full overflow-hidden">
         <div className="flex items-center gap-4">
           <h1 className="text-2xl font-bold">
             <span className="text-green-400">Alpha</span>
@@ -415,9 +415,9 @@ export default function Home() {
       </nav>
 
       {/* Main content */}
-      <main className="flex-1 flex">
+      <main className="flex-1 flex overflow-x-hidden">
         {/* Left panel */}
-        <div className="flex-1 overflow-auto p-6">
+        <div className="flex-1 overflow-auto p-4 md:p-6 max-w-full">
           {/* Loading state */}
           {scanning && signals.length === 0 && leaderboard.length === 0 && (
             <div className="flex flex-col items-center justify-center h-96 text-center">
@@ -639,8 +639,8 @@ export default function Home() {
                   aGap = Dev execution + Price lagging = Alpha opportunity
                 </span>
               </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm font-data">
+              <div className="overflow-x-auto -mx-4 md:mx-0 px-4 md:px-0">
+                <table className="w-full text-sm font-data min-w-[900px]">
                   <thead>
                     <tr className="text-gray-500 text-xs border-b border-gray-800">
                       <th className="text-left py-2 px-3">#</th>
@@ -958,13 +958,7 @@ export default function Home() {
                     ))}
                   </select>
                 )}
-                <button
-                  onClick={() => generateReport()}
-                  disabled={loadingReport}
-                  className="px-3 py-1 text-xs bg-green-600 hover:bg-green-700 rounded-full text-white disabled:opacity-50"
-                >
-                  {loadingReport ? "Generating..." : "Generate Today's Report"}
-                </button>
+                <span className="text-xs text-gray-600">Auto-generated daily at 6am PT</span>
               </div>
             </div>
 

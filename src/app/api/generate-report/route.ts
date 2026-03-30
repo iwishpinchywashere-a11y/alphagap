@@ -14,14 +14,23 @@ export const maxDuration = 60;
 const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY || "";
 const RAO = 1e9;
 
+// GET handler for Vercel cron job
+export async function GET() {
+  return generateReport();
+}
+
+// POST handler for manual generation
 export async function POST(req: Request) {
+  const body = await req.json().catch(() => ({}));
+  return generateReport(body?.netuid as number | undefined);
+}
+
+async function generateReport(forceNetuid?: number) {
   if (!ANTHROPIC_KEY) {
     return NextResponse.json({ error: "No Anthropic API key" }, { status: 500 });
   }
 
   try {
-    const body = await req.json().catch(() => ({}));
-    const forceNetuid = body?.netuid as number | undefined;
 
     // Step 1: Get current scan data for context
     let scanData: Record<string, unknown> | null = null;
@@ -54,14 +63,37 @@ export async function POST(req: Request) {
       const entry = lb.find(s => s.netuid === forceNetuid);
       targetName = (entry?.name as string) || `SN${forceNetuid}`;
     } else {
-      // Pick the top aGap subnet
+      // Pick the top aGap subnet that HASN'T been reported on recently
       const lb = (scanData?.leaderboard as Array<Record<string, unknown>>) || [];
       if (lb.length === 0) {
         return NextResponse.json({ error: "No scan data available" }, { status: 400 });
       }
-      const top = lb.sort((a, b) => (b.composite_score as number) - (a.composite_score as number))[0];
-      targetNetuid = top.netuid as number;
-      targetName = top.name as string;
+
+      // Get recent report netuids (last 3 days)
+      const recentNetuids = new Set<number>();
+      try {
+        const { blobs } = await list({ prefix: "reports/", limit: 5 });
+        for (const b of blobs) {
+          try {
+            const r = await get(b.pathname, { token: process.env.BLOB_READ_WRITE_TOKEN!, access: "private" });
+            if (r?.stream) {
+              const reader = r.stream.getReader();
+              const chunks: Uint8Array[] = [];
+              while (true) { const { done, value } = await reader.read(); if (done) break; chunks.push(value); }
+              const data = JSON.parse(Buffer.concat(chunks).toString("utf-8"));
+              recentNetuids.add(data.netuid);
+            }
+          } catch { /* skip */ }
+        }
+      } catch { /* no reports yet */ }
+
+      console.log(`[report] Recent report netuids to skip: ${[...recentNetuids].join(", ")}`);
+
+      // Walk down the aGap ranking to find a subnet without a recent report
+      const sorted = [...lb].sort((a, b) => (b.composite_score as number) - (a.composite_score as number));
+      const chosen = sorted.find(s => !recentNetuids.has(s.netuid as number)) || sorted[0];
+      targetNetuid = chosen.netuid as number;
+      targetName = chosen.name as string;
     }
 
     console.log(`[report] Generating deep-dive for ${targetName} (SN${targetNetuid})`);
