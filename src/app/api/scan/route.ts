@@ -335,14 +335,17 @@ export async function GET() {
       return null;
     }
 
-    // 5 targeted searches (reduced from 8 to conserve credits)
-    // ~5 credits/scan × 10 scans/day = 50 credits/day → $10 lasts ~60+ days
+    // 8 targeted searches — mix of broad + subnet-specific
+    // ~8 credits/scan × 6 scans/day = 48 credits/day → $10 lasts ~200 days
     const searches = [
       { query: "bittensor subnet", count: 100, sort: "Top" as const },
       { query: "bittensor subnet alpha", count: 100, sort: "Latest" as const },
-      { query: "$TAO subnet SN", count: 50, sort: "Top" as const },
-      { query: "bittensor alpha token", count: 50, sort: "Latest" as const },
-      { query: "bittensor templar chutes ridges basilica", count: 50, sort: "Top" as const },
+      { query: "$TAO subnet", count: 50, sort: "Latest" as const },
+      { query: "templar bittensor", count: 50, sort: "Top" as const },
+      { query: "chutes bittensor", count: 50, sort: "Top" as const },
+      { query: "ridges basilica grail bittensor", count: 50, sort: "Top" as const },
+      { query: "targon vanta ORO bittensor", count: 50, sort: "Top" as const },
+      { query: "bittensor alpha SN3 OR SN4 OR SN64 OR SN8", count: 50, sort: "Latest" as const },
     ];
 
     // Run searches in parallel for speed
@@ -907,26 +910,32 @@ Now write your intelligence report using this EXACT format. Each section should 
       return 0;
     }
 
-    // Absolute social score based on actual social presence
+    // Social score calibrated to Desearch data ranges
+    // Typical: 1-10 mentions, 50-500 engagement
+    // Hot: 10-30 mentions, 500-2000 engagement
+    // Viral: 30+ mentions, 2000+ engagement
     let score = 0;
 
     // Mentions (max 50 pts)
-    if (mentions >= 50) score += 50;
-    else if (mentions >= 25) score += 40;
-    else if (mentions >= 15) score += 32;
-    else if (mentions >= 8) score += 24;
-    else if (mentions >= 4) score += 16;
-    else if (mentions >= 2) score += 10;
-    else if (mentions >= 1) score += 5;
+    if (mentions >= 30) score += 50;      // Viral — everyone talking
+    else if (mentions >= 20) score += 45;
+    else if (mentions >= 12) score += 38;
+    else if (mentions >= 8) score += 32;  // Hot
+    else if (mentions >= 5) score += 25;
+    else if (mentions >= 3) score += 18;
+    else if (mentions >= 2) score += 12;
+    else if (mentions >= 1) score += 7;
 
     // Engagement (max 50 pts) — likes, retweets, comments
-    if (engagement >= 5000) score += 50;
-    else if (engagement >= 2000) score += 40;
-    else if (engagement >= 800) score += 30;
-    else if (engagement >= 300) score += 22;
-    else if (engagement >= 100) score += 15;
-    else if (engagement >= 30) score += 8;
-    else if (engagement >= 5) score += 4;
+    if (engagement >= 3000) score += 50;
+    else if (engagement >= 1500) score += 42;
+    else if (engagement >= 800) score += 35;
+    else if (engagement >= 400) score += 28;
+    else if (engagement >= 200) score += 22;
+    else if (engagement >= 100) score += 16;
+    else if (engagement >= 40) score += 10;
+    else if (engagement >= 10) score += 6;
+    else if (engagement >= 3) score += 3;
 
     return Math.min(100, score);
   }
