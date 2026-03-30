@@ -722,25 +722,25 @@ Now write your intelligence report using this EXACT format. Each section should 
     const contributors1d = dev?.unique_contributors_1d || 0;
     const contributors30d = dev?.unique_contributors_30d || 0;
 
-    // === GITHUB: 7-day activity is the primary signal (max 45 pts) ===
-    // Weekly commits (max 25 pts)
-    if (commits7d >= 100) score += 25;
-    else if (commits7d >= 50) score += 22;
-    else if (commits7d >= 25) score += 18;
-    else if (commits7d >= 10) score += 13;
+    // === GITHUB: 7-day activity is the primary signal (max 55 pts) ===
+    // Weekly commits (max 30 pts)
+    if (commits7d >= 100) score += 30;
+    else if (commits7d >= 50) score += 25;
+    else if (commits7d >= 25) score += 20;
+    else if (commits7d >= 10) score += 14;
     else if (commits7d >= 5) score += 8;
     else if (commits7d >= 1) score += 4;
 
-    // Weekly PRs merged (max 12 pts) — PRs are high-signal
-    if (prs7d >= 10) score += 12;
-    else if (prs7d >= 5) score += 10;
-    else if (prs7d >= 3) score += 8;
+    // Weekly PRs merged (max 15 pts) — PRs are high-signal
+    if (prs7d >= 10) score += 15;
+    else if (prs7d >= 5) score += 12;
+    else if (prs7d >= 3) score += 9;
     else if (prs7d >= 1) score += 5;
 
-    // Contributor depth (max 8 pts) — team size matters
-    if (contributors30d >= 10) score += 8;
-    else if (contributors30d >= 5) score += 6;
-    else if (contributors30d >= 3) score += 4;
+    // Contributor depth (max 10 pts) — team size matters
+    if (contributors30d >= 10) score += 10;
+    else if (contributors30d >= 5) score += 7;
+    else if (contributors30d >= 3) score += 5;
     else if (contributors30d >= 1) score += 2;
 
     // === TODAY'S ACTIVITY BONUS (max 20 pts) — recency signal ===
