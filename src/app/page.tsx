@@ -127,6 +127,7 @@ export default function Home() {
   const [sortAsc, setSortAsc] = useState(false);
   const [infoPopup, setInfoPopup] = useState<string | null>(null);
   const [signalSort, setSignalSort] = useState<"score" | "date">("score");
+  const [searchQuery, setSearchQuery] = useState("");
 
   const hasAutoScanned = useRef(false);
 
@@ -139,13 +140,16 @@ export default function Home() {
     }
   };
 
-  const sortedLeaderboard = [...leaderboard].sort((a, b) => {
-    const av = a[sortCol] ?? -Infinity;
-    const bv = b[sortCol] ?? -Infinity;
-    if (av < bv) return sortAsc ? -1 : 1;
-    if (av > bv) return sortAsc ? 1 : -1;
-    return 0;
-  });
+  const q = searchQuery.toLowerCase().trim();
+  const sortedLeaderboard = [...leaderboard]
+    .filter((sub) => !q || sub.name.toLowerCase().includes(q) || `sn${sub.netuid}`.includes(q))
+    .sort((a, b) => {
+      const av = a[sortCol] ?? -Infinity;
+      const bv = b[sortCol] ?? -Infinity;
+      if (av < bv) return sortAsc ? -1 : 1;
+      if (av > bv) return sortAsc ? 1 : -1;
+      return 0;
+    });
 
   // ── Run scan: calls /api/scan and stores everything in state ────
   // Load cached data, optionally refresh in background
@@ -397,8 +401,17 @@ export default function Home() {
           {/* Signals Feed */}
           {activeTab === "signals" && signals.length > 0 && (
             <div className="space-y-4">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-bold">Intelligence Feed</h2>
+              <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+                <div className="flex items-center gap-3">
+                  <h2 className="text-lg font-bold">Intelligence Feed</h2>
+                  <input
+                    type="text"
+                    placeholder="Search signals..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="bg-gray-800/60 border border-gray-700 rounded-lg px-3 py-1.5 text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:border-green-600 focus:ring-1 focus:ring-green-600/30 w-48"
+                  />
+                </div>
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-gray-500 mr-2">
                     {signals.length} signals
@@ -426,6 +439,7 @@ export default function Home() {
                 </div>
               </div>
               {[...signals]
+                .filter((sig) => !q || (sig.subnet_name || "").toLowerCase().includes(q) || sig.title.toLowerCase().includes(q) || `sn${sig.netuid}`.includes(q))
                 .sort((a, b) =>
                   signalSort === "score"
                     ? b.strength - a.strength
@@ -481,34 +495,39 @@ export default function Home() {
                   <div className="px-4 py-3">
                     <h3 className="font-medium text-sm mb-2">{sig.title}</h3>
 
-                    {sig.analysis ? (
-                      <div className="bg-gray-800/40 border border-gray-700/50 rounded-lg p-3 mb-2">
-                        <div className="flex items-center gap-1.5 mb-2">
-                          <span className="text-xs font-medium text-green-400">AlphaGap Analysis</span>
-                        </div>
-                        <div className="space-y-2">
-                          {sig.analysis.split("\n").filter(Boolean).map((line, i) => {
-                            if (line.trim()) {
-                              return <p key={i} className="text-sm text-gray-300">{line}</p>;
-                            }
-                            return null;
-                          })}
-                        </div>
-                      </div>
-                    ) : sig.description ? (
-                      <div className="bg-gray-800/50 border border-gray-700/50 rounded-lg p-3 mb-2 space-y-2">
-                        {sig.description.split("\n").filter((l: string) => l.trim()).map((line: string, i: number) => {
-                          // Style section headers (emoji + bold text)
-                          if (line.match(/^[🔧📡💡🎯🚀]\s/)) {
+                    {(sig.analysis || sig.description) ? (
+                      <div className="bg-gray-800/40 border border-gray-700/50 rounded-lg p-4 mb-2 space-y-1">
+                        {(sig.analysis || sig.description || "").split("\n").filter((l: string) => l.trim()).map((line: string, i: number) => {
+                          const trimmed = line.trim();
+                          // Skip markdown artifacts
+                          if (trimmed === "---" || trimmed === "***") return null;
+                          // Skip report title headers
+                          if (trimmed.startsWith("# AlphaGap")) return null;
+                          // Skip date/strength metadata lines
+                          if (trimmed.startsWith("**Date:**") || trimmed.startsWith("**Signal Strength:**")) return null;
+                          // Section headers: ## 🔧 What they built: or 🔧 What they built:
+                          // Match lines starting with optional ## + any emoji + text with colon
+                          if (trimmed.match(/^(#{1,3}\s+)?[\p{Emoji_Presentation}\p{Extended_Pictographic}]/u) ||
+                              trimmed.match(/^(#{1,3}\s+)?\*\*[🔧📡💡🎯🚀⚠️]/)) {
+                            const headerText = trimmed.replace(/^#{1,3}\s+/, "").replace(/\*\*/g, "");
                             return (
-                              <p key={i} className="text-sm font-semibold text-green-400 mt-2 first:mt-0">
-                                {line}
+                              <p key={i} className="text-sm font-bold text-green-400 mt-3 first:mt-0 pb-0.5">
+                                {headerText}
                               </p>
                             );
                           }
+                          // Bold text: **text** -> styled
+                          const renderBold = (text: string) => {
+                            const parts = text.split(/\*\*(.*?)\*\*/g);
+                            return parts.map((part, j) =>
+                              j % 2 === 1
+                                ? <strong key={j} className="text-white font-semibold">{part}</strong>
+                                : <span key={j}>{part}</span>
+                            );
+                          };
                           return (
-                            <p key={i} className="text-sm text-gray-300 leading-relaxed pl-1">
-                              {line}
+                            <p key={i} className="text-sm text-gray-300 leading-relaxed">
+                              {renderBold(trimmed)}
                             </p>
                           );
                         })}
@@ -553,13 +572,22 @@ export default function Home() {
           {activeTab === "leaderboard" && leaderboard.length > 0 && (
             <div>
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-bold">Alpha Leaderboard</h2>
+                <div className="flex items-center gap-3">
+                  <h2 className="text-lg font-bold">Alpha Leaderboard</h2>
+                  <input
+                    type="text"
+                    placeholder="Search subnets..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="bg-gray-800/60 border border-gray-700 rounded-lg px-3 py-1.5 text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:border-green-600 focus:ring-1 focus:ring-green-600/30 w-48"
+                  />
+                </div>
                 <span className="text-xs text-gray-500">
                   aGap = Dev execution + Price lagging = Alpha opportunity
                 </span>
               </div>
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+                <table className="w-full text-sm font-data">
                   <thead>
                     <tr className="text-gray-500 text-xs border-b border-gray-800">
                       <th className="text-left py-2 px-3">#</th>
@@ -580,8 +608,9 @@ export default function Home() {
                       ] as [keyof SubnetScore, string, string][]).map(([key, label, tooltip]) => (
                         <th
                           key={key}
-                          className="text-right py-2 px-3 cursor-pointer hover:text-gray-300 transition-colors select-none"
+                          className={`text-right py-2 px-3 cursor-pointer hover:text-gray-300 transition-colors select-none ${key === "composite_score" ? "text-green-400/80" : ""}`}
                           onClick={() => handleSort(key)}
+                          style={key === "composite_score" ? { background: "rgba(16, 185, 129, 0.06)", borderLeft: "2px solid rgba(16, 185, 129, 0.15)" } : undefined}
                         >
                           {label}
                           {tooltip && (
@@ -615,10 +644,10 @@ export default function Home() {
                         onClick={() => getSubnetDetail(sub.netuid)}
                       >
                         <td className="py-2.5 px-3 text-gray-500">{i + 1}</td>
-                        <td className="py-2.5 px-3">
+                        <td className="py-2.5 px-3" style={{ fontFamily: "var(--font-inter), system-ui, sans-serif" }}>
                           <div className="flex items-center gap-2">
-                            <span className="text-gray-500 text-xs">SN{sub.netuid}</span>
-                            <span className="font-medium">{sub.name}</span>
+                            <span className="text-gray-500 text-xs font-data">SN{sub.netuid}</span>
+                            <span className="font-semibold">{sub.name}</span>
                           </div>
                           {sub.top_signal && (
                             <span className="text-xs text-gray-600 block mt-0.5">
@@ -626,7 +655,8 @@ export default function Home() {
                             </span>
                           )}
                         </td>
-                        <td className={`py-2.5 px-3 text-right font-bold ${scoreColor(sub.composite_score)}`}>
+                        <td className={`py-2.5 px-3 text-right font-bold text-lg ${scoreColor(sub.composite_score)}`}
+                          style={{ background: "rgba(16, 185, 129, 0.06)", borderLeft: "2px solid rgba(16, 185, 129, 0.15)" }}>
                           {sub.composite_score}
                         </td>
                         <td className={`py-2.5 px-3 text-right ${scoreColor(sub.flow_score)}`}>

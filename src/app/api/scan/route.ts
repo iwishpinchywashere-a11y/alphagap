@@ -363,14 +363,16 @@ export async function GET() {
   // Flow/price signals REMOVED — this feed is purely about development intelligence
 
   // ── RICH DEV SIGNALS: Fetch actual commits/PRs and analyze with AI ──
-  // Sort by activity level, take top 20 most active subnets for deep analysis
+  // ALL active subnets get signals. Top ones get deep AI analysis.
   const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
-  const activeDevSubnets = devActivity
+  const allActiveDevSubnets = devActivity
     .filter(a => a.commits_1d > 0 || a.prs_merged_1d > 0)
-    .sort((a, b) => (b.commits_1d + b.prs_merged_1d * 5) - (a.commits_1d + a.prs_merged_1d * 5))
-    .slice(0, 8);
+    .sort((a, b) => (b.commits_1d + b.prs_merged_1d * 5) - (a.commits_1d + a.prs_merged_1d * 5));
 
-  console.log(`[scan] Fetching commit/PR details for ${activeDevSubnets.length} active subnets...`);
+  // Top 10 get deep commit/PR fetching + AI analysis
+  const activeDevSubnets = allActiveDevSubnets.slice(0, 10);
+
+  console.log(`[scan] ${allActiveDevSubnets.length} active subnets. Deep analysis for top ${activeDevSubnets.length}.`);
 
   // Fetch actual commit messages + PRs for each active subnet (parallel, 5 at a time)
   type DevContext = { act: GithubActivity; owner: string; repo: string; commits: string[]; prs: string[]; release: { tag: string; name: string; body: string; date: string } | null };
@@ -707,18 +709,60 @@ Now write your intelligence report using this EXACT format. Each section should 
     });
   }
 
-  // ── Compute dev raw scores for percentile ranking ───────────────
-  const devRawScores = rawSubnets.map(
-    (d) =>
-      d.ghPRsMerged7d * 30 +
-      d.ghCommits7d * 3 +
-      d.ghContributors30d * 15 +
-      d.ghEvents * 1 +
-      d.hfModels * 25 +
-      d.hfDatasets * 15 +
-      d.hfSpaces * 10 +
-      Math.min(d.hfDownloads / 100, 30)
-  );
+  // ── Compute absolute dev score (not percentile) ─────────────────
+  // Multiple subnets can share the same score. Based on actual activity quality.
+  function computeDevScore(d: RawSubnet): number {
+    let score = 0;
+
+    // GitHub activity (max 70 pts from GitHub)
+    const commits1d = devMap.get(d.netuid)?.commits_1d || 0;
+    const prs1d = devMap.get(d.netuid)?.prs_merged_1d || 0;
+    const contributors1d = devMap.get(d.netuid)?.unique_contributors_1d || 0;
+
+    // Daily commits (max 30 pts)
+    if (commits1d >= 20) score += 30;
+    else if (commits1d >= 10) score += 25;
+    else if (commits1d >= 5) score += 18;
+    else if (commits1d >= 3) score += 12;
+    else if (commits1d >= 1) score += 7;
+
+    // Merged PRs today (max 20 pts) - PRs are high-signal
+    if (prs1d >= 5) score += 20;
+    else if (prs1d >= 3) score += 16;
+    else if (prs1d >= 2) score += 12;
+    else if (prs1d >= 1) score += 8;
+
+    // Contributors today (max 10 pts) - team activity
+    if (contributors1d >= 5) score += 10;
+    else if (contributors1d >= 3) score += 7;
+    else if (contributors1d >= 2) score += 5;
+    else if (contributors1d >= 1) score += 3;
+
+    // 7-day trend bonus (max 10 pts) - sustained activity
+    if (d.ghCommits7d >= 50) score += 10;
+    else if (d.ghCommits7d >= 25) score += 7;
+    else if (d.ghCommits7d >= 10) score += 4;
+    else if (d.ghCommits7d >= 3) score += 2;
+
+    // HuggingFace activity (max 30 pts)
+    // Models published (max 15 pts)
+    if (d.hfModels >= 5) score += 15;
+    else if (d.hfModels >= 3) score += 10;
+    else if (d.hfModels >= 1) score += 6;
+
+    // Datasets (max 8 pts)
+    if (d.hfDatasets >= 5) score += 8;
+    else if (d.hfDatasets >= 2) score += 5;
+    else if (d.hfDatasets >= 1) score += 3;
+
+    // Downloads (max 7 pts) - adoption signal
+    if (d.hfDownloads >= 10000) score += 7;
+    else if (d.hfDownloads >= 1000) score += 5;
+    else if (d.hfDownloads >= 100) score += 3;
+    else if (d.hfDownloads >= 10) score += 1;
+
+    return Math.min(100, score);
+  }
 
   // ── Flow score formula ──────────────────────────────────────────
   function computeFlowScore(priceChange24h: number): number {
@@ -734,54 +778,50 @@ Now write your intelligence report using this EXACT format. Each section should 
   const alphaSharesFailed = alphaSharesResult.status === "rejected" || alphaShares.length === 0;
 
   function computeStakingScore(d: RawSubnet): number {
-    // Fallback if staking API failed
-    if (alphaSharesFailed) {
-      const mcap = d.marketCapUsd || 0;
-      let fallback = 0;
-      if (mcap >= 50000000) fallback = 45;
-      else if (mcap >= 20000000) fallback = 38;
-      else if (mcap >= 10000000) fallback = 32;
-      else if (mcap >= 5000000) fallback = 26;
-      else if (mcap >= 1000000) fallback = 20;
-      else if (mcap >= 100000) fallback = 14;
-      else if (mcap > 0) fallback = 10;
-      const hasIdentity = identityMap.has(d.netuid);
-      if (hasIdentity) fallback += 5;
-      return Math.min(100, fallback);
-    }
+    let score = 0;
 
-    // Composite raw score from all staking dimensions
-    let rawScore = 0;
+    // Total alpha staked — the primary signal (max 40 pts)
+    const staked = d.totalAlphaStaked;
+    if (staked >= 2000000) score += 40;
+    else if (staked >= 1500000) score += 35;
+    else if (staked >= 1000000) score += 28;
+    else if (staked >= 500000) score += 22;
+    else if (staked >= 100000) score += 15;
+    else if (staked >= 10000) score += 8;
+    else if (staked > 0) score += 3;
 
-    // Total alpha staked (primary signal - how much value validators put in)
-    const totalStaked = d.totalAlphaStaked;
-    if (totalStaked > 0) {
-      rawScore += Math.log10(totalStaked + 1) * 8; // log scale: 1M staked = 48, 100K = 40, 10K = 32
-    }
+    // Validator count (max 20 pts)
+    const vals = d.validatorCount;
+    if (vals >= 5) score += 20;
+    else if (vals >= 4) score += 16;
+    else if (vals >= 3) score += 12;
+    else if (vals >= 2) score += 8;
+    else if (vals >= 1) score += 4;
 
-    // Validator count bonus
-    const valCount = d.validatorCount;
-    rawScore += Math.min(20, valCount * 5); // 4 validators = 20 pts max
-
-    // Decentralization bonus (lower top share = more decentralized = better)
+    // Decentralization — low top validator share is better (max 15 pts)
     const topShare = d.topValidatorShare || 1;
-    rawScore += Math.round((1 - topShare) * 25); // if top val has 40%, bonus = 15
+    if (topShare <= 0.25) score += 15;
+    else if (topShare <= 0.35) score += 12;
+    else if (topShare <= 0.50) score += 8;
+    else if (topShare <= 0.70) score += 4;
+    else score += 1;
 
-    // Market cap as proxy for overall confidence
+    // Market cap as confidence proxy (max 15 pts)
     const mcap = d.marketCapUsd || 0;
-    if (mcap > 0) {
-      rawScore += Math.min(15, Math.log10(mcap + 1) * 2); // $10M mcap = ~14 pts
-    }
+    if (mcap >= 100000000) score += 15;
+    else if (mcap >= 50000000) score += 12;
+    else if (mcap >= 20000000) score += 10;
+    else if (mcap >= 5000000) score += 7;
+    else if (mcap >= 1000000) score += 4;
+    else if (mcap >= 100000) score += 2;
 
-    // Registration cost bonus (high cost = high demand)
+    // Registration cost — high demand for slots (max 10 pts)
     const regCost = d.regCost || 0;
-    if (regCost > 0) {
-      rawScore += Math.min(10, Math.log10(regCost + 1) * 3);
-    }
+    if (regCost >= 1) score += 10;
+    else if (regCost >= 0.1) score += 6;
+    else if (regCost > 0) score += 3;
 
-    // Scale to 0-100 range. Max realistic rawScore is about 120
-    const scaled = Math.min(100, Math.round((rawScore / 100) * 100));
-    return Math.max(1, scaled);
+    return Math.min(100, score);
   }
 
   // ── Revenue score formula ───────────────────────────────────────
@@ -842,14 +882,29 @@ Now write your intelligence report using this EXACT format. Each section should 
       }
       return 0;
     }
-    // Weighted raw score: mentions * 5 + engagement
-    const rawScore = mentions * 5 + engagement;
-    // Use log scale to spread scores better (social data is very skewed)
-    const logScore = Math.log10(rawScore + 1);
-    // Scale: log10(1) = 0, log10(10) ~= 1, log10(100) = 2, log10(1000) = 3, log10(10000) = 4, log10(100000) = 5
-    // Map to 0-100: anything above log10(10000)=4 gets ~100
-    const scaled = Math.min(100, Math.round((logScore / 4) * 100));
-    return Math.max(5, scaled); // minimum 5 if they have ANY mentions
+
+    // Absolute social score based on actual social presence
+    let score = 0;
+
+    // Mentions (max 50 pts)
+    if (mentions >= 50) score += 50;
+    else if (mentions >= 25) score += 40;
+    else if (mentions >= 15) score += 32;
+    else if (mentions >= 8) score += 24;
+    else if (mentions >= 4) score += 16;
+    else if (mentions >= 2) score += 10;
+    else if (mentions >= 1) score += 5;
+
+    // Engagement (max 50 pts) — likes, retweets, comments
+    if (engagement >= 5000) score += 50;
+    else if (engagement >= 2000) score += 40;
+    else if (engagement >= 800) score += 30;
+    else if (engagement >= 300) score += 22;
+    else if (engagement >= 100) score += 15;
+    else if (engagement >= 30) score += 8;
+    else if (engagement >= 5) score += 4;
+
+    return Math.min(100, score);
   }
 
   // ── Build leaderboard ───────────────────────────────────────────
@@ -868,7 +923,7 @@ Now write your intelligence report using this EXACT format. Each section should 
   for (let i = 0; i < rawSubnets.length; i++) {
     const d = rawSubnets[i];
 
-    const devScore = percentileRank(devRawScores, devRawScores[i]);
+    const devScore = computeDevScore(d);
     const flowScore = computeFlowScore(d.priceChange24h);
     const stakingScore = computeStakingScore(d);
     const revenueScore = computeRevenueScore(d);
