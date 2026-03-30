@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { put, get } from "@vercel/blob";
+import { put, get, del, list } from "@vercel/blob";
 import { fetchRecentCommits, fetchRecentPRs, fetchLatestRelease } from "@/lib/context-fetcher";
 import {
   getSubnetIdentities,
@@ -252,6 +252,15 @@ Write the report using EXACTLY this structure. Each section should be substantiv
 
     try {
       if (process.env.BLOB_READ_WRITE_TOKEN) {
+        // Delete existing report for today first (Blob doesn't overwrite)
+        try {
+          const { blobs } = await list({ prefix: `reports/${today}`, limit: 5 });
+          for (const b of blobs) {
+            await del(b.url);
+            console.log(`[report] Deleted old blob: ${b.pathname}`);
+          }
+        } catch { /* no existing blob */ }
+
         await put(`reports/${today}.json`, JSON.stringify(report), {
           access: "private",
           addRandomSuffix: false,
