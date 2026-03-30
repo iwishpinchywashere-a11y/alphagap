@@ -407,6 +407,7 @@ export default function Home() {
           >
             {tab === "signals" && `Signals ${signals.length > 0 ? `(${signals.length})` : ""}`}
             {tab === "leaderboard" && "Alpha Leaderboard"}
+            {tab === "reports" && "Reports"}
           </button>
         ))}
       </nav>
