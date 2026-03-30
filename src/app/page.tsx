@@ -597,6 +597,7 @@ export default function Home() {
                         ["dev_score", "Dev", "Development Score (0-100). Percentile rank of GitHub + HuggingFace activity. Measures commits, PRs, models published, and contributor count."],
                         ["eval_score", "eVal", "eVal Score (0-100). Emissions-to-Valuation ratio. Finds subnets where network emission share outpaces market cap — the network is paying them more than the market realizes. High eVal + low price = value gap."],
                         ["social_score", "Social", "Social Score (0-100). Social velocity from X/Twitter and Reddit. Measures mention count and engagement (likes, retweets, views)."],
+                        ["emission_pct", "Em %", "Emission share — percentage of total network emissions allocated to this subnet by root validators."],
                         ["alpha_price", "Price", ""],
                         ["market_cap", "MCap", ""],
                         ["price_change_1h", "1h %", ""],
@@ -668,6 +669,11 @@ export default function Home() {
                         </td>
                         <td className={`py-2.5 px-3 text-right ${scoreColor(sub.social_score || 0)}`}>
                           {sub.social_score || 0}
+                        </td>
+                        <td className="py-2.5 px-3 text-right text-gray-400">
+                          {sub.emission_pct != null && sub.emission_pct > 0
+                            ? `${(sub.emission_pct * 100).toFixed(1)}%`
+                            : "\u2014"}
                         </td>
                         <td className="py-2.5 px-3 text-right text-gray-400">
                           {sub.alpha_price != null ? `$${formatNum(sub.alpha_price, 2)}` : "\u2014"}
