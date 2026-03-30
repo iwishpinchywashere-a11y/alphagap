@@ -7,13 +7,37 @@ import {
   getSubnetEmissions,
   getTaoPrice,
   getGithubActivity,
-  // getValidatorAlphaShares,  // removed — replaced by eVal
-  // getRegistrationCosts,     // removed — replaced by eVal
-  // getBurnedAlpha,  // removed — replaced by eVal
   type SubnetIdentity,
   type SubnetPool,
   type GithubActivity,
 } from "@/lib/taostats";
+
+// ── TaoMarketCap API for accurate emission data ──────────────────
+const TMC_API_KEY = process.env.TMC_API_KEY || "";
+interface TMCSubnet {
+  subnet: number;
+  name: string;
+  emission: number; // actual emission % (e.g. 20.24 for Templar)
+  root_prop: number;
+  marketcap: number;
+  price: number;
+  deregistration_risk: boolean;
+  miners_tao_per_day: number;
+  circulating_supply: number;
+}
+async function fetchTMCSubnets(): Promise<TMCSubnet[]> {
+  if (!TMC_API_KEY) return [];
+  try {
+    const res = await fetch("https://api.taomarketcap.com/public/v1/subnets/table/", {
+      headers: { Authorization: TMC_API_KEY },
+    });
+    if (!res.ok) return [];
+    return await res.json();
+  } catch {
+    console.error("[scan] TMC API failed");
+    return [];
+  }
+}
 import {
   listModelsByAuthor,
   listDatasetsByAuthor,
@@ -165,24 +189,25 @@ export async function GET() {
 
   await new Promise(r => setTimeout(r, 500));
 
-  // Batch 2: flows + emissions + dev activity (all parallel)
-  console.log("[scan] Batch 2: flows + emissions + dev activity...");
-  const [flowsResult, emissionsResult, devResult] = await Promise.allSettled([
+  // Batch 2: flows + emissions + dev activity + TMC emissions (all parallel)
+  console.log("[scan] Batch 2: flows + emissions + dev + TMC...");
+  const [flowsResult, emissionsResult, devResult, tmcResult] = await Promise.allSettled([
     getTaoFlows(),
     getSubnetEmissions(),
     getGithubActivity(),
+    fetchTMCSubnets(),
   ]);
   const flows = flowsResult.status === "fulfilled" ? flowsResult.value : [];
   const emissions = emissionsResult.status === "fulfilled" ? emissionsResult.value : [];
   let devActivity = devResult.status === "fulfilled" ? devResult.value : ([] as Awaited<ReturnType<typeof getGithubActivity>>);
-  console.log(`[scan] Batch 2 done: ${flows.length} flows, ${emissions.length} emissions, ${devActivity.length} dev`);
+  const tmcSubnets = tmcResult.status === "fulfilled" ? tmcResult.value : [];
+  console.log(`[scan] Batch 2 done: ${flows.length} flows, ${emissions.length} emissions, ${devActivity.length} dev, ${tmcSubnets.length} TMC`);
 
-  await new Promise(r => setTimeout(r, 500));
-
-  // Batch 3 removed — staking/revenue replaced by eVal (uses pool data which is already fetched)
+  // Build TMC emission map (accurate emission % from TaoMarketCap)
+  const tmcMap = new Map<number, TMCSubnet>(tmcSubnets.map(s => [s.subnet, s]));
 
   const elapsed1 = Date.now() - startTime;
-  console.log(`[scan] TaoStats APIs done in ${elapsed1}ms. Identities: ${identities.length}, Pools: ${pools.length}, DevActivity: ${devActivity.length}`);
+  console.log(`[scan] All APIs done in ${elapsed1}ms.`);
 
   // ── Step 2: Build lookup maps ───────────────────────────────────
   const identityMap = new Map<number, SubnetIdentity>(identities.map((i) => [i.netuid, i]));
@@ -584,7 +609,8 @@ Now write your intelligence report using this EXACT format. Each section should 
     volumeUsd: number | null;
     netFlow24h: number | null;
     taoReserve: number | null;
-    emissionShare: number; // root_prop (0-1)
+    emissionShare: number; // root_prop (0-1) from TaoStats
+    emissionPct: number; // accurate emission % from TaoMarketCap (e.g. 20.27 for Templar)
     // Dev metrics
     ghCommits7d: number;
     ghPRsMerged7d: number;
@@ -649,6 +675,7 @@ Now write your intelligence report using this EXACT format. Each section should 
       netFlow24h,
       taoReserve,
       emissionShare,
+      emissionPct: tmcMap.get(netuid)?.emission || 0,
       ghCommits7d,
       ghPRsMerged7d,
       ghContributors30d,
@@ -748,34 +775,35 @@ Now write your intelligence report using this EXACT format. Each section should 
   // Also factors in emission TREND — if emissions are rising but
   // price isn't following, that's a widening value gap.
 
-  // Pre-compute total root_prop and total mcap for normalization
-  const allPoolData = [...poolMap.values()];
-  const totalRootProp = allPoolData.reduce((sum, p) => sum + parseFloat(p.root_prop || "0"), 0);
-  const totalMcapTao = allPoolData.reduce((sum, p) => sum + parseFloat(p.market_cap || "0") / RAO, 0);
+  // Pre-compute total emission and total mcap for normalization
+  const totalEmissionPct = rawSubnets.reduce((sum, d) => sum + d.emissionPct, 0);
+  const totalMcapUsd = rawSubnets.reduce((sum, d) => sum + (d.marketCapUsd || 0), 0);
 
   function computeEvalScore(d: RawSubnet): { score: number; ratio: number } {
     let score = 0;
-    const pool = poolMap.get(d.netuid);
-    if (!pool) return { score: 0, ratio: 0 };
 
-    const rootProp = parseFloat(pool.root_prop || "0");
-    const emPct = totalRootProp > 0 ? (rootProp / totalRootProp) * 100 : 0;
-    const mcapTao = parseFloat(pool.market_cap || "0") / RAO;
-    const mcapPct = totalMcapTao > 0 ? (mcapTao / totalMcapTao) * 100 : 0;
+    // Use accurate emission % from TaoMarketCap
+    const emPct = d.emissionPct; // e.g. 20.27 for Templar, 0 for Chutes
+    const mcapUsd = d.marketCapUsd || 0;
+
+    // Emission share as fraction of total emissions
+    const emShare = totalEmissionPct > 0 ? emPct / totalEmissionPct : 0;
+    // Market cap share as fraction of total market cap
+    const mcShare = totalMcapUsd > 0 ? mcapUsd / totalMcapUsd : 0;
 
     // Core eVal ratio: emission share / market cap share
-    // > 1 = undervalued by emissions
-    // < 1 = overvalued by emissions
-    const evalRatio = mcapPct > 0.001 ? emPct / mcapPct : 0;
+    // > 1 = undervalued (network paying more than market realizes)
+    // < 1 = overvalued (market values it more than emissions justify)
+    const evalRatio = mcShare > 0.0001 ? emShare / mcShare : 0;
 
-    // 1. EMISSION RANK (max 35 pts) — how much does the network value this subnet?
-    if (emPct >= 1.5) score += 35;       // Top tier emission
-    else if (emPct >= 1.0) score += 30;
-    else if (emPct >= 0.7) score += 25;
-    else if (emPct >= 0.5) score += 20;
-    else if (emPct >= 0.3) score += 15;
-    else if (emPct >= 0.15) score += 10;
-    else if (emPct > 0) score += 5;
+    // 1. EMISSION LEVEL (max 35 pts) — how much is the network emitting to this subnet?
+    if (emPct >= 10) score += 35;        // Top tier (Templar 20%, Targon 18%)
+    else if (emPct >= 5) score += 30;    // Strong (grail 6%)
+    else if (emPct >= 3) score += 25;    // Good (Affine 3.7%, basilica 2.9%)
+    else if (emPct >= 1.5) score += 20;  // Moderate
+    else if (emPct >= 0.5) score += 15;  // Some
+    else if (emPct > 0) score += 8;      // Minimal
+    // 0% = no emissions, no points
 
     // 2. VALUATION GAP (max 40 pts) — emissions outpacing market cap
     if (evalRatio >= 20) score += 40;     // Massively undervalued by emissions
@@ -947,7 +975,7 @@ Now write your intelligence report using this EXACT format. Each section should 
       alpha_price: d.alphaPriceUsd ?? undefined,
       market_cap: d.marketCapUsd ?? undefined,
       net_flow_24h: d.netFlow24h ?? undefined,
-      emission_pct: d.emissionShare || undefined,
+      emission_pct: d.emissionPct > 0 ? d.emissionPct / 100 : undefined, // TMC gives %, store as decimal for frontend
       eval_ratio: Math.round(evalRatio * 10) / 10,
       price_change_24h: d.priceChange24h,
       price_change_1h: d.priceChange1h,
