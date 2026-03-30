@@ -714,48 +714,56 @@ Now write your intelligence report using this EXACT format. Each section should 
   function computeDevScore(d: RawSubnet): number {
     let score = 0;
 
-    // GitHub activity (max 70 pts from GitHub)
-    const commits1d = devMap.get(d.netuid)?.commits_1d || 0;
-    const prs1d = devMap.get(d.netuid)?.prs_merged_1d || 0;
-    const contributors1d = devMap.get(d.netuid)?.unique_contributors_1d || 0;
+    const dev = devMap.get(d.netuid);
+    const commits1d = dev?.commits_1d || 0;
+    const commits7d = dev?.commits_7d || 0;
+    const prs1d = dev?.prs_merged_1d || 0;
+    const prs7d = dev?.prs_merged_7d || 0;
+    const contributors1d = dev?.unique_contributors_1d || 0;
+    const contributors30d = dev?.unique_contributors_30d || 0;
 
-    // Daily commits (max 30 pts)
-    if (commits1d >= 20) score += 30;
-    else if (commits1d >= 10) score += 25;
-    else if (commits1d >= 5) score += 18;
-    else if (commits1d >= 3) score += 12;
-    else if (commits1d >= 1) score += 7;
+    // === GITHUB: 7-day activity is the primary signal (max 45 pts) ===
+    // Weekly commits (max 25 pts)
+    if (commits7d >= 100) score += 25;
+    else if (commits7d >= 50) score += 22;
+    else if (commits7d >= 25) score += 18;
+    else if (commits7d >= 10) score += 13;
+    else if (commits7d >= 5) score += 8;
+    else if (commits7d >= 1) score += 4;
 
-    // Merged PRs today (max 20 pts) - PRs are high-signal
-    if (prs1d >= 5) score += 20;
-    else if (prs1d >= 3) score += 16;
-    else if (prs1d >= 2) score += 12;
-    else if (prs1d >= 1) score += 8;
+    // Weekly PRs merged (max 12 pts) — PRs are high-signal
+    if (prs7d >= 10) score += 12;
+    else if (prs7d >= 5) score += 10;
+    else if (prs7d >= 3) score += 8;
+    else if (prs7d >= 1) score += 5;
 
-    // Contributors today (max 10 pts) - team activity
-    if (contributors1d >= 5) score += 10;
-    else if (contributors1d >= 3) score += 7;
-    else if (contributors1d >= 2) score += 5;
-    else if (contributors1d >= 1) score += 3;
+    // Contributor depth (max 8 pts) — team size matters
+    if (contributors30d >= 10) score += 8;
+    else if (contributors30d >= 5) score += 6;
+    else if (contributors30d >= 3) score += 4;
+    else if (contributors30d >= 1) score += 2;
 
-    // 7-day trend bonus (max 10 pts) - sustained activity
-    if (d.ghCommits7d >= 50) score += 10;
-    else if (d.ghCommits7d >= 25) score += 7;
-    else if (d.ghCommits7d >= 10) score += 4;
-    else if (d.ghCommits7d >= 3) score += 2;
+    // === TODAY'S ACTIVITY BONUS (max 20 pts) — recency signal ===
+    if (commits1d >= 15) score += 12;
+    else if (commits1d >= 8) score += 9;
+    else if (commits1d >= 3) score += 6;
+    else if (commits1d >= 1) score += 3;
 
-    // HuggingFace activity (max 30 pts)
-    // Models published (max 15 pts)
-    if (d.hfModels >= 5) score += 15;
-    else if (d.hfModels >= 3) score += 10;
-    else if (d.hfModels >= 1) score += 6;
+    if (prs1d >= 3) score += 8;
+    else if (prs1d >= 1) score += 4;
 
-    // Datasets (max 8 pts)
-    if (d.hfDatasets >= 5) score += 8;
-    else if (d.hfDatasets >= 2) score += 5;
-    else if (d.hfDatasets >= 1) score += 3;
+    // === HUGGINGFACE (max 25 pts) ===
+    // Models (max 12 pts)
+    if (d.hfModels >= 5) score += 12;
+    else if (d.hfModels >= 3) score += 9;
+    else if (d.hfModels >= 1) score += 5;
 
-    // Downloads (max 7 pts) - adoption signal
+    // Datasets (max 6 pts)
+    if (d.hfDatasets >= 5) score += 6;
+    else if (d.hfDatasets >= 2) score += 4;
+    else if (d.hfDatasets >= 1) score += 2;
+
+    // Downloads — adoption (max 7 pts)
     if (d.hfDownloads >= 10000) score += 7;
     else if (d.hfDownloads >= 1000) score += 5;
     else if (d.hfDownloads >= 100) score += 3;
