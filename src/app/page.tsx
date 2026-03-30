@@ -36,6 +36,7 @@ interface SubnetScore {
   eval_ratio?: number;
   price_change_24h?: number;
   price_change_1h?: number;
+  has_campaign?: boolean;
 }
 
 // ── Helpers ──────────────────────────────────────────────────────
@@ -476,9 +477,9 @@ export default function Home() {
                       </span>
                     </div>
                     <div className="flex items-center gap-3">
-                      <span className="text-xs text-gray-600">
+                      <span className="text-sm font-bold text-white">
                         {sig.signal_date
-                          ? new Date(sig.signal_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })
+                          ? new Date(sig.signal_date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
                           : sig.created_at ? timeAgo(sig.created_at) : ""}
                       </span>
                       <div className={`text-lg font-bold tabular-nums ${
@@ -647,6 +648,7 @@ export default function Home() {
                           <div className="flex items-center gap-2">
                             <span className="text-gray-500 text-xs font-data">SN{sub.netuid}</span>
                             <span className="font-semibold">{sub.name}</span>
+                            {sub.has_campaign && <span title="Active Stitch3 marketing campaign" className="ml-1">🔥</span>}
                           </div>
                           {sub.top_signal && (
                             <span className="text-xs text-gray-600 block mt-0.5">

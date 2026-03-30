@@ -176,6 +176,43 @@ interface LeaderboardEntry {
   eval_ratio?: number; // raw emission%/mcap% ratio
   price_change_24h?: number;
   price_change_1h?: number;
+  has_campaign?: boolean; // 🔥 Active Stitch3 marketing campaign
+}
+
+// ── Stitch3 campaign data (cached in Vercel Blob) ────────────────
+interface StitchCampaign {
+  id: string;
+  subnet: string; // extracted subnet name from campaign ID
+  netuid?: number;
+  reward: string;
+  startDate: string;
+  endDate: string;
+  tweets: number;
+  views: number;
+  status: "Active" | "Completed";
+}
+
+async function getStitchCampaigns(): Promise<StitchCampaign[]> {
+  try {
+    if (!process.env.BLOB_READ_WRITE_TOKEN) return [];
+    const { list } = await import("@vercel/blob");
+    const { blobs } = await list({ prefix: "stitch-campaigns.json", limit: 1 });
+    if (!blobs?.length) return getDefaultStitchCampaigns();
+    const res = await fetch(blobs[0].downloadUrl, { cache: "no-store" });
+    if (!res.ok) return getDefaultStitchCampaigns();
+    return await res.json();
+  } catch {
+    return getDefaultStitchCampaigns();
+  }
+}
+
+// Fallback: hardcoded from latest Stitch3 scrape (updated 2026-03-30)
+function getDefaultStitchCampaigns(): StitchCampaign[] {
+  return [
+    { id: "033_resilabs", subnet: "RESI", netuid: 46, reward: "$2,000", startDate: "2026-03-29", endDate: "2026-04-08", tweets: 11, views: 6780, status: "Active" },
+    { id: "032_targon", subnet: "Targon", netuid: 4, reward: "$1,000", startDate: "2026-03-23", endDate: "2026-03-29", tweets: 43, views: 78970, status: "Active" },
+    { id: "031_taostats", subnet: "TaoStats", reward: "$2,500", startDate: "2026-03-15", endDate: "2026-03-30", tweets: 76, views: 167383, status: "Active" },
+  ];
 }
 
 // ── Main scan handler ─────────────────────────────────────────────
@@ -193,6 +230,12 @@ export async function GET() {
       signal_date: s.signal_date || new Date().toISOString(),
     });
   }
+
+  // ── Step 0: Fetch Stitch3 campaign data ──────────────────────────
+  const stitchCampaigns = await getStitchCampaigns();
+  const activeCampaigns = stitchCampaigns.filter(c => c.status === "Active" && c.netuid);
+  const stitchActiveNetuids = new Set(activeCampaigns.map(c => c.netuid!));
+  console.log(`[scan] Stitch3: ${activeCampaigns.length} active campaigns (${[...stitchActiveNetuids].join(", ")})`);
 
   // ── Step 1: Sequential TaoStats calls to avoid 429 rate limits ──
   // Each call separated by 1s delay. TaoStats enforces strict rate limiting.
@@ -520,7 +563,7 @@ Now write your intelligence report using this EXACT format. Each section should 
 (Explain this like you're telling your non-technical friend over coffee. Use analogies. Make it dead simple and interesting.)
 
 🎯 The AlphaGap take:
-(Is the market sleeping on this? Does the development activity justify the current price? Is there an alpha gap here — strong building but the price hasn't caught up yet? Give a clear, actionable take.)`;
+(THIS IS THE MOST IMPORTANT SECTION. Is the market sleeping on this? Does the development activity justify the current price? Is there an alpha gap here — strong building but the price hasn't caught up yet? Give a clear, bold, actionable take. Always include this section.)`;
 
     try {
       const res = await fetch("https://api.anthropic.com/v1/messages", {
@@ -532,7 +575,7 @@ Now write your intelligence report using this EXACT format. Each section should 
         },
         body: JSON.stringify({
           model: "claude-haiku-4-5-20251001",
-          max_tokens: 500,
+          max_tokens: 700,
           messages: [{ role: "user", content: prompt }],
         }),
       });
@@ -958,7 +1001,12 @@ Now write your intelligence report using this EXACT format. Each section should 
   const desearchFailed = socialMap.size === 0;
 
   function computeSocialScore(netuid: number, mentions: number, engagement: number): number {
+    // Stitch3 campaign bonus — active marketing = social boost
+    const hasCampaign = stitchActiveNetuids.has(netuid);
+    const campaignBonus = hasCampaign ? 20 : 0; // +20 pts for active campaign
+
     if (mentions <= 0 && engagement <= 0) {
+      if (hasCampaign) return Math.min(100, 40 + campaignBonus); // Campaign alone = at least 40
       if (desearchFailed) {
         const identity = identityMap.get(netuid);
         if (identity?.twitter) return 15;
@@ -993,6 +1041,9 @@ Now write your intelligence report using this EXACT format. Each section should 
     else if (engagement >= 40) score += 10;
     else if (engagement >= 10) score += 6;
     else if (engagement >= 3) score += 3;
+
+    // Add Stitch3 campaign bonus
+    score += campaignBonus;
 
     return Math.min(100, score);
   }
@@ -1098,6 +1149,7 @@ Now write your intelligence report using this EXACT format. Each section should 
       eval_ratio: Math.round(evalRatio * 10) / 10,
       price_change_24h: d.priceChange24h,
       price_change_1h: d.priceChange1h,
+      has_campaign: stitchActiveNetuids.has(d.netuid) || undefined,
     });
   }
 
