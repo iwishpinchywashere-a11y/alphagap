@@ -1129,7 +1129,35 @@ Now write your intelligence report using this EXACT format. Each section should 
     else if (mcap >= 10000000) viability = 3;  // large enough for serious investment
     else if (mcap >= 50000000) viability = 5;
 
-    const rawAGap = buildingPts + priceLag + socialGap + evalBoost + viability;
+    // 6. STITCH3 CAMPAIGN BOOST (0-20 pts) — active marketing = incoming social buzz
+    // Early campaign = max boost (alpha opportunity before buzz peaks)
+    // Late campaign = reduced boost (buzz already peaked)
+    let campaignBoost = 0;
+    const campaign = activeCampaigns.find(c => c.netuid === d.netuid);
+    if (campaign) {
+      const now = new Date();
+      const start = new Date(campaign.startDate);
+      const end = new Date(campaign.endDate);
+      const totalDuration = end.getTime() - start.getTime();
+      const elapsed = now.getTime() - start.getTime();
+
+      if (elapsed < 0) {
+        // Campaign hasn't started yet — MAXIMUM boost (get in early!)
+        campaignBoost = 20;
+      } else if (elapsed <= totalDuration * 0.5) {
+        // First half of campaign — strong boost (buzz building)
+        campaignBoost = 15;
+      } else if (elapsed <= totalDuration * 0.75) {
+        // Third quarter — moderate boost (buzz peaking)
+        campaignBoost = 8;
+      } else if (elapsed <= totalDuration) {
+        // Final quarter — small boost (buzz fading)
+        campaignBoost = 4;
+      }
+      // Campaign over = 0 boost
+    }
+
+    const rawAGap = buildingPts + priceLag + socialGap + evalBoost + viability + campaignBoost;
     const aGap = Math.max(1, Math.min(100, Math.round(rawAGap)));
 
     leaderboard.push({
