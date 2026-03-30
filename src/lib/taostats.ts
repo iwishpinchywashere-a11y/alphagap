@@ -90,6 +90,8 @@ export interface SubnetPool {
   alpha_staked: string;
   price: string;
   rank: number;
+  root_prop: string;
+  startup_mode: boolean;
   price_change_1_hour: string;
   price_change_1_day: string;
   price_change_1_week: string;

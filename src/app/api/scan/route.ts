@@ -7,9 +7,9 @@ import {
   getSubnetEmissions,
   getTaoPrice,
   getGithubActivity,
-  getValidatorAlphaShares,
-  getRegistrationCosts,
-  getBurnedAlpha,
+  // getValidatorAlphaShares,  // removed — replaced by eVal
+  // getRegistrationCosts,     // removed — replaced by eVal
+  // getBurnedAlpha,  // removed — replaced by eVal
   type SubnetIdentity,
   type SubnetPool,
   type GithubActivity,
@@ -118,9 +118,7 @@ interface LeaderboardEntry {
   composite_score: number;
   flow_score: number;
   dev_score: number;
-  hf_score: number;
-  staking_score: number;
-  revenue_score: number;
+  eval_score: number; // Emissions-to-Valuation ratio
   social_score: number;
   signal_count: number;
   top_signal?: string;
@@ -128,6 +126,7 @@ interface LeaderboardEntry {
   market_cap?: number;
   net_flow_24h?: number;
   emission_pct?: number;
+  eval_ratio?: number; // raw emission%/mcap% ratio
   price_change_24h?: number;
   price_change_1h?: number;
 }
@@ -180,21 +179,7 @@ export async function GET() {
 
   await new Promise(r => setTimeout(r, 500));
 
-  // Batch 3: staking + revenue (all parallel)
-  console.log("[scan] Batch 3: staking + revenue...");
-  let alphaSharesResult: PromiseSettledResult<Awaited<ReturnType<typeof getValidatorAlphaShares>>>;
-  let regCostsResult: PromiseSettledResult<Awaited<ReturnType<typeof getRegistrationCosts>>>;
-  let burnedAlphaResult: PromiseSettledResult<Awaited<ReturnType<typeof getBurnedAlpha>>>;
-
-  [alphaSharesResult, regCostsResult, burnedAlphaResult] = await Promise.allSettled([
-    getValidatorAlphaShares(),
-    getRegistrationCosts(),
-    getBurnedAlpha(),
-  ]);
-
-  const alphaShares = alphaSharesResult.status === "fulfilled" ? alphaSharesResult.value : [];
-  const regCosts = regCostsResult.status === "fulfilled" ? regCostsResult.value : [];
-  const burnedAlpha = burnedAlphaResult.status === "fulfilled" ? burnedAlphaResult.value : [];
+  // Batch 3 removed — staking/revenue replaced by eVal (uses pool data which is already fetched)
 
   const elapsed1 = Date.now() - startTime;
   console.log(`[scan] TaoStats APIs done in ${elapsed1}ms. Identities: ${identities.length}, Pools: ${pools.length}, DevActivity: ${devActivity.length}`);
@@ -207,37 +192,6 @@ export async function GET() {
     emissions.map((e) => [e.netuid, parseFloat(e.alpha_rewards) / RAO])
   );
   const devMap = new Map<number, GithubActivity>(devActivity.map((d) => [d.netuid, d]));
-
-  // Alpha shares -> staking data per subnet
-  const stakingMap = new Map<number, { totalAlpha: number; validatorCount: number; topShare: number }>();
-  {
-    const bySubnet = new Map<number, number[]>();
-    for (const s of alphaShares) {
-      if (!s.netuid || s.netuid === 0) continue;
-      const alpha = parseFloat(s.alpha) / RAO;
-      if (!bySubnet.has(s.netuid)) bySubnet.set(s.netuid, []);
-      bySubnet.get(s.netuid)!.push(alpha);
-    }
-    for (const [netuid, alphas] of bySubnet) {
-      const total = alphas.reduce((a, b) => a + b, 0);
-      const topAlpha = Math.max(...alphas);
-      stakingMap.set(netuid, {
-        totalAlpha: total,
-        validatorCount: alphas.length,
-        topShare: total > 0 ? topAlpha / total : 0,
-      });
-    }
-  }
-
-  // Reg costs map
-  const regCostMap = new Map<number, number>(
-    regCosts.map((c) => [c.netuid, parseFloat(c.cost) / RAO])
-  );
-
-  // Burned alpha map
-  const burnedMap = new Map<number, number>(
-    burnedAlpha.filter((b) => parseFloat(b.burned_alpha) > 0).map((b) => [b.netuid, parseFloat(b.burned_alpha) / RAO])
-  );
 
   // Total emission for share calculation
   let totalEmission = 0;
@@ -623,12 +577,14 @@ Now write your intelligence report using this EXACT format. Each section should 
     name: string;
     priceChange24h: number;
     priceChange1h: number;
+    priceChange1w: number;
+    priceChange1m: number;
     alphaPriceUsd: number | null;
     marketCapUsd: number | null;
     volumeUsd: number | null;
     netFlow24h: number | null;
     taoReserve: number | null;
-    emissionShare: number;
+    emissionShare: number; // root_prop (0-1)
     // Dev metrics
     ghCommits7d: number;
     ghPRsMerged7d: number;
@@ -639,16 +595,6 @@ Now write your intelligence report using this EXACT format. Each section should 
     hfDatasets: number;
     hfSpaces: number;
     hfDownloads: number;
-    // Staking
-    totalAlphaStaked: number;
-    validatorCount: number;
-    topValidatorShare: number;
-    regCost: number;
-    // Revenue extras
-    burnedAlpha: number;
-    buyVol: number;
-    sellVol: number;
-    coverageRatio: number;
     // Social
     socialMentions: number;
     socialEngagement: number;
@@ -661,7 +607,6 @@ Now write your intelligence report using this EXACT format. Each section should 
     const pool = poolMap.get(netuid);
     const dev = devMap.get(netuid);
     const hf = hfActivityMap.get(netuid);
-    const staking = stakingMap.get(netuid);
     const social = socialMap.get(netuid);
 
     const name = identity?.subnet_name || pool?.name || `Subnet ${netuid}`;
@@ -688,11 +633,16 @@ Now write your intelligence report using this EXACT format. Each section should 
 
     const coverageRatio = sellVol > 0 ? buyVol / sellVol : buyVol > 0 ? 10 : 0;
 
+    const priceChange1w = pool?.price_change_1_week ? parseFloat(pool.price_change_1_week) : 0;
+    const priceChange1m = pool?.price_change_1_month ? parseFloat(pool.price_change_1_month) : 0;
+
     rawSubnets.push({
       netuid,
       name,
       priceChange24h: priceChange,
       priceChange1h,
+      priceChange1w,
+      priceChange1m,
       alphaPriceUsd,
       marketCapUsd,
       volumeUsd,
@@ -707,14 +657,6 @@ Now write your intelligence report using this EXACT format. Each section should 
       hfDatasets: hf?.datasets || 0,
       hfSpaces: hf?.spaces || 0,
       hfDownloads: hf?.downloads || 0,
-      totalAlphaStaked: staking?.totalAlpha || 0,
-      validatorCount: staking?.validatorCount || 0,
-      topValidatorShare: staking?.topShare || 0,
-      regCost: regCostMap.get(netuid) || 0,
-      burnedAlpha: burnedMap.get(netuid) || 0,
-      buyVol,
-      sellVol,
-      coverageRatio: Math.min(coverageRatio, 10),
       socialMentions: social?.mentions || 0,
       socialEngagement: social?.engagement || 0,
     });
@@ -799,100 +741,76 @@ Now write your intelligence report using this EXACT format. Each section should 
     return Math.round(50 + (priceChange24h / 10) * 50);
   }
 
-  // ── Staking score formula ───────────────────────────────────────
-  const alphaSharesFailed = alphaSharesResult.status === "rejected" || alphaShares.length === 0;
+  // ── eVal: Emissions-to-Valuation score ──────────────────────────
+  // Finds the gap between network emissions allocated to a subnet
+  // and its market cap valuation. High emissions + low mcap = undervalued.
+  //
+  // Also factors in emission TREND — if emissions are rising but
+  // price isn't following, that's a widening value gap.
 
-  function computeStakingScore(d: RawSubnet): number {
+  // Pre-compute total root_prop and total mcap for normalization
+  const allPoolData = [...poolMap.values()];
+  const totalRootProp = allPoolData.reduce((sum, p) => sum + parseFloat(p.root_prop || "0"), 0);
+  const totalMcapTao = allPoolData.reduce((sum, p) => sum + parseFloat(p.market_cap || "0") / RAO, 0);
+
+  function computeEvalScore(d: RawSubnet): { score: number; ratio: number } {
     let score = 0;
+    const pool = poolMap.get(d.netuid);
+    if (!pool) return { score: 0, ratio: 0 };
 
-    // Total alpha staked — the primary signal (max 40 pts)
-    const staked = d.totalAlphaStaked;
-    if (staked >= 2000000) score += 40;
-    else if (staked >= 1500000) score += 35;
-    else if (staked >= 1000000) score += 28;
-    else if (staked >= 500000) score += 22;
-    else if (staked >= 100000) score += 15;
-    else if (staked >= 10000) score += 8;
-    else if (staked > 0) score += 3;
+    const rootProp = parseFloat(pool.root_prop || "0");
+    const emPct = totalRootProp > 0 ? (rootProp / totalRootProp) * 100 : 0;
+    const mcapTao = parseFloat(pool.market_cap || "0") / RAO;
+    const mcapPct = totalMcapTao > 0 ? (mcapTao / totalMcapTao) * 100 : 0;
 
-    // Validator count (max 20 pts)
-    const vals = d.validatorCount;
-    if (vals >= 5) score += 20;
-    else if (vals >= 4) score += 16;
-    else if (vals >= 3) score += 12;
-    else if (vals >= 2) score += 8;
-    else if (vals >= 1) score += 4;
+    // Core eVal ratio: emission share / market cap share
+    // > 1 = undervalued by emissions
+    // < 1 = overvalued by emissions
+    const evalRatio = mcapPct > 0.001 ? emPct / mcapPct : 0;
 
-    // Decentralization — low top validator share is better (max 15 pts)
-    const topShare = d.topValidatorShare || 1;
-    if (topShare <= 0.25) score += 15;
-    else if (topShare <= 0.35) score += 12;
-    else if (topShare <= 0.50) score += 8;
-    else if (topShare <= 0.70) score += 4;
-    else score += 1;
+    // 1. EMISSION RANK (max 35 pts) — how much does the network value this subnet?
+    if (emPct >= 1.5) score += 35;       // Top tier emission
+    else if (emPct >= 1.0) score += 30;
+    else if (emPct >= 0.7) score += 25;
+    else if (emPct >= 0.5) score += 20;
+    else if (emPct >= 0.3) score += 15;
+    else if (emPct >= 0.15) score += 10;
+    else if (emPct > 0) score += 5;
 
-    // Market cap as confidence proxy (max 15 pts)
-    const mcap = d.marketCapUsd || 0;
-    if (mcap >= 100000000) score += 15;
-    else if (mcap >= 50000000) score += 12;
-    else if (mcap >= 20000000) score += 10;
-    else if (mcap >= 5000000) score += 7;
-    else if (mcap >= 1000000) score += 4;
-    else if (mcap >= 100000) score += 2;
+    // 2. VALUATION GAP (max 40 pts) — emissions outpacing market cap
+    if (evalRatio >= 20) score += 40;     // Massively undervalued by emissions
+    else if (evalRatio >= 10) score += 35;
+    else if (evalRatio >= 5) score += 30;
+    else if (evalRatio >= 3) score += 25;
+    else if (evalRatio >= 2) score += 20;
+    else if (evalRatio >= 1.5) score += 15;
+    else if (evalRatio >= 1.0) score += 10; // Fair value
+    else if (evalRatio >= 0.5) score += 5;  // Slightly overvalued
+    // < 0.5 = overvalued, no points
 
-    // Registration cost — high demand for slots (max 10 pts)
-    const regCost = d.regCost || 0;
-    if (regCost >= 1) score += 10;
-    else if (regCost >= 0.1) score += 6;
-    else if (regCost > 0) score += 3;
+    // 3. PRICE TREND DIVERGENCE (max 25 pts)
+    // If price is DOWN while emissions are high, the gap is WIDENING
+    const pch1w = d.priceChange1w || 0;
+    const pch1m = d.priceChange1m || 0;
 
-    return Math.min(100, score);
-  }
+    if (emPct >= 0.3) { // Only matters for subnets with meaningful emissions
+      // Weekly: price dropping = gap widening
+      if (pch1w <= -20) score += 15;
+      else if (pch1w <= -10) score += 12;
+      else if (pch1w <= -5) score += 8;
+      else if (pch1w <= 0) score += 5;
+      else if (pch1w <= 10) score += 2;
+      // Price pumping = gap closing, no points
 
-  // ── Revenue score formula ───────────────────────────────────────
-  function computeRevenueScore(d: RawSubnet): number {
-    let score = 0;
+      // Monthly: price not catching up to emission growth
+      if (pch1m <= -30) score += 10;
+      else if (pch1m <= -10) score += 7;
+      else if (pch1m <= 0) score += 4;
+      else if (pch1m <= 20) score += 2;
+      // Big monthly pump = gap has closed
+    }
 
-    const vol = d.volumeUsd || 0;
-    if (vol >= 1000000) score += 30;
-    else if (vol >= 500000) score += 25;
-    else if (vol >= 100000) score += 20;
-    else if (vol >= 50000) score += 15;
-    else if (vol >= 10000) score += 10;
-    else if (vol >= 1000) score += 5;
-    else if (vol > 0) score += 2;
-
-    const taoPool = d.taoReserve || 0;
-    if (taoPool >= 100000) score += 25;
-    else if (taoPool >= 50000) score += 22;
-    else if (taoPool >= 20000) score += 18;
-    else if (taoPool >= 10000) score += 14;
-    else if (taoPool >= 5000) score += 10;
-    else if (taoPool >= 1000) score += 6;
-    else if (taoPool > 0) score += 2;
-
-    const coverage = d.coverageRatio;
-    if (coverage >= 3) score += 20;
-    else if (coverage >= 2) score += 17;
-    else if (coverage >= 1.5) score += 14;
-    else if (coverage >= 1.1) score += 11;
-    else if (coverage >= 0.9) score += 8;
-    else if (coverage >= 0.5) score += 4;
-
-    const mcap = d.marketCapUsd || 0;
-    if (mcap >= 50000000) score += 15;
-    else if (mcap >= 20000000) score += 12;
-    else if (mcap >= 5000000) score += 9;
-    else if (mcap >= 1000000) score += 6;
-    else if (mcap >= 100000) score += 3;
-
-    const burned = d.burnedAlpha;
-    if (burned > 100) score += 10;
-    else if (burned > 10) score += 7;
-    else if (burned > 1) score += 4;
-    else if (burned > 0) score += 2;
-
-    return Math.min(100, score);
+    return { score: Math.min(100, score), ratio: evalRatio };
   }
 
   // ── Compute social score ────────────────────────────────────────
@@ -950,8 +868,7 @@ Now write your intelligence report using this EXACT format. Each section should 
 
     const devScore = computeDevScore(d);
     const flowScore = computeFlowScore(d.priceChange24h);
-    const stakingScore = computeStakingScore(d);
-    const revenueScore = computeRevenueScore(d);
+    const { score: evalScore, ratio: evalRatio } = computeEvalScore(d);
     const socialScore = computeSocialScore(d.netuid, d.socialMentions, d.socialEngagement);
 
     // ── THE ALPHA GAP FORMULA v6 ────────────────────────────────
@@ -993,21 +910,16 @@ Now write your intelligence report using this EXACT format. Each section should 
       else if (d.socialMentions > 50 && d.socialEngagement > 5000) socialGap = -8;
     }
 
-    // 4. SMART MONEY SIGNALS (0-15 pts) — are insiders accumulating?
-    // Rising staking/emissions = validators see something before retail
-    let smartMoney = 0;
-    // High staking score = validators are confident
-    if (stakingScore >= 60) smartMoney += 8;
-    else if (stakingScore >= 40) smartMoney += 5;
-    else if (stakingScore >= 25) smartMoney += 2;
-    // Revenue health = sustainable economics
-    if (revenueScore >= 60) smartMoney += 4;
-    else if (revenueScore >= 40) smartMoney += 2;
+    // 4. EMISSION VALUE GAP (0-15 pts) — network paying more than market realizes
+    // High eVal = emissions outpace valuation = validators know something retail doesn't
+    let evalBoost = 0;
+    if (evalScore >= 80) evalBoost = 15;
+    else if (evalScore >= 60) evalBoost = 12;
+    else if (evalScore >= 45) evalBoost = 8;
+    else if (evalScore >= 30) evalBoost = 5;
+    else if (evalScore >= 15) evalBoost = 2;
     // Net inflow = money flowing in
-    if (d.netFlow24h && d.netFlow24h > 0) smartMoney += 3;
-    // High emission share = network allocating resources here
-    if (d.emissionShare > 0.02) smartMoney += 3;
-    else if (d.emissionShare > 0.01) smartMoney += 1;
+    if (d.netFlow24h && d.netFlow24h > 0) evalBoost = Math.min(15, evalBoost + 3);
 
     // 5. MARKET CAP VIABILITY — too small = uninvestable
     const mcap = d.marketCapUsd || 0;
@@ -1019,7 +931,7 @@ Now write your intelligence report using this EXACT format. Each section should 
     else if (mcap >= 10000000) viability = 3;  // large enough for serious investment
     else if (mcap >= 50000000) viability = 5;
 
-    const rawAGap = buildingPts + priceLag + socialGap + smartMoney + viability;
+    const rawAGap = buildingPts + priceLag + socialGap + evalBoost + viability;
     const aGap = Math.max(1, Math.min(100, Math.round(rawAGap)));
 
     leaderboard.push({
@@ -1028,9 +940,7 @@ Now write your intelligence report using this EXACT format. Each section should 
       composite_score: aGap,
       flow_score: Math.round(flowScore),
       dev_score: Math.round(devScore),
-      hf_score: 0,
-      staking_score: stakingScore,
-      revenue_score: revenueScore,
+      eval_score: Math.round(evalScore),
       social_score: socialScore,
       signal_count: signalCountMap.get(d.netuid) || 0,
       top_signal: topSignalMap.get(d.netuid),
@@ -1038,6 +948,7 @@ Now write your intelligence report using this EXACT format. Each section should 
       market_cap: d.marketCapUsd ?? undefined,
       net_flow_24h: d.netFlow24h ?? undefined,
       emission_pct: d.emissionShare || undefined,
+      eval_ratio: Math.round(evalRatio * 10) / 10,
       price_change_24h: d.priceChange24h,
       price_change_1h: d.priceChange1h,
     });

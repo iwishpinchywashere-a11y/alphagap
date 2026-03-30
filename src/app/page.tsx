@@ -25,9 +25,7 @@ interface SubnetScore {
   composite_score: number;
   flow_score: number;
   dev_score: number;
-  hf_score: number;
-  staking_score: number;
-  revenue_score: number;
+  eval_score: number;
   social_score: number;
   signal_count: number;
   top_signal?: string;
@@ -35,6 +33,7 @@ interface SubnetScore {
   market_cap?: number;
   net_flow_24h?: number;
   emission_pct?: number;
+  eval_ratio?: number;
   price_change_24h?: number;
   price_change_1h?: number;
 }
@@ -596,8 +595,7 @@ export default function Home() {
                         ["composite_score", "aGap", "Alpha Gap Score (0-100). High when subnet is building hard but price hasn't caught up. Weighted: Dev activity 55%, Price lag 25%, Social gap 10%, Confidence 10%."],
                         ["flow_score", "Flow", "Flow Score (0-100). Based on 24h price change. High = price rising, Low = price falling. Uses absolute thresholds, not relative."],
                         ["dev_score", "Dev", "Development Score (0-100). Percentile rank of GitHub + HuggingFace activity. Measures commits, PRs, models published, and contributor count."],
-                        ["staking_score", "Staking", "Staking Score (0-100). Validator confidence. Measures total alpha staked, validator count, decentralization, and miner ecosystem health."],
-                        ["revenue_score", "Revenue", "Revenue Score (0-100). Market health. Measures 24h volume, TAO pool depth, buy/sell coverage ratio, market cap, and token burns."],
+                        ["eval_score", "eVal", "eVal Score (0-100). Emissions-to-Valuation ratio. Finds subnets where network emission share outpaces market cap — the network is paying them more than the market realizes. High eVal + low price = value gap."],
                         ["social_score", "Social", "Social Score (0-100). Social velocity from X/Twitter and Reddit. Measures mention count and engagement (likes, retweets, views)."],
                         ["alpha_price", "Price", ""],
                         ["market_cap", "MCap", ""],
@@ -665,11 +663,8 @@ export default function Home() {
                         <td className={`py-2.5 px-3 text-right ${scoreColor(sub.dev_score)}`}>
                           {sub.dev_score}
                         </td>
-                        <td className={`py-2.5 px-3 text-right ${scoreColor(sub.staking_score || 0)}`}>
-                          {sub.staking_score || 0}
-                        </td>
-                        <td className={`py-2.5 px-3 text-right ${scoreColor(sub.revenue_score || 0)}`}>
-                          {sub.revenue_score || 0}
+                        <td className={`py-2.5 px-3 text-right ${scoreColor(sub.eval_score || 0)}`}>
+                          {sub.eval_score || 0}
                         </td>
                         <td className={`py-2.5 px-3 text-right ${scoreColor(sub.social_score || 0)}`}>
                           {sub.social_score || 0}
@@ -764,16 +759,13 @@ export default function Home() {
                   </span>
                 </div>
                 <div className="bg-gray-800/50 rounded p-2">
-                  <span className="text-gray-500 block">Staking</span>
-                  <span className={scoreColor(selectedSubnetData.staking_score)}>
-                    {selectedSubnetData.staking_score}
+                  <span className="text-gray-500 block">eVal</span>
+                  <span className={scoreColor(selectedSubnetData.eval_score)}>
+                    {selectedSubnetData.eval_score}
                   </span>
-                </div>
-                <div className="bg-gray-800/50 rounded p-2">
-                  <span className="text-gray-500 block">Revenue</span>
-                  <span className={scoreColor(selectedSubnetData.revenue_score)}>
-                    {selectedSubnetData.revenue_score}
-                  </span>
+                  {selectedSubnetData.eval_ratio ? (
+                    <span className="text-xs text-gray-500 block">{selectedSubnetData.eval_ratio}x</span>
+                  ) : null}
                 </div>
                 <div className="bg-gray-800/50 rounded p-2">
                   <span className="text-gray-500 block">Social</span>
