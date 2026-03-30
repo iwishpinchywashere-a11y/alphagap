@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { put } from "@vercel/blob";
+import { put, get as blobGet } from "@vercel/blob";
 import {
   getSubnetIdentities,
   getSubnetPools,
@@ -173,6 +173,8 @@ interface LeaderboardEntry {
   market_cap?: number;
   net_flow_24h?: number;
   emission_pct?: number;
+  emission_trend?: "up" | "down" | null; // significant change detected
+  emission_change_pct?: number; // % change from previous scan
   eval_ratio?: number; // raw emission%/mcap% ratio
   price_change_24h?: number;
   price_change_1h?: number;
@@ -1194,7 +1196,79 @@ Now write your intelligence report using this EXACT format. Each section should 
   // Sort signals by strength desc
   signals.sort((a, b) => b.strength - a.strength);
 
-  // Step 7 removed — AI analysis now happens during signal generation (step 5)
+  // ── Emission trend detection ────────────────────────────────────
+  // Compare current emissions to historical data stored in blob
+  type EmissionHistory = { [netuid: string]: { pct: number; timestamp: string }[] };
+  let emissionHistory: EmissionHistory = {};
+
+  try {
+    if (process.env.BLOB_READ_WRITE_TOKEN) {
+      const histBlob = await blobGet("emission-history.json", {
+        token: process.env.BLOB_READ_WRITE_TOKEN,
+        access: "private",
+      });
+      if (histBlob && histBlob.stream) {
+        const reader = histBlob.stream.getReader();
+        const chunks: Uint8Array[] = [];
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          chunks.push(value);
+        }
+        emissionHistory = JSON.parse(Buffer.concat(chunks).toString("utf-8"));
+      }
+    }
+  } catch {
+    // No history yet, that's fine — first scan
+  }
+
+  const now = new Date().toISOString();
+  for (const entry of leaderboard) {
+    if (!entry.emission_pct || entry.emission_pct <= 0) continue;
+    const key = String(entry.netuid);
+    const currentPct = entry.emission_pct * 100; // convert back to %
+
+    if (!emissionHistory[key]) emissionHistory[key] = [];
+    const hist = emissionHistory[key];
+
+    // Compare to oldest entry we have (up to 7 days of data)
+    if (hist.length > 0) {
+      // Find ~24h ago entry
+      const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
+      const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+      const recent = hist.find(h => new Date(h.timestamp).getTime() >= oneDayAgo) || hist[hist.length - 1];
+      const oldest = hist.find(h => new Date(h.timestamp).getTime() <= sevenDaysAgo) || hist[0];
+
+      // Use whichever gives us a longer lookback
+      const compareTo = oldest.pct > 0 ? oldest : recent;
+      if (compareTo.pct > 0) {
+        const changePct = ((currentPct - compareTo.pct) / compareTo.pct) * 100;
+        entry.emission_change_pct = Math.round(changePct * 10) / 10;
+
+        // Significant = >5% relative change
+        if (changePct >= 5) entry.emission_trend = "up";
+        else if (changePct <= -5) entry.emission_trend = "down";
+      }
+    }
+
+    // Append current reading, keep max 7 days of hourly data (~168 entries)
+    hist.push({ pct: currentPct, timestamp: now });
+    // Prune old entries (keep last 168)
+    if (hist.length > 168) emissionHistory[key] = hist.slice(-168);
+  }
+
+  // Save updated emission history
+  try {
+    if (process.env.BLOB_READ_WRITE_TOKEN) {
+      await put("emission-history.json", JSON.stringify(emissionHistory), {
+        access: "private",
+        addRandomSuffix: false,
+        contentType: "application/json",
+      });
+    }
+  } catch (e) {
+    console.error("[scan] Failed to save emission history:", e);
+  }
 
   const duration = Date.now() - startTime;
   console.log(`[scan] Complete in ${duration}ms. ${leaderboard.length} subnets, ${signals.length} signals.`);

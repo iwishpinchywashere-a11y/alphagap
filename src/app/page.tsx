@@ -33,6 +33,8 @@ interface SubnetScore {
   market_cap?: number;
   net_flow_24h?: number;
   emission_pct?: number;
+  emission_trend?: "up" | "down" | null;
+  emission_change_pct?: number;
   eval_ratio?: number;
   price_change_24h?: number;
   price_change_1h?: number;
@@ -673,9 +675,17 @@ export default function Home() {
                           {sub.social_score || 0}
                         </td>
                         <td className="py-2.5 px-3 text-right text-gray-400">
-                          {sub.emission_pct != null && sub.emission_pct > 0
-                            ? `${(sub.emission_pct * 100).toFixed(1)}%`
-                            : "\u2014"}
+                          <span className="inline-flex items-center gap-1">
+                            {sub.emission_trend === "up" && (
+                              <span className="text-green-400 text-xs" title={`+${sub.emission_change_pct?.toFixed(1)}% change`}>▲</span>
+                            )}
+                            {sub.emission_trend === "down" && (
+                              <span className="text-red-400 text-xs" title={`${sub.emission_change_pct?.toFixed(1)}% change`}>▼</span>
+                            )}
+                            {sub.emission_pct != null && sub.emission_pct > 0
+                              ? `${(sub.emission_pct * 100).toFixed(1)}%`
+                              : "\u2014"}
+                          </span>
                         </td>
                         <td className="py-2.5 px-3 text-right text-gray-400">
                           {sub.alpha_price != null ? `$${formatNum(sub.alpha_price, 2)}` : "\u2014"}
