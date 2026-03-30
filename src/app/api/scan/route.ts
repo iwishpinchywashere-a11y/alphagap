@@ -178,6 +178,8 @@ interface LeaderboardEntry {
   eval_ratio?: number; // raw emission%/mcap% ratio
   price_change_24h?: number;
   price_change_1h?: number;
+  price_change_7d?: number;
+  price_change_30d?: number;
   has_campaign?: boolean; // 🔥 Active Stitch3 marketing campaign
 }
 
@@ -895,14 +897,57 @@ Now write your intelligence report using this EXACT format. Each section should 
     return Math.min(100, ghScore + hfScore);
   }
 
-  // ── Flow score formula ──────────────────────────────────────────
-  function computeFlowScore(priceChange24h: number): number {
-    if (priceChange24h <= -20) return 1;
-    if (priceChange24h >= 10) return 100;
-    if (priceChange24h < 0) {
-      return Math.round(1 + ((priceChange24h + 20) / 20) * 49);
-    }
-    return Math.round(50 + (priceChange24h / 10) * 50);
+  // ── Flow score formula (multi-timeframe momentum) ───────────────
+  // Combines 24h, 7d, and 30d price momentum.
+  // High score = strong upward momentum across timeframes.
+  // Also detects REVERSALS: down long-term but turning up short-term.
+  function computeFlowScore(d: RawSubnet): number {
+    const pch24h = d.priceChange24h || 0;
+    const pch7d = d.priceChange1w || 0;
+    const pch30d = d.priceChange1m || 0;
+
+    // 24h momentum (0-40 pts) — most weighted for recency
+    let score24h = 0;
+    if (pch24h >= 15) score24h = 40;
+    else if (pch24h >= 8) score24h = 35;
+    else if (pch24h >= 4) score24h = 30;
+    else if (pch24h >= 2) score24h = 25;
+    else if (pch24h >= 0) score24h = 20;
+    else if (pch24h >= -3) score24h = 15;
+    else if (pch24h >= -8) score24h = 10;
+    else if (pch24h >= -15) score24h = 5;
+    else score24h = 1;
+
+    // 7d momentum (0-30 pts)
+    let score7d = 0;
+    if (pch7d >= 30) score7d = 30;
+    else if (pch7d >= 15) score7d = 25;
+    else if (pch7d >= 5) score7d = 20;
+    else if (pch7d >= 0) score7d = 15;
+    else if (pch7d >= -10) score7d = 10;
+    else if (pch7d >= -25) score7d = 5;
+    else score7d = 1;
+
+    // 30d momentum (0-20 pts)
+    let score30d = 0;
+    if (pch30d >= 50) score30d = 20;
+    else if (pch30d >= 20) score30d = 17;
+    else if (pch30d >= 5) score30d = 14;
+    else if (pch30d >= 0) score30d = 11;
+    else if (pch30d >= -20) score30d = 7;
+    else if (pch30d >= -50) score30d = 3;
+    else score30d = 1;
+
+    // REVERSAL BONUS (0-10 pts) — down long-term but turning up short-term
+    // This is the magic: "just starting to perk up" signal
+    let reversalBonus = 0;
+    if (pch30d <= -20 && pch24h >= 2) reversalBonus = 10;  // Down 20%+ monthly, up 2%+ today
+    else if (pch30d <= -15 && pch24h >= 1) reversalBonus = 8;
+    else if (pch7d <= -15 && pch24h >= 2) reversalBonus = 7;  // Down 15%+ weekly, up today
+    else if (pch7d <= -10 && pch24h >= 1) reversalBonus = 5;
+    else if (pch30d <= -10 && pch7d >= 0 && pch24h >= 0) reversalBonus = 3;  // Monthly down but weekly stabilizing
+
+    return Math.min(100, score24h + score7d + score30d + reversalBonus);
   }
 
   // ── eVal: Emissions-to-Valuation score ──────────────────────────
@@ -1075,7 +1120,7 @@ Now write your intelligence report using this EXACT format. Each section should 
     const d = rawSubnets[i];
 
     const devScore = computeDevScore(d);
-    const flowScore = computeFlowScore(d.priceChange24h);
+    const flowScore = computeFlowScore(d);
     const { score: evalScore, ratio: evalRatio } = computeEvalScore(d);
     const socialScore = computeSocialScore(d.netuid, d.socialMentions, d.socialEngagement);
 
@@ -1091,19 +1136,46 @@ Now write your intelligence report using this EXACT format. Each section should 
     // Dev score IS the quality signal. Scale it to 50.
     const buildingPts = devScore * 0.50;
 
-    // 2. PRICE LAG (0-25 pts) — is the market sleeping?
-    // Positive = price hasn't caught up (gap exists)
-    // Negative = price already moved (gap closing)
+    // 2. PRICE LAG (0-30 pts) — multi-timeframe gap detection
+    // The BEST alpha gap: building hard + down on longer timeframes + just starting to turn
     let priceLag = 0;
-    if (devScore >= 20) { // Only matters if they're actually building
-      if (d.priceChange24h <= -15) priceLag = 25;       // down big while building = massive gap
-      else if (d.priceChange24h <= -8) priceLag = 20;
-      else if (d.priceChange24h <= -3) priceLag = 15;
-      else if (d.priceChange24h <= 0) priceLag = 10;     // flat while building = gap
-      else if (d.priceChange24h <= 3) priceLag = 5;      // slight up = small gap
-      else if (d.priceChange24h <= 8) priceLag = 0;      // moderate up = no gap
-      else if (d.priceChange24h <= 15) priceLag = -5;    // pumping = gap closing
-      else priceLag = -12;                                // mooned = gap gone
+    const pch24h = d.priceChange24h || 0;
+    const pch7d = d.priceChange1w || 0;
+    const pch30d = d.priceChange1m || 0;
+
+    if (devScore >= 20) {
+      // 30D price lag (0-12 pts) — long-term underperformance = biggest gap
+      if (pch30d <= -40) priceLag += 12;
+      else if (pch30d <= -25) priceLag += 10;
+      else if (pch30d <= -15) priceLag += 8;
+      else if (pch30d <= -5) priceLag += 5;
+      else if (pch30d <= 5) priceLag += 2;
+      else if (pch30d >= 50) priceLag -= 5;   // mooned = gap gone
+      else if (pch30d >= 20) priceLag -= 2;
+
+      // 7D price lag (0-10 pts)
+      if (pch7d <= -25) priceLag += 10;
+      else if (pch7d <= -15) priceLag += 8;
+      else if (pch7d <= -8) priceLag += 6;
+      else if (pch7d <= -3) priceLag += 4;
+      else if (pch7d <= 3) priceLag += 2;
+      else if (pch7d >= 20) priceLag -= 3;
+
+      // 24H price lag (0-8 pts)
+      if (pch24h <= -10) priceLag += 8;
+      else if (pch24h <= -5) priceLag += 6;
+      else if (pch24h <= 0) priceLag += 3;
+      else if (pch24h <= 3) priceLag += 1;
+      else if (pch24h >= 10) priceLag -= 3;
+
+      // REVERSAL BONUS (0-8 pts) — THE MAGIC
+      // Down long-term but turning up short-term = price is waking up
+      if (pch30d <= -20 && pch24h >= 3) priceLag += 8;       // Down 20%+ monthly, up 3%+ today!
+      else if (pch30d <= -15 && pch24h >= 1) priceLag += 6;
+      else if (pch7d <= -15 && pch24h >= 2) priceLag += 5;   // Down 15%+ weekly, turning today
+      else if (pch7d <= -10 && pch24h >= 0) priceLag += 3;   // Down weekly, stabilizing
+
+      priceLag = Math.min(30, Math.max(-10, priceLag));
     }
 
     // 3. SOCIAL GAP (0-15 pts) — is nobody talking about this yet?
@@ -1187,6 +1259,8 @@ Now write your intelligence report using this EXACT format. Each section should 
       eval_ratio: Math.round(evalRatio * 10) / 10,
       price_change_24h: d.priceChange24h,
       price_change_1h: d.priceChange1h,
+      price_change_7d: d.priceChange1w,
+      price_change_30d: d.priceChange1m,
       has_campaign: stitchActiveNetuids.has(d.netuid) || undefined,
     });
   }

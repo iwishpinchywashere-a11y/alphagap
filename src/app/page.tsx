@@ -38,6 +38,8 @@ interface SubnetScore {
   eval_ratio?: number;
   price_change_24h?: number;
   price_change_1h?: number;
+  price_change_7d?: number;
+  price_change_30d?: number;
   has_campaign?: boolean;
 }
 
@@ -654,6 +656,8 @@ export default function Home() {
                         ["market_cap", "MCap", ""],
                         ["price_change_1h", "1h %", ""],
                         ["price_change_24h", "24h %", ""],
+                        ["price_change_7d", "7d %", ""],
+                        ["price_change_30d", "30d %", ""],
                         ["net_flow_24h", "24h Net", ""],
                         ["signal_count", "Signals", ""],
                       ] as [keyof SubnetScore, string, string][]).map(([key, label, tooltip]) => (
@@ -758,6 +762,24 @@ export default function Home() {
                         }`}>
                           {sub.price_change_24h != null
                             ? `${sub.price_change_24h > 0 ? "+" : ""}${sub.price_change_24h.toFixed(1)}%`
+                            : "\u2014"}
+                        </td>
+                        <td className={`py-2.5 px-3 text-right font-medium ${
+                          sub.price_change_7d == null ? "text-gray-600" :
+                          sub.price_change_7d > 0 ? "text-green-400" :
+                          sub.price_change_7d < 0 ? "text-red-400" : "text-gray-500"
+                        }`}>
+                          {sub.price_change_7d != null
+                            ? `${sub.price_change_7d > 0 ? "+" : ""}${sub.price_change_7d.toFixed(1)}%`
+                            : "\u2014"}
+                        </td>
+                        <td className={`py-2.5 px-3 text-right font-medium ${
+                          sub.price_change_30d == null ? "text-gray-600" :
+                          sub.price_change_30d > 0 ? "text-green-400" :
+                          sub.price_change_30d < 0 ? "text-red-400" : "text-gray-500"
+                        }`}>
+                          {sub.price_change_30d != null
+                            ? `${sub.price_change_30d > 0 ? "+" : ""}${sub.price_change_30d.toFixed(1)}%`
                             : "\u2014"}
                         </td>
                         <td className={`py-2.5 px-3 text-right ${flowColor(sub.net_flow_24h)}`}>
