@@ -994,7 +994,15 @@ Now write your intelligence report using this EXACT format. Each section should 
     else if (regsTao >= 0.5) score += 3;
     else if (regsTao > 0) score += 1;
 
-    return { score: Math.min(100, score), ratio: evalRatio };
+    // 5. MARKET CAP PENALTY — tiny subnets get inflated ratios
+    // A $200K subnet with 0.5% emissions looks like 10x ratio but it's just illiquid
+    if (mcapUsd < 100000) score -= 40;        // ghost subnet, ratio is meaningless
+    else if (mcapUsd < 300000) score -= 30;   // micro cap, very risky
+    else if (mcapUsd < 500000) score -= 20;   // tiny, ratio inflated
+    else if (mcapUsd < 1000000) score -= 12;  // small, moderate penalty
+    else if (mcapUsd < 3000000) score -= 5;   // emerging, slight discount
+
+    return { score: Math.max(0, Math.min(100, score)), ratio: evalRatio };
   }
 
   // ── Compute social score ────────────────────────────────────────
