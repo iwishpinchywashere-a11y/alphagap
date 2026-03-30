@@ -24,6 +24,7 @@ interface TMCSubnet {
   deregistration_risk: boolean;
   miners_tao_per_day: number;
   circulating_supply: number;
+  neuron_regs_burned_24h: number;
 }
 async function fetchTMCSubnets(): Promise<TMCSubnet[]> {
   if (!TMC_API_KEY) return [];
@@ -36,6 +37,28 @@ async function fetchTMCSubnets(): Promise<TMCSubnet[]> {
   } catch {
     console.error("[scan] TMC API failed");
     return [];
+  }
+}
+
+// Fetch validator counts per subnet from TMC
+interface TMCValidator { subnet: number; hotkey: string; coldkey: string }
+async function fetchTMCValidators(): Promise<Map<number, number>> {
+  if (!TMC_API_KEY) return new Map();
+  try {
+    const res = await fetch("https://api.taomarketcap.com/public/v1/subnets/validators/?limit=10000", {
+      headers: { Authorization: TMC_API_KEY },
+    });
+    if (!res.ok) return new Map();
+    const validators: TMCValidator[] = await res.json();
+    // Count per subnet
+    const counts = new Map<number, number>();
+    for (const v of validators) {
+      counts.set(v.subnet, (counts.get(v.subnet) || 0) + 1);
+    }
+    return counts;
+  } catch {
+    console.error("[scan] TMC validators API failed");
+    return new Map();
   }
 }
 import {
@@ -191,17 +214,19 @@ export async function GET() {
 
   // Batch 2: flows + emissions + dev activity + TMC emissions (all parallel)
   console.log("[scan] Batch 2: flows + emissions + dev + TMC...");
-  const [flowsResult, emissionsResult, devResult, tmcResult] = await Promise.allSettled([
+  const [flowsResult, emissionsResult, devResult, tmcResult, tmcValResult] = await Promise.allSettled([
     getTaoFlows(),
     getSubnetEmissions(),
     getGithubActivity(),
     fetchTMCSubnets(),
+    fetchTMCValidators(),
   ]);
   const flows = flowsResult.status === "fulfilled" ? flowsResult.value : [];
   const emissions = emissionsResult.status === "fulfilled" ? emissionsResult.value : [];
   let devActivity = devResult.status === "fulfilled" ? devResult.value : ([] as Awaited<ReturnType<typeof getGithubActivity>>);
   const tmcSubnets = tmcResult.status === "fulfilled" ? tmcResult.value : [];
-  console.log(`[scan] Batch 2 done: ${flows.length} flows, ${emissions.length} emissions, ${devActivity.length} dev, ${tmcSubnets.length} TMC`);
+  const validatorCounts = tmcValResult.status === "fulfilled" ? tmcValResult.value : new Map<number, number>();
+  console.log(`[scan] Batch 2 done: ${flows.length} flows, ${emissions.length} emissions, ${devActivity.length} dev, ${tmcSubnets.length} TMC, ${validatorCounts.size} validator subnets`);
 
   // Build TMC emission map (accurate emission % from TaoMarketCap)
   const tmcMap = new Map<number, TMCSubnet>(tmcSubnets.map(s => [s.subnet, s]));
@@ -621,6 +646,10 @@ Now write your intelligence report using this EXACT format. Each section should 
     hfDatasets: number;
     hfSpaces: number;
     hfDownloads: number;
+    // Validator/Miner counts
+    validatorCount: number;
+    minerCount: number; // estimated as maxNeurons - validatorCount
+    regsBurned24h: number; // TAO burned on registrations in 24h (proxy for new miners)
     // Social
     socialMentions: number;
     socialEngagement: number;
@@ -684,6 +713,9 @@ Now write your intelligence report using this EXACT format. Each section should 
       hfDatasets: hf?.datasets || 0,
       hfSpaces: hf?.spaces || 0,
       hfDownloads: hf?.downloads || 0,
+      validatorCount: validatorCounts.get(netuid) || 0,
+      minerCount: Math.max(0, 256 - (validatorCounts.get(netuid) || 0)), // max 256 neurons per subnet
+      regsBurned24h: tmcMap.get(netuid)?.neuron_regs_burned_24h || 0,
       socialMentions: social?.mentions || 0,
       socialEngagement: social?.engagement || 0,
     });
@@ -837,6 +869,27 @@ Now write your intelligence report using this EXACT format. Each section should 
       else if (pch1m <= 20) score += 2;
       // Big monthly pump = gap has closed
     }
+
+    // 4. NETWORK PARTICIPATION (max 15 pts)
+    // High validators + miners = network confidence
+    // Regs burned = demand for slots (new miners joining)
+    const vals = d.validatorCount;
+    const regs = d.regsBurned24h;
+
+    // Validator count (max 8 pts) — more validators = more confidence
+    if (vals >= 60) score += 8;
+    else if (vals >= 50) score += 6;
+    else if (vals >= 40) score += 5;
+    else if (vals >= 30) score += 3;
+    else if (vals >= 15) score += 2;
+
+    // Registration burns in 24h (max 7 pts) — new miners joining
+    // neuron_regs_burned_24h is in rao (1e9 = 1 TAO)
+    const regsTao = regs / 1e9;
+    if (regsTao >= 5) score += 7;      // Heavy registration activity
+    else if (regsTao >= 2) score += 5;
+    else if (regsTao >= 0.5) score += 3;
+    else if (regsTao > 0) score += 1;
 
     return { score: Math.min(100, score), ratio: evalRatio };
   }
