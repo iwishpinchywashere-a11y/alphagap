@@ -331,15 +331,14 @@ export async function GET() {
       return null;
     }
 
+    // 5 targeted searches (reduced from 8 to conserve credits)
+    // ~5 credits/scan × 10 scans/day = 50 credits/day → $10 lasts ~60+ days
     const searches = [
       { query: "bittensor subnet", count: 100, sort: "Top" as const },
-      { query: "bittensor subnet", count: 100, sort: "Latest" as const },
-      { query: "$TAO subnet", count: 50, sort: "Top" as const },
-      { query: "bittensor alpha", count: 50, sort: "Latest" as const },
-      { query: "templar bittensor", count: 50, sort: "Top" as const },
-      { query: "chutes bittensor", count: 50, sort: "Top" as const },
-      { query: "bittensor SN", count: 50, sort: "Latest" as const },
-      { query: "tao alpha subnet", count: 50, sort: "Latest" as const },
+      { query: "bittensor subnet alpha", count: 100, sort: "Latest" as const },
+      { query: "$TAO subnet SN", count: 50, sort: "Top" as const },
+      { query: "bittensor alpha token", count: 50, sort: "Latest" as const },
+      { query: "bittensor templar chutes ridges basilica", count: 50, sort: "Top" as const },
     ];
 
     // Run searches in parallel for speed
@@ -955,47 +954,72 @@ Now write your intelligence report using this EXACT format. Each section should 
     const revenueScore = computeRevenueScore(d);
     const socialScore = computeSocialScore(d.netuid, d.socialMentions, d.socialEngagement);
 
-    // ── THE ALPHA GAP FORMULA v5 ────────────────────────────────
-    // 1. DEV BASE (0-55 pts)
-    const devBase = devScore * 0.55;
+    // ── THE ALPHA GAP FORMULA v6 ────────────────────────────────
+    // THESIS: Find subnets building quality + price hasn't caught up
+    //         + smart money signals (emissions, validators, stakers)
+    //
+    // The GAP = great dev work MINUS market awareness
+    // High dev + low price movement + low social = MAXIMUM GAP
+    // High dev + price already pumped + everyone talking = NO GAP
 
-    // 2. FLOW GAP (0-25 pts)
-    let flowGap = 0;
-    if (devScore > 30) {
-      if (d.priceChange24h < -20) flowGap = 25;
-      else if (d.priceChange24h < -10) flowGap = 20;
-      else if (d.priceChange24h < -5) flowGap = 15;
-      else if (d.priceChange24h < -2) flowGap = 10;
-      else if (d.priceChange24h < 0) flowGap = 6;
-      else if (d.priceChange24h < 3) flowGap = 3;
-      else if (d.priceChange24h < 8) flowGap = 0;
-      else if (d.priceChange24h < 15) flowGap = -5;
-      else flowGap = -12;
+    // 1. BUILDING QUALITY (0-50 pts) — are they actually shipping?
+    // Dev score IS the quality signal. Scale it to 50.
+    const buildingPts = devScore * 0.50;
+
+    // 2. PRICE LAG (0-25 pts) — is the market sleeping?
+    // Positive = price hasn't caught up (gap exists)
+    // Negative = price already moved (gap closing)
+    let priceLag = 0;
+    if (devScore >= 20) { // Only matters if they're actually building
+      if (d.priceChange24h <= -15) priceLag = 25;       // down big while building = massive gap
+      else if (d.priceChange24h <= -8) priceLag = 20;
+      else if (d.priceChange24h <= -3) priceLag = 15;
+      else if (d.priceChange24h <= 0) priceLag = 10;     // flat while building = gap
+      else if (d.priceChange24h <= 3) priceLag = 5;      // slight up = small gap
+      else if (d.priceChange24h <= 8) priceLag = 0;      // moderate up = no gap
+      else if (d.priceChange24h <= 15) priceLag = -5;    // pumping = gap closing
+      else priceLag = -12;                                // mooned = gap gone
     }
 
-    // 3. SOCIAL GAP (0-10 pts)
+    // 3. SOCIAL GAP (0-15 pts) — is nobody talking about this yet?
+    // High dev + low social = undiscovered alpha
     let socialGap = 0;
-    if (devScore > 40) {
-      if (d.socialMentions <= 2 && d.socialEngagement < 50) socialGap = 10;
-      else if (d.socialMentions <= 8 && d.socialEngagement < 300) socialGap = 6;
-      else if (d.socialMentions <= 15 && d.socialEngagement < 800) socialGap = 3;
+    if (devScore >= 20) {
+      if (d.socialMentions <= 1 && d.socialEngagement < 20) socialGap = 15;
+      else if (d.socialMentions <= 3 && d.socialEngagement < 100) socialGap = 12;
+      else if (d.socialMentions <= 8 && d.socialEngagement < 300) socialGap = 8;
+      else if (d.socialMentions <= 15 && d.socialEngagement < 800) socialGap = 4;
       else if (d.socialMentions > 30 && d.socialEngagement > 2000) socialGap = -3;
       else if (d.socialMentions > 50 && d.socialEngagement > 5000) socialGap = -8;
     }
 
-    // 4. CONFIDENCE BOOST (0-10 pts)
-    const confidenceBoost = Math.min(5, stakingScore * 0.05) + Math.min(5, revenueScore * 0.05);
+    // 4. SMART MONEY SIGNALS (0-15 pts) — are insiders accumulating?
+    // Rising staking/emissions = validators see something before retail
+    let smartMoney = 0;
+    // High staking score = validators are confident
+    if (stakingScore >= 60) smartMoney += 8;
+    else if (stakingScore >= 40) smartMoney += 5;
+    else if (stakingScore >= 25) smartMoney += 2;
+    // Revenue health = sustainable economics
+    if (revenueScore >= 60) smartMoney += 4;
+    else if (revenueScore >= 40) smartMoney += 2;
+    // Net inflow = money flowing in
+    if (d.netFlow24h && d.netFlow24h > 0) smartMoney += 3;
+    // High emission share = network allocating resources here
+    if (d.emissionShare > 0.02) smartMoney += 3;
+    else if (d.emissionShare > 0.01) smartMoney += 1;
 
-    // 5. MARKET CAP PENALTY
+    // 5. MARKET CAP VIABILITY — too small = uninvestable
     const mcap = d.marketCapUsd || 0;
-    let mcapPenalty = 0;
-    if (mcap < 50000) mcapPenalty = -35;
-    else if (mcap < 100000) mcapPenalty = -25;
-    else if (mcap < 500000) mcapPenalty = -15;
-    else if (mcap < 1000000) mcapPenalty = -8;
-    else if (mcap < 5000000) mcapPenalty = -3;
+    let viability = 0;
+    if (mcap < 50000) viability = -30;        // ghost subnet
+    else if (mcap < 100000) viability = -20;
+    else if (mcap < 500000) viability = -10;
+    else if (mcap < 1000000) viability = -5;
+    else if (mcap >= 10000000) viability = 3;  // large enough for serious investment
+    else if (mcap >= 50000000) viability = 5;
 
-    const rawAGap = devBase + flowGap + socialGap + confidenceBoost + mcapPenalty;
+    const rawAGap = buildingPts + priceLag + socialGap + smartMoney + viability;
     const aGap = Math.max(1, Math.min(100, Math.round(rawAGap)));
 
     leaderboard.push({
