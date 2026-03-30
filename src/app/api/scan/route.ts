@@ -288,7 +288,7 @@ export async function GET() {
   const timeLeftForSocial = 50000 - (Date.now() - startTime);
   const socialMap = new Map<number, { mentions: number; engagement: number }>();
 
-  if (timeLeftForSocial > 12000 && DESEARCH_KEY) {
+  if (timeLeftForSocial > 5000 && DESEARCH_KEY) {
     console.log("[scan] Fetching Desearch social data...");
 
     // Build handle->netuid and name->netuid maps from identities
@@ -336,13 +336,19 @@ export async function GET() {
       { query: "tao alpha subnet", count: 50, sort: "Latest" as const },
     ];
 
-    // Run searches sequentially to avoid rate limits (each takes ~2-3s)
+    // Run searches in parallel for speed
     const allTweets = new Map<string, DesearchTweet>();
-    for (const search of searches) {
-      const timeLeft = 50000 - (Date.now() - startTime);
-      if (timeLeft < 5000) break;
-      const tweets = await fetchTweets(search.query, search.count, search.sort);
-      for (const t of tweets) allTweets.set(t.id, t);
+    try {
+      const results = await Promise.allSettled(
+        searches.map(s => fetchTweets(s.query, s.count, s.sort))
+      );
+      for (const r of results) {
+        if (r.status === "fulfilled") {
+          for (const t of r.value) allTweets.set(t.id, t);
+        }
+      }
+    } catch (e) {
+      console.error("[scan] Desearch parallel fetch error:", e);
     }
 
     // Match tweets to subnets
@@ -712,64 +718,70 @@ Now write your intelligence report using this EXACT format. Each section should 
   // ── Compute absolute dev score (not percentile) ─────────────────
   // Multiple subnets can share the same score. Based on actual activity quality.
   function computeDevScore(d: RawSubnet): number {
-    let score = 0;
-
     const dev = devMap.get(d.netuid);
     const commits1d = dev?.commits_1d || 0;
     const commits7d = dev?.commits_7d || 0;
+    const commits30d = dev?.commits_30d || 0;
     const prs1d = dev?.prs_merged_1d || 0;
     const prs7d = dev?.prs_merged_7d || 0;
     const contributors1d = dev?.unique_contributors_1d || 0;
     const contributors30d = dev?.unique_contributors_30d || 0;
 
-    // === GITHUB: 7-day activity is the primary signal (max 55 pts) ===
-    // Weekly commits (max 30 pts)
-    if (commits7d >= 100) score += 30;
-    else if (commits7d >= 50) score += 25;
-    else if (commits7d >= 25) score += 20;
-    else if (commits7d >= 10) score += 14;
-    else if (commits7d >= 5) score += 8;
-    else if (commits7d >= 1) score += 4;
+    // Use the BEST timeframe — some subnets push in bursts
+    // Score each timeframe independently and take the highest
+    let ghScore = 0;
 
-    // Weekly PRs merged (max 15 pts) — PRs are high-signal
-    if (prs7d >= 10) score += 15;
-    else if (prs7d >= 5) score += 12;
-    else if (prs7d >= 3) score += 9;
-    else if (prs7d >= 1) score += 5;
+    // --- 7-day score (most balanced view) ---
+    let weekly = 0;
+    if (commits7d >= 100) weekly += 55;
+    else if (commits7d >= 50) weekly += 45;
+    else if (commits7d >= 25) weekly += 35;
+    else if (commits7d >= 10) weekly += 22;
+    else if (commits7d >= 5) weekly += 14;
+    else if (commits7d >= 1) weekly += 7;
 
-    // Contributor depth (max 10 pts) — team size matters
-    if (contributors30d >= 10) score += 10;
-    else if (contributors30d >= 5) score += 7;
-    else if (contributors30d >= 3) score += 5;
-    else if (contributors30d >= 1) score += 2;
+    if (prs7d >= 10) weekly += 25;
+    else if (prs7d >= 5) weekly += 20;
+    else if (prs7d >= 3) weekly += 15;
+    else if (prs7d >= 1) weekly += 8;
 
-    // === TODAY'S ACTIVITY BONUS (max 20 pts) — recency signal ===
-    if (commits1d >= 15) score += 12;
-    else if (commits1d >= 8) score += 9;
-    else if (commits1d >= 3) score += 6;
-    else if (commits1d >= 1) score += 3;
+    // --- Today score (freshness bonus — multiplied up) ---
+    let daily = 0;
+    if (commits1d >= 20) daily += 55;
+    else if (commits1d >= 10) daily += 45;
+    else if (commits1d >= 5) daily += 32;
+    else if (commits1d >= 3) daily += 22;
+    else if (commits1d >= 1) daily += 12;
 
-    if (prs1d >= 3) score += 8;
-    else if (prs1d >= 1) score += 4;
+    if (prs1d >= 3) daily += 25;
+    else if (prs1d >= 1) daily += 15;
 
-    // === HUGGINGFACE (max 25 pts) ===
-    // Models (max 12 pts)
-    if (d.hfModels >= 5) score += 12;
-    else if (d.hfModels >= 3) score += 9;
-    else if (d.hfModels >= 1) score += 5;
+    // Take the better of weekly or daily
+    ghScore = Math.max(weekly, daily);
 
-    // Datasets (max 6 pts)
-    if (d.hfDatasets >= 5) score += 6;
-    else if (d.hfDatasets >= 2) score += 4;
-    else if (d.hfDatasets >= 1) score += 2;
+    // Contributor bonus on top (max 15 pts)
+    if (contributors30d >= 10) ghScore += 15;
+    else if (contributors30d >= 5) ghScore += 10;
+    else if (contributors30d >= 3) ghScore += 7;
+    else if (contributors30d >= 1) ghScore += 3;
 
-    // Downloads — adoption (max 7 pts)
-    if (d.hfDownloads >= 10000) score += 7;
-    else if (d.hfDownloads >= 1000) score += 5;
-    else if (d.hfDownloads >= 100) score += 3;
-    else if (d.hfDownloads >= 10) score += 1;
+    // Cap GitHub at 90
+    ghScore = Math.min(90, ghScore);
 
-    return Math.min(100, score);
+    // === HUGGINGFACE bonus (max 20 pts on top) ===
+    let hfScore = 0;
+    if (d.hfModels >= 5) hfScore += 10;
+    else if (d.hfModels >= 3) hfScore += 7;
+    else if (d.hfModels >= 1) hfScore += 4;
+
+    if (d.hfDatasets >= 3) hfScore += 5;
+    else if (d.hfDatasets >= 1) hfScore += 2;
+
+    if (d.hfDownloads >= 5000) hfScore += 5;
+    else if (d.hfDownloads >= 500) hfScore += 3;
+    else if (d.hfDownloads >= 50) hfScore += 1;
+
+    return Math.min(100, ghScore + hfScore);
   }
 
   // ── Flow score formula ──────────────────────────────────────────
