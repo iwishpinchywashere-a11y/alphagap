@@ -15,6 +15,7 @@ interface Signal {
   analysis?: string;
   analysis_status?: string;
   created_at: string;
+  signal_date?: string;
   subnet_name?: string;
 }
 
@@ -125,6 +126,7 @@ export default function Home() {
   const [sortCol, setSortCol] = useState<keyof SubnetScore>("composite_score");
   const [sortAsc, setSortAsc] = useState(false);
   const [infoPopup, setInfoPopup] = useState<string | null>(null);
+  const [signalSort, setSignalSort] = useState<"score" | "date">("score");
 
   const hasAutoScanned = useRef(false);
 
@@ -397,11 +399,39 @@ export default function Home() {
             <div className="space-y-4">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-bold">Intelligence Feed</h2>
-                <span className="text-xs text-gray-500">
-                  {signals.length} signals detected
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-gray-500 mr-2">
+                    {signals.length} signals
+                  </span>
+                  <button
+                    onClick={() => setSignalSort("score")}
+                    className={`px-3 py-1 text-xs rounded-full transition-colors ${
+                      signalSort === "score"
+                        ? "bg-green-600 text-white"
+                        : "bg-gray-800 text-gray-400 hover:bg-gray-700"
+                    }`}
+                  >
+                    🏆 Top Score
+                  </button>
+                  <button
+                    onClick={() => setSignalSort("date")}
+                    className={`px-3 py-1 text-xs rounded-full transition-colors ${
+                      signalSort === "date"
+                        ? "bg-green-600 text-white"
+                        : "bg-gray-800 text-gray-400 hover:bg-gray-700"
+                    }`}
+                  >
+                    🕐 Latest
+                  </button>
+                </div>
               </div>
-              {signals.map((sig) => (
+              {[...signals]
+                .sort((a, b) =>
+                  signalSort === "score"
+                    ? b.strength - a.strength
+                    : new Date(b.signal_date || b.created_at).getTime() - new Date(a.signal_date || a.created_at).getTime()
+                )
+                .map((sig) => (
                 <div
                   key={sig.id}
                   className={`bg-gray-900/50 border rounded-lg overflow-hidden transition-colors cursor-pointer ${
@@ -434,7 +464,9 @@ export default function Home() {
                     </div>
                     <div className="flex items-center gap-3">
                       <span className="text-xs text-gray-600">
-                        {sig.created_at ? timeAgo(sig.created_at) : ""}
+                        {sig.signal_date
+                          ? new Date(sig.signal_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })
+                          : sig.created_at ? timeAgo(sig.created_at) : ""}
                       </span>
                       <div className={`text-lg font-bold tabular-nums ${
                         sig.strength >= 80 ? "text-green-400" :

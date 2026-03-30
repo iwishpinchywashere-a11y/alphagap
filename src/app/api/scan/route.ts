@@ -101,6 +101,7 @@ interface ScanSignal {
   source: string;
   source_url?: string;
   created_at: string;
+  signal_date?: string; // actual publish date from GitHub/HF
   subnet_name?: string;
   analysis?: string;
 }
@@ -131,11 +132,13 @@ export async function GET() {
   const signals: ScanSignal[] = [];
   let signalId = 1;
 
-  function addSignal(s: Omit<ScanSignal, "id" | "created_at">) {
+  function addSignal(s: Omit<ScanSignal, "id" | "created_at"> & { signal_date?: string }) {
     signals.push({
       ...s,
       id: signalId++,
+      strength: Math.round(s.strength), // always integer
       created_at: new Date().toISOString(),
+      signal_date: s.signal_date || new Date().toISOString(),
     });
   }
 
@@ -236,7 +239,7 @@ export async function GET() {
 
   // ── Step 3: HuggingFace (parallel, top 15 orgs) ────────────────
   const timeLeftForHF = 50000 - (Date.now() - startTime);
-  type HFActivity = { models: number; datasets: number; spaces: number; downloads: number; modelNames: string[]; datasetNames: string[]; spaceNames: string[] };
+  type HFActivity = { models: number; datasets: number; spaces: number; downloads: number; modelNames: string[]; datasetNames: string[]; spaceNames: string[]; latestDate: string };
   const hfActivityMap = new Map<number, HFActivity>();
 
   if (timeLeftForHF > 10000) {
@@ -271,6 +274,11 @@ export async function GET() {
         modelNames: [...(existing?.modelNames || []), ...models.map(m => `${m.id} (${(m.downloads||0).toLocaleString()} downloads)`)],
         datasetNames: [...(existing?.datasetNames || []), ...datasets.map(d => `${d.id} (${(d.downloads||0).toLocaleString()} downloads)`)],
         spaceNames: [...(existing?.spaceNames || []), ...spaces.map(s => `${s.id}`)],
+        latestDate: [...models, ...datasets, ...spaces]
+          .map(item => item.lastModified || item.createdAt || "")
+          .filter(Boolean)
+          .sort()
+          .pop() || existing?.latestDate || new Date().toISOString(),
       });
     }
     console.log(`[scan] HuggingFace done. ${hfActivityMap.size} subnets with HF data.`);
@@ -528,6 +536,7 @@ Now write your intelligence report using this EXACT format. Each section should 
       source: "github",
       source_url: ctx.act.repo_url,
       subnet_name: name,
+      signal_date: ctx.act.last_event_at || ctx.act.as_of_day || new Date().toISOString(),
     });
   }
 
@@ -536,15 +545,17 @@ Now write your intelligence report using this EXACT format. Each section should 
     if (act.commits_1d <= 0 && act.prs_merged_1d <= 0) continue;
     if (analyzedDevSignals.some(s => s.ctx.act.netuid === act.netuid)) continue;
     const name = identityMap.get(act.netuid)?.subnet_name || `SN${act.netuid}`;
+    const lastEventDate = act.last_event_at ? new Date(act.last_event_at).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "today";
     addSignal({
       netuid: act.netuid,
       signal_type: "dev_spike",
       strength: Math.min(70, 20 + act.commits_1d * 2 + act.prs_merged_1d * 8),
-      title: `${name}: ${act.commits_1d} commits, ${act.prs_merged_1d} PRs merged today`,
+      title: `${name} pushed ${act.commits_1d} commits & ${act.prs_merged_1d} PRs (${lastEventDate})`,
       description: `${act.unique_contributors_1d} contributor${act.unique_contributors_1d !== 1 ? "s" : ""} active. 7d trend: ${act.commits_7d} commits, ${act.prs_merged_7d} PRs. Full analysis pending — check back after next scan.`,
       source: "github",
       source_url: act.repo_url,
       subnet_name: name,
+      signal_date: act.last_event_at || act.as_of_day || new Date().toISOString(),
     });
   }
 
@@ -575,6 +586,7 @@ Now write your intelligence report using this EXACT format. Each section should 
       source: "huggingface",
       source_url: `https://huggingface.co/${org}`,
       subnet_name: name,
+      signal_date: hf.latestDate || new Date().toISOString(),
     });
   }
 
