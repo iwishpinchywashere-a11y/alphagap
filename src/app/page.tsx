@@ -123,7 +123,10 @@ export default function Home() {
   const [lastScan, setLastScan] = useState<string | null>(null);
   const [scanResult, setScanResult] = useState<string | null>(null);
   const [scanError, setScanError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"signals" | "leaderboard">("leaderboard");
+  const [activeTab, setActiveTab] = useState<"signals" | "leaderboard" | "reports">("leaderboard");
+  const [reports, setReports] = useState<Array<{ date: string }>>([]);
+  const [currentReport, setCurrentReport] = useState<{ date: string; subnet_name: string; netuid: number; composite_score: number; content: string; generated_at: string } | null>(null);
+  const [loadingReport, setLoadingReport] = useState(false);
   const [selectedSubnet, setSelectedSubnet] = useState<number | null>(null);
   const [sortCol, setSortCol] = useState<keyof SubnetScore>("composite_score");
   const [sortAsc, setSortAsc] = useState(false);
@@ -288,6 +291,51 @@ export default function Home() {
     });
   }, [signals, leaderboard, scanning]);
 
+  // Load reports list when reports tab is selected
+  useEffect(() => {
+    if (activeTab !== "reports") return;
+    fetch("/api/reports")
+      .then(r => r.json())
+      .then(d => {
+        setReports(d.reports || []);
+        // Auto-load the latest report
+        if (d.reports?.length > 0 && !currentReport) {
+          loadReport(d.reports[0].date);
+        }
+      })
+      .catch(() => {});
+  }, [activeTab]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const loadReport = async (date: string) => {
+    setLoadingReport(true);
+    try {
+      const res = await fetch(`/api/reports?date=${date}`);
+      if (res.ok) {
+        const data = await res.json();
+        setCurrentReport(data);
+      }
+    } catch { /* ignore */ }
+    setLoadingReport(false);
+  };
+
+  const generateReport = async (netuid?: number) => {
+    setLoadingReport(true);
+    try {
+      const res = await fetch("/api/generate-report", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(netuid ? { netuid } : {}),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setCurrentReport(data);
+        // Refresh reports list
+        fetch("/api/reports").then(r => r.json()).then(d => setReports(d.reports || [])).catch(() => {});
+      }
+    } catch { /* ignore */ }
+    setLoadingReport(false);
+  };
+
   // Get detail for a selected subnet from the leaderboard/signals data we already have
   const getSubnetDetail = (netuid: number) => {
     setSelectedSubnet(netuid);
@@ -347,7 +395,7 @@ export default function Home() {
 
       {/* Tab bar */}
       <nav className="border-b border-gray-800 px-6 flex gap-1">
-        {(["leaderboard", "signals"] as const).map((tab) => (
+        {(["leaderboard", "signals", "reports"] as const).map((tab) => (
           <button
             key={tab}
             onClick={() => { setActiveTab(tab); setSelectedSubnet(null); }}
@@ -868,6 +916,111 @@ export default function Home() {
             )}
           </div>
         )}
+        {/* Reports */}
+        {activeTab === "reports" && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold">Daily Deep Dive Reports</h2>
+              <div className="flex items-center gap-2">
+                {reports.length > 0 && (
+                  <select
+                    className="bg-gray-800 border border-gray-700 text-sm rounded px-2 py-1 text-gray-300"
+                    value={currentReport?.date || ""}
+                    onChange={(e) => loadReport(e.target.value)}
+                  >
+                    {reports.map((r) => (
+                      <option key={r.date} value={r.date}>
+                        {new Date(r.date + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                      </option>
+                    ))}
+                  </select>
+                )}
+                <button
+                  onClick={() => generateReport()}
+                  disabled={loadingReport}
+                  className="px-3 py-1 text-xs bg-green-600 hover:bg-green-700 rounded-full text-white disabled:opacity-50"
+                >
+                  {loadingReport ? "Generating..." : "Generate Today's Report"}
+                </button>
+              </div>
+            </div>
+
+            {loadingReport && !currentReport && (
+              <div className="bg-gray-900/50 border border-gray-800 rounded-lg p-8 text-center">
+                <div className="animate-pulse text-green-400 text-lg mb-2">Generating deep-dive report...</div>
+                <p className="text-gray-500 text-sm">Analyzing GitHub commits, market data, emissions, and social signals. This takes ~30 seconds.</p>
+              </div>
+            )}
+
+            {currentReport && (
+              <div className="bg-gray-900/50 border border-gray-800 rounded-lg overflow-hidden">
+                {/* Report header */}
+                <div className="bg-gradient-to-r from-green-900/30 to-gray-900 px-6 py-4 border-b border-gray-800">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-xs text-green-400 font-medium">DAILY DEEP DIVE</span>
+                      <h3 className="text-xl font-bold mt-1">{currentReport.subnet_name} (SN{currentReport.netuid})</h3>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-2xl font-black text-green-400">{currentReport.composite_score}</div>
+                      <div className="text-xs text-gray-500">aGap Score</div>
+                    </div>
+                  </div>
+                  <div className="text-xs text-gray-500 mt-2">
+                    Generated {new Date(currentReport.generated_at).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
+                  </div>
+                </div>
+
+                {/* Report content — rendered as markdown */}
+                <div className="px-6 py-5 prose prose-invert prose-sm max-w-none
+                  prose-headings:text-green-400 prose-headings:font-bold prose-headings:mt-6 prose-headings:mb-3
+                  prose-h1:text-xl prose-h1:border-b prose-h1:border-gray-800 prose-h1:pb-2
+                  prose-h2:text-lg
+                  prose-p:text-gray-300 prose-p:leading-relaxed
+                  prose-strong:text-white
+                  prose-li:text-gray-300
+                  prose-hr:border-gray-800">
+                  {currentReport.content.split("\n").map((line, i) => {
+                    // Render markdown-like headers
+                    if (line.startsWith("# ")) return <h1 key={i} className="text-xl font-bold text-green-400 mt-6 mb-3 border-b border-gray-800 pb-2">{line.slice(2)}</h1>;
+                    if (line.startsWith("## ")) return <h2 key={i} className="text-lg font-bold text-green-400 mt-5 mb-2">{line.slice(3)}</h2>;
+                    if (line.startsWith("### ")) return <h3 key={i} className="text-md font-semibold text-green-300 mt-4 mb-2">{line.slice(4)}</h3>;
+                    if (line.startsWith("---")) return <hr key={i} className="border-gray-800 my-4" />;
+                    if (line.startsWith("- ") || line.startsWith("* ")) return <li key={i} className="text-gray-300 ml-4 list-disc">{line.slice(2)}</li>;
+                    if (line.startsWith("**") && line.endsWith("**")) return <p key={i} className="text-white font-semibold mt-2">{line.replace(/\*\*/g, "")}</p>;
+                    if (line.trim() === "") return <div key={i} className="h-2" />;
+                    // Bold text within paragraphs
+                    const parts = line.split(/(\*\*[^*]+\*\*)/g);
+                    return (
+                      <p key={i} className="text-gray-300 leading-relaxed">
+                        {parts.map((part, j) =>
+                          part.startsWith("**") && part.endsWith("**")
+                            ? <strong key={j} className="text-white">{part.slice(2, -2)}</strong>
+                            : part
+                        )}
+                      </p>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {!currentReport && !loadingReport && (
+              <div className="bg-gray-900/50 border border-gray-800 rounded-lg p-8 text-center">
+                <div className="text-4xl mb-3">📊</div>
+                <h3 className="text-lg font-bold mb-2">No Reports Yet</h3>
+                <p className="text-gray-500 text-sm mb-4">Generate your first daily deep-dive report on the top aGap subnet.</p>
+                <button
+                  onClick={() => generateReport()}
+                  className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg text-white text-sm"
+                >
+                  Generate First Report
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
       </main>
 
       {/* Footer */}
