@@ -953,7 +953,7 @@ export default function Home() {
         {/* Reports */}
         {activeTab === "reports" && (
           <div className="space-y-4">
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
               <h2 className="text-lg font-bold">Daily Deep Dive Reports</h2>
               <div className="flex items-center gap-2">
                 <input
@@ -961,9 +961,9 @@ export default function Home() {
                   placeholder="Search reports..."
                   value={reportSearch}
                   onChange={(e) => setReportSearch(e.target.value)}
-                  className="bg-gray-800 border border-gray-700 text-sm rounded px-3 py-1 text-gray-300 placeholder-gray-600 w-44 focus:outline-none focus:border-gray-500"
+                  className="bg-gray-800 border border-gray-700 text-sm rounded px-3 py-1 text-gray-300 placeholder-gray-600 w-full sm:w-44 focus:outline-none focus:border-gray-500"
                 />
-                <span className="text-xs text-gray-600">Auto-generated daily at 6am PT</span>
+                <span className="text-xs text-gray-600 hidden sm:inline">Auto-generated daily at 6am PT</span>
               </div>
             </div>
 
@@ -994,23 +994,23 @@ export default function Home() {
                     <div key={r.date} className="bg-gray-900/50 border border-gray-800 rounded-lg overflow-hidden">
                       {/* Card header — always visible, click to expand */}
                       <button
-                        className="w-full flex items-center justify-between px-5 py-3 hover:bg-gray-800/40 transition-colors text-left"
+                        className="w-full flex items-start sm:items-center justify-between px-4 sm:px-5 py-3 hover:bg-gray-800/40 transition-colors text-left gap-2"
                         onClick={() => isExpanded ? setCurrentReport(null) : loadReport(r.date)}
                       >
-                        <div className="flex items-center gap-3">
-                          <span className="text-xs text-green-400 font-medium uppercase tracking-wide">Deep Dive</span>
-                          <span className="text-sm font-semibold text-white">
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 min-w-0">
+                          <span className="text-xs text-green-400 font-medium uppercase tracking-wide shrink-0">Deep Dive</span>
+                          <span className="text-sm font-semibold text-white truncate">
                             {meta.subnet_name ? `${meta.subnet_name} (SN${meta.netuid})` : dateLabel}
                           </span>
-                          {meta.subnet_name && <span className="text-xs text-gray-500">{dateLabel}</span>}
+                          {meta.subnet_name && <span className="text-xs text-gray-500 shrink-0">{dateLabel}</span>}
                         </div>
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2 shrink-0">
                           {meta.composite_score != null && (
                             <span className="text-green-400 font-bold text-sm">{meta.composite_score} aGap</span>
                           )}
                           {loadingReport && isExpanded
                             ? <span className="text-xs text-gray-500 animate-pulse">Loading...</span>
-                            : <span className="text-gray-600 text-xs">{isExpanded ? "▲ collapse" : "▼ expand"}</span>
+                            : <span className="text-gray-600 text-xs">{isExpanded ? "▲" : "▼"}</span>
                           }
                         </div>
                       </button>
