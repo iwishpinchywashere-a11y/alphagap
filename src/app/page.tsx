@@ -67,16 +67,16 @@ export default function LandingPage() {
           </div>
 
           <h1 className="text-5xl sm:text-6xl md:text-7xl font-bold tracking-tight leading-[1.1] mb-6">
-            Find the <span className="text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-emerald-300">alpha gap</span>
+            Bittensor Subnet
             <br />
-            before everyone else
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-emerald-300">Intelligence Analytics</span>
           </h1>
 
           <p className="text-lg sm:text-xl text-gray-400 max-w-2xl mx-auto mb-10 leading-relaxed">
-            Bittensor subnets are building groundbreaking AI — but nobody&apos;s paying attention.
-            We scan GitHub, HuggingFace, and on-chain data to find subnets where the
-            <span className="text-green-400 font-medium"> building outpaces the price</span>.
-            That gap is your alpha.
+            Find the alpha gap before everyone else.
+            Our AI scans thousands of data points across the Bittensor ecosystem to surface
+            <span className="text-green-400 font-medium"> undervalued subnets </span>
+            before the market catches on.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
@@ -118,33 +118,33 @@ export default function LandingPage() {
       <section className="py-20 px-6">
         <div className="max-w-4xl mx-auto">
           <h2 className="text-3xl sm:text-4xl font-bold text-center mb-6">
-            128 subnets. Thousands of commits.
+            128 teams are building.
             <br />
-            <span className="text-gray-500">Zero visibility.</span>
+            <span className="text-gray-500">You have no idea what they&apos;re doing.</span>
           </h2>
           <p className="text-gray-400 text-center max-w-2xl mx-auto text-lg leading-relaxed mb-12">
-            Bittensor&apos;s 128 subnets are shipping world-class AI infrastructure every day —
-            new models, protocols, and breakthroughs that could reshape industries. But their
-            updates are buried in GitHub repos and HuggingFace pages that nobody reads.
-            By the time the market catches on, the opportunity is gone.
+            Bittensor subnet teams are constantly developing, shipping updates, and pushing breakthroughs —
+            but it&apos;s nearly impossible to track where and when they release new code, models, or features.
+            Updates are scattered across dozens of technical platforms that most investors never check.
+            By the time social media catches on, the opportunity has already moved.
           </p>
 
           <div className="grid sm:grid-cols-3 gap-6">
             {[
               {
                 icon: "🔬",
-                title: "They build in silence",
-                desc: "Subnet teams push code to GitHub and models to HuggingFace. Technical updates that few people see or understand.",
+                title: "Scattered across platforms",
+                desc: "Teams push updates to technical platforms that most investors never check. Critical developments go unnoticed for days or weeks.",
               },
               {
                 icon: "📉",
-                title: "The market sleeps",
-                desc: "Token prices stay flat or drop because retail investors don't know what's happening under the hood.",
+                title: "Markets react too late",
+                desc: "Token prices stay flat while teams ship major upgrades. By the time Twitter finds out, the smart money has already moved.",
               },
               {
                 icon: "💡",
                 title: "The gap is your alpha",
-                desc: "The window between a breakthrough and market awareness is where the money is made. We find that window.",
+                desc: "Between a team shipping a breakthrough and the market pricing it in — there's a window. We find that window before anyone else.",
               },
             ].map((card) => (
               <div key={card.title} className="bg-white/[0.03] border border-white/5 rounded-xl p-6 hover:border-green-500/20 transition-colors">
@@ -173,26 +173,26 @@ export default function LandingPage() {
               {
                 step: "01",
                 title: "Scan everything",
-                desc: "Every GitHub commit, every HuggingFace model, every tweet, every on-chain transaction — across all 128 subnets. We watch validator weights, emission changes, whale movements, and social velocity in real-time.",
-                sources: ["GitHub", "HuggingFace", "TaoStats", "Desearch", "X/Twitter", "Reddit", "Stitch3"],
+                desc: "We continuously monitor thousands of data points across the entire Bittensor ecosystem — development activity, on-chain metrics, social sentiment, and market data for all 128 subnets.",
+                sources: ["Development", "On-chain", "Social", "Market Data"],
               },
               {
                 step: "02",
                 title: "Analyze with AI",
-                desc: "Our AI engine reads raw commits and PRs, understands what's being built, and translates it into plain English. No more deciphering cryptic commit messages — we tell you exactly what a subnet shipped and why it matters.",
-                sources: ["Claude AI", "Commit Analysis", "PR Breakdown", "Model Detection"],
+                desc: "Our proprietary AI engine digests complex technical updates and translates them into plain English. We tell you exactly what a subnet is building and why it matters — no technical knowledge required.",
+                sources: ["AI Analysis", "Plain English", "Actionable Insights"],
               },
               {
                 step: "03",
                 title: "Find the gap",
-                desc: "We compare development quality against market price, social buzz, emission trends, and whale activity. When a subnet is building hard but the market hasn't noticed — that's the alpha gap. That's your edge.",
-                sources: ["aGap Score", "eVal Ratio", "Whale Detection", "Social Velocity"],
+                desc: "We cross-reference development quality against market awareness using multiple proprietary scoring algorithms. When a subnet is building hard but the market hasn't noticed — that's the alpha gap.",
+                sources: ["Proprietary Scoring", "Gap Detection", "Multi-Signal"],
               },
               {
                 step: "04",
                 title: "Deliver actionable alpha",
-                desc: "Every signal comes with a structured breakdown: what they built, why it matters, what it means in simple terms, and our take on the investment opportunity. Plus daily deep-dive reports on the top alpha gap subnets.",
-                sources: ["Signal Feed", "Daily Reports", "Leaderboard", "Price Alerts"],
+                desc: "Every signal comes with a full intelligence breakdown and our take on the opportunity. Plus daily deep-dive reports on the top alpha gap subnets so you always know where the smart money should be looking.",
+                sources: ["Signal Feed", "Daily Reports", "Leaderboard"],
               },
             ].map((item) => (
               <div key={item.step} className="flex gap-6 items-start">
@@ -251,14 +251,14 @@ export default function LandingPage() {
               },
               {
                 icon: "📡",
-                title: "Emission Value (eVal)",
-                desc: "Our unique metric comparing network emissions to market cap. When the Bittensor network pays a subnet more than the market values it — validators know something retail doesn't.",
+                title: "Emission Analysis",
+                desc: "Our proprietary eVal metric detects when the network allocates more value to a subnet than the market realizes. When insiders are confident before retail catches on, that's your edge.",
                 color: "from-red-500/20 to-rose-500/20",
               },
               {
                 icon: "🔥",
-                title: "Campaign Tracking",
-                desc: "We monitor Stitch3 marketing campaigns in real-time. When a subnet launches a social media blitz, we flag it early so you can position before the buzz peaks.",
+                title: "Early Trend Detection",
+                desc: "We monitor social campaigns, influencer activity, and marketing launches across the ecosystem. Get flagged when buzz is about to spike — before the crowd piles in.",
                 color: "from-orange-500/20 to-amber-500/20",
               },
             ].map((feature) => (
@@ -284,20 +284,20 @@ export default function LandingPage() {
             The <span className="text-green-400">aGap</span> Score
           </h2>
           <p className="text-gray-400 max-w-2xl mx-auto mb-12 text-lg">
-            Our composite score that answers one question:
-            <span className="text-white font-semibold"> Is this subnet undervalued?</span>
+            Our proprietary composite score that answers one question:
+            <span className="text-white font-semibold"> Is this subnet undervalued by the market?</span>
           </p>
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 max-w-3xl mx-auto">
             {[
-              { label: "Building", desc: "Dev quality on GitHub + HuggingFace", pct: "50%", color: "text-green-400" },
-              { label: "Price Lag", desc: "Building hard but price hasn't caught up", pct: "25%", color: "text-yellow-400" },
-              { label: "Social Gap", desc: "Building hard but nobody's talking about it", pct: "15%", color: "text-blue-400" },
-              { label: "Smart Money", desc: "Emissions, whales, campaigns incoming", pct: "10%", color: "text-purple-400" },
+              { label: "Development", desc: "How actively is the team shipping?", icon: "⚡", color: "text-green-400" },
+              { label: "Market Gap", desc: "Has the price caught up yet?", icon: "📉", color: "text-yellow-400" },
+              { label: "Awareness", desc: "Does the market know about this?", icon: "👁", color: "text-blue-400" },
+              { label: "Smart Money", desc: "Are insiders accumulating?", icon: "🐋", color: "text-purple-400" },
             ].map((c) => (
               <div key={c.label} className="bg-white/[0.03] border border-white/5 rounded-xl p-4">
-                <div className={`text-2xl font-bold font-mono ${c.color}`}>{c.pct}</div>
-                <div className="font-semibold text-sm mt-2">{c.label}</div>
+                <div className={`text-2xl mb-2`}>{c.icon}</div>
+                <div className={`font-semibold text-sm ${c.color}`}>{c.label}</div>
                 <div className="text-xs text-gray-500 mt-1">{c.desc}</div>
               </div>
             ))}
