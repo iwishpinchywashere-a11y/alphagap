@@ -1224,6 +1224,49 @@ IMPORTANT: Keep each section to 2-3 sentences MAX. You MUST complete all 4 secti
     return Math.min(100, Math.max(0, score));
   }
 
+  // ── Load aGap score history for EMA smoothing ──────────────────
+  // Asymmetric EMA: fast up (70% current), slow down (30% current)
+  // This rewards subnets that discover alpha quickly, but prevents
+  // scores from crashing overnight when one data point changes.
+  type AGapHistory = Record<number, { ema: number; lastUpdated: string }>;
+  let agapHistory: AGapHistory = {};
+  if (process.env.BLOB_READ_WRITE_TOKEN) {
+    try {
+      const { get: getBlob } = await import("@vercel/blob");
+      const histBlob = await getBlob("agap-history.json", {
+        token: process.env.BLOB_READ_WRITE_TOKEN,
+        access: "private",
+      });
+      if (histBlob?.stream) {
+        const reader = histBlob.stream.getReader();
+        const chunks: Uint8Array[] = [];
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          chunks.push(value);
+        }
+        agapHistory = JSON.parse(Buffer.concat(chunks).toString("utf-8"));
+        console.log(`[scan] Loaded aGap history for ${Object.keys(agapHistory).length} subnets`);
+      }
+    } catch {
+      console.log("[scan] No aGap history yet (first run)");
+    }
+  }
+
+  function smoothAGap(netuid: number, rawScore: number): number {
+    const prev = agapHistory[netuid];
+    if (!prev) return rawScore; // First time: use raw score
+
+    const prevEma = prev.ema;
+    if (rawScore >= prevEma) {
+      // RISING: fast reaction (70% current, 30% historical)
+      return Math.round(0.7 * rawScore + 0.3 * prevEma);
+    } else {
+      // FALLING: slow decay (30% current, 70% historical)
+      return Math.round(0.3 * rawScore + 0.7 * prevEma);
+    }
+  }
+
   // ── Build leaderboard ───────────────────────────────────────────
   const leaderboard: LeaderboardEntry[] = [];
 
@@ -1389,7 +1432,11 @@ IMPORTANT: Keep each section to 2-3 sentences MAX. You MUST complete all 4 secti
     }
 
     const rawAGap = buildingPts + priceLag + socialGap + evalBoost + viability + campaignBoost + whaleBoost;
-    const aGap = Math.max(1, Math.min(100, Math.round(rawAGap)));
+    const clampedRaw = Math.max(1, Math.min(100, Math.round(rawAGap)));
+    const aGap = smoothAGap(d.netuid, clampedRaw);
+
+    // Update history for next scan
+    agapHistory[d.netuid] = { ema: aGap, lastUpdated: new Date().toISOString() };
 
     leaderboard.push({
       netuid: d.netuid,
@@ -1525,6 +1572,15 @@ IMPORTANT: Keep each section to 2-3 sentences MAX. You MUST complete all 4 secti
         contentType: "application/json",
       });
       console.log("[scan] Cached to Vercel Blob.");
+
+      // Save aGap history for EMA smoothing
+      await put("agap-history.json", JSON.stringify(agapHistory), {
+        access: "private",
+        addRandomSuffix: false,
+        allowOverwrite: true,
+        contentType: "application/json",
+      });
+      console.log(`[scan] aGap history saved (${Object.keys(agapHistory).length} subnets)`);
     }
   } catch (e) {
     console.error("[scan] Failed to cache to Blob:", e);
