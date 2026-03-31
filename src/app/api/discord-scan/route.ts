@@ -15,13 +15,13 @@ import {
 } from "@/lib/discord";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 300;
+export const maxDuration = 800;
 
 const DISCORD_TOKEN = process.env.DISCORD_TOKEN || "";
 const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY || "";
 
-// How many channels to scan per run (avoid timeout)
-const MAX_CHANNELS = 120;
+// Scan all subnet channels — no cap now that we're on Vercel Pro
+const MAX_CHANNELS = 999;
 // Messages per channel
 const MESSAGES_PER_CHANNEL = 50;
 // Minimum messages to bother analyzing
