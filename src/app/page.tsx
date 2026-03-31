@@ -101,65 +101,75 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Live leaderboard preview */}
-      <section className="py-12 px-6">
+      {/* What we track — icon grid */}
+      <section className="py-16 px-6">
         <div className="max-w-5xl mx-auto">
-          <div className="relative rounded-xl border border-white/10 bg-gradient-to-b from-white/[0.03] to-transparent overflow-hidden shadow-2xl shadow-green-500/5">
-            {/* Fake browser chrome */}
-            <div className="flex items-center gap-2 px-4 py-3 border-b border-white/5 bg-white/[0.02]">
-              <div className="flex gap-1.5">
-                <div className="w-3 h-3 rounded-full bg-red-500/60" />
-                <div className="w-3 h-3 rounded-full bg-yellow-500/60" />
-                <div className="w-3 h-3 rounded-full bg-green-500/60" />
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            {[
+              {
+                icon: (
+                  <svg viewBox="0 0 24 24" className="w-7 h-7" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+                ),
+                title: "Dev Commits",
+                desc: "Every push, PR, and release",
+                color: "from-gray-500/20 to-gray-600/20",
+              },
+              {
+                icon: <span className="text-2xl">🤗</span>,
+                title: "AI Models",
+                desc: "New models & datasets",
+                color: "from-yellow-500/20 to-orange-500/20",
+              },
+              {
+                icon: <span className="text-2xl">🐋</span>,
+                title: "Whale Activity",
+                desc: "Large wallet accumulation",
+                color: "from-blue-500/20 to-cyan-500/20",
+              },
+              {
+                icon: (
+                  <svg viewBox="0 0 24 24" className="w-7 h-7" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+                ),
+                title: "Social Buzz",
+                desc: "Tweets, threads & hype",
+                color: "from-gray-400/20 to-gray-500/20",
+              },
+              {
+                icon: (
+                  <svg viewBox="0 0 24 24" className="w-7 h-7" fill="currentColor"><path d="M12 0A12 12 0 000 12a12 12 0 0012 12 12 12 0 0012-12A12 12 0 0012 0zm5.01 4.744c.688 0 1.25.561 1.25 1.249a1.25 1.25 0 01-2.498.056l-2.597-.547-.8 3.747c1.824.07 3.48.632 4.674 1.488.308-.309.73-.491 1.207-.491.968 0 1.754.786 1.754 1.754 0 .716-.435 1.333-1.01 1.614a3.111 3.111 0 01.042.52c0 2.694-3.13 4.87-7.004 4.87-3.874 0-7.004-2.176-7.004-4.87 0-.183.015-.366.043-.534A1.748 1.748 0 014.028 12c0-.968.786-1.754 1.754-1.754.463 0 .898.196 1.207.49 1.207-.883 2.878-1.43 4.744-1.487l.885-4.182a.342.342 0 01.14-.197.35.35 0 01.238-.042l2.906.617a1.214 1.214 0 011.108-.701zM9.25 12C8.561 12 8 12.562 8 13.25c0 .687.561 1.248 1.25 1.248.687 0 1.248-.561 1.248-1.249 0-.688-.561-1.249-1.249-1.249zm5.5 0c-.687 0-1.248.561-1.248 1.25 0 .687.561 1.248 1.249 1.248.688 0 1.249-.561 1.249-1.249 0-.687-.562-1.249-1.25-1.249zm-5.466 3.99a.327.327 0 00-.231.094.33.33 0 000 .463c.842.842 2.484.913 2.961.913.477 0 2.105-.056 2.961-.913a.361.361 0 000-.462.342.342 0 00-.462 0c-.545.533-1.684.73-2.512.73-.828 0-1.953-.197-2.498-.73a.327.327 0 00-.219-.095z"/></svg>
+                ),
+                title: "Reddit Chatter",
+                desc: "Community discussions",
+                color: "from-orange-500/20 to-red-500/20",
+              },
+              {
+                icon: <span className="text-2xl">📡</span>,
+                title: "Emission Shifts",
+                desc: "Network value allocation",
+                color: "from-green-500/20 to-emerald-500/20",
+              },
+              {
+                icon: <span className="text-2xl">⛏️</span>,
+                title: "Miner Activity",
+                desc: "Registration & participation",
+                color: "from-purple-500/20 to-violet-500/20",
+              },
+              {
+                icon: <span className="text-2xl">📉</span>,
+                title: "Price Lag Detection",
+                desc: "When markets fall behind",
+                color: "from-red-500/20 to-rose-500/20",
+              },
+            ].map((item) => (
+              <div
+                key={item.title}
+                className={`bg-gradient-to-br ${item.color} border border-white/5 rounded-xl p-5 text-center hover:border-green-500/20 transition-all hover:scale-[1.02]`}
+              >
+                <div className="flex justify-center mb-3 text-white">{item.icon}</div>
+                <div className="font-semibold text-sm text-white">{item.title}</div>
+                <div className="text-xs text-gray-500 mt-1">{item.desc}</div>
               </div>
-              <div className="flex-1 mx-4 px-3 py-1 bg-white/5 rounded text-xs text-gray-500 font-mono">alphagap.io/dashboard</div>
-            </div>
-            {/* Live leaderboard data */}
-            <div className="p-4 overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-gray-500 text-xs border-b border-white/5">
-                    <th className="text-left py-2 px-3 font-medium">Subnet</th>
-                    <th className="text-right py-2 px-3 font-medium text-green-400">aGap</th>
-                    <th className="text-right py-2 px-3 font-medium">Dev</th>
-                    <th className="text-right py-2 px-3 font-medium">Flow</th>
-                    <th className="text-right py-2 px-3 font-medium">eVal</th>
-                    <th className="text-right py-2 px-3 font-medium">Price</th>
-                    <th className="text-right py-2 px-3 font-medium">24h</th>
-                  </tr>
-                </thead>
-                <tbody className="font-mono">
-                  {(stats.leaderboard || []).slice(0, 6).map((sub: { netuid: number; name: string; composite_score: number; dev_score: number; flow_score: number; eval_score: number; alpha_price?: number; price_change_24h?: number; whale_signal?: string }, i: number) => (
-                    <tr key={sub.netuid} className={`border-b border-white/[0.03] ${i === 0 ? "bg-green-500/5" : ""}`}>
-                      <td className="py-2.5 px-3 font-sans">
-                        <span className="text-gray-500 mr-2 text-xs">SN{sub.netuid}</span>
-                        <span className="font-medium text-white">{sub.name}</span>
-                      </td>
-                      <td className="py-2.5 px-3 text-right text-green-400 font-bold">{sub.composite_score}</td>
-                      <td className={`py-2.5 px-3 text-right ${sub.dev_score >= 60 ? "text-green-400" : sub.dev_score >= 30 ? "text-yellow-400" : "text-gray-500"}`}>{sub.dev_score}</td>
-                      <td className={`py-2.5 px-3 text-right ${sub.flow_score >= 60 ? "text-green-400" : sub.flow_score >= 30 ? "text-yellow-400" : "text-red-400"}`}>
-                        {sub.whale_signal === "accumulating" && "🐋"}{sub.flow_score}
-                      </td>
-                      <td className={`py-2.5 px-3 text-right ${sub.eval_score >= 60 ? "text-green-400" : sub.eval_score >= 30 ? "text-yellow-400" : "text-gray-500"}`}>{sub.eval_score}</td>
-                      <td className="py-2.5 px-3 text-right text-gray-300">${sub.alpha_price?.toFixed(2) || "—"}</td>
-                      <td className={`py-2.5 px-3 text-right ${(sub.price_change_24h || 0) >= 0 ? "text-green-400" : "text-red-400"}`}>
-                        {(sub.price_change_24h || 0) >= 0 ? "+" : ""}{(sub.price_change_24h || 0).toFixed(1)}%
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              {(stats.leaderboard || []).length === 0 && (
-                <div className="text-center py-8 text-gray-600 text-sm">Loading live data...</div>
-              )}
-            </div>
-            {/* Fade overlay at bottom */}
-            <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-[#0a0a0f] to-transparent pointer-events-none" />
-          </div>
-          <div className="text-center mt-4">
-            <Link href="/dashboard" className="text-sm text-gray-500 hover:text-green-400 transition-colors">
-              View full leaderboard with {stats.subnets || 122} subnets →
-            </Link>
+            ))}
           </div>
         </div>
       </section>
