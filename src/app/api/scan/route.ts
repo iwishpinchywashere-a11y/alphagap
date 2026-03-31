@@ -412,15 +412,23 @@ export async function GET() {
       console.error("[scan] Desearch parallel fetch error:", e);
     }
 
-    // Match tweets to subnets
+    // Match tweets to subnets with KOL weighting
+    const { getKOLWeight } = await import("@/lib/kol-database");
     for (const tweet of allTweets.values()) {
       const netuid = matchTweetToSubnet(tweet);
       if (!netuid) continue;
-      const engagement =
+      const rawEngagement =
         tweet.like_count + tweet.retweet_count + tweet.reply_count + (tweet.quote_count || 0);
+
+      // KOL weight multiplier: a tweet from const_reborn (weight 100) counts 5x more
+      // than a random account (weight 0)
+      const kolWeight = getKOLWeight(tweet.user?.username || "");
+      const kolMultiplier = kolWeight > 0 ? 1 + (kolWeight / 50) : 1; // max ~3x for top KOLs
+      const weightedEngagement = Math.round(rawEngagement * kolMultiplier);
+
       const existing = socialMap.get(netuid) || { mentions: 0, engagement: 0 };
       existing.mentions++;
-      existing.engagement += engagement;
+      existing.engagement += weightedEngagement;
       socialMap.set(netuid, existing);
     }
     console.log(`[scan] Desearch broad search done. ${allTweets.size} tweets matched to ${socialMap.size} subnets.`);
