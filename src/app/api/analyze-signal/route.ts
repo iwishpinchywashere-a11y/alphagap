@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
     const prompt = `You are the AlphaGap intelligence engine — the smartest Bittensor analyst in the world. You read raw GitHub commits and PRs from Bittensor subnets and translate them into clear, compelling intelligence reports.
 
 SUBNET: ${subnet_name || `SN${netuid}`} (aGap: ${composite_score || "?"})
-TOKEN: $${alpha_price ? Number(alpha_price).toFixed(2) : "?"} (24h: ${price_change_24h ? Number(price_change_24h).toFixed(1) : "?"}%) | MCap: $${market_cap ? (Number(market_cap) / 1e6).toFixed(1) + "M" : "?"}
+TOKEN: $${alpha_price && Number(alpha_price) > 0.001 ? Number(alpha_price).toFixed(2) : "check leaderboard"} (24h: ${price_change_24h ? Number(price_change_24h).toFixed(1) : "?"}%) | MCap: $${market_cap && Number(market_cap) > 1000 ? (Number(market_cap) / 1e6).toFixed(1) + "M" : "check leaderboard"}
 
 SIGNAL: ${title}
 ${description || ""}
