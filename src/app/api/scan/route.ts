@@ -61,36 +61,14 @@ async function fetchTMCValidators(): Promise<Map<number, number>> {
     return new Map();
   }
 }
-import {
-  listModelsByAuthor,
-  listDatasetsByAuthor,
-  listSpacesByAuthor,
-} from "@/lib/huggingface";
+import { scanAllSubnetGitHub, type GitHubScanResult } from "@/lib/github-scanner";
+import { scanAllSubnetsHF, type HFScanResult } from "@/lib/hf-scanner";
 import { fetchRecentCommits, fetchRecentPRs, fetchLatestRelease } from "@/lib/context-fetcher";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 800;
 
 const RAO = 1e9;
-
-// ── Seed HF orgs (same as huggingface.ts) ────────────────────────
-const SEED_HF_ORGS: { org: string; netuid?: number }[] = [
-  { org: "opentensor" },
-  { org: "macrocosm-os", netuid: 1 },
-  { org: "RaoFoundation", netuid: 9 },
-  { org: "bitmind", netuid: 34 },
-  { org: "omegalabsinc", netuid: 24 },
-  { org: "BitAgent", netuid: 20 },
-  { org: "404-Gen", netuid: 17 },
-  { org: "CortexLM", netuid: 18 },
-  { org: "tensorplex-labs" },
-  { org: "coldint" },
-  { org: "borggAI" },
-  { org: "NousResearch", netuid: 6 },
-  { org: "manifold-inc", netuid: 4 },
-  { org: "bitmind-ai", netuid: 34 },
-  { org: "SocialTensor" },
-];
 
 // ── Desearch fetch (inline, no DB dependency) ─────────────────────
 const DESEARCH_API = "https://api.desearch.ai";
@@ -284,8 +262,10 @@ export async function GET() {
 
   await new Promise(r => setTimeout(r, 500));
 
-  // Batch 2: flows + emissions + dev activity + TMC emissions (all parallel)
-  console.log("[scan] Batch 2: flows + emissions + dev + TMC...");
+  // Batch 2: flows + emissions + TaoStats dev (historical 7d/30d) + TMC — all parallel
+  // NOTE: TaoStats dev is used for 7d/30d historical context only.
+  //       24h commit data comes from the direct GitHub scanner below.
+  console.log("[scan] Batch 2: flows + emissions + dev history + TMC...");
   const [flowsResult, emissionsResult, devResult, tmcResult, tmcValResult] = await Promise.allSettled([
     getTaoFlows(),
     getSubnetEmissions(),
@@ -295,65 +275,13 @@ export async function GET() {
   ]);
   const flows = flowsResult.status === "fulfilled" ? flowsResult.value : [];
   const emissions = emissionsResult.status === "fulfilled" ? emissionsResult.value : [];
-  let devActivity = devResult.status === "fulfilled" ? devResult.value : ([] as Awaited<ReturnType<typeof getGithubActivity>>);
+  const devActivity = devResult.status === "fulfilled" ? devResult.value : ([] as Awaited<ReturnType<typeof getGithubActivity>>);
   const tmcSubnets = tmcResult.status === "fulfilled" ? tmcResult.value : [];
   const validatorCounts = tmcValResult.status === "fulfilled" ? tmcValResult.value : new Map<number, number>();
-  console.log(`[scan] Batch 2 done: ${flows.length} flows, ${emissions.length} emissions, ${devActivity.length} dev, ${tmcSubnets.length} TMC, ${validatorCounts.size} validator subnets`);
-
-  // ── Fresh GitHub check — bypass TaoStats's stale daily snapshot ──
-  // TaoStats updates commits_1d once per day, so 3 of our 4 daily scans
-  // see 0 activity even when devs are actively pushing code right now.
-  // Fix: directly hit GitHub API for subnets that were active in 7d but
-  // show 0 today — use real commit timestamps to count true 24h activity.
-  {
-    const todayStr = new Date().toISOString().slice(0, 10);
-    const taostatsDate = devActivity.length > 0 ? devActivity[0].as_of_day?.slice(0, 10) : null;
-    const taostatsStale = taostatsDate !== todayStr;
-    console.log(`[scan] TaoStats dev data as_of: ${taostatsDate ?? "unknown"} (${taostatsStale ? "STALE — supplementing from GitHub API" : "fresh"})`);
-
-    if (taostatsStale) {
-      // Check subnets that were active in 7d but appear quiet today
-      const staleActive = devActivity
-        .filter(a => a.repo_url && a.commits_1d === 0 && a.commits_7d > 0)
-        .slice(0, 50); // cap at 50 to stay well within 5K/hr GitHub API rate limit
-
-      const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
-      const BATCH = 8;
-
-      for (let i = 0; i < staleActive.length; i += BATCH) {
-        await Promise.all(staleActive.slice(i, i + BATCH).map(async (act) => {
-          try {
-            let repoPath = act.repo_url;
-            if (repoPath.includes("github.com/")) repoPath = repoPath.split("github.com/")[1];
-            repoPath = repoPath.replace(/^\/|\/$/g, "").replace(/\.git$/, "");
-            const [owner, repo] = repoPath.split("/");
-            if (!owner || !repo) return;
-
-            const commits = await fetchRecentCommits(owner, repo, 10);
-            const recentCount = commits.filter(c => {
-              const m = c.match(/^\[(\d{4}-\d{2}-\d{2})\]/);
-              return m ? new Date(m[1]) >= cutoff : false;
-            }).length;
-
-            if (recentCount > 0) {
-              act.commits_1d = recentCount;
-              act.last_event_at = new Date().toISOString();
-              console.log(`[scan] GitHub fresh: SN${act.netuid} has ${recentCount} commits in last 24h`);
-            }
-          } catch { /* skip on error */ }
-        }));
-      }
-
-      const freshSignals = staleActive.filter(a => a.commits_1d > 0).length;
-      console.log(`[scan] GitHub fresh check: ${freshSignals} subnets with real activity today`);
-    }
-  }
+  console.log(`[scan] Batch 2 done: ${flows.length} flows, ${emissions.length} emissions, ${devActivity.length} dev history, ${tmcSubnets.length} TMC`);
 
   // Build TMC emission map (accurate emission % from TaoMarketCap)
   const tmcMap = new Map<number, TMCSubnet>(tmcSubnets.map(s => [s.subnet, s]));
-
-  const elapsed1 = Date.now() - startTime;
-  console.log(`[scan] All APIs done in ${elapsed1}ms.`);
 
   // ── Step 2: Build lookup maps ───────────────────────────────────
   const identityMap = new Map<number, SubnetIdentity>(identities.map((i) => [i.netuid, i]));
@@ -362,58 +290,77 @@ export async function GET() {
   const emissionMap = new Map<number, number>(
     emissions.map((e) => [e.netuid, parseFloat(e.alpha_rewards) / RAO])
   );
+  // TaoStats devMap — used for 7d/30d history and repo URLs
   const devMap = new Map<number, GithubActivity>(devActivity.map((d) => [d.netuid, d]));
 
   // Total emission for share calculation
   let totalEmission = 0;
   for (const v of emissionMap.values()) totalEmission += v;
 
-  // ── Step 3: HuggingFace (parallel, top 15 orgs) ────────────────
-  const timeLeftForHF = 50000 - (Date.now() - startTime);
-  type HFActivity = { models: number; datasets: number; spaces: number; downloads: number; modelNames: string[]; datasetNames: string[]; spaceNames: string[]; latestDate: string };
-  const hfActivityMap = new Map<number, HFActivity>();
-
-  if (timeLeftForHF > 10000) {
-    console.log("[scan] Fetching HuggingFace data...");
-    const hfOrgsToFetch = SEED_HF_ORGS.slice(0, 15);
-
-    const hfResults = await Promise.allSettled(
-      hfOrgsToFetch.map(async ({ org, netuid }) => {
-        const [models, datasets, spaces] = await Promise.all([
-          listModelsByAuthor(org, 5),
-          listDatasetsByAuthor(org, 5),
-          listSpacesByAuthor(org, 5),
-        ]);
-        return { org, netuid, models, datasets, spaces };
-      })
+  // ── Step 3a: Direct GitHub scan — ALL subnets, real-time 24h data ──
+  // This is the CORE engine. We query GitHub API directly for every subnet
+  // with a registered github_repo. Always fresh — no TaoStats staleness.
+  console.log("[scan] Step 3a: Direct GitHub scan (all subnets)...");
+  let githubScanMap = new Map<number, GitHubScanResult>();
+  try {
+    githubScanMap = await scanAllSubnetGitHub(
+      identities.map(id => ({ netuid: id.netuid, github_repo: id.github_repo }))
     );
+  } catch (e) {
+    console.error("[scan] GitHub scanner failed:", e);
+  }
 
-    for (const r of hfResults) {
-      if (r.status !== "fulfilled") continue;
-      const { netuid, models, datasets, spaces } = r.value;
-      if (!netuid) continue;
-      const totalDownloads = [...models, ...datasets, ...spaces].reduce(
-        (sum, item) => sum + (item.downloads || 0),
-        0
-      );
-      const existing = hfActivityMap.get(netuid);
-      hfActivityMap.set(netuid, {
-        models: (existing?.models || 0) + models.length,
-        datasets: (existing?.datasets || 0) + datasets.length,
-        spaces: (existing?.spaces || 0) + spaces.length,
-        downloads: (existing?.downloads || 0) + totalDownloads,
-        modelNames: [...(existing?.modelNames || []), ...models.map(m => `${m.id} (${(m.downloads||0).toLocaleString()} downloads)`)],
-        datasetNames: [...(existing?.datasetNames || []), ...datasets.map(d => `${d.id} (${(d.downloads||0).toLocaleString()} downloads)`)],
-        spaceNames: [...(existing?.spaceNames || []), ...spaces.map(s => `${s.id}`)],
-        latestDate: [...models, ...datasets, ...spaces]
-          .map(item => item.lastModified || item.createdAt || "")
-          .filter(Boolean)
-          .sort()
-          .pop() || existing?.latestDate || new Date().toISOString(),
+  // Merge: override TaoStats commits_1d with direct GitHub data (always fresher)
+  for (const [netuid, ghResult] of githubScanMap) {
+    const existing = devMap.get(netuid);
+    if (existing) {
+      existing.commits_1d = ghResult.commits24h;
+      existing.unique_contributors_1d = ghResult.contributors24h;
+      if (ghResult.commits24h > 0) {
+        existing.last_event_at = new Date().toISOString();
+      }
+    } else if (ghResult.commits24h > 0 || ghResult.hasNewRelease) {
+      // Subnet has GitHub activity but wasn't in TaoStats dev data — add it
+      devMap.set(netuid, {
+        netuid,
+        repo_url: ghResult.repoUrl,
+        commits_1d: ghResult.commits24h,
+        commits_7d: ghResult.commits24h,
+        commits_30d: ghResult.commits24h,
+        prs_opened_1d: 0,
+        prs_merged_1d: 0,
+        issues_opened_1d: 0,
+        issues_closed_1d: 0,
+        reviews_1d: 0,
+        comments_1d: 0,
+        unique_contributors_1d: ghResult.contributors24h,
+        prs_opened_7d: 0,
+        prs_merged_7d: 0,
+        unique_contributors_7d: ghResult.contributors24h,
+        prs_merged_30d: 0,
+        unique_contributors_30d: ghResult.contributors24h,
+        days_since_last_event: 0,
+        last_event_at: new Date().toISOString(),
+        as_of_day: new Date().toISOString().slice(0, 10),
       });
     }
-    console.log(`[scan] HuggingFace done. ${hfActivityMap.size} subnets with HF data.`);
   }
+
+  // ── Step 3b: HuggingFace scan — all known orgs + auto-discovery ──
+  // Comprehensive scan of ALL subnets with HF presence.
+  // Only fires signals for content NEWLY CREATED in last 48h.
+  console.log("[scan] Step 3b: HuggingFace scan (all subnets + discovery)...");
+  let hfScanMap = new Map<number, HFScanResult>();
+  try {
+    hfScanMap = await scanAllSubnetsHF(
+      identities.map(id => ({ netuid: id.netuid, github_repo: id.github_repo }))
+    );
+  } catch (e) {
+    console.error("[scan] HF scanner failed:", e);
+  }
+
+  const elapsed1 = Date.now() - startTime;
+  console.log(`[scan] All data fetched in ${elapsed1}ms.`);
 
   // ── Step 4: Desearch social (4 bulk searches) ───────────────────
   const timeLeftForSocial = 50000 - (Date.now() - startTime);
@@ -597,28 +544,36 @@ export async function GET() {
 
   console.log(`[scan] ${allActiveDevSubnets.length} active subnets. Deep analysis for top ${activeDevSubnets.length}.`);
 
-  // Fetch actual commit messages + PRs for each active subnet (parallel, 5 at a time)
+  // Build deep context for AI analysis — reuse commit messages from github-scanner,
+  // only fetch PRs + latest release (avoids duplicate GitHub API calls)
   type DevContext = { act: GithubActivity; owner: string; repo: string; commits: string[]; prs: string[]; release: { tag: string; name: string; body: string; date: string } | null };
   const devContexts: DevContext[] = [];
 
-  // Fetch all in parallel (8 repos × 3 calls = 24 requests, well within GitHub 5K/hr limit)
-  const results = await Promise.allSettled(
+  const deepResults = await Promise.allSettled(
     activeDevSubnets.map(async (act) => {
-      let repoPath = act.repo_url;
+      let repoPath = act.repo_url || "";
       if (repoPath.includes("github.com/")) repoPath = repoPath.split("github.com/")[1];
       repoPath = repoPath.replace(/^\/|\/$/g, "").replace(/\.git$/, "");
       const parts = repoPath.split("/");
       if (parts.length < 2) return null;
       const [owner, repo] = parts;
-      const [commits, prs, release] = await Promise.all([
-        fetchRecentCommits(owner, repo, 5),
-        fetchRecentPRs(owner, repo, 3),
+
+      // Reuse commit messages already fetched by github-scanner (no extra API call)
+      const ghScan = githubScanMap.get(act.netuid);
+      const commits = ghScan?.commitMessages.length
+        ? ghScan.commitMessages
+        : await fetchRecentCommits(owner, repo, 8); // fallback if scanner missed it
+
+      // PRs and latest release still need separate fetches
+      const [prs, release] = await Promise.all([
+        fetchRecentPRs(owner, repo, 4),
         fetchLatestRelease(owner, repo),
       ]);
+
       return { act, owner, repo, commits, prs, release };
     })
   );
-  for (const r of results) {
+  for (const r of deepResults) {
     if (r.status === "fulfilled" && r.value) devContexts.push(r.value);
   }
 
@@ -786,32 +741,55 @@ IMPORTANT: Keep each section to 2-3 sentences MAX. You MUST complete all 4 secti
     });
   }
 
-  // HuggingFace update signals — also enriched
-  for (const { org, netuid } of SEED_HF_ORGS) {
-    if (!netuid) continue;
-    const hf = hfActivityMap.get(netuid);
-    if (!hf) continue;
-    if (hf.models + hf.datasets + hf.spaces === 0) continue;
+  // New release signals — from direct GitHub scanner (fires when a release was published in last 24h)
+  for (const [netuid, ghResult] of githubScanMap) {
+    if (!ghResult.hasNewRelease) continue;
     const name = identityMap.get(netuid)?.subnet_name || `SN${netuid}`;
-    const parts: string[] = [];
-    if (hf.models > 0) parts.push(`${hf.models} model${hf.models > 1 ? "s" : ""}`);
-    if (hf.datasets > 0) parts.push(`${hf.datasets} dataset${hf.datasets > 1 ? "s" : ""}`);
-    if (hf.spaces > 0) parts.push(`${hf.spaces} space${hf.spaces > 1 ? "s" : ""}`);
-    // Build detailed description with actual model/dataset names for AI analysis
+    const alreadyHasDeepSignal = devContexts.some(ctx => ctx.act.netuid === netuid);
+    if (alreadyHasDeepSignal) continue; // deep analysis signal already covers this
+    addSignal({
+      netuid,
+      signal_type: "dev_spike",
+      strength: 75, // releases are high-signal
+      title: `${name} released ${ghResult.releaseName || ghResult.releaseTag} on GitHub`,
+      description: `New release: ${ghResult.releaseTag}${ghResult.releaseBody ? `\n${ghResult.releaseBody.slice(0, 500)}` : ""}`,
+      source: "github",
+      source_url: `https://github.com/${ghResult.owner}/${ghResult.repo}/releases`,
+      subnet_name: name,
+      signal_date: ghResult.releaseDate || new Date().toISOString(),
+    });
+  }
+
+  // HuggingFace update signals — only fires when new content published in last 48h
+  // Coverage: ALL subnets tracked by hf-scanner (known orgs + auto-discovered)
+  for (const [netuid, hf] of hfScanMap) {
+    const newTotal = hf.newModels + hf.newDatasets + hf.newSpaces;
+    if (newTotal === 0) continue;
+
+    const name = identityMap.get(netuid)?.subnet_name || `SN${netuid}`;
+    const orgsStr = hf.orgs.join(", ");
+    const newParts: string[] = [];
+    if (hf.newModels > 0) newParts.push(`${hf.newModels} new model${hf.newModels > 1 ? "s" : ""}`);
+    if (hf.newDatasets > 0) newParts.push(`${hf.newDatasets} new dataset${hf.newDatasets > 1 ? "s" : ""}`);
+    if (hf.newSpaces > 0) newParts.push(`${hf.newSpaces} new space${hf.newSpaces > 1 ? "s" : ""}`);
+
     const detailParts: string[] = [];
-    if (hf.modelNames.length > 0) detailParts.push(`Models: ${hf.modelNames.slice(0, 5).join("; ")}`);
-    if (hf.datasetNames.length > 0) detailParts.push(`Datasets: ${hf.datasetNames.slice(0, 5).join("; ")}`);
-    if (hf.spaceNames.length > 0) detailParts.push(`Spaces: ${hf.spaceNames.slice(0, 3).join("; ")}`);
-    const detailedDesc = `${org} has ${parts.join(", ")} on HuggingFace (${hf.downloads.toLocaleString()} total downloads).\n${detailParts.join("\n")}`;
+    if (hf.newModelNames.length > 0) detailParts.push(`New models: ${hf.newModelNames.slice(0, 5).join(", ")}`);
+    if (hf.newDatasetNames.length > 0) detailParts.push(`New datasets: ${hf.newDatasetNames.slice(0, 5).join(", ")}`);
+    if (hf.newSpaceNames.length > 0) detailParts.push(`New spaces: ${hf.newSpaceNames.slice(0, 3).join(", ")}`);
+    const contextParts: string[] = [];
+    if (hf.totalModels > 0) contextParts.push(`${hf.totalModels} total models`);
+    if (hf.totalDatasets > 0) contextParts.push(`${hf.totalDatasets} total datasets`);
+    const detailedDesc = `${orgsStr} published ${newParts.join(", ")} on HuggingFace in the last 48h.\n${detailParts.join("\n")}\nLibrary: ${contextParts.join(", ")} (${hf.totalDownloads.toLocaleString()} total downloads)`;
 
     addSignal({
       netuid,
       signal_type: "hf_update",
-      strength: Math.min(80, 25 + hf.models * 8 + hf.datasets * 5 + hf.spaces * 3 + Math.min(hf.downloads / 500, 20)),
-      title: `${name}: AI models & datasets on HuggingFace`,
+      strength: Math.min(85, 40 + hf.newModels * 12 + hf.newDatasets * 8 + hf.newSpaces * 5 + Math.min(hf.totalDownloads / 1000, 20)),
+      title: `${name} published ${newParts.join(" & ")} on HuggingFace`,
       description: detailedDesc,
       source: "huggingface",
-      source_url: `https://huggingface.co/${org}`,
+      source_url: `https://huggingface.co/${hf.orgs[0] || ""}`,
       subnet_name: name,
       signal_date: hf.latestDate || new Date().toISOString(),
     });
@@ -871,7 +849,7 @@ IMPORTANT: Keep each section to 2-3 sentences MAX. You MUST complete all 4 secti
     const identity = identityMap.get(netuid);
     const pool = poolMap.get(netuid);
     const dev = devMap.get(netuid);
-    const hf = hfActivityMap.get(netuid);
+    const hf = hfScanMap.get(netuid);
     const social = socialMap.get(netuid);
 
     const name = identity?.subnet_name || pool?.name || `Subnet ${netuid}`;
@@ -919,10 +897,10 @@ IMPORTANT: Keep each section to 2-3 sentences MAX. You MUST complete all 4 secti
       ghPRsMerged7d,
       ghContributors30d,
       ghEvents,
-      hfModels: hf?.models || 0,
-      hfDatasets: hf?.datasets || 0,
-      hfSpaces: hf?.spaces || 0,
-      hfDownloads: hf?.downloads || 0,
+      hfModels: hf?.totalModels || 0,
+      hfDatasets: hf?.totalDatasets || 0,
+      hfSpaces: hf?.totalSpaces || 0,
+      hfDownloads: hf?.totalDownloads || 0,
       validatorCount: validatorCounts.get(netuid) || 0,
       minerCount: Math.max(0, 256 - (validatorCounts.get(netuid) || 0)), // max 256 neurons per subnet
       regsBurned24h: tmcMap.get(netuid)?.neuron_regs_burned_24h || 0,
@@ -1677,7 +1655,7 @@ IMPORTANT: Keep each section to 2-3 sentences MAX. You MUST complete all 4 secti
       identities: identities.length,
       pools: pools.length,
       devActivity: devActivity.length,
-      hfOrgs: hfActivityMap.size,
+      hfOrgs: hfScanMap.size,
       socialSubnets: socialMap.size,
     },
   };
