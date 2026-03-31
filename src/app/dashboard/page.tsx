@@ -951,145 +951,8 @@ export default function Home() {
               </div>
             </div>
           )}
-        </div>
 
-        {/* Right panel - Subnet Detail (from in-memory data) */}
-        {selectedSubnet !== null && selectedSubnetData && (
-          <div className="w-96 border-l border-gray-800 overflow-auto p-4 bg-gray-900/30">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-bold">
-                SN{selectedSubnet} Detail
-              </h3>
-              <button
-                onClick={() => setSelectedSubnet(null)}
-                className="text-gray-500 hover:text-gray-300 text-sm"
-              >
-                &#x2715;
-              </button>
-            </div>
-
-            {/* Subnet info from leaderboard data */}
-            <div className="mb-4">
-              <h4 className="font-medium text-sm">{selectedSubnetData.name}</h4>
-            </div>
-
-            {/* Metrics from leaderboard */}
-            <div className="mb-4">
-              <h4 className="text-xs text-gray-500 uppercase mb-2">Scores</h4>
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                <div className="bg-gray-800/50 rounded p-2">
-                  <span className="text-gray-500 block">aGap Score</span>
-                  <span className={`font-bold ${scoreColor(selectedSubnetData.composite_score)}`}>
-                    {selectedSubnetData.composite_score}
-                  </span>
-                </div>
-                <div className="bg-gray-800/50 rounded p-2">
-                  <span className="text-gray-500 block">Dev</span>
-                  <span className={scoreColor(selectedSubnetData.dev_score)}>
-                    {selectedSubnetData.dev_score}
-                  </span>
-                </div>
-                <div className="bg-gray-800/50 rounded p-2">
-                  <span className="text-gray-500 block">Flow</span>
-                  <span className={scoreColor(selectedSubnetData.flow_score)}>
-                    {selectedSubnetData.flow_score}
-                  </span>
-                </div>
-                <div className="bg-gray-800/50 rounded p-2">
-                  <span className="text-gray-500 block">eVal</span>
-                  <span className={scoreColor(selectedSubnetData.eval_score)}>
-                    {selectedSubnetData.eval_score}
-                  </span>
-                  {selectedSubnetData.eval_ratio ? (
-                    <span className="text-xs text-gray-500 block">{selectedSubnetData.eval_ratio}x</span>
-                  ) : null}
-                </div>
-                <div className="bg-gray-800/50 rounded p-2">
-                  <span className="text-gray-500 block">Social</span>
-                  <span className={scoreColor(selectedSubnetData.social_score)}>
-                    {selectedSubnetData.social_score}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Market data */}
-            <div className="mb-4">
-              <h4 className="text-xs text-gray-500 uppercase mb-2">Market Data</h4>
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                <div className="bg-gray-800/50 rounded p-2">
-                  <span className="text-gray-500 block">Price</span>
-                  <span className="text-white">
-                    {selectedSubnetData.alpha_price != null
-                      ? `$${formatNum(selectedSubnetData.alpha_price, 4)}`
-                      : "\u2014"}
-                  </span>
-                </div>
-                <div className="bg-gray-800/50 rounded p-2">
-                  <span className="text-gray-500 block">MCap</span>
-                  <span className="text-white">
-                    {selectedSubnetData.market_cap != null
-                      ? `$${formatNum(selectedSubnetData.market_cap)}`
-                      : "\u2014"}
-                  </span>
-                </div>
-                <div className="bg-gray-800/50 rounded p-2">
-                  <span className="text-gray-500 block">24h Change</span>
-                  <span className={
-                    selectedSubnetData.price_change_24h == null ? "text-gray-500" :
-                    selectedSubnetData.price_change_24h > 0 ? "text-green-400" :
-                    selectedSubnetData.price_change_24h < 0 ? "text-red-400" : "text-gray-500"
-                  }>
-                    {selectedSubnetData.price_change_24h != null
-                      ? `${selectedSubnetData.price_change_24h > 0 ? "+" : ""}${selectedSubnetData.price_change_24h.toFixed(1)}%`
-                      : "\u2014"}
-                  </span>
-                </div>
-                <div className="bg-gray-800/50 rounded p-2">
-                  <span className="text-gray-500 block">24h Net Flow</span>
-                  <span className={flowColor(selectedSubnetData.net_flow_24h)}>
-                    {selectedSubnetData.net_flow_24h != null && taoPrice != null
-                      ? `${selectedSubnetData.net_flow_24h > 0 ? "+" : ""}$${formatNum(Math.round(selectedSubnetData.net_flow_24h * taoPrice))}`
-                      : selectedSubnetData.net_flow_24h != null
-                      ? `${selectedSubnetData.net_flow_24h > 0 ? "+" : ""}${formatNum(selectedSubnetData.net_flow_24h)} \u03C4`
-                      : "\u2014"}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Signals for this subnet */}
-            {selectedSubnetSignals.length > 0 && (
-              <div className="mb-4">
-                <h4 className="text-xs text-gray-500 uppercase mb-2">
-                  Signals ({selectedSubnetSignals.length})
-                </h4>
-                <div className="space-y-1.5">
-                  {selectedSubnetSignals.slice(0, 10).map((sig) => (
-                    <div key={sig.id} className="text-xs bg-gray-800/30 rounded p-2">
-                      <div className="flex items-center gap-1.5">
-                        <span className={signalColor(sig.signal_type)}>
-                          {signalIcon(sig.signal_type)}
-                        </span>
-                        <span className="text-gray-400 truncate flex-1">{sig.title}</span>
-                        <span className={`font-bold ${
-                          sig.strength >= 80 ? "text-green-400" :
-                          sig.strength >= 50 ? "text-yellow-400" : "text-gray-500"
-                        }`}>
-                          {sig.strength}
-                        </span>
-                      </div>
-                      {sig.description && (
-                        <p className="text-gray-600 mt-1">{sig.description}</p>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-        {/* Reports */}
+          {/* Reports */}
         {activeTab === "reports" && (
           <div className="space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
@@ -1352,6 +1215,144 @@ export default function Home() {
                   Tracks real alpha token prices. Not financial advice.
                 </div>
               </>
+            )}
+          </div>
+        )}
+        </div>
+
+        {/* Right panel - Subnet Detail (from in-memory data) */}
+        {selectedSubnet !== null && selectedSubnetData && (
+          <div className="w-96 border-l border-gray-800 overflow-auto p-4 bg-gray-900/30">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-bold">
+                SN{selectedSubnet} Detail
+              </h3>
+              <button
+                onClick={() => setSelectedSubnet(null)}
+                className="text-gray-500 hover:text-gray-300 text-sm"
+              >
+                &#x2715;
+              </button>
+            </div>
+
+            {/* Subnet info from leaderboard data */}
+            <div className="mb-4">
+              <h4 className="font-medium text-sm">{selectedSubnetData.name}</h4>
+            </div>
+
+            {/* Metrics from leaderboard */}
+            <div className="mb-4">
+              <h4 className="text-xs text-gray-500 uppercase mb-2">Scores</h4>
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div className="bg-gray-800/50 rounded p-2">
+                  <span className="text-gray-500 block">aGap Score</span>
+                  <span className={`font-bold ${scoreColor(selectedSubnetData.composite_score)}`}>
+                    {selectedSubnetData.composite_score}
+                  </span>
+                </div>
+                <div className="bg-gray-800/50 rounded p-2">
+                  <span className="text-gray-500 block">Dev</span>
+                  <span className={scoreColor(selectedSubnetData.dev_score)}>
+                    {selectedSubnetData.dev_score}
+                  </span>
+                </div>
+                <div className="bg-gray-800/50 rounded p-2">
+                  <span className="text-gray-500 block">Flow</span>
+                  <span className={scoreColor(selectedSubnetData.flow_score)}>
+                    {selectedSubnetData.flow_score}
+                  </span>
+                </div>
+                <div className="bg-gray-800/50 rounded p-2">
+                  <span className="text-gray-500 block">eVal</span>
+                  <span className={scoreColor(selectedSubnetData.eval_score)}>
+                    {selectedSubnetData.eval_score}
+                  </span>
+                  {selectedSubnetData.eval_ratio ? (
+                    <span className="text-xs text-gray-500 block">{selectedSubnetData.eval_ratio}x</span>
+                  ) : null}
+                </div>
+                <div className="bg-gray-800/50 rounded p-2">
+                  <span className="text-gray-500 block">Social</span>
+                  <span className={scoreColor(selectedSubnetData.social_score)}>
+                    {selectedSubnetData.social_score}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Market data */}
+            <div className="mb-4">
+              <h4 className="text-xs text-gray-500 uppercase mb-2">Market Data</h4>
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div className="bg-gray-800/50 rounded p-2">
+                  <span className="text-gray-500 block">Price</span>
+                  <span className="text-white">
+                    {selectedSubnetData.alpha_price != null
+                      ? `$${formatNum(selectedSubnetData.alpha_price, 4)}`
+                      : "\u2014"}
+                  </span>
+                </div>
+                <div className="bg-gray-800/50 rounded p-2">
+                  <span className="text-gray-500 block">MCap</span>
+                  <span className="text-white">
+                    {selectedSubnetData.market_cap != null
+                      ? `$${formatNum(selectedSubnetData.market_cap)}`
+                      : "\u2014"}
+                  </span>
+                </div>
+                <div className="bg-gray-800/50 rounded p-2">
+                  <span className="text-gray-500 block">24h Change</span>
+                  <span className={
+                    selectedSubnetData.price_change_24h == null ? "text-gray-500" :
+                    selectedSubnetData.price_change_24h > 0 ? "text-green-400" :
+                    selectedSubnetData.price_change_24h < 0 ? "text-red-400" : "text-gray-500"
+                  }>
+                    {selectedSubnetData.price_change_24h != null
+                      ? `${selectedSubnetData.price_change_24h > 0 ? "+" : ""}${selectedSubnetData.price_change_24h.toFixed(1)}%`
+                      : "\u2014"}
+                  </span>
+                </div>
+                <div className="bg-gray-800/50 rounded p-2">
+                  <span className="text-gray-500 block">24h Net Flow</span>
+                  <span className={flowColor(selectedSubnetData.net_flow_24h)}>
+                    {selectedSubnetData.net_flow_24h != null && taoPrice != null
+                      ? `${selectedSubnetData.net_flow_24h > 0 ? "+" : ""}$${formatNum(Math.round(selectedSubnetData.net_flow_24h * taoPrice))}`
+                      : selectedSubnetData.net_flow_24h != null
+                      ? `${selectedSubnetData.net_flow_24h > 0 ? "+" : ""}${formatNum(selectedSubnetData.net_flow_24h)} \u03C4`
+                      : "\u2014"}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Signals for this subnet */}
+            {selectedSubnetSignals.length > 0 && (
+              <div className="mb-4">
+                <h4 className="text-xs text-gray-500 uppercase mb-2">
+                  Signals ({selectedSubnetSignals.length})
+                </h4>
+                <div className="space-y-1.5">
+                  {selectedSubnetSignals.slice(0, 10).map((sig) => (
+                    <div key={sig.id} className="text-xs bg-gray-800/30 rounded p-2">
+                      <div className="flex items-center gap-1.5">
+                        <span className={signalColor(sig.signal_type)}>
+                          {signalIcon(sig.signal_type)}
+                        </span>
+                        <span className="text-gray-400 truncate flex-1">{sig.title}</span>
+                        <span className={`font-bold ${
+                          sig.strength >= 80 ? "text-green-400" :
+                          sig.strength >= 50 ? "text-yellow-400" : "text-gray-500"
+                        }`}>
+                          {sig.strength}
+                        </span>
+                      </div>
+                      {sig.description && (
+                        <p className="text-gray-600 mt-1">{sig.description}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
             )}
           </div>
         )}
