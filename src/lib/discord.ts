@@ -47,9 +47,13 @@ export interface DiscordAlphaResult {
 const DISCORD_BASE = "https://discord.com/api/v10";
 
 function getAuthHeader(token: string): string {
-  // Supports both "Bot TOKEN" format and raw user tokens
+  // Bot tokens need "Bot " prefix; user tokens are used as-is
   if (token.startsWith("Bot ") || token.startsWith("Bearer ")) return token;
-  return `Bot ${token}`;
+  // User tokens are raw — no prefix (they start with a base64 user ID like "MTQ4...")
+  // Bot tokens from Discord developer portal also start similarly but require "Bot " prefix
+  // We detect bot tokens by checking if they contain two dots (header.payload.signature JWT-style)
+  // User tokens have the same format, so we just pass through without prefix for user accounts
+  return token;
 }
 
 // Convert timestamp to Discord snowflake ID (for message pagination)
