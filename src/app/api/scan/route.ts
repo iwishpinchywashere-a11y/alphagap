@@ -300,6 +300,55 @@ export async function GET() {
   const validatorCounts = tmcValResult.status === "fulfilled" ? tmcValResult.value : new Map<number, number>();
   console.log(`[scan] Batch 2 done: ${flows.length} flows, ${emissions.length} emissions, ${devActivity.length} dev, ${tmcSubnets.length} TMC, ${validatorCounts.size} validator subnets`);
 
+  // ── Fresh GitHub check — bypass TaoStats's stale daily snapshot ──
+  // TaoStats updates commits_1d once per day, so 3 of our 4 daily scans
+  // see 0 activity even when devs are actively pushing code right now.
+  // Fix: directly hit GitHub API for subnets that were active in 7d but
+  // show 0 today — use real commit timestamps to count true 24h activity.
+  {
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const taostatsDate = devActivity.length > 0 ? devActivity[0].as_of_day?.slice(0, 10) : null;
+    const taostatsStale = taostatsDate !== todayStr;
+    console.log(`[scan] TaoStats dev data as_of: ${taostatsDate ?? "unknown"} (${taostatsStale ? "STALE — supplementing from GitHub API" : "fresh"})`);
+
+    if (taostatsStale) {
+      // Check subnets that were active in 7d but appear quiet today
+      const staleActive = devActivity
+        .filter(a => a.repo_url && a.commits_1d === 0 && a.commits_7d > 0)
+        .slice(0, 50); // cap at 50 to stay well within 5K/hr GitHub API rate limit
+
+      const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      const BATCH = 8;
+
+      for (let i = 0; i < staleActive.length; i += BATCH) {
+        await Promise.all(staleActive.slice(i, i + BATCH).map(async (act) => {
+          try {
+            let repoPath = act.repo_url;
+            if (repoPath.includes("github.com/")) repoPath = repoPath.split("github.com/")[1];
+            repoPath = repoPath.replace(/^\/|\/$/g, "").replace(/\.git$/, "");
+            const [owner, repo] = repoPath.split("/");
+            if (!owner || !repo) return;
+
+            const commits = await fetchRecentCommits(owner, repo, 10);
+            const recentCount = commits.filter(c => {
+              const m = c.match(/^\[(\d{4}-\d{2}-\d{2})\]/);
+              return m ? new Date(m[1]) >= cutoff : false;
+            }).length;
+
+            if (recentCount > 0) {
+              act.commits_1d = recentCount;
+              act.last_event_at = new Date().toISOString();
+              console.log(`[scan] GitHub fresh: SN${act.netuid} has ${recentCount} commits in last 24h`);
+            }
+          } catch { /* skip on error */ }
+        }));
+      }
+
+      const freshSignals = staleActive.filter(a => a.commits_1d > 0).length;
+      console.log(`[scan] GitHub fresh check: ${freshSignals} subnets with real activity today`);
+    }
+  }
+
   // Build TMC emission map (accurate emission % from TaoMarketCap)
   const tmcMap = new Map<number, TMCSubnet>(tmcSubnets.map(s => [s.subnet, s]));
 
