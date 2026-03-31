@@ -1,17 +1,13 @@
 // One-time portfolio seeder — call once to bootstrap initial positions
 // GET /api/portfolio/seed
-// Seeds SN17 (Vidaio) and SN11 (Trajectory RL) at today's live price
+// Seeds SN17 (Vidaio) at today's live price
+// Seeds SN11 (Trajectory RL) at YESTERDAY's price (it hit aGap 80 yesterday)
 
 import { NextResponse } from "next/server";
 import { put, get as blobGet } from "@vercel/blob";
 import { loadPortfolio } from "../route";
 
 export const dynamic = "force-dynamic";
-
-const SEED_POSITIONS = [
-  { netuid: 17, label: "Vidaio" },
-  { netuid: 11, label: "Trajectory RL" },
-];
 
 const BUY_AMOUNT = 100;
 
@@ -39,41 +35,76 @@ export async function GET() {
       chunks.push(value);
     }
     const scanData = JSON.parse(Buffer.concat(chunks).toString("utf-8"));
-    const leaderboard: Array<{ netuid: number; name: string; alpha_price?: number; composite_score: number }> = scanData.leaderboard || [];
+    const leaderboard: Array<{
+      netuid: number;
+      name: string;
+      alpha_price?: number;
+      composite_score: number;
+      price_change_24h?: number;
+    }> = scanData.leaderboard || [];
     const taoPrice: number = scanData.taoPrice || 0;
 
     const portfolio = await loadPortfolio();
     const today = new Date().toISOString().slice(0, 10);
+    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
     const added: string[] = [];
     const skipped: string[] = [];
 
-    for (const seed of SEED_POSITIONS) {
-      // Skip if already have a position
-      if (portfolio.positions.some(p => p.netuid === seed.netuid)) {
-        skipped.push(`SN${seed.netuid} ${seed.label} (already in portfolio)`);
-        continue;
-      }
-
-      const entry = leaderboard.find(e => e.netuid === seed.netuid);
+    // ── SN17 Vidaio — buy at today's price ───────────────────────
+    if (portfolio.positions.some(p => p.netuid === 17)) {
+      skipped.push("SN17 Vidaio (already in portfolio)");
+    } else {
+      const entry = leaderboard.find(e => e.netuid === 17);
       if (!entry?.alpha_price || entry.alpha_price <= 0) {
-        skipped.push(`SN${seed.netuid} ${seed.label} (no price data)`);
-        continue;
+        skipped.push("SN17 Vidaio (no price data)");
+      } else {
+        const alphaTokens = BUY_AMOUNT / entry.alpha_price;
+        portfolio.positions.push({
+          netuid: 17,
+          name: entry.name || "Vidaio",
+          buyDate: today,
+          buyAGapScore: entry.composite_score,
+          buyPriceUsd: entry.alpha_price,
+          amountUsd: BUY_AMOUNT,
+          alphaTokens,
+        });
+        added.push(`SN17 ${entry.name} @ $${entry.alpha_price.toFixed(4)} (${alphaTokens.toFixed(2)} tokens) — TODAY`);
       }
-
-      const alphaTokens = BUY_AMOUNT / entry.alpha_price;
-      portfolio.positions.push({
-        netuid: seed.netuid,
-        name: entry.name || seed.label,
-        buyDate: today,
-        buyAGapScore: entry.composite_score,
-        buyPriceUsd: entry.alpha_price,
-        amountUsd: BUY_AMOUNT,
-        alphaTokens,
-      });
-      added.push(`SN${seed.netuid} ${entry.name} @ $${entry.alpha_price.toFixed(4)} (${alphaTokens.toFixed(2)} tokens)`);
     }
 
-    // Seed today's portfolio value snapshot
+    // ── SN11 Trajectory RL — buy at YESTERDAY's price ────────────
+    // It hit aGap 80 yesterday. Back-calculate yesterday's price from
+    // today's price and the 24h price change %.
+    if (portfolio.positions.some(p => p.netuid === 11)) {
+      skipped.push("SN11 Trajectory RL (already in portfolio)");
+    } else {
+      const entry = leaderboard.find(e => e.netuid === 11);
+      if (!entry?.alpha_price || entry.alpha_price <= 0) {
+        skipped.push("SN11 Trajectory RL (no price data)");
+      } else {
+        // Back-calculate: yesterdayPrice = todayPrice / (1 + pctChange/100)
+        const pctChange = entry.price_change_24h ?? 0;
+        const yesterdayPrice = pctChange !== 0
+          ? entry.alpha_price / (1 + pctChange / 100)
+          : entry.alpha_price; // if no change data, use today's price
+        const alphaTokens = BUY_AMOUNT / yesterdayPrice;
+        portfolio.positions.push({
+          netuid: 11,
+          name: entry.name || "Trajectory RL",
+          buyDate: yesterday,
+          buyAGapScore: 80, // confirmed aGap score when it was spotted
+          buyPriceUsd: yesterdayPrice,
+          amountUsd: BUY_AMOUNT,
+          alphaTokens,
+        });
+        const pctLabel = pctChange >= 0
+          ? `+${pctChange.toFixed(1)}% since buy`
+          : `${pctChange.toFixed(1)}% since buy`;
+        added.push(`SN11 ${entry.name} @ $${yesterdayPrice.toFixed(4)} yesterday (${alphaTokens.toFixed(2)} tokens, ${pctLabel})`);
+      }
+    }
+
+    // ── Seed portfolio value snapshot ─────────────────────────────
     if (portfolio.positions.length > 0) {
       const totalValue = portfolio.positions.reduce((sum, pos) => {
         const liveEntry = leaderboard.find(e => e.netuid === pos.netuid);
@@ -87,7 +118,17 @@ export async function GET() {
       } else {
         portfolio.history.push({ date: today, totalValue: Math.round(totalValue * 100) / 100 });
       }
+
+      // Also seed a yesterday entry at cost basis so the chart starts at $200
+      const yesterdayTotal = portfolio.positions.reduce((sum, pos) => sum + pos.amountUsd, 0);
+      const existingYesterdayIdx = portfolio.history.findIndex(h => h.date === yesterday);
+      if (existingYesterdayIdx < 0) {
+        portfolio.history.push({ date: yesterday, totalValue: yesterdayTotal });
+      }
     }
+
+    // Sort history chronologically
+    portfolio.history.sort((a, b) => a.date.localeCompare(b.date));
 
     await put("portfolio.json", JSON.stringify(portfolio), {
       access: "private",
