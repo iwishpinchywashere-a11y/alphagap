@@ -59,7 +59,9 @@ Write your analysis using EXACTLY this format (1-3 sentences per section):
 (Explain like telling a friend who knows nothing about tech.)
 
 🎯 The AlphaGap take:
-(THIS IS THE MOST IMPORTANT SECTION — ALWAYS INCLUDE IT. Is the market sleeping on this? Does dev activity justify the price? Give a bold, actionable take on whether there's an alpha gap here.)`;
+(Is the market sleeping on this? Does dev activity justify the price? Give a clear, bold take.)
+
+IMPORTANT: Keep each section to 2-3 sentences MAX. You MUST complete all 4 sections. Never leave a section unfinished. End with a complete sentence.`;
 
     const res = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -70,7 +72,7 @@ Write your analysis using EXACTLY this format (1-3 sentences per section):
       },
       body: JSON.stringify({
         model: "claude-haiku-4-5-20251001",
-        max_tokens: 700,
+        max_tokens: 1000,
         messages: [{ role: "user", content: prompt }],
       }),
     });

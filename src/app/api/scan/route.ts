@@ -567,7 +567,9 @@ Now write your intelligence report using this EXACT format. Each section should 
 (Explain this like you're telling your non-technical friend over coffee. Use analogies. Make it dead simple and interesting.)
 
 🎯 The AlphaGap take:
-(THIS IS THE MOST IMPORTANT SECTION. Is the market sleeping on this? Does the development activity justify the current price? Is there an alpha gap here — strong building but the price hasn't caught up yet? Give a clear, bold, actionable take. Always include this section.)`;
+(Is the market sleeping on this? Does dev activity justify the price? Give a clear, bold take.)
+
+IMPORTANT: Keep each section to 2-3 sentences MAX. You MUST complete all 4 sections. Never leave a section unfinished. End with a complete sentence.`;
 
     try {
       const res = await fetch("https://api.anthropic.com/v1/messages", {
@@ -579,7 +581,7 @@ Now write your intelligence report using this EXACT format. Each section should 
         },
         body: JSON.stringify({
           model: "claude-haiku-4-5-20251001",
-          max_tokens: 700,
+          max_tokens: 1000,
           messages: [{ role: "user", content: prompt }],
         }),
       });
