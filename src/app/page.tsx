@@ -249,8 +249,8 @@ export default function Home() {
     );
     if (unanalyzed.length === 0) return;
 
-    // Analyze up to 5 at a time, staggered
-    const batch = unanalyzed.slice(0, 5);
+    // Analyze up to 10 at a time (Haiku is fast, ~1-2s per call)
+    const batch = unanalyzed.slice(0, 10);
     for (const sig of batch) {
       analyzingRef.current.add(sig.id);
     }
