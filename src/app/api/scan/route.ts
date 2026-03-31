@@ -1320,6 +1320,32 @@ IMPORTANT: Keep each section to 2-3 sentences MAX. You MUST complete all 4 secti
     }
   }
 
+  // ── Load emission history (needed for aGap formula) ─────────────
+  // Must load BEFORE the leaderboard loop so emission momentum can
+  // factor into rawAGap calculation.
+  type EmissionHistory = { [netuid: string]: { pct: number; timestamp: string }[] };
+  let emissionHistory: EmissionHistory = {};
+  try {
+    if (process.env.BLOB_READ_WRITE_TOKEN) {
+      const histBlob = await blobGet("emission-history.json", {
+        token: process.env.BLOB_READ_WRITE_TOKEN!,
+        access: "private",
+      });
+      if (histBlob && histBlob.stream) {
+        const reader = histBlob.stream.getReader();
+        const chunks: Uint8Array[] = [];
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          chunks.push(value);
+        }
+        emissionHistory = JSON.parse(Buffer.concat(chunks).toString("utf-8"));
+      }
+    }
+  } catch {
+    // No emission history yet — first scan
+  }
+
   // ── Build leaderboard ───────────────────────────────────────────
   const leaderboard: LeaderboardEntry[] = [];
 
@@ -1456,7 +1482,42 @@ IMPORTANT: Keep each section to 2-3 sentences MAX. You MUST complete all 4 secti
       // Campaign over = 0 boost
     }
 
-    // 6. WHALE DETECTION from pool buy/sell data
+    // 6. EMISSION MOMENTUM (±10 pts) — are validators routing more/less to this subnet?
+    // Rising emissions = validators actively choosing this subnet → strong bullish signal
+    // Falling emissions = validators leaving → bearish signal
+    // This is one of the most direct "smart money" signals on Bittensor
+    let emissionBoost = 0;
+    let emissionChangePct: number | undefined;
+    let emissionTrend: "up" | "down" | null = null;
+    if (d.emissionPct > 0) {
+      const emHistKey = String(d.netuid);
+      const emHist = emissionHistory[emHistKey];
+      if (emHist && emHist.length > 0) {
+        // Use longest lookback available (prefer 7-day, fall back to earliest reading)
+        const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+        const oldest = emHist.find(h => new Date(h.timestamp).getTime() <= sevenDaysAgo) || emHist[0];
+        if (oldest.pct > 0) {
+          const currentPct = d.emissionPct; // raw % value (same unit as stored history)
+          const changePct = ((currentPct - oldest.pct) / oldest.pct) * 100;
+          emissionChangePct = Math.round(changePct * 10) / 10;
+          if (changePct >= 5) emissionTrend = "up";
+          else if (changePct <= -5) emissionTrend = "down";
+
+          // Boost: up to +10 for rising, up to -8 for falling
+          if (changePct >= 30) emissionBoost = 10;
+          else if (changePct >= 20) emissionBoost = 8;
+          else if (changePct >= 10) emissionBoost = 6;
+          else if (changePct >= 5) emissionBoost = 3;
+          else if (changePct >= 0) emissionBoost = 1;
+          else if (changePct <= -30) emissionBoost = -8;
+          else if (changePct <= -20) emissionBoost = -6;
+          else if (changePct <= -10) emissionBoost = -4;
+          else if (changePct <= -5) emissionBoost = -2;
+        }
+      }
+    }
+
+    // 7. WHALE DETECTION from pool buy/sell data
     const poolForWhale = poolMap.get(d.netuid);
     let whaleRatio: number | undefined;
     let whaleSignal: "accumulating" | "distributing" | null = null;
@@ -1484,7 +1545,7 @@ IMPORTANT: Keep each section to 2-3 sentences MAX. You MUST complete all 4 secti
       }
     }
 
-    const rawAGap = buildingPts + priceLag + socialGap + evalBoost + viability + campaignBoost + whaleBoost;
+    const rawAGap = buildingPts + priceLag + socialGap + evalBoost + viability + campaignBoost + whaleBoost + emissionBoost;
     const clampedRaw = Math.max(1, Math.min(100, Math.round(rawAGap)));
     const aGap = smoothAGap(d.netuid, clampedRaw);
 
@@ -1505,6 +1566,8 @@ IMPORTANT: Keep each section to 2-3 sentences MAX. You MUST complete all 4 secti
       market_cap: d.marketCapUsd ?? undefined,
       net_flow_24h: d.netFlow24h ?? undefined,
       emission_pct: d.emissionPct > 0 ? d.emissionPct / 100 : undefined,
+      emission_change_pct: emissionChangePct,
+      emission_trend: emissionTrend,
       eval_ratio: Math.round(evalRatio * 10) / 10,
       price_change_24h: d.priceChange24h,
       price_change_1h: d.priceChange1h,
@@ -1521,64 +1584,19 @@ IMPORTANT: Keep each section to 2-3 sentences MAX. You MUST complete all 4 secti
   // Sort signals by strength desc
   signals.sort((a, b) => b.strength - a.strength);
 
-  // ── Emission trend detection ────────────────────────────────────
-  // Compare current emissions to historical data stored in blob
-  type EmissionHistory = { [netuid: string]: { pct: number; timestamp: string }[] };
-  let emissionHistory: EmissionHistory = {};
-
-  try {
-    if (process.env.BLOB_READ_WRITE_TOKEN) {
-      const histBlob = await blobGet("emission-history.json", {
-        token: process.env.BLOB_READ_WRITE_TOKEN,
-        access: "private",
-      });
-      if (histBlob && histBlob.stream) {
-        const reader = histBlob.stream.getReader();
-        const chunks: Uint8Array[] = [];
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          chunks.push(value);
-        }
-        emissionHistory = JSON.parse(Buffer.concat(chunks).toString("utf-8"));
-      }
-    }
-  } catch {
-    // No history yet, that's fine — first scan
-  }
-
+  // ── Append current emissions to history & save ─────────────────
+  // (emission_change_pct already computed and factored into aGap above)
   const now = new Date().toISOString();
   for (const entry of leaderboard) {
     if (!entry.emission_pct || entry.emission_pct <= 0) continue;
     const key = String(entry.netuid);
-    const currentPct = entry.emission_pct * 100; // convert back to %
+    const currentPct = entry.emission_pct * 100; // convert fraction back to %
 
     if (!emissionHistory[key]) emissionHistory[key] = [];
     const hist = emissionHistory[key];
 
-    // Compare to oldest entry we have (up to 7 days of data)
-    if (hist.length > 0) {
-      // Find ~24h ago entry
-      const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
-      const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
-      const recent = hist.find(h => new Date(h.timestamp).getTime() >= oneDayAgo) || hist[hist.length - 1];
-      const oldest = hist.find(h => new Date(h.timestamp).getTime() <= sevenDaysAgo) || hist[0];
-
-      // Use whichever gives us a longer lookback
-      const compareTo = oldest.pct > 0 ? oldest : recent;
-      if (compareTo.pct > 0) {
-        const changePct = ((currentPct - compareTo.pct) / compareTo.pct) * 100;
-        entry.emission_change_pct = Math.round(changePct * 10) / 10;
-
-        // Significant = >5% relative change
-        if (changePct >= 5) entry.emission_trend = "up";
-        else if (changePct <= -5) entry.emission_trend = "down";
-      }
-    }
-
     // Append current reading, keep max 7 days of hourly data (~168 entries)
     hist.push({ pct: currentPct, timestamp: now });
-    // Prune old entries (keep last 168)
     if (hist.length > 168) emissionHistory[key] = hist.slice(-168);
   }
 
