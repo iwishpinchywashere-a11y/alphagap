@@ -243,6 +243,29 @@ export async function GET() {
   const stitchActiveNetuids = new Set(activeCampaigns.map(c => c.netuid!));
   console.log(`[scan] Stitch3: ${activeCampaigns.length} active campaigns (${[...stitchActiveNetuids].join(", ")})`);
 
+  // ── Step 0b: Load cached Discord scan results ─────────────────────
+  type DiscordResult = { channelId: string; channelName: string; netuid: number | null; subnetName: string; signal: "alpha" | "active" | "quiet" | "noise"; summary: string; keyInsights: string[]; messageCount: number; uniquePosters: number; scannedAt: string };
+  let discordResults: DiscordResult[] = [];
+  try {
+    if (process.env.BLOB_READ_WRITE_TOKEN) {
+      const { get: getBlob } = await import("@vercel/blob");
+      const discordBlob = await getBlob("discord-latest.json", {
+        token: process.env.BLOB_READ_WRITE_TOKEN,
+        access: "private",
+      });
+      if (discordBlob?.stream) {
+        const reader = discordBlob.stream.getReader();
+        const chunks: Uint8Array[] = [];
+        while (true) { const { done, value } = await reader.read(); if (done) break; chunks.push(value); }
+        const parsed = JSON.parse(Buffer.concat(chunks).toString("utf-8"));
+        discordResults = parsed.results || [];
+        console.log(`[scan] Loaded ${discordResults.length} Discord channel results from cache`);
+      }
+    }
+  } catch {
+    console.log("[scan] No Discord cache found (run /api/discord-scan first)");
+  }
+
   // ── Step 1: Sequential TaoStats calls to avoid 429 rate limits ──
   // Each call separated by 1s delay. TaoStats enforces strict rate limiting.
   console.log("[scan] Fetching identities...");
@@ -1161,16 +1184,29 @@ IMPORTANT: Keep each section to 2-3 sentences MAX. You MUST complete all 4 secti
     }
   }
 
+  // ── Build Discord signal map for social scoring ─────────────────
+  // netuid → { signal, messageCount, uniquePosters }
+  const discordMap = new Map<number, { signal: string; messageCount: number; uniquePosters: number }>();
+  for (const disc of discordResults) {
+    if (disc.netuid && disc.netuid > 0) {
+      discordMap.set(disc.netuid, {
+        signal: disc.signal,
+        messageCount: disc.messageCount,
+        uniquePosters: disc.uniquePosters,
+      });
+    }
+  }
+
   // ── Compute social score ────────────────────────────────────────
   const desearchFailed = socialMap.size === 0;
 
   function computeSocialScore(netuid: number, mentions: number, engagement: number): number {
     // Stitch3 campaign bonus — active marketing = social boost
     const hasCampaign = stitchActiveNetuids.has(netuid);
-    const campaignBonus = hasCampaign ? 20 : 0; // +20 pts for active campaign
+    const campaignBonus = hasCampaign ? 15 : 0; // +15 pts for active campaign
 
     if (mentions <= 0 && engagement <= 0) {
-      if (hasCampaign) return Math.min(100, 40 + campaignBonus); // Campaign alone = at least 40
+      if (hasCampaign) return Math.min(100, 30 + campaignBonus); // Campaign alone = at least 30
       if (desearchFailed) {
         const identity = identityMap.get(netuid);
         if (identity?.twitter) return 15;
@@ -1179,46 +1215,63 @@ IMPORTANT: Keep each section to 2-3 sentences MAX. You MUST complete all 4 secti
       return 0;
     }
 
-    // Social score calibrated to Desearch data ranges
-    // Typical: 1-10 mentions, 50-500 engagement
-    // Hot: 10-30 mentions, 500-2000 engagement
-    // Viral: 30+ mentions, 2000+ engagement
+    // Social score v2 — recalibrated so popular subnets don't permanently peg the ceiling
+    // Templar/Chutes/Targon were always hitting 100 with old thresholds (30 mentions / 3K eng)
+    // New design: absolute volume = max 55 pts, velocity = max 30 pts, campaign = 15 pts
+    // To score 80+: need genuinely viral volume OR high volume + accelerating trend
     let score = 0;
 
-    // Mentions (max 50 pts)
-    if (mentions >= 30) score += 50;      // Viral — everyone talking
-    else if (mentions >= 20) score += 45;
-    else if (mentions >= 12) score += 38;
-    else if (mentions >= 8) score += 32;  // Hot
-    else if (mentions >= 5) score += 25;
-    else if (mentions >= 3) score += 18;
-    else if (mentions >= 2) score += 12;
-    else if (mentions >= 1) score += 7;
+    // ── VOLUME (max 55 pts) ──
+    // Mentions (max 30 pts) — raised bar: 100+ needed to max out
+    if (mentions >= 100) score += 30;
+    else if (mentions >= 60) score += 26;
+    else if (mentions >= 35) score += 22;
+    else if (mentions >= 20) score += 18;
+    else if (mentions >= 12) score += 14;
+    else if (mentions >= 7) score += 10;
+    else if (mentions >= 4) score += 7;
+    else if (mentions >= 2) score += 4;
+    else if (mentions >= 1) score += 2;
 
-    // Engagement (max 50 pts) — likes, retweets, comments
-    if (engagement >= 3000) score += 50;
-    else if (engagement >= 1500) score += 42;
-    else if (engagement >= 800) score += 35;
-    else if (engagement >= 400) score += 28;
-    else if (engagement >= 200) score += 22;
-    else if (engagement >= 100) score += 16;
-    else if (engagement >= 40) score += 10;
-    else if (engagement >= 10) score += 6;
-    else if (engagement >= 3) score += 3;
+    // Engagement (max 25 pts) — raised bar: 15K+ to max out
+    if (engagement >= 15000) score += 25;
+    else if (engagement >= 8000) score += 21;
+    else if (engagement >= 4000) score += 18;
+    else if (engagement >= 2000) score += 15;
+    else if (engagement >= 1000) score += 12;
+    else if (engagement >= 400) score += 9;
+    else if (engagement >= 150) score += 6;
+    else if (engagement >= 40) score += 3;
+    else if (engagement >= 10) score += 1;
 
-    // Add Stitch3 campaign bonus
-    score += campaignBonus;
-
-    // VELOCITY BONUS — is buzz accelerating?
-    // This is the key differentiator: catching viral curves before price reacts
+    // ── VELOCITY (max 30 pts) — the real alpha signal ──
+    // Is social buzz growing faster than baseline? This rewards heating-up subnets
     const vel = velocityData[netuid];
     if (vel) {
-      if (vel.trend === "accelerating") score += 20; // mentions/min going up fast
-      else if (vel.trend === "growing") score += 10; // steady growth
-      else if (vel.trend === "cooling") score -= 5;  // buzz dying down
+      if (vel.trend === "accelerating") score += 30; // mentions/min surging
+      else if (vel.trend === "growing") score += 18; // steady uptrend
+      else if (vel.trend === "cooling") score -= 8;  // buzz fading
 
-      // Raw velocity score bonus (capped at 15)
-      score += Math.min(15, Math.round(vel.velocityScore * 0.3));
+      // Additional raw velocity bonus (capped at 10)
+      score += Math.min(10, Math.round(vel.velocityScore * 0.2));
+    }
+
+    // ── CAMPAIGN BONUS (max 15 pts) ──
+    score += campaignBonus;
+
+    // ── DISCORD BONUS (max 20 pts) ──
+    // Real community chatter in the official Discord is a strong social signal
+    // Discord alpha = genuine insider discussion before it hits Twitter/price
+    const disc = discordMap.get(netuid);
+    if (disc) {
+      if (disc.signal === "alpha") {
+        // Alpha spotted: genuine insider discussion, dev previews, partnerships
+        score += Math.min(20, 15 + Math.min(disc.uniquePosters, 5));
+      } else if (disc.signal === "active") {
+        // Healthy community engagement — good but not investable intel
+        score += Math.min(12, 6 + Math.min(disc.uniquePosters, 6));
+      }
+      // "quiet" and "noise" contribute nothing
     }
 
     return Math.min(100, Math.max(0, score));

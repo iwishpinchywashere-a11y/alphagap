@@ -1,0 +1,330 @@
+// Discord Alpha Scanner — reads Bittensor subnet channels and classifies the chatter
+// Runs as a cron (once per day) or on-demand via GET /api/discord-scan
+// Results cached in Vercel Blob as discord-latest.json
+
+import { NextResponse } from "next/server";
+import { put, get } from "@vercel/blob";
+import {
+  fetchGuildChannels,
+  fetchChannelMessages,
+  filterSubnetChannels,
+  parseNetuidFromChannel,
+  get24hSnowflake,
+  type DiscordAlphaResult,
+  type DiscordMessage,
+} from "@/lib/discord";
+
+export const dynamic = "force-dynamic";
+export const maxDuration = 60;
+
+const DISCORD_TOKEN = process.env.DISCORD_TOKEN || "";
+const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY || "";
+
+// How many channels to scan per run (avoid timeout)
+const MAX_CHANNELS = 40;
+// Messages per channel
+const MESSAGES_PER_CHANNEL = 50;
+// Minimum messages to bother analyzing
+const MIN_MESSAGES_TO_ANALYZE = 3;
+// Delay between channel fetches to respect rate limits (ms)
+const RATE_LIMIT_DELAY = 250;
+
+export async function GET() {
+  if (!DISCORD_TOKEN) {
+    return NextResponse.json({ error: "DISCORD_TOKEN not configured" }, { status: 500 });
+  }
+
+  try {
+    console.log("[discord-scan] Starting Discord channel scan...");
+
+    // 1. Fetch all channels in the Bittensor guild
+    const allChannels = await fetchGuildChannels(DISCORD_TOKEN);
+    const subnetChannels = filterSubnetChannels(allChannels);
+
+    console.log(`[discord-scan] Found ${allChannels.length} total channels, ${subnetChannels.length} subnet channels`);
+
+    // Sort: prioritize channels we can map to a netuid
+    const sorted = subnetChannels.sort((a, b) => {
+      const aHasNetuid = parseNetuidFromChannel(a.name) !== null ? 1 : 0;
+      const bHasNetuid = parseNetuidFromChannel(b.name) !== null ? 1 : 0;
+      return bHasNetuid - aHasNetuid;
+    });
+
+    const channelsToScan = sorted.slice(0, MAX_CHANNELS);
+    const afterSnowflake = get24hSnowflake();
+
+    // 2. Fetch messages from each channel
+    const channelScans: Array<{
+      channelId: string;
+      channelName: string;
+      netuid: number | null;
+      messages: DiscordMessage[];
+    }> = [];
+
+    for (const channel of channelsToScan) {
+      try {
+        const messages = await fetchChannelMessages(DISCORD_TOKEN, channel.id, {
+          limit: MESSAGES_PER_CHANNEL,
+          after: afterSnowflake,
+        });
+
+        channelScans.push({
+          channelId: channel.id,
+          channelName: channel.name,
+          netuid: parseNetuidFromChannel(channel.name),
+          messages,
+        });
+
+        // Small delay between requests
+        await new Promise(r => setTimeout(r, RATE_LIMIT_DELAY));
+      } catch (e) {
+        console.error(`[discord-scan] Failed to fetch ${channel.name}:`, e);
+      }
+    }
+
+    // 3. Filter to channels with enough activity
+    const activeChannels = channelScans.filter(c => c.messages.length >= MIN_MESSAGES_TO_ANALYZE);
+    console.log(`[discord-scan] ${activeChannels.length} channels have ${MIN_MESSAGES_TO_ANALYZE}+ messages in last 24h`);
+
+    // 4. Batch AI analysis — group channels into batches of 8 to minimize API calls
+    const results: DiscordAlphaResult[] = [];
+    const BATCH_SIZE = 8;
+
+    for (let i = 0; i < activeChannels.length; i += BATCH_SIZE) {
+      const batch = activeChannels.slice(i, i + BATCH_SIZE);
+      const batchResults = await analyzeBatch(batch);
+      results.push(...batchResults);
+    }
+
+    // Add quiet channels (no messages) as "quiet" without AI analysis
+    for (const scan of channelScans) {
+      if (scan.messages.length < MIN_MESSAGES_TO_ANALYZE) {
+        results.push({
+          channelId: scan.channelId,
+          channelName: scan.channelName,
+          netuid: scan.netuid,
+          subnetName: formatSubnetName(scan.channelName),
+          signal: "quiet",
+          summary: "No significant activity in the last 24 hours.",
+          keyInsights: [],
+          messageCount: scan.messages.length,
+          uniquePosters: 0,
+          scannedAt: new Date().toISOString(),
+        });
+      }
+    }
+
+    // Sort results: alpha first, then active, quiet, noise
+    const signalOrder = { alpha: 0, active: 1, quiet: 2, noise: 3 };
+    results.sort((a, b) => signalOrder[a.signal] - signalOrder[b.signal]);
+
+    // 5. Save to blob
+    const output = {
+      scannedAt: new Date().toISOString(),
+      channelsScanned: channelsToScan.length,
+      channelsWithActivity: activeChannels.length,
+      alphaChannels: results.filter(r => r.signal === "alpha").length,
+      results,
+    };
+
+    if (process.env.BLOB_READ_WRITE_TOKEN) {
+      await put("discord-latest.json", JSON.stringify(output), {
+        access: "private",
+        addRandomSuffix: false,
+        contentType: "application/json",
+      });
+      console.log("[discord-scan] Saved discord-latest.json to blob");
+    }
+
+    return NextResponse.json({
+      ok: true,
+      channelsScanned: output.channelsScanned,
+      channelsWithActivity: output.channelsWithActivity,
+      alphaChannels: output.alphaChannels,
+      topAlpha: results.filter(r => r.signal === "alpha").map(r => ({
+        channel: r.channelName,
+        netuid: r.netuid,
+        summary: r.summary,
+      })),
+    });
+
+  } catch (e) {
+    console.error("[discord-scan] Error:", e);
+    return NextResponse.json({ error: String(e) }, { status: 500 });
+  }
+}
+
+// POST for reading cached results (used by dashboard)
+export async function POST() {
+  try {
+    if (!process.env.BLOB_READ_WRITE_TOKEN) {
+      return NextResponse.json({ error: "No blob storage" }, { status: 500 });
+    }
+
+    const result = await get("discord-latest.json", {
+      token: process.env.BLOB_READ_WRITE_TOKEN!,
+      access: "private",
+    });
+
+    if (!result?.stream) {
+      return NextResponse.json({ results: [], scannedAt: null });
+    }
+
+    const reader = result.stream.getReader();
+    const chunks: Uint8Array[] = [];
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(value);
+    }
+
+    const data = JSON.parse(Buffer.concat(chunks).toString("utf-8"));
+    return NextResponse.json(data);
+  } catch (e) {
+    return NextResponse.json({ error: String(e) }, { status: 500 });
+  }
+}
+
+// ── AI Analysis ──────────────────────────────────────────────────────────────
+
+async function analyzeBatch(
+  channels: Array<{
+    channelId: string;
+    channelName: string;
+    netuid: number | null;
+    messages: DiscordMessage[];
+  }>
+): Promise<DiscordAlphaResult[]> {
+  if (!ANTHROPIC_KEY || channels.length === 0) return [];
+
+  // Build the prompt with all channels in one call
+  const channelTexts = channels.map(ch => {
+    const uniquePosters = new Set(ch.messages.map(m => m.author.username)).size;
+    const recentMsgs = ch.messages
+      .filter(m => !m.author.bot) // skip bots
+      .slice(-30) // last 30 human messages
+      .map(m => {
+        const reactions = m.reactions?.map(r => `${r.emoji.name}×${r.count}`).join(" ") || "";
+        const embed = m.embeds?.[0];
+        const embedText = embed ? ` [embed: ${embed.title || embed.description?.slice(0, 80) || ""}]` : "";
+        return `  @${m.author.username}: ${m.content.slice(0, 300)}${embedText}${reactions ? ` (${reactions})` : ""}`;
+      })
+      .join("\n");
+
+    return `=== #${ch.channelName} (${ch.messages.length} msgs, ${uniquePosters} posters) ===\n${recentMsgs}`;
+  });
+
+  const prompt = `You are an alpha intelligence analyst for Bittensor subnet investments. Analyze these Discord channel conversations from the last 24 hours.
+
+For each channel, classify the signal and extract insights.
+
+SIGNAL TYPES:
+- "alpha": Genuine alpha — dev previews, partnership hints, unreleased features, technical breakthroughs, insider mentions, launch dates, validator announcements. Something a serious investor NEEDS to know.
+- "active": Good community energy, substantive technical discussion, healthy ecosystem engagement. No specific alpha but positive signal.
+- "quiet": Low activity, routine/maintenance chat, generic questions.
+- "noise": Spam, price talk only, complaints, shitposting, nothing of substance.
+
+${channelTexts.join("\n\n")}
+
+Respond with a JSON array. One object per channel IN THE SAME ORDER as above:
+[
+  {
+    "channelName": "exact channel name",
+    "signal": "alpha|active|quiet|noise",
+    "summary": "One punchy sentence. What's actually happening here?",
+    "keyInsights": ["specific insight 1", "specific insight 2"] // 0-3 items, only for alpha/active
+  }
+]
+
+Rules:
+- Be STINGY with "alpha". Only tag as alpha if there's genuinely investable information.
+- "active" = real technical community engaged (not just price chat)
+- keyInsights should be concrete: name features, timelines, people, announcements. Not vague.
+- If a channel is just "ser wen moon" type chat, it's noise.
+- Respond with ONLY the JSON array, no other text.`;
+
+  try {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": ANTHROPIC_KEY,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 2000,
+        messages: [{ role: "user", content: prompt }],
+      }),
+    });
+
+    if (!res.ok) {
+      console.error("[discord-scan] AI batch failed:", res.status);
+      return channels.map(ch => fallbackResult(ch));
+    }
+
+    const data = await res.json();
+    const text = data.content?.[0]?.text || "[]";
+
+    // Parse JSON, handle markdown code blocks
+    const jsonText = text.replace(/^```json?\n?/, "").replace(/\n?```$/, "").trim();
+    const parsed: Array<{
+      channelName: string;
+      signal: "alpha" | "active" | "quiet" | "noise";
+      summary: string;
+      keyInsights: string[];
+    }> = JSON.parse(jsonText);
+
+    return channels.map((ch, idx) => {
+      const ai = parsed[idx] || { signal: "quiet" as const, summary: "Analysis unavailable.", keyInsights: [] };
+      const uniquePosters = new Set(ch.messages.filter(m => !m.author.bot).map(m => m.author.username)).size;
+
+      return {
+        channelId: ch.channelId,
+        channelName: ch.channelName,
+        netuid: ch.netuid,
+        subnetName: formatSubnetName(ch.channelName),
+        signal: ai.signal,
+        summary: ai.summary,
+        keyInsights: ai.keyInsights || [],
+        messageCount: ch.messages.length,
+        uniquePosters,
+        scannedAt: new Date().toISOString(),
+      };
+    });
+  } catch (e) {
+    console.error("[discord-scan] AI analysis error:", e);
+    return channels.map(ch => fallbackResult(ch));
+  }
+}
+
+function fallbackResult(ch: {
+  channelId: string;
+  channelName: string;
+  netuid: number | null;
+  messages: DiscordMessage[];
+}): DiscordAlphaResult {
+  const uniquePosters = new Set(ch.messages.filter(m => !m.author.bot).map(m => m.author.username)).size;
+  return {
+    channelId: ch.channelId,
+    channelName: ch.channelName,
+    netuid: ch.netuid,
+    subnetName: formatSubnetName(ch.channelName),
+    signal: ch.messages.length >= 10 ? "active" : "quiet",
+    summary: `${ch.messages.length} messages from ${uniquePosters} posters in the last 24 hours.`,
+    keyInsights: [],
+    messageCount: ch.messages.length,
+    uniquePosters,
+    scannedAt: new Date().toISOString(),
+  };
+}
+
+function formatSubnetName(channelName: string): string {
+  // Convert "sn3-templar" → "Templar (SN3)" etc.
+  const name = channelName.replace(/^sn[\-_]?\d+[\-_]?/, "").replace(/[\-_]/g, " ").trim();
+  const netuid = parseNetuidFromChannel(channelName);
+  const displayName = name
+    ? name.charAt(0).toUpperCase() + name.slice(1)
+    : `SN${netuid || "?"}`;
+  return netuid ? `${displayName} (SN${netuid})` : displayName;
+}
