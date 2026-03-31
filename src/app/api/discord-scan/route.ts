@@ -15,13 +15,13 @@ import {
 } from "@/lib/discord";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 const DISCORD_TOKEN = process.env.DISCORD_TOKEN || "";
 const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY || "";
 
 // How many channels to scan per run (avoid timeout)
-const MAX_CHANNELS = 40;
+const MAX_CHANNELS = 120;
 // Messages per channel
 const MESSAGES_PER_CHANNEL = 50;
 // Minimum messages to bother analyzing

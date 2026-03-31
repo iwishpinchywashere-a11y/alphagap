@@ -135,21 +135,30 @@ const SUBNET_NAME_MAP: Record<string, number> = {
 };
 
 export function parseNetuidFromChannel(channelName: string): number | null {
-  const name = channelName.toLowerCase().replace(/[_\s]/g, "-");
+  // Normalise: replace interpunct ・ and similar separators with hyphen
+  // Bittensor Discord uses format: "λ・trajectory-rl・11"
+  const name = channelName.toLowerCase()
+    .replace(/[\u30FB\u00B7\u2022\u2027\s]/g, "-") // interpunct, middle dot, bullet → hyphen
+    .replace(/[_]/g, "-");
 
-  // Match sn3, sn-3, sn_3, subnet-3 patterns
-  const snMatch = name.match(/(?:^|[\-_])sn[\-_]?(\d{1,3})(?:[\-_]|$)/)
-    || name.match(/^sn(\d{1,3})/)
-    || name.match(/subnet[\-_]?(\d{1,3})/);
+  // Bittensor primary pattern: name ends with separator + number e.g. "trajectory-rl-11"
+  const endNumMatch = name.match(/[^\d](\d{1,3})$/);
+  if (endNumMatch) {
+    const n = parseInt(endNumMatch[1]);
+    if (n > 0 && n <= 128) return n;
+  }
+
+  // Match sn3, sn-3, subnet-3 patterns
+  const snMatch = name.match(/sn-?(\d{1,3})/) || name.match(/subnet-?(\d{1,3})/);
   if (snMatch) {
     const n = parseInt(snMatch[1]);
     if (n > 0 && n <= 128) return n;
   }
 
-  // Match numeric suffix: "3-templar", "templar-3"
-  const numMatch = name.match(/^(\d{1,3})[\-_]/) || name.match(/[\-_](\d{1,3})$/);
-  if (numMatch) {
-    const n = parseInt(numMatch[1]);
+  // Match numeric prefix: "3-templar"
+  const startNumMatch = name.match(/^(\d{1,3})-/);
+  if (startNumMatch) {
+    const n = parseInt(startNumMatch[1]);
     if (n > 0 && n <= 128) return n;
   }
 
@@ -165,13 +174,21 @@ export function parseNetuidFromChannel(channelName: string): number | null {
 export function filterSubnetChannels(channels: DiscordChannel[]): DiscordChannel[] {
   return channels.filter(ch => {
     if (ch.type !== 0 && ch.type !== 5 && ch.type !== 15) return false; // text/announcement/forum only
-    const name = ch.name.toLowerCase();
+    const raw = ch.name;
+    // Normalise separators for pattern matching
+    const name = raw.toLowerCase()
+      .replace(/[\u30FB\u00B7\u2022\u2027\s]/g, "-")
+      .replace(/_/g, "-");
 
-    // Explicit subnet patterns
-    if (/sn[\-_]?\d+/.test(name)) return true;
-    if (/subnet[\-_]?\d+/.test(name)) return true;
-    if (/^\d+[\-_]/.test(name)) return true;
-    if (/[\-_]\d+$/.test(name)) return true;
+    // Bittensor Discord pattern: "λ・trajectory-rl・11" → ends with number after separator
+    if (/[^\d]\d{1,3}$/.test(name)) return true;
+
+    // sn-style patterns
+    if (/sn-?\d+/.test(name)) return true;
+    if (/subnet-?\d+/.test(name)) return true;
+
+    // Starts with number
+    if (/^\d{1,3}-/.test(name)) return true;
 
     // Known subnet names
     for (const keyword of Object.keys(SUBNET_NAME_MAP)) {
