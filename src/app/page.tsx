@@ -5,7 +5,8 @@ import { useEffect, useState } from "react";
 
 export default function LandingPage() {
   const [scrollY, setScrollY] = useState(0);
-  const [stats, setStats] = useState<{ subnets: number; signals: number; reports: number }>({ subnets: 0, signals: 0, reports: 0 });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [stats, setStats] = useState<{ subnets: number; signals: number; reports: number; leaderboard: any[] }>({ subnets: 0, signals: 0, reports: 0, leaderboard: [] });
 
   useEffect(() => {
     const handleScroll = () => setScrollY(window.scrollY);
@@ -13,7 +14,7 @@ export default function LandingPage() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  // Fetch live stats
+  // Fetch live stats + leaderboard preview
   useEffect(() => {
     fetch("/api/cached-scan")
       .then(r => r.json())
@@ -22,9 +23,10 @@ export default function LandingPage() {
           subnets: d.leaderboard?.length || 122,
           signals: d.signals?.length || 0,
           reports: 1,
+          leaderboard: d.leaderboard || [],
         });
       })
-      .catch(() => setStats({ subnets: 122, signals: 40, reports: 1 }));
+      .catch(() => setStats({ subnets: 122, signals: 40, reports: 1, leaderboard: [] }));
   }, []);
 
   return (
@@ -99,30 +101,65 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* The aGap Score */}
-      <section className="py-12 border-y border-white/5 bg-white/[0.02]">
-        <div className="max-w-4xl mx-auto px-6 text-center">
-          <h2 className="text-2xl sm:text-3xl font-bold mb-3">
-            The <span className="text-green-400">aGap</span> Score
-          </h2>
-          <p className="text-gray-400 max-w-xl mx-auto mb-8 text-sm">
-            Our proprietary composite score that answers one question:
-            <span className="text-white font-semibold"> Is this subnet undervalued by the market?</span>
-          </p>
-
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 max-w-3xl mx-auto">
-            {[
-              { label: "Development", desc: "How actively is the team shipping?", icon: "⚡", color: "text-green-400" },
-              { label: "Market Gap", desc: "Has the price caught up yet?", icon: "📉", color: "text-yellow-400" },
-              { label: "Awareness", desc: "Does the market know about this?", icon: "👁", color: "text-blue-400" },
-              { label: "Smart Money", desc: "Are insiders accumulating?", icon: "🐋", color: "text-purple-400" },
-            ].map((c) => (
-              <div key={c.label} className="bg-white/[0.03] border border-white/5 rounded-xl p-4">
-                <div className="text-2xl mb-2">{c.icon}</div>
-                <div className={`font-semibold text-sm ${c.color}`}>{c.label}</div>
-                <div className="text-xs text-gray-500 mt-1">{c.desc}</div>
+      {/* Live leaderboard preview */}
+      <section className="py-12 px-6">
+        <div className="max-w-5xl mx-auto">
+          <div className="relative rounded-xl border border-white/10 bg-gradient-to-b from-white/[0.03] to-transparent overflow-hidden shadow-2xl shadow-green-500/5">
+            {/* Fake browser chrome */}
+            <div className="flex items-center gap-2 px-4 py-3 border-b border-white/5 bg-white/[0.02]">
+              <div className="flex gap-1.5">
+                <div className="w-3 h-3 rounded-full bg-red-500/60" />
+                <div className="w-3 h-3 rounded-full bg-yellow-500/60" />
+                <div className="w-3 h-3 rounded-full bg-green-500/60" />
               </div>
-            ))}
+              <div className="flex-1 mx-4 px-3 py-1 bg-white/5 rounded text-xs text-gray-500 font-mono">alphagap.io/dashboard</div>
+            </div>
+            {/* Live leaderboard data */}
+            <div className="p-4 overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-gray-500 text-xs border-b border-white/5">
+                    <th className="text-left py-2 px-3 font-medium">Subnet</th>
+                    <th className="text-right py-2 px-3 font-medium text-green-400">aGap</th>
+                    <th className="text-right py-2 px-3 font-medium">Dev</th>
+                    <th className="text-right py-2 px-3 font-medium">Flow</th>
+                    <th className="text-right py-2 px-3 font-medium">eVal</th>
+                    <th className="text-right py-2 px-3 font-medium">Price</th>
+                    <th className="text-right py-2 px-3 font-medium">24h</th>
+                  </tr>
+                </thead>
+                <tbody className="font-mono">
+                  {(stats.leaderboard || []).slice(0, 6).map((sub: { netuid: number; name: string; composite_score: number; dev_score: number; flow_score: number; eval_score: number; alpha_price?: number; price_change_24h?: number; whale_signal?: string }, i: number) => (
+                    <tr key={sub.netuid} className={`border-b border-white/[0.03] ${i === 0 ? "bg-green-500/5" : ""}`}>
+                      <td className="py-2.5 px-3 font-sans">
+                        <span className="text-gray-500 mr-2 text-xs">SN{sub.netuid}</span>
+                        <span className="font-medium text-white">{sub.name}</span>
+                      </td>
+                      <td className="py-2.5 px-3 text-right text-green-400 font-bold">{sub.composite_score}</td>
+                      <td className={`py-2.5 px-3 text-right ${sub.dev_score >= 60 ? "text-green-400" : sub.dev_score >= 30 ? "text-yellow-400" : "text-gray-500"}`}>{sub.dev_score}</td>
+                      <td className={`py-2.5 px-3 text-right ${sub.flow_score >= 60 ? "text-green-400" : sub.flow_score >= 30 ? "text-yellow-400" : "text-red-400"}`}>
+                        {sub.whale_signal === "accumulating" && "🐋"}{sub.flow_score}
+                      </td>
+                      <td className={`py-2.5 px-3 text-right ${sub.eval_score >= 60 ? "text-green-400" : sub.eval_score >= 30 ? "text-yellow-400" : "text-gray-500"}`}>{sub.eval_score}</td>
+                      <td className="py-2.5 px-3 text-right text-gray-300">${sub.alpha_price?.toFixed(2) || "—"}</td>
+                      <td className={`py-2.5 px-3 text-right ${(sub.price_change_24h || 0) >= 0 ? "text-green-400" : "text-red-400"}`}>
+                        {(sub.price_change_24h || 0) >= 0 ? "+" : ""}{(sub.price_change_24h || 0).toFixed(1)}%
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {(stats.leaderboard || []).length === 0 && (
+                <div className="text-center py-8 text-gray-600 text-sm">Loading live data...</div>
+              )}
+            </div>
+            {/* Fade overlay at bottom */}
+            <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-[#0a0a0f] to-transparent pointer-events-none" />
+          </div>
+          <div className="text-center mt-4">
+            <Link href="/dashboard" className="text-sm text-gray-500 hover:text-green-400 transition-colors">
+              View full leaderboard with {stats.subnets || 122} subnets →
+            </Link>
           </div>
         </div>
       </section>
@@ -229,6 +266,34 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* The aGap Score */}
+      <section className="py-20 px-6 bg-white/[0.01]">
+        <div className="max-w-4xl mx-auto text-center">
+          <h2 className="text-3xl sm:text-4xl font-bold mb-4">
+            The <span className="text-green-400">aGap</span> Score
+          </h2>
+          <p className="text-gray-400 max-w-xl mx-auto mb-10 text-lg">
+            Our proprietary composite score that answers one question:
+            <span className="text-white font-semibold"> Is this subnet undervalued by the market?</span>
+          </p>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 max-w-3xl mx-auto">
+            {[
+              { label: "Development", desc: "How actively is the team shipping?", icon: "⚡", color: "text-green-400" },
+              { label: "Market Gap", desc: "Has the price caught up yet?", icon: "📉", color: "text-yellow-400" },
+              { label: "Awareness", desc: "Does the market know about this?", icon: "👁", color: "text-blue-400" },
+              { label: "Smart Money", desc: "Are insiders accumulating?", icon: "🐋", color: "text-purple-400" },
+            ].map((c) => (
+              <div key={c.label} className="bg-white/[0.03] border border-white/5 rounded-xl p-5">
+                <div className="text-3xl mb-3">{c.icon}</div>
+                <div className={`font-semibold ${c.color}`}>{c.label}</div>
+                <div className="text-xs text-gray-500 mt-1">{c.desc}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* Features */}
       <section className="py-20 px-6">
         <div className="max-w-5xl mx-auto">
@@ -290,7 +355,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* aGap section moved up to replace stats bar */}
+      {/* aGap section moved below "How it works" */}
 
       {/* CTA */}
       <section className="py-24 px-6">
