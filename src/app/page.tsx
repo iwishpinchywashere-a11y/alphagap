@@ -61,14 +61,12 @@ export default function LandingPage() {
         </div>
 
         <div className="relative max-w-4xl mx-auto text-center">
-          {/* Bittensor logo badge */}
-          <div className="inline-flex items-center gap-3 px-5 py-2 bg-white/[0.04] border border-white/10 rounded-full mb-8">
-            <svg viewBox="0 0 21.6 23.1" className="w-5 h-5" fill="currentColor">
+          {/* Bittensor logo */}
+          <div className="inline-flex items-center mb-8">
+            <svg viewBox="0 0 21.6 23.1" className="w-10 h-10" fill="currentColor">
               <path className="text-green-400" d="M13.1,17.7V8.3c0-2.4-1.9-4.3-4.3-4.3v15.1c0,2.2,1.7,4,3.9,4c0.1,0,0.1,0,0.2,0c1,0.1,2.1-0.2,2.9-0.9C13.3,22,13.1,20.5,13.1,17.7L13.1,17.7z"/>
               <path className="text-green-400" d="M3.9,0C1.8,0,0,1.8,0,4h17.6c2.2,0,3.9-1.8,3.9-4C21.6,0,3.9,0,3.9,0z"/>
             </svg>
-            <span className="text-sm text-gray-400">Built for the <span className="text-white font-medium">Bittensor</span> ecosystem</span>
-            <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
           </div>
 
           <h1 className="text-5xl sm:text-6xl md:text-7xl font-bold tracking-tight leading-[1.1] mb-6">
@@ -101,21 +99,31 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Live stats bar */}
-      <section className="py-8 border-y border-white/5 bg-white/[0.02]">
-        <div className="max-w-4xl mx-auto px-6 grid grid-cols-3 gap-8 text-center">
-          {[
-            { label: "Subnets Tracked", value: stats.subnets, color: "text-green-400" },
-            { label: "Signals Detected", value: stats.signals, color: "text-yellow-400" },
-            { label: "Data Sources", value: "7+", color: "text-blue-400" },
-          ].map((stat) => (
-            <div key={stat.label}>
-              <div className={`text-3xl sm:text-4xl font-bold font-mono ${stat.color}`}>
-                {typeof stat.value === "number" ? stat.value.toLocaleString() : stat.value}
+      {/* The aGap Score */}
+      <section className="py-12 border-y border-white/5 bg-white/[0.02]">
+        <div className="max-w-4xl mx-auto px-6 text-center">
+          <h2 className="text-2xl sm:text-3xl font-bold mb-3">
+            The <span className="text-green-400">aGap</span> Score
+          </h2>
+          <p className="text-gray-400 max-w-xl mx-auto mb-8 text-sm">
+            Our proprietary composite score that answers one question:
+            <span className="text-white font-semibold"> Is this subnet undervalued by the market?</span>
+          </p>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 max-w-3xl mx-auto">
+            {[
+              { label: "Development", desc: "How actively is the team shipping?", icon: "⚡", color: "text-green-400" },
+              { label: "Market Gap", desc: "Has the price caught up yet?", icon: "📉", color: "text-yellow-400" },
+              { label: "Awareness", desc: "Does the market know about this?", icon: "👁", color: "text-blue-400" },
+              { label: "Smart Money", desc: "Are insiders accumulating?", icon: "🐋", color: "text-purple-400" },
+            ].map((c) => (
+              <div key={c.label} className="bg-white/[0.03] border border-white/5 rounded-xl p-4">
+                <div className="text-2xl mb-2">{c.icon}</div>
+                <div className={`font-semibold text-sm ${c.color}`}>{c.label}</div>
+                <div className="text-xs text-gray-500 mt-1">{c.desc}</div>
               </div>
-              <div className="text-sm text-gray-500 mt-1">{stat.label}</div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       </section>
 
@@ -282,33 +290,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* The aGap Score explained */}
-      <section className="py-20 px-6 bg-white/[0.01]">
-        <div className="max-w-4xl mx-auto text-center">
-          <h2 className="text-3xl sm:text-4xl font-bold mb-6">
-            The <span className="text-green-400">aGap</span> Score
-          </h2>
-          <p className="text-gray-400 max-w-2xl mx-auto mb-12 text-lg">
-            Our proprietary composite score that answers one question:
-            <span className="text-white font-semibold"> Is this subnet undervalued by the market?</span>
-          </p>
-
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 max-w-3xl mx-auto">
-            {[
-              { label: "Development", desc: "How actively is the team shipping?", icon: "⚡", color: "text-green-400" },
-              { label: "Market Gap", desc: "Has the price caught up yet?", icon: "📉", color: "text-yellow-400" },
-              { label: "Awareness", desc: "Does the market know about this?", icon: "👁", color: "text-blue-400" },
-              { label: "Smart Money", desc: "Are insiders accumulating?", icon: "🐋", color: "text-purple-400" },
-            ].map((c) => (
-              <div key={c.label} className="bg-white/[0.03] border border-white/5 rounded-xl p-4">
-                <div className={`text-2xl mb-2`}>{c.icon}</div>
-                <div className={`font-semibold text-sm ${c.color}`}>{c.label}</div>
-                <div className="text-xs text-gray-500 mt-1">{c.desc}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+      {/* aGap section moved up to replace stats bar */}
 
       {/* CTA */}
       <section className="py-24 px-6">
