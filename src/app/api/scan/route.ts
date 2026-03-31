@@ -483,6 +483,25 @@ export async function GET() {
     }
   }
 
+  // ── Save velocity snapshot from current social data ─────────────
+  if (process.env.BLOB_READ_WRITE_TOKEN && socialMap.size > 0) {
+    try {
+      const { put: putBlob } = await import("@vercel/blob");
+      const snapshotData: Record<number, { mentions: number; engagement: number }> = {};
+      for (const [netuid, data] of socialMap) {
+        snapshotData[netuid] = data;
+      }
+      // Save timestamped snapshot for velocity comparison
+      await putBlob(`social-velocity/${Date.now()}.json`, JSON.stringify({
+        timestamp: new Date().toISOString(),
+        subnets: snapshotData,
+      }), { access: "private", addRandomSuffix: false, contentType: "application/json" });
+      console.log(`[scan] Velocity snapshot saved (${socialMap.size} subnets)`);
+    } catch (e) {
+      console.error("[scan] Failed to save velocity snapshot:", e);
+    }
+  }
+
   // ── Step 5: Generate signals (dev + HF ONLY) ───────────────────
   // Flow/price signals REMOVED — this feed is purely about development intelligence
 
@@ -1080,6 +1099,60 @@ IMPORTANT: Keep each section to 2-3 sentences MAX. You MUST complete all 4 secti
     return { score: Math.max(0, Math.min(100, score)), ratio: evalRatio };
   }
 
+  // ── Compute velocity from historical snapshots ──────────────────
+  let velocityData: Record<number, { velocityScore: number; acceleration: number; trend: string }> = {};
+  if (process.env.BLOB_READ_WRITE_TOKEN && socialMap.size > 0) {
+    try {
+      const { list: listBlobs } = await import("@vercel/blob");
+      const { blobs } = await listBlobs({ prefix: "social-velocity/", limit: 10 });
+
+      if (blobs.length >= 2) {
+        // Get oldest snapshot to compare against
+        const sorted = blobs.sort((a, b) => a.pathname.localeCompare(b.pathname));
+        const oldestBlob = sorted[0]; // oldest
+
+        const oldRes = await fetch(oldestBlob.downloadUrl);
+        if (oldRes.ok) {
+          const oldest = await oldRes.json();
+          const oldTime = new Date(oldest.timestamp).getTime();
+          const nowTime = Date.now();
+          const timeDiffMin = (nowTime - oldTime) / 60000;
+
+          if (timeDiffMin > 5) {
+            for (const [netuid, current] of socialMap) {
+              const old = oldest.subnets?.[netuid];
+              const mentionsNow = current.mentions;
+              const mentionsThen = old?.mentions || 0;
+              const engNow = current.engagement;
+              const engThen = old?.engagement || 0;
+
+              const mentionVelocity = (mentionsNow - mentionsThen) / timeDiffMin;
+              const engVelocity = (engNow - engThen) / timeDiffMin;
+
+              const velocityScore = Math.min(100, Math.round(
+                (mentionVelocity * 10) + (engVelocity * 0.5)
+              ));
+
+              let trend = "stable";
+              if (mentionVelocity > 1) trend = "accelerating";
+              else if (mentionVelocity > 0.2) trend = "growing";
+              else if (mentionVelocity < -0.2) trend = "cooling";
+
+              if (velocityScore > 0 || trend !== "stable") {
+                velocityData[netuid] = { velocityScore: Math.max(0, velocityScore), acceleration: mentionVelocity, trend };
+              }
+            }
+            console.log(`[scan] Velocity computed for ${Object.keys(velocityData).length} subnets (${timeDiffMin.toFixed(0)}min window)`);
+          }
+        }
+      } else {
+        console.log("[scan] Need 2+ snapshots for velocity (have " + blobs.length + ")");
+      }
+    } catch (e) {
+      console.log("[scan] Velocity computation skipped:", String(e).slice(0, 100));
+    }
+  }
+
   // ── Compute social score ────────────────────────────────────────
   const desearchFailed = socialMap.size === 0;
 
@@ -1128,7 +1201,19 @@ IMPORTANT: Keep each section to 2-3 sentences MAX. You MUST complete all 4 secti
     // Add Stitch3 campaign bonus
     score += campaignBonus;
 
-    return Math.min(100, score);
+    // VELOCITY BONUS — is buzz accelerating?
+    // This is the key differentiator: catching viral curves before price reacts
+    const vel = velocityData[netuid];
+    if (vel) {
+      if (vel.trend === "accelerating") score += 20; // mentions/min going up fast
+      else if (vel.trend === "growing") score += 10; // steady growth
+      else if (vel.trend === "cooling") score -= 5;  // buzz dying down
+
+      // Raw velocity score bonus (capped at 15)
+      score += Math.min(15, Math.round(vel.velocityScore * 0.3));
+    }
+
+    return Math.min(100, Math.max(0, score));
   }
 
   // ── Build leaderboard ───────────────────────────────────────────
