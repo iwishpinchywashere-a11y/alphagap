@@ -1657,5 +1657,75 @@ IMPORTANT: Keep each section to 2-3 sentences MAX. You MUST complete all 4 secti
     console.error("[scan] Failed to cache to Blob:", e);
   }
 
+  // ── Portfolio auto-buy ───────────────────────────────────────────
+  // When a subnet's aGap score crosses 80 for the first time, we
+  // "buy" $100 of its alpha token and track performance over time.
+  // This lets us validate whether aGap signals produce real gains.
+  if (process.env.BLOB_READ_WRITE_TOKEN) {
+    try {
+      const { loadPortfolio } = await import("@/app/api/portfolio/route");
+      const portfolio = await loadPortfolio();
+
+      const BUY_THRESHOLD = 80;
+      const BUY_AMOUNT_USD = 100;
+      const today = new Date().toISOString().slice(0, 10);
+
+      let portfolioChanged = false;
+
+      // Auto-buy any subnet that just crossed the threshold
+      for (const entry of leaderboard) {
+        if (entry.composite_score < BUY_THRESHOLD) continue;
+        if (!entry.alpha_price || entry.alpha_price <= 0) continue;
+        if (portfolio.positions.some(p => p.netuid === entry.netuid)) continue;
+
+        const alphaTokens = BUY_AMOUNT_USD / entry.alpha_price;
+        portfolio.positions.push({
+          netuid: entry.netuid,
+          name: entry.name,
+          buyDate: today,
+          buyAGapScore: entry.composite_score,
+          buyPriceUsd: entry.alpha_price,
+          amountUsd: BUY_AMOUNT_USD,
+          alphaTokens,
+        });
+        console.log(`[scan] Portfolio: bought SN${entry.netuid} ${entry.name} @ $${entry.alpha_price.toFixed(4)} (aGap ${entry.composite_score})`);
+        portfolioChanged = true;
+      }
+
+      // Update today's portfolio value snapshot (even if no new buys)
+      if (portfolio.positions.length > 0) {
+        const totalValue = portfolio.positions.reduce((sum, pos) => {
+          const liveEntry = leaderboard.find(e => e.netuid === pos.netuid);
+          const price = liveEntry?.alpha_price ?? pos.buyPriceUsd;
+          return sum + pos.alphaTokens * price;
+        }, 0);
+
+        const rounded = Math.round(totalValue * 100) / 100;
+        const existingIdx = portfolio.history.findIndex(h => h.date === today);
+        if (existingIdx >= 0) {
+          portfolio.history[existingIdx].totalValue = rounded;
+        } else {
+          portfolio.history.push({ date: today, totalValue: rounded });
+          if (portfolio.history.length > 90) {
+            portfolio.history = portfolio.history.slice(-90);
+          }
+        }
+        portfolioChanged = true;
+      }
+
+      if (portfolioChanged) {
+        await put("portfolio.json", JSON.stringify(portfolio), {
+          access: "private",
+          addRandomSuffix: false,
+          allowOverwrite: true,
+          contentType: "application/json",
+        });
+        console.log(`[scan] Portfolio saved: ${portfolio.positions.length} positions`);
+      }
+    } catch (e) {
+      console.error("[scan] Portfolio update failed:", e);
+    }
+  }
+
   return NextResponse.json(responseData);
 }
