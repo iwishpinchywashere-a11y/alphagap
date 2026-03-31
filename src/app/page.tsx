@@ -61,9 +61,14 @@ export default function LandingPage() {
         </div>
 
         <div className="relative max-w-4xl mx-auto text-center">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-green-500/10 border border-green-500/20 rounded-full text-green-400 text-sm mb-8">
+          {/* Bittensor logo badge */}
+          <div className="inline-flex items-center gap-3 px-5 py-2 bg-white/[0.04] border border-white/10 rounded-full mb-8">
+            <svg viewBox="0 0 21.6 23.1" className="w-5 h-5" fill="currentColor">
+              <path className="text-green-400" d="M13.1,17.7V8.3c0-2.4-1.9-4.3-4.3-4.3v15.1c0,2.2,1.7,4,3.9,4c0.1,0,0.1,0,0.2,0c1,0.1,2.1-0.2,2.9-0.9C13.3,22,13.1,20.5,13.1,17.7L13.1,17.7z"/>
+              <path className="text-green-400" d="M3.9,0C1.8,0,0,1.8,0,4h17.6c2.2,0,3.9-1.8,3.9-4C21.6,0,3.9,0,3.9,0z"/>
+            </svg>
+            <span className="text-sm text-gray-400">Built for the <span className="text-white font-medium">Bittensor</span> ecosystem</span>
             <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-            Scanning {stats.subnets} subnets in real-time
           </div>
 
           <h1 className="text-5xl sm:text-6xl md:text-7xl font-bold tracking-tight leading-[1.1] mb-6">
