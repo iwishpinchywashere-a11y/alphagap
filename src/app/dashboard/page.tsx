@@ -137,6 +137,7 @@ export default function Home() {
   const [infoPopup, setInfoPopup] = useState<string | null>(null);
   const [signalSort, setSignalSort] = useState<"score" | "date">("score");
   const [searchQuery, setSearchQuery] = useState("");
+  const [reportSearch, setReportSearch] = useState("");
 
   const hasAutoScanned = useRef(false);
 
@@ -654,13 +655,14 @@ export default function Home() {
                         ["eval_score", "eVal", "Emissions-to-Valuation (0-100). Finds the gap between what the network pays a subnet (emissions) vs what the market values it (market cap). Factors: (1) Emission level — how much TAO the network allocates, (2) Valuation gap — emission share ÷ market cap share ratio, (3) Price trend divergence — price dropping while emissions stay high = widening gap, (4) Network participation — validator count + new miner registrations burning TAO to join. High eVal = validators and miners are betting on this subnet before the market catches on. Tiny mcap subnets are penalized for inflated ratios."],
                         ["social_score", "Social", "Social Velocity (0-100). Multi-source social intelligence: (1) X/Twitter — KOL-weighted mentions and engagement via Desearch. Top KOLs like const_reborn count up to 3× more. Velocity bonuses when buzz is accelerating. (2) Discord — daily scan of all Bittensor subnet channels. Alpha-grade discussion (dev previews, partnership hints, launch dates) adds up to +20pts. Active community engagement adds up to +12pts. (3) Stitch3 campaigns — active marketing adds +15pts. Low social + high dev = nobody knows yet = alpha gap."],
                         ["emission_pct", "Em %", "Emission share — the percentage of total Bittensor network emissions allocated to this subnet. Higher % means validators trust this subnet more. A rising emission % with flat price is a value gap signal."],
+                        ["emission_change_pct", "Em Δ", "Daily change in emission %. Green = emissions increased since yesterday. Red = decreased. A subnet gaining emissions means the network is allocating more trust to it."],
                         ["alpha_price", "Price", "Current alpha token price in USD."],
                         ["market_cap", "MCap", "Total market capitalization in USD."],
                         ["price_change_1h", "1h %", "Price change in the last 1 hour."],
                         ["price_change_24h", "24h %", "Price change in the last 24 hours."],
                         ["price_change_7d", "7d %", "Price change over the last 7 days."],
                         ["price_change_30d", "30d %", "Price change over the last 30 days. Compare with dev activity — if dev is high but 30d price is down, that's a significant alpha gap."],
-                        ["net_flow_24h", "24h Net", "Net TAO flow in the last 24 hours. Positive = more buying than selling. Negative = more selling than buying."],
+                        ["net_flow_24h", "24h Net", "Net USD flow in the last 24 hours (TAO converted at current price). Positive = more buying than selling. Negative = more selling than buying."],
                         ["signal_count", "Signals", "Number of intelligence signals detected for this subnet from GitHub commits, HuggingFace updates, and social media activity. Click to view details in the Signals tab."],
                       ] as [keyof SubnetScore, string, string][]).map(([key, label, tooltip]) => (
                         <th
@@ -732,17 +734,18 @@ export default function Home() {
                           {sub.social_score || 0}
                         </td>
                         <td className="py-2.5 px-3 text-right text-gray-400">
-                          <span className="inline-flex items-center gap-1">
-                            {sub.emission_trend === "up" && (
-                              <span className="text-green-400 text-xs" title={`+${sub.emission_change_pct?.toFixed(1)}% change`}>▲</span>
-                            )}
-                            {sub.emission_trend === "down" && (
-                              <span className="text-red-400 text-xs" title={`${sub.emission_change_pct?.toFixed(1)}% change`}>▼</span>
-                            )}
-                            {sub.emission_pct != null && sub.emission_pct > 0
-                              ? `${(sub.emission_pct * 100).toFixed(1)}%`
-                              : "\u2014"}
-                          </span>
+                          {sub.emission_pct != null && sub.emission_pct > 0
+                            ? `${(sub.emission_pct * 100).toFixed(1)}%`
+                            : "\u2014"}
+                        </td>
+                        <td className={`py-2.5 px-3 text-right font-medium ${
+                          sub.emission_change_pct == null ? "text-gray-600" :
+                          sub.emission_change_pct > 0 ? "text-green-400" :
+                          sub.emission_change_pct < 0 ? "text-red-400" : "text-gray-500"
+                        }`}>
+                          {sub.emission_change_pct != null && sub.emission_change_pct !== 0
+                            ? `${sub.emission_change_pct > 0 ? "+" : ""}${sub.emission_change_pct.toFixed(1)}%`
+                            : "\u2014"}
                         </td>
                         <td className="py-2.5 px-3 text-right text-gray-400">
                           {sub.alpha_price != null ? `$${formatNum(sub.alpha_price, 2)}` : "\u2014"}
@@ -787,7 +790,9 @@ export default function Home() {
                             : "\u2014"}
                         </td>
                         <td className={`py-2.5 px-3 text-right ${flowColor(sub.net_flow_24h)}`}>
-                          {sub.net_flow_24h != null
+                          {sub.net_flow_24h != null && taoPrice != null
+                            ? `${sub.net_flow_24h > 0 ? "+" : ""}$${formatNum(Math.round(sub.net_flow_24h * taoPrice))}`
+                            : sub.net_flow_24h != null
                             ? `${sub.net_flow_24h > 0 ? "+" : ""}${formatNum(sub.net_flow_24h)} \u03C4`
                             : "\u2014"}
                         </td>
@@ -904,7 +909,9 @@ export default function Home() {
                 <div className="bg-gray-800/50 rounded p-2">
                   <span className="text-gray-500 block">24h Net Flow</span>
                   <span className={flowColor(selectedSubnetData.net_flow_24h)}>
-                    {selectedSubnetData.net_flow_24h != null
+                    {selectedSubnetData.net_flow_24h != null && taoPrice != null
+                      ? `${selectedSubnetData.net_flow_24h > 0 ? "+" : ""}$${formatNum(Math.round(selectedSubnetData.net_flow_24h * taoPrice))}`
+                      : selectedSubnetData.net_flow_24h != null
                       ? `${selectedSubnetData.net_flow_24h > 0 ? "+" : ""}${formatNum(selectedSubnetData.net_flow_24h)} \u03C4`
                       : "\u2014"}
                   </span>
@@ -949,96 +956,102 @@ export default function Home() {
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-bold">Daily Deep Dive Reports</h2>
               <div className="flex items-center gap-2">
-                {reports.length > 0 && (
-                  <select
-                    className="bg-gray-800 border border-gray-700 text-sm rounded px-2 py-1 text-gray-300"
-                    value={currentReport?.date || ""}
-                    onChange={(e) => loadReport(e.target.value)}
-                  >
-                    {reports.map((r) => (
-                      <option key={r.date} value={r.date}>
-                        {new Date(r.date + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-                      </option>
-                    ))}
-                  </select>
-                )}
+                <input
+                  type="text"
+                  placeholder="Search reports..."
+                  value={reportSearch}
+                  onChange={(e) => setReportSearch(e.target.value)}
+                  className="bg-gray-800 border border-gray-700 text-sm rounded px-3 py-1 text-gray-300 placeholder-gray-600 w-44 focus:outline-none focus:border-gray-500"
+                />
                 <span className="text-xs text-gray-600">Auto-generated daily at 6am PT</span>
               </div>
             </div>
 
-            {loadingReport && !currentReport && (
-              <div className="bg-gray-900/50 border border-gray-800 rounded-lg p-8 text-center">
-                <div className="animate-pulse text-green-400 text-lg mb-2">Generating deep-dive report...</div>
-                <p className="text-gray-500 text-sm">Analyzing GitHub commits, market data, emissions, and social signals. This takes ~30 seconds.</p>
-              </div>
-            )}
-
-            {currentReport && (
-              <div className="bg-gray-900/50 border border-gray-800 rounded-lg overflow-hidden">
-                {/* Report header */}
-                <div className="bg-gradient-to-r from-green-900/30 to-gray-900 px-6 py-4 border-b border-gray-800">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <span className="text-xs text-green-400 font-medium">DAILY DEEP DIVE</span>
-                      <h3 className="text-xl font-bold mt-1">{currentReport.subnet_name} (SN{currentReport.netuid})</h3>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-2xl font-black text-green-400">{currentReport.composite_score}</div>
-                      <div className="text-xs text-gray-500">aGap Score</div>
-                    </div>
-                  </div>
-                  <div className="text-xs text-gray-500 mt-2">
-                    Generated {new Date(currentReport.generated_at).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
-                  </div>
-                </div>
-
-                {/* Report content — rendered as markdown */}
-                <div className="px-6 py-5 prose prose-invert prose-sm max-w-none
-                  prose-headings:text-green-400 prose-headings:font-bold prose-headings:mt-6 prose-headings:mb-3
-                  prose-h1:text-xl prose-h1:border-b prose-h1:border-gray-800 prose-h1:pb-2
-                  prose-h2:text-lg
-                  prose-p:text-gray-300 prose-p:leading-relaxed
-                  prose-strong:text-white
-                  prose-li:text-gray-300
-                  prose-hr:border-gray-800">
-                  {currentReport.content.split("\n").map((line, i) => {
-                    // Render markdown-like headers
-                    if (line.startsWith("# ")) return <h1 key={i} className="text-xl font-bold text-green-400 mt-6 mb-3 border-b border-gray-800 pb-2">{line.slice(2)}</h1>;
-                    if (line.startsWith("## ")) return <h2 key={i} className="text-lg font-bold text-green-400 mt-5 mb-2">{line.slice(3)}</h2>;
-                    if (line.startsWith("### ")) return <h3 key={i} className="text-md font-semibold text-green-300 mt-4 mb-2">{line.slice(4)}</h3>;
-                    if (line.startsWith("---")) return <hr key={i} className="border-gray-800 my-4" />;
-                    if (line.startsWith("- ") || line.startsWith("* ")) return <li key={i} className="text-gray-300 ml-4 list-disc">{line.slice(2)}</li>;
-                    if (line.startsWith("**") && line.endsWith("**")) return <p key={i} className="text-white font-semibold mt-2">{line.replace(/\*\*/g, "")}</p>;
-                    if (line.trim() === "") return <div key={i} className="h-2" />;
-                    // Bold text within paragraphs
-                    const parts = line.split(/(\*\*[^*]+\*\*)/g);
-                    return (
-                      <p key={i} className="text-gray-300 leading-relaxed">
-                        {parts.map((part, j) =>
-                          part.startsWith("**") && part.endsWith("**")
-                            ? <strong key={j} className="text-white">{part.slice(2, -2)}</strong>
-                            : part
-                        )}
-                      </p>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {!currentReport && !loadingReport && (
+            {/* No reports at all */}
+            {!loadingReport && reports.length === 0 && (
               <div className="bg-gray-900/50 border border-gray-800 rounded-lg p-8 text-center">
                 <div className="text-4xl mb-3">📊</div>
                 <h3 className="text-lg font-bold mb-2">No Reports Yet</h3>
-                <p className="text-gray-500 text-sm mb-4">Generate your first daily deep-dive report on the top aGap subnet.</p>
-                <button
-                  onClick={() => generateReport()}
-                  className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg text-white text-sm"
-                >
-                  Generate First Report
-                </button>
+                <p className="text-gray-500 text-sm mb-4">Reports are auto-generated daily at 6am PT on the top aGap subnet.</p>
               </div>
             )}
+
+            {/* All reports as cards, newest first */}
+            <div className="space-y-3">
+              {reports
+                .filter(r => {
+                  if (!reportSearch.trim()) return true;
+                  const q = reportSearch.toLowerCase();
+                  const dateStr = new Date(r.date + "T12:00:00").toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }).toLowerCase();
+                  const subnetName = (r as { date: string; subnet_name?: string }).subnet_name?.toLowerCase() || "";
+                  return dateStr.includes(q) || subnetName.includes(q) || r.date.includes(q);
+                })
+                .map((r) => {
+                  const isExpanded = currentReport?.date === r.date;
+                  const dateLabel = new Date(r.date + "T12:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" });
+                  const meta = r as { date: string; subnet_name?: string; netuid?: number; composite_score?: number };
+                  return (
+                    <div key={r.date} className="bg-gray-900/50 border border-gray-800 rounded-lg overflow-hidden">
+                      {/* Card header — always visible, click to expand */}
+                      <button
+                        className="w-full flex items-center justify-between px-5 py-3 hover:bg-gray-800/40 transition-colors text-left"
+                        onClick={() => isExpanded ? setCurrentReport(null) : loadReport(r.date)}
+                      >
+                        <div className="flex items-center gap-3">
+                          <span className="text-xs text-green-400 font-medium uppercase tracking-wide">Deep Dive</span>
+                          <span className="text-sm font-semibold text-white">
+                            {meta.subnet_name ? `${meta.subnet_name} (SN${meta.netuid})` : dateLabel}
+                          </span>
+                          {meta.subnet_name && <span className="text-xs text-gray-500">{dateLabel}</span>}
+                        </div>
+                        <div className="flex items-center gap-3">
+                          {meta.composite_score != null && (
+                            <span className="text-green-400 font-bold text-sm">{meta.composite_score} aGap</span>
+                          )}
+                          {loadingReport && isExpanded
+                            ? <span className="text-xs text-gray-500 animate-pulse">Loading...</span>
+                            : <span className="text-gray-600 text-xs">{isExpanded ? "▲ collapse" : "▼ expand"}</span>
+                          }
+                        </div>
+                      </button>
+
+                      {/* Expanded report content */}
+                      {isExpanded && currentReport && (
+                        <div className="border-t border-gray-800">
+                          <div className="px-6 py-5 prose prose-invert prose-sm max-w-none
+                            prose-headings:text-green-400 prose-headings:font-bold prose-headings:mt-6 prose-headings:mb-3
+                            prose-h1:text-xl prose-h1:border-b prose-h1:border-gray-800 prose-h1:pb-2
+                            prose-h2:text-lg prose-p:text-gray-300 prose-p:leading-relaxed
+                            prose-strong:text-white prose-li:text-gray-300 prose-hr:border-gray-800">
+                            {currentReport.content.split("\n").map((line, i) => {
+                              if (line.startsWith("# ")) return <h1 key={i} className="text-xl font-bold text-green-400 mt-6 mb-3 border-b border-gray-800 pb-2">{line.slice(2)}</h1>;
+                              if (line.startsWith("## ")) return <h2 key={i} className="text-lg font-bold text-green-400 mt-5 mb-2">{line.slice(3)}</h2>;
+                              if (line.startsWith("### ")) return <h3 key={i} className="text-md font-semibold text-green-300 mt-4 mb-2">{line.slice(4)}</h3>;
+                              if (line.startsWith("---")) return <hr key={i} className="border-gray-800 my-4" />;
+                              if (line.startsWith("- ") || line.startsWith("* ")) return <li key={i} className="text-gray-300 ml-4 list-disc">{line.slice(2)}</li>;
+                              if (line.startsWith("**") && line.endsWith("**")) return <p key={i} className="text-white font-semibold mt-2">{line.replace(/\*\*/g, "")}</p>;
+                              if (line.trim() === "") return <div key={i} className="h-2" />;
+                              const parts = line.split(/(\*\*[^*]+\*\*)/g);
+                              return (
+                                <p key={i} className="text-gray-300 leading-relaxed">
+                                  {parts.map((part, j) =>
+                                    part.startsWith("**") && part.endsWith("**")
+                                      ? <strong key={j} className="text-white">{part.slice(2, -2)}</strong>
+                                      : part
+                                  )}
+                                </p>
+                              );
+                            })}
+                          </div>
+                          <div className="px-6 pb-4 text-xs text-gray-600">
+                            Generated {new Date(currentReport.generated_at).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+            </div>
           </div>
         )}
 
