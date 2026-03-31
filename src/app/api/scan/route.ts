@@ -181,6 +181,8 @@ interface LeaderboardEntry {
   price_change_7d?: number;
   price_change_30d?: number;
   has_campaign?: boolean; // 🔥 Active Stitch3 marketing campaign
+  whale_ratio?: number; // avg buy size / avg sell size (>1 = accumulation, <1 = distribution)
+  whale_signal?: "accumulating" | "distributing" | null;
 }
 
 // ── Stitch3 campaign data (cached in Vercel Blob) ────────────────
@@ -908,16 +910,40 @@ IMPORTANT: Keep each section to 2-3 sentences MAX. You MUST complete all 4 secti
     const pch7d = d.priceChange1w || 0;
     const pch30d = d.priceChange1m || 0;
 
-    // 24h momentum (0-40 pts) — most weighted for recency
+    // WHALE ACTIVITY (0-15 pts) — avg buy size vs avg sell size
+    // If whales are buying (big avg buy), that's a leading flow indicator
+    let whaleScore = 0;
+    const poolData = poolMap.get(d.netuid);
+    if (poolData) {
+      const buys = poolData.buys_24_hr || 0;
+      const sells = poolData.sells_24_hr || 0;
+      const buyVol = parseFloat(poolData.tao_buy_volume_24_hr || "0") / RAO;
+      const sellVol = parseFloat(poolData.tao_sell_volume_24_hr || "0") / RAO;
+      if (buys > 3 && sells > 3) {
+        const avgBuy = buyVol / buys;
+        const avgSell = sellVol / sells;
+        if (avgSell > 0) {
+          const wr = avgBuy / avgSell;
+          if (wr >= 3.0) whaleScore = 15;       // Heavy whale accumulation
+          else if (wr >= 2.0) whaleScore = 10;  // Clear whale buying
+          else if (wr >= 1.5) whaleScore = 6;   // Moderate whale interest
+          else if (wr >= 1.0) whaleScore = 3;   // Slight buy-side lean
+          else if (wr <= 0.3) whaleScore = -8;  // Whales dumping hard
+          else if (wr <= 0.5) whaleScore = -5;  // Whales distributing
+        }
+      }
+    }
+
+    // 24h momentum (0-35 pts) — most weighted for recency (reduced from 40 to make room for whales)
     let score24h = 0;
-    if (pch24h >= 15) score24h = 40;
-    else if (pch24h >= 8) score24h = 35;
-    else if (pch24h >= 4) score24h = 30;
-    else if (pch24h >= 2) score24h = 25;
-    else if (pch24h >= 0) score24h = 20;
-    else if (pch24h >= -3) score24h = 15;
-    else if (pch24h >= -8) score24h = 10;
-    else if (pch24h >= -15) score24h = 5;
+    if (pch24h >= 15) score24h = 35;
+    else if (pch24h >= 8) score24h = 30;
+    else if (pch24h >= 4) score24h = 27;
+    else if (pch24h >= 2) score24h = 22;
+    else if (pch24h >= 0) score24h = 18;
+    else if (pch24h >= -3) score24h = 13;
+    else if (pch24h >= -8) score24h = 8;
+    else if (pch24h >= -15) score24h = 4;
     else score24h = 1;
 
     // 7d momentum (0-30 pts)
@@ -949,7 +975,7 @@ IMPORTANT: Keep each section to 2-3 sentences MAX. You MUST complete all 4 secti
     else if (pch7d <= -10 && pch24h >= 1) reversalBonus = 5;
     else if (pch30d <= -10 && pch7d >= 0 && pch24h >= 0) reversalBonus = 3;  // Monthly down but weekly stabilizing
 
-    return Math.min(100, score24h + score7d + score30d + reversalBonus);
+    return Math.max(1, Math.min(100, score24h + score7d + score30d + reversalBonus + whaleScore));
   }
 
   // ── eVal: Emissions-to-Valuation score ──────────────────────────
@@ -1241,7 +1267,35 @@ IMPORTANT: Keep each section to 2-3 sentences MAX. You MUST complete all 4 secti
       // Campaign over = 0 boost
     }
 
-    const rawAGap = buildingPts + priceLag + socialGap + evalBoost + viability + campaignBoost;
+    // 6. WHALE DETECTION from pool buy/sell data
+    const poolForWhale = poolMap.get(d.netuid);
+    let whaleRatio: number | undefined;
+    let whaleSignal: "accumulating" | "distributing" | null = null;
+    let whaleBoost = 0;
+    if (poolForWhale) {
+      const buys = poolForWhale.buys_24_hr || 0;
+      const sells = poolForWhale.sells_24_hr || 0;
+      const buyVol = parseFloat(poolForWhale.tao_buy_volume_24_hr || "0") / RAO;
+      const sellVol = parseFloat(poolForWhale.tao_sell_volume_24_hr || "0") / RAO;
+      if (buys > 3 && sells > 3) {
+        const avgBuy = buyVol / buys;
+        const avgSell = sellVol / sells;
+        if (avgSell > 0) {
+          whaleRatio = Math.round(avgBuy / avgSell * 100) / 100;
+          if (whaleRatio >= 2.0) {
+            whaleSignal = "accumulating";
+            // Whale accumulation boost — bigger boost if dev is also high
+            if (devScore >= 40) whaleBoost = 8;  // whales + dev = strong conviction
+            else whaleBoost = 4;                   // whales alone = moderate signal
+          } else if (whaleRatio <= 0.5) {
+            whaleSignal = "distributing";
+            whaleBoost = -5; // whales selling = caution
+          }
+        }
+      }
+    }
+
+    const rawAGap = buildingPts + priceLag + socialGap + evalBoost + viability + campaignBoost + whaleBoost;
     const aGap = Math.max(1, Math.min(100, Math.round(rawAGap)));
 
     leaderboard.push({
@@ -1257,13 +1311,15 @@ IMPORTANT: Keep each section to 2-3 sentences MAX. You MUST complete all 4 secti
       alpha_price: d.alphaPriceUsd ?? undefined,
       market_cap: d.marketCapUsd ?? undefined,
       net_flow_24h: d.netFlow24h ?? undefined,
-      emission_pct: d.emissionPct > 0 ? d.emissionPct / 100 : undefined, // TMC gives %, store as decimal for frontend
+      emission_pct: d.emissionPct > 0 ? d.emissionPct / 100 : undefined,
       eval_ratio: Math.round(evalRatio * 10) / 10,
       price_change_24h: d.priceChange24h,
       price_change_1h: d.priceChange1h,
       price_change_7d: d.priceChange1w,
       price_change_30d: d.priceChange1m,
       has_campaign: stitchActiveNetuids.has(d.netuid) || undefined,
+      whale_ratio: whaleRatio,
+      whale_signal: whaleSignal,
     });
   }
 

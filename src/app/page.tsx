@@ -41,6 +41,8 @@ interface SubnetScore {
   price_change_7d?: number;
   price_change_30d?: number;
   has_campaign?: boolean;
+  whale_ratio?: number;
+  whale_signal?: "accumulating" | "distributing" | null;
 }
 
 // ── Helpers ──────────────────────────────────────────────────────
@@ -647,7 +649,7 @@ export default function Home() {
                       <th className="text-left py-2 px-3">Subnet</th>
                       {([
                         ["composite_score", "aGap", "Alpha Gap Score (0-100). The core metric. Finds subnets building quality work where the price hasn't caught up yet. Formula: Dev quality (50pts) + Price lag across 24h/7d/30d (30pts) + Social gap (15pts) + Emission value gap (15pts) - Market cap penalty. A reversal bonus is added when a subnet is down long-term but starting to turn up short-term."],
-                        ["flow_score", "Flow", "Price Momentum (0-100). Multi-timeframe momentum combining 24h (40pts), 7d (30pts), and 30d (20pts) price changes. Includes a reversal bonus (10pts) when price is down long-term but turning up short-term — the 'just starting to perk up' signal."],
+                        ["flow_score", "Flow", "Flow & Momentum (0-100). Combines: (1) Price momentum across 24h, 7d, and 30d timeframes, (2) Whale activity — compares avg buy size vs avg sell size to detect whale accumulation 🐋 or distribution, (3) Reversal bonus when price is down long-term but turning up short-term. A 🐋 icon appears when whales are detected buying big."],
                         ["dev_score", "Dev", "Development Score (0-100). Measures actual GitHub + HuggingFace activity quality. Based on: daily commits, PRs merged, unique contributors, 7d/30d trends, and AI models/datasets published. Multiple subnets can share the same score — this is absolute quality, not a ranking."],
                         ["eval_score", "eVal", "Emissions-to-Valuation (0-100). Finds the gap between what the network pays a subnet (emissions) vs what the market values it (market cap). Factors: (1) Emission level — how much TAO the network allocates, (2) Valuation gap — emission share ÷ market cap share ratio, (3) Price trend divergence — price dropping while emissions stay high = widening gap, (4) Network participation — validator count + new miner registrations burning TAO to join. High eVal = validators and miners are betting on this subnet before the market catches on. Tiny mcap subnets are penalized for inflated ratios."],
                         ["social_score", "Social", "Social Velocity (0-100). How much buzz surrounds this subnet on X/Twitter and Reddit. Uses Desearch API to track mentions and engagement (likes, retweets, views). Also monitors Stitch3 marketing campaigns. Low social + high dev = nobody knows about it yet = alpha gap."],
@@ -716,6 +718,8 @@ export default function Home() {
                           {sub.composite_score}
                         </td>
                         <td className={`py-2.5 px-3 text-right ${scoreColor(sub.flow_score)}`}>
+                          {sub.whale_signal === "accumulating" && <span title={`Whale accumulation detected (${sub.whale_ratio}x buy/sell ratio)`}>🐋</span>}
+                          {sub.whale_signal === "distributing" && <span title={`Whale distribution detected (${sub.whale_ratio}x buy/sell ratio)`} className="opacity-50">🔻</span>}
                           {sub.flow_score}
                         </td>
                         <td className={`py-2.5 px-3 text-right ${scoreColor(sub.dev_score)}`}>
