@@ -101,73 +101,106 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* What we track — icon grid */}
-      <section className="py-16 px-6">
-        <div className="max-w-5xl mx-auto">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      {/* What We Track */}
+      <section className="py-20 px-6 relative overflow-hidden">
+        {/* Subtle radial glow behind grid */}
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[400px] bg-green-500/[0.03] rounded-full blur-[100px]" />
+
+        <div className="relative max-w-5xl mx-auto">
+          <h2 className="text-3xl sm:text-4xl font-bold text-center mb-3">
+            What We <span className="text-green-400">Track</span>
+          </h2>
+          <p className="text-gray-500 text-center mb-12 text-sm">Thousands of data points. Every subnet. Every day.</p>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
             {[
               {
                 icon: (
-                  <svg viewBox="0 0 24 24" className="w-7 h-7" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+                  <svg viewBox="0 0 24 24" className="w-8 h-8" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
                 ),
                 title: "Dev Commits",
-                desc: "Every push, PR, and release",
-                color: "from-gray-500/20 to-gray-600/20",
+                desc: "Every push, PR & release",
+                glow: "group-hover:shadow-gray-500/20",
+                border: "group-hover:border-gray-400/30",
+                iconBg: "bg-gray-500/10",
               },
               {
-                icon: <span className="text-2xl">🤗</span>,
+                icon: <span className="text-3xl">🤗</span>,
                 title: "AI Models",
                 desc: "New models & datasets",
-                color: "from-yellow-500/20 to-orange-500/20",
+                glow: "group-hover:shadow-yellow-500/20",
+                border: "group-hover:border-yellow-400/30",
+                iconBg: "bg-yellow-500/10",
               },
               {
-                icon: <span className="text-2xl">🐋</span>,
+                icon: <span className="text-3xl">🐋</span>,
                 title: "Whale Activity",
                 desc: "Large wallet accumulation",
-                color: "from-blue-500/20 to-cyan-500/20",
+                glow: "group-hover:shadow-blue-500/20",
+                border: "group-hover:border-blue-400/30",
+                iconBg: "bg-blue-500/10",
               },
               {
                 icon: (
-                  <svg viewBox="0 0 24 24" className="w-7 h-7" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+                  <svg viewBox="0 0 24 24" className="w-8 h-8" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
                 ),
-                title: "Social Buzz",
+                title: "Social Velocity",
                 desc: "Tweets, threads & hype",
-                color: "from-gray-400/20 to-gray-500/20",
+                glow: "group-hover:shadow-gray-400/20",
+                border: "group-hover:border-gray-300/30",
+                iconBg: "bg-gray-400/10",
               },
               {
                 icon: (
-                  <svg viewBox="0 0 24 24" className="w-7 h-7" fill="currentColor"><path d="M12 0A12 12 0 000 12a12 12 0 0012 12 12 12 0 0012-12A12 12 0 0012 0zm5.01 4.744c.688 0 1.25.561 1.25 1.249a1.25 1.25 0 01-2.498.056l-2.597-.547-.8 3.747c1.824.07 3.48.632 4.674 1.488.308-.309.73-.491 1.207-.491.968 0 1.754.786 1.754 1.754 0 .716-.435 1.333-1.01 1.614a3.111 3.111 0 01.042.52c0 2.694-3.13 4.87-7.004 4.87-3.874 0-7.004-2.176-7.004-4.87 0-.183.015-.366.043-.534A1.748 1.748 0 014.028 12c0-.968.786-1.754 1.754-1.754.463 0 .898.196 1.207.49 1.207-.883 2.878-1.43 4.744-1.487l.885-4.182a.342.342 0 01.14-.197.35.35 0 01.238-.042l2.906.617a1.214 1.214 0 011.108-.701zM9.25 12C8.561 12 8 12.562 8 13.25c0 .687.561 1.248 1.25 1.248.687 0 1.248-.561 1.248-1.249 0-.688-.561-1.249-1.249-1.249zm5.5 0c-.687 0-1.248.561-1.248 1.25 0 .687.561 1.248 1.249 1.248.688 0 1.249-.561 1.249-1.249 0-.687-.562-1.249-1.25-1.249zm-5.466 3.99a.327.327 0 00-.231.094.33.33 0 000 .463c.842.842 2.484.913 2.961.913.477 0 2.105-.056 2.961-.913a.361.361 0 000-.462.342.342 0 00-.462 0c-.545.533-1.684.73-2.512.73-.828 0-1.953-.197-2.498-.73a.327.327 0 00-.219-.095z"/></svg>
+                  <svg viewBox="0 0 24 24" className="w-8 h-8" fill="currentColor"><path d="M12 0A12 12 0 000 12a12 12 0 0012 12 12 12 0 0012-12A12 12 0 0012 0zm5.01 4.744c.688 0 1.25.561 1.25 1.249a1.25 1.25 0 01-2.498.056l-2.597-.547-.8 3.747c1.824.07 3.48.632 4.674 1.488.308-.309.73-.491 1.207-.491.968 0 1.754.786 1.754 1.754 0 .716-.435 1.333-1.01 1.614a3.111 3.111 0 01.042.52c0 2.694-3.13 4.87-7.004 4.87-3.874 0-7.004-2.176-7.004-4.87 0-.183.015-.366.043-.534A1.748 1.748 0 014.028 12c0-.968.786-1.754 1.754-1.754.463 0 .898.196 1.207.49 1.207-.883 2.878-1.43 4.744-1.487l.885-4.182a.342.342 0 01.14-.197.35.35 0 01.238-.042l2.906.617a1.214 1.214 0 011.108-.701zM9.25 12C8.561 12 8 12.562 8 13.25c0 .687.561 1.248 1.25 1.248.687 0 1.248-.561 1.248-1.249 0-.688-.561-1.249-1.249-1.249zm5.5 0c-.687 0-1.248.561-1.248 1.25 0 .687.561 1.248 1.249 1.248.688 0 1.249-.561 1.249-1.249 0-.687-.562-1.249-1.25-1.249zm-5.466 3.99a.327.327 0 00-.231.094.33.33 0 000 .463c.842.842 2.484.913 2.961.913.477 0 2.105-.056 2.961-.913a.361.361 0 000-.462.342.342 0 00-.462 0c-.545.533-1.684.73-2.512.73-.828 0-1.953-.197-2.498-.73a.327.327 0 00-.219-.095z"/></svg>
                 ),
                 title: "Reddit Chatter",
-                desc: "Community discussions",
-                color: "from-orange-500/20 to-red-500/20",
+                desc: "Community sentiment",
+                glow: "group-hover:shadow-orange-500/20",
+                border: "group-hover:border-orange-400/30",
+                iconBg: "bg-orange-500/10",
               },
               {
-                icon: <span className="text-2xl">📡</span>,
+                icon: (
+                  <svg viewBox="0 0 24 24" className="w-8 h-8 text-emerald-400" fill="none" stroke="currentColor" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 3v11.25A2.25 2.25 0 006 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0118 16.5h-2.25m-7.5 0h7.5m-7.5 0l-1 3m8.5-3l1 3m0 0l.5 1.5m-.5-1.5h-9.5m0 0l-.5 1.5m.75-9l3-3 2.148 2.148A12.061 12.061 0 0116.5 7.605" /></svg>
+                ),
                 title: "Emission Shifts",
-                desc: "Network value allocation",
-                color: "from-green-500/20 to-emerald-500/20",
+                desc: "Network value signals",
+                glow: "group-hover:shadow-emerald-500/20",
+                border: "group-hover:border-emerald-400/30",
+                iconBg: "bg-emerald-500/10",
               },
               {
-                icon: <span className="text-2xl">⛏️</span>,
+                icon: (
+                  <svg viewBox="0 0 24 24" className="w-8 h-8 text-purple-400" fill="none" stroke="currentColor" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M5.25 14.25h13.5m-13.5 0a3 3 0 01-3-3m3 3a3 3 0 100 6h13.5a3 3 0 100-6m-16.5-3a3 3 0 013-3h13.5a3 3 0 013 3m-19.5 0a4.5 4.5 0 01.9-2.7L5.737 5.1a3.375 3.375 0 012.7-1.35h7.126c1.062 0 2.062.5 2.7 1.35l2.587 3.45a4.5 4.5 0 01.9 2.7m0 0a3 3 0 01-3 3m0 3h.008v.008h-.008v-.008zm0-6h.008v.008h-.008v-.008zm-3 6h.008v.008h-.008v-.008zm0-6h.008v.008h-.008v-.008z" /></svg>
+                ),
                 title: "Miner Activity",
-                desc: "Registration & participation",
-                color: "from-purple-500/20 to-violet-500/20",
+                desc: "Registration & growth",
+                glow: "group-hover:shadow-purple-500/20",
+                border: "group-hover:border-purple-400/30",
+                iconBg: "bg-purple-500/10",
               },
               {
-                icon: <span className="text-2xl">📉</span>,
-                title: "Price Lag Detection",
+                icon: (
+                  <svg viewBox="0 0 24 24" className="w-8 h-8 text-red-400" fill="none" stroke="currentColor" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18L9 11.25l4.306 4.307a11.95 11.95 0 015.814-5.519l2.74-1.22m0 0l-5.94-2.28m5.94 2.28l-2.28 5.941" /></svg>
+                ),
+                title: "Price Lag",
                 desc: "When markets fall behind",
-                color: "from-red-500/20 to-rose-500/20",
+                glow: "group-hover:shadow-red-500/20",
+                border: "group-hover:border-red-400/30",
+                iconBg: "bg-red-500/10",
               },
             ].map((item) => (
               <div
                 key={item.title}
-                className={`bg-gradient-to-br ${item.color} border border-white/5 rounded-xl p-5 text-center hover:border-green-500/20 transition-all hover:scale-[1.02]`}
+                className={`group relative bg-[#0d0d14] border border-white/[0.06] rounded-2xl p-6 text-center transition-all duration-300 hover:scale-[1.03] ${item.glow} hover:shadow-lg cursor-default ${item.border}`}
               >
-                <div className="flex justify-center mb-3 text-white">{item.icon}</div>
-                <div className="font-semibold text-sm text-white">{item.title}</div>
-                <div className="text-xs text-gray-500 mt-1">{item.desc}</div>
+                {/* Icon container with glow ring */}
+                <div className={`w-14 h-14 mx-auto rounded-xl ${item.iconBg} flex items-center justify-center mb-4 transition-transform duration-300 group-hover:scale-110`}>
+                  <div className="text-white">{item.icon}</div>
+                </div>
+                <div className="font-semibold text-white text-sm mb-1">{item.title}</div>
+                <div className="text-xs text-gray-500">{item.desc}</div>
               </div>
             ))}
           </div>
