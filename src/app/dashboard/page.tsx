@@ -497,10 +497,7 @@ export default function Home() {
       {/* Header */}
       <header className="border-b border-gray-800 px-4 md:px-6 py-3 md:py-4 flex items-center justify-between flex-wrap gap-2 max-w-full overflow-hidden">
         <div className="flex items-center gap-4">
-          <h1 className="text-2xl font-bold">
-            <span className="text-green-400">Alpha</span>
-            <span className="text-blue-400">Gap</span>
-          </h1>
+          <img src="/alphagap_logo_dark.svg" alt="AlphaGap" className="h-8 w-auto" />
           <span className="text-xs text-gray-500 border border-gray-700 rounded px-2 py-0.5">
             Bittensor Subnet Intelligence
           </span>

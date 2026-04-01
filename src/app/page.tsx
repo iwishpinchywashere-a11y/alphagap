@@ -34,9 +34,8 @@ export default function LandingPage() {
       {/* Nav */}
       <nav className="fixed top-0 left-0 right-0 z-50 backdrop-blur-xl bg-[#0a0a0f]/80 border-b border-white/5">
         <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-green-400 to-emerald-600 flex items-center justify-center font-bold text-sm text-black">α</div>
-            <span className="text-lg font-bold tracking-tight">AlphaGap</span>
+          <div className="flex items-center">
+            <img src="/alphagap_logo_dark.svg" alt="AlphaGap" className="h-8 w-auto" />
           </div>
           <Link
             href="/dashboard"

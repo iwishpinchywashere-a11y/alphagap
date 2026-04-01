@@ -1,0 +1,47 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bgGrad" x1="120" y1="100" x2="900" y2="920" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#121416"/>
+      <stop offset="100%" stop-color="#000000"/>
+    </linearGradient>
+    <linearGradient id="greenGrad" x1="180" y1="700" x2="760" y2="250" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#00A83A"/>
+      <stop offset="55%" stop-color="#39D353"/>
+      <stop offset="100%" stop-color="#A7F35D"/>
+    </linearGradient>
+    <linearGradient id="silverGrad" x1="200" y1="760" x2="560" y2="180" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#D6D9DE"/>
+      <stop offset="100%" stop-color="#FFFFFF"/>
+    </linearGradient>
+    <filter id="softShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="15" stdDeviation="20" flood-color="#000000" flood-opacity="0.24"/>
+    </filter>
+  </defs>
+
+  <rect x="80" y="80" width="864" height="864" rx="190" fill="url(#bgGrad)"/>
+
+  <g filter="url(#softShadow)">
+    <path d="M220 725 L448 228 Q464 196 491 221 L665 411 Q681 428 662 440 L603 479 Q586 491 574 474 L486 358 L293 725 Z"
+          fill="url(#silverGrad)" stroke="#0D0D0D" stroke-width="18" stroke-linejoin="round"/>
+    <path d="M556 564 L703 734 Q719 751 705 767 Q692 782 667 774 L528 727 Z"
+          fill="url(#greenGrad)" stroke="#0D0D0D" stroke-width="18" stroke-linejoin="round"/>
+    <path d="M220 725 
+             C337 690, 444 622, 553 519
+             C625 451, 677 390, 736 311
+             L707 311
+             Q689 311 680 296
+             Q671 281 682 266
+             L820 201
+             Q836 193 849 201
+             Q862 210 857 226
+             L813 367
+             Q808 383 792 386
+             Q776 389 765 377
+             L756 367
+             C691 451, 623 522, 546 583
+             C443 665, 337 715, 232 739
+             Q201 745 193 729
+             Q186 713 220 725 Z"
+          fill="url(#greenGrad)" stroke="#0D0D0D" stroke-width="18" stroke-linejoin="round"/>
+  </g>
+</svg>

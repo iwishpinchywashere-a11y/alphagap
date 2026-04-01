@@ -1665,6 +1665,70 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
   // Sort signals by strength desc
   signals.sort((a, b) => b.strength - a.strength);
 
+  // ── Persist signals to rolling history ──────────────────────────
+  // Signals are generated fresh each scan from the last 24h of GitHub/HF activity.
+  // Without persistence, signals disappear the moment a subnet's window falls outside 24h.
+  // We accumulate signals in signals-history.json (14-day rolling window).
+  // Dedup key: netuid + signal_type + signal_date (day). New scan always wins on same day.
+  let signalHistory: ScanSignal[] = [];
+  if (process.env.BLOB_READ_WRITE_TOKEN) {
+    try {
+      const { get: getBlob } = await import("@vercel/blob");
+      const histBlob = await getBlob("signals-history.json", {
+        token: process.env.BLOB_READ_WRITE_TOKEN,
+        access: "private",
+      });
+      if (histBlob?.stream) {
+        const reader = histBlob.stream.getReader();
+        const chunks: Uint8Array[] = [];
+        while (true) { const { done, value } = await reader.read(); if (done) break; chunks.push(value); }
+        signalHistory = JSON.parse(Buffer.concat(chunks).toString("utf-8"));
+        console.log(`[scan] Loaded ${signalHistory.length} signals from history`);
+      }
+    } catch { console.log("[scan] No signals history yet, starting fresh"); }
+  }
+
+  // Keep last 14 days of history
+  const histCutoff = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
+  const recentHistory = signalHistory.filter(s => (s.signal_date || s.created_at) >= histCutoff);
+
+  // Merge: history is the base, current scan signals override for same netuid+type+day
+  // This way old signals persist, and today's re-analysis (with fresh AI) replaces them
+  const mergedMap = new Map<string, ScanSignal>();
+  for (const s of recentHistory) {
+    const day = (s.signal_date || s.created_at).slice(0, 10);
+    const key = `${s.netuid}:${s.signal_type}:${day}`;
+    const existing = mergedMap.get(key);
+    if (!existing || s.strength > existing.strength) mergedMap.set(key, s);
+  }
+  // Fresh scan signals always override history for their signal_date day
+  for (const s of signals) {
+    const day = (s.signal_date || s.created_at).slice(0, 10);
+    const key = `${s.netuid}:${s.signal_type}:${day}`;
+    mergedMap.set(key, s);
+  }
+
+  const mergedSignals = [...mergedMap.values()].sort((a, b) => {
+    // Sort by signal_date DESC (most recent first), then strength DESC
+    const dateDiff = new Date(b.signal_date || b.created_at).getTime() - new Date(a.signal_date || a.created_at).getTime();
+    return dateDiff !== 0 ? dateDiff : b.strength - a.strength;
+  });
+
+  console.log(`[scan] Merged signals: ${signals.length} new + ${recentHistory.length} history = ${mergedSignals.length} total`);
+
+  // Save merged signals back to history blob
+  if (process.env.BLOB_READ_WRITE_TOKEN) {
+    try {
+      await put("signals-history.json", JSON.stringify(mergedSignals), {
+        access: "private",
+        addRandomSuffix: false,
+        allowOverwrite: true,
+        contentType: "application/json",
+      });
+      console.log("[scan] Signals history saved.");
+    } catch (e) { console.error("[scan] Failed to save signals history:", e); }
+  }
+
   // ── Append current emissions to history & save ─────────────────
   // (emission_change_pct already computed and factored into aGap above)
   const now = new Date().toISOString();
@@ -1695,17 +1759,17 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
   }
 
   const duration = Date.now() - startTime;
-  console.log(`[scan] Complete in ${duration}ms. ${leaderboard.length} subnets, ${signals.length} signals.`);
+  console.log(`[scan] Complete in ${duration}ms. ${leaderboard.length} subnets, ${mergedSignals.length} signals (${signals.length} new this scan).`);
 
   const responseData = {
     leaderboard,
-    signals,
+    signals: mergedSignals,
     taoPrice,
     lastScan: new Date().toISOString(),
     duration_ms: duration,
     counts: {
       subnets: leaderboard.length,
-      signals: signals.length,
+      signals: mergedSignals.length,
       identities: identities.length,
       pools: pools.length,
       devActivity: devActivity.length,
