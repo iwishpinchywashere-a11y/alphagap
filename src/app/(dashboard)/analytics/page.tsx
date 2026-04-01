@@ -187,11 +187,12 @@ function ScatterPlot({
         ))}
       </div>
 
+      {/* Aspect-ratio wrapper prevents SVG warping while keeping preserveAspectRatio="none" coord math */}
+      <div className="w-full" style={{ aspectRatio: `${W}/${H}` }}>
       <svg
         ref={svgRef}
         viewBox={`0 0 ${W} ${H}`}
-        className="w-full cursor-crosshair select-none"
-        style={{ height: "340px" }}
+        className="w-full h-full cursor-crosshair select-none"
         preserveAspectRatio="none"
         onMouseMove={handleMouseMove}
         onMouseLeave={() => setHoverIdx(null)}
@@ -320,6 +321,7 @@ function ScatterPlot({
           </g>
         )}
       </svg>
+      </div>
     </div>
   );
 }
@@ -370,31 +372,11 @@ export default function AnalyticsPage() {
           </p>
         </div>
 
-        {/* Chart 1: Dev Score vs Market Cap — SIGNATURE */}
+        {/* Chart 1 (main): aGap Score vs Market Cap */}
         <div>
           <div className="flex items-center gap-2 mb-3">
             <span className="text-xs font-semibold bg-green-500/20 text-green-400 border border-green-500/30 rounded px-2 py-0.5">Signature Chart</span>
           </div>
-          <ScatterPlot
-            points={devVsMcap}
-            title="Dev Activity vs Market Cap"
-            subtitle="Subnets in the bottom-right are shipping hard but the market hasn't noticed yet — the core alpha signal."
-            xLabel="Dev Score"
-            yLabel="Market Cap"
-            formatX={v => v.toFixed(0)}
-            formatY={fmtMcap}
-            xMax100
-            yLog
-            alphaX="right" alphaY="bottom"
-            alphaLabel="High Dev, Low Cap 🔥"
-            overLabel="Overhyped ⚠️"
-          />
-        </div>
-
-        {/* Charts 2 + 3 in a 2-col grid */}
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-
-          {/* Chart 2: aGap Score vs Market Cap */}
           <ScatterPlot
             points={agapVsMcap}
             title="aGap Score vs Market Cap"
@@ -408,6 +390,26 @@ export default function AnalyticsPage() {
             alphaX="right" alphaY="bottom"
             alphaLabel="Alpha 🔥"
             overLabel="Priced In ⚠️"
+          />
+        </div>
+
+        {/* Charts 2 + 3 in a 2-col grid */}
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+
+          {/* Chart 2: Dev Score vs Market Cap */}
+          <ScatterPlot
+            points={devVsMcap}
+            title="Dev Activity vs Market Cap"
+            subtitle="Subnets in the bottom-right are shipping hard but the market hasn't noticed yet."
+            xLabel="Dev Score"
+            yLabel="Market Cap"
+            formatX={v => v.toFixed(0)}
+            formatY={fmtMcap}
+            xMax100
+            yLog
+            alphaX="right" alphaY="bottom"
+            alphaLabel="High Dev, Low Cap 🔥"
+            overLabel="Overhyped ⚠️"
           />
 
           {/* Chart 3: Emission % vs Market Cap */}
