@@ -532,25 +532,24 @@ export async function GET() {
   // ── Step 5: Generate signals (dev + HF ONLY) ───────────────────
   // Flow/price signals REMOVED — this feed is purely about development intelligence
 
-  // ── RICH DEV SIGNALS: Fetch actual commits/PRs and analyze with AI ──
-  // ALL active subnets get signals. Top ones get deep AI analysis.
+  // ── RICH DEV SIGNALS: AI analysis for EVERY active subnet ───────
+  // No cap — every subnet with commits today gets a real analysis, not a placeholder.
+  // Commit messages already fetched by github-scanner (no extra GitHub API calls).
+  // Top 10 by activity also get PRs + release fetched for richer context.
   const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
-  const allActiveDevSubnets = devActivity
+  const allActiveDevSubnets = [...devMap.values()]
     .filter(a => a.commits_1d > 0 || a.prs_merged_1d > 0)
     .sort((a, b) => (b.commits_1d + b.prs_merged_1d * 5) - (a.commits_1d + a.prs_merged_1d * 5));
 
-  // Top 10 get deep commit/PR fetching + AI analysis
-  const activeDevSubnets = allActiveDevSubnets.slice(0, 10);
+  console.log(`[scan] ${allActiveDevSubnets.length} active subnets — fetching PR/release context for top 10, commit-only for the rest...`);
 
-  console.log(`[scan] ${allActiveDevSubnets.length} active subnets. Deep analysis for top ${activeDevSubnets.length}.`);
-
-  // Build deep context for AI analysis — reuse commit messages from github-scanner,
-  // only fetch PRs + latest release (avoids duplicate GitHub API calls)
   type DevContext = { act: GithubActivity; owner: string; repo: string; commits: string[]; prs: string[]; release: { tag: string; name: string; body: string; date: string } | null };
   const devContexts: DevContext[] = [];
 
+  // All subnets: reuse commit messages from github-scanner
+  // Top 10: also fetch PRs + latest release for richer AI context
   const deepResults = await Promise.allSettled(
-    activeDevSubnets.map(async (act) => {
+    allActiveDevSubnets.map(async (act, idx) => {
       let repoPath = act.repo_url || "";
       if (repoPath.includes("github.com/")) repoPath = repoPath.split("github.com/")[1];
       repoPath = repoPath.replace(/^\/|\/$/g, "").replace(/\.git$/, "");
@@ -558,17 +557,23 @@ export async function GET() {
       if (parts.length < 2) return null;
       const [owner, repo] = parts;
 
-      // Reuse commit messages already fetched by github-scanner (no extra API call)
+      // Always reuse commit messages from github-scanner (already fetched, no extra call)
       const ghScan = githubScanMap.get(act.netuid);
       const commits = ghScan?.commitMessages.length
         ? ghScan.commitMessages
-        : await fetchRecentCommits(owner, repo, 8); // fallback if scanner missed it
+        : await fetchRecentCommits(owner, repo, 8);
 
-      // PRs and latest release still need separate fetches
-      const [prs, release] = await Promise.all([
-        fetchRecentPRs(owner, repo, 4),
-        fetchLatestRelease(owner, repo),
-      ]);
+      // Top 10 by activity get PRs + release for richer context
+      let prs: string[] = [];
+      let release: { tag: string; name: string; body: string; date: string } | null = null;
+      if (idx < 10) {
+        const [prsResult, releaseResult] = await Promise.all([
+          fetchRecentPRs(owner, repo, 4),
+          fetchLatestRelease(owner, repo),
+        ]);
+        prs = prsResult;
+        release = releaseResult;
+      }
 
       return { act, owner, repo, commits, prs, release };
     })
@@ -577,7 +582,7 @@ export async function GET() {
     if (r.status === "fulfilled" && r.value) devContexts.push(r.value);
   }
 
-  console.log(`[scan] Got context for ${devContexts.length} repos. Analyzing with AI...`);
+  console.log(`[scan] Context built for ${devContexts.length} subnets. Running AI analysis on all of them...`);
 
   // Analyze with Claude Haiku — batch 5 at a time
   async function analyzeDevActivity(ctx: DevContext): Promise<string> {
@@ -666,7 +671,7 @@ IMPORTANT: Keep each section to 2-3 sentences MAX. You MUST complete all 4 secti
   }
 
   // Try AI analysis for as many signals as time allows
-  const timeLeftForAI = 57000 - (Date.now() - startTime);
+  const timeLeftForAI = 200000 - (Date.now() - startTime); // generous budget — Haiku is fast, all run in parallel
   console.log(`[scan] AI analysis: ${devContexts.length} signals, ${(timeLeftForAI/1000).toFixed(0)}s left`);
 
   const analyzedDevSignals: { ctx: DevContext; analysis: string }[] = [];
@@ -722,24 +727,7 @@ IMPORTANT: Keep each section to 2-3 sentences MAX. You MUST complete all 4 secti
     });
   }
 
-  // Also create signals for subnets with dev activity that didn't get deep analysis
-  for (const act of devActivity) {
-    if (act.commits_1d <= 0 && act.prs_merged_1d <= 0) continue;
-    if (analyzedDevSignals.some(s => s.ctx.act.netuid === act.netuid)) continue;
-    const name = identityMap.get(act.netuid)?.subnet_name || `SN${act.netuid}`;
-    const lastEventDate = act.last_event_at ? new Date(act.last_event_at).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "today";
-    addSignal({
-      netuid: act.netuid,
-      signal_type: "dev_spike",
-      strength: Math.min(70, 20 + act.commits_1d * 2 + act.prs_merged_1d * 8),
-      title: `${name} pushed ${act.commits_1d} commits & ${act.prs_merged_1d} PRs (${lastEventDate})`,
-      description: `${act.unique_contributors_1d} contributor${act.unique_contributors_1d !== 1 ? "s" : ""} active. 7d trend: ${act.commits_7d} commits, ${act.prs_merged_7d} PRs. Full analysis pending — check back after next scan.`,
-      source: "github",
-      source_url: act.repo_url,
-      subnet_name: name,
-      signal_date: act.last_event_at || act.as_of_day || new Date().toISOString(),
-    });
-  }
+  // (No fallback loop — every active subnet is now in devContexts and gets AI analysis)
 
   // New release signals — from direct GitHub scanner (fires when a release was published in last 24h)
   for (const [netuid, ghResult] of githubScanMap) {
