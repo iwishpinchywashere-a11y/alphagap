@@ -1750,6 +1750,48 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
     } catch (e) { console.error("[scan] Failed early save:", e); }
   }
 
+  // ── Persist per-subnet score history (90-day daily snapshots) ──
+  // Written once per scan. Each day's row is upserted so multiple scans
+  // per day just overwrite the same date key. Used by /subnets/[netuid].
+  if (process.env.BLOB_READ_WRITE_TOKEN) {
+    try {
+      const { get: getBlob2 } = await import("@vercel/blob");
+      type ScoreRow = { agap: number; flow: number; dev: number; eval: number; social: number; price: number; mcap: number; emission_pct: number };
+      let scoreHistory: Record<string, Record<string, ScoreRow>> = {};
+      try {
+        const blob = await getBlob2("subnet-scores-history.json", { token: process.env.BLOB_READ_WRITE_TOKEN, access: "private" });
+        if (blob?.stream) {
+          const reader = blob.stream.getReader();
+          const chunks: Uint8Array[] = [];
+          while (true) { const { done, value } = await reader.read(); if (done) break; chunks.push(value); }
+          scoreHistory = JSON.parse(Buffer.concat(chunks).toString("utf-8"));
+        }
+      } catch { /* start fresh */ }
+
+      const today = new Date().toISOString().slice(0, 10);
+      scoreHistory[today] = {};
+      for (const entry of leaderboard) {
+        scoreHistory[today][String(entry.netuid)] = {
+          agap: entry.composite_score,
+          flow: entry.flow_score,
+          dev: entry.dev_score,
+          eval: entry.eval_score || 0,
+          social: entry.social_score || 0,
+          price: entry.alpha_price || 0,
+          mcap: entry.market_cap || 0,
+          emission_pct: entry.emission_pct || 0,
+        };
+      }
+
+      // Trim to last 90 days
+      const cutoff90 = new Date(Date.now() - 90 * 86400000).toISOString().slice(0, 10);
+      for (const d of Object.keys(scoreHistory)) { if (d < cutoff90) delete scoreHistory[d]; }
+
+      await put("subnet-scores-history.json", JSON.stringify(scoreHistory), { access: "private", token: process.env.BLOB_READ_WRITE_TOKEN });
+      console.log(`[scan] Subnet score history: ${Object.keys(scoreHistory).length} days stored`);
+    } catch (e) { console.error("[scan] Subnet history save failed:", e); }
+  }
+
   // Sort signals by strength desc
   signals.sort((a, b) => b.strength - a.strength);
 

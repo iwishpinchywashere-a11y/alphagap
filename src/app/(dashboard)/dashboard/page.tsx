@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useDashboard } from "@/components/dashboard/DashboardProvider";
 import SubnetDetailPanel from "@/components/dashboard/SubnetDetailPanel";
 import { scoreColor, flowColor, formatNum } from "@/lib/formatters";
@@ -26,6 +27,7 @@ const COLUMNS: [keyof SubnetScore, string, string][] = [
 
 export default function LeaderboardPage() {
   const { leaderboard, taoPrice, scanning, signals, runScan, setSelectedSubnet, infoPopup, setInfoPopup } = useDashboard();
+  const router = useRouter();
   const [sortCol, setSortCol] = useState<keyof SubnetScore>("composite_score");
   const [sortAsc, setSortAsc] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -145,7 +147,7 @@ export default function LeaderboardPage() {
                           ? "border-green-500/30 bg-green-900/30 hover:bg-green-900/45"
                           : "border-gray-800/50 hover:bg-gray-900/50"
                       }`}
-                      onClick={() => setSelectedSubnet(sub.netuid)}
+                      onClick={() => router.push(`/subnets/${sub.netuid}`)}
                     >
                       <td className="py-2.5 px-3 text-gray-500">{i + 1}</td>
                       <td className="py-2.5 px-3">

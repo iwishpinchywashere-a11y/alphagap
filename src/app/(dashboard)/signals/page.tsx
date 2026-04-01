@@ -1,12 +1,15 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useDashboard } from "@/components/dashboard/DashboardProvider";
 import SubnetDetailPanel from "@/components/dashboard/SubnetDetailPanel";
 import { signalColor, signalIcon, timeAgo, formatMcap } from "@/lib/formatters";
 
 export default function SignalsPage() {
   const { signals, leaderboard, scanning, runScan, setSelectedSubnet } = useDashboard();
+  const router = useRouter();
+  void setSelectedSubnet;
   const [signalSort, setSignalSort] = useState<"score" | "date">("score");
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -94,7 +97,7 @@ export default function SignalsPage() {
                     sig.strength >= 80 ? "border-green-800/60 signal-hot" :
                     sig.strength >= 50 ? "border-yellow-900/40" : "border-gray-800"
                   } hover:border-gray-600`}
-                  onClick={() => setSelectedSubnet(sig.netuid)}
+                  onClick={() => router.push(`/subnets/${sig.netuid}`)}
                 >
                   {/* Header */}
                   <div className={`px-4 py-2.5 flex items-center justify-between ${
