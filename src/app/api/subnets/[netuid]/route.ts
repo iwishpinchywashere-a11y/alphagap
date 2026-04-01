@@ -67,7 +67,7 @@ export async function GET(
 
   // ── Live data from TaoStats (in parallel) ───────────────────────
   const [priceHistory, metagraph] = await Promise.all([
-    getPoolHistory(netuid, 30).catch(() => []),
+    getPoolHistory(netuid, 365).catch(() => []),  // full year
     getMetagraph(netuid).catch(() => []),
   ]);
 

@@ -255,12 +255,12 @@ export interface SubnetEmissionHistory {
 }
 
 export async function getSubnetEmissionHistory(netuid: number, days: number = 7): Promise<SubnetEmissionHistory[]> {
-  const since = new Date(Date.now() - days * 86400000).toISOString();
+  const since = Math.floor((Date.now() - days * 86400000) / 1000); // unix seconds
   return taoFetch<SubnetEmissionHistory>("/dtao/subnet_emission/v1", {
     netuid: String(netuid),
-    timestamp_start: since,
+    timestamp_start: String(since),
     limit: "200",
-    order: "timestamp_desc",
+    order: "timestamp_asc",
   });
 }
 
@@ -275,13 +275,15 @@ export interface PoolHistory {
   tao_volume_24_hr: string;
 }
 
-export async function getPoolHistory(netuid: number, days: number = 7): Promise<PoolHistory[]> {
-  const since = new Date(Date.now() - days * 86400000).toISOString();
+export async function getPoolHistory(netuid: number, days: number = 365): Promise<PoolHistory[]> {
+  const since = Math.floor((Date.now() - days * 86400000) / 1000); // unix seconds
+  // TaoStats returns ~1 data point/day so days+20 covers the full range in one page
+  const limit = Math.min(days + 20, 500);
   return taoFetch<PoolHistory>("/dtao/pool/history/v1", {
     netuid: String(netuid),
-    timestamp_start: since,
-    limit: "200",
-    order: "timestamp_desc",
+    timestamp_start: String(since),
+    limit: String(limit),
+    order: "timestamp_asc",
   });
 }
 

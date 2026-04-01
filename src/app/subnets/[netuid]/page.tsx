@@ -52,9 +52,14 @@ function LineChart({
   maxY?: number;
 }) {
   if (data.length < 2) {
+    // Show current value as a stat if we only have 1 point
+    const singleVal = data[0]?.y;
     return (
-      <div className="flex items-center justify-center h-28 text-gray-600 text-xs">
-        Not enough data yet — accumulating…
+      <div className="flex flex-col items-center justify-center h-28 gap-2">
+        {singleVal != null && (
+          <span className="text-2xl font-bold" style={{ color }}>{formatY(singleVal)}</span>
+        )}
+        <span className="text-gray-600 text-xs">Tracking started — chart fills in with each scan</span>
       </div>
     );
   }
@@ -340,25 +345,32 @@ export default function SubnetDetailPage({ params }: { params: Promise<{ netuid:
         </ChartCard>
 
         {/* ── Proprietary score charts — 2 cols ─────────────────── */}
+        {data.scoreHistory.length < 3 && (
+          <div className="flex items-center gap-2 text-xs text-gray-500 bg-gray-900/40 border border-gray-800 rounded-lg px-4 py-2">
+            <span className="text-yellow-400">◎</span>
+            <span>Score charts are accumulating — AlphaGap started tracking {data.scoreHistory.length === 0 ? "today" : `${data.scoreHistory.length} day${data.scoreHistory.length > 1 ? "s" : ""} ago`}. They&apos;ll fill in with each daily scan. Price history covers the full year from TaoStats.</span>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <ChartCard title="aGap Score" subtitle="AlphaGap composite · 90-day">
+          <ChartCard title="aGap Score" subtitle={`AlphaGap composite · ${agapSeries.length} day${agapSeries.length !== 1 ? "s" : ""}`}>
             <LineChart data={agapSeries} label="aGap" color="#4ade80" formatY={(v) => v.toFixed(0)} minY={0} maxY={100} />
           </ChartCard>
-          <ChartCard title="Flow Score" subtitle="Price momentum + whale activity">
+          <ChartCard title="Flow Score" subtitle={`Price momentum + whale activity · ${flowSeries.length} day${flowSeries.length !== 1 ? "s" : ""}`}>
             <LineChart data={flowSeries} label="Flow" color="#34d399" formatY={(v) => v.toFixed(0)} minY={0} maxY={100} />
           </ChartCard>
-          <ChartCard title="Dev Score" subtitle="GitHub + HuggingFace activity">
+          <ChartCard title="Dev Score" subtitle={`GitHub + HuggingFace activity · ${devSeries.length} day${devSeries.length !== 1 ? "s" : ""}`}>
             <LineChart data={devSeries} label="Dev" color="#60a5fa" formatY={(v) => v.toFixed(0)} minY={0} maxY={100} />
           </ChartCard>
-          <ChartCard title="eVal Score" subtitle="Emissions-to-valuation gap">
+          <ChartCard title="eVal Score" subtitle={`Emissions-to-valuation gap · ${evalSeries.length} day${evalSeries.length !== 1 ? "s" : ""}`}>
             <LineChart data={evalSeries} label="eVal" color="#a78bfa" formatY={(v) => v.toFixed(0)} minY={0} maxY={100} />
           </ChartCard>
-          <ChartCard title="Social Score" subtitle="X · Discord · community sentiment">
+          <ChartCard title="Social Score" subtitle={`X · Discord · sentiment · ${socialSeries.length} day${socialSeries.length !== 1 ? "s" : ""}`}>
             <LineChart data={socialSeries} label="Social" color="#22d3ee" formatY={(v) => v.toFixed(0)} minY={0} maxY={100} />
           </ChartCard>
-          <ChartCard title="Emission %" subtitle="Share of total Bittensor emissions · 7-day">
+          <ChartCard title="Emission %" subtitle={`Share of Bittensor emissions · ${emissionSeries.length > 0 ? emissionSeries.length + " readings" : "current"}`}>
             <LineChart
-              data={emissionSeries.length >= 2 ? emissionSeries : agapSeries.map((r) => ({ x: r.x, y: emissionPct * 100 }))}
+              data={emissionSeries.length >= 2 ? emissionSeries : [{ x: new Date().toISOString(), y: emissionPct * 100 }]}
               label="Emission"
               color="#f59e0b"
               formatY={(v) => `${v.toFixed(2)}%`}
