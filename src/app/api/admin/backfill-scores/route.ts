@@ -81,6 +81,7 @@ export async function POST(req: Request) {
   await put("subnet-scores-history.json", JSON.stringify(existing), {
     access: "private",
     token,
+    allowOverwrite: true,
   });
 
   return NextResponse.json({
