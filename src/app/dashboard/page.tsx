@@ -687,6 +687,33 @@ export default function Home() {
                   <div className="px-4 py-3">
                     <h3 className="font-medium text-sm mb-2">{sig.title}</h3>
 
+                    {/* Market cap + aGap score mini-stats */}
+                    {(() => {
+                      const lb = leaderboard.find(s => s.netuid === sig.netuid);
+                      const mcap = lb?.market_cap;
+                      const agap = lb?.composite_score;
+                      if (!lb) return null;
+                      const mcapStr = mcap
+                        ? mcap >= 1_000_000_000 ? `$${(mcap / 1_000_000_000).toFixed(2)}B`
+                          : mcap >= 1_000_000 ? `$${(mcap / 1_000_000).toFixed(1)}M`
+                          : `$${(mcap / 1000).toFixed(0)}K`
+                        : null;
+                      return (
+                        <div className="flex items-center gap-3 mb-3">
+                          {mcapStr && (
+                            <span className="text-xs text-gray-400 bg-gray-800 rounded px-2 py-0.5">
+                              Market Cap: <span className="text-white font-medium">{mcapStr}</span>
+                            </span>
+                          )}
+                          {agap != null && (
+                            <span className="text-xs text-gray-400 bg-gray-800 rounded px-2 py-0.5">
+                              aGap Score: <span className={`font-medium ${agap >= 80 ? "text-green-400" : agap >= 50 ? "text-yellow-400" : "text-gray-300"}`}>{agap}</span>
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })()}
+
                     {(sig.analysis || sig.description) ? (
                       <div className="bg-gray-800/40 border border-gray-700/50 rounded-lg p-4 mb-2 space-y-1">
                         {(sig.analysis || sig.description || "").split("\n").filter((l: string) => l.trim()).map((line: string, i: number) => {
