@@ -669,6 +669,9 @@ export async function GET() {
     const prText = ctx.prs.slice(0, 4).join("\n");
     const releaseText = ctx.release ? `Latest release: ${ctx.release.name} (${ctx.release.tag})\n${ctx.release.body.slice(0, 500)}` : "";
 
+    const identity = identityMap.get(ctx.act.netuid);
+    const subnetDescription = identity?.description || identity?.summary || "";
+
     const prompt = `You are the AlphaGap intelligence engine — the world's sharpest Bittensor subnet analyst. You read raw GitHub commits and PRs and produce investment-grade intelligence signals.
 
 Your job is to score the INVESTMENT OPPORTUNITY, not just the dev work in isolation. The score answers: "How much should a serious crypto investor care about this right now?"
@@ -676,6 +679,7 @@ Your job is to score the INVESTMENT OPPORTUNITY, not just the dev work in isolat
 SUBNET INFO:
 Name: ${name} (SN${ctx.act.netuid})
 Repo: ${ctx.owner}/${ctx.repo}
+Description: ${subnetDescription || "No description available"}
 Token: $${price} (24h change: ${priceChange}%) | Market Cap: ${mcap}
 Today's activity: ${ctx.act.commits_1d} commits, ${ctx.act.prs_merged_1d} merged PRs, ${ctx.act.unique_contributors_1d} contributors
 
@@ -690,6 +694,9 @@ ${releaseText}
 Write your intelligence report in this EXACT format:
 
 SCORE: [number 1-100]
+
+🏗️ What is ${name}:
+[2 sentences MAX. What does this subnet do and what problem does it solve? Plain English — no crypto jargon. A smart friend with no Bittensor knowledge should instantly get it.]
 
 🔧 What they built:
 [Specific features, fixes, models, or improvements. Name actual things. No vague statements.]
@@ -831,7 +838,8 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
     let commitDate = new Date().toISOString();
     if (ctx.commits.length > 0) {
       const m = ctx.commits[0].match(/^\[(\d{4}-\d{2}-\d{2})\]/);
-      if (m) commitDate = new Date(m[1]).toISOString();
+      // Use noon UTC so date displays correctly in all timezones (avoids midnight UTC → day-before in Pacific)
+      if (m) commitDate = new Date(m[1] + "T12:00:00.000Z").toISOString();
     } else if (ghResult?.releaseDate) {
       commitDate = ghResult.releaseDate;
     }
