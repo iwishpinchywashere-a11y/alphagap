@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { get as blobGet } from "@vercel/blob";
-import { getMetagraph, getSubnetIdentities, getSubnetPoolDetail } from "@/lib/taostats";
+import { getPoolHistory, getMetagraph, getSubnetIdentities, getSubnetPoolDetail } from "@/lib/taostats";
 import { getTaoPrice } from "@/lib/taostats";
 
 export const dynamic = "force-dynamic";
@@ -19,6 +19,16 @@ async function readBlob<T>(name: string, token: string): Promise<T | null> {
   } catch { return null; }
 }
 
+// Normalise a TaoStats timestamp to ISO string.
+// pool/history returns timestamps as unix-second integers (e.g. 1712345678).
+function toIso(ts: string | number): string {
+  const n = typeof ts === "number" ? ts : Number(ts);
+  if (!isNaN(n) && String(ts).match(/^\d+$/)) {
+    return new Date(n < 1e12 ? n * 1000 : n).toISOString();
+  }
+  return String(ts);
+}
+
 export async function GET(
   _req: Request,
   { params }: { params: Promise<{ netuid: string }> }
@@ -29,10 +39,14 @@ export async function GET(
 
   const token = process.env.BLOB_READ_WRITE_TOKEN || "";
 
-  // ── Load blobs + TaoStats in parallel ───────────────────────────
-  // NOTE: getPoolHistory is intentionally NOT called here — the page
-  // lazy-loads it via /api/subnets/[netuid]/prices when user picks 1M+
-  const [scanLatest, scoreHistoryAll, emissionHistory, signalsHistory, identities, taoPrice, poolDetail, metagraph] = await Promise.all([
+  // ── Fetch everything in parallel ─────────────────────────────────
+  // priceHistory92 = 92 days (~100 rows). Fast enough to always include.
+  // This guarantees 1M and 3M charts have data on first load with no lag.
+  // The /prices?period=365 endpoint handles 1Y lazy-load on the client.
+  const [
+    scanLatest, scoreHistoryAll, emissionHistory, signalsHistory,
+    identities, taoPrice, poolDetail, priceHistory92, metagraph,
+  ] = await Promise.all([
     readBlob<Record<string, unknown>>("scan-latest.json", token),
     readBlob<Record<string, Record<string, { agap: number; flow: number; dev: number; eval: number; social: number; price: number; mcap: number; emission_pct: number }>>>("subnet-scores-history.json", token),
     readBlob<Record<string, Array<{ pct: number; timestamp: string }>>>("emission-history.json", token),
@@ -40,6 +54,7 @@ export async function GET(
     getSubnetIdentities().catch(() => []),
     getTaoPrice().catch(() => 0),
     getSubnetPoolDetail(netuid).catch(() => null),
+    getPoolHistory(netuid, 92).catch(() => []),   // 92 days → ≤100 rows, fast
     getMetagraph(netuid).catch(() => []),
   ]);
 
@@ -50,15 +65,11 @@ export async function GET(
   // ── Subnet identity ─────────────────────────────────────────────
   const identity = identities.find((id) => id.netuid === netuid) || null;
 
-  // ── Score history ────────────────────────────────────────────────
-  // Keys are ISO timestamps (one per scan ~30min), sorted chronologically.
-  // Trim to last 90 days of snapshots; the page shows last 48h by default.
+  // ── Score history (per-scan ISO timestamps) ──────────────────────
   type ScoreRow = { agap: number; flow: number; dev: number; eval: number; social: number; price: number; mcap: number; emission_pct: number };
   const scoreHistory: Array<{ date: string } & ScoreRow> = [];
   if (scoreHistoryAll) {
-    const cutoff48h = new Date(Date.now() - 90 * 86400000).toISOString(); // keep up to 90 days
     for (const ts of Object.keys(scoreHistoryAll).sort()) {
-      if (ts < cutoff48h) continue;
       const row = scoreHistoryAll[ts][String(netuid)];
       if (row) scoreHistory.push({ date: ts, ...row });
     }
@@ -74,14 +85,10 @@ export async function GET(
     .sort((a, b) => new Date(b.signal_date || b.created_at).getTime() - new Date(a.signal_date || a.created_at).getTime())
     .slice(0, 20);
 
-  // ── Normalise a TaoStats timestamp to ISO string ─────────────────
-  function toIso(ts: string | number): string {
-    const n = typeof ts === "number" ? ts : Number(ts);
-    if (!isNaN(n) && String(ts).match(/^\d+$/)) {
-      return new Date(n < 1e12 ? n * 1000 : n).toISOString();
-    }
-    return String(ts);
-  }
+  // ── Price history (92d daily, chronological, always present) ─────
+  const priceHistory = priceHistory92
+    .map((p) => ({ timestamp: toIso(p.timestamp), price: parseFloat(p.price) }))
+    .sort((a, b) => a.timestamp.localeCompare(b.timestamp));
 
   // ── 7D intraday (4h candles from poolDetail.seven_day_prices) ───
   const sevenDayPrices = (poolDetail?.seven_day_prices || [])
@@ -92,7 +99,7 @@ export async function GET(
   const validators = metagraph.filter((n) => n.validator_permit).length;
   const miners = metagraph.filter((n) => !n.validator_permit).length;
 
-  // ── Market stats (computed from poolDetail + taoPrice) ──────────
+  // ── Market stats ─────────────────────────────────────────────────
   const pool = poolDetail;
   const marketStats = pool ? {
     priceUsd: parseFloat(pool.price) * taoPrice,
@@ -133,9 +140,8 @@ export async function GET(
     current,
     scoreHistory,
     emissionHistory: emissionData,
-    // priceHistory is NOT included here — fetched lazily by the client
-    // via GET /api/subnets/[netuid]/prices when user picks 1M/3M/1Y
-    sevenDayPrices,
+    priceHistory,      // 92 days, always present
+    sevenDayPrices,    // 7d 4h candles, always present
     marketStats,
     signals: subnetSignals,
     metagraph: { validators, miners, totalNeurons: metagraph.length },

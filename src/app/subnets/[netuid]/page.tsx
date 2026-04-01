@@ -24,8 +24,8 @@ interface SubnetData {
   current: Record<string, number | string | boolean | null> | null;
   scoreHistory: ScoreRow[];
   emissionHistory: EmissionPoint[];
-  // priceHistory is NOT in the initial response — lazy loaded via /prices
-  sevenDayPrices: PricePoint[];
+  priceHistory: PricePoint[];    // 92 days, always in initial response
+  sevenDayPrices: PricePoint[];  // 7d 4h candles
   marketStats: MarketStats | null;
   signals: Signal[];
   metagraph: { validators: number; miners: number; totalNeurons: number };
@@ -216,12 +216,12 @@ export default function SubnetDetailPage({ params }: { params: Promise<{ netuid:
   const [data, setData] = useState<SubnetData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [timeframe, setTimeframe] = useState<Timeframe>("7D");
+  const [timeframe, setTimeframe] = useState<Timeframe>("1M");
 
-  // Lazy-loaded price history (only fetched when user picks 1M/3M/1Y)
-  const [priceHistory, setPriceHistory] = useState<PricePoint[]>([]);
-  const [priceLoading, setPriceLoading] = useState(false);
-  const priceHistoryFetched = useRef(false);
+  // 1Y price history lazy-loads only when the user picks 1Y
+  const [yearHistory, setYearHistory] = useState<PricePoint[]>([]);
+  const [yearLoading, setYearLoading] = useState(false);
+  const yearFetched = useRef(false);
 
   useEffect(() => {
     fetch(`/api/subnets/${netuid}`)
@@ -229,48 +229,44 @@ export default function SubnetDetailPage({ params }: { params: Promise<{ netuid:
       .then(setData).catch((e) => setError(String(e))).finally(() => setLoading(false));
   }, [netuid]);
 
-  // Fetch extended price history when user picks a longer timeframe
+  // Lazy-load 365d history only when user explicitly picks 1Y
   useEffect(() => {
-    if (!["1M", "3M", "1Y"].includes(timeframe)) return;
-    if (priceHistoryFetched.current) return;
-    priceHistoryFetched.current = true;
-    setPriceLoading(true);
+    if (timeframe !== "1Y") return;
+    if (yearFetched.current) return;
+    yearFetched.current = true;
+    setYearLoading(true);
     fetch(`/api/subnets/${netuid}/prices`)
-      .then((r) => r.json())
-      .then((d) => setPriceHistory(d.priceHistory || []))
-      .catch(() => {/* silently fail */})
-      .finally(() => setPriceLoading(false));
+      .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+      .then((d: { priceHistory: PricePoint[] }) => setYearHistory(d.priceHistory || []))
+      .catch((e) => console.warn("1Y price history failed:", e))
+      .finally(() => setYearLoading(false));
   }, [timeframe, netuid]);
 
-  // Robustly parse a timestamp that may be ISO string or unix-second string
+  // Robustly parse timestamp (ISO string or unix-second string)
   const parseTs = (ts: string): number => {
-    if (/^\d+$/.test(ts)) {
-      const n = parseInt(ts, 10);
-      return n < 1e12 ? n * 1000 : n;
-    }
+    if (/^\d+$/.test(ts)) { const n = parseInt(ts, 10); return n < 1e12 ? n * 1000 : n; }
     return new Date(ts).getTime();
   };
 
-  // Select the right data series for the chosen timeframe
+  // Select the right data series for the chosen timeframe.
+  // 1M/3M use priceHistory (92d, always present in initial load) → no lag.
+  // 1Y uses yearHistory (lazy-loaded on demand).
   const chartData = useMemo(() => {
     if (!data) return [];
     const now = Date.now();
     if (timeframe === "1D") {
-      const cutoff = now - 86400000;
-      return data.sevenDayPrices.filter((p) => parseTs(p.timestamp) >= cutoff);
+      return data.sevenDayPrices.filter((p) => parseTs(p.timestamp) >= now - 86400000);
     }
     if (timeframe === "7D") return data.sevenDayPrices;
     if (timeframe === "1M") {
-      const cutoff = now - 30 * 86400000;
-      return priceHistory.filter((p) => parseTs(p.timestamp) >= cutoff);
+      return data.priceHistory.filter((p) => parseTs(p.timestamp) >= now - 30 * 86400000);
     }
     if (timeframe === "3M") {
-      const cutoff = now - 90 * 86400000;
-      return priceHistory.filter((p) => parseTs(p.timestamp) >= cutoff);
+      return data.priceHistory.filter((p) => parseTs(p.timestamp) >= now - 90 * 86400000);
     }
-    return priceHistory; // 1Y
+    return yearHistory; // 1Y
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data, timeframe, priceHistory]);
+  }, [data, timeframe, yearHistory]);
 
   // Chart color based on whether price is up in the selected window
   const chartColor = useMemo(() => {
@@ -449,9 +445,9 @@ export default function SubnetDetailPage({ params }: { params: Promise<{ netuid:
               </div>
 
               {/* Chart */}
-              {priceLoading && ["1M", "3M", "1Y"].includes(timeframe) && chartData.length < 2
+              {yearLoading && timeframe === "1Y" && chartData.length < 2
                 ? <div className="flex items-center justify-center h-48 text-gray-600 text-xs gap-2">
-                    <span className="animate-spin">⟳</span> Loading price history…
+                    <span className="animate-spin">⟳</span> Loading 1Y price history…
                   </div>
                 : <PriceChart data={chartData} color={chartColor} />
               }
