@@ -1,0 +1,165 @@
+"use client";
+
+import { useEffect, useState } from "react";
+
+interface ReportMeta {
+  date: string;
+  subnet_name?: string;
+  netuid?: number;
+  composite_score?: number;
+}
+
+interface ReportFull extends ReportMeta {
+  content: string;
+  generated_at: string;
+}
+
+export default function ReportsPage() {
+  const [reports, setReports] = useState<ReportMeta[]>([]);
+  const [currentReport, setCurrentReport] = useState<ReportFull | null>(null);
+  const [loadingReport, setLoadingReport] = useState(false);
+  const [reportSearch, setReportSearch] = useState("");
+
+  useEffect(() => {
+    fetch("/api/reports")
+      .then((r) => r.json())
+      .then((d) => {
+        const list = d.reports || [];
+        setReports(list);
+        if (list.length > 0) loadReport(list[0].date);
+      })
+      .catch(() => {});
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const loadReport = async (date: string) => {
+    setLoadingReport(true);
+    try {
+      const res = await fetch(`/api/reports?date=${date}`);
+      if (res.ok) setCurrentReport(await res.json());
+    } catch { /* ignore */ }
+    setLoadingReport(false);
+  };
+
+  const generateReport = async () => {
+    setLoadingReport(true);
+    try {
+      const res = await fetch("/api/generate-report", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setCurrentReport(data);
+        fetch("/api/reports").then((r) => r.json()).then((d) => setReports(d.reports || [])).catch(() => {});
+      }
+    } catch { /* ignore */ }
+    setLoadingReport(false);
+  };
+
+  const filtered = reports.filter((r) => {
+    if (!reportSearch.trim()) return true;
+    const q = reportSearch.toLowerCase();
+    const dateStr = new Date(r.date + "T12:00:00").toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }).toLowerCase();
+    return dateStr.includes(q) || (r.subnet_name?.toLowerCase() || "").includes(q) || r.date.includes(q);
+  });
+
+  return (
+    <main className="flex-1 overflow-auto p-4 md:p-6">
+      <div className="space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
+          <h2 className="text-lg font-bold">Daily Deep Dive Reports</h2>
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              placeholder="Search reports..."
+              value={reportSearch}
+              onChange={(e) => setReportSearch(e.target.value)}
+              className="bg-gray-800 border border-gray-700 text-sm rounded px-3 py-1 text-gray-300 placeholder-gray-600 w-full sm:w-44 focus:outline-none focus:border-gray-500"
+            />
+            <button
+              onClick={generateReport}
+              disabled={loadingReport}
+              className="text-xs text-gray-400 border border-gray-700 rounded px-3 py-1 hover:border-gray-500 hover:text-gray-300 transition-colors disabled:opacity-50 whitespace-nowrap"
+            >
+              {loadingReport ? "Generating..." : "Generate Now"}
+            </button>
+            <span className="text-xs text-gray-600 hidden sm:inline">Auto-generated daily at 7am PT</span>
+          </div>
+        </div>
+
+        {!loadingReport && reports.length === 0 && (
+          <div className="bg-gray-900/50 border border-gray-800 rounded-lg p-8 text-center">
+            <div className="text-4xl mb-3">📊</div>
+            <h3 className="text-lg font-bold mb-2">No Reports Yet</h3>
+            <p className="text-gray-500 text-sm mb-4">Reports are auto-generated daily at 7am PT on the top aGap subnet.</p>
+            <button onClick={generateReport} disabled={loadingReport} className="bg-green-500/20 border border-green-500/40 text-green-400 px-4 py-2 rounded text-sm hover:bg-green-500/30 transition-colors disabled:opacity-50">
+              Generate Today&apos;s Report
+            </button>
+          </div>
+        )}
+
+        <div className="space-y-3">
+          {filtered.map((r) => {
+            const isExpanded = currentReport?.date === r.date;
+            const dateLabel = new Date(r.date + "T12:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" });
+            return (
+              <div key={r.date} className="bg-gray-900/50 border border-gray-800 rounded-lg overflow-hidden">
+                <button
+                  className="w-full flex items-start sm:items-center justify-between px-4 sm:px-5 py-3 hover:bg-gray-800/40 transition-colors text-left gap-2"
+                  onClick={() => isExpanded ? setCurrentReport(null) : loadReport(r.date)}
+                >
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 min-w-0">
+                    <span className="text-xs text-green-400 font-medium uppercase tracking-wide shrink-0">Deep Dive</span>
+                    <span className="text-sm font-semibold text-white truncate">
+                      {r.subnet_name ? `${r.subnet_name} (SN${r.netuid})` : dateLabel}
+                    </span>
+                    {r.subnet_name && <span className="text-xs text-gray-500 shrink-0">{dateLabel}</span>}
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    {r.composite_score != null && (
+                      <span className="text-green-400 font-bold text-sm">{r.composite_score} aGap</span>
+                    )}
+                    {loadingReport && isExpanded
+                      ? <span className="text-xs text-gray-500 animate-pulse">Loading...</span>
+                      : <span className="text-gray-600 text-xs">{isExpanded ? "▲" : "▼"}</span>
+                    }
+                  </div>
+                </button>
+
+                {isExpanded && currentReport && (
+                  <div className="border-t border-gray-800">
+                    <div className="px-6 py-5 prose prose-invert prose-sm max-w-none prose-headings:text-green-400 prose-headings:font-bold prose-h1:text-xl prose-h2:text-lg prose-p:text-gray-300 prose-p:leading-relaxed prose-strong:text-white prose-li:text-gray-300 prose-hr:border-gray-800">
+                      {currentReport.content.split("\n").map((line, i) => {
+                        if (line.startsWith("# ")) return <h1 key={i} className="text-xl font-bold text-green-400 mt-6 mb-3 border-b border-gray-800 pb-2">{line.slice(2)}</h1>;
+                        if (line.startsWith("## ")) return <h2 key={i} className="text-lg font-bold text-green-400 mt-5 mb-2">{line.slice(3)}</h2>;
+                        if (line.startsWith("### ")) return <h3 key={i} className="text-md font-semibold text-green-300 mt-4 mb-2">{line.slice(4)}</h3>;
+                        if (line.startsWith("---")) return <hr key={i} className="border-gray-800 my-4" />;
+                        if (line.startsWith("- ") || line.startsWith("* ")) return <li key={i} className="text-gray-300 ml-4 list-disc">{line.slice(2)}</li>;
+                        if (line.startsWith("**") && line.endsWith("**")) return <p key={i} className="text-white font-semibold mt-2">{line.replace(/\*\*/g, "")}</p>;
+                        if (line.trim() === "") return <div key={i} className="h-2" />;
+                        const parts = line.split(/(\*\*[^*]+\*\*)/g);
+                        return (
+                          <p key={i} className="text-gray-300 leading-relaxed">
+                            {parts.map((part, j) =>
+                              part.startsWith("**") && part.endsWith("**")
+                                ? <strong key={j} className="text-white">{part.slice(2, -2)}</strong>
+                                : part
+                            )}
+                          </p>
+                        );
+                      })}
+                    </div>
+                    <div className="px-6 pb-4 text-xs text-gray-600">
+                      Generated {new Date(currentReport.generated_at).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </main>
+  );
+}
