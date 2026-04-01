@@ -69,15 +69,28 @@ export async function GET(
     .sort((a, b) => new Date(b.signal_date || b.created_at).getTime() - new Date(a.signal_date || a.created_at).getTime())
     .slice(0, 20);
 
+  // ── Normalise a TaoStats timestamp to ISO string ─────────────────
+  // TaoStats pool/history returns timestamps as unix-second integers
+  // (or strings thereof). Normalise everything to ISO so client-side
+  // Date parsing always works.
+  function toIso(ts: string | number): string {
+    const n = typeof ts === "number" ? ts : Number(ts);
+    if (!isNaN(n) && String(ts).match(/^\d+$/)) {
+      // unix seconds → ms → ISO
+      return new Date(n < 1e12 ? n * 1000 : n).toISOString();
+    }
+    return String(ts); // already ISO-like
+  }
+
   // ── Price history (1Y daily, chronological) ──────────────────────
   const priceData = [...priceHistory]
-    .sort((a, b) => a.timestamp.localeCompare(b.timestamp))
-    .map((p) => ({ timestamp: p.timestamp, price: parseFloat(p.price) }));
+    .map((p) => ({ timestamp: toIso(p.timestamp), price: parseFloat(p.price) }))
+    .sort((a, b) => a.timestamp.localeCompare(b.timestamp));
 
   // ── 7D intraday (4h candles from poolDetail.seven_day_prices) ───
   const sevenDayPrices = (poolDetail?.seven_day_prices || [])
-    .sort((a, b) => a.timestamp.localeCompare(b.timestamp))
-    .map((p) => ({ timestamp: p.timestamp, price: parseFloat(p.price) }));
+    .map((p) => ({ timestamp: toIso(p.timestamp), price: parseFloat(p.price) }))
+    .sort((a, b) => a.timestamp.localeCompare(b.timestamp));
 
   // ── Metagraph ────────────────────────────────────────────────────
   const validators = metagraph.filter((n) => n.validator_permit).length;

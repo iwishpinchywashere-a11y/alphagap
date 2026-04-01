@@ -94,8 +94,12 @@ function PriceChart({ data, color }: { data: PricePoint[]; color: string }) {
     ? data.map((_, i) => i)
     : [0, Math.floor(data.length * 0.25), Math.floor(data.length * 0.5), Math.floor(data.length * 0.75), data.length - 1];
 
+  const parseTsInner = (ts: string): Date => {
+    if (/^\d+$/.test(ts)) { const n = parseInt(ts, 10); return new Date(n < 1e12 ? n * 1000 : n); }
+    return new Date(ts);
+  };
   const fmtDate = (ts: string) => {
-    const d = new Date(ts);
+    const d = parseTsInner(ts);
     if (data.length <= 2) return d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
     if (data.length <= 14) return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
     return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
@@ -210,24 +214,34 @@ export default function SubnetDetailPage({ params }: { params: Promise<{ netuid:
       .then(setData).catch((e) => setError(String(e))).finally(() => setLoading(false));
   }, [netuid]);
 
+  // Robustly parse a timestamp that may be ISO string or unix-second string
+  const parseTs = (ts: string): number => {
+    if (/^\d+$/.test(ts)) {
+      const n = parseInt(ts, 10);
+      return n < 1e12 ? n * 1000 : n; // unix seconds → ms
+    }
+    return new Date(ts).getTime();
+  };
+
   // Select the right data series for the chosen timeframe
   const chartData = useMemo(() => {
     if (!data) return [];
     const now = Date.now();
     if (timeframe === "1D") {
       const cutoff = now - 86400000;
-      return data.sevenDayPrices.filter((p) => new Date(p.timestamp).getTime() >= cutoff);
+      return data.sevenDayPrices.filter((p) => parseTs(p.timestamp) >= cutoff);
     }
     if (timeframe === "7D") return data.sevenDayPrices;
     if (timeframe === "1M") {
       const cutoff = now - 30 * 86400000;
-      return data.priceHistory.filter((p) => new Date(p.timestamp).getTime() >= cutoff);
+      return data.priceHistory.filter((p) => parseTs(p.timestamp) >= cutoff);
     }
     if (timeframe === "3M") {
       const cutoff = now - 90 * 86400000;
-      return data.priceHistory.filter((p) => new Date(p.timestamp).getTime() >= cutoff);
+      return data.priceHistory.filter((p) => parseTs(p.timestamp) >= cutoff);
     }
     return data.priceHistory; // 1Y
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data, timeframe]);
 
   // Chart color based on whether price is up in the selected window
