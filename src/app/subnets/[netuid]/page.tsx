@@ -140,14 +140,14 @@ function ScoreChart({ data, color, label, formatY = (v: number) => v.toFixed(0) 
   if (data.length < 2) {
     const val = data[0]?.y;
     return (
-      <div className="flex flex-col items-center justify-center h-24 gap-1">
-        {val != null && <span className="text-2xl font-bold" style={{ color }}>{formatY(val)}</span>}
+      <div className="flex flex-col items-center justify-center h-32 gap-1">
+        {val != null && <span className="text-3xl font-bold" style={{ color }}>{formatY(val)}</span>}
         <span className="text-gray-600 text-xs">Accumulating — grows with each scan</span>
       </div>
     );
   }
-  const W = 500; const H = 96;
-  const PAD = { top: 8, right: 8, bottom: 18, left: 38 };
+  const W = 600; const H = 140;
+  const PAD = { top: 10, right: 10, bottom: 20, left: 42 };
   const cW = W - PAD.left - PAD.right;
   const cH = H - PAD.top - PAD.bottom;
   const values = data.map((d) => d.y);
@@ -158,31 +158,34 @@ function ScoreChart({ data, color, label, formatY = (v: number) => v.toFixed(0) 
   const yS = (v: number) => PAD.top + cH - ((v - yMin) / (yMax - yMin)) * cH;
   const pts = data.map((d, i) => `${xS(i).toFixed(1)},${yS(d.y).toFixed(1)}`).join(" ");
   const area = `${xS(0).toFixed(1)},${PAD.top + cH} ${pts} ${xS(data.length - 1).toFixed(1)},${PAD.top + cH}`;
-  const gradId = `sg-${label}`;
-  const yTicks = [minV + range * 0.1, minV + range * 0.9];
-  const xLabels = [0, data.length - 1].map((i) => ({
-    x: xS(i), label: new Date(data[i].x + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" }),
-  }));
+  const gradId = `sg-${label.replace(/\s+/g, "")}`;
+  const yTicks = [0.15, 0.5, 0.85].map((t) => yMin + (yMax - yMin) * t);
+  const xLabels = data.length <= 2
+    ? [0, data.length - 1]
+    : [0, Math.floor((data.length - 1) / 2), data.length - 1];
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: "96px" }}>
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: "140px" }}>
       <defs>
         <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={color} stopOpacity="0.2" />
-          <stop offset="100%" stopColor={color} stopOpacity="0" />
+          <stop offset="0%" stopColor={color} stopOpacity="0.25" />
+          <stop offset="100%" stopColor={color} stopOpacity="0.02" />
         </linearGradient>
       </defs>
       {yTicks.map((v, i) => (
         <g key={i}>
           <line x1={PAD.left} y1={yS(v).toFixed(1)} x2={PAD.left + cW} y2={yS(v).toFixed(1)} stroke="#1f2937" strokeWidth="1" />
-          <text x={PAD.left - 4} y={(yS(v) + 3).toFixed(1)} fill="#4b5563" fontSize="9" textAnchor="end">{formatY(v)}</text>
+          <text x={PAD.left - 5} y={(yS(v) + 3).toFixed(1)} fill="#4b5563" fontSize="10" textAnchor="end">{formatY(v)}</text>
         </g>
       ))}
       <polygon points={area} fill={`url(#${gradId})`} />
-      <polyline points={pts} fill="none" stroke={color} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
-      {xLabels.map((l, i) => (
-        <text key={i} x={l.x.toFixed(1)} y={H - 2} fill="#4b5563" fontSize="9" textAnchor={i === 0 ? "start" : "end"}>{l.label}</text>
+      <polyline points={pts} fill="none" stroke={color} strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
+      {xLabels.map((idx, i) => (
+        <text key={i} x={xS(idx).toFixed(1)} y={H - 3} fill="#4b5563" fontSize="10"
+          textAnchor={i === 0 ? "start" : i === xLabels.length - 1 ? "end" : "middle"}>
+          {new Date(data[idx].x + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+        </text>
       ))}
-      <circle cx={xS(data.length - 1).toFixed(1)} cy={yS(values[values.length - 1]).toFixed(1)} r="3" fill={color} />
+      <circle cx={xS(data.length - 1).toFixed(1)} cy={yS(values[values.length - 1]).toFixed(1)} r="3.5" fill={color} />
     </svg>
   );
 }
@@ -190,11 +193,11 @@ function ScoreChart({ data, color, label, formatY = (v: number) => v.toFixed(0) 
 // ── Stat row item ─────────────────────────────────────────────────
 function StatItem({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
-    <div className="flex items-center justify-between py-2.5 border-b border-gray-800/60 last:border-0">
-      <span className="text-sm text-gray-500">{label}</span>
+    <div className="flex items-center justify-between py-1.5 border-b border-gray-800/50 last:border-0">
+      <span className="text-xs text-gray-500">{label}</span>
       <div className="text-right">
-        <span className="text-sm text-white font-medium">{value}</span>
-        {sub && <div className="text-xs text-gray-600">{sub}</div>}
+        <span className="text-xs text-white font-medium">{value}</span>
+        {sub && <div className="text-[10px] text-gray-600">{sub}</div>}
       </div>
     </div>
   );
@@ -315,11 +318,11 @@ export default function SubnetDetailPage({ params }: { params: Promise<{ netuid:
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 md:px-6 py-6">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="max-w-screen-2xl mx-auto px-4 md:px-6 py-6">
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_220px] xl:grid-cols-[1fr_240px] gap-6">
 
           {/* ── LEFT: Price chart + scores ───────────────────────── */}
-          <div className="lg:col-span-2 space-y-5">
+          <div className="space-y-5">
 
             {/* Header */}
             <div>
@@ -449,7 +452,7 @@ export default function SubnetDetailPage({ params }: { params: Promise<{ netuid:
                   </span>
                 )}
               </div>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 gap-3">
                 {[
                   { label: "aGap", data: agapSeries, color: "#4ade80", current: agap },
                   { label: "Flow", data: flowSeries, color: "#34d399", current: flow },
@@ -507,38 +510,43 @@ export default function SubnetDetailPage({ params }: { params: Promise<{ netuid:
             )}
           </div>
 
-          {/* ── RIGHT: Market stats sidebar ─────────────────────── */}
-          <div className="space-y-4">
+          {/* ── RIGHT: Compact sidebar ───────────────────────────── */}
+          <div className="space-y-3">
+
+            {/* aGap score badge */}
+            <div className="bg-gray-900/60 border border-green-900/30 rounded-xl p-3">
+              <div className="text-[10px] font-semibold text-green-400/70 uppercase tracking-wider mb-1.5">AlphaGap Score</div>
+              <div className="flex items-baseline gap-2">
+                <span className={`text-3xl font-bold tabular-nums ${scoreColor(agap)}`}>{agap}</span>
+                <span className="text-xs text-gray-600">/ 100</span>
+              </div>
+            </div>
 
             {/* Market data */}
-            <div className="bg-gray-900/60 border border-gray-800 rounded-xl p-4">
-              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Market Data</h3>
-              <div>
-                <StatItem label="Market Cap" value={ms ? fmtUsd(ms.marketCapUsd) : "—"} />
-                <StatItem label="Fully Diluted Val." value={ms ? fmtUsd(ms.fdvUsd) : "—"} />
-                <StatItem label="24h Volume" value={ms ? fmtUsd(ms.volume24hUsd) : "—"}
-                  sub={ms ? `${fmtNum(ms.buys24h)} buys / ${fmtNum(ms.sells24h)} sells` : undefined} />
-                <StatItem label="Circulating Supply" value={ms ? fmtNum(ms.circulatingSupply) : "—"} />
-                <StatItem label="In Pool" value={ms ? fmtNum(ms.alphaInPool) : "—"} />
-                <StatItem label="Staked" value={ms ? fmtNum(ms.alphaStaked) : "—"} />
-                <StatItem label="Buyers / Sellers" value={ms ? `${ms.buyers24h} / ${ms.sellers24h}` : "—"} sub="24h" />
-              </div>
+            <div className="bg-gray-900/60 border border-gray-800 rounded-xl p-3">
+              <div className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-2">Market Data</div>
+              <StatItem label="Market Cap" value={ms ? fmtUsd(ms.marketCapUsd) : "—"} />
+              <StatItem label="FDV" value={ms ? fmtUsd(ms.fdvUsd) : "—"} />
+              <StatItem label="24h Volume" value={ms ? fmtUsd(ms.volume24hUsd) : "—"} />
+              <StatItem label="Buys / Sells" value={ms ? `${ms.buys24h} / ${ms.sells24h}` : "—"} sub="24h" />
+              <StatItem label="Circ. Supply" value={ms ? fmtNum(ms.circulatingSupply) : "—"} />
+              <StatItem label="In Pool" value={ms ? fmtNum(ms.alphaInPool) : "—"} />
+              <StatItem label="Staked" value={ms ? fmtNum(ms.alphaStaked) : "—"} />
             </div>
 
             {/* Fear & Greed */}
             {ms && ms.fearGreedIndex > 0 && (
-              <div className="bg-gray-900/60 border border-gray-800 rounded-xl p-4">
-                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Fear & Greed Index</h3>
-                <div className="flex items-center gap-3">
-                  <div className="text-3xl font-bold text-white">{Math.round(ms.fearGreedIndex)}</div>
-                  <div>
-                    <div className={`text-sm font-semibold ${ms.fearGreedIndex >= 75 ? "text-green-400" : ms.fearGreedIndex >= 50 ? "text-yellow-400" : ms.fearGreedIndex >= 25 ? "text-orange-400" : "text-red-400"}`}>
-                      {ms.fearGreedSentiment}
-                    </div>
-                    <div className="text-xs text-gray-600">TaoStats index</div>
-                  </div>
+              <div className="bg-gray-900/60 border border-gray-800 rounded-xl p-3">
+                <div className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-2">Fear &amp; Greed</div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className={`text-lg font-bold ${ms.fearGreedIndex >= 75 ? "text-green-400" : ms.fearGreedIndex >= 50 ? "text-yellow-400" : ms.fearGreedIndex >= 25 ? "text-orange-400" : "text-red-400"}`}>
+                    {Math.round(ms.fearGreedIndex)}
+                  </span>
+                  <span className={`text-xs font-medium ${ms.fearGreedIndex >= 75 ? "text-green-400" : ms.fearGreedIndex >= 50 ? "text-yellow-400" : ms.fearGreedIndex >= 25 ? "text-orange-400" : "text-red-400"}`}>
+                    {ms.fearGreedSentiment}
+                  </span>
                 </div>
-                <div className="mt-2 h-1.5 bg-gray-800 rounded-full overflow-hidden">
+                <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
                   <div className="h-full rounded-full bg-gradient-to-r from-red-500 via-yellow-500 to-green-400"
                     style={{ width: `${ms.fearGreedIndex}%` }} />
                 </div>
@@ -546,43 +554,17 @@ export default function SubnetDetailPage({ params }: { params: Promise<{ netuid:
             )}
 
             {/* Network */}
-            <div className="bg-gray-900/60 border border-gray-800 rounded-xl p-4">
-              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Network</h3>
-              <div>
-                <StatItem label="Validators" value={String(data.metagraph.validators)} />
-                <StatItem label="Miners" value={String(data.metagraph.miners)} />
-                <StatItem label="Total Neurons" value={String(data.metagraph.totalNeurons)} />
-                <StatItem label="Emission Share" value={emissionPct > 0 ? `${(emissionPct * 100).toFixed(2)}%` : "—"} />
-              </div>
-            </div>
-
-            {/* AlphaGap score summary */}
-            <div className="bg-gray-900/60 border border-green-900/30 rounded-xl p-4">
-              <h3 className="text-xs font-semibold text-green-400/70 uppercase tracking-wider mb-3">AlphaGap Score</h3>
-              <div className="flex items-center gap-3 mb-3">
-                <div className={`text-4xl font-bold tabular-nums ${scoreColor(agap)}`}>{agap}</div>
-                <div className="text-xs text-gray-500">/ 100<br />composite</div>
-              </div>
-              <div>
-                {[
-                  { label: "Flow", val: flow }, { label: "Dev", val: dev },
-                  { label: "eVal", val: evalScore }, { label: "Social", val: social },
-                ].map(({ label, val }) => (
-                  <div key={label} className="flex items-center gap-2 py-1.5 border-b border-gray-800/60 last:border-0">
-                    <span className="text-xs text-gray-500 w-12">{label}</span>
-                    <div className="flex-1 h-1.5 bg-gray-800 rounded-full overflow-hidden">
-                      <div className={`h-full rounded-full ${val >= 70 ? "bg-green-400" : val >= 40 ? "bg-yellow-400" : "bg-red-400"}`}
-                        style={{ width: `${val}%` }} />
-                    </div>
-                    <span className={`text-xs font-bold w-8 text-right ${scoreColor(val)}`}>{val}</span>
-                  </div>
-                ))}
-              </div>
+            <div className="bg-gray-900/60 border border-gray-800 rounded-xl p-3">
+              <div className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-2">Network</div>
+              <StatItem label="Validators" value={String(data.metagraph.validators)} />
+              <StatItem label="Miners" value={String(data.metagraph.miners)} />
+              <StatItem label="Neurons" value={String(data.metagraph.totalNeurons)} />
+              <StatItem label="Emission" value={emissionPct > 0 ? `${(emissionPct * 100).toFixed(2)}%` : "—"} />
             </div>
 
             {data.lastScan && (
-              <p className="text-xs text-gray-700 text-center">
-                Last scan: {new Date(data.lastScan).toLocaleString()}
+              <p className="text-[10px] text-gray-700 text-center">
+                Scan: {new Date(data.lastScan).toLocaleString()}
               </p>
             )}
           </div>
