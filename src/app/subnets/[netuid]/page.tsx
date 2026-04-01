@@ -2,6 +2,7 @@
 
 import { use, useEffect, useRef, useState, useMemo } from "react";
 import Link from "next/link";
+import SocialLinks from "@/components/dashboard/SocialLinks";
 
 // ── Types ─────────────────────────────────────────────────────────
 interface ScoreRow { date: string; agap: number; flow: number; dev: number; eval: number; social: number; price: number; mcap: number; emission_pct: number }
@@ -688,6 +689,12 @@ export default function SubnetDetailPage({ params }: { params: Promise<{ netuid:
           </div>
         </div>
       </div>
+
+      {/* Footer */}
+      <footer className="border-t border-gray-800 px-6 py-3 flex flex-wrap items-center justify-between gap-3 text-xs text-gray-600">
+        <span>AlphaGap v0.3 — Bittensor Subnet Intelligence</span>
+        <SocialLinks />
+      </footer>
     </div>
   );
 }
