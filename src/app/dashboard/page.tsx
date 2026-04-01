@@ -864,7 +864,7 @@ export default function Home() {
                         key={sub.netuid}
                         className={`border-b cursor-pointer transition-colors ${
                           sub.composite_score >= 80
-                            ? "border-green-500/20 bg-green-950/20 hover:bg-green-900/25"
+                            ? "border-green-500/30 bg-green-900/30 hover:bg-green-900/45"
                             : "border-gray-800/50 hover:bg-gray-900/50"
                         }`}
                         onClick={() => getSubnetDetail(sub.netuid)}
