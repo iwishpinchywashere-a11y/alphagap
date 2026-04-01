@@ -94,6 +94,23 @@ interface DesearchTweet {
   lang: string;
 }
 
+async function fetchKolTimeline(handle: string, count: number = 15): Promise<DesearchTweet[]> {
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
+    const params = new URLSearchParams({ username: handle, count: count.toString() });
+    const res = await fetch(`${DESEARCH_API}/twitter/user/posts?${params}`, {
+      headers: { Authorization: DESEARCH_KEY },
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+    if (!res.ok) return [];
+    return await res.json();
+  } catch {
+    return [];
+  }
+}
+
 async function fetchTweets(
   query: string,
   count: number = 100,
@@ -385,6 +402,13 @@ export async function GET() {
       }
     }
 
+    // Pre-build normalized name map: strips hyphens/spaces so "404-GEN" matches "404gen" in tweets
+    const normalizedNameToNetuid = new Map<string, number>();
+    for (const [name, netuid] of nameToNetuid) {
+      const norm = name.replace(/[-_\s]/g, "");
+      if (norm.length >= 4) normalizedNameToNetuid.set(norm, netuid);
+    }
+
     function matchTweetToSubnet(tweet: DesearchTweet): number | null {
       const text = tweet.text.toLowerCase();
       const author = tweet.user.username.toLowerCase();
@@ -392,8 +416,14 @@ export async function GET() {
       for (const [handle, netuid] of handleToNetuid) {
         if (text.includes(`@${handle}`)) return netuid;
       }
+      // Exact name match
       for (const [name, netuid] of nameToNetuid) {
         if (text.includes(name)) return netuid;
+      }
+      // Normalized name match — catches "404gen" matching "404-gen", "basedtao" matching "based-tao" etc.
+      const normalizedText = text.replace(/[-_\s]/g, "");
+      for (const [normName, netuid] of normalizedNameToNetuid) {
+        if (normalizedText.includes(normName)) return netuid;
       }
       const snMatch = text.match(/\bsn(\d{1,3})\b/);
       if (snMatch) {
@@ -450,6 +480,39 @@ export async function GET() {
       existing.engagement += weightedEngagement;
       socialMap.set(netuid, existing);
     }
+    // PASS 1b: KOL timeline fetches — catches tweets that don't mention "bittensor"
+    // e.g. const_reborn posts "404gen is making moves" — broad searches miss it entirely
+    // Fetch last 15 tweets from every Tier 1 + Tier 2 KOL in parallel
+    const { KOL_DATABASE } = await import("@/lib/kol-database");
+    const tier12Kols = KOL_DATABASE.filter(k => k.tier <= 2);
+    const kolTimelineResults = await Promise.allSettled(
+      tier12Kols.map(kol => fetchKolTimeline(kol.handle, 15))
+    );
+    let kolTweetCount = 0;
+    for (const r of kolTimelineResults) {
+      if (r.status === "fulfilled") {
+        for (const t of r.value) {
+          if (!allTweets.has(t.id)) { allTweets.set(t.id, t); kolTweetCount++; }
+        }
+      }
+    }
+    console.log(`[scan] KOL timelines: +${kolTweetCount} new tweets from ${tier12Kols.length} KOLs. Total: ${allTweets.size}`);
+
+    // Rebuild socialMap cleanly from full allTweets set (broad searches + KOL timelines, deduped)
+    socialMap.clear();
+    for (const tweet of allTweets.values()) {
+      const netuid = matchTweetToSubnet(tweet);
+      if (!netuid) continue;
+      const rawEngagement = tweet.like_count + tweet.retweet_count + tweet.reply_count + (tweet.quote_count || 0);
+      const kolWeight = getKOLWeight(tweet.user?.username || "");
+      const kolMultiplier = kolWeight > 0 ? 1 + (kolWeight / 50) : 1;
+      const weightedEngagement = Math.round(rawEngagement * kolMultiplier);
+      const existing = socialMap.get(netuid) || { mentions: 0, engagement: 0 };
+      existing.mentions++;
+      existing.engagement += weightedEngagement;
+      socialMap.set(netuid, existing);
+    }
+
     console.log(`[scan] Desearch broad search done. ${allTweets.size} tweets matched to ${socialMap.size} subnets.`);
 
     // PASS 2: Search for tweets FROM official subnet X handles
