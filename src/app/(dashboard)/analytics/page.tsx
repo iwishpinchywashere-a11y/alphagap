@@ -359,6 +359,11 @@ export default function AnalyticsPage() {
     .filter(s => (s.emission_pct ?? 0) > 0 && (s.market_cap ?? 0) > 0)
     .map(s => ({ netuid: s.netuid, name: s.name, x: (s.emission_pct ?? 0) * 100, y: s.market_cap!, agap: s.composite_score }));
 
+  // 4. Social Score vs Market Cap (bottom-right = high social buzz, low cap)
+  const socialVsMcap: ScatterPoint[] = leaderboard
+    .filter(s => s.social_score > 0 && (s.market_cap ?? 0) > 0)
+    .map(s => ({ netuid: s.netuid, name: s.name, x: s.social_score, y: s.market_cap!, agap: s.composite_score }));
+
   return (
     <main className="flex-1 overflow-auto p-4 md:p-6">
       <div className="max-w-screen-xl mx-auto space-y-6">
@@ -372,7 +377,7 @@ export default function AnalyticsPage() {
           </p>
         </div>
 
-        {/* Chart 1 (main): aGap Score vs Market Cap */}
+        {/* Chart 1: aGap Score vs Market Cap — SIGNATURE */}
         <div>
           <div className="flex items-center gap-2 mb-3">
             <span className="text-xs font-semibold bg-green-500/20 text-green-400 border border-green-500/30 rounded px-2 py-0.5">Signature Chart</span>
@@ -393,40 +398,52 @@ export default function AnalyticsPage() {
           />
         </div>
 
-        {/* Charts 2 + 3 in a 2-col grid */}
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        {/* Chart 2: Dev Activity vs Market Cap */}
+        <ScatterPlot
+          points={devVsMcap}
+          title="Dev Activity vs Market Cap"
+          subtitle="Subnets in the bottom-right are shipping hard but the market hasn't noticed yet."
+          xLabel="Dev Score"
+          yLabel="Market Cap"
+          formatX={v => v.toFixed(0)}
+          formatY={fmtMcap}
+          xMax100
+          yLog
+          alphaX="right" alphaY="bottom"
+          alphaLabel="High Dev, Low Cap 🔥"
+          overLabel="Overhyped ⚠️"
+        />
 
-          {/* Chart 2: Dev Score vs Market Cap */}
-          <ScatterPlot
-            points={devVsMcap}
-            title="Dev Activity vs Market Cap"
-            subtitle="Subnets in the bottom-right are shipping hard but the market hasn't noticed yet."
-            xLabel="Dev Score"
-            yLabel="Market Cap"
-            formatX={v => v.toFixed(0)}
-            formatY={fmtMcap}
-            xMax100
-            yLog
-            alphaX="right" alphaY="bottom"
-            alphaLabel="High Dev, Low Cap 🔥"
-            overLabel="Overhyped ⚠️"
-          />
+        {/* Chart 3: Emission Share vs Market Cap */}
+        <ScatterPlot
+          points={emVsMcap}
+          title="Emission Share vs Market Cap"
+          subtitle="High network emissions, low market cap — the market hasn't priced in what the network is paying out."
+          xLabel="Emission %"
+          yLabel="Market Cap"
+          formatX={v => `${v.toFixed(2)}%`}
+          formatY={fmtMcap}
+          yLog
+          alphaX="right" alphaY="bottom"
+          alphaLabel="Undervalued 🔥"
+          overLabel="Overvalued ⚠️"
+        />
 
-          {/* Chart 3: Emission % vs Market Cap */}
-          <ScatterPlot
-            points={emVsMcap}
-            title="Emission Share vs Market Cap"
-            subtitle="High network emissions, low market cap — the market hasn't priced in what the network is paying out."
-            xLabel="Emission %"
-            yLabel="Market Cap"
-            formatX={v => `${v.toFixed(2)}%`}
-            formatY={fmtMcap}
-            yLog
-            alphaX="right" alphaY="bottom"
-            alphaLabel="Undervalued 🔥"
-            overLabel="Overvalued ⚠️"
-          />
-        </div>
+        {/* Chart 4: Social Score vs Market Cap */}
+        <ScatterPlot
+          points={socialVsMcap}
+          title="Social Velocity vs Market Cap"
+          subtitle="High social buzz, low market cap — community and KOL attention that hasn't been priced in yet."
+          xLabel="Social Score"
+          yLabel="Market Cap"
+          formatX={v => v.toFixed(0)}
+          formatY={fmtMcap}
+          xMax100
+          yLog
+          alphaX="right" alphaY="bottom"
+          alphaLabel="Hidden Gem 🔥"
+          overLabel="Overhyped ⚠️"
+        />
 
       </div>
     </main>
