@@ -111,6 +111,48 @@ export async function GET() {
   }
 }
 
+// PATCH /api/portfolio — update or remove a position by netuid
+// Body: { netuid: number, remove?: boolean, buyAGapScore?: number, buyPriceUsd?: number }
+export async function PATCH(req: Request) {
+  if (!process.env.BLOB_READ_WRITE_TOKEN) {
+    return NextResponse.json({ error: "No blob storage" }, { status: 500 });
+  }
+  try {
+    const { put } = await import("@vercel/blob");
+    const body = await req.json() as {
+      netuid: number;
+      remove?: boolean;
+      buyAGapScore?: number;
+      buyPriceUsd?: number;
+      buyDate?: string;
+    };
+    const portfolio = await loadPortfolio();
+    const idx = portfolio.positions.findIndex(p => p.netuid === body.netuid);
+    if (idx === -1) {
+      return NextResponse.json({ error: `No position with netuid ${body.netuid}` }, { status: 404 });
+    }
+    if (body.remove) {
+      const removed = portfolio.positions.splice(idx, 1)[0];
+      await put("portfolio.json", JSON.stringify(portfolio), {
+        access: "private", addRandomSuffix: false, allowOverwrite: true, contentType: "application/json",
+      });
+      return NextResponse.json({ ok: true, action: "removed", position: removed });
+    }
+    if (body.buyAGapScore !== undefined) portfolio.positions[idx].buyAGapScore = body.buyAGapScore;
+    if (body.buyPriceUsd !== undefined) {
+      portfolio.positions[idx].buyPriceUsd = body.buyPriceUsd;
+      portfolio.positions[idx].alphaTokens = portfolio.positions[idx].amountUsd / body.buyPriceUsd;
+    }
+    if (body.buyDate !== undefined) portfolio.positions[idx].buyDate = body.buyDate;
+    await put("portfolio.json", JSON.stringify(portfolio), {
+      access: "private", addRandomSuffix: false, allowOverwrite: true, contentType: "application/json",
+    });
+    return NextResponse.json({ ok: true, action: "updated", position: portfolio.positions[idx] });
+  } catch (e) {
+    return NextResponse.json({ error: String(e) }, { status: 500 });
+  }
+}
+
 export async function loadPortfolio(): Promise<Portfolio> {
   try {
     const blob = await blobGet("portfolio.json", {

@@ -63,7 +63,7 @@ export async function GET() {
           netuid: 17,
           name: entry.name || "Vidaio",
           buyDate: today,
-          buyAGapScore: entry.composite_score,
+          buyAGapScore: 80, // score at time of buy signal
           buyPriceUsd: entry.alpha_price,
           amountUsd: BUY_AMOUNT,
           alphaTokens,
