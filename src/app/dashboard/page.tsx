@@ -557,14 +557,21 @@ export default function Home() {
       <main className="flex-1 flex overflow-x-hidden">
         {/* Left panel */}
         <div className="flex-1 overflow-auto p-4 md:p-6 max-w-full">
-          {/* Loading state */}
+          {/* Refreshing banner — shows over existing data when a background scan is running */}
+          {scanning && (leaderboard.length > 0 || signals.length > 0) && (
+            <div className="flex items-center gap-2 text-xs text-gray-400 bg-gray-900/60 border border-gray-700/40 rounded-lg px-3 py-2 mb-4">
+              <span className="animate-spin text-green-400">&#x21BB;</span>
+              <span>Refreshing data in background&hellip;</span>
+            </div>
+          )}
+
+          {/* First-load spinner — only when no data at all yet */}
           {scanning && signals.length === 0 && leaderboard.length === 0 && (
             <div className="flex flex-col items-center justify-center h-96 text-center">
               <div className="text-4xl mb-4 animate-spin">&#x21BB;</div>
-              <h2 className="text-xl font-bold mb-2">Scanning All Sources</h2>
+              <h2 className="text-xl font-bold mb-2">Loading Data&hellip;</h2>
               <p className="text-gray-500 max-w-md mb-4">
-                Pulling data from TaoStats, GitHub, HuggingFace, and Desearch.
-                This takes 30-50 seconds on the first load.
+                Pulling prices, dev activity, and signals from all sources.
               </p>
               <div className="w-64 h-2 bg-gray-800 rounded-full overflow-hidden">
                 <div className="h-full bg-green-400 rounded-full animate-pulse" style={{ width: "60%" }} />
@@ -572,7 +579,7 @@ export default function Home() {
             </div>
           )}
 
-          {/* Empty state (not scanning) */}
+          {/* Empty state — only after a completed scan with no results */}
           {!scanning && signals.length === 0 && leaderboard.length === 0 && (
             <div className="flex flex-col items-center justify-center h-96 text-center">
               <div className="text-6xl mb-4">&#x1F50D;</div>

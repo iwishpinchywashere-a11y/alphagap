@@ -3,40 +3,68 @@ import { get } from "@vercel/blob";
 
 export const dynamic = "force-dynamic";
 
+async function readBlob(name: string, token: string) {
+  const result = await get(name, { token, access: "private" });
+  if (!result?.stream) return null;
+  const reader = result.stream.getReader();
+  const chunks: Uint8Array[] = [];
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    chunks.push(value);
+  }
+  return JSON.parse(Buffer.concat(chunks).toString("utf-8"));
+}
+
 export async function GET() {
+  const token = process.env.BLOB_READ_WRITE_TOKEN;
+  if (!token) {
+    return NextResponse.json({ cached: false, error: "no token" }, { status: 404 });
+  }
+
   try {
-    if (!process.env.BLOB_READ_WRITE_TOKEN) {
-      return NextResponse.json({ cached: false, error: "no token" }, { status: 404 });
+    // Try the full scan first
+    const full = await readBlob("scan-latest.json", token).catch(() => null);
+
+    if (full) {
+      // Check freshness — prefer full scan if < 4h old
+      const age = full.lastScan ? Date.now() - new Date(full.lastScan).getTime() : Infinity;
+      if (age < 4 * 60 * 60 * 1000) {
+        return NextResponse.json({ ...full, cached: true });
+      }
+
+      // Full scan is stale — try price snapshot as a supplement
+      const prices = await readBlob("scan-prices.json", token).catch(() => null);
+      if (prices && prices.lastScan) {
+        const priceAge = Date.now() - new Date(prices.lastScan).getTime();
+        if (priceAge < age) {
+          // Merge: use fresh prices/leaderboard from price snapshot, signals from full scan
+          return NextResponse.json({
+            ...full,
+            leaderboard: prices.leaderboard ?? full.leaderboard,
+            cached: true,
+            priceRefreshedAt: prices.lastScan,
+          });
+        }
+      }
+
+      // Fall back to stale full scan — still better than nothing
+      return NextResponse.json({ ...full, cached: true, stale: true });
     }
 
-    // Use @vercel/blob get() to read private blob
-    const result = await get("scan-latest.json", {
-      token: process.env.BLOB_READ_WRITE_TOKEN,
-      access: "private",
-    });
-
-    if (!result || !result.stream) {
-      return NextResponse.json({ cached: false }, { status: 404 });
+    // No full scan yet — try price-only snapshot
+    const prices = await readBlob("scan-prices.json", token).catch(() => null);
+    if (prices) {
+      return NextResponse.json({ ...prices, cached: true, partial: true });
     }
 
-    // Read the stream as text
-    const reader = result.stream.getReader();
-    const chunks: Uint8Array[] = [];
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      chunks.push(value);
-    }
-    const text = Buffer.concat(chunks).toString("utf-8");
-    const data = JSON.parse(text);
-
-    return NextResponse.json({ ...data, cached: true });
+    return NextResponse.json({ cached: false }, { status: 404 });
   } catch (e) {
     const msg = String(e);
     if (msg.includes("BlobNotFound") || msg.includes("not_found")) {
       return NextResponse.json({ cached: false }, { status: 404 });
     }
     console.error("[cached-scan] Error:", e);
-    return NextResponse.json({ cached: false, error: msg }, { status: 404 });
+    return NextResponse.json({ cached: false, error: msg }, { status: 500 });
   }
 }

@@ -1733,6 +1733,23 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
 
   leaderboard.sort((a, b) => b.composite_score - a.composite_score);
 
+  // ── Early snapshot save ─────────────────────────────────────────
+  // Save prices + leaderboard NOW before slow AI analysis, so the
+  // dashboard always has fresh data even if the AI step times out.
+  if (process.env.BLOB_READ_WRITE_TOKEN) {
+    try {
+      await put("scan-prices.json", JSON.stringify({
+        leaderboard,
+        signals: [], // populated in final save
+        lastScan: new Date().toISOString(),
+        counts: { subnets: leaderboard.length, signals: 0 },
+        scanDuration: `${Math.round((Date.now() - startTime) / 1000)}s (prices only)`,
+        partial: true,
+      }), { access: "private", token: process.env.BLOB_READ_WRITE_TOKEN });
+      console.log("[scan] Early price snapshot saved to scan-prices.json");
+    } catch (e) { console.error("[scan] Failed early save:", e); }
+  }
+
   // Sort signals by strength desc
   signals.sort((a, b) => b.strength - a.strength);
 
