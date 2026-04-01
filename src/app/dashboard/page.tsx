@@ -862,7 +862,11 @@ export default function Home() {
                     {sortedLeaderboard.map((sub, i) => (
                       <tr
                         key={sub.netuid}
-                        className="border-b border-gray-800/50 hover:bg-gray-900/50 cursor-pointer transition-colors"
+                        className={`border-b cursor-pointer transition-colors ${
+                          sub.composite_score >= 80
+                            ? "border-green-500/20 bg-green-950/20 hover:bg-green-900/25"
+                            : "border-gray-800/50 hover:bg-gray-900/50"
+                        }`}
                         onClick={() => getSubnetDetail(sub.netuid)}
                       >
                         <td className="py-2.5 px-3 text-gray-500">{i + 1}</td>
