@@ -61,15 +61,54 @@ function fmtPct(v: number): string { return `${v >= 0 ? "+" : ""}${v.toFixed(2)}
 function pctColor(v: number): string { return v >= 0 ? "text-green-400" : "text-red-400"; }
 function scoreColor(s: number): string { return s >= 70 ? "text-green-400" : s >= 40 ? "text-yellow-400" : "text-red-400"; }
 
-// ── SVG price chart (CoinGecko-style) ────────────────────────────
+// ── Shared crosshair tooltip helper ──────────────────────────────
+function Crosshair({
+  cx, cy, W, H, PAD, color, line1, line2,
+}: {
+  cx: number; cy: number; W: number; H: number;
+  PAD: { top: number; right: number; bottom: number; left: number };
+  color: string; line1: string; line2: string;
+}) {
+  const TW = 130; const TH = 38;
+  const cW = W - PAD.left - PAD.right;
+  // Keep tooltip inside chart horizontally
+  const tx = Math.min(Math.max(cx - TW / 2, PAD.left), PAD.left + cW - TW);
+  // Place above the dot; if too high, place below
+  const ty = cy - TH - 12 < PAD.top ? cy + 10 : cy - TH - 12;
+  return (
+    <g style={{ pointerEvents: "none" }}>
+      {/* Vertical dashed line */}
+      <line x1={cx} y1={PAD.top} x2={cx} y2={H - PAD.bottom}
+        stroke="#6b7280" strokeWidth="1" strokeDasharray="4 3" />
+      {/* Horizontal dashed line */}
+      <line x1={PAD.left} y1={cy} x2={W - PAD.right} y2={cy}
+        stroke="#6b7280" strokeWidth="1" strokeDasharray="4 3" />
+      {/* Snap dot */}
+      <circle cx={cx} cy={cy} r="5" fill={color} stroke="#0a0a0f" strokeWidth="2" />
+      {/* Tooltip box */}
+      <rect x={tx} y={ty} width={TW} height={TH} rx="5"
+        fill="#111827" stroke="#374151" strokeWidth="1" />
+      <text x={tx + TW / 2} y={ty + 14} fill="white" fontSize="12"
+        textAnchor="middle" fontWeight="bold" fontFamily="monospace">{line1}</text>
+      <text x={tx + TW / 2} y={ty + 29} fill="#9ca3af" fontSize="10"
+        textAnchor="middle">{line2}</text>
+    </g>
+  );
+}
+
+// ── SVG price chart (CoinGecko-style, interactive) ────────────────
 function PriceChart({ data, color }: { data: PricePoint[]; color: string }) {
-  if (data.length < 2) {
-    return <div className="flex items-center justify-center h-48 text-gray-600 text-xs">Loading chart data…</div>;
-  }
+  const [hoverIdx, setHoverIdx] = useState<number | null>(null);
+  const svgRef = useRef<SVGSVGElement>(null);
+
   const W = 900; const H = 200;
   const PAD = { top: 8, right: 8, bottom: 24, left: 60 };
   const cW = W - PAD.left - PAD.right;
   const cH = H - PAD.top - PAD.bottom;
+
+  if (data.length < 2) {
+    return <div className="flex items-center justify-center h-48 text-gray-600 text-xs">Loading chart data…</div>;
+  }
 
   const prices = data.map((d) => d.price);
   const minP = Math.min(...prices);
@@ -85,59 +124,88 @@ function PriceChart({ data, color }: { data: PricePoint[]; color: string }) {
   const lastX = xS(data.length - 1);
   const baseY = PAD.top + cH;
   const area = `${xS(0).toFixed(1)},${baseY} ${pts} ${lastX.toFixed(1)},${baseY}`;
-
-  // Y axis ticks (4)
   const yTicks = [0.1, 0.37, 0.63, 0.9].map((t) => yMin + (yMax - yMin) * t);
-
-  // X axis labels (up to 5 evenly spaced)
   const xIdxs = data.length <= 5
     ? data.map((_, i) => i)
     : [0, Math.floor(data.length * 0.25), Math.floor(data.length * 0.5), Math.floor(data.length * 0.75), data.length - 1];
 
-  const parseTsInner = (ts: string): Date => {
+  const parseTs = (ts: string): Date => {
     if (/^\d+$/.test(ts)) { const n = parseInt(ts, 10); return new Date(n < 1e12 ? n * 1000 : n); }
     return new Date(ts);
   };
-  const fmtDate = (ts: string) => {
-    const d = parseTsInner(ts);
-    if (data.length <= 2) return d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
-    if (data.length <= 14) return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  const fmtAxisDate = (ts: string) => {
+    const d = parseTs(ts);
     return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
   };
+  const fmtTooltipDate = (ts: string) => {
+    const d = parseTs(ts);
+    return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  };
+
+  const handleMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
+    if (!svgRef.current) return;
+    const rect = svgRef.current.getBoundingClientRect();
+    // Map screen coords → viewBox coords (preserveAspectRatio="none" so linear)
+    const svgX = ((e.clientX - rect.left) / rect.width) * W;
+    const raw = (svgX - PAD.left) / cW * (data.length - 1);
+    setHoverIdx(Math.max(0, Math.min(data.length - 1, Math.round(raw))));
+  };
+
+  const h = hoverIdx !== null ? hoverIdx : null;
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: "200px" }} preserveAspectRatio="none">
+    <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`} className="w-full cursor-crosshair select-none"
+      style={{ height: "200px" }} preserveAspectRatio="none"
+      onMouseMove={handleMouseMove} onMouseLeave={() => setHoverIdx(null)}>
       <defs>
         <linearGradient id="priceGrad" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor={color} stopOpacity="0.25" />
           <stop offset="100%" stopColor={color} stopOpacity="0.01" />
         </linearGradient>
       </defs>
-      {/* Grid */}
       {yTicks.map((v, i) => (
         <g key={i}>
           <line x1={PAD.left} y1={yS(v).toFixed(1)} x2={PAD.left + cW} y2={yS(v).toFixed(1)} stroke="#1f2937" strokeWidth="1" />
           <text x={PAD.left - 6} y={(yS(v) + 4).toFixed(1)} fill="#4b5563" fontSize="10" textAnchor="end">{fmtPrice(v)}</text>
         </g>
       ))}
-      {/* Area + Line */}
       <polygon points={area} fill="url(#priceGrad)" />
       <polyline points={pts} fill="none" stroke={color} strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
-      {/* X labels */}
       {xIdxs.map((idx, i) => (
-        <text key={i} x={xS(idx).toFixed(1)} y={H - 4} fill="#4b5563" fontSize="10" textAnchor="middle">{fmtDate(data[idx].timestamp)}</text>
+        <text key={i} x={xS(idx).toFixed(1)} y={H - 4} fill="#4b5563" fontSize="10" textAnchor="middle">
+          {fmtAxisDate(data[idx].timestamp)}
+        </text>
       ))}
-      {/* Last price dot */}
-      <circle cx={lastX.toFixed(1)} cy={yS(prices[prices.length - 1]).toFixed(1)} r="4" fill={color} />
+      {/* Resting last-point dot — hidden while hovering */}
+      {h === null && (
+        <circle cx={lastX.toFixed(1)} cy={yS(prices[prices.length - 1]).toFixed(1)} r="4" fill={color} />
+      )}
+      {/* Interactive crosshair */}
+      {h !== null && (
+        <Crosshair
+          cx={xS(h)} cy={yS(data[h].price)}
+          W={W} H={H} PAD={PAD} color={color}
+          line1={fmtPrice(data[h].price)}
+          line2={fmtTooltipDate(data[h].timestamp)}
+        />
+      )}
     </svg>
   );
 }
 
-// ── Score line chart ──────────────────────────────────────────────
+// ── Score line chart (interactive) ───────────────────────────────
 // x values are ISO timestamp strings (one per scan, ~30min apart)
 function ScoreChart({ data, color, label, formatY = (v: number) => v.toFixed(0) }: {
   data: { x: string; y: number }[]; color: string; label: string; formatY?: (v: number) => string;
 }) {
+  const [hoverIdx, setHoverIdx] = useState<number | null>(null);
+  const svgRef = useRef<SVGSVGElement>(null);
+
+  const W = 600; const H = 140;
+  const PAD = { top: 10, right: 10, bottom: 20, left: 42 };
+  const cW = W - PAD.left - PAD.right;
+  const cH = H - PAD.top - PAD.bottom;
+
   if (data.length < 2) {
     return (
       <div className="flex flex-col items-center justify-center h-32 gap-1">
@@ -146,18 +214,19 @@ function ScoreChart({ data, color, label, formatY = (v: number) => v.toFixed(0) 
     );
   }
 
-  // Format x-axis label from ISO timestamp
   const fmtX = (ts: string) => {
     const d = new Date(ts);
     const hrs = (Date.now() - d.getTime()) / 3600000;
     if (hrs < 48) return d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
     return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
   };
+  const fmtTooltipTs = (ts: string) => {
+    const d = new Date(ts);
+    const hrs = (Date.now() - d.getTime()) / 3600000;
+    if (hrs < 48) return d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
+    return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  };
 
-  const W = 600; const H = 140;
-  const PAD = { top: 10, right: 10, bottom: 20, left: 42 };
-  const cW = W - PAD.left - PAD.right;
-  const cH = H - PAD.top - PAD.bottom;
   const values = data.map((d) => d.y);
   const minV = Math.min(...values); const maxV = Math.max(...values);
   const range = maxV - minV || 1;
@@ -170,8 +239,21 @@ function ScoreChart({ data, color, label, formatY = (v: number) => v.toFixed(0) 
   const yTicks = [0.15, 0.5, 0.85].map((t) => yMin + (yMax - yMin) * t);
   const xIdxs = data.length <= 2 ? [0, data.length - 1]
     : [0, Math.floor((data.length - 1) / 2), data.length - 1];
+
+  const handleMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
+    if (!svgRef.current) return;
+    const rect = svgRef.current.getBoundingClientRect();
+    const svgX = ((e.clientX - rect.left) / rect.width) * W;
+    const raw = (svgX - PAD.left) / cW * (data.length - 1);
+    setHoverIdx(Math.max(0, Math.min(data.length - 1, Math.round(raw))));
+  };
+
+  const h = hoverIdx;
+
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: "140px" }}>
+    <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`} className="w-full cursor-crosshair select-none"
+      style={{ height: "140px" }} preserveAspectRatio="none"
+      onMouseMove={handleMouseMove} onMouseLeave={() => setHoverIdx(null)}>
       <defs>
         <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor={color} stopOpacity="0.25" />
@@ -192,7 +274,17 @@ function ScoreChart({ data, color, label, formatY = (v: number) => v.toFixed(0) 
           {fmtX(data[idx].x)}
         </text>
       ))}
-      <circle cx={xS(data.length - 1).toFixed(1)} cy={yS(values[values.length - 1]).toFixed(1)} r="3.5" fill={color} />
+      {h === null && (
+        <circle cx={xS(data.length - 1).toFixed(1)} cy={yS(values[values.length - 1]).toFixed(1)} r="3.5" fill={color} />
+      )}
+      {h !== null && (
+        <Crosshair
+          cx={xS(h)} cy={yS(data[h].y)}
+          W={W} H={H} PAD={PAD} color={color}
+          line1={formatY(data[h].y)}
+          line2={fmtTooltipTs(data[h].x)}
+        />
+      )}
     </svg>
   );
 }
