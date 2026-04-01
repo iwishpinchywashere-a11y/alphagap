@@ -17,11 +17,14 @@ export default function SignalsPage() {
 
   const sorted = [...signals]
     .filter((sig) => !q || (sig.subnet_name || "").toLowerCase().includes(q) || sig.title.toLowerCase().includes(q) || `sn${sig.netuid}`.includes(q))
-    .sort((a, b) =>
-      signalSort === "score"
-        ? b.strength - a.strength
-        : new Date(b.signal_date || b.created_at).getTime() - new Date(a.signal_date || a.created_at).getTime()
-    );
+    .sort((a, b) => {
+      if (signalSort === "score") return b.strength - a.strength;
+      // "Latest": sort by created_at (full ISO timestamp) so same-day signals
+      // are ordered correctly. Fall back to signal_date only if created_at is absent.
+      const tA = new Date(a.created_at || a.signal_date || 0).getTime();
+      const tB = new Date(b.created_at || b.signal_date || 0).getTime();
+      return tB - tA;
+    });
 
   return (
     <main className="flex-1 flex overflow-x-hidden">
