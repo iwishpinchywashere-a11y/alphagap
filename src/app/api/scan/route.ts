@@ -537,8 +537,15 @@ export async function GET() {
   // Commit messages already fetched by github-scanner (no extra GitHub API calls).
   // Top 10 by activity also get PRs + release fetched for richer context.
   const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
+
+  // IMPORTANT: Only use subnets confirmed active by our direct GitHub scanner.
+  // Never trust TaoStats commits_1d alone — it's a stale daily snapshot that
+  // could make yesterday's (or last week's) commits appear as "today" signals.
   const allActiveDevSubnets = [...devMap.values()]
-    .filter(a => a.commits_1d > 0 || a.prs_merged_1d > 0)
+    .filter(a => {
+      const ghResult = githubScanMap.get(a.netuid);
+      return ghResult && (ghResult.commits24h > 0 || ghResult.hasNewRelease);
+    })
     .sort((a, b) => (b.commits_1d + b.prs_merged_1d * 5) - (a.commits_1d + a.prs_merged_1d * 5));
 
   console.log(`[scan] ${allActiveDevSubnets.length} active subnets — fetching PR/release context for top 10, commit-only for the rest...`);
@@ -704,26 +711,38 @@ IMPORTANT: Keep each section to 2-3 sentences MAX. You MUST complete all 4 secti
 
   console.log(`[scan] Analyzed ${analyzedDevSignals.length} dev signals with AI.`);
 
-  // Create rich dev signals with dates
-  const today = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  // Create rich dev signals — date comes from actual commit timestamps, not TaoStats
   for (const { ctx, analysis } of analyzedDevSignals) {
     const name = identityMap.get(ctx.act.netuid)?.subnet_name || `SN${ctx.act.netuid}`;
-    // Extract latest commit date from commit data
-    const lastDate = ctx.act.last_event_at ? new Date(ctx.act.last_event_at).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : today;
+    const ghResult = githubScanMap.get(ctx.act.netuid);
+
+    // Extract the real commit date from the first commit message "[YYYY-MM-DD] sha: msg"
+    // This is the actual date the code was pushed, not the scan date.
+    let commitDate = new Date().toISOString();
+    if (ctx.commits.length > 0) {
+      const m = ctx.commits[0].match(/^\[(\d{4}-\d{2}-\d{2})\]/);
+      if (m) commitDate = new Date(m[1]).toISOString();
+    } else if (ghResult?.releaseDate) {
+      commitDate = ghResult.releaseDate;
+    }
+
+    const displayDate = new Date(commitDate).toLocaleDateString("en-US", { month: "short", day: "numeric" });
     const activitySummary = [
       ctx.act.commits_1d > 0 ? `${ctx.act.commits_1d} commits` : "",
       ctx.act.prs_merged_1d > 0 ? `${ctx.act.prs_merged_1d} PRs merged` : "",
+      ghResult?.hasNewRelease ? `new release ${ghResult.releaseTag}` : "",
     ].filter(Boolean).join(" & ");
+
     addSignal({
       netuid: ctx.act.netuid,
       signal_type: "dev_spike",
       strength: Math.min(95, 30 + ctx.act.commits_1d * 2 + ctx.act.prs_merged_1d * 10 + (ctx.release ? 15 : 0)),
-      title: `${name} pushed ${activitySummary} to GitHub (${lastDate})`,
+      title: `${name} pushed ${activitySummary} to GitHub (${displayDate})`,
       description: analysis,
       source: "github",
       source_url: ctx.act.repo_url,
       subnet_name: name,
-      signal_date: ctx.act.last_event_at || ctx.act.as_of_day || new Date().toISOString(),
+      signal_date: commitDate,
     });
   }
 
