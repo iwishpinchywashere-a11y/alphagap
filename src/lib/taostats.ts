@@ -109,6 +109,30 @@ export async function getSubnetPools(): Promise<SubnetPool[]> {
   return taoFetch<SubnetPool>("/dtao/pool/latest/v1", { limit: "200" });
 }
 
+// ── Subnet Pool Detail (rich single-subnet data) ─────────────────
+export interface SubnetPoolDetail extends SubnetPool {
+  fear_and_greed_index: string;
+  fear_and_greed_sentiment: string;
+  market_cap_change_1_day: string;
+  alpha_volume_24_hr: string;
+  alpha_buy_volume_24_hr: string;
+  alpha_sell_volume_24_hr: string;
+  highest_price_24_hr: string;
+  lowest_price_24_hr: string;
+  buys_24_hr: number;
+  sells_24_hr: number;
+  buyers_24_hr: number;
+  sellers_24_hr: number;
+  last_price: string;
+  enabled_user_liquidity: boolean;
+  seven_day_prices: Array<{ block_number: number; timestamp: string; price: string }>;
+}
+
+export async function getSubnetPoolDetail(netuid: number): Promise<SubnetPoolDetail | null> {
+  const data = await taoFetch<SubnetPoolDetail>("/dtao/pool/latest/v1", { netuid: String(netuid), limit: "1" });
+  return data[0] || null;
+}
+
 // ── Subnet Emission ──────────────────────────────────────────────
 export interface SubnetEmission {
   netuid: number;
