@@ -606,9 +606,9 @@ export async function GET() {
     const prText = ctx.prs.slice(0, 4).join("\n");
     const releaseText = ctx.release ? `Latest release: ${ctx.release.name} (${ctx.release.tag})\n${ctx.release.body.slice(0, 500)}` : "";
 
-    const prompt = `You are the AlphaGap intelligence engine — the world's sharpest Bittensor analyst. You read raw GitHub commits and PRs and translate them into investment-grade intelligence.
+    const prompt = `You are the AlphaGap intelligence engine — the world's sharpest Bittensor subnet analyst. You read raw GitHub commits and PRs and produce investment-grade intelligence signals.
 
-Your audience: crypto investors who want to know if this subnet is doing something that will make the token more valuable.
+Your job is to score the INVESTMENT OPPORTUNITY, not just the dev work in isolation. The score answers: "How much should a serious crypto investor care about this right now?"
 
 SUBNET INFO:
 Name: ${name} (SN${ctx.act.netuid})
@@ -616,7 +616,7 @@ Repo: ${ctx.owner}/${ctx.repo}
 Token: $${price} (24h change: ${priceChange}%) | Market Cap: ${mcap}
 Today's activity: ${ctx.act.commits_1d} commits, ${ctx.act.prs_merged_1d} merged PRs, ${ctx.act.unique_contributors_1d} contributors
 
-RAW COMMITS (read carefully — this is the primary signal):
+RAW COMMITS (this is the evidence — read carefully):
 ${commitText || "No commits found"}
 
 MERGED PULL REQUESTS:
@@ -632,23 +632,38 @@ SCORE: [number 1-100]
 [Specific features, fixes, models, or improvements. Name actual things. No vague statements.]
 
 📡 Why it matters:
-[Why is this significant? What problem does it solve for the subnet or ecosystem?]
+[Why is this significant? What problem does it solve?]
 
 💡 In simple terms:
-[Explain like you're telling a smart non-technical friend over coffee. Use analogies.]
+[Explain to a smart non-technical friend over coffee. Use analogies.]
 
 🎯 The AlphaGap take:
-[Bold, direct call. Is the market sleeping on this? Is it noise or real signal?]
+[Your boldest, most direct investment call. Is the market sleeping on this? Is this priced in or not? Be opinionated.]
 
-SCORING GUIDE — be honest and stingy with high scores:
-10-25: Routine maintenance, dependency bumps, config tweaks, minor bug fixes, CI/CD changes. Nothing that moves the needle.
-26-45: Solid incremental progress — refactors, small feature additions, test coverage, performance improvements. Good to see but not exciting.
-46-65: Meaningful development — new capabilities being built, notable feature work, architectural improvements that set up future growth.
-66-80: Strong signal — significant new features shipped, major performance breakthroughs, new model integrations, protocol upgrades. Market may be undervaluing this.
-81-90: Very high conviction — game-changing features, major releases, breakthrough technical work that could materially change the subnet's trajectory.
-91-100: RESERVE FOR EXTRAORDINARY ALPHA — paradigm-shifting releases, major partnership integrations going live, capabilities that no other subnet has. Rare. If you're giving 90+, it better be genuinely jaw-dropping.
+HOW TO SCORE — the score is INVESTMENT SIGNAL STRENGTH, which is (dev quality) × (market opportunity):
 
-Be calibrated. Most commits are routine (10-35). Don't inflate scores.
+DEV QUALITY alone:
+- Routine: dependency bumps, CI fixes, minor bug fixes, config tweaks → base 15-25
+- Incremental: small features, refactors, test additions, performance tweaks → base 30-45
+- Meaningful: new capabilities, architectural work, notable feature shipping → base 50-65
+- Significant: major features, protocol upgrades, model integrations, new releases → base 70-80
+- Extraordinary: paradigm shifts, breakthrough capabilities → base 85-95
+
+MARKET OPPORTUNITY multiplier — adjust the base score UP or DOWN:
+- Small market cap ($1M-$10M) actively building → strong undervaluation signal, +10 to +20
+- Medium market cap ($10M-$50M) with active dev → worth noting, +5 to +10
+- Large market cap ($50M+) with routine commits → likely priced in, -5 to -15
+- Token down 10%+ while team is building hard → market sleeping, +10 to +15
+- Token up 20%+ today → momentum already reflected, -5 to -10
+- Multiple contributors (5+) showing up → team is serious, +5
+
+EXAMPLES of calibrated scores:
+- Dependency bumps + CI fixes at $50M mcap: 18
+- Solid refactor + new test suite at $8M mcap (team building quietly): 52
+- New model integration at $15M mcap, token down 8%: 71
+- Major protocol upgrade + new release at $20M mcap, token flat: 83
+- Routine config change at $200M mcap, token up 30%: 12
+
 Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete sentence.`;
 
     try {
