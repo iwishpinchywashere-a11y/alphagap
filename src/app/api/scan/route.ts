@@ -1768,10 +1768,11 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
         }
       } catch { /* start fresh */ }
 
-      const today = new Date().toISOString().slice(0, 10);
-      scoreHistory[today] = {};
+      // Use full ISO timestamp so every scan writes its own entry (enables intraday charts)
+      const scanTs = new Date().toISOString(); // e.g. "2024-01-15T14:30:00.000Z"
+      scoreHistory[scanTs] = {};
       for (const entry of leaderboard) {
-        scoreHistory[today][String(entry.netuid)] = {
+        scoreHistory[scanTs][String(entry.netuid)] = {
           agap: entry.composite_score,
           flow: entry.flow_score,
           dev: entry.dev_score,
@@ -1783,12 +1784,12 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
         };
       }
 
-      // Trim to last 90 days
-      const cutoff90 = new Date(Date.now() - 90 * 86400000).toISOString().slice(0, 10);
+      // Trim to last 90 days (keep all intraday entries within that window)
+      const cutoff90 = new Date(Date.now() - 90 * 86400000).toISOString();
       for (const d of Object.keys(scoreHistory)) { if (d < cutoff90) delete scoreHistory[d]; }
 
       await put("subnet-scores-history.json", JSON.stringify(scoreHistory), { access: "private", token: process.env.BLOB_READ_WRITE_TOKEN });
-      console.log(`[scan] Subnet score history: ${Object.keys(scoreHistory).length} days stored`);
+      console.log(`[scan] Subnet score history: ${Object.keys(scoreHistory).length} snapshots stored`);
     } catch (e) { console.error("[scan] Subnet history save failed:", e); }
   }
 

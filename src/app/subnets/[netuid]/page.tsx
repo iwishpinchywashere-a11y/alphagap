@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useEffect, useState, useMemo } from "react";
+import { use, useEffect, useRef, useState, useMemo } from "react";
 import Link from "next/link";
 
 // ── Types ─────────────────────────────────────────────────────────
@@ -24,7 +24,7 @@ interface SubnetData {
   current: Record<string, number | string | boolean | null> | null;
   scoreHistory: ScoreRow[];
   emissionHistory: EmissionPoint[];
-  priceHistory: PricePoint[];
+  // priceHistory is NOT in the initial response — lazy loaded via /prices
   sevenDayPrices: PricePoint[];
   marketStats: MarketStats | null;
   signals: Signal[];
@@ -134,18 +134,26 @@ function PriceChart({ data, color }: { data: PricePoint[]; color: string }) {
 }
 
 // ── Score line chart ──────────────────────────────────────────────
+// x values are ISO timestamp strings (one per scan, ~30min apart)
 function ScoreChart({ data, color, label, formatY = (v: number) => v.toFixed(0) }: {
   data: { x: string; y: number }[]; color: string; label: string; formatY?: (v: number) => string;
 }) {
   if (data.length < 2) {
-    const val = data[0]?.y;
     return (
       <div className="flex flex-col items-center justify-center h-32 gap-1">
-        {val != null && <span className="text-3xl font-bold" style={{ color }}>{formatY(val)}</span>}
-        <span className="text-gray-600 text-xs">Accumulating — grows with each scan</span>
+        <span className="text-gray-600 text-xs text-center">No history yet — chart builds<br />with each scan (~30 min)</span>
       </div>
     );
   }
+
+  // Format x-axis label from ISO timestamp
+  const fmtX = (ts: string) => {
+    const d = new Date(ts);
+    const hrs = (Date.now() - d.getTime()) / 3600000;
+    if (hrs < 48) return d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
+    return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  };
+
   const W = 600; const H = 140;
   const PAD = { top: 10, right: 10, bottom: 20, left: 42 };
   const cW = W - PAD.left - PAD.right;
@@ -158,10 +166,9 @@ function ScoreChart({ data, color, label, formatY = (v: number) => v.toFixed(0) 
   const yS = (v: number) => PAD.top + cH - ((v - yMin) / (yMax - yMin)) * cH;
   const pts = data.map((d, i) => `${xS(i).toFixed(1)},${yS(d.y).toFixed(1)}`).join(" ");
   const area = `${xS(0).toFixed(1)},${PAD.top + cH} ${pts} ${xS(data.length - 1).toFixed(1)},${PAD.top + cH}`;
-  const gradId = `sg-${label.replace(/\s+/g, "")}`;
+  const gradId = `sg-${label.replace(/[\s%]+/g, "")}`;
   const yTicks = [0.15, 0.5, 0.85].map((t) => yMin + (yMax - yMin) * t);
-  const xLabels = data.length <= 2
-    ? [0, data.length - 1]
+  const xIdxs = data.length <= 2 ? [0, data.length - 1]
     : [0, Math.floor((data.length - 1) / 2), data.length - 1];
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: "140px" }}>
@@ -179,10 +186,10 @@ function ScoreChart({ data, color, label, formatY = (v: number) => v.toFixed(0) 
       ))}
       <polygon points={area} fill={`url(#${gradId})`} />
       <polyline points={pts} fill="none" stroke={color} strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
-      {xLabels.map((idx, i) => (
+      {xIdxs.map((idx, i) => (
         <text key={i} x={xS(idx).toFixed(1)} y={H - 3} fill="#4b5563" fontSize="10"
-          textAnchor={i === 0 ? "start" : i === xLabels.length - 1 ? "end" : "middle"}>
-          {new Date(data[idx].x + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+          textAnchor={i === 0 ? "start" : i === xIdxs.length - 1 ? "end" : "middle"}>
+          {fmtX(data[idx].x)}
         </text>
       ))}
       <circle cx={xS(data.length - 1).toFixed(1)} cy={yS(values[values.length - 1]).toFixed(1)} r="3.5" fill={color} />
@@ -209,7 +216,12 @@ export default function SubnetDetailPage({ params }: { params: Promise<{ netuid:
   const [data, setData] = useState<SubnetData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [timeframe, setTimeframe] = useState<Timeframe>("1M");
+  const [timeframe, setTimeframe] = useState<Timeframe>("7D");
+
+  // Lazy-loaded price history (only fetched when user picks 1M/3M/1Y)
+  const [priceHistory, setPriceHistory] = useState<PricePoint[]>([]);
+  const [priceLoading, setPriceLoading] = useState(false);
+  const priceHistoryFetched = useRef(false);
 
   useEffect(() => {
     fetch(`/api/subnets/${netuid}`)
@@ -217,11 +229,24 @@ export default function SubnetDetailPage({ params }: { params: Promise<{ netuid:
       .then(setData).catch((e) => setError(String(e))).finally(() => setLoading(false));
   }, [netuid]);
 
+  // Fetch extended price history when user picks a longer timeframe
+  useEffect(() => {
+    if (!["1M", "3M", "1Y"].includes(timeframe)) return;
+    if (priceHistoryFetched.current) return;
+    priceHistoryFetched.current = true;
+    setPriceLoading(true);
+    fetch(`/api/subnets/${netuid}/prices`)
+      .then((r) => r.json())
+      .then((d) => setPriceHistory(d.priceHistory || []))
+      .catch(() => {/* silently fail */})
+      .finally(() => setPriceLoading(false));
+  }, [timeframe, netuid]);
+
   // Robustly parse a timestamp that may be ISO string or unix-second string
   const parseTs = (ts: string): number => {
     if (/^\d+$/.test(ts)) {
       const n = parseInt(ts, 10);
-      return n < 1e12 ? n * 1000 : n; // unix seconds → ms
+      return n < 1e12 ? n * 1000 : n;
     }
     return new Date(ts).getTime();
   };
@@ -237,15 +262,15 @@ export default function SubnetDetailPage({ params }: { params: Promise<{ netuid:
     if (timeframe === "7D") return data.sevenDayPrices;
     if (timeframe === "1M") {
       const cutoff = now - 30 * 86400000;
-      return data.priceHistory.filter((p) => parseTs(p.timestamp) >= cutoff);
+      return priceHistory.filter((p) => parseTs(p.timestamp) >= cutoff);
     }
     if (timeframe === "3M") {
       const cutoff = now - 90 * 86400000;
-      return data.priceHistory.filter((p) => parseTs(p.timestamp) >= cutoff);
+      return priceHistory.filter((p) => parseTs(p.timestamp) >= cutoff);
     }
-    return data.priceHistory; // 1Y
+    return priceHistory; // 1Y
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data, timeframe]);
+  }, [data, timeframe, priceHistory]);
 
   // Chart color based on whether price is up in the selected window
   const chartColor = useMemo(() => {
@@ -424,7 +449,12 @@ export default function SubnetDetailPage({ params }: { params: Promise<{ netuid:
               </div>
 
               {/* Chart */}
-              <PriceChart data={chartData} color={chartColor} />
+              {priceLoading && ["1M", "3M", "1Y"].includes(timeframe) && chartData.length < 2
+                ? <div className="flex items-center justify-center h-48 text-gray-600 text-xs gap-2">
+                    <span className="animate-spin">⟳</span> Loading price history…
+                  </div>
+                : <PriceChart data={chartData} color={chartColor} />
+              }
 
               {/* 24h range */}
               {ms && ms.high24hUsd > 0 && (
@@ -445,12 +475,12 @@ export default function SubnetDetailPage({ params }: { params: Promise<{ netuid:
             {/* ── AlphaGap score charts ─────────────────────────── */}
             <div>
               <div className="flex items-center gap-2 mb-3">
-                <h2 className="text-sm font-semibold text-gray-300 uppercase tracking-wider">AlphaGap Scores</h2>
-                {data.scoreHistory.length < 3 && (
-                  <span className="text-xs text-yellow-400/70 bg-yellow-900/20 border border-yellow-800/30 rounded px-2 py-0.5">
-                    {data.scoreHistory.length} day{data.scoreHistory.length !== 1 ? "s" : ""} — accumulating
-                  </span>
-                )}
+                <h2 className="text-sm font-semibold text-gray-300 uppercase tracking-wider">AlphaGap Score History</h2>
+                <span className="text-xs text-gray-600">
+                  {data.scoreHistory.length > 0
+                    ? `${data.scoreHistory.length} snapshot${data.scoreHistory.length !== 1 ? "s" : ""}`
+                    : "No history yet"}
+                </span>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 {[

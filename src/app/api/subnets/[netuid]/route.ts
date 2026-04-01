@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { get as blobGet } from "@vercel/blob";
-import { getPoolHistory, getMetagraph, getSubnetIdentities, getSubnetPoolDetail } from "@/lib/taostats";
+import { getMetagraph, getSubnetIdentities, getSubnetPoolDetail } from "@/lib/taostats";
 import { getTaoPrice } from "@/lib/taostats";
 
 export const dynamic = "force-dynamic";
@@ -30,7 +30,9 @@ export async function GET(
   const token = process.env.BLOB_READ_WRITE_TOKEN || "";
 
   // ── Load blobs + TaoStats in parallel ───────────────────────────
-  const [scanLatest, scoreHistoryAll, emissionHistory, signalsHistory, identities, taoPrice, poolDetail, priceHistory, metagraph] = await Promise.all([
+  // NOTE: getPoolHistory is intentionally NOT called here — the page
+  // lazy-loads it via /api/subnets/[netuid]/prices when user picks 1M+
+  const [scanLatest, scoreHistoryAll, emissionHistory, signalsHistory, identities, taoPrice, poolDetail, metagraph] = await Promise.all([
     readBlob<Record<string, unknown>>("scan-latest.json", token),
     readBlob<Record<string, Record<string, { agap: number; flow: number; dev: number; eval: number; social: number; price: number; mcap: number; emission_pct: number }>>>("subnet-scores-history.json", token),
     readBlob<Record<string, Array<{ pct: number; timestamp: string }>>>("emission-history.json", token),
@@ -38,7 +40,6 @@ export async function GET(
     getSubnetIdentities().catch(() => []),
     getTaoPrice().catch(() => 0),
     getSubnetPoolDetail(netuid).catch(() => null),
-    getPoolHistory(netuid, 365).catch(() => []),
     getMetagraph(netuid).catch(() => []),
   ]);
 
@@ -49,13 +50,17 @@ export async function GET(
   // ── Subnet identity ─────────────────────────────────────────────
   const identity = identities.find((id) => id.netuid === netuid) || null;
 
-  // ── Score history ───────────────────────────────────────────────
+  // ── Score history ────────────────────────────────────────────────
+  // Keys are ISO timestamps (one per scan ~30min), sorted chronologically.
+  // Trim to last 90 days of snapshots; the page shows last 48h by default.
   type ScoreRow = { agap: number; flow: number; dev: number; eval: number; social: number; price: number; mcap: number; emission_pct: number };
   const scoreHistory: Array<{ date: string } & ScoreRow> = [];
   if (scoreHistoryAll) {
-    for (const date of Object.keys(scoreHistoryAll).sort()) {
-      const row = scoreHistoryAll[date][String(netuid)];
-      if (row) scoreHistory.push({ date, ...row });
+    const cutoff48h = new Date(Date.now() - 90 * 86400000).toISOString(); // keep up to 90 days
+    for (const ts of Object.keys(scoreHistoryAll).sort()) {
+      if (ts < cutoff48h) continue;
+      const row = scoreHistoryAll[ts][String(netuid)];
+      if (row) scoreHistory.push({ date: ts, ...row });
     }
   }
 
@@ -70,22 +75,13 @@ export async function GET(
     .slice(0, 20);
 
   // ── Normalise a TaoStats timestamp to ISO string ─────────────────
-  // TaoStats pool/history returns timestamps as unix-second integers
-  // (or strings thereof). Normalise everything to ISO so client-side
-  // Date parsing always works.
   function toIso(ts: string | number): string {
     const n = typeof ts === "number" ? ts : Number(ts);
     if (!isNaN(n) && String(ts).match(/^\d+$/)) {
-      // unix seconds → ms → ISO
       return new Date(n < 1e12 ? n * 1000 : n).toISOString();
     }
-    return String(ts); // already ISO-like
+    return String(ts);
   }
-
-  // ── Price history (1Y daily, chronological) ──────────────────────
-  const priceData = [...priceHistory]
-    .map((p) => ({ timestamp: toIso(p.timestamp), price: parseFloat(p.price) }))
-    .sort((a, b) => a.timestamp.localeCompare(b.timestamp));
 
   // ── 7D intraday (4h candles from poolDetail.seven_day_prices) ───
   const sevenDayPrices = (poolDetail?.seven_day_prices || [])
@@ -105,7 +101,7 @@ export async function GET(
     priceChangePct7d: parseFloat(pool.price_change_1_week || "0"),
     priceChangePct30d: parseFloat(pool.price_change_1_month || "0"),
     marketCapUsd: parseFloat(pool.market_cap) / RAO * taoPrice,
-    fdvUsd: parseFloat(pool.market_cap) / RAO * taoPrice, // same as mcap for now
+    fdvUsd: parseFloat(pool.market_cap) / RAO * taoPrice,
     volume24hUsd: parseFloat(pool.tao_volume_24_hr) / RAO * taoPrice,
     high24hUsd: parseFloat(pool.highest_price_24_hr || "0") * taoPrice,
     low24hUsd: parseFloat(pool.lowest_price_24_hr || "0") * taoPrice,
@@ -137,7 +133,8 @@ export async function GET(
     current,
     scoreHistory,
     emissionHistory: emissionData,
-    priceHistory: priceData,
+    // priceHistory is NOT included here — fetched lazily by the client
+    // via GET /api/subnets/[netuid]/prices when user picks 1M/3M/1Y
     sevenDayPrices,
     marketStats,
     signals: subnetSignals,
