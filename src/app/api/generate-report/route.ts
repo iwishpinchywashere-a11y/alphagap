@@ -9,7 +9,7 @@ import {
 } from "@/lib/taostats";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY || "";
 const RAO = 1e9;
