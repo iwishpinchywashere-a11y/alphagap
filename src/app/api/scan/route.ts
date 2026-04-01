@@ -591,9 +591,10 @@ export async function GET() {
 
   console.log(`[scan] Context built for ${devContexts.length} subnets. Running AI analysis on all of them...`);
 
-  // Analyze with Claude Haiku — batch 5 at a time
-  async function analyzeDevActivity(ctx: DevContext): Promise<string> {
-    if (!ANTHROPIC_KEY) return buildFallbackDescription(ctx);
+  // AI analysis returns both a description AND a quality-based score (1-100)
+  // Score reflects what was actually built, not commit count.
+  async function analyzeDevActivity(ctx: DevContext): Promise<{ description: string; score: number }> {
+    if (!ANTHROPIC_KEY) return { description: buildFallbackDescription(ctx), score: fallbackScore(ctx) };
 
     const name = identityMap.get(ctx.act.netuid)?.subnet_name || `SN${ctx.act.netuid}`;
     const pool = poolMap.get(ctx.act.netuid);
@@ -605,9 +606,9 @@ export async function GET() {
     const prText = ctx.prs.slice(0, 4).join("\n");
     const releaseText = ctx.release ? `Latest release: ${ctx.release.name} (${ctx.release.tag})\n${ctx.release.body.slice(0, 500)}` : "";
 
-    const prompt = `You are the AlphaGap intelligence engine — the smartest Bittensor analyst in the world. You read raw GitHub commits and PRs from Bittensor subnets and translate them into clear, compelling intelligence reports that help investors understand what's really happening under the hood.
+    const prompt = `You are the AlphaGap intelligence engine — the world's sharpest Bittensor analyst. You read raw GitHub commits and PRs and translate them into investment-grade intelligence.
 
-Your audience: crypto investors who are smart but may not understand technical code. They want to know if this subnet is doing something that will make the token more valuable.
+Your audience: crypto investors who want to know if this subnet is doing something that will make the token more valuable.
 
 SUBNET INFO:
 Name: ${name} (SN${ctx.act.netuid})
@@ -615,7 +616,7 @@ Repo: ${ctx.owner}/${ctx.repo}
 Token: $${price} (24h change: ${priceChange}%) | Market Cap: ${mcap}
 Today's activity: ${ctx.act.commits_1d} commits, ${ctx.act.prs_merged_1d} merged PRs, ${ctx.act.unique_contributors_1d} contributors
 
-RAW COMMITS (read these carefully):
+RAW COMMITS (read carefully — this is the primary signal):
 ${commitText || "No commits found"}
 
 MERGED PULL REQUESTS:
@@ -623,21 +624,32 @@ ${prText || "No PRs found"}
 
 ${releaseText}
 
-Now write your intelligence report using this EXACT format. Each section should be 1-3 sentences. Be specific — name actual features, algorithms, models. No vague statements.
+Write your intelligence report in this EXACT format:
+
+SCORE: [number 1-100]
 
 🔧 What they built:
-(What specific features, fixes, models, or improvements did they ship? Be concrete.)
+[Specific features, fixes, models, or improvements. Name actual things. No vague statements.]
 
 📡 Why it matters:
-(Why is this significant for the subnet and the Bittensor ecosystem? What problem does it solve?)
+[Why is this significant? What problem does it solve for the subnet or ecosystem?]
 
 💡 In simple terms:
-(Explain this like you're telling your non-technical friend over coffee. Use analogies. Make it dead simple and interesting.)
+[Explain like you're telling a smart non-technical friend over coffee. Use analogies.]
 
 🎯 The AlphaGap take:
-(Is the market sleeping on this? Does dev activity justify the price? Give a clear, bold take.)
+[Bold, direct call. Is the market sleeping on this? Is it noise or real signal?]
 
-IMPORTANT: Keep each section to 2-3 sentences MAX. You MUST complete all 4 sections. Never leave a section unfinished. End with a complete sentence.`;
+SCORING GUIDE — be honest and stingy with high scores:
+10-25: Routine maintenance, dependency bumps, config tweaks, minor bug fixes, CI/CD changes. Nothing that moves the needle.
+26-45: Solid incremental progress — refactors, small feature additions, test coverage, performance improvements. Good to see but not exciting.
+46-65: Meaningful development — new capabilities being built, notable feature work, architectural improvements that set up future growth.
+66-80: Strong signal — significant new features shipped, major performance breakthroughs, new model integrations, protocol upgrades. Market may be undervaluing this.
+81-90: Very high conviction — game-changing features, major releases, breakthrough technical work that could materially change the subnet's trajectory.
+91-100: RESERVE FOR EXTRAORDINARY ALPHA — paradigm-shifting releases, major partnership integrations going live, capabilities that no other subnet has. Rare. If you're giving 90+, it better be genuinely jaw-dropping.
+
+Be calibrated. Most commits are routine (10-35). Don't inflate scores.
+Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete sentence.`;
 
     try {
       const res = await fetch("https://api.anthropic.com/v1/messages", {
@@ -653,11 +665,21 @@ IMPORTANT: Keep each section to 2-3 sentences MAX. You MUST complete all 4 secti
           messages: [{ role: "user", content: prompt }],
         }),
       });
-      if (!res.ok) return buildFallbackDescription(ctx);
+      if (!res.ok) return { description: buildFallbackDescription(ctx), score: fallbackScore(ctx) };
       const data = await res.json();
-      return data.content?.[0]?.text || buildFallbackDescription(ctx);
+      const text: string = data.content?.[0]?.text || "";
+
+      // Parse SCORE: from first line
+      const scoreMatch = text.match(/^SCORE:\s*(\d+)/m);
+      const score = scoreMatch ? Math.min(100, Math.max(1, parseInt(scoreMatch[1]))) : fallbackScore(ctx);
+
+      // Strip the SCORE line from the description shown to users
+      const description = text.replace(/^SCORE:\s*\d+\s*\n?/m, "").trim();
+
+      console.log(`[scan] AI scored SN${ctx.act.netuid} (${name}): ${score}/100`);
+      return { description, score };
     } catch {
-      return buildFallbackDescription(ctx);
+      return { description: buildFallbackDescription(ctx), score: fallbackScore(ctx) };
     }
   }
 
@@ -677,47 +699,57 @@ IMPORTANT: Keep each section to 2-3 sentences MAX. You MUST complete all 4 secti
     return desc || `${ctx.act.commits_1d} commits and ${ctx.act.prs_merged_1d} PRs merged today.`;
   }
 
+  // Fallback score when AI is unavailable — conservative, commit-count based
+  function fallbackScore(ctx: DevContext): number {
+    let s = 20;
+    if (ctx.act.commits_1d >= 10) s += 15;
+    else if (ctx.act.commits_1d >= 5) s += 10;
+    else if (ctx.act.commits_1d >= 1) s += 5;
+    if (ctx.act.prs_merged_1d >= 3) s += 15;
+    else if (ctx.act.prs_merged_1d >= 1) s += 8;
+    if (ctx.release) s += 10;
+    return Math.min(60, s); // cap fallback at 60 — AI must judge higher scores
+  }
+
   // Try AI analysis for as many signals as time allows
-  const timeLeftForAI = 200000 - (Date.now() - startTime); // generous budget — Haiku is fast, all run in parallel
+  const timeLeftForAI = 200000 - (Date.now() - startTime);
   console.log(`[scan] AI analysis: ${devContexts.length} signals, ${(timeLeftForAI/1000).toFixed(0)}s left`);
 
-  const analyzedDevSignals: { ctx: DevContext; analysis: string }[] = [];
+  const analyzedDevSignals: { ctx: DevContext; description: string; score: number }[] = [];
 
   if (timeLeftForAI > 8000 && ANTHROPIC_KEY) {
-    // Analyze ALL in parallel — Haiku is fast (~1-2s per call)
     try {
       const aiResults = await Promise.race([
-        Promise.all(devContexts.map(async (ctx) => ({ ctx, analysis: await analyzeDevActivity(ctx) }))),
-        // Timeout after available time minus 3s buffer
+        Promise.all(devContexts.map(async (ctx) => {
+          const { description, score } = await analyzeDevActivity(ctx);
+          return { ctx, description, score };
+        })),
         new Promise<never>((_, reject) => setTimeout(() => reject(new Error("AI timeout")), timeLeftForAI - 3000)),
       ]);
       analyzedDevSignals.push(...aiResults);
       console.log(`[scan] AI done: ${aiResults.length} analyzed`);
     } catch {
       console.log("[scan] AI timed out, using fallback for remaining");
-      // Use whatever we have + fallback for the rest
       if (analyzedDevSignals.length === 0) {
         for (const ctx of devContexts) {
-          analyzedDevSignals.push({ ctx, analysis: buildFallbackDescription(ctx) });
+          analyzedDevSignals.push({ ctx, description: buildFallbackDescription(ctx), score: fallbackScore(ctx) });
         }
       }
     }
   } else {
-    console.log(`[scan] No time for AI, using fallback descriptions`);
     for (const ctx of devContexts) {
-      analyzedDevSignals.push({ ctx, analysis: buildFallbackDescription(ctx) });
+      analyzedDevSignals.push({ ctx, description: buildFallbackDescription(ctx), score: fallbackScore(ctx) });
     }
   }
 
   console.log(`[scan] Analyzed ${analyzedDevSignals.length} dev signals with AI.`);
 
-  // Create rich dev signals — date comes from actual commit timestamps, not TaoStats
-  for (const { ctx, analysis } of analyzedDevSignals) {
+  // Create rich dev signals — score from AI quality assessment, date from real commits
+  for (const { ctx, description, score } of analyzedDevSignals) {
     const name = identityMap.get(ctx.act.netuid)?.subnet_name || `SN${ctx.act.netuid}`;
     const ghResult = githubScanMap.get(ctx.act.netuid);
 
-    // Extract the real commit date from the first commit message "[YYYY-MM-DD] sha: msg"
-    // This is the actual date the code was pushed, not the scan date.
+    // Real commit date from "[YYYY-MM-DD] sha: msg" format
     let commitDate = new Date().toISOString();
     if (ctx.commits.length > 0) {
       const m = ctx.commits[0].match(/^\[(\d{4}-\d{2}-\d{2})\]/);
@@ -736,9 +768,9 @@ IMPORTANT: Keep each section to 2-3 sentences MAX. You MUST complete all 4 secti
     addSignal({
       netuid: ctx.act.netuid,
       signal_type: "dev_spike",
-      strength: Math.min(95, 30 + ctx.act.commits_1d * 2 + ctx.act.prs_merged_1d * 10 + (ctx.release ? 15 : 0)),
+      strength: score, // AI-assigned quality score, not a commit-count formula
       title: `${name} pushed ${activitySummary} to GitHub (${displayDate})`,
-      description: analysis,
+      description,
       source: "github",
       source_url: ctx.act.repo_url,
       subnet_name: name,
