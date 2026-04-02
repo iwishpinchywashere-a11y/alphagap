@@ -99,14 +99,16 @@ export default function LeaderboardPage() {
 
         {leaderboard.length > 0 && (
           <div>
+            {/* Title row */}
+            <h2 className="text-lg font-bold mb-2">Alpha Leaderboard</h2>
+            {/* Search + Filters row */}
             <div className="flex items-center gap-2 mb-4">
-              <h2 className="text-lg font-bold mr-1">Alpha Leaderboard</h2>
               <input
                 type="text"
                 placeholder="Search subnets..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="bg-gray-800/60 border border-gray-700 rounded-lg px-3 py-1.5 text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:border-green-600 focus:ring-1 focus:ring-green-600/30 w-40"
+                className="bg-gray-800/60 border border-gray-700 rounded-lg px-3 py-1.5 text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:border-green-600 focus:ring-1 focus:ring-green-600/30 flex-1 min-w-0"
               />
               {/* Filters popover */}
               {(() => {
@@ -122,10 +124,10 @@ export default function LeaderboardPage() {
                 ] as { label: string; active: boolean; set: React.Dispatch<React.SetStateAction<boolean>> }[];
                 const activeCount = FILTERS.filter(f => f.active).length;
                 return (
-                  <div className="relative">
+                  <div className="relative flex-shrink-0">
                     <button
                       onClick={() => setFiltersOpen(v => !v)}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${activeCount > 0 ? "bg-green-500/20 border-green-500/50 text-green-400" : "bg-gray-800/60 border-gray-700 text-gray-400 hover:text-gray-200 hover:border-gray-600"}`}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors whitespace-nowrap ${activeCount > 0 ? "bg-green-500/20 border-green-500/50 text-green-400" : "bg-gray-800/60 border-gray-700 text-gray-400 hover:text-gray-200 hover:border-gray-600"}`}
                     >
                       <span>Filters</span>
                       {activeCount > 0 && (
@@ -137,8 +139,8 @@ export default function LeaderboardPage() {
                       <>
                         {/* Backdrop */}
                         <div className="fixed inset-0 z-10" onClick={() => setFiltersOpen(false)} />
-                        {/* Dropdown */}
-                        <div className="absolute left-0 top-full mt-1 z-20 bg-gray-900 border border-gray-700 rounded-xl shadow-2xl p-3 w-56">
+                        {/* Dropdown — anchored to right edge so it never overflows on mobile */}
+                        <div className="absolute right-0 top-full mt-1 z-20 bg-gray-900 border border-gray-700 rounded-xl shadow-2xl p-3 w-52">
                           <div className="flex items-center justify-between mb-2 px-1">
                             <span className="text-xs text-gray-500 font-medium">Filter subnets</span>
                             {activeCount > 0 && (
