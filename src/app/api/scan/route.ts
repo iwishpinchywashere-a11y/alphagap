@@ -1337,14 +1337,15 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
   }
 
   // ── Build Discord signal map for social scoring ─────────────────
-  // netuid → { signal, messageCount, uniquePosters }
-  const discordMap = new Map<number, { signal: string; messageCount: number; uniquePosters: number }>();
+  // netuid → { signal, messageCount, uniquePosters, scannedAt }
+  const discordMap = new Map<number, { signal: string; messageCount: number; uniquePosters: number; scannedAt: string }>();
   for (const disc of discordResults) {
     if (disc.netuid && disc.netuid > 0) {
       discordMap.set(disc.netuid, {
         signal: disc.signal,
         messageCount: disc.messageCount,
         uniquePosters: disc.uniquePosters,
+        scannedAt: disc.scannedAt || new Date().toISOString(),
       });
     }
   }
@@ -1366,104 +1367,91 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
     } catch { /* no hot events yet */ }
   }
 
-  // Age-decay: full heat for 48h, linear decay to 0 over next 24h (gone at 72h)
-  function getHeatBoost(netuid: number): number {
-    const now = Date.now();
-    let best = 0;
-    for (const e of hotEvents) {
-      if (e.netuid !== netuid) continue;
-      const hoursOld = (now - new Date(e.detected_at).getTime()) / 3600000;
-      const ageFactor = hoursOld <= 48 ? 1.0 : Math.max(0, 1 - (hoursOld - 48) / 24);
-      best = Math.max(best, Math.round(e.heat_score * ageFactor));
+  // ── Social Score v3: Early Trend Detector ──────────────────────
+  // HIGH score = we are catching a FRESH social trend right now (alpha window open)
+  // LOW score = no signal, OR signal has aged and the opportunity has passed
+  //
+  // Decay is aggressive: full intensity for 4h, fades to 0 by 72h.
+  // Multiple big KOLs talking within 12h = cluster bonus → can hit 90-100.
+  // Discord alpha channel freshness is also factored.
+  const desearchFailed = socialMap.size === 0;
+  const _now = Date.now();
+
+  function getKolScore(netuid: number): { kolPts: number; clusterBonus: number } {
+    const decayed = hotEvents
+      .filter(e => e.netuid === netuid)
+      .map(e => {
+        const hoursOld = (_now - new Date(e.detected_at).getTime()) / 3600000;
+        // Full for 4h, linear decay to 0 at 72h
+        const freshness = hoursOld <= 4 ? 1.0 : Math.max(0, 1 - (hoursOld - 4) / 68);
+        return { handle: e.kol_handle, heat: Math.round(e.heat_score * freshness), hoursOld };
+      })
+      .filter(e => e.heat >= 20)
+      .sort((a, b) => b.heat - a.heat);
+
+    // Stack KOLs with diminishing returns — 2nd/3rd voices compound the signal
+    const weights = [0.65, 0.45, 0.25, 0.12, 0.06];
+    let kolPts = 0;
+    for (let i = 0; i < Math.min(decayed.length, weights.length); i++) {
+      kolPts += decayed[i].heat * weights[i];
     }
-    return best;
+    kolPts = Math.min(80, Math.round(kolPts));
+
+    // Cluster bonus: multiple unique KOLs active within 12h = coordinated signal
+    const recentKOLs = new Set(decayed.filter(e => e.hoursOld <= 12).map(e => e.handle)).size;
+    const clusterBonus = recentKOLs >= 3 ? 20 : recentKOLs >= 2 ? 10 : 0;
+
+    return { kolPts, clusterBonus };
   }
 
-  // ── Compute social score ────────────────────────────────────────
-  const desearchFailed = socialMap.size === 0;
-
   function computeSocialScore(netuid: number, mentions: number, engagement: number): number {
-    // Stitch3 campaign bonus — active marketing = social boost
-    const hasCampaign = stitchActiveNetuids.has(netuid);
-    const campaignBonus = hasCampaign ? 15 : 0; // +15 pts for active campaign
+    const { kolPts, clusterBonus } = getKolScore(netuid);
 
-    if (mentions <= 0 && engagement <= 0) {
-      if (hasCampaign) return Math.min(100, 30 + campaignBonus); // Campaign alone = at least 30
+    // ── Discord freshness signal (max 25 pts) ──
+    // Fresh alpha channel = strong early signal. Scan must be recent to count.
+    const disc = discordMap.get(netuid);
+    let discordPts = 0;
+    if (disc) {
+      const discAgeHours = (_now - new Date(disc.scannedAt).getTime()) / 3600000;
+      // Freshness: full within 12h, decays to 40% at 48h (discord scans every 3h anyway)
+      const discFresh = discAgeHours <= 12 ? 1.0
+        : discAgeHours <= 48 ? Math.max(0.4, 1 - (discAgeHours - 12) / 36 * 0.6)
+        : 0.4;
+      if (disc.signal === "alpha") {
+        discordPts = Math.round(Math.min(25, (16 + Math.min(disc.uniquePosters, 9))) * discFresh);
+      } else if (disc.signal === "active") {
+        discordPts = Math.round(Math.min(15, (8 + Math.min(disc.uniquePosters, 7))) * discFresh);
+      }
+      // "quiet" and "noise" contribute 0
+    }
+
+    // ── Organic volume (max 15 pts, supporting context only) ──
+    // Raw tweet volume matters a little but is now secondary to KOL quality
+    let organicPts = 0;
+    if (mentions >= 50) organicPts += 9;
+    else if (mentions >= 20) organicPts += 7;
+    else if (mentions >= 10) organicPts += 5;
+    else if (mentions >= 5) organicPts += 3;
+    else if (mentions >= 2) organicPts += 2;
+    else if (mentions >= 1) organicPts += 1;
+    if (engagement >= 3000) organicPts += 6;
+    else if (engagement >= 1000) organicPts += 4;
+    else if (engagement >= 200) organicPts += 3;
+    else if (engagement >= 50) organicPts += 2;
+    else if (engagement >= 10) organicPts += 1;
+    organicPts = Math.min(15, organicPts);
+
+    // ── Fallback: no signal at all ──
+    if (kolPts === 0 && discordPts === 0 && mentions <= 0) {
       if (desearchFailed) {
         const identity = identityMap.get(netuid);
-        if (identity?.twitter) return 15;
-        if (identity?.subnet_name) return 8;
+        if (identity?.twitter) return 10;
+        if (identity?.subnet_name) return 5;
       }
       return 0;
     }
 
-    // Social score v2 — recalibrated so popular subnets don't permanently peg the ceiling
-    // Templar/Chutes/Targon were always hitting 100 with old thresholds (30 mentions / 3K eng)
-    // New design: absolute volume = max 55 pts, velocity = max 30 pts, campaign = 15 pts
-    // To score 80+: need genuinely viral volume OR high volume + accelerating trend
-    let score = 0;
-
-    // ── VOLUME (max 55 pts) ──
-    // Mentions (max 30 pts) — raised bar: 100+ needed to max out
-    if (mentions >= 100) score += 30;
-    else if (mentions >= 60) score += 26;
-    else if (mentions >= 35) score += 22;
-    else if (mentions >= 20) score += 18;
-    else if (mentions >= 12) score += 14;
-    else if (mentions >= 7) score += 10;
-    else if (mentions >= 4) score += 7;
-    else if (mentions >= 2) score += 4;
-    else if (mentions >= 1) score += 2;
-
-    // Engagement (max 25 pts) — raised bar: 15K+ to max out
-    if (engagement >= 15000) score += 25;
-    else if (engagement >= 8000) score += 21;
-    else if (engagement >= 4000) score += 18;
-    else if (engagement >= 2000) score += 15;
-    else if (engagement >= 1000) score += 12;
-    else if (engagement >= 400) score += 9;
-    else if (engagement >= 150) score += 6;
-    else if (engagement >= 40) score += 3;
-    else if (engagement >= 10) score += 1;
-
-    // ── VELOCITY (max 30 pts) — the real alpha signal ──
-    // Is social buzz growing faster than baseline? This rewards heating-up subnets
-    const vel = velocityData[netuid];
-    if (vel) {
-      if (vel.trend === "accelerating") score += 30; // mentions/min surging
-      else if (vel.trend === "growing") score += 18; // steady uptrend
-      else if (vel.trend === "cooling") score -= 8;  // buzz fading
-
-      // Additional raw velocity bonus (capped at 10)
-      score += Math.min(10, Math.round(vel.velocityScore * 0.2));
-    }
-
-    // ── CAMPAIGN BONUS (max 15 pts) ──
-    score += campaignBonus;
-
-    // ── DISCORD BONUS (max 20 pts) ──
-    // Real community chatter in the official Discord is a strong social signal
-    // Discord alpha = genuine insider discussion before it hits Twitter/price
-    const disc = discordMap.get(netuid);
-    if (disc) {
-      if (disc.signal === "alpha") {
-        // Alpha spotted: genuine insider discussion, dev previews, partnerships
-        score += Math.min(20, 15 + Math.min(disc.uniquePosters, 5));
-      } else if (disc.signal === "active") {
-        // Healthy community engagement — good but not investable intel
-        score += Math.min(12, 6 + Math.min(disc.uniquePosters, 6));
-      }
-      // "quiet" and "noise" contribute nothing
-    }
-
-    const organicScore = Math.min(100, Math.max(0, score));
-
-    // ── KOL HEAT BOOST — overrides organic score if higher ──────────
-    // A tier-1 KOL tweet (const, opentensor etc.) with real engagement pushes
-    // social score to 90-100 for 48h, then decays to 0 over the following 24h.
-    // We take max(organic, heat) so the boost only ever helps, never hurts.
-    const heatBoost = getHeatBoost(netuid);
-    return Math.max(organicScore, heatBoost);
+    return Math.min(100, Math.max(0, kolPts + clusterBonus + discordPts + organicPts));
   }
 
   // ── Load aGap score history for EMA smoothing ──────────────────
@@ -1610,17 +1598,14 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
       priceLag = Math.min(30, Math.max(-10, priceLag));
     }
 
-    // 3. SOCIAL GAP (0-15 pts) — is nobody talking about this yet?
-    // High dev + low social = undiscovered alpha
-    let socialGap = 0;
-    if (devScore >= 20) {
-      if (d.socialMentions <= 1 && d.socialEngagement < 20) socialGap = 15;
-      else if (d.socialMentions <= 3 && d.socialEngagement < 100) socialGap = 12;
-      else if (d.socialMentions <= 8 && d.socialEngagement < 300) socialGap = 8;
-      else if (d.socialMentions <= 15 && d.socialEngagement < 800) socialGap = 4;
-      else if (d.socialMentions > 30 && d.socialEngagement > 2000) socialGap = -3;
-      else if (d.socialMentions > 50 && d.socialEngagement > 5000) socialGap = -8;
-    }
+    // 3. SOCIAL MOMENTUM (0-20 pts) — are we catching an early social trend?
+    // High social score = fresh KOL activity or discord alpha just spotted = open alpha window
+    // Low/zero = no signal or trend already aged out = no opportunity boost
+    let socialMomentum = 0;
+    if (socialScore >= 80) socialMomentum = 20;
+    else if (socialScore >= 60) socialMomentum = 16;
+    else if (socialScore >= 40) socialMomentum = 11;
+    else if (socialScore >= 20) socialMomentum = 5;
 
     // 4. EMISSION VALUE GAP (0-15 pts) — network paying more than market realizes
     // High eVal = emissions outpace valuation = validators know something retail doesn't
@@ -1734,7 +1719,7 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
       }
     }
 
-    const rawAGap = buildingPts + priceLag + socialGap + evalBoost + viability + campaignBoost + whaleBoost + emissionBoost;
+    const rawAGap = buildingPts + priceLag + socialMomentum + evalBoost + viability + campaignBoost + whaleBoost + emissionBoost;
     const clampedRaw = Math.max(1, Math.min(100, Math.round(rawAGap)));
     const aGap = smoothAGap(d.netuid, clampedRaw);
 
