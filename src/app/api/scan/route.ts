@@ -1561,9 +1561,10 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
     // High dev + low price movement + low social = MAXIMUM GAP
     // High dev + price already pumped + everyone talking = NO GAP
 
-    // 1. BUILDING QUALITY (0-50 pts) — are they actually shipping?
-    // Dev score IS the quality signal. Scale it to 50.
-    const buildingPts = devScore * 0.50;
+    // 1. BUILDING QUALITY (0-45 pts) — are they actually shipping?
+    // Dev score IS the quality signal. Scale it to 45 (was 50).
+    // Slightly reduced to give more relative weight to smart-money signals.
+    const buildingPts = devScore * 0.45;
 
     // 2. PRICE LAG (0-30 pts) — multi-timeframe gap detection
     // The BEST alpha gap: building hard + down on longer timeframes + just starting to turn
@@ -1604,19 +1605,19 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
       else if (pch7d <= -15 && pch24h >= 2) priceLag += 5;   // Down 15%+ weekly, turning today
       else if (pch7d <= -10 && pch24h >= 0) priceLag += 3;   // Down weekly, stabilizing
 
-      priceLag = Math.min(26, Math.max(-10, priceLag));
+      priceLag = Math.min(28, Math.max(-10, priceLag));
     }
 
-    // 3. SOCIAL MOMENTUM (0-17 pts) — are we catching an early social trend?
+    // 3. SOCIAL MOMENTUM (0-19 pts) — are we catching an early social trend?
     // High social score = fresh KOL activity or discord alpha just spotted = open alpha window
     // Low/zero = no signal or trend already aged out = no opportunity boost
-    // Capped at 17: social is a supporting signal, not the main score driver.
+    // Capped at 19: social is a supporting signal, not the main score driver.
     // A subnet cannot score 90+ on social buzz alone — it needs dev quality too.
     let socialMomentum = 0;
-    if (socialScore >= 80) socialMomentum = 17;
-    else if (socialScore >= 60) socialMomentum = 12;
-    else if (socialScore >= 40) socialMomentum = 8;
-    else if (socialScore >= 20) socialMomentum = 3;
+    if (socialScore >= 80) socialMomentum = 19;
+    else if (socialScore >= 60) socialMomentum = 14;
+    else if (socialScore >= 40) socialMomentum = 9;
+    else if (socialScore >= 20) socialMomentum = 4;
 
     // 4. EMISSION VALUE GAP (0-15 pts) — network paying more than market realizes
     // High eVal = emissions outpace valuation = validators know something retail doesn't
@@ -1683,14 +1684,18 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
           if (changePct >= 5) emissionTrend = "up";
           else if (changePct <= -5) emissionTrend = "down";
 
-          // Boost: up to +18 for surging emissions, up to -14 for collapsing
-          if (changePct >= 100) emissionBoost = 18;      // doubled+ — massive validator conviction
-          else if (changePct >= 50) emissionBoost = 15;  // surging
-          else if (changePct >= 30) emissionBoost = 12;  // strong rise
-          else if (changePct >= 20) emissionBoost = 9;
-          else if (changePct >= 10) emissionBoost = 6;
-          else if (changePct >= 5)  emissionBoost = 3;
-          else if (changePct >= 0)  emissionBoost = 1;
+          // Boost: up to +26 for surging emissions, up to -14 for collapsing
+          // Tiered so a 300% surge scores much better than a 100% surge —
+          // validators routing 3x more TAO is a stronger signal than 2x.
+          if (changePct >= 300) emissionBoost = 26;      // explosive — major validator conviction shift
+          else if (changePct >= 200) emissionBoost = 23; // tripling emissions = very strong signal
+          else if (changePct >= 100) emissionBoost = 20; // doubled — strong validator conviction
+          else if (changePct >= 50)  emissionBoost = 16; // surging
+          else if (changePct >= 30)  emissionBoost = 12; // strong rise
+          else if (changePct >= 20)  emissionBoost = 9;
+          else if (changePct >= 10)  emissionBoost = 6;
+          else if (changePct >= 5)   emissionBoost = 3;
+          else if (changePct >= 0)   emissionBoost = 1;
           else if (changePct <= -50) emissionBoost = -14; // validators fleeing
           else if (changePct <= -30) emissionBoost = -10;
           else if (changePct <= -20) emissionBoost = -7;
