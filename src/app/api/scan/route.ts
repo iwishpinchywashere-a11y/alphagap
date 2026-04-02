@@ -113,7 +113,8 @@ async function fetchKolTimeline(handle: string, count: number = 15): Promise<Des
     });
     clearTimeout(timeout);
     if (!res.ok) return [];
-    return await res.json();
+    const data = await res.json();
+    return Array.isArray(data) ? data : (Array.isArray(data?.posts) ? data.posts : []);
   } catch {
     return [];
   }
