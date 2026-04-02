@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useDashboard } from "@/components/dashboard/DashboardProvider";
 import SubnetDetailPanel from "@/components/dashboard/SubnetDetailPanel";
@@ -39,6 +39,7 @@ export default function LeaderboardPage() {
   const [filterKolActive, setFilterKolActive] = useState(false);
   const [filterNetInflow, setFilterNetInflow] = useState(false);
   const [filterHighConviction, setFilterHighConviction] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   const handleSort = (col: keyof SubnetScore) => {
     if (sortCol === col) setSortAsc(!sortAsc);
@@ -98,7 +99,7 @@ export default function LeaderboardPage() {
 
         {leaderboard.length > 0 && (
           <div>
-            <div className="flex items-center gap-2 mb-4 flex-wrap">
+            <div className="flex items-center gap-2 mb-4">
               <h2 className="text-lg font-bold mr-1">Alpha Leaderboard</h2>
               <input
                 type="text"
@@ -107,24 +108,68 @@ export default function LeaderboardPage() {
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="bg-gray-800/60 border border-gray-700 rounded-lg px-3 py-1.5 text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:border-green-600 focus:ring-1 focus:ring-green-600/30 w-40"
               />
-              {([
-                { label: "💰 >$5M MCap",        active: filterMinCap,          set: setFilterMinCap },
-                { label: "⛽ Has Emissions",   active: filterHasEmissions,    set: setFilterHasEmissions },
-                { label: "🐋 Whales Buying",   active: filterWhaleAccum,      set: setFilterWhaleAccum },
-                { label: "📈 Emissions Rising",active: filterEmissionsRising, set: setFilterEmissionsRising },
-                { label: "📉 Oversold Quality",active: filterOversoldQuality, set: setFilterOversoldQuality },
-                { label: "🔥 KOL Active",      active: filterKolActive,       set: setFilterKolActive },
-                { label: "💸 Net Inflow",       active: filterNetInflow,       set: setFilterNetInflow },
-                { label: "🎯 High Conviction",  active: filterHighConviction,  set: setFilterHighConviction },
-              ] as { label: string; active: boolean; set: (fn: (v: boolean) => boolean) => void }[]).map(({ label, active, set }) => (
-                <button
-                  key={label}
-                  onClick={() => set(v => !v)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors whitespace-nowrap ${active ? "bg-green-500/20 border-green-500/50 text-green-400" : "bg-gray-800/60 border-gray-700 text-gray-400 hover:text-gray-200 hover:border-gray-600"}`}
-                >
-                  {label}
-                </button>
-              ))}
+              {/* Filters popover */}
+              {(() => {
+                const FILTERS = [
+                  { label: "💰 >$5M MCap",         active: filterMinCap,          set: setFilterMinCap },
+                  { label: "⛽ Has Emissions",      active: filterHasEmissions,    set: setFilterHasEmissions },
+                  { label: "🐋 Whales Buying",      active: filterWhaleAccum,      set: setFilterWhaleAccum },
+                  { label: "📈 Emissions Rising",   active: filterEmissionsRising, set: setFilterEmissionsRising },
+                  { label: "📉 Oversold Quality",   active: filterOversoldQuality, set: setFilterOversoldQuality },
+                  { label: "🔥 KOL Active",         active: filterKolActive,       set: setFilterKolActive },
+                  { label: "💸 Net Inflow",          active: filterNetInflow,       set: setFilterNetInflow },
+                  { label: "🎯 High Conviction",     active: filterHighConviction,  set: setFilterHighConviction },
+                ] as { label: string; active: boolean; set: React.Dispatch<React.SetStateAction<boolean>> }[];
+                const activeCount = FILTERS.filter(f => f.active).length;
+                return (
+                  <div className="relative">
+                    <button
+                      onClick={() => setFiltersOpen(v => !v)}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${activeCount > 0 ? "bg-green-500/20 border-green-500/50 text-green-400" : "bg-gray-800/60 border-gray-700 text-gray-400 hover:text-gray-200 hover:border-gray-600"}`}
+                    >
+                      <span>Filters</span>
+                      {activeCount > 0 && (
+                        <span className="bg-green-500 text-black text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center leading-none">{activeCount}</span>
+                      )}
+                      <span className="text-[10px] opacity-60">{filtersOpen ? "▲" : "▼"}</span>
+                    </button>
+                    {filtersOpen && (
+                      <>
+                        {/* Backdrop */}
+                        <div className="fixed inset-0 z-10" onClick={() => setFiltersOpen(false)} />
+                        {/* Dropdown */}
+                        <div className="absolute left-0 top-full mt-1 z-20 bg-gray-900 border border-gray-700 rounded-xl shadow-2xl p-3 w-56">
+                          <div className="flex items-center justify-between mb-2 px-1">
+                            <span className="text-xs text-gray-500 font-medium">Filter subnets</span>
+                            {activeCount > 0 && (
+                              <button
+                                onClick={() => { FILTERS.forEach(f => f.set(false)); }}
+                                className="text-[10px] text-gray-500 hover:text-red-400 transition-colors"
+                              >
+                                Clear all
+                              </button>
+                            )}
+                          </div>
+                          <div className="flex flex-col gap-1">
+                            {FILTERS.map(({ label, active, set }) => (
+                              <button
+                                key={label}
+                                onClick={() => set(v => !v)}
+                                className={`flex items-center gap-2 w-full px-3 py-2 rounded-lg text-xs font-medium text-left transition-colors ${active ? "bg-green-500/20 border border-green-500/40 text-green-400" : "hover:bg-gray-800 text-gray-300 border border-transparent"}`}
+                              >
+                                <span className={`w-3 h-3 rounded-sm border flex-shrink-0 flex items-center justify-center ${active ? "bg-green-500 border-green-500" : "border-gray-600"}`}>
+                                  {active && <span className="text-black text-[8px] font-bold">✓</span>}
+                                </span>
+                                {label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
 
             <div className="overflow-x-auto -mx-4 md:mx-0 px-4 md:px-0">
