@@ -1595,18 +1595,18 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
       else if (pch7d <= -15 && pch24h >= 2) priceLag += 5;   // Down 15%+ weekly, turning today
       else if (pch7d <= -10 && pch24h >= 0) priceLag += 3;   // Down weekly, stabilizing
 
-      priceLag = Math.min(22, Math.max(-10, priceLag));
+      priceLag = Math.min(26, Math.max(-10, priceLag));
     }
 
-    // 3. SOCIAL MOMENTUM (0-15 pts) — are we catching an early social trend?
+    // 3. SOCIAL MOMENTUM (0-17 pts) — are we catching an early social trend?
     // High social score = fresh KOL activity or discord alpha just spotted = open alpha window
     // Low/zero = no signal or trend already aged out = no opportunity boost
-    // Deliberately capped at 15: social is a supporting signal, not the main score driver.
+    // Capped at 17: social is a supporting signal, not the main score driver.
     // A subnet cannot score 90+ on social buzz alone — it needs dev quality too.
     let socialMomentum = 0;
-    if (socialScore >= 80) socialMomentum = 15;
-    else if (socialScore >= 60) socialMomentum = 11;
-    else if (socialScore >= 40) socialMomentum = 7;
+    if (socialScore >= 80) socialMomentum = 17;
+    else if (socialScore >= 60) socialMomentum = 12;
+    else if (socialScore >= 40) socialMomentum = 8;
     else if (socialScore >= 20) socialMomentum = 3;
 
     // 4. EMISSION VALUE GAP (0-15 pts) — network paying more than market realizes
@@ -1652,10 +1652,11 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
       // Campaign over = 0 boost
     }
 
-    // 6. EMISSION MOMENTUM (±10 pts) — are validators routing more/less to this subnet?
+    // 6. EMISSION MOMENTUM (±18 pts) — are validators routing more/less to this subnet?
     // Rising emissions = validators actively choosing this subnet → strong bullish signal
     // Falling emissions = validators leaving → bearish signal
-    // This is one of the most direct "smart money" signals on Bittensor
+    // This is the most direct "smart money" signal on Bittensor — validators vote with emissions.
+    // A 50%+ weekly emission spike is a major signal and deserves a large boost.
     let emissionBoost = 0;
     let emissionChangePct: number | undefined;
     let emissionTrend: "up" | "down" | null = null;
@@ -1673,16 +1674,19 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
           if (changePct >= 5) emissionTrend = "up";
           else if (changePct <= -5) emissionTrend = "down";
 
-          // Boost: up to +10 for rising, up to -8 for falling
-          if (changePct >= 30) emissionBoost = 10;
-          else if (changePct >= 20) emissionBoost = 8;
+          // Boost: up to +18 for surging emissions, up to -14 for collapsing
+          if (changePct >= 100) emissionBoost = 18;      // doubled+ — massive validator conviction
+          else if (changePct >= 50) emissionBoost = 15;  // surging
+          else if (changePct >= 30) emissionBoost = 12;  // strong rise
+          else if (changePct >= 20) emissionBoost = 9;
           else if (changePct >= 10) emissionBoost = 6;
-          else if (changePct >= 5) emissionBoost = 3;
-          else if (changePct >= 0) emissionBoost = 1;
-          else if (changePct <= -30) emissionBoost = -8;
-          else if (changePct <= -20) emissionBoost = -6;
+          else if (changePct >= 5)  emissionBoost = 3;
+          else if (changePct >= 0)  emissionBoost = 1;
+          else if (changePct <= -50) emissionBoost = -14; // validators fleeing
+          else if (changePct <= -30) emissionBoost = -10;
+          else if (changePct <= -20) emissionBoost = -7;
           else if (changePct <= -10) emissionBoost = -4;
-          else if (changePct <= -5) emissionBoost = -2;
+          else if (changePct <= -5)  emissionBoost = -2;
         }
       }
     }
