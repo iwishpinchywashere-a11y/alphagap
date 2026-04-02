@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useDashboard } from "@/components/dashboard/DashboardProvider";
 import SubnetDetailPanel from "@/components/dashboard/SubnetDetailPanel";
@@ -15,29 +15,37 @@ export default function SignalsPage() {
 
   const q = searchQuery.toLowerCase().trim();
 
-  // Stable date key: YYYY-MM-DD portion only.
-  // Works for both date-only strings ("2026-04-01") and full ISO timestamps.
-  // String comparison on YYYY-MM-DD is correct lexicographic order.
-  const sigDay = (sig: (typeof signals)[number]) =>
+  // YYYY-MM-DD slice works for both date-only strings and full ISO timestamps.
+  // Plain string comparison (> < ===) on YYYY-MM-DD is reliable lexicographic order.
+  const day = (sig: (typeof signals)[number]) =>
     (sig.signal_date || sig.created_at || "1970-01-01").slice(0, 10);
 
-  const sorted = [...signals]
-    .filter((sig) => !q || (sig.subnet_name || "").toLowerCase().includes(q) || sig.title.toLowerCase().includes(q) || `sn${sig.netuid}`.includes(q))
-    .sort((a, b) => {
-      if (signalSort === "score") {
-        // Primary: strength descending
-        const diff = b.strength - a.strength;
-        if (diff !== 0) return diff;
-        // Tiebreak: most recent day first
-        return sigDay(b).localeCompare(sigDay(a));
-      } else {
-        // Primary: most recent day first (YYYY-MM-DD string compare is correct)
-        const dayDiff = sigDay(b).localeCompare(sigDay(a));
-        if (dayDiff !== 0) return dayDiff;
-        // Tiebreak within same day: highest strength first
-        return b.strength - a.strength;
-      }
-    });
+  const byScore = useMemo(() =>
+    [...signals].sort((a, b) => {
+      const sa = Number(a.strength) || 0;
+      const sb = Number(b.strength) || 0;
+      if (sb !== sa) return sb - sa;           // highest score first
+      const da = day(a); const db = day(b);
+      if (db > da) return 1;                   // newer date first (tiebreak)
+      if (db < da) return -1;
+      return a.netuid - b.netuid;              // final stable tiebreak
+    }), [signals]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const byDate = useMemo(() =>
+    [...signals].sort((a, b) => {
+      const da = day(a); const db = day(b);
+      if (db > da) return 1;                   // newer day first
+      if (db < da) return -1;
+      const sa = Number(a.strength) || 0;
+      const sb = Number(b.strength) || 0;
+      if (sb !== sa) return sb - sa;           // within same day: highest score first
+      return a.netuid - b.netuid;              // final stable tiebreak
+    }), [signals]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const base = signalSort === "score" ? byScore : byDate;
+  const sorted = base.filter(
+    (sig) => !q || (sig.subnet_name || "").toLowerCase().includes(q) || sig.title.toLowerCase().includes(q) || `sn${sig.netuid}`.includes(q)
+  );
 
   return (
     <main className="flex-1 flex overflow-x-hidden">
