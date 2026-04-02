@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useDashboard } from "@/components/dashboard/DashboardProvider";
 import SubnetDetailPanel from "@/components/dashboard/SubnetDetailPanel";
+import SubnetLogo from "@/components/dashboard/SubnetLogo";
 import { scoreColor, flowColor, formatNum } from "@/lib/formatters";
 import type { SubnetScore } from "@/lib/types";
 
@@ -225,6 +226,7 @@ export default function LeaderboardPage() {
                       <td className="py-2 px-3 text-gray-600 text-xs tabular-nums">{i + 1}</td>
                       <td className="py-2 px-3">
                         <div className="flex items-center gap-2">
+                          <SubnetLogo netuid={sub.netuid} name={sub.name} size={20} />
                           <span className="text-[10px] text-gray-600 font-mono tracking-tight">SN{sub.netuid}</span>
                           <span className="font-bold text-[15px] text-gray-100 leading-tight">{sub.name}</span>
                           {sub.has_campaign && <span title="Active Stitch3 marketing campaign" className="text-sm">🔥</span>}
