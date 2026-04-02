@@ -1595,17 +1595,19 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
       else if (pch7d <= -15 && pch24h >= 2) priceLag += 5;   // Down 15%+ weekly, turning today
       else if (pch7d <= -10 && pch24h >= 0) priceLag += 3;   // Down weekly, stabilizing
 
-      priceLag = Math.min(30, Math.max(-10, priceLag));
+      priceLag = Math.min(22, Math.max(-10, priceLag));
     }
 
-    // 3. SOCIAL MOMENTUM (0-20 pts) — are we catching an early social trend?
+    // 3. SOCIAL MOMENTUM (0-15 pts) — are we catching an early social trend?
     // High social score = fresh KOL activity or discord alpha just spotted = open alpha window
     // Low/zero = no signal or trend already aged out = no opportunity boost
+    // Deliberately capped at 15: social is a supporting signal, not the main score driver.
+    // A subnet cannot score 90+ on social buzz alone — it needs dev quality too.
     let socialMomentum = 0;
-    if (socialScore >= 80) socialMomentum = 20;
-    else if (socialScore >= 60) socialMomentum = 16;
-    else if (socialScore >= 40) socialMomentum = 11;
-    else if (socialScore >= 20) socialMomentum = 5;
+    if (socialScore >= 80) socialMomentum = 15;
+    else if (socialScore >= 60) socialMomentum = 11;
+    else if (socialScore >= 40) socialMomentum = 7;
+    else if (socialScore >= 20) socialMomentum = 3;
 
     // 4. EMISSION VALUE GAP (0-15 pts) — network paying more than market realizes
     // High eVal = emissions outpace valuation = validators know something retail doesn't

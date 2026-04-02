@@ -115,10 +115,10 @@ function estimateOldSocialGap(oldSocialScore: number, devScore: number): number 
 
 // New socialMomentum component (replaces socialGap in aGap formula)
 function computeSocialMomentum(socialScore: number): number {
-  if (socialScore >= 80) return 20;
-  if (socialScore >= 60) return 16;
-  if (socialScore >= 40) return 11;
-  if (socialScore >= 20) return 5;
+  if (socialScore >= 80) return 15;
+  if (socialScore >= 60) return 11;
+  if (socialScore >= 40) return 7;
+  if (socialScore >= 20) return 3;
   return 0;
 }
 
