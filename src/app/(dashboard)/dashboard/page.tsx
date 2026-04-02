@@ -33,6 +33,12 @@ export default function LeaderboardPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterMinCap, setFilterMinCap] = useState(false);
   const [filterHasEmissions, setFilterHasEmissions] = useState(false);
+  const [filterWhaleAccum, setFilterWhaleAccum] = useState(false);
+  const [filterEmissionsRising, setFilterEmissionsRising] = useState(false);
+  const [filterOversoldQuality, setFilterOversoldQuality] = useState(false);
+  const [filterKolActive, setFilterKolActive] = useState(false);
+  const [filterNetInflow, setFilterNetInflow] = useState(false);
+  const [filterHighConviction, setFilterHighConviction] = useState(false);
 
   const handleSort = (col: keyof SubnetScore) => {
     if (sortCol === col) setSortAsc(!sortAsc);
@@ -44,6 +50,12 @@ export default function LeaderboardPage() {
     .filter((sub) => !q || sub.name.toLowerCase().includes(q) || `sn${sub.netuid}`.includes(q))
     .filter((sub) => !filterMinCap || (sub.market_cap != null && sub.market_cap >= 5_000_000))
     .filter((sub) => !filterHasEmissions || (sub.emission_pct != null && sub.emission_pct > 0))
+    .filter((sub) => !filterWhaleAccum || sub.whale_signal === "accumulating")
+    .filter((sub) => !filterEmissionsRising || sub.emission_trend === "up")
+    .filter((sub) => !filterOversoldQuality || ((sub.dev_score ?? 0) >= 50 && (sub.price_change_7d ?? 0) <= -20))
+    .filter((sub) => !filterKolActive || (sub.social_score ?? 0) >= 60)
+    .filter((sub) => !filterNetInflow || (sub.net_flow_24h != null && sub.net_flow_24h > 0))
+    .filter((sub) => !filterHighConviction || (sub.emission_trend === "up" && sub.whale_signal === "accumulating" && (sub.dev_score ?? 0) >= 40))
     .sort((a, b) => {
       const av = a[sortCol] ?? -Infinity;
       const bv = b[sortCol] ?? -Infinity;
@@ -91,32 +103,33 @@ export default function LeaderboardPage() {
 
         {leaderboard.length > 0 && (
           <div>
-            <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-              <div className="flex items-center gap-3 flex-wrap">
-                <h2 className="text-lg font-bold">Alpha Leaderboard</h2>
-                <input
-                  type="text"
-                  placeholder="Search subnets..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="bg-gray-800/60 border border-gray-700 rounded-lg px-3 py-1.5 text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:border-green-600 focus:ring-1 focus:ring-green-600/30 w-48"
-                />
+            <div className="flex items-center gap-2 mb-4 flex-wrap">
+              <h2 className="text-lg font-bold mr-1">Alpha Leaderboard</h2>
+              <input
+                type="text"
+                placeholder="Search subnets..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="bg-gray-800/60 border border-gray-700 rounded-lg px-3 py-1.5 text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:border-green-600 focus:ring-1 focus:ring-green-600/30 w-40"
+              />
+              {([
+                { label: ">$5M MCap",         active: filterMinCap,          set: setFilterMinCap },
+                { label: "Has Emissions",      active: filterHasEmissions,    set: setFilterHasEmissions },
+                { label: "🐋 Whales Buying",   active: filterWhaleAccum,      set: setFilterWhaleAccum },
+                { label: "📈 Emissions Rising",active: filterEmissionsRising, set: setFilterEmissionsRising },
+                { label: "📉 Oversold Quality",active: filterOversoldQuality, set: setFilterOversoldQuality },
+                { label: "🔥 KOL Active",      active: filterKolActive,       set: setFilterKolActive },
+                { label: "💸 Net Inflow",       active: filterNetInflow,       set: setFilterNetInflow },
+                { label: "🎯 High Conviction",  active: filterHighConviction,  set: setFilterHighConviction },
+              ] as { label: string; active: boolean; set: (fn: (v: boolean) => boolean) => void }[]).map(({ label, active, set }) => (
                 <button
-                  onClick={() => setFilterMinCap(v => !v)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${filterMinCap ? "bg-green-500/20 border-green-500/50 text-green-400" : "bg-gray-800/60 border-gray-700 text-gray-400 hover:text-gray-200 hover:border-gray-600"}`}
+                  key={label}
+                  onClick={() => set(v => !v)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors whitespace-nowrap ${active ? "bg-green-500/20 border-green-500/50 text-green-400" : "bg-gray-800/60 border-gray-700 text-gray-400 hover:text-gray-200 hover:border-gray-600"}`}
                 >
-                  &gt;$5M MCap
+                  {label}
                 </button>
-                <button
-                  onClick={() => setFilterHasEmissions(v => !v)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${filterHasEmissions ? "bg-green-500/20 border-green-500/50 text-green-400" : "bg-gray-800/60 border-gray-700 text-gray-400 hover:text-gray-200 hover:border-gray-600"}`}
-                >
-                  Has Emissions
-                </button>
-              </div>
-              <span className="text-xs text-gray-500">
-                aGap = Dev execution + Price lagging = Alpha opportunity
-              </span>
+              ))}
             </div>
 
             <div className="overflow-x-auto -mx-4 md:mx-0 px-4 md:px-0">
