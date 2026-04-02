@@ -30,10 +30,18 @@ async function fetchTMCSubnets(): Promise<TMCSubnet[]> {
   if (!TMC_API_KEY) return [];
   try {
     const res = await fetch("https://api.taomarketcap.com/public/v1/subnets/table/", {
-      headers: { Authorization: TMC_API_KEY },
+      headers: { Authorization: `Token ${TMC_API_KEY}` },
     });
-    if (!res.ok) return [];
-    return await res.json();
+    if (!res.ok) {
+      console.error(`[scan] TMC API returned ${res.status}`);
+      return [];
+    }
+    const data = await res.json();
+    if (!Array.isArray(data)) {
+      console.error("[scan] TMC API unexpected response:", JSON.stringify(data).slice(0, 100));
+      return [];
+    }
+    return data;
   } catch {
     console.error("[scan] TMC API failed");
     return [];
@@ -46,7 +54,7 @@ async function fetchTMCValidators(): Promise<Map<number, number>> {
   if (!TMC_API_KEY) return new Map();
   try {
     const res = await fetch("https://api.taomarketcap.com/public/v1/subnets/validators/?limit=10000", {
-      headers: { Authorization: TMC_API_KEY },
+      headers: { Authorization: `Token ${TMC_API_KEY}` },
     });
     if (!res.ok) return new Map();
     const validators: TMCValidator[] = await res.json();
