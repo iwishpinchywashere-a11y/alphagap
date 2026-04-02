@@ -22,23 +22,45 @@ const KNOWN_HF_ORGS: Array<{ org: string; netuid?: number }> = [
   { org: "opentensor" },
   // SN1 — Apex / Macrocosm
   { org: "macrocosm-os", netuid: 1 },
+  // SN2 — DSperse / Inference Labs
+  { org: "inferencelabs", netuid: 2 },
   // SN4 — Targon by Manifold
   { org: "manifold-inc", netuid: 4 },
   // SN6 — Nous Research
   { org: "NousResearch", netuid: 6 },
+  // SN8 — Vanta / Taoshi
+  { org: "Taoshi", netuid: 8 },
   // SN9 — Pretraining / Rao Foundation
   { org: "RaoFoundation", netuid: 9 },
-  // SN17 — Vidaio / 404-Gen
+  // SN15 — ORO
+  { org: "oro-ai", netuid: 15 },
+  // SN17 — 404-Gen
   { org: "404-Gen", netuid: 17 },
-  // SN18 — Cortex.t
+  // SN18 — Zeus / Orpheus (Cortex)
   { org: "CortexLM", netuid: 18 },
   // SN20 — BitAgent
   { org: "BitAgent", netuid: 20 },
-  // SN24 — Omega Labs
+  // SN24 — Omega Labs / Quasar
   { org: "omegalabsinc", netuid: 24 },
+  // SN27 — Nodexo / Neural Internet
+  { org: "NeuralInternet", netuid: 27 },
+  // SN33 — ReadyAI
+  { org: "ReadyAi", netuid: 33 },
   // SN34 — BitMind (image detection)
   { org: "bitmind", netuid: 34 },
   { org: "bitmind-ai", netuid: 34 },
+  // SN40 — Chunking (VectorChat)
+  { org: "chunking-ai", netuid: 40 },
+  // SN41 — Almanac / SportsTensor
+  { org: "sportstensor", netuid: 41 },
+  // SN61 — RedTeam (Innerworks)
+  { org: "innerworks", netuid: 61 },
+  // SN62 — Ridges
+  { org: "ridgesai", netuid: 62 },
+  // SN64 — Chutes
+  { org: "chutesai", netuid: 64 },
+  // SN65 — TAO Private Network (Taofu)
+  { org: "taofu", netuid: 65 },
   // Others with known HF presence (subnet TBD)
   { org: "tensorplex-labs" },
   { org: "coldint" },

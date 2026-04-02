@@ -323,6 +323,16 @@ export async function GET() {
   let totalEmission = 0;
   for (const v of emissionMap.values()) totalEmission += v;
 
+  // ── GitHub repo overrides ─────────────────────────────────────────
+  // Subnets where the on-chain identity registry has no entry or the wrong repo.
+  // Values here take precedence over what taostats returns.
+  const GITHUB_REPO_OVERRIDES: Record<number, string> = {
+    70:  "https://github.com/RendixNetwork/nexisgen",   // NexisGen — missing from registry
+    87:  "https://github.com/luminar-network/luminar-sn", // Luminar Network — missing from registry
+    99:  "https://github.com/RendixNetwork/leoma",       // Leoma — missing from registry
+    105: "https://github.com/Beam-Network/beam",         // Beam — registry had org-page URL, not repo
+  };
+
   // ── Step 3a: Direct GitHub scan — ALL subnets, real-time 24h data ──
   // This is the CORE engine. We query GitHub API directly for every subnet
   // with a registered github_repo. Always fresh — no TaoStats staleness.
@@ -330,7 +340,10 @@ export async function GET() {
   let githubScanMap = new Map<number, GitHubScanResult>();
   try {
     githubScanMap = await scanAllSubnetGitHub(
-      identities.map(id => ({ netuid: id.netuid, github_repo: id.github_repo }))
+      identities.map(id => ({
+        netuid: id.netuid,
+        github_repo: GITHUB_REPO_OVERRIDES[id.netuid] ?? id.github_repo,
+      }))
     );
   } catch (e) {
     console.error("[scan] GitHub scanner failed:", e);
@@ -379,7 +392,10 @@ export async function GET() {
   let hfScanMap = new Map<number, HFScanResult>();
   try {
     hfScanMap = await scanAllSubnetsHF(
-      identities.map(id => ({ netuid: id.netuid, github_repo: id.github_repo }))
+      identities.map(id => ({
+        netuid: id.netuid,
+        github_repo: GITHUB_REPO_OVERRIDES[id.netuid] ?? id.github_repo,
+      }))
     );
   } catch (e) {
     console.error("[scan] HF scanner failed:", e);
