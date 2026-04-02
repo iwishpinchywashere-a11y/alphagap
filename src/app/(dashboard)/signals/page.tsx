@@ -116,7 +116,7 @@ export default function SignalsPage() {
 
               return (
                 <div
-                  key={sig.id}
+                  key={`${sig.netuid}-${sig.signal_type}-${(sig.signal_date || sig.created_at || "").slice(0, 10)}`}
                   className={`bg-gray-900/50 border rounded-lg overflow-hidden transition-colors cursor-pointer ${
                     sig.strength >= 80 ? "border-green-800/60 signal-hot" :
                     sig.strength >= 50 ? "border-yellow-900/40" : "border-gray-800"
