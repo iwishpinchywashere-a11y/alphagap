@@ -10,7 +10,7 @@
     },
     {
       "path": "/api/scan",
-      "schedule": "*/30 * * * *"
+      "schedule": "*/10 * * * *"
     },
     {
       "path": "/api/generate-report",
