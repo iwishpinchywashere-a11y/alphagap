@@ -153,36 +153,25 @@ export async function GET() {
   }
 
   const now = Date.now();
-  let updatedCount = 0;
   let socialChangedCount = 0;
 
+  // Only update social_score — composite_score is left untouched until the next
+  // full scan computes it from scratch with all components. This keeps the refresh
+  // idempotent: running it multiple times converges to the same social scores.
   const updatedLeaderboard = scanData.leaderboard.map(entry => {
     const oldSocial = entry.social_score ?? 0;
-    const devScore = entry.dev_score ?? 0;
-
-    // Recompute social score with v3
     const newSocial = computeSocialScoreV3(entry.netuid, hotEvents, discordMap, now);
-
-    // Estimate what old socialGap contributed to composite
-    const oldGap = estimateOldSocialGap(oldSocial, devScore);
-    const newMomentum = computeSocialMomentum(newSocial);
-
-    // Adjust composite: remove old gap, add new momentum
-    const delta = newMomentum - oldGap;
-    const newComposite = Math.max(1, Math.min(100, Math.round(entry.composite_score + delta)));
-
     if (newSocial !== oldSocial) socialChangedCount++;
-    if (newComposite !== entry.composite_score) updatedCount++;
-
-    return {
-      ...entry,
-      social_score: newSocial,
-      composite_score: newComposite,
-    };
+    return { ...entry, social_score: newSocial };
   });
 
-  // Re-sort by composite score
-  updatedLeaderboard.sort((a, b) => b.composite_score - a.composite_score);
+  // Sort by composite (unchanged) then social as tiebreaker
+  updatedLeaderboard.sort((a, b) =>
+    b.composite_score !== a.composite_score
+      ? b.composite_score - a.composite_score
+      : b.social_score - a.social_score
+  );
+  const updatedCount = 0;
 
   // Write back both blobs
   const updatedScan = {
