@@ -1,6 +1,10 @@
 {
   "crons": [
     {
+      "path": "/api/cron/social-pulse",
+      "schedule": "*/10 * * * *"
+    },
+    {
       "path": "/api/discord-scan",
       "schedule": "0 */3 * * *"
     },

@@ -1349,6 +1349,36 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
     }
   }
 
+  // ── Load KOL heat events (written by /api/cron/social-pulse every 10 min) ──
+  // Heat events let a single tier-1 KOL tweet push a subnet's social score to 90-100.
+  // Events store raw heat_score at detection time; we apply age-decay here.
+  type HeatEvent = { tweet_id: string; netuid: number; subnet_name: string; kol_handle: string; kol_name: string; kol_weight: number; kol_tier: number; tweet_url: string; engagement: number; heat_score: number; detected_at: string };
+  let hotEvents: HeatEvent[] = [];
+  if (process.env.BLOB_READ_WRITE_TOKEN) {
+    try {
+      const { get: getHotBlob } = await import("@vercel/blob");
+      const hotBlob = await getHotBlob("social-hot.json", { token: process.env.BLOB_READ_WRITE_TOKEN, access: "private" });
+      if (hotBlob?.stream) {
+        const rdr = hotBlob.stream.getReader(); const cks: Uint8Array[] = [];
+        while (true) { const { done, value } = await rdr.read(); if (done) break; cks.push(value); }
+        hotEvents = (JSON.parse(Buffer.concat(cks).toString("utf-8")) as { events: HeatEvent[] }).events ?? [];
+      }
+    } catch { /* no hot events yet */ }
+  }
+
+  // Age-decay: full heat for 48h, linear decay to 0 over next 24h (gone at 72h)
+  function getHeatBoost(netuid: number): number {
+    const now = Date.now();
+    let best = 0;
+    for (const e of hotEvents) {
+      if (e.netuid !== netuid) continue;
+      const hoursOld = (now - new Date(e.detected_at).getTime()) / 3600000;
+      const ageFactor = hoursOld <= 48 ? 1.0 : Math.max(0, 1 - (hoursOld - 48) / 24);
+      best = Math.max(best, Math.round(e.heat_score * ageFactor));
+    }
+    return best;
+  }
+
   // ── Compute social score ────────────────────────────────────────
   const desearchFailed = socialMap.size === 0;
 
@@ -1426,7 +1456,14 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
       // "quiet" and "noise" contribute nothing
     }
 
-    return Math.min(100, Math.max(0, score));
+    const organicScore = Math.min(100, Math.max(0, score));
+
+    // ── KOL HEAT BOOST — overrides organic score if higher ──────────
+    // A tier-1 KOL tweet (const, opentensor etc.) with real engagement pushes
+    // social score to 90-100 for 48h, then decays to 0 over the following 24h.
+    // We take max(organic, heat) so the boost only ever helps, never hurts.
+    const heatBoost = getHeatBoost(netuid);
+    return Math.max(organicScore, heatBoost);
   }
 
   // ── Load aGap score history for EMA smoothing ──────────────────

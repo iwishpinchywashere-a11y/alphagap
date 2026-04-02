@@ -1,0 +1,289 @@
+/**
+ * GET /api/cron/social-pulse
+ *
+ * Runs every 10 minutes via Vercel cron.
+ * Checks KOL timelines for new subnet-related tweets and stores "heat events"
+ * in social-hot.json. The main scan reads this to boost social scores when
+ * a big KOL posts about a subnet — score can hit 90-100 for 48h then decays.
+ *
+ * Heat score formula:
+ *   kolBase = kolWeight * 0.70       (weight 100 → 70pts, weight 50 → 35pts)
+ *   engBoost = log10(engagement) * 11  (capped 30pts)
+ *   heatScore = min(100, kolBase + engBoost)
+ *
+ * Examples:
+ *   const (weight 100) + 200 engagement  → heat = min(100, 70+25) = 95
+ *   const (weight 100) + 50 engagement   → heat = min(100, 70+18) = 88
+ *   jollygreenmoney (weight 65) + 500    → heat = min(100, 46+28) = 74
+ *   cryptozpunisher (weight 65) + 200    → heat = min(100, 46+25) = 71
+ */
+
+import { NextResponse } from "next/server";
+import { get as blobGet, put } from "@vercel/blob";
+import { getSubnetIdentities } from "@/lib/taostats";
+import { KOL_DATABASE } from "@/lib/kol-database";
+
+export const dynamic = "force-dynamic";
+export const maxDuration = 55;
+
+const DESEARCH_KEY = process.env.DESEARCH_API_KEY || "";
+
+// ── Types ──────────────────────────────────────────────────────────
+export interface HeatEvent {
+  tweet_id: string;
+  netuid: number;
+  subnet_name: string;
+  kol_handle: string;
+  kol_name: string;
+  kol_weight: number;
+  kol_tier: number;
+  tweet_text: string;
+  tweet_url: string;
+  engagement: number;
+  heat_score: number;
+  detected_at: string;
+}
+
+export interface SocialHot {
+  events: HeatEvent[];
+  seen_ids: string[];
+  last_pulse: string;
+}
+
+interface DesearchTweet {
+  id: string;
+  text: string;
+  created_at: string;
+  user: { username: string; name: string };
+  like_count: number;
+  retweet_count: number;
+  reply_count: number;
+  quote_count?: number;
+}
+
+// ── Helpers ────────────────────────────────────────────────────────
+function computeHeatScore(kolWeight: number, engagement: number): number {
+  const kolBase = Math.round(kolWeight * 0.70);
+  // log10(10)=1→11, log10(100)=2→22, log10(1000)=3→33, log10(10000)=4→44 (cap 30)
+  const engBoost = Math.min(30, Math.round(Math.log10(Math.max(engagement, 10)) * 11));
+  return Math.min(100, kolBase + engBoost);
+}
+
+async function fetchKolTimeline(handle: string, count = 12): Promise<DesearchTweet[]> {
+  try {
+    const url = `https://api.desearch.ai/twitter/user/posts?username=${encodeURIComponent(handle)}&count=${count}`;
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${DESEARCH_KEY}` },
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data) ? data : (data.results || data.tweets || []);
+  } catch {
+    return [];
+  }
+}
+
+async function readBlob<T>(name: string, token: string): Promise<T | null> {
+  try {
+    const result = await blobGet(name, { token, access: "private" });
+    if (!result?.stream) return null;
+    const reader = result.stream.getReader();
+    const chunks: Uint8Array[] = [];
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(value);
+    }
+    return JSON.parse(Buffer.concat(chunks).toString("utf-8")) as T;
+  } catch {
+    return null;
+  }
+}
+
+// ── Route ──────────────────────────────────────────────────────────
+export async function GET(req: Request) {
+  // Vercel cron sends x-vercel-cron header; manual calls need CRON_SECRET
+  const isVercelCron = req.headers.get("x-vercel-cron") === "1";
+  const cronSecret = process.env.CRON_SECRET;
+  if (!isVercelCron && cronSecret) {
+    const auth = req.headers.get("authorization");
+    if (auth !== `Bearer ${cronSecret}`) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+  }
+
+  if (!DESEARCH_KEY) {
+    return NextResponse.json({ error: "No DESEARCH_API_KEY" }, { status: 500 });
+  }
+
+  const token = process.env.BLOB_READ_WRITE_TOKEN || "";
+  const startTime = Date.now();
+
+  // ── Load existing hot data ───────────────────────────────────────
+  const existing = (await readBlob<SocialHot>("social-hot.json", token)) ?? {
+    events: [],
+    seen_ids: [],
+    last_pulse: "",
+  };
+  const seenIds = new Set<string>(existing.seen_ids ?? []);
+
+  // ── Build subnet identity lookup ─────────────────────────────────
+  const identities = await getSubnetIdentities().catch(() => []);
+  const handleToNetuid = new Map<string, number>();
+  const nameToNetuid = new Map<string, number>();
+  const normNameToNetuid = new Map<string, number>();
+  const netuidToName = new Map<number, string>();
+
+  for (const id of identities) {
+    netuidToName.set(id.netuid, id.subnet_name || `SN${id.netuid}`);
+    if (id.twitter) {
+      const handle = id.twitter.trim().replace(/^@/, "").split("/").pop()?.toLowerCase() || "";
+      if (handle) handleToNetuid.set(handle, id.netuid);
+    }
+    if (id.subnet_name && id.subnet_name.length >= 4) {
+      const name = id.subnet_name.toLowerCase();
+      nameToNetuid.set(name, id.netuid);
+      normNameToNetuid.set(name.replace(/[-_\s]/g, ""), id.netuid);
+    }
+  }
+
+  function matchTweet(tweet: DesearchTweet): number | null {
+    const text = tweet.text.toLowerCase();
+    const author = tweet.user.username.toLowerCase();
+    if (handleToNetuid.has(author)) return handleToNetuid.get(author)!;
+    for (const [handle, netuid] of handleToNetuid) {
+      if (text.includes(`@${handle}`)) return netuid;
+    }
+    for (const [name, netuid] of nameToNetuid) {
+      if (name.length >= 4 && text.includes(name)) return netuid;
+    }
+    const normText = text.replace(/[-_\s]/g, "");
+    for (const [norm, netuid] of normNameToNetuid) {
+      if (norm.length >= 4 && normText.includes(norm)) return netuid;
+    }
+    const snMatch = text.match(/\bsn(\d{1,3})\b/);
+    if (snMatch) {
+      const n = parseInt(snMatch[1]);
+      if (n > 0 && n <= 128) return n;
+    }
+    return null;
+  }
+
+  // ── Fetch KOL timelines ──────────────────────────────────────────
+  // Tier 1 always. Tier 2 with weight >= 50 (all of them). Skip tier 3/4.
+  const kols = KOL_DATABASE.filter(k => k.tier === 1 || k.tier === 2);
+
+  const kolResults = await Promise.allSettled(
+    kols.map(kol =>
+      fetchKolTimeline(kol.handle, 12).then(tweets => ({ kol, tweets }))
+    )
+  );
+
+  // ── Also run a quick "latest bittensor" search for non-KOL viral tweets ──
+  let searchTweets: DesearchTweet[] = [];
+  try {
+    const res = await fetch(
+      `https://api.desearch.ai/twitter?query=${encodeURIComponent("bittensor subnet")}&sort=Latest&count=50&lang=en`,
+      {
+        headers: { Authorization: `Bearer ${DESEARCH_KEY}` },
+        signal: AbortSignal.timeout(10000),
+      }
+    );
+    if (res.ok) {
+      const data = await res.json();
+      searchTweets = Array.isArray(data) ? data : (data.results || data.tweets || []);
+    }
+  } catch { /* best effort */ }
+
+  // ── Process all tweets ───────────────────────────────────────────
+  const WINDOW_MS = 48 * 60 * 60 * 1000; // only care about last 48h
+  const newEvents: HeatEvent[] = [];
+
+  const processKolTweet = (tweet: DesearchTweet, kolWeight: number, kolTier: number, kolHandle: string, kolName: string) => {
+    if (seenIds.has(tweet.id)) return;
+    seenIds.add(tweet.id);
+
+    const tweetAge = Date.now() - new Date(tweet.created_at).getTime();
+    if (tweetAge > WINDOW_MS) return;
+
+    const netuid = matchTweet(tweet);
+    if (!netuid) return;
+
+    const engagement = tweet.like_count + tweet.retweet_count + tweet.reply_count + (tweet.quote_count ?? 0);
+    const heatScore = computeHeatScore(kolWeight, engagement);
+
+    // Minimum bar: at least some signal worth tracking
+    if (heatScore < 25) return;
+
+    newEvents.push({
+      tweet_id: tweet.id,
+      netuid,
+      subnet_name: netuidToName.get(netuid) ?? `SN${netuid}`,
+      kol_handle: kolHandle,
+      kol_name: kolName,
+      kol_weight: kolWeight,
+      kol_tier: kolTier,
+      tweet_text: tweet.text.slice(0, 280),
+      tweet_url: `https://x.com/${kolHandle}/status/${tweet.id}`,
+      engagement,
+      heat_score: heatScore,
+      detected_at: new Date().toISOString(),
+    });
+  };
+
+  for (const r of kolResults) {
+    if (r.status !== "fulfilled") continue;
+    const { kol, tweets } = r.value;
+    for (const t of tweets) processKolTweet(t, kol.weight, kol.tier, kol.handle, kol.name);
+  }
+
+  // For search results: derive KOL weight from KOL_DATABASE lookup
+  const kolMap = new Map(KOL_DATABASE.map(k => [k.handle.toLowerCase(), k]));
+  for (const tweet of searchTweets) {
+    const kol = kolMap.get(tweet.user.username.toLowerCase());
+    if (!kol) continue; // ignore non-KOL accounts in search results for heat events
+    processKolTweet(tweet, kol.weight, kol.tier, kol.handle, kol.name);
+  }
+
+  // ── Merge with existing events ───────────────────────────────────
+  // Prune events older than 72h (48h full + 24h decay window)
+  const cutoff = new Date(Date.now() - 72 * 60 * 60 * 1000).toISOString();
+  const pruned = existing.events.filter(e => e.detected_at >= cutoff);
+
+  const eventMap = new Map<string, HeatEvent>();
+  for (const e of pruned) eventMap.set(e.tweet_id, e);
+  // New events override old ones — engagement may have grown since first detection
+  for (const e of newEvents) {
+    const prev = eventMap.get(e.tweet_id);
+    if (!prev || e.heat_score > prev.heat_score) eventMap.set(e.tweet_id, e);
+  }
+
+  const updated: SocialHot = {
+    events: [...eventMap.values()].sort((a, b) => b.heat_score - a.heat_score),
+    seen_ids: [...seenIds].slice(-6000), // cap to prevent unbounded growth
+    last_pulse: new Date().toISOString(),
+  };
+
+  await put("social-hot.json", JSON.stringify(updated), {
+    access: "private",
+    token,
+    allowOverwrite: true,
+  });
+
+  const duration = Date.now() - startTime;
+  console.log(`[social-pulse] Done in ${duration}ms. ${newEvents.length} new events, ${updated.events.length} total, ${kols.length} KOLs checked.`);
+
+  return NextResponse.json({
+    ok: true,
+    duration_ms: duration,
+    new_events: newEvents.length,
+    total_events: updated.events.length,
+    kols_checked: kols.length,
+    // Surface top new hits for visibility
+    top_new: newEvents
+      .sort((a, b) => b.heat_score - a.heat_score)
+      .slice(0, 5)
+      .map(e => ({ subnet: e.subnet_name, kol: e.kol_handle, heat: e.heat_score, engagement: e.engagement })),
+  });
+}

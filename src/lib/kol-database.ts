@@ -109,7 +109,7 @@ export const KOL_DATABASE: KOL[] = [
   { handle: "evanmalanga", name: "Evan Malanga", stitch3Score: 212, followers: 2712, weight: 16, tier: 4 },
   { handle: "hermessubnet", name: "Hermes SN82", stitch3Score: 207, followers: 1084, weight: 16, tier: 4 },
   { handle: "shiftlayer_ai", name: "ShiftLayer.Ai", stitch3Score: 206, followers: 305, weight: 14, tier: 4 },
-  { handle: "jollygreenmoney", name: "Jolly Green Investor", stitch3Score: 203, followers: 120305, weight: 18, tier: 4 },
+  { handle: "jollygreenmoney", name: "Jolly Green Investor", stitch3Score: 203, followers: 120305, weight: 65, tier: 2 },
   { handle: "sportstensor", name: "sportstensor", stitch3Score: 203, followers: 4441, weight: 14, tier: 4 },
   { handle: "bitsecai", name: "Bitsec", stitch3Score: 202, followers: 1810, weight: 14, tier: 4 },
   { handle: "jaltucher", name: "James Altucher", stitch3Score: 199, followers: 221993, weight: 16, tier: 4 },
