@@ -31,6 +31,8 @@ export default function LeaderboardPage() {
   const [sortCol, setSortCol] = useState<keyof SubnetScore>("composite_score");
   const [sortAsc, setSortAsc] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [filterMinCap, setFilterMinCap] = useState(false);
+  const [filterHasEmissions, setFilterHasEmissions] = useState(false);
 
   const handleSort = (col: keyof SubnetScore) => {
     if (sortCol === col) setSortAsc(!sortAsc);
@@ -40,6 +42,8 @@ export default function LeaderboardPage() {
   const q = searchQuery.toLowerCase().trim();
   const sortedLeaderboard = [...leaderboard]
     .filter((sub) => !q || sub.name.toLowerCase().includes(q) || `sn${sub.netuid}`.includes(q))
+    .filter((sub) => !filterMinCap || (sub.market_cap != null && sub.market_cap >= 5_000_000))
+    .filter((sub) => !filterHasEmissions || (sub.emission_pct != null && sub.emission_pct > 0))
     .sort((a, b) => {
       const av = a[sortCol] ?? -Infinity;
       const bv = b[sortCol] ?? -Infinity;
@@ -88,7 +92,7 @@ export default function LeaderboardPage() {
         {leaderboard.length > 0 && (
           <div>
             <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 flex-wrap">
                 <h2 className="text-lg font-bold">Alpha Leaderboard</h2>
                 <input
                   type="text"
@@ -97,6 +101,18 @@ export default function LeaderboardPage() {
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="bg-gray-800/60 border border-gray-700 rounded-lg px-3 py-1.5 text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:border-green-600 focus:ring-1 focus:ring-green-600/30 w-48"
                 />
+                <button
+                  onClick={() => setFilterMinCap(v => !v)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${filterMinCap ? "bg-green-500/20 border-green-500/50 text-green-400" : "bg-gray-800/60 border-gray-700 text-gray-400 hover:text-gray-200 hover:border-gray-600"}`}
+                >
+                  &gt;$5M MCap
+                </button>
+                <button
+                  onClick={() => setFilterHasEmissions(v => !v)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${filterHasEmissions ? "bg-green-500/20 border-green-500/50 text-green-400" : "bg-gray-800/60 border-gray-700 text-gray-400 hover:text-gray-200 hover:border-gray-600"}`}
+                >
+                  Has Emissions
+                </button>
               </div>
               <span className="text-xs text-gray-500">
                 aGap = Dev execution + Price lagging = Alpha opportunity
