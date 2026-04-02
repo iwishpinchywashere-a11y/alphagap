@@ -1,0 +1,539 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+
+// ── Types ──────────────────────────────────────────────────────────
+interface HotTweet {
+  tweet_id: string; netuid: number; subnet_name: string;
+  kol_handle: string; kol_name: string; kol_weight: number; kol_tier: number;
+  kol_followers: number; tweet_text: string; tweet_url: string;
+  engagement: number; heat_score: number; detected_at: string;
+  subnet_agap: number | null;
+}
+interface XEntry {
+  netuid: number; name: string; social_score: number; composite_score: number;
+  market_cap: number | null; kol_boost: number;
+  top_kol: string | null; top_kol_followers: number; tweet_count: number;
+}
+interface DiscordEntry {
+  netuid: number; name: string; signal: "alpha" | "active";
+  summary: string; keyInsights: string[];
+  messageCount: number; uniquePosters: number; scannedAt: string;
+  composite_score: number | null; social_score: number | null;
+}
+interface KolRadarEntry {
+  handle: string; name: string; tier: number; weight: number; followers: number;
+  subnets: number[]; totalEngagement: number; topHeat: number; latestAt: string;
+}
+interface SocialStats {
+  totalHotEvents: number; subnetsWithHeat: number; kolsTracked: number;
+  tier1Count: number; tier2Count: number;
+  discordChannelsScanned: number; discordAlphaCount: number; discordActiveCount: number;
+}
+interface SocialData {
+  hotTweets: HotTweet[]; xLeaderboard: XEntry[];
+  discordLeaderboard: DiscordEntry[]; kolRadar: KolRadarEntry[];
+  lastPulse: string | null; stats: SocialStats;
+}
+
+// ── Helpers ────────────────────────────────────────────────────────
+function timeAgo(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const m = Math.floor(diff / 60000);
+  if (m < 1) return "just now";
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  return `${Math.floor(h / 24)}d ago`;
+}
+function fmtFollowers(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(0)}K`;
+  return String(n);
+}
+function fmtEngagement(n: number): string {
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
+  return String(n);
+}
+function fmtMcap(v: number | null): string {
+  if (!v) return "—";
+  if (v >= 1e9) return `$${(v / 1e9).toFixed(1)}B`;
+  if (v >= 1e6) return `$${(v / 1e6).toFixed(1)}M`;
+  if (v >= 1e3) return `$${(v / 1e3).toFixed(0)}K`;
+  return `$${v.toFixed(0)}`;
+}
+
+function heatColor(score: number): string {
+  if (score >= 90) return "text-green-300 bg-green-500/20 border-green-500/40";
+  if (score >= 75) return "text-green-400 bg-green-500/15 border-green-500/30";
+  if (score >= 60) return "text-yellow-300 bg-yellow-500/15 border-yellow-500/30";
+  if (score >= 40) return "text-orange-400 bg-orange-500/10 border-orange-500/20";
+  return "text-gray-400 bg-gray-800 border-gray-700";
+}
+function heatFlame(score: number): string {
+  if (score >= 90) return "🔥🔥🔥";
+  if (score >= 75) return "🔥🔥";
+  if (score >= 50) return "🔥";
+  return "·";
+}
+function tierBadge(tier: number): string {
+  if (tier === 1) return "bg-green-500/20 text-green-400 border-green-500/40";
+  if (tier === 2) return "bg-blue-500/20 text-blue-400 border-blue-500/40";
+  return "bg-gray-700 text-gray-400 border-gray-600";
+}
+function tierLabel(tier: number): string {
+  if (tier === 1) return "T1";
+  if (tier === 2) return "T2";
+  return "T3";
+}
+function discordSignalStyle(signal: string): string {
+  if (signal === "alpha") return "bg-green-500/20 text-green-400 border border-green-500/40";
+  if (signal === "active") return "bg-blue-500/20 text-blue-400 border border-blue-500/40";
+  return "bg-gray-800 text-gray-500 border border-gray-700";
+}
+function agapColor(score: number | null): string {
+  if (score == null) return "text-gray-600";
+  if (score >= 75) return "text-green-400";
+  if (score >= 50) return "text-yellow-400";
+  if (score >= 35) return "text-orange-400";
+  return "text-gray-500";
+}
+
+// ── Stat Card ──────────────────────────────────────────────────────
+function StatCard({ label, value, sub }: { label: string; value: string | number; sub?: string }) {
+  return (
+    <div className="bg-gray-900/60 border border-gray-800 rounded-lg px-4 py-3">
+      <div className="text-xs text-gray-500 mb-0.5">{label}</div>
+      <div className="text-xl font-bold text-white tabular-nums">{value}</div>
+      {sub && <div className="text-xs text-gray-600 mt-0.5">{sub}</div>}
+    </div>
+  );
+}
+
+// ── Page ───────────────────────────────────────────────────────────
+export default function SocialPage() {
+  const router = useRouter();
+  const [data, setData] = useState<SocialData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [expandedTweet, setExpandedTweet] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch("/api/social")
+      .then(r => { if (!r.ok) throw new Error(`${r.status}`); return r.json(); })
+      .then(setData)
+      .catch(e => setError(e.message))
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) return (
+    <main className="flex-1 flex items-center justify-center">
+      <div className="text-center">
+        <div className="text-4xl animate-spin mb-4 text-green-400">⟳</div>
+        <p className="text-gray-500 text-sm">Loading social intelligence…</p>
+      </div>
+    </main>
+  );
+
+  if (error || !data) return (
+    <main className="flex-1 flex items-center justify-center">
+      <div className="text-center">
+        <div className="text-4xl mb-4">⚠️</div>
+        <p className="text-gray-400">Failed to load social data</p>
+        <p className="text-gray-600 text-sm mt-1">{error}</p>
+      </div>
+    </main>
+  );
+
+  const { hotTweets, xLeaderboard, discordLeaderboard, kolRadar, lastPulse, stats } = data;
+  const pulseAge = lastPulse ? Math.floor((Date.now() - new Date(lastPulse).getTime()) / 60000) : null;
+
+  return (
+    <main className="flex-1 overflow-auto p-4 md:p-6">
+      <div className="max-w-screen-xl mx-auto space-y-6">
+
+        {/* ── Header ── */}
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h1 className="text-xl font-bold text-white">Social Intelligence</h1>
+            <p className="text-sm text-gray-500 mt-1">
+              Real-time KOL activity, Twitter heat, and Discord alpha across all Bittensor subnets.
+            </p>
+          </div>
+          <div className="flex items-center gap-2 text-xs">
+            <span className={`px-2 py-1 rounded-full border font-medium ${pulseAge !== null && pulseAge < 15 ? "bg-green-500/10 border-green-500/30 text-green-400" : "bg-gray-800 border-gray-700 text-gray-500"}`}>
+              {pulseAge !== null ? `⚡ Last pulse ${pulseAge}m ago` : "⚡ Pulse pending"}
+            </span>
+            <span className="text-gray-600">Checking {stats.tier1Count + stats.tier2Count} KOLs every 10 min</span>
+          </div>
+        </div>
+
+        {/* ── Stats Bar ── */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
+          <StatCard label="Hot Events" value={stats.totalHotEvents} sub="last 72h" />
+          <StatCard label="Subnets Buzzing" value={stats.subnetsWithHeat} sub="have KOL heat" />
+          <StatCard label="KOLs Tracked" value={stats.kolsTracked} sub={`T1: ${stats.tier1Count} · T2: ${stats.tier2Count}`} />
+          <StatCard label="Discord Scanned" value={stats.discordChannelsScanned} sub="subnet channels" />
+          <StatCard label="Discord Alpha" value={stats.discordAlphaCount} sub="channels signalling" />
+          <StatCard label="Discord Active" value={stats.discordActiveCount} sub="channels engaged" />
+          <div className="bg-gray-900/60 border border-gray-800 rounded-lg px-4 py-3 col-span-1">
+            <div className="text-xs text-gray-500 mb-0.5">Heat Formula</div>
+            <div className="text-xs text-gray-400 leading-relaxed">
+              <span className="text-green-400 font-mono">KOL×0.7</span> + <span className="text-blue-400 font-mono">log(eng)×11</span><br />
+              <span className="text-gray-500">cap 100 · decay over 72h</span>
+            </div>
+          </div>
+        </div>
+
+        {/* ── Hot KOL Tweets ── */}
+        <div className="bg-gray-900/60 border border-gray-800 rounded-xl overflow-hidden">
+          <div className="px-5 py-4 border-b border-gray-800 flex items-center justify-between">
+            <div>
+              <h2 className="font-bold text-white">🔥 Viral KOL Tweets</h2>
+              <p className="text-xs text-gray-500 mt-0.5">Tier 1 &amp; 2 KOL posts mentioning Bittensor subnets — sorted by heat score</p>
+            </div>
+            <span className="text-xs text-gray-600">{hotTweets.length} events</span>
+          </div>
+
+          {hotTweets.length === 0 ? (
+            <div className="p-8 text-center text-gray-600 text-sm">
+              No heat events yet. Pulse runs every 10 minutes — check back soon.
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-xs text-gray-600 border-b border-gray-800">
+                    <th className="px-4 py-2.5 w-12">Heat</th>
+                    <th className="px-4 py-2.5">KOL</th>
+                    <th className="px-4 py-2.5">Subnet</th>
+                    <th className="px-4 py-2.5 hidden lg:table-cell">Tweet</th>
+                    <th className="px-4 py-2.5 text-right">Engagement</th>
+                    <th className="px-4 py-2.5 text-right hidden sm:table-cell">aGap</th>
+                    <th className="px-4 py-2.5 text-right">Time</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {hotTweets.map((t) => {
+                    const isExpanded = expandedTweet === t.tweet_id;
+                    return (
+                      <tr
+                        key={t.tweet_id}
+                        className="border-b border-gray-800/60 hover:bg-gray-800/30 cursor-pointer transition-colors"
+                        onClick={() => setExpandedTweet(isExpanded ? null : t.tweet_id)}
+                      >
+                        {/* Heat Score */}
+                        <td className="px-4 py-3">
+                          <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded border text-xs font-bold ${heatColor(t.heat_score)}`}>
+                            {t.heat_score}
+                          </div>
+                        </td>
+
+                        {/* KOL */}
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            <span className={`text-xs px-1.5 py-0.5 rounded border font-semibold ${tierBadge(t.kol_tier)}`}>
+                              {tierLabel(t.kol_tier)}
+                            </span>
+                            <div>
+                              <a
+                                href={`https://x.com/${t.kol_handle}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-blue-400 hover:underline font-medium"
+                                onClick={e => e.stopPropagation()}
+                              >
+                                @{t.kol_handle}
+                              </a>
+                              <div className="text-xs text-gray-600">{fmtFollowers(t.kol_followers)} followers</div>
+                            </div>
+                          </div>
+                        </td>
+
+                        {/* Subnet */}
+                        <td className="px-4 py-3">
+                          <button
+                            className="text-left hover:text-green-400 transition-colors"
+                            onClick={e => { e.stopPropagation(); router.push(`/subnets/${t.netuid}`); }}
+                          >
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-xs text-gray-600 bg-gray-800 px-1.5 py-0.5 rounded font-mono">SN{t.netuid}</span>
+                              <span className="font-medium text-gray-200 text-sm">{t.subnet_name}</span>
+                            </div>
+                          </button>
+                        </td>
+
+                        {/* Tweet preview */}
+                        <td className="px-4 py-3 hidden lg:table-cell max-w-xs">
+                          <div className={`text-xs text-gray-400 leading-relaxed ${isExpanded ? "" : "truncate"}`}>
+                            {t.tweet_text}
+                          </div>
+                          {!isExpanded && (
+                            <a
+                              href={t.tweet_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs text-blue-500 hover:underline mt-0.5 block"
+                              onClick={e => e.stopPropagation()}
+                            >
+                              View on X ↗
+                            </a>
+                          )}
+                          {isExpanded && (
+                            <a
+                              href={t.tweet_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs text-blue-500 hover:underline mt-1 inline-block"
+                              onClick={e => e.stopPropagation()}
+                            >
+                              Open tweet ↗
+                            </a>
+                          )}
+                        </td>
+
+                        {/* Engagement */}
+                        <td className="px-4 py-3 text-right">
+                          <span className="text-white font-semibold tabular-nums">{fmtEngagement(t.engagement)}</span>
+                          <div className="text-xs text-gray-600">interactions</div>
+                        </td>
+
+                        {/* aGap */}
+                        <td className="px-4 py-3 text-right hidden sm:table-cell">
+                          <span className={`font-bold tabular-nums ${agapColor(t.subnet_agap)}`}>
+                            {t.subnet_agap ?? "—"}
+                          </span>
+                        </td>
+
+                        {/* Time */}
+                        <td className="px-4 py-3 text-right text-xs text-gray-500 whitespace-nowrap">
+                          {timeAgo(t.detected_at)}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        {/* ── X Leaderboard + Discord Leaderboard ── */}
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+
+          {/* X Leaderboard */}
+          <div className="bg-gray-900/60 border border-gray-800 rounded-xl overflow-hidden">
+            <div className="px-5 py-4 border-b border-gray-800">
+              <h2 className="font-bold text-white">𝕏 Top Subnets on X</h2>
+              <p className="text-xs text-gray-500 mt-0.5">Ranked by social score — includes KOL heat boost</p>
+            </div>
+            <div className="divide-y divide-gray-800/60">
+              {xLeaderboard.length === 0 ? (
+                <div className="p-6 text-center text-gray-600 text-sm">No X data yet</div>
+              ) : xLeaderboard.map((s, i) => (
+                <div
+                  key={s.netuid}
+                  className="px-4 py-3 flex items-center gap-3 hover:bg-gray-800/30 cursor-pointer transition-colors"
+                  onClick={() => router.push(`/subnets/${s.netuid}`)}
+                >
+                  <span className="text-xs text-gray-600 w-5 text-right tabular-nums">{i + 1}</span>
+
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-gray-600 bg-gray-800 px-1.5 py-0.5 rounded font-mono">SN{s.netuid}</span>
+                      <span className="font-medium text-sm text-gray-200 truncate">{s.name}</span>
+                      {s.kol_boost >= 60 && (
+                        <span className="text-xs px-1.5 py-0.5 rounded border bg-green-500/15 text-green-400 border-green-500/30 shrink-0">
+                          KOL 🔥
+                        </span>
+                      )}
+                    </div>
+                    {s.top_kol && (
+                      <div className="text-xs text-gray-600 mt-0.5">
+                        Top: @{s.top_kol} · {fmtFollowers(s.top_kol_followers)} followers · {s.tweet_count} event{s.tweet_count !== 1 ? "s" : ""}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="text-right shrink-0">
+                    <div className="text-base font-bold tabular-nums text-green-400">{s.social_score}</div>
+                    <div className={`text-xs tabular-nums ${agapColor(s.composite_score)}`}>aGap {s.composite_score}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Discord Leaderboard */}
+          <div className="bg-gray-900/60 border border-gray-800 rounded-xl overflow-hidden">
+            <div className="px-5 py-4 border-b border-gray-800">
+              <h2 className="font-bold text-white">💬 Discord Alpha</h2>
+              <p className="text-xs text-gray-500 mt-0.5">Channels with genuine alpha signals — AI-classified every 3 hours</p>
+            </div>
+            <div className="divide-y divide-gray-800/60">
+              {discordLeaderboard.length === 0 ? (
+                <div className="p-6 text-center text-gray-600 text-sm">No Discord data yet</div>
+              ) : discordLeaderboard.map((d, i) => (
+                <div
+                  key={d.netuid}
+                  className="px-4 py-3 hover:bg-gray-800/30 cursor-pointer transition-colors"
+                  onClick={() => router.push(`/subnets/${d.netuid}`)}
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs text-gray-600 w-5 text-right tabular-nums">{i + 1}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-gray-600 bg-gray-800 px-1.5 py-0.5 rounded font-mono">SN{d.netuid}</span>
+                        <span className="font-medium text-sm text-gray-200 truncate">{d.name}</span>
+                        <span className={`text-xs px-1.5 py-0.5 rounded font-semibold shrink-0 ${discordSignalStyle(d.signal)}`}>
+                          {d.signal.toUpperCase()}
+                        </span>
+                      </div>
+                      <div className="text-xs text-gray-500 mt-0.5">
+                        {d.messageCount} msgs · {d.uniquePosters} posters · {timeAgo(d.scannedAt)}
+                      </div>
+                      {d.summary && (
+                        <div className="text-xs text-gray-400 mt-1 line-clamp-2 leading-relaxed">{d.summary}</div>
+                      )}
+                    </div>
+                    <div className="text-right shrink-0">
+                      {d.composite_score != null && (
+                        <div className={`text-sm font-bold tabular-nums ${agapColor(d.composite_score)}`}>{d.composite_score}</div>
+                      )}
+                      {d.composite_score != null && <div className="text-xs text-gray-600">aGap</div>}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* ── KOL Radar ── */}
+        <div className="bg-gray-900/60 border border-gray-800 rounded-xl overflow-hidden">
+          <div className="px-5 py-4 border-b border-gray-800">
+            <h2 className="font-bold text-white">📡 KOL Radar</h2>
+            <p className="text-xs text-gray-500 mt-0.5">Which KOLs have been most active about Bittensor subnets in the last 72h</p>
+          </div>
+          {kolRadar.length === 0 ? (
+            <div className="p-6 text-center text-gray-600 text-sm">No KOL activity detected yet</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-xs text-gray-600 border-b border-gray-800">
+                    <th className="px-4 py-2.5">KOL</th>
+                    <th className="px-4 py-2.5 text-right">Followers</th>
+                    <th className="px-4 py-2.5 text-right">Subnets Covered</th>
+                    <th className="px-4 py-2.5 text-right">Total Engagement</th>
+                    <th className="px-4 py-2.5 text-right">Peak Heat</th>
+                    <th className="px-4 py-2.5 text-right hidden sm:table-cell">Last Active</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {kolRadar.map((k) => (
+                    <tr key={k.handle} className="border-b border-gray-800/60 hover:bg-gray-800/20 transition-colors">
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <span className={`text-xs px-1.5 py-0.5 rounded border font-semibold ${tierBadge(k.tier)}`}>
+                            {tierLabel(k.tier)}
+                          </span>
+                          <div>
+                            <a
+                              href={`https://x.com/${k.handle}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-blue-400 hover:underline font-medium"
+                            >
+                              @{k.handle}
+                            </a>
+                            <div className="text-xs text-gray-600">{k.name}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-right text-gray-300 tabular-nums">{fmtFollowers(k.followers)}</td>
+                      <td className="px-4 py-3 text-right">
+                        <span className="text-white font-semibold tabular-nums">{k.subnets.length}</span>
+                        <div className="text-xs text-gray-600">
+                          SN{k.subnets.slice(0, 3).join(", SN")}{k.subnets.length > 3 ? "…" : ""}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-right text-gray-300 tabular-nums">{fmtEngagement(k.totalEngagement)}</td>
+                      <td className="px-4 py-3 text-right">
+                        <span className={`font-bold tabular-nums text-sm ${heatColor(k.topHeat).split(" ")[0]}`}>
+                          {k.topHeat} {heatFlame(k.topHeat)}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-right text-xs text-gray-500 hidden sm:table-cell">{timeAgo(k.latestAt)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        {/* ── Under the Hood ── */}
+        <div className="bg-gray-900/40 border border-gray-800/60 rounded-xl p-5">
+          <h2 className="font-bold text-white mb-4">🔧 Under the Hood</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-sm">
+
+            {/* How X scoring works */}
+            <div>
+              <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">X / Twitter Scoring</h3>
+              <div className="space-y-2 text-xs text-gray-500 leading-relaxed">
+                <p>Every 10 min, the social pulse checks <span className="text-gray-300">all {stats.tier1Count + stats.tier2Count} tracked KOLs</span> for new subnet-related tweets.</p>
+                <p>Heat score = <span className="text-green-400 font-mono">KOL weight × 0.70</span> + <span className="text-blue-400 font-mono">log₁₀(engagement) × 11</span>, capped at 100.</p>
+                <p>A <span className="text-green-400">Tier 1</span> KOL (const, opentensor) with just 50 likes → heat <strong className="text-white">88</strong>. With 200 likes → heat <strong className="text-white">95</strong>.</p>
+                <p>Heat stays at full strength for <strong className="text-white">48h</strong>, then decays to 0 over the next 24h.</p>
+                <p>Final social score = <span className="text-white font-mono">max(organic, heat)</span> — KOL events only ever boost, never hurt.</p>
+              </div>
+            </div>
+
+            {/* How Discord scoring works */}
+            <div>
+              <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Discord Scoring</h3>
+              <div className="space-y-2 text-xs text-gray-500 leading-relaxed">
+                <p>Every 3h, Claude Haiku reads the last 24h of messages from <span className="text-gray-300">{stats.discordChannelsScanned} subnet channels</span> in the Bittensor Discord.</p>
+                <p>Each channel is classified as:</p>
+                <ul className="space-y-1 pl-2">
+                  <li><span className="text-green-400 font-semibold">ALPHA</span> — dev previews, partnerships, insider hints → +15–20 pts</li>
+                  <li><span className="text-blue-400 font-semibold">ACTIVE</span> — substantive community discussion → +6–12 pts</li>
+                  <li><span className="text-gray-500">QUIET / NOISE</span> — low activity or spam → 0 pts</li>
+                </ul>
+                <p>Unique poster count is used as a quality multiplier within each tier.</p>
+              </div>
+            </div>
+
+            {/* KOL Tier breakdown */}
+            <div>
+              <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">KOL Tiers Being Tracked</h3>
+              <div className="space-y-2 text-xs">
+                <div className="flex items-center justify-between py-1.5 border-b border-gray-800">
+                  <span className={`px-1.5 py-0.5 rounded border font-semibold text-xs ${tierBadge(1)}`}>Tier 1</span>
+                  <span className="text-gray-400">Founders, core team, OTF</span>
+                  <span className="text-white font-bold">{stats.tier1Count}</span>
+                </div>
+                <div className="flex items-center justify-between py-1.5 border-b border-gray-800">
+                  <span className={`px-1.5 py-0.5 rounded border font-semibold text-xs ${tierBadge(2)}`}>Tier 2</span>
+                  <span className="text-gray-400">Major KOLs, subnet leads</span>
+                  <span className="text-white font-bold">{stats.tier2Count}</span>
+                </div>
+                <div className="flex items-center justify-between py-1.5">
+                  <span className={`px-1.5 py-0.5 rounded border font-semibold text-xs ${tierBadge(3)}`}>T3/T4</span>
+                  <span className="text-gray-400">Community (broad search only)</span>
+                  <span className="text-white font-bold">{stats.kolsTracked - stats.tier1Count - stats.tier2Count}</span>
+                </div>
+                <div className="mt-3 text-gray-600 leading-relaxed">
+                  Tier 1 &amp; 2 get individual timeline fetches. Tier 3/4 accounts are captured via broad search queries but don&apos;t generate heat events on their own.
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </main>
+  );
+}
