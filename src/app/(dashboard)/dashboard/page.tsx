@@ -177,25 +177,25 @@ export default function LeaderboardPage() {
             <div className="overflow-x-auto -mx-4 md:mx-0 px-4 md:px-0">
               <table className="w-full text-sm font-data min-w-[900px]">
                 <thead>
-                  <tr className="text-gray-500 text-xs border-b border-gray-800">
-                    <th className="text-left py-2 px-3">#</th>
-                    <th className="text-left py-2 px-3">Subnet</th>
+                  <tr className="text-[11px] text-gray-500 uppercase tracking-wider border-b border-gray-800">
+                    <th className="text-left py-2 px-3 font-medium w-8">#</th>
+                    <th className="text-left py-2 px-3 font-medium">Subnet</th>
                     {COLUMNS.map(([key, label, tooltip]) => (
                       <th
                         key={key}
-                        className={`text-right py-2 px-3 cursor-pointer hover:text-gray-300 transition-colors select-none ${key === "composite_score" ? "text-green-400/80" : ""}`}
+                        className={`text-right py-2 px-3 font-medium cursor-pointer hover:text-gray-300 transition-colors select-none ${key === "composite_score" ? "text-green-400/80" : ""}`}
                         onClick={() => handleSort(key)}
                         style={key === "composite_score" ? { background: "rgba(16, 185, 129, 0.06)", borderLeft: "2px solid rgba(16, 185, 129, 0.15)" } : undefined}
                       >
                         {label}
                         {tooltip && (
                           <span
-                            className="ml-1 inline-flex items-center justify-center w-3.5 h-3.5 rounded-full border border-gray-600 text-[9px] text-gray-500 hover:text-green-400 hover:border-green-400 cursor-help relative"
+                            className="ml-1 inline-flex items-center justify-center w-3.5 h-3.5 rounded-full border border-gray-700 text-[9px] text-gray-600 hover:text-green-400 hover:border-green-400 cursor-help relative normal-case tracking-normal"
                             onClick={(e) => { e.stopPropagation(); e.preventDefault(); setInfoPopup(infoPopup === key ? null : key); }}
                           >
                             i
                             {infoPopup === key && (
-                              <div className="absolute z-50 top-5 right-0 w-72 p-3 bg-gray-900 border border-green-800/50 rounded-lg shadow-xl text-xs text-gray-300 font-normal whitespace-normal leading-relaxed" onClick={(e) => e.stopPropagation()}>
+                              <div className="absolute z-50 top-5 right-0 w-72 p-3 bg-gray-900 border border-green-800/50 rounded-lg shadow-xl text-xs text-gray-300 font-normal whitespace-normal leading-relaxed normal-case tracking-normal" onClick={(e) => e.stopPropagation()}>
                                 <div className="font-semibold text-green-400 mb-1">{label}</div>
                                 {tooltip}
                               </div>
@@ -215,38 +215,37 @@ export default function LeaderboardPage() {
                       key={sub.netuid}
                       className={`border-b cursor-pointer transition-colors ${
                         sub.composite_score >= 80
-                          ? "border-green-500/30 bg-green-900/30 hover:bg-green-900/45"
-                          : "border-gray-800/50 hover:bg-gray-900/50"
+                          ? "border-green-500/20 bg-green-900/20 hover:bg-green-900/35"
+                          : i % 2 === 0
+                          ? "border-gray-800/40 bg-gray-900/30 hover:bg-gray-800/50"
+                          : "border-gray-800/40 hover:bg-gray-800/50"
                       }`}
                       onClick={() => router.push(`/subnets/${sub.netuid}`)}
                     >
-                      <td className="py-2.5 px-3 text-gray-500">{i + 1}</td>
-                      <td className="py-2.5 px-3">
+                      <td className="py-2 px-3 text-gray-600 text-xs tabular-nums">{i + 1}</td>
+                      <td className="py-2 px-3">
                         <div className="flex items-center gap-2">
-                          <span className="text-gray-500 text-xs font-data">SN{sub.netuid}</span>
-                          <span className="font-semibold">{sub.name}</span>
-                          {sub.has_campaign && <span title="Active Stitch3 marketing campaign">🔥</span>}
+                          <span className="text-[10px] text-gray-600 font-mono tracking-tight">SN{sub.netuid}</span>
+                          <span className="font-bold text-[15px] text-gray-100 leading-tight">{sub.name}</span>
+                          {sub.has_campaign && <span title="Active Stitch3 marketing campaign" className="text-sm">🔥</span>}
                         </div>
-                        {sub.top_signal && (
-                          <span className="text-xs text-gray-600 block mt-0.5">{sub.top_signal}</span>
-                        )}
                       </td>
-                      <td className={`py-2.5 px-3 text-right font-bold text-lg ${scoreColor(sub.composite_score)}`}
+                      <td className={`py-2 px-3 text-right font-bold text-lg tabular-nums ${scoreColor(sub.composite_score)}`}
                         style={{ background: "rgba(16, 185, 129, 0.06)", borderLeft: "2px solid rgba(16, 185, 129, 0.15)" }}>
                         {sub.composite_score}
                       </td>
-                      <td className={`py-2.5 px-3 text-right ${scoreColor(sub.flow_score)}`}>
-                        {sub.whale_signal === "accumulating" && <span title={`Whale accumulation (${sub.whale_ratio}x)`}>🐋</span>}
-                        {sub.whale_signal === "distributing" && <span title={`Whale distribution (${sub.whale_ratio}x)`} className="opacity-50">🔻</span>}
+                      <td className={`py-2 px-3 text-right font-semibold tabular-nums ${scoreColor(sub.flow_score)}`}>
+                        {sub.whale_signal === "accumulating" && <span title={`Whale accumulation (${sub.whale_ratio}x)`} className="mr-0.5 text-xs">🐋</span>}
+                        {sub.whale_signal === "distributing" && <span title={`Whale distribution (${sub.whale_ratio}x)`} className="mr-0.5 text-xs opacity-50">🔻</span>}
                         {sub.flow_score}
                       </td>
-                      <td className={`py-2.5 px-3 text-right ${scoreColor(sub.dev_score)}`}>{sub.dev_score}</td>
-                      <td className={`py-2.5 px-3 text-right ${scoreColor(sub.eval_score || 0)}`}>{sub.eval_score || 0}</td>
-                      <td className={`py-2.5 px-3 text-right ${scoreColor(sub.social_score || 0)}`}>{sub.social_score || 0}</td>
-                      <td className="py-2.5 px-3 text-right text-gray-400">
+                      <td className={`py-2 px-3 text-right font-semibold tabular-nums ${scoreColor(sub.dev_score)}`}>{sub.dev_score}</td>
+                      <td className={`py-2 px-3 text-right font-semibold tabular-nums ${scoreColor(sub.eval_score || 0)}`}>{sub.eval_score || 0}</td>
+                      <td className={`py-2 px-3 text-right font-semibold tabular-nums ${scoreColor(sub.social_score || 0)}`}>{sub.social_score || 0}</td>
+                      <td className="py-2 px-3 text-right text-gray-400 tabular-nums">
                         {sub.emission_pct != null && sub.emission_pct > 0 ? `${(sub.emission_pct * 100).toFixed(1)}%` : "\u2014"}
                       </td>
-                      <td className={`py-2.5 px-3 text-right font-medium ${
+                      <td className={`py-2 px-3 text-right font-medium tabular-nums ${
                         sub.emission_change_pct == null ? "text-gray-600" :
                         sub.emission_change_pct > 0 ? "text-green-400" :
                         sub.emission_change_pct < 0 ? "text-red-400" : "text-gray-500"
@@ -255,14 +254,14 @@ export default function LeaderboardPage() {
                           ? `${sub.emission_change_pct > 0 ? "+" : ""}${sub.emission_change_pct.toFixed(1)}%`
                           : "\u2014"}
                       </td>
-                      <td className="py-2.5 px-3 text-right text-gray-400">
+                      <td className="py-2 px-3 text-right text-gray-300 tabular-nums font-medium">
                         {sub.alpha_price != null ? `$${formatNum(sub.alpha_price, 2)}` : "\u2014"}
                       </td>
-                      <td className="py-2.5 px-3 text-right text-gray-400">
+                      <td className="py-2 px-3 text-right text-gray-400 tabular-nums">
                         {sub.market_cap != null ? `$${formatNum(sub.market_cap)}` : "\u2014"}
                       </td>
                       {(["price_change_1h", "price_change_24h", "price_change_7d", "price_change_30d"] as const).map((col) => (
-                        <td key={col} className={`py-2.5 px-3 text-right font-medium ${
+                        <td key={col} className={`py-2 px-3 text-right font-medium tabular-nums ${
                           sub[col] == null ? "text-gray-600" :
                           (sub[col] as number) > 0 ? "text-green-400" :
                           (sub[col] as number) < 0 ? "text-red-400" : "text-gray-500"
@@ -272,17 +271,17 @@ export default function LeaderboardPage() {
                             : "\u2014"}
                         </td>
                       ))}
-                      <td className={`py-2.5 px-3 text-right ${flowColor(sub.net_flow_24h)}`}>
+                      <td className={`py-2 px-3 text-right tabular-nums font-medium ${flowColor(sub.net_flow_24h)}`}>
                         {sub.net_flow_24h != null && taoPrice != null
                           ? `${sub.net_flow_24h > 0 ? "+" : ""}$${formatNum(Math.round(sub.net_flow_24h * taoPrice))}`
                           : sub.net_flow_24h != null
                           ? `${sub.net_flow_24h > 0 ? "+" : ""}${formatNum(sub.net_flow_24h)} τ`
                           : "\u2014"}
                       </td>
-                      <td className="py-2.5 px-3 text-right">
+                      <td className="py-2 px-3 text-right">
                         {sub.signal_count > 0
-                          ? <span className="bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded text-xs">{sub.signal_count}</span>
-                          : <span className="text-gray-600">0</span>}
+                          ? <span className="bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded text-xs font-semibold">{sub.signal_count}</span>
+                          : <span className="text-gray-700">—</span>}
                       </td>
                     </tr>
                   ))}
