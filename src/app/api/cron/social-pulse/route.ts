@@ -69,16 +69,17 @@ function computeHeatScore(kolWeight: number, engagement: number): number {
   return Math.min(100, kolBase + engBoost);
 }
 
-async function fetchKolTimeline(handle: string, count = 12): Promise<DesearchTweet[]> {
+async function fetchKolTimeline(handle: string): Promise<DesearchTweet[]> {
   try {
-    const url = `https://api.desearch.ai/twitter/user/posts?username=${encodeURIComponent(handle)}&count=${count}`;
+    const url = `https://api.desearch.ai/twitter/user/posts?username=${encodeURIComponent(handle)}`;
     const res = await fetch(url, {
-      headers: { Authorization: `Bearer ${DESEARCH_KEY}` },
-      signal: AbortSignal.timeout(8000),
+      headers: { Authorization: DESEARCH_KEY },
+      signal: AbortSignal.timeout(10000),
     });
     if (!res.ok) return [];
     const data = await res.json();
-    return Array.isArray(data) ? data : (data.results || data.tweets || []);
+    // API returns { user: {...}, tweets: [...] }
+    return Array.isArray(data) ? data : (data.tweets || data.results || []);
   } catch {
     return [];
   }
@@ -177,13 +178,8 @@ export async function GET(req: Request) {
   // All 300 KOLs from the Stitch3 leaderboard (tier 1–4).
   const kols = KOL_DATABASE;
 
-  // Normal run: tier 1/2 → 12, tier 3 → 8, tier 4 → 6
-  // Deep run (?deep=1): 50 tweets per KOL to cover full 24h
   const kolResults = await Promise.allSettled(
-    kols.map(kol => {
-      const count = deep ? 50 : kol.tier <= 2 ? 12 : kol.tier === 3 ? 8 : 6;
-      return fetchKolTimeline(kol.handle, count).then(tweets => ({ kol, tweets }));
-    })
+    kols.map(kol => fetchKolTimeline(kol.handle).then(tweets => ({ kol, tweets })))
   );
 
   // ── Also run a quick "latest bittensor" search for non-KOL viral tweets ──
@@ -192,7 +188,7 @@ export async function GET(req: Request) {
     const res = await fetch(
       `https://api.desearch.ai/twitter?query=${encodeURIComponent("bittensor subnet")}&sort=Latest&count=50&lang=en`,
       {
-        headers: { Authorization: `Bearer ${DESEARCH_KEY}` },
+        headers: { Authorization: DESEARCH_KEY },
         signal: AbortSignal.timeout(10000),
       }
     );
