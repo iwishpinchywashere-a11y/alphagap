@@ -1368,38 +1368,49 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
   }
 
   // ── Social Score v3: Early Trend Detector ──────────────────────
-  // HIGH score = we are catching a FRESH social trend right now (alpha window open)
-  // LOW score = no signal, OR signal has aged and the opportunity has passed
+  // HIGH score = catching a FRESH, multi-voice social trend (alpha window open)
+  // LOW score = no signal or single voice that has aged out
   //
-  // Decay is aggressive: full intensity for 4h, fades to 0 by 72h.
-  // Multiple big KOLs talking within 12h = cluster bonus → can hit 90-100.
-  // Discord alpha channel freshness is also factored.
+  // Key design principles:
+  //  - Dedupe to BEST event per unique KOL — 40 tweets from one account
+  //    counts the same as 1 (repetition ≠ signal breadth)
+  //  - Multiple DIFFERENT KOLs within 4h = cluster bonus (rare, serious)
+  //  - To hit 90+: need 2+ unique KOLs active within 4h OR 3+ within 4h + discord alpha
+  //  - To hit 100: need 3+ unique KOLs within 4h + discord alpha + some organic
   const desearchFailed = socialMap.size === 0;
   const _now = Date.now();
 
   function getKolScore(netuid: number): { kolPts: number; clusterBonus: number } {
-    const decayed = hotEvents
+    // Decay all events for this subnet
+    const allDecayed = hotEvents
       .filter(e => e.netuid === netuid)
       .map(e => {
         const hoursOld = (_now - new Date(e.detected_at).getTime()) / 3600000;
-        // Full for 4h, linear decay to 0 at 72h
         const freshness = hoursOld <= 4 ? 1.0 : Math.max(0, 1 - (hoursOld - 4) / 68);
         return { handle: e.kol_handle, heat: Math.round(e.heat_score * freshness), hoursOld };
       })
-      .filter(e => e.heat >= 20)
-      .sort((a, b) => b.heat - a.heat);
+      .filter(e => e.heat >= 20);
 
-    // Stack KOLs with diminishing returns — 2nd/3rd voices compound the signal
-    const weights = [0.65, 0.45, 0.25, 0.12, 0.06];
-    let kolPts = 0;
-    for (let i = 0; i < Math.min(decayed.length, weights.length); i++) {
-      kolPts += decayed[i].heat * weights[i];
+    // DEDUPE: only the best event per unique KOL handle
+    // One account tweeting 40 times counts once — breadth of voices is the signal
+    const bestPerKol = new Map<string, { heat: number; hoursOld: number }>();
+    for (const e of allDecayed) {
+      const prev = bestPerKol.get(e.handle);
+      if (!prev || e.heat > prev.heat) bestPerKol.set(e.handle, { heat: e.heat, hoursOld: e.hoursOld });
     }
-    kolPts = Math.min(80, Math.round(kolPts));
+    const uniqueKols = [...bestPerKol.entries()].sort((a, b) => b[1].heat - a[1].heat);
 
-    // Cluster bonus: multiple unique KOLs active within 12h = coordinated signal
-    const recentKOLs = new Set(decayed.filter(e => e.hoursOld <= 12).map(e => e.handle)).size;
-    const clusterBonus = recentKOLs >= 3 ? 20 : recentKOLs >= 2 ? 10 : 0;
+    // Stack unique KOL voices with steep diminishing returns
+    const weights = [0.55, 0.35, 0.20, 0.10];
+    let kolPts = 0;
+    for (let i = 0; i < Math.min(uniqueKols.length, weights.length); i++) {
+      kolPts += uniqueKols[i][1].heat * weights[i];
+    }
+    kolPts = Math.min(70, Math.round(kolPts));
+
+    // Cluster bonus: multiple DIFFERENT KOLs active within 4h = coordinated early signal
+    const recent4hKOLs = uniqueKols.filter(([, v]) => v.hoursOld <= 4).length;
+    const clusterBonus = recent4hKOLs >= 3 ? 20 : recent4hKOLs >= 2 ? 10 : 0;
 
     return { kolPts, clusterBonus };
   }
@@ -1407,46 +1418,35 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
   function computeSocialScore(netuid: number, mentions: number, engagement: number): number {
     const { kolPts, clusterBonus } = getKolScore(netuid);
 
-    // ── Discord freshness signal (max 25 pts) ──
-    // Fresh alpha channel = strong early signal. Scan must be recent to count.
+    // ── Discord freshness signal (max 18 pts) ──
     const disc = discordMap.get(netuid);
     let discordPts = 0;
     if (disc) {
       const discAgeHours = (_now - new Date(disc.scannedAt).getTime()) / 3600000;
-      // Freshness: full within 12h, decays to 40% at 48h (discord scans every 3h anyway)
       const discFresh = discAgeHours <= 12 ? 1.0
         : discAgeHours <= 48 ? Math.max(0.4, 1 - (discAgeHours - 12) / 36 * 0.6)
         : 0.4;
       if (disc.signal === "alpha") {
-        discordPts = Math.round(Math.min(25, (16 + Math.min(disc.uniquePosters, 9))) * discFresh);
+        discordPts = Math.round(Math.min(18, (12 + Math.min(disc.uniquePosters, 6))) * discFresh);
       } else if (disc.signal === "active") {
-        discordPts = Math.round(Math.min(15, (8 + Math.min(disc.uniquePosters, 7))) * discFresh);
+        discordPts = Math.round(Math.min(10, (5 + Math.min(disc.uniquePosters, 5))) * discFresh);
       }
-      // "quiet" and "noise" contribute 0
     }
 
-    // ── Organic volume (max 15 pts, supporting context only) ──
-    // Raw tweet volume matters a little but is now secondary to KOL quality
+    // ── Organic volume (max 5 pts — tiebreaker only, not a primary signal) ──
     let organicPts = 0;
-    if (mentions >= 50) organicPts += 9;
-    else if (mentions >= 20) organicPts += 7;
-    else if (mentions >= 10) organicPts += 5;
-    else if (mentions >= 5) organicPts += 3;
-    else if (mentions >= 2) organicPts += 2;
-    else if (mentions >= 1) organicPts += 1;
-    if (engagement >= 3000) organicPts += 6;
-    else if (engagement >= 1000) organicPts += 4;
-    else if (engagement >= 200) organicPts += 3;
-    else if (engagement >= 50) organicPts += 2;
-    else if (engagement >= 10) organicPts += 1;
-    organicPts = Math.min(15, organicPts);
+    if (mentions >= 30) organicPts = 5;
+    else if (mentions >= 15) organicPts = 4;
+    else if (mentions >= 7) organicPts = 3;
+    else if (mentions >= 3) organicPts = 2;
+    else if (mentions >= 1) organicPts = 1;
 
     // ── Fallback: no signal at all ──
     if (kolPts === 0 && discordPts === 0 && mentions <= 0) {
       if (desearchFailed) {
         const identity = identityMap.get(netuid);
-        if (identity?.twitter) return 10;
-        if (identity?.subnet_name) return 5;
+        if (identity?.twitter) return 8;
+        if (identity?.subnet_name) return 4;
       }
       return 0;
     }
@@ -1628,9 +1628,9 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
     else if (mcap >= 10000000) viability = 3;  // large enough for serious investment
     else if (mcap >= 50000000) viability = 5;
 
-    // 6. STITCH3 CAMPAIGN BOOST (0-20 pts) — active marketing = incoming social buzz
-    // Early campaign = max boost (alpha opportunity before buzz peaks)
-    // Late campaign = reduced boost (buzz already peaked)
+    // 6. STITCH3 CAMPAIGN BOOST (0-8 pts) — small signal that marketing is running
+    // Intentionally small: campaigns are paid activity, not organic conviction.
+    // Real KOL signal (social score) is the stronger indicator.
     let campaignBoost = 0;
     const campaign = activeCampaigns.find(c => c.netuid === d.netuid);
     if (campaign) {
@@ -1641,17 +1641,11 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
       const elapsed = now.getTime() - start.getTime();
 
       if (elapsed < 0) {
-        // Campaign hasn't started yet — MAXIMUM boost (get in early!)
-        campaignBoost = 20;
+        campaignBoost = 8;  // Not started yet — slightly elevated
       } else if (elapsed <= totalDuration * 0.5) {
-        // First half of campaign — strong boost (buzz building)
-        campaignBoost = 15;
-      } else if (elapsed <= totalDuration * 0.75) {
-        // Third quarter — moderate boost (buzz peaking)
-        campaignBoost = 8;
+        campaignBoost = 6;  // First half — running
       } else if (elapsed <= totalDuration) {
-        // Final quarter — small boost (buzz fading)
-        campaignBoost = 4;
+        campaignBoost = 3;  // Second half — winding down
       }
       // Campaign over = 0 boost
     }

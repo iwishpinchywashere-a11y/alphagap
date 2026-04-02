@@ -42,38 +42,46 @@ interface LeaderboardEntry {
   [key: string]: unknown;
 }
 
-// ── Social Score v3 (mirrors scan/route.ts) ──────────────────────
-// High score = catching a FRESH social trend. Decays as activity ages.
+// ── Social Score v3 (mirrors scan/route.ts exactly) ─────────────
+// Dedupe to best event per unique KOL — breadth of voices is the signal.
+// To hit 90+: 2+ unique KOLs within 4h. To hit 100: 3+ KOLs + discord alpha.
 function computeSocialScoreV3(
   netuid: number,
   hotEvents: HeatEvent[],
   discordMap: Map<number, { signal: string; uniquePosters: number; scannedAt: string }>,
   now: number,
 ): number {
-  // KOL heat: full for 4h, fades to 0 at 72h
-  const decayed = hotEvents
+  // Decay all events
+  const allDecayed = hotEvents
     .filter(e => e.netuid === netuid)
     .map(e => {
       const hoursOld = (now - new Date(e.detected_at).getTime()) / 3600000;
       const freshness = hoursOld <= 4 ? 1.0 : Math.max(0, 1 - (hoursOld - 4) / 68);
       return { handle: e.kol_handle, heat: Math.round(e.heat_score * freshness), hoursOld };
     })
-    .filter(e => e.heat >= 20)
-    .sort((a, b) => b.heat - a.heat);
+    .filter(e => e.heat >= 20);
 
-  // Stack KOLs with diminishing returns
-  const weights = [0.65, 0.45, 0.25, 0.12, 0.06];
-  let kolPts = 0;
-  for (let i = 0; i < Math.min(decayed.length, weights.length); i++) {
-    kolPts += decayed[i].heat * weights[i];
+  // Dedupe: best event per unique KOL
+  const bestPerKol = new Map<string, { heat: number; hoursOld: number }>();
+  for (const e of allDecayed) {
+    const prev = bestPerKol.get(e.handle);
+    if (!prev || e.heat > prev.heat) bestPerKol.set(e.handle, { heat: e.heat, hoursOld: e.hoursOld });
   }
-  kolPts = Math.min(80, Math.round(kolPts));
+  const uniqueKols = [...bestPerKol.entries()].sort((a, b) => b[1].heat - a[1].heat);
 
-  // Cluster bonus: 2+ unique KOLs within 12h
-  const recentKOLs = new Set(decayed.filter(e => e.hoursOld <= 12).map(e => e.handle)).size;
-  const clusterBonus = recentKOLs >= 3 ? 20 : recentKOLs >= 2 ? 10 : 0;
+  // Stack unique voices with steep diminishing returns
+  const weights = [0.55, 0.35, 0.20, 0.10];
+  let kolPts = 0;
+  for (let i = 0; i < Math.min(uniqueKols.length, weights.length); i++) {
+    kolPts += uniqueKols[i][1].heat * weights[i];
+  }
+  kolPts = Math.min(70, Math.round(kolPts));
 
-  // Discord freshness (max 25 pts)
+  // Cluster bonus: multiple DIFFERENT KOLs within 4h
+  const recent4hKOLs = uniqueKols.filter(([, v]) => v.hoursOld <= 4).length;
+  const clusterBonus = recent4hKOLs >= 3 ? 20 : recent4hKOLs >= 2 ? 10 : 0;
+
+  // Discord freshness (max 18 pts)
   const disc = discordMap.get(netuid);
   let discordPts = 0;
   if (disc) {
@@ -82,9 +90,9 @@ function computeSocialScoreV3(
       : discAgeHours <= 48 ? Math.max(0.4, 1 - (discAgeHours - 12) / 36 * 0.6)
       : 0.4;
     if (disc.signal === "alpha") {
-      discordPts = Math.round(Math.min(25, (16 + Math.min(disc.uniquePosters, 9))) * discFresh);
+      discordPts = Math.round(Math.min(18, (12 + Math.min(disc.uniquePosters, 6))) * discFresh);
     } else if (disc.signal === "active") {
-      discordPts = Math.round(Math.min(15, (8 + Math.min(disc.uniquePosters, 7))) * discFresh);
+      discordPts = Math.round(Math.min(10, (5 + Math.min(disc.uniquePosters, 5))) * discFresh);
     }
   }
 
