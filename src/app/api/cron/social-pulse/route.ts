@@ -119,6 +119,9 @@ export async function GET(req: Request) {
 
   const token = process.env.BLOB_READ_WRITE_TOKEN || "";
   const startTime = Date.now();
+  const url = new URL(req.url);
+  // ?deep=1 → fetch up to 50 tweets per KOL for a 24h backfill run
+  const deep = url.searchParams.get("deep") === "1";
 
   // ── Load existing hot data ───────────────────────────────────────
   const existing = (await readBlob<SocialHot>("social-hot.json", token)) ?? {
@@ -171,13 +174,16 @@ export async function GET(req: Request) {
   }
 
   // ── Fetch KOL timelines ──────────────────────────────────────────
-  // Tier 1 always. Tier 2 with weight >= 50 (all of them). Skip tier 3/4.
-  const kols = KOL_DATABASE.filter(k => k.tier === 1 || k.tier === 2);
+  // All 300 KOLs from the Stitch3 leaderboard (tier 1–4).
+  const kols = KOL_DATABASE;
 
+  // Normal run: tier 1/2 → 12, tier 3 → 8, tier 4 → 6
+  // Deep run (?deep=1): 50 tweets per KOL to cover full 24h
   const kolResults = await Promise.allSettled(
-    kols.map(kol =>
-      fetchKolTimeline(kol.handle, 12).then(tweets => ({ kol, tweets }))
-    )
+    kols.map(kol => {
+      const count = deep ? 50 : kol.tier <= 2 ? 12 : kol.tier === 3 ? 8 : 6;
+      return fetchKolTimeline(kol.handle, count).then(tweets => ({ kol, tweets }));
+    })
   );
 
   // ── Also run a quick "latest bittensor" search for non-KOL viral tweets ──
@@ -197,7 +203,7 @@ export async function GET(req: Request) {
   } catch { /* best effort */ }
 
   // ── Process all tweets ───────────────────────────────────────────
-  const WINDOW_MS = 48 * 60 * 60 * 1000; // only care about last 48h
+  const WINDOW_MS = (deep ? 24 : 48) * 60 * 60 * 1000; // deep: 24h backfill, normal: 48h rolling
   const newEvents: HeatEvent[] = [];
 
   const processKolTweet = (tweet: DesearchTweet, kolWeight: number, kolTier: number, kolHandle: string, kolName: string) => {
@@ -276,6 +282,7 @@ export async function GET(req: Request) {
 
   return NextResponse.json({
     ok: true,
+    deep,
     duration_ms: duration,
     new_events: newEvents.length,
     total_events: updated.events.length,
