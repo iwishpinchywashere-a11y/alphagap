@@ -3,7 +3,7 @@
 import { useDashboard } from "./DashboardProvider";
 
 export default function DashboardHeader() {
-  const { taoPrice, lastScan, scanResult, scanError, scanning, scanStep, runScan } = useDashboard();
+  const { taoPrice, lastScan, scanResult, scanError, scanning } = useDashboard();
 
   return (
     <header className="border-b border-gray-800 px-4 md:px-6 py-3 md:py-4 flex items-center justify-between flex-wrap gap-2 max-w-full overflow-hidden">
@@ -30,13 +30,9 @@ export default function DashboardHeader() {
             Error: {scanError.slice(0, 60)}
           </span>
         )}
-        <button
-          onClick={runScan}
-          disabled={scanning}
-          className="bg-green-500/10 border border-green-500/30 text-green-400 px-4 py-2 rounded text-sm hover:bg-green-500/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
-        >
-          {scanning ? (scanStep || "Scanning...") : "Scan All Sources"}
-        </button>
+        {scanning && (
+          <span className="text-xs text-green-400 animate-pulse">Refreshing…</span>
+        )}
       </div>
     </header>
   );

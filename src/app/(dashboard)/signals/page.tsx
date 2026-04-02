@@ -7,7 +7,7 @@ import SubnetDetailPanel from "@/components/dashboard/SubnetDetailPanel";
 import { signalColor, signalIcon, timeAgo, formatMcap } from "@/lib/formatters";
 
 export default function SignalsPage() {
-  const { signals, leaderboard, scanning, runScan, setSelectedSubnet } = useDashboard();
+  const { signals, leaderboard, scanning, setSelectedSubnet } = useDashboard();
   const router = useRouter();
   void setSelectedSubnet;
   const [signalSort, setSignalSort] = useState<"score" | "date">("score");
@@ -72,10 +72,7 @@ export default function SignalsPage() {
           <div className="flex flex-col items-center justify-center h-96 text-center">
             <div className="text-6xl mb-4">📡</div>
             <h2 className="text-xl font-bold mb-2">No Signals Yet</h2>
-            <p className="text-gray-500 max-w-md mb-6">Run a scan to detect fresh GitHub commits, HuggingFace releases, and social activity.</p>
-            <button onClick={runScan} disabled={scanning} className="bg-green-500/20 border border-green-500/40 text-green-400 px-6 py-3 rounded-lg text-base hover:bg-green-500/30 transition-colors disabled:opacity-50">
-              Scan Now
-            </button>
+            <p className="text-gray-500 max-w-md">Signals refresh automatically every 10 minutes.</p>
           </div>
         )}
 

@@ -26,7 +26,7 @@ const COLUMNS: [keyof SubnetScore, string, string][] = [
 ];
 
 export default function LeaderboardPage() {
-  const { leaderboard, taoPrice, scanning, signals, runScan, setSelectedSubnet, infoPopup, setInfoPopup } = useDashboard();
+  const { leaderboard, taoPrice, scanning, signals, setSelectedSubnet, infoPopup, setInfoPopup } = useDashboard();
   const router = useRouter();
   const [sortCol, setSortCol] = useState<keyof SubnetScore>("composite_score");
   const [sortAsc, setSortAsc] = useState(false);
@@ -91,13 +91,8 @@ export default function LeaderboardPage() {
         {!scanning && leaderboard.length === 0 && (
           <div className="flex flex-col items-center justify-center h-96 text-center">
             <div className="text-6xl mb-4">&#x1F50D;</div>
-            <h2 className="text-xl font-bold mb-2">No Data Yet</h2>
-            <p className="text-gray-500 max-w-md mb-6">
-              Hit <span className="text-green-400">&quot;Scan All Sources&quot;</span> to pull data from TaoStats, GitHub, and HuggingFace.
-            </p>
-            <button onClick={runScan} disabled={scanning} className="bg-green-500/20 border border-green-500/40 text-green-400 px-6 py-3 rounded-lg text-base hover:bg-green-500/30 transition-colors disabled:opacity-50">
-              Run First Scan
-            </button>
+            <h2 className="text-xl font-bold mb-2">Loading Data…</h2>
+            <p className="text-gray-500 max-w-md">Data refreshes automatically every 10 minutes.</p>
           </div>
         )}
 
