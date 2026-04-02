@@ -175,8 +175,9 @@ export async function GET(req: Request) {
   }
 
   // ── Fetch KOL timelines ──────────────────────────────────────────
-  // All 300 KOLs from the Stitch3 leaderboard (tier 1–4).
-  const kols = KOL_DATABASE;
+  // Top 100 KOLs by weight — covers all tier 1+2 plus best of tier 3 (weight ≥ 32).
+  // Running all 300 at every-10-min cadence costs ~$2,000/mo; top-100 once/hr = ~$4/day.
+  const kols = [...KOL_DATABASE].sort((a, b) => b.weight - a.weight).slice(0, 100);
 
   const kolResults = await Promise.allSettled(
     kols.map(kol => fetchKolTimeline(kol.handle).then(tweets => ({ kol, tweets })))
