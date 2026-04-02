@@ -1017,7 +1017,7 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
       netFlow24h,
       taoReserve,
       emissionShare,
-      emissionPct: tmcMap.get(netuid)?.emission || 0,
+      emissionPct: tmcMap.get(netuid)?.emission ?? (totalEmission > 0 ? (emissionMap.get(netuid) || 0) / totalEmission * 100 : 0),
       ghCommits7d,
       ghPRsMerged7d,
       ghContributors30d,
@@ -1904,6 +1904,7 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
       await put("emission-history.json", JSON.stringify(emissionHistory), {
         access: "private",
         addRandomSuffix: false,
+        allowOverwrite: true,
         contentType: "application/json",
       });
     }
