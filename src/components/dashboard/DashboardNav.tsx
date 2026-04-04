@@ -16,7 +16,7 @@ export default function DashboardNav() {
     { href: "/analytics", label: "Analytics" },
     { href: "/benchmarks", label: "Benchmarks" },
     { href: "/performance", label: "Performance" },
-    { href: "/testing", label: "🔬 Pump Lab" },
+    { href: "/testing", label: "Pump Lab" },
   ];
 
   return (
