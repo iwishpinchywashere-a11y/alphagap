@@ -159,9 +159,28 @@ async function generateReport(forceNetuid?: number) {
       .map(s => `${s.title}: ${(s.description as string || "").slice(0, 200)}`)
       .join("\n\n");
 
+    // Verified X handle overrides (same map as scan/route.ts) — fills gaps in TaoStats registry
+    const TWITTER_HANDLE_OVERRIDES: Record<number, string> = {
+      3: "tplr_ai", 4: "TargonCompute", 6: "numinous_ai", 8: "VantaTrading",
+      11: "TrajectoryRL", 12: "ComputeHorde", 13: "Data_SN13", 14: "taohash",
+      15: "oroagents", 16: "bitads_ai", 17: "404gen_", 18: "zeussubnet",
+      22: "desearch_ai", 23: "trishoolai", 24: "QuasarModels", 27: "nodex0_",
+      33: "ReadyAI_", 34: "BitMindAI", 36: "AutoppiaAI", 37: "AureliusAligned",
+      39: "basilic_ai", 41: "almanac_market", 43: "GraphiteSubnet", 44: "webuildscore",
+      46: "resilabsai", 50: "SynthdataCo", 51: "lium_io", 54: "yanez__ai",
+      56: "gradients_ai", 58: "handshake_58", 59: "babelbit", 60: "bitsecai",
+      61: "_redteam_", 62: "ridges_ai", 64: "chutes_ai", 65: "TPN_Labs",
+      66: "alpha_core_ai", 68: "metanova_labs", 71: "LeadpoetAI", 74: "gittensor_io",
+      75: "hippius_subnet", 81: "grail_ai", 85: "vidaio_", 88: "Investing88ai",
+      91: "bitstarterAI", 93: "Bitcast_network", 97: "DistStateAndMe",
+      121: "sundaebar_ai", 122: "Bitrecs", 124: "SwarmSubnet",
+    };
+
     // Identity details
     const github = identity?.github_repo || dev?.repo_url || "Unknown";
-    const twitter = identity?.twitter || "Unknown";
+    const rawTwitter = identity?.twitter?.replace(/https?:\/\/(twitter|x)\.com\//g, "").replace(/^@/, "").replace(/\/$/, "").trim() || "";
+    const twitterHandle = rawTwitter || TWITTER_HANDLE_OVERRIDES[targetNetuid] || "";
+    const twitter = twitterHandle ? `https://x.com/${twitterHandle}` : "Not found in registry";
     const website = identity?.subnet_url || "Unknown";
     const description = identity?.description || identity?.summary || "No description available";
 

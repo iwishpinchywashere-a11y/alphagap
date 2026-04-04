@@ -81,7 +81,12 @@ export default function DashboardProvider({ children }: { children: React.ReactN
     }
   }, [loadData]);
 
-  // On first mount: load cache instantly, then refresh in background if stale
+  // Current schema version — must match SCAN_SCHEMA_VERSION in scan/route.ts.
+  // If the cached blob has an older version, force a background rescan immediately
+  // so the dashboard never shows stale-format data to the user.
+  const CURRENT_SCHEMA_VERSION = 8;
+
+  // On first mount: load cache instantly, then refresh in background if stale or wrong schema
   useEffect(() => {
     if (hasAutoScanned.current) return;
     hasAutoScanned.current = true;
@@ -94,9 +99,12 @@ export default function DashboardProvider({ children }: { children: React.ReactN
       .then((data) => {
         loadData(data);
         const age = data.lastScan ? Date.now() - new Date(data.lastScan).getTime() : Infinity;
-        if (age > 15 * 60 * 1000) runScan();
+        const schemaStale = (data.schema_version ?? 0) < CURRENT_SCHEMA_VERSION;
+        // Rescan if: data is >15 min old OR schema version is behind
+        if (age > 15 * 60 * 1000 || schemaStale) runScan();
       })
       .catch(() => runScan());
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loadData, runScan]);
 
   // Close info popup on any click outside

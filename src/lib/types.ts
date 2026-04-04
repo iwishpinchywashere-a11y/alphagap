@@ -67,4 +67,25 @@ export interface SubnetScore {
   has_campaign?: boolean;
   whale_ratio?: number;
   whale_signal?: "accumulating" | "distributing" | null;
+  miner_burn_pct?: number;
+  tao_locked?: number;
+  dereg_risk?: boolean;
+  dereg_top3?: boolean;
+  fear_greed?: number;
+  category?: string;
+  sparkline_prices?: number[];
+  volume_surge?: boolean;
+  volume_surge_ratio?: number;
+  alpha_staked_pct?: number;
+  sector_rotation?: boolean;
+  product_score?: number;        // 0–100 — benchmark vs centralized (100) / website scan (80) / milestone (80) / heuristic (60)
+  utility_estimated?: boolean;   // true = heuristic, website, or milestone score (not formally benchmarked)
+  product_source?: "benchmark" | "website" | "milestone" | "heuristic";  // which tier scored this
+  benchmark_score?: number;      // raw benchmark score 0–100
+  benchmark_category?: string;   // e.g. "Serverless AI Compute"
+  cost_saving_pct?: number;      // % cost savings vs centralized provider
+  vs_provider?: string;          // e.g. "AWS Lambda / Google Cloud AI"
+  benchmark_summary?: string;    // human-readable benchmark findings
+  annual_revenue_usd?: number;   // estimated annual revenue
+  momentum_boost?: number;       // MOMENTUM pillar score (signed, ±15 max)
 }

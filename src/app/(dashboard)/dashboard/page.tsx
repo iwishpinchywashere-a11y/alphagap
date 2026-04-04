@@ -8,11 +8,29 @@ import SubnetLogo from "@/components/dashboard/SubnetLogo";
 import { scoreColor, flowColor, formatNum } from "@/lib/formatters";
 import type { SubnetScore } from "@/lib/types";
 
+function SparkLine({ prices }: { prices: number[] }) {
+  if (!prices || prices.length < 2) return <span className="text-gray-700 text-xs">—</span>;
+  const min = Math.min(...prices);
+  const max = Math.max(...prices);
+  const range = max - min || 1;
+  const W = 56, H = 18;
+  const pts = prices.map((p, i) =>
+    `${(i / (prices.length - 1)) * W},${H - ((p - min) / range) * (H - 2) - 1}`
+  ).join(" ");
+  const isUp = prices[prices.length - 1] >= prices[0];
+  return (
+    <svg width={W} height={H} className="opacity-80 block">
+      <polyline points={pts} fill="none" stroke={isUp ? "#10b981" : "#ef4444"} strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 const COLUMNS: [keyof SubnetScore, string, string][] = [
   ["composite_score", "aGap", "Alpha Gap Score (0-100). The core metric. Finds subnets building quality work where the price hasn't caught up yet. Formula: Dev quality (50pts) + Price lag across 24h/7d/30d (30pts) + Social gap (15pts) + Emission value gap (15pts) - Market cap penalty."],
   ["flow_score", "Flow", "Flow & Momentum (0-100). Combines price momentum across 24h, 7d, and 30d timeframes, whale activity, and reversal bonuses."],
   ["dev_score", "Dev", "Development Score (0-100). Measures actual GitHub + HuggingFace activity quality based on commits, PRs, contributors, and AI models published."],
   ["eval_score", "eVal", "Emissions-to-Valuation (0-100). Finds the gap between what the network pays a subnet (emissions) vs what the market values it (market cap). Also factors in the validator/miner ratio — subnets with balanced, healthy node composition score higher."],
+  ["product_score", "Prod", "Product / Utility Score (0–100). Four-tier scoring: Formally benchmarked vs AWS/Google/OpenAI (highest confidence, up to 100). Website scan — AlphaGap scans each subnet's live website daily for pricing pages, login/app access, enterprise contact, beta signups (up to 80). Curated milestones — manually verified product launches, partnerships, and revenue events (up to 80, shown as ~N). Heuristic — proxy signals from emissions, validators, and dev activity (up to 60, shown as ~N). This column is the core 'early alpha' detector: subnets building real product that the market hasn't priced in yet."],
   ["social_score", "Social", "Social Velocity (0-100). Multi-source social intelligence: X/Twitter KOL mentions and Discord activity across the Bittensor ecosystem."],
   ["emission_pct", "Em %", "Emission share — percentage of total Bittensor network emissions allocated to this subnet."],
   ["emission_change_pct", "Em Δ", "Daily change in emission %. Green = increased, Red = decreased."],
@@ -40,6 +58,8 @@ export default function LeaderboardPage() {
   const [filterKolActive, setFilterKolActive] = useState(false);
   const [filterNetInflow, setFilterNetInflow] = useState(false);
   const [filterHighConviction, setFilterHighConviction] = useState(false);
+  const [filterVolumeSurge, setFilterVolumeSurge] = useState(false);
+  const [filterCategory, setFilterCategory] = useState<string>("");
   const [filtersOpen, setFiltersOpen] = useState(false);
 
   const handleSort = (col: keyof SubnetScore) => {
@@ -58,6 +78,8 @@ export default function LeaderboardPage() {
     .filter((sub) => !filterKolActive || (sub.social_score ?? 0) >= 60)
     .filter((sub) => !filterNetInflow || (sub.net_flow_24h != null && sub.net_flow_24h > 0))
     .filter((sub) => !filterHighConviction || (sub.emission_trend === "up" && sub.whale_signal === "accumulating" && (sub.dev_score ?? 0) >= 40))
+    .filter((sub) => !filterVolumeSurge || sub.volume_surge === true)
+    .filter((sub) => !filterCategory || sub.category === filterCategory)
     .sort((a, b) => {
       const av = a[sortCol] ?? -Infinity;
       const bv = b[sortCol] ?? -Infinity;
@@ -122,8 +144,11 @@ export default function LeaderboardPage() {
                   { label: "🔥 KOL Active",         active: filterKolActive,       set: setFilterKolActive },
                   { label: "💸 Net Inflow",          active: filterNetInflow,       set: setFilterNetInflow },
                   { label: "🎯 High Conviction",     active: filterHighConviction,  set: setFilterHighConviction },
+                  { label: "🤑 Volume Surge",        active: filterVolumeSurge,     set: setFilterVolumeSurge },
                 ] as { label: string; active: boolean; set: React.Dispatch<React.SetStateAction<boolean>> }[];
-                const activeCount = FILTERS.filter(f => f.active).length;
+                const activeCount = FILTERS.filter(f => f.active).length + (filterCategory ? 1 : 0);
+                // Collect unique categories from leaderboard for the category picker
+                const allCategories = [...new Set(leaderboard.map(s => s.category).filter(Boolean) as string[])].sort();
                 return (
                   <div className="relative flex-shrink-0">
                     <button
@@ -141,12 +166,12 @@ export default function LeaderboardPage() {
                         {/* Backdrop */}
                         <div className="fixed inset-0 z-10" onClick={() => setFiltersOpen(false)} />
                         {/* Dropdown — anchored to right edge so it never overflows on mobile */}
-                        <div className="absolute right-0 top-full mt-1 z-20 bg-gray-900 border border-gray-700 rounded-xl shadow-2xl p-3 w-52">
+                        <div className="absolute right-0 top-full mt-1 z-20 bg-gray-900 border border-gray-700 rounded-xl shadow-2xl p-3 w-56">
                           <div className="flex items-center justify-between mb-2 px-1">
                             <span className="text-xs text-gray-500 font-medium">Filter subnets</span>
                             {activeCount > 0 && (
                               <button
-                                onClick={() => { FILTERS.forEach(f => f.set(false)); }}
+                                onClick={() => { FILTERS.forEach(f => f.set(false)); setFilterCategory(""); }}
                                 className="text-[10px] text-gray-500 hover:text-red-400 transition-colors"
                               >
                                 Clear all
@@ -167,6 +192,23 @@ export default function LeaderboardPage() {
                               </button>
                             ))}
                           </div>
+                          {/* Category picker */}
+                          {allCategories.length > 0 && (
+                            <div className="mt-3 pt-3 border-t border-gray-800">
+                              <div className="text-[10px] text-gray-500 font-medium px-1 mb-2">Category</div>
+                              <div className="flex flex-wrap gap-1">
+                                {allCategories.map(cat => (
+                                  <button
+                                    key={cat}
+                                    onClick={() => setFilterCategory(filterCategory === cat ? "" : cat)}
+                                    className={`px-2 py-0.5 rounded-full text-[10px] font-medium border transition-colors ${filterCategory === cat ? "bg-green-500/20 border-green-500/40 text-green-400" : "border-gray-700 text-gray-400 hover:border-gray-500 hover:text-gray-200"}`}
+                                  >
+                                    {cat}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          )}
                         </div>
                       </>
                     )}
@@ -182,31 +224,35 @@ export default function LeaderboardPage() {
                     <th className="text-left py-2 px-3 font-medium w-8">#</th>
                     <th className="text-left py-2 px-3 font-medium">Subnet</th>
                     {COLUMNS.map(([key, label, tooltip]) => (
-                      <th
-                        key={key}
-                        className={`text-right py-2 px-3 font-medium cursor-pointer hover:text-gray-300 transition-colors select-none ${key === "composite_score" ? "text-green-400/80" : ""}`}
-                        onClick={() => handleSort(key)}
-                        style={key === "composite_score" ? { background: "rgba(16, 185, 129, 0.06)", borderLeft: "2px solid rgba(16, 185, 129, 0.15)" } : undefined}
-                      >
-                        {label}
-                        {tooltip && (
-                          <span
-                            className="ml-1 inline-flex items-center justify-center w-3.5 h-3.5 rounded-full border border-gray-700 text-[9px] text-gray-600 hover:text-green-400 hover:border-green-400 cursor-help relative normal-case tracking-normal"
-                            onClick={(e) => { e.stopPropagation(); e.preventDefault(); setInfoPopup(infoPopup === key ? null : key); }}
-                          >
-                            i
-                            {infoPopup === key && (
-                              <div className="absolute z-50 top-5 right-0 w-72 p-3 bg-gray-900 border border-green-800/50 rounded-lg shadow-xl text-xs text-gray-300 font-normal whitespace-normal leading-relaxed normal-case tracking-normal" onClick={(e) => e.stopPropagation()}>
-                                <div className="font-semibold text-green-400 mb-1">{label}</div>
-                                {tooltip}
-                              </div>
-                            )}
-                          </span>
+                      <React.Fragment key={key}>
+                        <th
+                          className={`text-right py-2 px-3 font-medium cursor-pointer hover:text-gray-300 transition-colors select-none ${key === "composite_score" ? "text-green-400/80" : ""}`}
+                          onClick={() => handleSort(key)}
+                          style={key === "composite_score" ? { background: "rgba(16, 185, 129, 0.06)", borderLeft: "2px solid rgba(16, 185, 129, 0.15)" } : undefined}
+                        >
+                          {label}
+                          {tooltip && (
+                            <span
+                              className="ml-1 inline-flex items-center justify-center w-3.5 h-3.5 rounded-full border border-gray-700 text-[9px] text-gray-600 hover:text-green-400 hover:border-green-400 cursor-help relative normal-case tracking-normal"
+                              onClick={(e) => { e.stopPropagation(); e.preventDefault(); setInfoPopup(infoPopup === key ? null : key); }}
+                            >
+                              i
+                              {infoPopup === key && (
+                                <div className="absolute z-50 top-5 right-0 w-72 p-3 bg-gray-900 border border-green-800/50 rounded-lg shadow-xl text-xs text-gray-300 font-normal whitespace-normal leading-relaxed normal-case tracking-normal" onClick={(e) => e.stopPropagation()}>
+                                  <div className="font-semibold text-green-400 mb-1">{label}</div>
+                                  {tooltip}
+                                </div>
+                              )}
+                            </span>
+                          )}
+                          {sortCol === key && (
+                            <span className="ml-1 text-green-400">{sortAsc ? "\u25B2" : "\u25BC"}</span>
+                          )}
+                        </th>
+                        {key === "market_cap" && (
+                          <th className="py-2 px-3 font-medium text-gray-600">Trend</th>
                         )}
-                        {sortCol === key && (
-                          <span className="ml-1 text-green-400">{sortAsc ? "\u25B2" : "\u25BC"}</span>
-                        )}
-                      </th>
+                      </React.Fragment>
                     ))}
                   </tr>
                 </thead>
@@ -230,6 +276,7 @@ export default function LeaderboardPage() {
                           <span className="text-[10px] text-gray-600 font-mono tracking-tight">SN{sub.netuid}</span>
                           <span className="font-bold text-[15px] text-gray-100 leading-tight">{sub.name}</span>
                           {sub.has_campaign && <span title="Active Stitch3 marketing campaign" className="text-sm">🔥</span>}
+                          {sub.dereg_top3 && <span title="⚠️ Top-3 deregistration risk — one of the 3 subnets most likely to be deregistered based on SubnetRadar health score" className="text-sm cursor-help">⚠️</span>}
                         </div>
                       </td>
                       <td className={`py-2 px-3 text-right font-bold text-lg tabular-nums ${scoreColor(sub.composite_score)}`}
@@ -239,10 +286,34 @@ export default function LeaderboardPage() {
                       <td className={`py-2 px-3 text-right font-semibold tabular-nums ${scoreColor(sub.flow_score)}`}>
                         {sub.whale_signal === "accumulating" && <span title={`Whale accumulation (${sub.whale_ratio}x)`} className="mr-0.5 text-xs">🐋</span>}
                         {sub.whale_signal === "distributing" && <span title={`Whale distribution (${sub.whale_ratio}x)`} className="mr-0.5 text-xs opacity-50">🔻</span>}
+                        {sub.volume_surge && <span title={`Volume surge: ${sub.volume_surge_ratio}x rolling average buy volume`} className="mr-0.5 text-xs">🤑</span>}
                         {sub.flow_score}
                       </td>
                       <td className={`py-2 px-3 text-right font-semibold tabular-nums ${scoreColor(sub.dev_score)}`}>{sub.dev_score}</td>
                       <td className={`py-2 px-3 text-right font-semibold tabular-nums ${scoreColor(sub.eval_score || 0)}`}>{sub.eval_score || 0}</td>
+                      <td className={`py-2 px-3 text-right font-semibold tabular-nums ${
+                        sub.product_score
+                          ? sub.utility_estimated ? "text-emerald-600" : "text-emerald-400"
+                          : "text-gray-700"
+                      }`}>
+                        {sub.product_score != null ? (
+                          <span
+                            title={(() => {
+                              const src = sub.product_source;
+                              if (src === "benchmark") return sub.benchmark_summary || "Formally benchmarked vs centralized AI providers.";
+                              if (src === "website") return `Website scan detected product signals (pricing, live app, enterprise) on this subnet's official site.`;
+                              if (src === "milestone") return `Curated product milestone: confirmed launch, partnership, or revenue event detected for this subnet.`;
+                              return `Estimated from proxy signals: emission share, validator quality, dev activity, and market conviction.`;
+                            })()}
+                            className="cursor-help"
+                          >
+                            {sub.utility_estimated ? "~" : ""}{sub.product_score}
+                            {sub.cost_saving_pct && <span className="text-[9px] text-emerald-500/70 ml-0.5">&#x2193;{sub.cost_saving_pct}%</span>}
+                            {sub.product_source === "website" && <span className="text-[9px] text-emerald-500/60 ml-0.5" title="Website scan">🌐</span>}
+                            {sub.product_source === "milestone" && <span className="text-[9px] text-emerald-500/60 ml-0.5" title="Curated product milestone">🚀</span>}
+                          </span>
+                        ) : "\u2014"}
+                      </td>
                       <td className={`py-2 px-3 text-right font-semibold tabular-nums ${scoreColor(sub.social_score || 0)}`}>{sub.social_score || 0}</td>
                       <td className="py-2 px-3 text-right text-gray-400 tabular-nums">
                         {sub.emission_pct != null && sub.emission_pct > 0 ? `${(sub.emission_pct * 100).toFixed(1)}%` : "\u2014"}
@@ -261,6 +332,9 @@ export default function LeaderboardPage() {
                       </td>
                       <td className="py-2 px-3 text-right text-gray-400 tabular-nums">
                         {sub.market_cap != null ? `$${formatNum(sub.market_cap)}` : "\u2014"}
+                      </td>
+                      <td className="py-2 px-2">
+                        <SparkLine prices={sub.sparkline_prices ?? []} />
                       </td>
                       {(["price_change_1h", "price_change_24h", "price_change_7d", "price_change_30d"] as const).map((col) => (
                         <td key={col} className={`py-2 px-3 text-right font-medium tabular-nums ${

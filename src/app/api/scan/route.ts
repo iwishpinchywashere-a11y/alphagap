@@ -7,10 +7,64 @@ import {
   getSubnetEmissions,
   getTaoPrice,
   getGithubActivity,
+  getBurnedAlpha,
   type SubnetIdentity,
   type SubnetPool,
   type GithubActivity,
 } from "@/lib/taostats";
+
+// ── SubnetRadar API (no auth required, CORS-enabled) ────────────────
+interface SRSubnet {
+  netuid: number;
+  taoIn: number;
+  healthScore: number;
+  healthBreakdown: { liquidity: number; network: number; emission: number; growth: number; development: number };
+  status: "active" | "at-risk" | string;
+  fearGreed: number;         // subnet sentiment 0-100 (0=extreme fear, 100=extreme greed)
+  category: string;          // e.g. "Training", "Inference", "Computing", "Agents", "DeFi" etc.
+  sparklinePrices: number[]; // ~100 historical price points for mini chart
+}
+interface SRWhaleMove {
+  type: "stake" | "unstake" | "transfer";
+  timestamp: string;
+  amount: number;
+  netuid: number;
+}
+async function fetchSRSubnets(): Promise<SRSubnet[]> {
+  try {
+    const res = await fetch("https://subnetradar.com/api/data/subnets", {
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    // Normalize both camelCase and snake_case field names from the API
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return (data.subnets || []).map((s: any): SRSubnet => ({
+      netuid: s.netuid ?? s.net_uid ?? 0,
+      taoIn: s.taoIn ?? s.tao_in ?? 0,
+      healthScore: s.healthScore ?? s.health_score ?? 0,
+      healthBreakdown: s.healthBreakdown ?? s.health_breakdown ?? { liquidity: 0, network: 0, emission: 0, growth: 0, development: 0 },
+      status: s.status ?? "active",
+      fearGreed: s.fearGreed ?? s.fear_greed ?? 50,
+      category: s.category ?? "",
+      sparklinePrices: s.sparklinePrices ?? s.sparkline_prices ?? s.priceHistory ?? s.price_history ?? [],
+    }));
+  } catch {
+    return [];
+  }
+}
+async function fetchSRWhales(): Promise<SRWhaleMove[]> {
+  try {
+    const res = await fetch("https://subnetradar.com/api/whales", {
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data.moves || [];
+  } catch {
+    return [];
+  }
+}
 
 // ── TaoMarketCap API for accurate emission data ──────────────────
 const TMC_API_KEY = process.env.TMC_API_KEY || "";
@@ -72,11 +126,19 @@ async function fetchTMCValidators(): Promise<Map<number, number>> {
 import { scanAllSubnetGitHub, type GitHubScanResult } from "@/lib/github-scanner";
 import { scanAllSubnetsHF, type HFScanResult } from "@/lib/hf-scanner";
 import { fetchRecentCommits, fetchRecentPRs, fetchLatestRelease } from "@/lib/context-fetcher";
+import { computeProductScore, BENCHMARK_MAP, type WebsiteSignalData } from "@/lib/benchmarks";
+import type { WebsiteProductCache } from "@/app/api/scan-websites/route";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 800;
 
 const RAO = 1e9;
+
+// ── Desearch social cache — avoid calling Desearch on every 10-min scan ──
+// Social data is cached for 55 minutes; only the first scan each hour pays API credits.
+// social-pulse cron (every hour) handles deeper KOL timeline fetching independently.
+const SOCIAL_CACHE_TTL_MS = 2 * 60 * 60 * 1000; // 2 hours
+let _socialCache: { data: Map<number, { mentions: number; engagement: number }>; ts: number } | null = null;
 
 // ── Desearch fetch (inline, no DB dependency) ─────────────────────
 const DESEARCH_API = "https://api.desearch.ai";
@@ -187,6 +249,27 @@ interface LeaderboardEntry {
   has_campaign?: boolean; // 🔥 Active Stitch3 marketing campaign
   whale_ratio?: number; // avg buy size / avg sell size (>1 = accumulation, <1 = distribution)
   whale_signal?: "accumulating" | "distributing" | null;
+  miner_burn_pct?: number; // % of miner emissions burned (high = unhealthy)
+  tao_locked?: number;     // total TAO staked in subnet pool (from SubnetRadar)
+  dereg_risk?: boolean;    // flagged "at-risk" by SubnetRadar deregwatch
+  dereg_top3?: boolean;   // one of the 3 subnets most at-risk of deregistration
+  fear_greed?: number;     // subnet sentiment 0-100
+  category?: string;       // subnet category (Training, Inference, Agents, etc.)
+  sparkline_prices?: number[]; // trimmed price history for mini chart
+  volume_surge?: boolean;      // unusual buying volume detected (≥2.5x rolling avg)
+  volume_surge_ratio?: number; // ratio of current buy vol to rolling avg
+  alpha_staked_pct?: number;   // % of total alpha staked (not in DEX pool)
+  sector_rotation?: boolean;   // subnet's category is in a sector rotation event
+  product_score?: number;        // 0–100 (benchmark→100, website/milestone→80, heuristic→60)
+  utility_estimated?: boolean;   // true when score is website, milestone, or heuristic (not benchmarked)
+  product_source?: "benchmark" | "website" | "milestone" | "heuristic";
+  benchmark_score?: number;
+  benchmark_category?: string;
+  cost_saving_pct?: number;
+  vs_provider?: string;
+  benchmark_summary?: string;
+  annual_revenue_usd?: number;
+  momentum_boost?: number;       // signed MOMENTUM pillar contribution (±15 max)
 }
 
 // ── Stitch3 campaign data (cached in Vercel Blob) ────────────────
@@ -216,12 +299,14 @@ async function getStitchCampaigns(): Promise<StitchCampaign[]> {
   }
 }
 
-// Fallback: hardcoded from latest Stitch3 scrape (updated 2026-03-30)
+// Fallback: hardcoded from latest Stitch3 scrape (updated 2026-04-03)
+// NOTE: active filtering is date-based — status field alone is not trusted.
 function getDefaultStitchCampaigns(): StitchCampaign[] {
   return [
-    { id: "033_resilabs", subnet: "RESI", netuid: 46, reward: "$2,000", startDate: "2026-03-29", endDate: "2026-04-08", tweets: 11, views: 6780, status: "Active" },
-    { id: "032_targon", subnet: "Targon", netuid: 4, reward: "$1,000", startDate: "2026-03-23", endDate: "2026-03-29", tweets: 43, views: 78970, status: "Active" },
-    { id: "031_taostats", subnet: "TaoStats", reward: "$2,500", startDate: "2026-03-15", endDate: "2026-03-30", tweets: 76, views: 167383, status: "Active" },
+    { id: "034_its_ai",   subnet: "It's AI",  netuid: 32, reward: "$2,000", startDate: "2026-03-31", endDate: "2026-04-09", tweets: 6,  views: 9603,   status: "Active" },
+    { id: "033_resilabs", subnet: "RESI",      netuid: 46, reward: "$2,000", startDate: "2026-03-29", endDate: "2026-04-08", tweets: 38, views: 35892,  status: "Active" },
+    { id: "032_targon",   subnet: "Targon",    netuid: 4,  reward: "$1,000", startDate: "2026-03-23", endDate: "2026-03-29", tweets: 45, views: 84703,  status: "Completed" },
+    { id: "031_taostats", subnet: "TaoStats",  netuid: undefined, reward: "$2,500", startDate: "2026-03-15", endDate: "2026-03-30", tweets: 73, views: 161514, status: "Completed" },
   ];
 }
 
@@ -243,12 +328,20 @@ export async function GET() {
 
   // ── Step 0: Fetch Stitch3 campaign data ──────────────────────────
   const stitchCampaigns = await getStitchCampaigns();
-  const activeCampaigns = stitchCampaigns.filter(c => c.status === "Active" && c.netuid);
+  const nowMs = Date.now();
+  // Active = status is Active AND endDate hasn't passed yet AND startDate has been reached
+  const activeCampaigns = stitchCampaigns.filter(c => {
+    if (!c.netuid) return false;
+    if (c.status !== "Active") return false;
+    const end = new Date(c.endDate).getTime() + 24 * 60 * 60 * 1000; // inclusive of end day
+    const start = new Date(c.startDate).getTime();
+    return nowMs >= start && nowMs <= end;
+  });
   const stitchActiveNetuids = new Set(activeCampaigns.map(c => c.netuid!));
   console.log(`[scan] Stitch3: ${activeCampaigns.length} active campaigns (${[...stitchActiveNetuids].join(", ")})`);
 
   // ── Step 0b: Load cached Discord scan results ─────────────────────
-  type DiscordResult = { channelId: string; channelName: string; netuid: number | null; subnetName: string; signal: "alpha" | "active" | "quiet" | "noise"; summary: string; keyInsights: string[]; messageCount: number; uniquePosters: number; scannedAt: string };
+  type DiscordResult = { channelId: string; channelName: string; netuid: number | null; subnetName: string; signal: "alpha" | "active" | "quiet" | "noise"; summary: string; keyInsights: string[]; messageCount: number; uniquePosters: number; scannedAt: string; releaseHint?: boolean };
   let discordResults: DiscordResult[] = [];
   try {
     if (process.env.BLOB_READ_WRITE_TOKEN) {
@@ -288,23 +381,29 @@ export async function GET() {
 
   await new Promise(r => setTimeout(r, 500));
 
-  // Batch 2: flows + emissions + TaoStats dev (historical 7d/30d) + TMC — all parallel
+  // Batch 2: flows + emissions + TaoStats dev (historical 7d/30d) + TMC + SubnetRadar + burned alpha
   // NOTE: TaoStats dev is used for 7d/30d historical context only.
   //       24h commit data comes from the direct GitHub scanner below.
-  console.log("[scan] Batch 2: flows + emissions + dev history + TMC...");
-  const [flowsResult, emissionsResult, devResult, tmcResult, tmcValResult] = await Promise.allSettled([
+  console.log("[scan] Batch 2: flows + emissions + dev history + TMC + SubnetRadar...");
+  const [flowsResult, emissionsResult, devResult, tmcResult, tmcValResult, srSubnetsResult, srWhalesResult, burnedAlphaResult] = await Promise.allSettled([
     getTaoFlows(),
     getSubnetEmissions(),
     getGithubActivity(),
     fetchTMCSubnets(),
     fetchTMCValidators(),
+    fetchSRSubnets(),
+    fetchSRWhales(),
+    getBurnedAlpha(),
   ]);
   const flows = flowsResult.status === "fulfilled" ? flowsResult.value : [];
   const emissions = emissionsResult.status === "fulfilled" ? emissionsResult.value : [];
   const devActivity = devResult.status === "fulfilled" ? devResult.value : ([] as Awaited<ReturnType<typeof getGithubActivity>>);
   const tmcSubnets = tmcResult.status === "fulfilled" ? tmcResult.value : [];
   const validatorCounts = tmcValResult.status === "fulfilled" ? tmcValResult.value : new Map<number, number>();
-  console.log(`[scan] Batch 2 done: ${flows.length} flows, ${emissions.length} emissions, ${devActivity.length} dev history, ${tmcSubnets.length} TMC`);
+  const srSubnets = srSubnetsResult.status === "fulfilled" ? srSubnetsResult.value : [];
+  const srWhaleMoves = srWhalesResult.status === "fulfilled" ? srWhalesResult.value : [];
+  const burnedAlphaData = burnedAlphaResult.status === "fulfilled" ? burnedAlphaResult.value : [];
+  console.log(`[scan] Batch 2 done: ${flows.length} flows, ${emissions.length} emissions, ${devActivity.length} dev history, ${tmcSubnets.length} TMC, ${srSubnets.length} SR subnets, ${srWhaleMoves.length} whale moves, ${burnedAlphaData.length} burned alpha`);
 
   // Build TMC emission map (accurate emission % from TaoMarketCap)
   const tmcMap = new Map<number, TMCSubnet>(tmcSubnets.map(s => [s.subnet, s]));
@@ -323,6 +422,31 @@ export async function GET() {
   let totalEmission = 0;
   for (const v of emissionMap.values()) totalEmission += v;
 
+  // ── SubnetRadar maps ──────────────────────────────────────────────
+  const srSubnetMap = new Map<number, SRSubnet>(srSubnets.map(s => [s.netuid, s]));
+
+  // Net TAO from large stake/unstake moves (≥50 TAO = "whale" threshold)
+  const srWhaleNetFlowMap = new Map<number, number>();
+  const WHALE_MIN_TAO = 50;
+  for (const move of srWhaleMoves) {
+    if (!move.netuid || move.amount < WHALE_MIN_TAO) continue;
+    if (move.type === "stake") {
+      srWhaleNetFlowMap.set(move.netuid, (srWhaleNetFlowMap.get(move.netuid) || 0) + move.amount);
+    } else if (move.type === "unstake") {
+      srWhaleNetFlowMap.set(move.netuid, (srWhaleNetFlowMap.get(move.netuid) || 0) - move.amount);
+    }
+  }
+
+  // Miner burn %: burned_alpha / alpha_rewards * 100
+  const minerBurnPctMap = new Map<number, number>();
+  for (const b of burnedAlphaData) {
+    const alphaRewards = emissionMap.get(b.netuid) || 0;
+    if (alphaRewards > 0) {
+      const burnedRao = parseFloat(b.burned_alpha) / RAO;
+      minerBurnPctMap.set(b.netuid, Math.min(100, Math.round(burnedRao / alphaRewards * 100)));
+    }
+  }
+
   // ── GitHub repo overrides ─────────────────────────────────────────
   // Subnets where the on-chain identity registry has no entry or the wrong repo.
   // Values here take precedence over what taostats returns.
@@ -331,6 +455,62 @@ export async function GET() {
     87:  "https://github.com/luminar-network/luminar-sn", // Luminar Network — missing from registry
     99:  "https://github.com/RendixNetwork/leoma",       // Leoma — missing from registry
     105: "https://github.com/Beam-Network/beam",         // Beam — registry had org-page URL, not repo
+  };
+
+  // Verified X/Twitter handle overrides — sourced from @PinchyAlpha/following list (Apr 2026).
+  // Many subnets have X accounts that are not in the TaoStats identity registry.
+  // These supplement (not replace) registry data; registry handle takes priority if set.
+  const TWITTER_HANDLE_OVERRIDES: Record<number, string> = {
+    3:   "tplr_ai",         // Templar (τemplar)
+    4:   "TargonCompute",   // Targon
+    6:   "numinous_ai",     // Numinous
+    8:   "VantaTrading",    // Vanta
+    11:  "TrajectoryRL",    // TrajectoryRL
+    12:  "ComputeHorde",    // Compute Horde
+    13:  "Data_SN13",       // Data Universe
+    14:  "taohash",         // TAOHash
+    15:  "oroagents",       // ORO
+    16:  "bitads_ai",       // BitAds
+    17:  "404gen_",         // 404-GEN
+    18:  "zeussubnet",      // Zeus
+    22:  "desearch_ai",     // DeSearch
+    23:  "trishoolai",      // Trishool
+    24:  "QuasarModels",    // Quasar
+    27:  "nodex0_",         // Nodexo
+    33:  "ReadyAI_",        // ReadyAI
+    34:  "BitMindAI",       // BitMind
+    36:  "AutoppiaAI",      // Web Agents - Autoppia
+    37:  "AureliusAligned", // Aurelius
+    39:  "basilic_ai",      // Basilica
+    41:  "almanac_market",  // Almanac
+    43:  "GraphiteSubnet",  // Graphite
+    44:  "webuildscore",    // Score (SN44)
+    46:  "resilabsai",      // RESI
+    50:  "SynthdataCo",     // Synth
+    51:  "lium_io",         // lium.io
+    54:  "yanez__ai",       // Yanez MIID
+    56:  "gradients_ai",    // Gradients
+    58:  "handshake_58",    // Handshake
+    59:  "babelbit",        // Babelbit
+    60:  "bitsecai",        // Bitsec.ai
+    61:  "_redteam_",       // RedTeam
+    62:  "ridges_ai",       // Ridges
+    64:  "chutes_ai",       // Chutes
+    65:  "TPN_Labs",        // TAO Private Network
+    66:  "alpha_core_ai",   // AlphaCore
+    68:  "metanova_labs",   // NOVA (MetaNova Labs)
+    71:  "LeadpoetAI",      // Leadpoet
+    74:  "gittensor_io",    // Gittensor
+    75:  "hippius_subnet",  // Hippius
+    81:  "grail_ai",        // grail
+    85:  "vidaio_",         // Vidaio
+    88:  "Investing88ai",   // Investing (SN88)
+    91:  "bitstarterAI",    // Bitstarter #1
+    93:  "Bitcast_network", // Bitcast
+    97:  "DistStateAndMe",  // distil (Distributed State)
+    121: "sundaebar_ai",    // sundae_bar
+    122: "Bitrecs",         // Bitrecs
+    124: "SwarmSubnet",     // Swarm
   };
 
   // ── Step 3a: Direct GitHub scan — ALL subnets, real-time 24h data ──
@@ -357,6 +537,13 @@ export async function GET() {
       existing.unique_contributors_1d = ghResult.contributors24h;
       if (ghResult.commits24h > 0) {
         existing.last_event_at = new Date().toISOString();
+      }
+      // For repos with overrides: TaoStats data points to old/wrong repo.
+      // Trust the direct GitHub scan for ALL metrics when override is active.
+      if (GITHUB_REPO_OVERRIDES[netuid] !== undefined) {
+        // GitHubScanResult only has 24h data; use it for 7d fields too so stale TaoStats is replaced.
+        if (ghResult.commits24h !== undefined) existing.commits_7d = ghResult.commits24h;
+        if (ghResult.contributors24h !== undefined) existing.unique_contributors_30d = ghResult.contributors24h;
       }
     } else if (ghResult.commits24h > 0 || ghResult.hasNewRelease) {
       // Subnet has GitHub activity but wasn't in TaoStats dev data — add it
@@ -404,22 +591,31 @@ export async function GET() {
   const elapsed1 = Date.now() - startTime;
   console.log(`[scan] All data fetched in ${elapsed1}ms.`);
 
-  // ── Step 4: Desearch social (4 bulk searches) ───────────────────
+  // ── Step 4: Desearch social (cached — fires at most once per hour) ──
+  // Runs 144×/day without caching = ~5,760 Desearch calls/day. With 55-min cache = ~24/day.
   const timeLeftForSocial = 50000 - (Date.now() - startTime);
   const socialMap = new Map<number, { mentions: number; engagement: number }>();
 
-  if (timeLeftForSocial > 5000 && DESEARCH_KEY) {
-    console.log("[scan] Fetching Desearch social data...");
+  const socialCacheHit = _socialCache && (Date.now() - _socialCache.ts) < SOCIAL_CACHE_TTL_MS;
+  if (socialCacheHit) {
+    for (const [k, v] of _socialCache!.data) socialMap.set(k, v);
+    console.log(`[scan] Social data from cache (${socialMap.size} subnets, ${Math.round((Date.now() - _socialCache!.ts) / 60000)}min old). Skipping Desearch.`);
+  }
+
+  if (!socialCacheHit && timeLeftForSocial > 5000 && DESEARCH_KEY) {
+    console.log("[scan] Cache miss — fetching fresh Desearch social data...");
 
     // Build handle->netuid and name->netuid maps from identities
+    // Twitter handle priority: registry data → TWITTER_HANDLE_OVERRIDES
     const handleToNetuid = new Map<string, number>();
     const nameToNetuid = new Map<string, number>();
     for (const id of identities) {
-      if (id.twitter) {
-        let handle = id.twitter.trim().replace(/^@/, "");
-        if (handle.includes("twitter.com/") || handle.includes("x.com/")) {
-          handle = handle.split("/").pop() || handle;
-        }
+      // Use override if registry is blank, else prefer registry value
+      const registryHandle = id.twitter?.trim().replace(/^@/, "").replace(/https?:\/\/(twitter|x)\.com\//g, "").replace(/\/$/,"") || "";
+      const overrideHandle = TWITTER_HANDLE_OVERRIDES[id.netuid] || "";
+      const rawHandle = registryHandle || overrideHandle;
+      if (rawHandle) {
+        const handle = rawHandle.split("/").pop()?.replace(/^@/, "") || "";
         if (handle) handleToNetuid.set(handle.toLowerCase(), id.netuid);
       }
       if (id.subnet_name && id.subnet_name.length >= 4) {
@@ -434,32 +630,75 @@ export async function GET() {
       if (norm.length >= 4) normalizedNameToNetuid.set(norm, netuid);
     }
 
-    function matchTweetToSubnet(tweet: DesearchTweet): number | null {
-      const text = tweet.text.toLowerCase();
-      const author = tweet.user.username.toLowerCase();
-      if (handleToNetuid.has(author)) return handleToNetuid.get(author)!;
-      for (const [handle, netuid] of handleToNetuid) {
-        if (text.includes(`@${handle}`)) return netuid;
-      }
-      // Exact name match
-      for (const [name, netuid] of nameToNetuid) {
-        if (text.includes(name)) return netuid;
-      }
-      // Normalized name match — catches "404gen" matching "404-gen", "basedtao" matching "based-tao" etc.
-      const normalizedText = text.replace(/[-_\s]/g, "");
-      for (const [normName, netuid] of normalizedNameToNetuid) {
-        if (normalizedText.includes(normName)) return netuid;
-      }
-      const snMatch = text.match(/\bsn(\d{1,3})\b/);
-      if (snMatch) {
-        const netuid = parseInt(snMatch[1]);
-        if (netuid > 0 && netuid <= 128) return netuid;
-      }
-      return null;
+    // Bittensor context gate — same logic as social-pulse to keep scoring consistent.
+    const BITTENSOR_SIGNALS_SCAN = [
+      "bittensor", "$tao", "#tao", "dtao", "opentensor", "taoshi",
+      "macrocosmos", "subnet", "netuid", "metagraph", "yuma",
+      "tao alpha", "taomarketcap", "taostats",
+    ];
+    function hasBTContext(text: string): boolean {
+      const t = text.toLowerCase();
+      if (BITTENSOR_SIGNALS_SCAN.some(s => t.includes(s))) return true;
+      if (/\bsn\d{1,3}\b/i.test(t)) return true;
+      return false;
     }
 
-    // 8 targeted searches — mix of broad + subnet-specific
-    // ~8 credits/scan × 6 scans/day = 48 credits/day → $10 lasts ~200 days
+    // Generic English words that happen to be subnet names — skip for name-based matching.
+    const GENERIC_NAME_BLOCKLIST_SCAN = new Set([
+      "investing", "vision", "atlas", "apex", "prime", "core", "genesis",
+      "nexus", "origin", "signal", "pulse", "oracle", "forge", "bridge",
+      "score", "quasar", "synth", "swarm", "beam", "nova", "echo",
+    ]);
+
+    function matchTweetToSubnet(tweet: DesearchTweet): number[] {
+      const text = tweet.text.toLowerCase();
+      const author = tweet.user.username.toLowerCase();
+      const matched = new Set<number>();
+
+      // Official subnet handle — require Bittensor context or own name mention
+      if (handleToNetuid.has(author)) {
+        const authorNetuid = handleToNetuid.get(author)!;
+        if (hasBTContext(text)) matched.add(authorNetuid);
+        else {
+          const ownName = [...nameToNetuid.entries()].find(([,n]) => n === authorNetuid)?.[0] || "";
+          if (ownName.length >= 4 && text.includes(ownName)) matched.add(authorNetuid);
+        }
+        return [...matched];
+      }
+
+      // All other matches require Bittensor context
+      if (!hasBTContext(text)) return [];
+
+      // @subnet_handle mentions — collect ALL mentioned handles
+      for (const [handle, netuid] of handleToNetuid) {
+        if (text.includes(`@${handle}`)) matched.add(netuid);
+      }
+
+      // SN# explicit mentions — collect ALL SN numbers in the tweet
+      const snMatches = [...text.matchAll(/\bsn(\d{1,3})\b/gi)];
+      for (const m of snMatches) {
+        const n = parseInt(m[1]);
+        if (n > 0 && n <= 128) matched.add(n);
+      }
+
+      // Subnet name — ≥5 chars, skip generic English words
+      for (const [name, netuid] of nameToNetuid) {
+        if (name.length >= 5 && !GENERIC_NAME_BLOCKLIST_SCAN.has(name) && text.includes(name)) {
+          matched.add(netuid);
+        }
+      }
+      const normalizedText = text.replace(/[-_\s]/g, "");
+      for (const [normName, netuid] of normalizedNameToNetuid) {
+        if (normName.length >= 5 && !GENERIC_NAME_BLOCKLIST_SCAN.has(normName) && normalizedText.includes(normName)) {
+          matched.add(netuid);
+        }
+      }
+
+      return [...matched];
+    }
+
+    // 9 targeted searches — mix of broad + subnet-specific
+    // ~9 credits/scan × 6 scans/day = 54 credits/day → $10 lasts ~180 days
     const searches = [
       { query: "bittensor subnet", count: 100, sort: "Top" as const },
       { query: "bittensor subnet alpha", count: 100, sort: "Latest" as const },
@@ -469,6 +708,7 @@ export async function GET() {
       { query: "ridges basilica grail bittensor", count: 50, sort: "Top" as const },
       { query: "targon vanta ORO bittensor", count: 50, sort: "Top" as const },
       { query: "bittensor alpha SN3 OR SN4 OR SN64 OR SN8", count: 50, sort: "Latest" as const },
+      { query: "404gen OR \"djinn bittensor\" OR \"alphacore bittensor\" OR \"its ai bittensor\" OR \"resilabs bittensor\" OR \"beam network bittensor\" OR \"sjinn bittensor\" OR @404gen_ OR @djinn_gg OR @b1m_ai", count: 50, sort: "Top" as const },
     ];
 
     // Run searches in parallel for speed
@@ -489,8 +729,8 @@ export async function GET() {
     // Match tweets to subnets with KOL weighting
     const { getKOLWeight } = await import("@/lib/kol-database");
     for (const tweet of allTweets.values()) {
-      const netuid = matchTweetToSubnet(tweet);
-      if (!netuid) continue;
+      const netuids = matchTweetToSubnet(tweet);
+      if (netuids.length === 0) continue;
       const rawEngagement =
         tweet.like_count + tweet.retweet_count + tweet.reply_count + (tweet.quote_count || 0);
 
@@ -500,10 +740,12 @@ export async function GET() {
       const kolMultiplier = kolWeight > 0 ? 1 + (kolWeight / 50) : 1; // max ~3x for top KOLs
       const weightedEngagement = Math.round(rawEngagement * kolMultiplier);
 
-      const existing = socialMap.get(netuid) || { mentions: 0, engagement: 0 };
-      existing.mentions++;
-      existing.engagement += weightedEngagement;
-      socialMap.set(netuid, existing);
+      for (const netuid of netuids) {
+        const existing = socialMap.get(netuid) || { mentions: 0, engagement: 0 };
+        existing.mentions++;
+        existing.engagement += weightedEngagement;
+        socialMap.set(netuid, existing);
+      }
     }
     // PASS 1b: KOL timeline fetches — catches tweets that don't mention "bittensor"
     // e.g. const_reborn posts "404gen is making moves" — broad searches miss it entirely
@@ -526,16 +768,18 @@ export async function GET() {
     // Rebuild socialMap cleanly from full allTweets set (broad searches + KOL timelines, deduped)
     socialMap.clear();
     for (const tweet of allTweets.values()) {
-      const netuid = matchTweetToSubnet(tweet);
-      if (!netuid) continue;
+      const netuids = matchTweetToSubnet(tweet);
+      if (netuids.length === 0) continue;
       const rawEngagement = tweet.like_count + tweet.retweet_count + tweet.reply_count + (tweet.quote_count || 0);
       const kolWeight = getKOLWeight(tweet.user?.username || "");
       const kolMultiplier = kolWeight > 0 ? 1 + (kolWeight / 50) : 1;
       const weightedEngagement = Math.round(rawEngagement * kolMultiplier);
-      const existing = socialMap.get(netuid) || { mentions: 0, engagement: 0 };
-      existing.mentions++;
-      existing.engagement += weightedEngagement;
-      socialMap.set(netuid, existing);
+      for (const netuid of netuids) {
+        const existing = socialMap.get(netuid) || { mentions: 0, engagement: 0 };
+        existing.mentions++;
+        existing.engagement += weightedEngagement;
+        socialMap.set(netuid, existing);
+      }
     }
 
     console.log(`[scan] Desearch broad search done. ${allTweets.size} tweets matched to ${socialMap.size} subnets.`);
@@ -544,10 +788,9 @@ export async function GET() {
     // This captures the subnet's own posting activity + engagement
     const twitterHandleMap = new Map<string, number>(); // handle -> netuid
     for (const id of identities) {
-      if (id.twitter) {
-        let handle = id.twitter.replace(/https?:\/\/(twitter|x)\.com\//g, "").replace("@", "").replace(/\/$/,"");
-        if (handle) twitterHandleMap.set(handle.toLowerCase(), id.netuid);
-      }
+      const registryHandle = id.twitter?.replace(/https?:\/\/(twitter|x)\.com\//g, "").replace("@", "").replace(/\/$/, "").trim() || "";
+      const handle = registryHandle || TWITTER_HANDLE_OVERRIDES[id.netuid] || "";
+      if (handle) twitterHandleMap.set(handle.toLowerCase(), id.netuid);
     }
 
     // Search for top 15 subnet handles (batch into 3 queries of 5 handles each)
@@ -595,6 +838,12 @@ export async function GET() {
       } catch (e) {
         console.error("[scan] Desearch handle search error:", e);
       }
+    }
+
+    // Save to in-memory cache so the next 5 scans (within 55 min) skip Desearch entirely
+    if (socialMap.size > 0) {
+      _socialCache = { data: new Map(socialMap), ts: Date.now() };
+      console.log(`[scan] Social data cached (${socialMap.size} subnets). Next Desearch fetch in ~55min.`);
     }
   }
 
@@ -681,8 +930,8 @@ export async function GET() {
 
   // AI analysis returns both a description AND a quality-based score (1-100)
   // Score reflects what was actually built, not commit count.
-  async function analyzeDevActivity(ctx: DevContext): Promise<{ description: string; score: number }> {
-    if (!ANTHROPIC_KEY) return { description: buildFallbackDescription(ctx), score: fallbackScore(ctx) };
+  async function analyzeDevActivity(ctx: DevContext): Promise<{ description: string; score: number; headline: string | null }> {
+    if (!ANTHROPIC_KEY) return { description: buildFallbackDescription(ctx), score: fallbackScore(ctx), headline: null };
 
     const name = identityMap.get(ctx.act.netuid)?.subnet_name || `SN${ctx.act.netuid}`;
     const pool = poolMap.get(ctx.act.netuid);
@@ -719,6 +968,7 @@ ${releaseText}
 Write your intelligence report in this EXACT format:
 
 SCORE: [number 1-100]
+HEADLINE: [8 words max. What they actually built/shipped. Concrete, specific, no fluff. Examples: "Released v1.18 with new inference engine", "Fixed critical validator consensus bug", "Shipped multi-modal input support", "Launched public API for external devs". Do NOT write "pushed X commits" or "updated codebase".]
 
 🏗️ What is ${name}:
 [2 sentences MAX. What does this subnet do and what problem does it solve? Plain English — no crypto jargon. A smart friend with no Bittensor knowledge should instantly get it.]
@@ -735,29 +985,35 @@ SCORE: [number 1-100]
 🎯 The AlphaGap take:
 [Your boldest, most direct investment call. Is the market sleeping on this? Is this priced in or not? Be opinionated.]
 
-HOW TO SCORE — the score is INVESTMENT SIGNAL STRENGTH, which is (dev quality) × (market opportunity):
+HOW TO SCORE — the score is INVESTMENT SIGNAL STRENGTH: (dev quality) × (market opportunity).
+Use the FULL range 1–100. Most signals should land between 15–85. Avoid clustering near 65-72 — that range is reserved for genuinely notable work, not average days.
 
-DEV QUALITY alone:
-- Routine: dependency bumps, CI fixes, minor bug fixes, config tweaks → base 15-25
-- Incremental: small features, refactors, test additions, performance tweaks → base 30-45
-- Meaningful: new capabilities, architectural work, notable feature shipping → base 50-65
-- Significant: major features, protocol upgrades, model integrations, new releases → base 70-80
-- Extraordinary: paradigm shifts, breakthrough capabilities → base 85-95
+DEV QUALITY tiers (be honest, most days are NOT "Meaningful"):
+- Noise (1–15): version bumps, dep updates, CI fixes, README edits, typos, linting
+- Routine (16–30): small bug fixes, minor config changes, test additions, solo-contributor chores
+- Incremental (31–50): small features, refactors with purpose, moderate PRs, consistent team activity
+- Meaningful (51–68): real new capability, new API endpoint, protocol improvement, multi-contributor sprint
+- Significant (69–82): major feature launch, new model shipped, protocol upgrade, public release
+- Extraordinary (83–100): paradigm shift, breakthrough capability, first-ever feature in category, massive release
 
-MARKET OPPORTUNITY multiplier — adjust the base score UP or DOWN:
-- Small market cap ($1M-$10M) actively building → strong undervaluation signal, +10 to +20
-- Medium market cap ($10M-$50M) with active dev → worth noting, +5 to +10
-- Large market cap ($50M+) with routine commits → likely priced in, -5 to -15
-- Token down 10%+ while team is building hard → market sleeping, +10 to +15
-- Token up 20%+ today → momentum already reflected, -5 to -10
-- Multiple contributors (5+) showing up → team is serious, +5
+MARKET OPPORTUNITY — adjust UP or DOWN based on context:
+- Small mcap ($1M–$10M) building hard, token flat/down → undervaluation signal, +10 to +20
+- Medium mcap ($10M–$50M) meaningful dev, token flat → worth noting, +5 to +10
+- Large mcap ($50M+) routine commits → likely priced in already, −5 to −15
+- Token down 10%+ while team ships hard → market sleeping, +10 to +15
+- Token up 20%+ today → already reflected, −5 to −10
+- 5+ unique contributors in one day → team is serious, +5
 
-EXAMPLES of calibrated scores:
-- Dependency bumps + CI fixes at $50M mcap: 18
-- Solid refactor + new test suite at $8M mcap (team building quietly): 52
-- New model integration at $15M mcap, token down 8%: 71
-- Major protocol upgrade + new release at $20M mcap, token flat: 83
-- Routine config change at $200M mcap, token up 30%: 12
+CALIBRATION EXAMPLES (spread across the full range):
+- Bumped 3 npm deps + CI fix at $80M mcap: 8
+- Fixed a race condition bug, one contributor at $5M mcap: 22
+- Added unit tests + refactored auth module, token flat at $12M: 38
+- Shipped new inference endpoint + 3 PRs merged at $8M, token down 5%: 58
+- Released new validator protocol with 7 contributors at $15M, token flat: 74
+- Launched v2.0 with new architecture + public release, $20M mcap, token down 12%: 87
+- First-ever real-time video generation model on Bittensor, $3M mcap, completely undiscovered: 97
+
+IMPORTANT: If you find yourself about to write a score between 62–72, ask yourself — is this ACTUALLY notable, or is it just average work? Average work = 35–50. Reserve 62–72 for genuinely good feature shipping.
 
 Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete sentence.`;
 
@@ -775,21 +1031,27 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
           messages: [{ role: "user", content: prompt }],
         }),
       });
-      if (!res.ok) return { description: buildFallbackDescription(ctx), score: fallbackScore(ctx) };
+      if (!res.ok) return { description: buildFallbackDescription(ctx), score: fallbackScore(ctx), headline: null };
       const data = await res.json();
       const text: string = data.content?.[0]?.text || "";
 
-      // Parse SCORE: from first line
+      // Parse SCORE: and HEADLINE: from response
       const scoreMatch = text.match(/^SCORE:\s*(\d+)/m);
       const score = scoreMatch ? Math.min(100, Math.max(1, parseInt(scoreMatch[1]))) : fallbackScore(ctx);
 
-      // Strip the SCORE line from the description shown to users
-      const description = text.replace(/^SCORE:\s*\d+\s*\n?/m, "").trim();
+      const headlineMatch = text.match(/^HEADLINE:\s*(.+)/m);
+      const headline = headlineMatch ? headlineMatch[1].trim() : null;
 
-      console.log(`[scan] AI scored SN${ctx.act.netuid} (${name}): ${score}/100`);
-      return { description, score };
+      // Strip SCORE and HEADLINE lines from description shown to users
+      const description = text
+        .replace(/^SCORE:\s*\d+\s*\n?/m, "")
+        .replace(/^HEADLINE:\s*.+\n?/m, "")
+        .trim();
+
+      console.log(`[scan] AI scored SN${ctx.act.netuid} (${name}): ${score}/100 — ${headline || "no headline"}`);
+      return { description, score, headline };
     } catch {
-      return { description: buildFallbackDescription(ctx), score: fallbackScore(ctx) };
+      return { description: buildFallbackDescription(ctx), score: fallbackScore(ctx), headline: null };
     }
   }
 
@@ -809,30 +1071,34 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
     return desc || `${ctx.act.commits_1d} commits and ${ctx.act.prs_merged_1d} PRs merged today.`;
   }
 
-  // Fallback score when AI is unavailable — conservative, commit-count based
+  // Fallback score when AI is unavailable — uses full range to avoid clustering at 28.
   function fallbackScore(ctx: DevContext): number {
-    let s = 20;
-    if (ctx.act.commits_1d >= 10) s += 15;
+    // Base on event type — releases are highest, PRs next, pushes lowest
+    let s = ctx.release ? 45 : ctx.act.prs_merged_1d > 0 ? 30 : 15;
+    // Commit volume
+    if (ctx.act.commits_1d >= 20) s += 25;
+    else if (ctx.act.commits_1d >= 10) s += 18;
     else if (ctx.act.commits_1d >= 5) s += 10;
-    else if (ctx.act.commits_1d >= 1) s += 5;
-    if (ctx.act.prs_merged_1d >= 3) s += 15;
-    else if (ctx.act.prs_merged_1d >= 1) s += 8;
-    if (ctx.release) s += 10;
-    return Math.min(60, s); // cap fallback at 60 — AI must judge higher scores
+    else if (ctx.act.commits_1d >= 1) s += 4;
+    // PR volume
+    if (ctx.act.prs_merged_1d >= 5) s += 15;
+    else if (ctx.act.prs_merged_1d >= 3) s += 10;
+    else if (ctx.act.prs_merged_1d >= 1) s += 5;
+    return Math.min(72, s); // cap fallback at 72 — AI must judge higher scores
   }
 
   // Try AI analysis for as many signals as time allows
   const timeLeftForAI = 200000 - (Date.now() - startTime);
   console.log(`[scan] AI analysis: ${devContexts.length} signals, ${(timeLeftForAI/1000).toFixed(0)}s left`);
 
-  const analyzedDevSignals: { ctx: DevContext; description: string; score: number }[] = [];
+  const analyzedDevSignals: { ctx: DevContext; description: string; score: number; headline: string | null }[] = [];
 
   if (timeLeftForAI > 8000 && ANTHROPIC_KEY) {
     try {
       const aiResults = await Promise.race([
         Promise.all(devContexts.map(async (ctx) => {
-          const { description, score } = await analyzeDevActivity(ctx);
-          return { ctx, description, score };
+          const { description, score, headline } = await analyzeDevActivity(ctx);
+          return { ctx, description, score, headline };
         })),
         new Promise<never>((_, reject) => setTimeout(() => reject(new Error("AI timeout")), timeLeftForAI - 3000)),
       ]);
@@ -842,20 +1108,26 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
       console.log("[scan] AI timed out, using fallback for remaining");
       if (analyzedDevSignals.length === 0) {
         for (const ctx of devContexts) {
-          analyzedDevSignals.push({ ctx, description: buildFallbackDescription(ctx), score: fallbackScore(ctx) });
+          analyzedDevSignals.push({ ctx, description: buildFallbackDescription(ctx), score: fallbackScore(ctx), headline: null });
         }
       }
     }
   } else {
     for (const ctx of devContexts) {
-      analyzedDevSignals.push({ ctx, description: buildFallbackDescription(ctx), score: fallbackScore(ctx) });
+      analyzedDevSignals.push({ ctx, description: buildFallbackDescription(ctx), score: fallbackScore(ctx), headline: null });
     }
   }
 
   console.log(`[scan] Analyzed ${analyzedDevSignals.length} dev signals with AI.`);
 
+  // Build quality map: netuid → AI quality score, used later to adjust dev_score
+  const aiQualityMap = new Map<number, number>();
+  for (const { ctx, score } of analyzedDevSignals) {
+    aiQualityMap.set(ctx.act.netuid, score);
+  }
+
   // Create rich dev signals — score from AI quality assessment, date from real commits
-  for (const { ctx, description, score } of analyzedDevSignals) {
+  for (const { ctx, description, score, headline } of analyzedDevSignals) {
     const name = identityMap.get(ctx.act.netuid)?.subnet_name || `SN${ctx.act.netuid}`;
     const ghResult = githubScanMap.get(ctx.act.netuid);
 
@@ -870,17 +1142,19 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
     }
 
     const displayDate = new Date(commitDate).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    // Fallback title if AI didn't produce a headline
     const activitySummary = [
       ctx.act.commits_1d > 0 ? `${ctx.act.commits_1d} commits` : "",
-      ctx.act.prs_merged_1d > 0 ? `${ctx.act.prs_merged_1d} PRs merged` : "",
-      ghResult?.hasNewRelease ? `new release ${ghResult.releaseTag}` : "",
-    ].filter(Boolean).join(" & ");
+      ctx.act.prs_merged_1d > 0 ? `${ctx.act.prs_merged_1d} PRs` : "",
+      ghResult?.hasNewRelease ? `released ${ghResult.releaseTag}` : "",
+    ].filter(Boolean).join(", ");
+    const fallbackTitle = `${name} — ${activitySummary} (${displayDate})`;
 
     addSignal({
       netuid: ctx.act.netuid,
       signal_type: "dev_spike",
       strength: score, // AI-assigned quality score, not a commit-count formula
-      title: `${name} pushed ${activitySummary} to GitHub (${displayDate})`,
+      title: headline ? `${name}: ${headline}` : fallbackTitle,
       description,
       source: "github",
       source_url: ctx.act.repo_url,
@@ -991,6 +1265,17 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
     // Social
     socialMentions: number;
     socialEngagement: number;
+    // SubnetRadar enrichment
+    taoLocked: number;        // total TAO staked in subnet pool (from SR taoIn)
+    liquidityScore: number;   // liquidity health 0-100 (from SR healthBreakdown.liquidity)
+    minerBurnPct: number;     // % of miner emissions burned (0 = healthy, 100 = all burned)
+    srWhaleNetTao: number;    // net TAO from recent large stake/unstake moves (SubnetRadar whales)
+    deregRisk: boolean;       // subnet flagged "at-risk" by SubnetRadar deregwatch
+    fearGreedIndex: number;   // subnet sentiment 0-100 (SubnetRadar fearGreed)
+    category: string;         // subnet category (Training, Inference, Agents, etc.)
+    sparklinePrices: number[]; // trimmed historical prices for mini chart (30 pts)
+    alphaStakedPct: number;   // % of total alpha that is staked (not in DEX pool)
+    rootProp: number;          // root_prop from pool — % of emissions from root validators
   }
 
   const rawSubnets: RawSubnet[] = [];
@@ -1056,6 +1341,33 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
       regsBurned24h: tmcMap.get(netuid)?.neuron_regs_burned_24h || 0,
       socialMentions: social?.mentions || 0,
       socialEngagement: social?.engagement || 0,
+      taoLocked: srSubnetMap.get(netuid)?.taoIn ?? (pool ? parseFloat(pool.total_tao) / RAO : 0),
+      liquidityScore: srSubnetMap.get(netuid)?.healthBreakdown.liquidity ?? 0,
+      minerBurnPct: minerBurnPctMap.get(netuid) ?? 0,
+      srWhaleNetTao: srWhaleNetFlowMap.get(netuid) ?? 0,
+      deregRisk: srSubnetMap.get(netuid)?.status === "at-risk",
+      fearGreedIndex: srSubnetMap.get(netuid)?.fearGreed ?? 50,
+      category: srSubnetMap.get(netuid)?.category ?? "",
+      alphaStakedPct: (() => {
+        if (!pool) return 0;
+        const totalAlpha = parseFloat(pool.total_alpha || "0");
+        const alphaInPool = parseFloat(pool.alpha_in_pool || "0");
+        const alphaStaked = parseFloat(pool.alpha_staked || "0");
+        if (totalAlpha <= 0) return 0;
+        // alpha_staked = staked outside pool; alpha_in_pool = in DEX pool
+        // Use alpha_staked directly if available, else derive from total - pool
+        const staked = alphaStaked > 0 ? alphaStaked : Math.max(0, totalAlpha - alphaInPool);
+        return Math.round((staked / totalAlpha) * 100);
+      })(),
+      rootProp: pool ? parseFloat(pool.root_prop || "0") : 0,
+      // Keep 30 evenly-spaced points — enough shape for a sparkline, keeps blob lean
+      sparklinePrices: (() => {
+        const prices = srSubnetMap.get(netuid)?.sparklinePrices;
+        if (!prices || prices.length === 0) return [];
+        if (prices.length <= 30) return prices;
+        const step = Math.floor(prices.length / 30);
+        return prices.filter((_, i) => i % step === 0).slice(0, 30);
+      })(),
     });
   }
 
@@ -1125,7 +1437,35 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
     else if (d.hfDownloads >= 500) hfScore += 3;
     else if (d.hfDownloads >= 50) hfScore += 1;
 
-    return Math.min(100, ghScore + hfScore);
+    let score = Math.min(100, ghScore + hfScore);
+
+    // ── Quality adjustment (AI signal score) ──────────────────────
+    // Blends AI-assessed content quality into the quantity-based dev score.
+    // +18 for groundbreaking work (95+), −8 for low-quality noise (<30).
+    const aiQuality = aiQualityMap.get(d.netuid);
+    if (aiQuality !== undefined) {
+      const qualityAdj =
+        aiQuality >= 95 ? 18 :  // groundbreaking — major architectural shift or research breakthrough
+        aiQuality >= 85 ? 13 :
+        aiQuality >= 70 ? 9 :
+        aiQuality >= 50 ? 4 :
+        aiQuality >= 30 ? -3 :
+        -8;
+      score = Math.min(100, Math.max(0, score + qualityAdj));
+    }
+
+    // ── Early detection bonus ──────────────────────────────────────
+    // Small boost when we're catching fresh commits within 12h of being pushed.
+    // Rewards finding the signal before the market does.
+    // Early detection: if there's a fresh release within 12h, small boost
+    const ghScan = githubScanMap.get(d.netuid);
+    if (ghScan?.releaseDate && commits1d > 0) {
+      const hoursSinceRelease = (Date.now() - new Date(ghScan.releaseDate).getTime()) / 3600000;
+      if (hoursSinceRelease < 6) score = Math.min(100, score + 5);
+      else if (hoursSinceRelease < 12) score = Math.min(100, score + 3);
+    }
+
+    return Math.round(score);
   }
 
   // ── Flow score formula (multi-timeframe momentum) ───────────────
@@ -1202,7 +1542,41 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
     else if (pch7d <= -10 && pch24h >= 1) reversalBonus = 5;
     else if (pch30d <= -10 && pch7d >= 0 && pch24h >= 0) reversalBonus = 3;  // Monthly down but weekly stabilizing
 
-    return Math.max(1, Math.min(100, score24h + score7d + score30d + reversalBonus + whaleScore));
+    // SubnetRadar real-time whale staking signal (±5 pts)
+    // Actual large stake/unstake events (≥50 TAO) from the last ~30 min on-chain
+    const srNet = d.srWhaleNetTao;
+    let srWhaleScore = 0;
+    if (srNet >= 500) srWhaleScore = 5;
+    else if (srNet >= 200) srWhaleScore = 3;
+    else if (srNet >= 50) srWhaleScore = 1;
+    else if (srNet <= -500) srWhaleScore = -5;
+    else if (srNet <= -200) srWhaleScore = -3;
+    else if (srNet <= -50) srWhaleScore = -1;
+
+    // VOLUME SURGE boost (0-28 pts)
+    // Unusual buying activity = smart money positioning before a move.
+    // Requires: current 24h buy vol ≥20 TAO AND ≥2.5x the rolling historical avg.
+    // This is a strong leading indicator — weight it heavily.
+    const surgeRatio = volumeSurgeMap.get(d.netuid) || 0;
+    let volumeSurgeScore = 0;
+    if (surgeRatio >= 10) volumeSurgeScore = 28;      // 10x+ surge: massive accumulation
+    else if (surgeRatio >= 7) volumeSurgeScore = 23;  // 7x: very strong
+    else if (surgeRatio >= 5) volumeSurgeScore = 18;  // 5x: strong signal
+    else if (surgeRatio >= 3.5) volumeSurgeScore = 14; // 3.5x: clear surge
+    else if (surgeRatio >= 2.5) volumeSurgeScore = 10; // 2.5x: notable
+
+    // Fear & Greed sentiment modifier (±3 pts)
+    // Greed confirms momentum when price is also rising (not a false signal).
+    // Extreme fear in a downtrend is a contrarian setup — exactly what AlphaGap hunts.
+    const fg = d.fearGreedIndex;
+    let fgScore = 0;
+    if (fg >= 80 && pch24h >= 2) fgScore = 3;       // extreme greed + price up = confirmed momentum
+    else if (fg >= 65 && pch24h >= 0) fgScore = 1;   // mild greed + stable/up = slight confirm
+    else if (fg <= 20 && pch7d <= -15) fgScore = 3;  // extreme fear in downtrend = contrarian reversal setup
+    else if (fg <= 35 && pch7d <= -10) fgScore = 1;  // fear in downtrend = mild contrarian signal
+    else if (fg >= 85 && pch7d >= 30) fgScore = -2;  // extreme greed after big 7d pump = overextended
+
+    return Math.max(1, Math.min(100, score24h + score7d + score30d + reversalBonus + whaleScore + srWhaleScore + fgScore + volumeSurgeScore));
   }
 
   // ── eVal: Emissions-to-Valuation score ──────────────────────────
@@ -1304,6 +1678,25 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
     else if (mcapUsd < 1000000) score -= 12;  // small, moderate penalty
     else if (mcapUsd < 3000000) score -= 5;   // emerging, slight discount
 
+    // 6. MINER BURN PENALTY — subnet burning miner emissions instead of paying them
+    // High burn = miners aren't getting rewarded = structural weakness signal
+    // Healthy subnets pay their miners; chronic burners have 0% miner yield
+    const burnPct = d.minerBurnPct;
+    if (burnPct >= 95) score -= 15;  // Chronic: miners get essentially nothing
+    else if (burnPct >= 80) score -= 10;
+    else if (burnPct >= 60) score -= 5;
+    else if (burnPct >= 40) score -= 3;
+
+    // 7. HEALTH BOOST — TAO locked + liquidity signal from SubnetRadar (max +8 pts)
+    // More TAO locked = more conviction from stakers + deeper liquidity = healthier subnet
+    const taoLocked = d.taoLocked;
+    const liqScore = d.liquidityScore;
+    if (taoLocked >= 10000 && liqScore >= 70) score += 8;
+    else if (taoLocked >= 5000 && liqScore >= 60) score += 6;
+    else if (taoLocked >= 2000 && liqScore >= 50) score += 4;
+    else if (taoLocked >= 500) score += 2;
+    else if (taoLocked >= 100) score += 1;
+
     return { score: Math.max(0, Math.min(100, score)), ratio: evalRatio };
   }
 
@@ -1362,8 +1755,8 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
   }
 
   // ── Build Discord signal map for social scoring ─────────────────
-  // netuid → { signal, messageCount, uniquePosters, scannedAt }
-  const discordMap = new Map<number, { signal: string; messageCount: number; uniquePosters: number; scannedAt: string }>();
+  // netuid → { signal, messageCount, uniquePosters, scannedAt, releaseHint }
+  const discordMap = new Map<number, { signal: string; messageCount: number; uniquePosters: number; scannedAt: string; releaseHint?: boolean }>();
   for (const disc of discordResults) {
     if (disc.netuid && disc.netuid > 0) {
       discordMap.set(disc.netuid, {
@@ -1371,6 +1764,7 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
         messageCount: disc.messageCount,
         uniquePosters: disc.uniquePosters,
         scannedAt: disc.scannedAt || new Date().toISOString(),
+        releaseHint: disc.releaseHint === true,
       });
     }
   }
@@ -1433,9 +1827,10 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
     }
     kolPts = Math.min(70, Math.round(kolPts));
 
-    // Cluster bonus: multiple DIFFERENT KOLs active within 4h = coordinated early signal
+    // Cluster bonus: multiple DIFFERENT KOLs active within 4h = coordinated early viral signal
+    // 4+ KOLs in 4h is rare and deserves a major boost — that's a true early trend.
     const recent4hKOLs = uniqueKols.filter(([, v]) => v.hoursOld <= 4).length;
-    const clusterBonus = recent4hKOLs >= 3 ? 20 : recent4hKOLs >= 2 ? 10 : 0;
+    const clusterBonus = recent4hKOLs >= 4 ? 35 : recent4hKOLs >= 3 ? 24 : recent4hKOLs >= 2 ? 14 : 0;
 
     return { kolPts, clusterBonus };
   }
@@ -1443,7 +1838,9 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
   function computeSocialScore(netuid: number, mentions: number, engagement: number): number {
     const { kolPts, clusterBonus } = getKolScore(netuid);
 
-    // ── Discord freshness signal (max 18 pts) ──
+    // ── Discord freshness signal (max 30 pts) ──
+    // releaseHint = true gets a large extra bonus — imminent release chatter is the
+    // highest-value early alpha: the market hasn't priced it yet and you're hearing it first.
     const disc = discordMap.get(netuid);
     let discordPts = 0;
     if (disc) {
@@ -1452,7 +1849,10 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
         : discAgeHours <= 48 ? Math.max(0.4, 1 - (discAgeHours - 12) / 36 * 0.6)
         : 0.4;
       if (disc.signal === "alpha") {
-        discordPts = Math.round(Math.min(18, (12 + Math.min(disc.uniquePosters, 6))) * discFresh);
+        const base = disc.releaseHint
+          ? Math.min(30, (22 + Math.min(disc.uniquePosters, 8))) // release hint = massive early alpha bonus
+          : Math.min(20, (13 + Math.min(disc.uniquePosters, 7)));
+        discordPts = Math.round(base * discFresh);
       } else if (disc.signal === "active") {
         discordPts = Math.round(Math.min(10, (5 + Math.min(disc.uniquePosters, 5))) * discFresh);
       }
@@ -1482,6 +1882,37 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
   // ── Load aGap score history for EMA smoothing ──────────────────
   // Asymmetric EMA: fast up (70% current), slow down (30% current)
   // This rewards subnets that discover alpha quickly, but prevents
+  // ── Website product scan cache (from /api/scan-websites daily cron) ─────
+  // Keys are netuid (as number). Contains HTML-derived product signals.
+  let websiteProductMap = new Map<number, WebsiteSignalData>();
+  if (process.env.BLOB_READ_WRITE_TOKEN) {
+    try {
+      const { get: getBlobWP } = await import("@vercel/blob");
+      const wpBlob = await getBlobWP("website-product.json", {
+        token: process.env.BLOB_READ_WRITE_TOKEN,
+        access: "private",
+      });
+      if (wpBlob?.stream) {
+        const reader = wpBlob.stream.getReader();
+        const chunks: Uint8Array[] = [];
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          chunks.push(value);
+        }
+        const wpData: WebsiteProductCache = JSON.parse(Buffer.concat(chunks).toString("utf-8"));
+        for (const [nid, result] of Object.entries(wpData.subnets)) {
+          if (result.reachable && result.score > 0) {
+            websiteProductMap.set(Number(nid), { score: result.score, signals: result.signals });
+          }
+        }
+        console.log(`[scan] Loaded website product data for ${websiteProductMap.size} subnets`);
+      }
+    } catch {
+      console.log("[scan] No website-product.json yet (first run)");
+    }
+  }
+
   // scores from crashing overnight when one data point changes.
   type AGapHistory = Record<number, { ema: number; lastUpdated: string }>;
   let agapHistory: AGapHistory = {};
@@ -1548,6 +1979,43 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
     // No emission history yet — first scan
   }
 
+  // ── Load volume history + build surge map ───────────────────────
+  // Tracks 24h buy volume per subnet over time to detect unusual buying surges.
+  // A "surge" = current 24h buy vol is ≥2.5x the rolling historical average.
+  // Data is throttled to ~1 reading/hour so history stays compact (~430KB for all subnets).
+  type VolumeHistory = { [netuid: string]: { vol: number; ts: string }[] };
+  let volumeHistory: VolumeHistory = {};
+  try {
+    if (process.env.BLOB_READ_WRITE_TOKEN) {
+      const volBlob = await blobGet("volume-history.json", {
+        token: process.env.BLOB_READ_WRITE_TOKEN!,
+        access: "private",
+      });
+      if (volBlob?.stream) {
+        const reader = volBlob.stream.getReader();
+        const chunks: Uint8Array[] = [];
+        while (true) { const { done, value } = await reader.read(); if (done) break; chunks.push(value); }
+        volumeHistory = JSON.parse(Buffer.concat(chunks).toString("utf-8"));
+      }
+    }
+  } catch { /* first scan — no history yet */ }
+
+  // Build surge ratio map: netuid → (currentVol / historicalAvg)
+  // Only fires when: current vol ≥ 20 TAO AND history has ≥ 5 readings AND avg > 0.5 TAO
+  const volumeSurgeMap = new Map<number, number>();
+  for (const pool of pools) {
+    const hist = volumeHistory[String(pool.netuid)] || [];
+    if (hist.length < 5) continue;
+    const currentVol = parseFloat(pool.tao_buy_volume_24_hr || "0") / RAO;
+    if (currentVol < 20) continue; // minimum meaningful volume (~$6k)
+    const avgVol = hist.reduce((s, h) => s + h.vol, 0) / hist.length;
+    if (avgVol > 0.5) {
+      const ratio = currentVol / avgVol;
+      if (ratio >= 2.5) volumeSurgeMap.set(pool.netuid, Math.round(ratio * 10) / 10);
+    }
+  }
+  console.log(`[scan] Volume surges detected: ${volumeSurgeMap.size} subnets (${[...volumeSurgeMap.entries()].filter(([,r])=>r>=5).length} significant ≥5x)`);
+
   // ── Build leaderboard ───────────────────────────────────────────
   const leaderboard: LeaderboardEntry[] = [];
 
@@ -1569,92 +2037,174 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
     const { score: evalScore, ratio: evalRatio } = computeEvalScore(d);
     const socialScore = computeSocialScore(d.netuid, d.socialMentions, d.socialEngagement);
 
-    // ── THE ALPHA GAP FORMULA v6 ────────────────────────────────
-    // THESIS: Find subnets building quality + price hasn't caught up
-    //         + smart money signals (emissions, validators, stakers)
+    // ── THE ALPHA GAP FORMULA v7 ────────────────────────────────
+    // THESIS: Find subnets where VALUE has been created but MARKET hasn't noticed yet.
     //
-    // The GAP = great dev work MINUS market awareness
-    // High dev + low price movement + low social = MAXIMUM GAP
-    // High dev + price already pumped + everyone talking = NO GAP
+    // Two types of gap we're hunting:
+    //   A) FRESH ACTIVITY GAP — dev work just shipped that nobody priced in yet
+    //      (Templar posts insane work → market takes 4 days to react)
+    //   B) ACCUMULATION GAP — smart money (whales/validators/stakers) loading up
+    //      while price is still low or falling
+    //
+    // Signals are scored as: LEADING (new info market doesn't have) vs LAGGING (already priced in)
+    // v7 cuts lagging signal weight and amplifies leading signals.
 
-    // 1. BUILDING QUALITY (0-45 pts) — are they actually shipping?
-    // Dev score IS the quality signal. Scale it to 45 (was 50).
-    // Slightly reduced to give more relative weight to smart-money signals.
-    const buildingPts = devScore * 0.45;
+    // 1. BUILDING QUALITY (0-20 pts) — baseline dev health, reduced weight
+    // This is the "known quality" signal — established dev reputation is already priced in.
+    // We WANT good dev subnets, but not to over-reward ones the market already knows.
+    // The FRESH ACTIVITY bonus below is the gap signal, not the level.
+    const buildingPts = devScore * 0.20;
 
-    // 2. PRICE LAG (0-30 pts) — multi-timeframe gap detection
-    // The BEST alpha gap: building hard + down on longer timeframes + just starting to turn
+    // DEV SPIKE BONUS (0-15 pts) — THE KEY GAP SIGNAL FOR DEV
+    // Detects: today's commits are significantly above this subnet's own 30d daily average.
+    // This is the "Templar just posted something insane at 2am" signal.
+    // Market takes hours to days to price in fresh GitHub activity — we catch it first.
+    //
+    // Quiet subnet suddenly shipping = MAXIMUM new information.
+    // Always-active subnet with another normal day = already expected, already priced in.
+    const devRaw = devMap.get(d.netuid);
+    const spikeDailyBaseline = devRaw?.commits_30d
+      ? devRaw.commits_30d / 30          // expected daily commits from 30d history
+      : 0;
+    const spikeCommits1d = devRaw?.commits_1d || 0;
+    const spikeAiQuality = aiQualityMap.get(d.netuid);
+    let devSpikeBonus = 0;
+
+    if (spikeCommits1d > 0) {
+      if (spikeDailyBaseline < 0.5) {
+        // Normally quiet subnet — any activity today is new information
+        if      (spikeCommits1d >= 10) devSpikeBonus = 12;
+        else if (spikeCommits1d >= 5)  devSpikeBonus = 9;
+        else if (spikeCommits1d >= 1)  devSpikeBonus = 5;
+      } else {
+        // Has history — measure how much above their own average
+        const spikeRatio = spikeCommits1d / spikeDailyBaseline;
+        if      (spikeRatio >= 10) devSpikeBonus = 12;
+        else if (spikeRatio >= 5)  devSpikeBonus = 9;
+        else if (spikeRatio >= 3)  devSpikeBonus = 6;
+        else if (spikeRatio >= 2)  devSpikeBonus = 3;
+      }
+
+      // AI quality multiplier — groundbreaking work amplifies the spike signal
+      // "Shipped new inference engine" is a bigger gap than "fixed typos"
+      if (spikeAiQuality !== undefined) {
+        if      (spikeAiQuality >= 90) devSpikeBonus = Math.min(15, Math.round(devSpikeBonus * 1.5));
+        else if (spikeAiQuality >= 75) devSpikeBonus = Math.min(15, Math.round(devSpikeBonus * 1.25));
+        else if (spikeAiQuality < 30)  devSpikeBonus = Math.round(devSpikeBonus * 0.4); // noise commits, penalize
+      }
+    }
+
+    // 2. PRICE LAG / FLOW (0-20 pts) — multi-timeframe gap detection
+    // No longer gated by devScore — flow is an independent signal.
+    // Mature subnets with great price setups deserve full flow points regardless of commit pace.
     let priceLag = 0;
     const pch24h = d.priceChange24h || 0;
     const pch7d = d.priceChange1w || 0;
     const pch30d = d.priceChange1m || 0;
 
-    if (devScore >= 20) {
-      // 30D price lag (0-12 pts) — long-term underperformance = biggest gap
-      if (pch30d <= -40) priceLag += 12;
-      else if (pch30d <= -25) priceLag += 10;
-      else if (pch30d <= -15) priceLag += 8;
-      else if (pch30d <= -5) priceLag += 5;
-      else if (pch30d <= 5) priceLag += 2;
-      else if (pch30d >= 50) priceLag -= 5;   // mooned = gap gone
-      else if (pch30d >= 20) priceLag -= 2;
+    // 30D price lag (0-8 pts) — long-term underperformance = biggest gap
+    if (pch30d <= -40) priceLag += 8;
+    else if (pch30d <= -25) priceLag += 7;
+    else if (pch30d <= -15) priceLag += 5;
+    else if (pch30d <= -5) priceLag += 3;
+    else if (pch30d <= 5) priceLag += 1;
+    else if (pch30d >= 50) priceLag -= 4;   // mooned = gap gone
+    else if (pch30d >= 20) priceLag -= 2;
 
-      // 7D price lag (0-10 pts)
-      if (pch7d <= -25) priceLag += 10;
-      else if (pch7d <= -15) priceLag += 8;
-      else if (pch7d <= -8) priceLag += 6;
-      else if (pch7d <= -3) priceLag += 4;
-      else if (pch7d <= 3) priceLag += 2;
-      else if (pch7d >= 20) priceLag -= 3;
+    // 7D price lag (0-7 pts)
+    if (pch7d <= -25) priceLag += 7;
+    else if (pch7d <= -15) priceLag += 5;
+    else if (pch7d <= -8) priceLag += 4;
+    else if (pch7d <= -3) priceLag += 2;
+    else if (pch7d <= 3) priceLag += 1;
+    else if (pch7d >= 20) priceLag -= 2;
 
-      // 24H price lag (0-8 pts)
-      if (pch24h <= -10) priceLag += 8;
-      else if (pch24h <= -5) priceLag += 6;
-      else if (pch24h <= 0) priceLag += 3;
-      else if (pch24h <= 3) priceLag += 1;
-      else if (pch24h >= 10) priceLag -= 3;
+    // 24H price lag (0-5 pts)
+    if (pch24h <= -10) priceLag += 5;
+    else if (pch24h <= -5) priceLag += 4;
+    else if (pch24h <= 0) priceLag += 2;
+    else if (pch24h <= 3) priceLag += 1;
+    else if (pch24h >= 10) priceLag -= 2;
 
-      // REVERSAL BONUS (0-8 pts) — THE MAGIC
-      // Down long-term but turning up short-term = price is waking up
-      if (pch30d <= -20 && pch24h >= 3) priceLag += 8;       // Down 20%+ monthly, up 3%+ today!
-      else if (pch30d <= -15 && pch24h >= 1) priceLag += 6;
-      else if (pch7d <= -15 && pch24h >= 2) priceLag += 5;   // Down 15%+ weekly, turning today
-      else if (pch7d <= -10 && pch24h >= 0) priceLag += 3;   // Down weekly, stabilizing
+    // REVERSAL BONUS (0-5 pts) — THE MAGIC
+    // Down long-term but turning up short-term = price is waking up
+    if (pch30d <= -20 && pch24h >= 3) priceLag += 5;       // Down 20%+ monthly, up 3%+ today!
+    else if (pch30d <= -15 && pch24h >= 1) priceLag += 4;
+    else if (pch7d <= -15 && pch24h >= 2) priceLag += 3;   // Down 15%+ weekly, turning today
+    else if (pch7d <= -10 && pch24h >= 0) priceLag += 2;   // Down weekly, stabilizing
 
-      priceLag = Math.min(28, Math.max(-10, priceLag));
+    priceLag = Math.min(20, Math.max(-8, priceLag));
+
+    // PRICE FLOOR REVERSAL — bounced hard off recent low (bottom reversal pattern)
+    let floorReversalBonus = 0;
+    if (d.sparklinePrices.length >= 10) {
+      const recentPrices = d.sparklinePrices.slice(-14);
+      const floorPrice = Math.min(...recentPrices);
+      const currentPrice = recentPrices[recentPrices.length - 1];
+      if (floorPrice > 0 && currentPrice > 0) {
+        const bounceRatio = currentPrice / floorPrice;
+        if (bounceRatio >= 2.0) floorReversalBonus = 10;
+        else if (bounceRatio >= 1.6) floorReversalBonus = 7;
+        else if (bounceRatio >= 1.4) floorReversalBonus = 5;
+        else if (bounceRatio >= 1.25) floorReversalBonus = 3;
+      }
     }
 
-    // 3. SOCIAL MOMENTUM (0-19 pts) — are we catching an early social trend?
-    // High social score = fresh KOL activity or discord alpha just spotted = open alpha window
-    // Low/zero = no signal or trend already aged out = no opportunity boost
-    // Capped at 19: social is a supporting signal, not the main score driver.
-    // A subnet cannot score 90+ on social buzz alone — it needs dev quality too.
+    // 3. SOCIAL MOMENTUM (0-18 pts) — are we catching an early social trend?
+    // High social score = fresh KOL cluster or discord alpha = open alpha window
+    // Bumped ceiling to 18 to reward early viral events (4+ KOLs, discord alpha spikes)
     let socialMomentum = 0;
-    if (socialScore >= 80) socialMomentum = 19;
-    else if (socialScore >= 60) socialMomentum = 14;
-    else if (socialScore >= 40) socialMomentum = 9;
-    else if (socialScore >= 20) socialMomentum = 4;
+    if (socialScore >= 80) socialMomentum = 16;
+    else if (socialScore >= 60) socialMomentum = 11;
+    else if (socialScore >= 40) socialMomentum = 8;
+    else if (socialScore >= 20) socialMomentum = 3;
 
-    // 4. EMISSION VALUE GAP (0-15 pts) — network paying more than market realizes
-    // High eVal = emissions outpace valuation = validators know something retail doesn't
+    // 4. EMISSION VALUE GAP (0-12 pts) — network paying more than market realizes
+    // Reduced from 22 → 12 max: high eval for well-known subnets is already priced in.
+    // The REAL gap signal is high eval + LOW price (see evalVsPriceBonus below).
     let evalBoost = 0;
-    if (evalScore >= 80) evalBoost = 15;
-    else if (evalScore >= 60) evalBoost = 12;
-    else if (evalScore >= 45) evalBoost = 8;
-    else if (evalScore >= 30) evalBoost = 5;
+    if (evalScore >= 80) evalBoost = 12;
+    else if (evalScore >= 60) evalBoost = 9;
+    else if (evalScore >= 45) evalBoost = 6;
+    else if (evalScore >= 30) evalBoost = 4;
     else if (evalScore >= 15) evalBoost = 2;
-    // Net inflow = money flowing in
-    if (d.netFlow24h && d.netFlow24h > 0) evalBoost = Math.min(15, evalBoost + 3);
+    // Net inflow = money flowing in alongside good eval = stronger signal
+    if (d.netFlow24h && d.netFlow24h > 0) evalBoost = Math.min(12, evalBoost + 2);
 
-    // 5. MARKET CAP VIABILITY — too small = uninvestable
+    // EVAL VS PRICE BONUS (0-6 pts) — THE REAL EVAL GAP SIGNAL
+    // High validator quality score + price still underwater = market hasn't caught up to
+    // what validators already know. This is the pure "informed money vs. dumb money" gap.
+    let evalVsPriceBonus = 0;
+    if      (evalScore >= 65 && pch30d <= -20) evalVsPriceBonus = 6;
+    else if (evalScore >= 55 && pch30d <= -15) evalVsPriceBonus = 5;
+    else if (evalScore >= 50 && pch30d <= -10) evalVsPriceBonus = 4;
+    else if (evalScore >= 45 && pch7d  <= -10) evalVsPriceBonus = 3;
+    else if (evalScore >= 40 && pch7d  <= -5)  evalVsPriceBonus = 2;
+
+    // 5. MARKET CAP VIABILITY — too small = uninvestable / too illiquid to act on
+    // Subnets under $1M are hard to enter/exit without moving the price significantly.
+    // Penalties are steep below $1M. No bonus for large caps — they have the LEAST upside.
     const mcap = d.marketCapUsd || 0;
     let viability = 0;
-    if (mcap < 50000) viability = -30;        // ghost subnet
-    else if (mcap < 100000) viability = -20;
-    else if (mcap < 500000) viability = -10;
-    else if (mcap < 1000000) viability = -5;
-    else if (mcap >= 10000000) viability = 3;  // large enough for serious investment
-    else if (mcap >= 50000000) viability = 5;
+    if (mcap < 50000) viability = -40;         // ghost subnet — no real market
+    else if (mcap < 100000) viability = -30;   // effectively uninvestable
+    else if (mcap < 250000) viability = -20;   // extreme illiquidity
+    else if (mcap < 500000) viability = -15;   // very illiquid
+    else if (mcap < 750000) viability = -10;   // illiquid, high slippage risk
+    else if (mcap < 1000000) viability = -7;   // borderline — below $1M threshold
+    // Note: no large/mid-cap bonus. Large caps are well-known and have the least gap upside.
+
+    // ALPHA STAKING RATIO — high staked% = thin float = price sensitive to buy pressure
+    let stakingBoost = 0;
+    if (d.alphaStakedPct >= 75) stakingBoost = 12;
+    else if (d.alphaStakedPct >= 65) stakingBoost = 8;
+    else if (d.alphaStakedPct >= 55) stakingBoost = 4;
+
+    // ROOT PROPORTION — high root_prop means top validators allocated stake here
+    let rootPropBonus = 0;
+    if (d.rootProp >= 0.35) rootPropBonus = 8;
+    else if (d.rootProp >= 0.25) rootPropBonus = 5;
+    else if (d.rootProp >= 0.15) rootPropBonus = 2;
 
     // 6. STITCH3 CAMPAIGN BOOST (0-8 pts) — small signal that marketing is running
     // Intentionally small: campaigns are paid activity, not organic conviction.
@@ -1690,38 +2240,61 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
       const emHistKey = String(d.netuid);
       const emHist = emissionHistory[emHistKey];
       if (emHist && emHist.length > 0) {
-        // Use longest lookback available (prefer 7-day, fall back to earliest reading)
-        const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
-        const oldest = emHist.find(h => new Date(h.timestamp).getTime() <= sevenDaysAgo) || emHist[0];
-        if (oldest.pct > 0) {
-          const currentPct = d.emissionPct; // raw % value (same unit as stored history)
-          const changePct = ((currentPct - oldest.pct) / oldest.pct) * 100;
-          emissionChangePct = Math.round(changePct * 10) / 10;
-          if (changePct >= 5) emissionTrend = "up";
-          else if (changePct <= -5) emissionTrend = "down";
+        // GUARDS before computing emission change:
+        // 1. Require at least 3 readings (prevent first-run noise)
+        // 2. Require baseline to be at least 4 hours old (prevents comparing to a reading
+        //    from 5 minutes ago, which could show huge swings from data source variance)
+        // 3. Cap displayed change at ±500% (blocks data-corruption outliers like +1266%)
+        const MIN_READINGS = 3;
+        const MIN_BASELINE_AGE_MS = 4 * 60 * 60 * 1000; // 4 hours
 
-          // Boost: up to +26 for surging emissions, up to -14 for collapsing
-          // Tiered so a 300% surge scores much better than a 100% surge —
-          // validators routing 3x more TAO is a stronger signal than 2x.
-          if (changePct >= 300) emissionBoost = 26;      // explosive — major validator conviction shift
-          else if (changePct >= 200) emissionBoost = 23; // tripling emissions = very strong signal
-          else if (changePct >= 100) emissionBoost = 20; // doubled — strong validator conviction
-          else if (changePct >= 50)  emissionBoost = 16; // surging
-          else if (changePct >= 30)  emissionBoost = 12; // strong rise
-          else if (changePct >= 20)  emissionBoost = 9;
-          else if (changePct >= 10)  emissionBoost = 6;
-          else if (changePct >= 5)   emissionBoost = 3;
-          else if (changePct >= 0)   emissionBoost = 1;
-          else if (changePct <= -50) emissionBoost = -14; // validators fleeing
-          else if (changePct <= -30) emissionBoost = -10;
-          else if (changePct <= -20) emissionBoost = -7;
-          else if (changePct <= -10) emissionBoost = -4;
-          else if (changePct <= -5)  emissionBoost = -2;
+        if (emHist.length >= MIN_READINGS) {
+          // Prefer a reading from ~7 days ago; fall back to oldest reading
+          const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+          const candidate = emHist.find(h => new Date(h.timestamp).getTime() <= sevenDaysAgo)
+            || emHist[0]; // oldest available
+
+          const baselineAgeMs = Date.now() - new Date(candidate.timestamp).getTime();
+          const baselineIsOldEnough = baselineAgeMs >= MIN_BASELINE_AGE_MS;
+
+          if (candidate.pct > 0 && baselineIsOldEnough) {
+            const currentPct = d.emissionPct;
+            const rawChange = ((currentPct - candidate.pct) / candidate.pct) * 100;
+
+            // Sanity cap: if the change is implausibly large (>500%), it almost certainly
+            // reflects a data-source inconsistency in early history, not a real signal.
+            // Log it but don't score it.
+            if (Math.abs(rawChange) > 500) {
+              console.warn(`[scan] Emission outlier SN${d.netuid}: ${rawChange.toFixed(0)}% (baseline=${candidate.pct}, current=${currentPct}, age=${Math.round(baselineAgeMs / 3600000)}h) — skipping`);
+            } else {
+              const changePct = rawChange;
+              emissionChangePct = Math.round(changePct * 10) / 10;
+              if (changePct >= 5) emissionTrend = "up";
+              else if (changePct <= -5) emissionTrend = "down";
+
+              // Boost: up to +20 for surging emissions (was +34 — reduced; emission spikes
+              // attract mercenary capital that already found the subnet, not undiscovered alpha)
+              if      (changePct >= 300) emissionBoost = 20;
+              else if (changePct >= 200) emissionBoost = 17;
+              else if (changePct >= 100) emissionBoost = 14;
+              else if (changePct >= 50)  emissionBoost = 12;
+              else if (changePct >= 30)  emissionBoost = 9;
+              else if (changePct >= 20)  emissionBoost = 7;
+              else if (changePct >= 10)  emissionBoost = 4;
+              else if (changePct >= 5)   emissionBoost = 2;
+              else if (changePct >= 0)   emissionBoost = 1;
+              else if (changePct <= -50) emissionBoost = -16;
+              else if (changePct <= -30) emissionBoost = -12;
+              else if (changePct <= -20) emissionBoost = -8;
+              else if (changePct <= -10) emissionBoost = -5;
+              else if (changePct <= -5)  emissionBoost = -2;
+            }
+          }
         }
       }
     }
 
-    // 7. WHALE DETECTION from pool buy/sell data
+    // 7. WHALE DETECTION — pool buy/sell ratio + SubnetRadar real-time staking moves
     const poolForWhale = poolMap.get(d.netuid);
     let whaleRatio: number | undefined;
     let whaleSignal: "accumulating" | "distributing" | null = null;
@@ -1739,17 +2312,123 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
           if (whaleRatio >= 2.0) {
             whaleSignal = "accumulating";
             // Whale accumulation boost — bigger boost if dev is also high
-            if (devScore >= 40) whaleBoost = 8;  // whales + dev = strong conviction
-            else whaleBoost = 4;                   // whales alone = moderate signal
+            if (devScore >= 40) whaleBoost = 12;  // whales + dev = strong conviction
+            else whaleBoost = 7;                   // whales alone = moderate signal
           } else if (whaleRatio <= 0.5) {
             whaleSignal = "distributing";
-            whaleBoost = -5; // whales selling = caution
+            whaleBoost = -7; // whales selling = caution
           }
         }
       }
     }
+    // Supplement with SubnetRadar real-time large stake/unstake events (last ~30 min)
+    // This catches staking conviction not visible in the DEX pool buy/sell data
+    const srWhaleNet = d.srWhaleNetTao;
+    if (srWhaleNet >= 500) {
+      // Strong net staking-in: override to accumulating if not already distributing
+      if (whaleSignal !== "distributing") {
+        whaleSignal = "accumulating";
+        whaleBoost = Math.min(16, whaleBoost + 8);
+      }
+    } else if (srWhaleNet >= 200) {
+      if (whaleSignal !== "distributing") {
+        whaleSignal = "accumulating";
+        whaleBoost = Math.min(16, whaleBoost + 4);
+      }
+    } else if (srWhaleNet <= -500) {
+      // Heavy unstaking: flag as distributing regardless of pool signal
+      whaleSignal = "distributing";
+      whaleBoost = Math.max(-12, whaleBoost - 6);
+    } else if (srWhaleNet <= -200) {
+      if (whaleSignal !== "accumulating") {
+        whaleSignal = "distributing";
+        whaleBoost = Math.max(-12, whaleBoost - 3);
+      }
+    }
 
-    const rawAGap = buildingPts + priceLag + socialMomentum + evalBoost + viability + campaignBoost + whaleBoost + emissionBoost;
+    // Volume surge — buying pressure is real but lagging (someone already found it).
+    // Reduced ceiling from 18 → 10 pts: by the time you see 10x volume, the gap is closing.
+    const surgeRatioForAGap = volumeSurgeMap.get(d.netuid) || 0;
+    let volBoost = 0;
+    if (surgeRatioForAGap >= 10) volBoost = 10;
+    else if (surgeRatioForAGap >= 7) volBoost = 8;
+    else if (surgeRatioForAGap >= 5) volBoost = 6;
+    else if (surgeRatioForAGap >= 3.5) volBoost = 4;
+    else if (surgeRatioForAGap >= 2.5) volBoost = 2;
+
+    // ── MOMENTUM CONFIRMATION (±5 pts) ──────────────────────────────────────
+    // Intentionally small. A subnet already up 30% in 7d has a CLOSED gap, not an open one.
+    // This signal only serves as confirmation: "the gap is starting to close, still early."
+    // priceLag (gap detection) + floorReversalBonus (early reversal) do the heavy lifting.
+    // momentumBoost just adds a small kicker for subnets where trend confirmation aligns.
+    let momentumBoost = 0;
+
+    // 7D uptrend (primary confirmation, capped low)
+    if      (pch7d >= 20) momentumBoost += 3;
+    else if (pch7d >= 10) momentumBoost += 2;
+    else if (pch7d >=  5) momentumBoost += 1;
+    else if (pch7d <= -25) momentumBoost -= 2; // sustained downtrend penalty
+
+    // 30D uptrend (secondary)
+    if      (pch30d >= 40) momentumBoost += 2;
+    else if (pch30d >= 15) momentumBoost += 1;
+
+    // Whale confirmation (already covered by whaleBoost, just a tiny add here)
+    if      (whaleSignal === "accumulating") momentumBoost += 1;
+    else if (whaleSignal === "distributing") momentumBoost -= 1;
+
+    momentumBoost = Math.min(5, Math.max(-3, momentumBoost));
+
+    // ── PRODUCT / UTILITY SCORE (0–100 scale) ────────────────────────────────
+    // Priority: benchmark (0–100) > website scan (0–80) > milestone (0–80) > heuristic (0–60)
+    // AGap contribution: productScore * 0.20 → 0–20 pts, plus two gap cross-signals
+    const hasActiveCampaignForUtil = activeCampaigns.some(c => c.netuid === d.netuid);
+    const websiteSignals = websiteProductMap.get(d.netuid);
+    const {
+      score: productScore,
+      estimated: utilityEstimated,
+      source: productSource,
+    } = computeProductScore(
+      d.netuid,
+      {
+        emissionPct: d.emissionPct,
+        evalScore,
+        devScore,
+        marketCapUsd: mcap,
+        alphaStakedPct: d.alphaStakedPct,
+        hasActiveCampaign: hasActiveCampaignForUtil,
+      },
+      websiteSignals,
+    );
+
+    // ── PRODUCT SIGNALS (3 components, max ~40 pts combined) ────────────────
+    // Product is the CORE alpha thesis — real utility the market hasn't priced in yet.
+    // Three separate signals stack to reward the specific case of:
+    //   "amazing product + nobody knows about it + price still underwater"
+
+    // 1. Base product contribution (0–20 pts)
+    //    productScore 0–100 × 0.20. Formally benchmarked hits 20, milestone hits ~16–18.
+    const productAGapPts = productScore * 0.20;
+
+    // 2. Product awareness gap (0–12 pts) — THE CORE ALPHA THESIS
+    //    High product score + low social = market genuinely hasn't noticed yet.
+    //    Chutes/Targon (high product + high social) score 0 here — gap is already closed.
+    //    Leadpoet (high product + B2B/low CT presence) scores full 12 pts.
+    let productAwarenessGap = 0;
+    if      (productScore >= 60 && socialScore <= 30) productAwarenessGap = 12;
+    else if (productScore >= 60 && socialScore <= 50) productAwarenessGap = 6;
+    else if (productScore >= 80 && socialScore <= 60) productAwarenessGap = 4;
+
+    // 3. Product vs price gap (0–8 pts) — mirrors evalVsPriceBonus but for product signal
+    //    High product + price underwater = market pricing the asset as if the product doesn't exist.
+    //    Uses raw pch30d/pch7d (not clamped priceLag) so thresholds are always reachable.
+    let productVsPriceBonus = 0;
+    if      (productScore >= 70 && pch30d <= -20) productVsPriceBonus = 8;
+    else if (productScore >= 70 && pch30d <= -10) productVsPriceBonus = 4;
+    else if (productScore >= 70 && pch7d  <= -10) productVsPriceBonus = 4;
+    else if (productScore >= 50 && pch30d <= -25) productVsPriceBonus = 3;
+
+    const rawAGap = buildingPts + devSpikeBonus + priceLag + floorReversalBonus + socialMomentum + evalBoost + evalVsPriceBonus + viability + campaignBoost + whaleBoost + emissionBoost + volBoost + stakingBoost + rootPropBonus + productAGapPts + productAwarenessGap + productVsPriceBonus + momentumBoost;
     const clampedRaw = Math.max(1, Math.min(100, Math.round(rawAGap)));
     const aGap = smoothAGap(d.netuid, clampedRaw);
 
@@ -1780,10 +2459,63 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
       has_campaign: stitchActiveNetuids.has(d.netuid) || undefined,
       whale_ratio: whaleRatio,
       whale_signal: whaleSignal,
+      miner_burn_pct: d.minerBurnPct > 0 ? d.minerBurnPct : undefined,
+      tao_locked: d.taoLocked > 0 ? Math.round(d.taoLocked) : undefined,
+      dereg_risk: d.deregRisk || undefined,
+      fear_greed: d.fearGreedIndex !== 50 ? d.fearGreedIndex : undefined,
+      category: d.category || undefined,
+      sparkline_prices: d.sparklinePrices.length > 0 ? d.sparklinePrices : undefined,
+      volume_surge: surgeRatioForAGap >= 2.5 ? true : undefined,
+      volume_surge_ratio: surgeRatioForAGap >= 2.5 ? Math.round(surgeRatioForAGap * 10) / 10 : undefined,
+      alpha_staked_pct: d.alphaStakedPct > 0 ? d.alphaStakedPct : undefined,
+      product_score: productScore > 0 ? productScore : undefined,
+      utility_estimated: utilityEstimated && productScore > 0 ? true : undefined,
+      product_source: productScore > 0 ? productSource : undefined,
+      benchmark_score: BENCHMARK_MAP.get(d.netuid)?.benchmark_score,
+      benchmark_category: BENCHMARK_MAP.get(d.netuid)?.benchmark_category,
+      cost_saving_pct: BENCHMARK_MAP.get(d.netuid)?.cost_saving_pct,
+      vs_provider: BENCHMARK_MAP.get(d.netuid)?.vs_provider,
+      benchmark_summary: BENCHMARK_MAP.get(d.netuid)?.benchmark_summary,
+      annual_revenue_usd: BENCHMARK_MAP.get(d.netuid)?.annual_revenue_usd,
+      momentum_boost: momentumBoost !== 0 ? momentumBoost : undefined,
     });
   }
 
   leaderboard.sort((a, b) => b.composite_score - a.composite_score);
+
+  // ── Sector rotation detection ─────────────────────────────────────────
+  const categoryPumps = new Map<string, number>();
+  for (const e of leaderboard) {
+    if (e.category && (e.price_change_24h ?? 0) >= 5) {
+      categoryPumps.set(e.category, (categoryPumps.get(e.category) || 0) + 1);
+    }
+  }
+  const rotatingCategories = new Set([...categoryPumps.entries()]
+    .filter(([, count]) => count >= 2)
+    .map(([cat]) => cat));
+  if (rotatingCategories.size > 0) {
+    console.log(`[scan] Sector rotation detected: ${[...rotatingCategories].join(', ')}`);
+    for (const entry of leaderboard) {
+      if (entry.category && rotatingCategories.has(entry.category)) {
+        entry.composite_score = Math.min(100, entry.composite_score + 6);
+        entry.sector_rotation = true;
+      }
+    }
+    leaderboard.sort((a, b) => b.composite_score - a.composite_score);
+  }
+
+  // ── Tag top-3 deregistration risks ──────────────────────────────
+  // Among all at-risk subnets, rank by SubnetRadar health score (ascending).
+  // The 3 with the lowest health score are most likely to be deregistered.
+  const atRiskEntries = leaderboard
+    .filter(e => e.dereg_risk)
+    .map(e => ({ netuid: e.netuid, health: srSubnetMap.get(e.netuid)?.healthScore ?? 100 }))
+    .sort((a, b) => a.health - b.health)
+    .slice(0, 3);
+  const deregTop3Netuids = new Set(atRiskEntries.map(e => e.netuid));
+  for (const entry of leaderboard) {
+    if (deregTop3Netuids.has(entry.netuid)) entry.dereg_top3 = true;
+  }
 
   // ── Early snapshot save ─────────────────────────────────────────
   // Save prices + leaderboard NOW before slow AI analysis, so the
@@ -1942,10 +2674,29 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
     console.error("[scan] Failed to save emission history:", e);
   }
 
+  // Save updated volume history
+  try {
+    if (process.env.BLOB_READ_WRITE_TOKEN) {
+      await put("volume-history.json", JSON.stringify(volumeHistory), {
+        access: "private",
+        addRandomSuffix: false,
+        allowOverwrite: true,
+        contentType: "application/json",
+      });
+      console.log(`[scan] Volume history saved. ${volumeSurgeMap.size} subnets with surge data.`);
+    }
+  } catch (e) {
+    console.error("[scan] Failed to save volume history:", e);
+  }
+
   const duration = Date.now() - startTime;
   console.log(`[scan] Complete in ${duration}ms. ${leaderboard.length} subnets, ${mergedSignals.length} signals (${signals.length} new this scan).`);
 
+  // Bump this when leaderboard schema changes (forces dashboard to rescan instead of using stale blob)
+  const SCAN_SCHEMA_VERSION = 8; // v8: product_score 0–100, product_source field
+
   const responseData = {
+    schema_version: SCAN_SCHEMA_VERSION,
     leaderboard,
     signals: mergedSignals,
     taoPrice,

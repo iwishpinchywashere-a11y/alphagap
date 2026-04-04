@@ -2,7 +2,7 @@
   "crons": [
     {
       "path": "/api/cron/social-pulse",
-      "schedule": "0 * * * *"
+      "schedule": "0 */2 * * *"
     },
     {
       "path": "/api/discord-scan",
@@ -15,6 +15,10 @@
     {
       "path": "/api/generate-report",
       "schedule": "0 14 * * *"
+    },
+    {
+      "path": "/api/scan-websites",
+      "schedule": "0 6 * * *"
     }
   ]
 }
