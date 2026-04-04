@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import type { SubnetScore } from "@/lib/types";
 import type { TrackedPumper } from "@/app/api/testing/route";
@@ -39,6 +39,30 @@ interface SignalFinding {
   fired: boolean;
 }
 
+interface DailyCommitCount { date: string; count: number; daysBeforePump: number }
+interface CommitSummary { sha: string; message: string; author: string; date: string; daysBeforePump: number }
+interface GitHubResearch {
+  owner: string; repo: string; repoUrl: string;
+  totalCommits: number; uniqueContributors: number;
+  commitsByDay: DailyCommitCount[];
+  peakDay: string; peakCount: number;
+  baselineAvgPerDay: number; spikeWindow: number; spikeMultiplier: number;
+  topCommits: CommitSummary[];
+  hasRelease: boolean;
+  releaseInfo?: { tag: string; name: string; date: string };
+  finding: string;
+}
+interface EmissionResearch {
+  trend: "rising" | "falling" | "flat";
+  prePumpVolume: number; pumpWindowVolume: number; volumeMultiplier: number;
+  finding: string;
+}
+interface ResearchResult {
+  github: GitHubResearch | null;
+  emission: EmissionResearch | null;
+  overallFindings: string[];
+}
+
 interface Autopsy {
   pumper: TrackedPumper;
   current: SubnetScore | null;
@@ -46,6 +70,8 @@ interface Autopsy {
   pumpEvent: PumpEvent | null;
   findings: SignalFinding[];
   narrative: string;
+  research: ResearchResult | null;
+  researchLoading: boolean;
   loading: boolean;
   error?: string;
 }
@@ -384,6 +410,45 @@ function MiniPriceChart({
         {prices[prices.length - 1] ? new Date(prices[prices.length - 1].timestamp).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : ""}
       </text>
     </svg>
+  );
+}
+
+// ── Formatters ────────────────────────────────────────────────────────────
+
+function fmtTao(v: number): string {
+  if (v <= 0) return "—";
+  if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M τ`;
+  if (v >= 1_000) return `${(v / 1_000).toFixed(1)}K τ`;
+  return `${v.toFixed(1)} τ`;
+}
+
+// ── Commit bar chart ───────────────────────────────────────────────────────
+
+function CommitBarChart({ days, pumpDay }: { days: DailyCommitCount[]; pumpDay: number }) {
+  if (days.length === 0) return null;
+  const maxCount = Math.max(...days.map(d => d.count), 1);
+  // Show up to 30 bars
+  const visible = days.slice(-30);
+  return (
+    <div className="flex items-end gap-0.5 h-12">
+      {visible.map((d) => {
+        const height = Math.max((d.count / maxCount) * 100, 4);
+        const isSpike = d.daysBeforePump <= 7;
+        const isRecent = d.daysBeforePump <= 3;
+        return (
+          <div
+            key={d.date}
+            title={`${d.date}: ${d.count} commit${d.count !== 1 ? "s" : ""} (${d.daysBeforePump}d before pump)`}
+            style={{ height: `${height}%` }}
+            className={`flex-1 rounded-sm min-w-[4px] cursor-help transition-opacity hover:opacity-100 ${
+              isRecent ? "bg-green-400 opacity-90" :
+              isSpike  ? "bg-yellow-400 opacity-70" :
+                         "bg-gray-600 opacity-50"
+            }`}
+          />
+        );
+      })}
+    </div>
   );
 }
 
@@ -730,6 +795,167 @@ function AutopsyCard({ autopsy, onRemove }: { autopsy: Autopsy; onRemove: () => 
             </div>
           )}
 
+          {/* ── Retroactive Research ────────────────────────────── */}
+          {(autopsy.researchLoading || autopsy.research) && (
+            <div className="border-t border-gray-800/40 pt-4 space-y-4">
+              <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-2">
+                🔭 Retroactive Research
+                {autopsy.researchLoading && (
+                  <span className="text-gray-600 font-normal normal-case animate-pulse text-xs">
+                    Fetching GitHub + on-chain data…
+                  </span>
+                )}
+              </h3>
+
+              {autopsy.research && (
+                <div className="space-y-4">
+
+                  {/* GitHub commit analysis */}
+                  {autopsy.research.github && (
+                    <div className="bg-gray-950/60 border border-gray-800/40 rounded-xl p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="text-xs font-semibold text-gray-300 flex items-center gap-1.5">
+                          <span>⎇</span>
+                          GitHub Commit History (30d before pump)
+                        </span>
+                        <a
+                          href={`https://github.com/${autopsy.research.github.owner}/${autopsy.research.github.repo}/commits`}
+                          target="_blank" rel="noopener noreferrer"
+                          className="text-[10px] text-gray-600 hover:text-gray-400"
+                        >
+                          {autopsy.research.github.owner}/{autopsy.research.github.repo} ↗
+                        </a>
+                      </div>
+
+                      {/* Stats row */}
+                      <div className="grid grid-cols-4 gap-3 mb-3">
+                        {[
+                          { label: "Total commits", val: autopsy.research.github.totalCommits },
+                          { label: "Contributors", val: autopsy.research.github.uniqueContributors },
+                          { label: "Peak day", val: autopsy.research.github.peakCount > 0 ? `${autopsy.research.github.peakCount} commits` : "—" },
+                          {
+                            label: "Spike vs baseline",
+                            val: autopsy.research.github.baselineAvgPerDay > 0
+                              ? `${autopsy.research.github.spikeMultiplier.toFixed(1)}×`
+                              : "no baseline",
+                            color: autopsy.research.github.spikeMultiplier >= 3 ? "text-green-400"
+                              : autopsy.research.github.spikeMultiplier >= 1.5 ? "text-yellow-400"
+                              : "text-gray-400",
+                          },
+                        ].map(({ label, val, color }) => (
+                          <div key={label} className="text-center">
+                            <div className={`text-base font-bold font-mono ${color ?? "text-white"}`}>{val}</div>
+                            <div className="text-[10px] text-gray-600">{label}</div>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Commit bar chart (commits per day) */}
+                      {autopsy.research.github.commitsByDay.length > 0 && (
+                        <div className="mb-3">
+                          <div className="text-[10px] text-gray-600 mb-1">Commits/day (oldest → pump date)</div>
+                          <CommitBarChart
+                            days={autopsy.research.github.commitsByDay}
+                            pumpDay={0}
+                          />
+                        </div>
+                      )}
+
+                      {/* Release badge */}
+                      {autopsy.research.github.hasRelease && autopsy.research.github.releaseInfo && (
+                        <div className="mb-3 inline-flex items-center gap-2 bg-blue-950/40 border border-blue-800/30 rounded-lg px-3 py-1.5 text-xs">
+                          <span>🚀</span>
+                          <span className="text-blue-300 font-medium">Release: {autopsy.research.github.releaseInfo.name}</span>
+                          <span className="text-gray-500">
+                            {new Date(autopsy.research.github.releaseInfo.date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Top commits */}
+                      {autopsy.research.github.topCommits.length > 0 && (
+                        <div>
+                          <div className="text-[10px] text-gray-600 mb-1.5">Notable commits before pump</div>
+                          <div className="space-y-1.5">
+                            {autopsy.research.github.topCommits.slice(0, 6).map((c) => (
+                              <div key={c.sha} className="flex items-start gap-2 text-xs">
+                                <span className="font-mono text-gray-600 flex-shrink-0 w-12 text-right">
+                                  −{c.daysBeforePump}d
+                                </span>
+                                <span className="font-mono text-purple-400/70 flex-shrink-0">{c.sha}</span>
+                                <span className="text-gray-400 truncate">{c.message}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Finding */}
+                      <div className="mt-3 pt-3 border-t border-gray-800/30 text-xs text-gray-400 leading-relaxed">
+                        {autopsy.research.github.finding}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* No GitHub repo */}
+                  {!autopsy.research.github && autopsy.detail?.identity?.github_repo == null && (
+                    <div className="bg-gray-950/40 border border-gray-800/30 rounded-xl px-4 py-3 text-xs text-gray-600 flex items-center gap-2">
+                      <span>⎇</span>
+                      No GitHub repo linked to this subnet — dev activity can&apos;t be researched retroactively.
+                    </div>
+                  )}
+
+                  {/* Emission / volume analysis */}
+                  {autopsy.research.emission && (
+                    <div className="bg-gray-950/60 border border-gray-800/40 rounded-xl p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="text-xs font-semibold text-gray-300">📊 On-Chain Volume (pre-pump vs pump window)</span>
+                        <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                          autopsy.research.emission.trend === "rising" ? "bg-green-900/40 text-green-400" :
+                          autopsy.research.emission.trend === "falling" ? "bg-red-900/40 text-red-400" :
+                          "bg-gray-800 text-gray-500"
+                        }`}>
+                          {autopsy.research.emission.trend === "rising" ? "↑ RISING" :
+                           autopsy.research.emission.trend === "falling" ? "↓ FALLING" : "→ FLAT"}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-3 gap-3 mb-3">
+                        {[
+                          { label: "Pre-pump avg vol", val: fmtTao(autopsy.research.emission.prePumpVolume) },
+                          { label: "Pump window avg", val: fmtTao(autopsy.research.emission.pumpWindowVolume) },
+                          {
+                            label: "Volume multiplier",
+                            val: autopsy.research.emission.volumeMultiplier > 0 ? `${autopsy.research.emission.volumeMultiplier.toFixed(1)}×` : "—",
+                            color: autopsy.research.emission.volumeMultiplier >= 3 ? "text-green-400" :
+                                   autopsy.research.emission.volumeMultiplier >= 1.5 ? "text-yellow-400" : "text-gray-400",
+                          },
+                        ].map(({ label, val, color }) => (
+                          <div key={label} className="text-center">
+                            <div className={`text-base font-bold font-mono ${color ?? "text-white"}`}>{val}</div>
+                            <div className="text-[10px] text-gray-600">{label}</div>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="text-xs text-gray-400 leading-relaxed">{autopsy.research.emission.finding}</div>
+                    </div>
+                  )}
+
+                  {/* Overall findings */}
+                  {autopsy.research.overallFindings.length > 0 && (
+                    <div className="bg-yellow-950/10 border border-yellow-800/20 rounded-xl px-4 py-3">
+                      <div className="text-xs font-semibold text-yellow-400/80 mb-2">🔑 Key Retroactive Findings</div>
+                      <ul className="space-y-1">
+                        {autopsy.research.overallFindings.map((f, i) => (
+                          <li key={i} className="text-xs text-gray-400 leading-relaxed">{f}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Narrative */}
           <div className="border-t border-gray-800/40 pt-4">
             <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
@@ -809,6 +1035,8 @@ export default function TestingPage() {
           pumpEvent: null,
           findings: [],
           narrative: "",
+          research: null,
+          researchLoading: false,
           loading: resolvedNetuid != null,
         };
       });
@@ -833,13 +1061,61 @@ export default function TestingPage() {
 
           setAutopsies((prev) =>
             prev.map((a, idx) =>
-              idx === i ? { ...a, detail, pumpEvent, findings, narrative, loading: false } : a
+              idx === i ? { ...a, detail, pumpEvent, findings, narrative, loading: false, researchLoading: !!pumpEvent } : a
             )
           );
+
+          // Kick off retroactive research if we found a pump event
+          if (pumpEvent && detail.identity?.github_repo) {
+            try {
+              const rRes = await fetch("/api/testing/research", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  netuid,
+                  github_repo: detail.identity.github_repo,
+                  pump_start_date: pumpEvent.startDate,
+                }),
+              });
+              const research: ResearchResult = await rRes.json();
+              setAutopsies((prev) =>
+                prev.map((a, idx) =>
+                  idx === i ? { ...a, research, researchLoading: false } : a
+                )
+              );
+            } catch {
+              setAutopsies((prev) =>
+                prev.map((a, idx) =>
+                  idx === i ? { ...a, researchLoading: false } : a
+                )
+              );
+            }
+          } else if (pumpEvent) {
+            // No GitHub repo — still do emission research
+            try {
+              const rRes = await fetch("/api/testing/research", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ netuid, pump_start_date: pumpEvent.startDate }),
+              });
+              const research: ResearchResult = await rRes.json();
+              setAutopsies((prev) =>
+                prev.map((a, idx) =>
+                  idx === i ? { ...a, research, researchLoading: false } : a
+                )
+              );
+            } catch {
+              setAutopsies((prev) =>
+                prev.map((a, idx) =>
+                  idx === i ? { ...a, researchLoading: false } : a
+                )
+              );
+            }
+          }
         } catch (e) {
           setAutopsies((prev) =>
             prev.map((a, idx) =>
-              idx === i ? { ...a, loading: false, error: String(e) } : a
+              idx === i ? { ...a, loading: false, researchLoading: false, error: String(e) } : a
             )
           );
         }
