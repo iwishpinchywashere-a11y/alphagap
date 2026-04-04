@@ -2075,11 +2075,11 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
     // Signals are scored as: LEADING (new info market doesn't have) vs LAGGING (already priced in)
     // v7 cuts lagging signal weight and amplifies leading signals.
 
-    // 1. BUILDING QUALITY (0-20 pts) — baseline dev health, reduced weight
+    // 1. BUILDING QUALITY (0-25 pts) — baseline dev health
     // This is the "known quality" signal — established dev reputation is already priced in.
     // We WANT good dev subnets, but not to over-reward ones the market already knows.
     // The FRESH ACTIVITY bonus below is the gap signal, not the level.
-    const buildingPts = devScore * 0.20;
+    const buildingPts = devScore * 0.25;
 
     // DEV SPIKE BONUS (0-15 pts) — THE KEY GAP SIGNAL FOR DEV
     // Detects: today's commits are significantly above this subnet's own 30d daily average.
