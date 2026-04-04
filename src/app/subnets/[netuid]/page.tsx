@@ -426,8 +426,6 @@ export default function SubnetDetailPage({ params }: { params: Promise<{ netuid:
         <div className="flex items-center gap-2 text-sm text-gray-500">
           <Link href="/dashboard" className="hover:text-gray-300 transition-colors">Dashboard</Link>
           <span>/</span>
-          <Link href="/signals" className="hover:text-gray-300 transition-colors">Signals</Link>
-          <span>/</span>
           <span className="text-gray-300">{data.name}</span>
         </div>
       </div>
@@ -448,9 +446,6 @@ export default function SubnetDetailPage({ params }: { params: Promise<{ netuid:
                 ))}
               </div>
               <h1 className="text-2xl font-bold text-white">{data.name}</h1>
-              {(data.identity?.summary || data.identity?.description) && (
-                <p className="text-gray-400 text-sm mt-1 max-w-2xl">{data.identity.summary || data.identity.description}</p>
-              )}
 
               {/* Links */}
               <div className="flex flex-wrap items-center gap-4 mt-3">
@@ -560,6 +555,11 @@ export default function SubnetDetailPage({ params }: { params: Promise<{ netuid:
                 </div>
               )}
             </div>
+
+            {/* Description */}
+            {(data.identity?.summary || data.identity?.description) && (
+              <p className="text-gray-400 text-sm max-w-2xl">{data.identity.summary || data.identity.description}</p>
+            )}
 
             {/* ── AlphaGap score charts ─────────────────────────── */}
             <div>
