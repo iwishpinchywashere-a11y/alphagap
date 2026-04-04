@@ -84,7 +84,7 @@ export default function DashboardProvider({ children }: { children: React.ReactN
   // Current schema version — must match SCAN_SCHEMA_VERSION in scan/route.ts.
   // If the cached blob has an older version, force a background rescan immediately
   // so the dashboard never shows stale-format data to the user.
-  const CURRENT_SCHEMA_VERSION = 9;
+  const CURRENT_SCHEMA_VERSION = 10;
 
   // On first mount: load cache instantly, then refresh in background if stale or wrong schema
   useEffect(() => {

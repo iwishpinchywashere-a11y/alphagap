@@ -2531,14 +2531,29 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
   }
 
   // ── Tag top-3 deregistration risks ──────────────────────────────
-  // Among all at-risk subnets, rank by SubnetRadar health score (ascending).
-  // The 3 with the lowest health score are most likely to be deregistered.
-  const atRiskEntries = leaderboard
-    .filter(e => e.dereg_risk)
-    .map(e => ({ netuid: e.netuid, health: srSubnetMap.get(e.netuid)?.healthScore ?? 100 }))
-    .sort((a, b) => a.health - b.health)
+  // Always pick the 3 subnets with the lowest SubnetRadar health scores
+  // (don't gate on status === "at-risk" — that field is often absent).
+  // Fall back to emission_pct as a proxy when SR data is unavailable.
+  const deregCandidates = leaderboard
+    .map(e => ({
+      netuid: e.netuid,
+      health: srSubnetMap.get(e.netuid)?.healthScore ?? null,
+      emission: e.emission_pct ?? 0,
+    }))
+    .filter(e => e.health !== null)   // only rank subnets SR knows about
+    .sort((a, b) => (a.health ?? 100) - (b.health ?? 100))
     .slice(0, 3);
-  const deregTop3Netuids = new Set(atRiskEntries.map(e => e.netuid));
+
+  // If SR returned no health scores at all, fall back to lowest emission_pct
+  const deregTop3Netuids = new Set(
+    deregCandidates.length >= 3
+      ? deregCandidates.map(e => e.netuid)
+      : leaderboard
+          .map(e => ({ netuid: e.netuid, emission: e.emission_pct ?? 0 }))
+          .sort((a, b) => a.emission - b.emission)
+          .slice(0, 3)
+          .map(e => e.netuid)
+  );
   for (const entry of leaderboard) {
     if (deregTop3Netuids.has(entry.netuid)) entry.dereg_top3 = true;
   }
@@ -2719,7 +2734,7 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
   console.log(`[scan] Complete in ${duration}ms. ${leaderboard.length} subnets, ${mergedSignals.length} signals (${signals.length} new this scan).`);
 
   // Bump this when leaderboard schema changes (forces dashboard to rescan instead of using stale blob)
-  const SCAN_SCHEMA_VERSION = 9; // v9: sparkline fallback, product weight 0.35, EMA versioning
+  const SCAN_SCHEMA_VERSION = 10; // v10: dereg_top3 always-on (no longer gated on SR at-risk status)
 
   const responseData = {
     schema_version: SCAN_SCHEMA_VERSION,

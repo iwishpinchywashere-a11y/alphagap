@@ -276,7 +276,7 @@ export default function LeaderboardPage() {
                           <span className="text-[10px] text-gray-600 font-mono tracking-tight">SN{sub.netuid}</span>
                           <span className="font-bold text-[15px] text-gray-100 leading-tight">{sub.name}</span>
                           {sub.has_campaign && <span title="Active Stitch3 marketing campaign" className="text-sm">🔥</span>}
-                          {sub.dereg_top3 && <span title="⚠️ Top-3 deregistration risk — one of the 3 subnets most likely to be deregistered based on SubnetRadar health score" className="text-sm cursor-help">⚠️</span>}
+                          {sub.dereg_top3 && <span title="🚨 Top-3 deregistration risk — one of the 3 subnets most likely to be deregistered based on SubnetRadar health score" className="text-base cursor-help animate-pulse">🟡</span>}
                         </div>
                       </td>
                       <td className={`py-2 px-3 text-right font-bold text-lg tabular-nums ${scoreColor(sub.composite_score)}`}
