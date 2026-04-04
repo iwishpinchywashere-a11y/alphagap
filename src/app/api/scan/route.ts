@@ -1360,13 +1360,27 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
         return Math.round((staked / totalAlpha) * 100);
       })(),
       rootProp: pool ? parseFloat(pool.root_prop || "0") : 0,
-      // Keep 30 evenly-spaced points — enough shape for a sparkline, keeps blob lean
+      // Keep 30 evenly-spaced points — enough shape for a sparkline, keeps blob lean.
+      // If SubnetRadar has no sparkline, synthesize from known price-change percentages.
       sparklinePrices: (() => {
         const prices = srSubnetMap.get(netuid)?.sparklinePrices;
-        if (!prices || prices.length === 0) return [];
-        if (prices.length <= 30) return prices;
-        const step = Math.floor(prices.length / 30);
-        return prices.filter((_, i) => i % step === 0).slice(0, 30);
+        if (prices && prices.length > 0) {
+          if (prices.length <= 30) return prices;
+          const step = Math.floor(prices.length / 30);
+          return prices.filter((_, i) => i % step === 0).slice(0, 30);
+        }
+        // Synthetic fallback: reconstruct ~5 historical points from % changes
+        const currentPrice = pool ? parseFloat(pool.price) * taoPrice : 0;
+        if (!currentPrice || currentPrice <= 0) return [];
+        const pc1h  = pool?.price_change_1_hour  ? parseFloat(pool.price_change_1_hour)  : 0;
+        const pc24h = pool?.price_change_1_day   ? parseFloat(pool.price_change_1_day)   : 0;
+        const pc7d  = pool?.price_change_1_week  ? parseFloat(pool.price_change_1_week)  : 0;
+        const pc30d = pool?.price_change_1_month ? parseFloat(pool.price_change_1_month) : 0;
+        const p1h   = currentPrice / (1 + pc1h  / 100);
+        const p24h  = currentPrice / (1 + pc24h / 100);
+        const p7d   = currentPrice / (1 + pc7d  / 100);
+        const p30d  = currentPrice / (1 + pc30d / 100);
+        return [p30d, p7d, p24h, p1h, currentPrice].filter(p => p > 0 && isFinite(p));
       })(),
     });
   }
@@ -1914,7 +1928,11 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
   }
 
   // scores from crashing overnight when one data point changes.
-  type AGapHistory = Record<number, { ema: number; lastUpdated: string }>;
+  // Bump this when leaderboard formula changes — forces EMA history reset so old
+  // baselines don't drag new scores down for hours after a formula update.
+  const AGAP_HISTORY_VERSION = 9;
+  type AGapHistoryEntry = { ema: number; lastUpdated: string };
+  type AGapHistory = Record<number, AGapHistoryEntry> & { __version?: number };
   let agapHistory: AGapHistory = {};
   if (process.env.BLOB_READ_WRITE_TOKEN) {
     try {
@@ -1931,8 +1949,15 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
           if (done) break;
           chunks.push(value);
         }
-        agapHistory = JSON.parse(Buffer.concat(chunks).toString("utf-8"));
-        console.log(`[scan] Loaded aGap history for ${Object.keys(agapHistory).length} subnets`);
+        const loaded: AGapHistory = JSON.parse(Buffer.concat(chunks).toString("utf-8"));
+        // Reset EMA if formula version changed — prevents old baselines dragging new scores
+        if ((loaded.__version ?? 0) < AGAP_HISTORY_VERSION) {
+          console.log(`[scan] AGap history version outdated (${loaded.__version ?? 0} < ${AGAP_HISTORY_VERSION}) — resetting EMA`);
+          agapHistory = { __version: AGAP_HISTORY_VERSION };
+        } else {
+          agapHistory = loaded;
+          console.log(`[scan] Loaded aGap history for ${Object.keys(agapHistory).filter(k => k !== "__version").length} subnets`);
+        }
       }
     } catch {
       console.log("[scan] No aGap history yet (first run)");
@@ -1940,16 +1965,17 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
   }
 
   function smoothAGap(netuid: number, rawScore: number): number {
-    const prev = agapHistory[netuid];
+    const entry = agapHistory[netuid];
+    const prev = entry && typeof entry === "object" && "ema" in entry ? (entry as AGapHistoryEntry) : null;
     if (!prev) return rawScore; // First time: use raw score
 
     const prevEma = prev.ema;
     if (rawScore >= prevEma) {
-      // RISING: fast reaction (70% current, 30% historical)
-      return Math.round(0.7 * rawScore + 0.3 * prevEma);
+      // RISING: fast reaction (80% current, 20% historical) — was 70/30
+      return Math.round(0.8 * rawScore + 0.2 * prevEma);
     } else {
-      // FALLING: slow decay (30% current, 70% historical)
-      return Math.round(0.3 * rawScore + 0.7 * prevEma);
+      // FALLING: slow decay (40% current, 60% historical) — was 30/70
+      return Math.round(0.4 * rawScore + 0.6 * prevEma);
     }
   }
 
@@ -2406,9 +2432,9 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
     // Three separate signals stack to reward the specific case of:
     //   "amazing product + nobody knows about it + price still underwater"
 
-    // 1. Base product contribution (0–20 pts)
-    //    productScore 0–100 × 0.20. Formally benchmarked hits 20, milestone hits ~16–18.
-    const productAGapPts = productScore * 0.20;
+    // 1. Base product contribution (0–35 pts)
+    //    productScore 0–100 × 0.35. Formally benchmarked hits 35, milestone hits ~28–32.
+    const productAGapPts = productScore * 0.35;
 
     // 2. Product awareness gap (0–12 pts) — THE CORE ALPHA THESIS
     //    High product score + low social = market genuinely hasn't noticed yet.
@@ -2693,7 +2719,7 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
   console.log(`[scan] Complete in ${duration}ms. ${leaderboard.length} subnets, ${mergedSignals.length} signals (${signals.length} new this scan).`);
 
   // Bump this when leaderboard schema changes (forces dashboard to rescan instead of using stale blob)
-  const SCAN_SCHEMA_VERSION = 8; // v8: product_score 0–100, product_source field
+  const SCAN_SCHEMA_VERSION = 9; // v9: sparkline fallback, product weight 0.35, EMA versioning
 
   const responseData = {
     schema_version: SCAN_SCHEMA_VERSION,
@@ -2724,7 +2750,8 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
       });
       console.log("[scan] Cached to Vercel Blob.");
 
-      // Save aGap history for EMA smoothing
+      // Save aGap history for EMA smoothing — include version so stale history gets reset
+      agapHistory.__version = AGAP_HISTORY_VERSION;
       await put("agap-history.json", JSON.stringify(agapHistory), {
         access: "private",
         addRandomSuffix: false,

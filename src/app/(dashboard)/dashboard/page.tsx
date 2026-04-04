@@ -308,7 +308,6 @@ export default function LeaderboardPage() {
                             className="cursor-help"
                           >
                             {sub.utility_estimated ? "~" : ""}{sub.product_score}
-                            {sub.cost_saving_pct && <span className="text-[9px] text-emerald-500/70 ml-0.5">&#x2193;{sub.cost_saving_pct}%</span>}
                             {sub.product_source === "website" && <span className="text-[9px] text-emerald-500/60 ml-0.5" title="Website scan">🌐</span>}
                             {sub.product_source === "milestone" && <span className="text-[9px] text-emerald-500/60 ml-0.5" title="Curated product milestone">🚀</span>}
                           </span>
