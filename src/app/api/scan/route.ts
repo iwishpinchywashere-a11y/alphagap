@@ -2531,29 +2531,23 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
   }
 
   // ── Tag top-3 deregistration risks ──────────────────────────────
-  // Always pick the 3 subnets with the lowest SubnetRadar health scores
-  // (don't gate on status === "at-risk" — that field is often absent).
-  // Fall back to emission_pct as a proxy when SR data is unavailable.
+  // SR's /api/data/subnets returns a healthScore (0-100) per subnet.
+  // status is always "active" — never trust it. Use healthScore directly.
+  // Pick the 3 subnets with the lowest SR health score. No fallback —
+  // if SR data is unavailable, show no warning rather than show it wrong.
   const deregCandidates = leaderboard
-    .map(e => ({
-      netuid: e.netuid,
-      health: srSubnetMap.get(e.netuid)?.healthScore ?? null,
-      emission: e.emission_pct ?? 0,
-    }))
-    .filter(e => e.health !== null)   // only rank subnets SR knows about
-    .sort((a, b) => (a.health ?? 100) - (b.health ?? 100))
+    .map(e => {
+      const sr = srSubnetMap.get(e.netuid);
+      // Only include subnets that SR actually returned data for (health > 0 guard
+      // prevents subnets missing from SR from defaulting to 0 and looking "worst")
+      if (!sr || sr.healthScore === 0) return null;
+      return { netuid: e.netuid, health: sr.healthScore };
+    })
+    .filter((e): e is { netuid: number; health: number } => e !== null)
+    .sort((a, b) => a.health - b.health)
     .slice(0, 3);
 
-  // If SR returned no health scores at all, fall back to lowest emission_pct
-  const deregTop3Netuids = new Set(
-    deregCandidates.length >= 3
-      ? deregCandidates.map(e => e.netuid)
-      : leaderboard
-          .map(e => ({ netuid: e.netuid, emission: e.emission_pct ?? 0 }))
-          .sort((a, b) => a.emission - b.emission)
-          .slice(0, 3)
-          .map(e => e.netuid)
-  );
+  const deregTop3Netuids = new Set(deregCandidates.map(e => e.netuid));
   for (const entry of leaderboard) {
     if (deregTop3Netuids.has(entry.netuid)) entry.dereg_top3 = true;
   }
@@ -2734,7 +2728,7 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
   console.log(`[scan] Complete in ${duration}ms. ${leaderboard.length} subnets, ${mergedSignals.length} signals (${signals.length} new this scan).`);
 
   // Bump this when leaderboard schema changes (forces dashboard to rescan instead of using stale blob)
-  const SCAN_SCHEMA_VERSION = 10; // v10: dereg_top3 always-on (no longer gated on SR at-risk status)
+  const SCAN_SCHEMA_VERSION = 11; // v11: dereg_top3 uses SR healthScore directly, no bad fallback
 
   const responseData = {
     schema_version: SCAN_SCHEMA_VERSION,
