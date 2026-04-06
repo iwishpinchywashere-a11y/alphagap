@@ -262,29 +262,28 @@ export default function WhalesPage() {
         </div>
       </div>
 
-      <BlurGate tier={tier} required="premium" minHeight="400px">
-        {/* Filter + sort bar */}
-        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-          <div className="flex flex-wrap gap-1.5">
-            {FILTERS.map(f => (
-              <button
-                key={f.key}
-                onClick={() => setFilter(f.key)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
-                  filter === f.key
-                    ? "bg-green-500/20 border-green-500/40 text-green-400"
-                    : "bg-gray-800/60 border-gray-700 text-gray-400 hover:text-gray-200 hover:border-gray-600"
-                }`}
-              >
-                {f.label}{f.count != null ? ` · ${f.count}` : ""}
-              </button>
-            ))}
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-gray-600">Sort:</span>
-            {(["strength", "flow", "volume"] as const).map(s => (
-              <button
-                key={s}
+      {/* Filter + sort bar — always visible */}
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+        <div className="flex flex-wrap gap-1.5">
+          {FILTERS.map(f => (
+            <button
+              key={f.key}
+              onClick={() => setFilter(f.key)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                filter === f.key
+                  ? "bg-green-500/20 border-green-500/40 text-green-400"
+                  : "bg-gray-800/60 border-gray-700 text-gray-400 hover:text-gray-200 hover:border-gray-600"
+              }`}
+            >
+              {f.label}{f.count != null ? ` · ${f.count}` : ""}
+            </button>
+          ))}
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-gray-600">Sort:</span>
+          {(["strength", "flow", "volume"] as const).map(s => (
+            <button
+              key={s}
                 onClick={() => setSortBy(s)}
                 className={`px-2.5 py-1 rounded-md text-xs border transition-colors ${
                   sortBy === s
@@ -295,29 +294,42 @@ export default function WhalesPage() {
                 {s === "strength" ? "Signal strength" : s === "flow" ? "Net flow" : "Volume"}
               </button>
             ))}
-          </div>
         </div>
+      </div>
 
-        {/* Event feed */}
-        {events.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-64 text-center">
-            <div className="text-4xl mb-3">🌊</div>
-            <p className="text-gray-500 text-sm">No whale activity detected right now.</p>
-            <p className="text-gray-600 text-xs mt-1">Data refreshes every 10 minutes.</p>
-          </div>
-        ) : (
-          <div className="flex flex-col gap-2">
-            {events.map((ev, i) => (
-              <WhaleCard
-                key={`${ev.netuid}-${ev.type}-${i}`}
-                event={ev}
-                taoPrice={taoPrice}
-                onClick={() => router.push(`/subnets/${ev.netuid}`)}
-              />
-            ))}
-          </div>
-        )}
-      </BlurGate>
+      {/* Event feed */}
+      {events.length === 0 ? (
+        <div className="flex flex-col items-center justify-center h-64 text-center">
+          <div className="text-4xl mb-3">🌊</div>
+          <p className="text-gray-500 text-sm">No whale activity detected right now.</p>
+          <p className="text-gray-600 text-xs mt-1">Data refreshes every 10 minutes.</p>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-2">
+          {/* First entry always visible */}
+          <WhaleCard
+            key={`${events[0].netuid}-${events[0].type}-0`}
+            event={events[0]}
+            taoPrice={taoPrice}
+            onClick={() => router.push(`/subnets/${events[0].netuid}`)}
+          />
+          {/* Rest locked behind BlurGate */}
+          {events.length > 1 && (
+            <BlurGate tier={tier} required="premium" minHeight="300px">
+              <div className="flex flex-col gap-2">
+                {events.slice(1).map((ev, i) => (
+                  <WhaleCard
+                    key={`${ev.netuid}-${ev.type}-${i + 1}`}
+                    event={ev}
+                    taoPrice={taoPrice}
+                    onClick={() => router.push(`/subnets/${ev.netuid}`)}
+                  />
+                ))}
+              </div>
+            </BlurGate>
+          )}
+        </div>
+      )}
     </main>
   );
 }

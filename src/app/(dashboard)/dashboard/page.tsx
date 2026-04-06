@@ -247,21 +247,26 @@ export default function LeaderboardPage() {
                 <tbody>
                   {sortedLeaderboard.map((sub, i) => {
                     const isLocked = !isPro && i < 10;
-                    return (<tr
-                      key={sub.netuid}
-                      className={`border-b transition-colors ${isLocked ? "blur-sm opacity-40 pointer-events-none select-none" : "cursor-pointer"} ${
+                    return (<React.Fragment key={sub.netuid}>
+                    <tr
+                      className={`border-b transition-colors ${isLocked ? "opacity-50 pointer-events-none select-none" : "cursor-pointer"} ${
                         sub.composite_score >= 80
                           ? "border-green-500/20 bg-green-900/20 hover:bg-green-900/35"
                           : i % 2 === 0
                           ? "border-gray-800/40 bg-gray-900/30 hover:bg-gray-800/50"
                           : "border-gray-800/40 hover:bg-gray-800/50"
                       }`}
+                      style={isLocked ? { filter: "blur(3px)" } : undefined}
                       onClick={() => !isLocked && router.push(`/subnets/${sub.netuid}`)}
                     >
-                      <td className="py-2 px-3 text-gray-600 text-xs tabular-nums">{i + 1}</td>
+                      <td className="py-2 px-3 text-white text-xs tabular-nums font-medium">{i + 1}</td>
                       <td className="py-2 px-3">
                         <div className="flex items-center gap-2">
-                          <SubnetLogo netuid={sub.netuid} name={sub.name} size={20} />
+                          {/* Block logo on locked rows so subnet is unidentifiable */}
+                          {isLocked
+                            ? <div className="w-5 h-5 rounded-full bg-gray-700 flex-shrink-0" />
+                            : <SubnetLogo netuid={sub.netuid} name={sub.name} size={20} />
+                          }
                           <span className="text-[10px] text-gray-600 font-mono tracking-tight">SN{sub.netuid}</span>
                           <span className="font-bold text-[15px] text-gray-100 leading-tight">{sub.name}</span>
                           {sub.has_campaign && <span title="Active Stitch3 marketing campaign" className="text-sm">🔥</span>}
@@ -353,21 +358,22 @@ export default function LeaderboardPage() {
                           ? <span className="bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded text-xs font-semibold">{sub.signal_count}</span>
                           : <span className="text-gray-700">—</span>}
                       </td>
-                    </tr>);
-                  })}
-                  {/* Upgrade CTA row for free users */}
-                  {!isPro && (
-                    <tr>
-                      <td colSpan={19} className="py-6 text-center">
-                        <div className="inline-flex flex-col items-center gap-2">
-                          <p className="text-sm text-gray-500">🔒 Top 10 subnets by aGap score are locked</p>
-                          <a href="/subscribe" className="px-5 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-black font-bold rounded-xl text-sm hover:from-green-400 hover:to-emerald-500 transition-all shadow-lg shadow-green-500/20">
-                            Get Full Access — Pro $29/mo →
-                          </a>
-                        </div>
-                      </td>
                     </tr>
-                  )}
+                    {/* CTA injected right after the last locked row */}
+                    {!isPro && i === 9 && (
+                      <tr>
+                        <td colSpan={19} className="py-5 text-center bg-[#0a0a0f]/60">
+                          <div className="inline-flex flex-col items-center gap-2">
+                            <a href="/subscribe" className="px-7 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-black font-bold rounded-xl text-base hover:from-green-400 hover:to-emerald-500 transition-all shadow-xl shadow-green-500/25">
+                              Get Full Access — Pro $29/mo →
+                            </a>
+                            <p className="text-xs text-gray-600">Top 10 subnets by aGap score are locked on the free plan</p>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                    </React.Fragment>);
+                  })}
                 </tbody>
               </table>
             </div>

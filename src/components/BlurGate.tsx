@@ -9,15 +9,15 @@ interface BlurGateProps {
   children: React.ReactNode;
   /** Override the upgrade URL (default: /subscribe) */
   href?: string;
-  /** Replace the default label */
+  /** Replace the default button label */
   label?: string;
   /** Minimum height of blur area */
   minHeight?: string;
 }
 
 /**
- * Wraps content in a blurred overlay when the user's tier is below `required`.
- * Shows a "Get Full Access" / "Upgrade" button centred over the blurred content.
+ * Wraps content in a lightly-blurred overlay — visible but unreadable.
+ * The "Get Full Access" button sits near the top so it's immediately obvious.
  */
 export default function BlurGate({
   tier,
@@ -25,7 +25,7 @@ export default function BlurGate({
   children,
   href = "/subscribe",
   label,
-  minHeight = "120px",
+  minHeight = "200px",
 }: BlurGateProps) {
   const hasAccess =
     required === "pro"
@@ -40,34 +40,26 @@ export default function BlurGate({
 
   const subLabel =
     required === "premium"
-      ? "Premium · $49/mo · All pages"
+      ? "Premium · $49/mo · Unlocks all pages"
       : "Pro · $29/mo · Leaderboard, Signals & Reports";
 
   return (
     <div className="relative overflow-hidden rounded-xl" style={{ minHeight }}>
-      {/* Blurred content underneath */}
-      <div className="pointer-events-none select-none blur-sm opacity-40">
+      {/* Content: light blur so you can see there's stuff but can't read it */}
+      <div className="pointer-events-none select-none" style={{ filter: "blur(4px)", opacity: 0.55 }}>
         {children}
       </div>
 
-      {/* Overlay */}
-      <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#0a0a0f]/60 backdrop-blur-[2px] z-10">
-        <div className="text-center px-6 py-8 max-w-xs">
-          <div className="text-3xl mb-3">
-            {required === "premium" ? "🔐" : "🔒"}
-          </div>
-          <p className="text-sm text-gray-400 mb-4 leading-relaxed">
-            {required === "premium"
-              ? "This feature is available on the Premium plan."
-              : "This feature is available on the Pro plan."}
-          </p>
+      {/* Overlay — button anchored to top */}
+      <div className="absolute inset-0 z-10 flex flex-col items-center justify-start pt-8 bg-[#0a0a0f]/40">
+        <div className="text-center px-6">
           <Link
             href={href}
-            className="inline-block px-6 py-2.5 bg-gradient-to-r from-green-500 to-emerald-600 text-black font-bold rounded-xl text-sm hover:from-green-400 hover:to-emerald-500 transition-all shadow-lg shadow-green-500/20"
+            className="inline-block px-8 py-3.5 bg-gradient-to-r from-green-500 to-emerald-600 text-black font-bold rounded-xl text-base hover:from-green-400 hover:to-emerald-500 transition-all shadow-xl shadow-green-500/30"
           >
             {buttonLabel}
           </Link>
-          <p className="text-[11px] text-gray-600 mt-2">{subLabel}</p>
+          <p className="text-xs text-gray-500 mt-2">{subLabel}</p>
         </div>
       </div>
     </div>
