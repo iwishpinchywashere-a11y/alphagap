@@ -472,8 +472,6 @@ export async function GET() {
     7:   "SubVortexTao",    // SubVortex
     8:   "VantaTrading",    // Vanta
     9:   "IOTA_SN9",        // IOTA (Macrocosmos pretraining)
-    10:  "apollozkp",       // Apollo ZKP
-    11:  "TrajectoryRL",    // TrajectoryRL
     12:  "ComputeHorde",    // Compute Horde
     13:  "Data_SN13",       // Data Universe
     14:  "taohash",         // TAOHash
@@ -490,7 +488,6 @@ export async function GET() {
     26:  "kinitroai",       // Kinitro
     27:  "nodex0_",         // Nodexo
     28:  "FoundryServices", // Foundry S&P 500 Oracle
-    30:  "WomboAI",         // WOMBO / DREAM
     32:  "ai_detection",    // It's AI (LLM Detection)
     33:  "ReadyAI_",        // ReadyAI
     34:  "BitMindAI",       // BitMind
@@ -498,17 +495,13 @@ export async function GET() {
     37:  "AureliusAligned", // Aurelius
     39:  "basilic_ai",      // Basilica
     40:  "chunking_subnet", // Chunking
-    41:  "almanac_market",  // Almanac
     42:  "getmasafi",       // Masa (real-time social data)
     43:  "GraphiteSubnet",  // Graphite
     44:  "webuildscore",    // Score (SN44)
     45:  "TeamRizzoAI",     // Talisman AI / SWE-Rizzo (SN45)
-    46:  "resilabsai",      // RESI
-    48:  "qBitTensorLabs",  // qBitTensor (SN48)
     50:  "SynthdataCo",     // Synth
     51:  "lium_io",         // lium.io
     52:  "TensorplexLabs",  // Dojo (SN52)
-    53:  "celiumcompute",   // Celium
     54:  "yanez__ai",       // Yanez MIID
     55:  "GenomesDAO",      // NIOME / GenomesDAO
     56:  "gradients_ai",    // Gradients
