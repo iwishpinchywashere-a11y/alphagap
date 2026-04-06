@@ -18,9 +18,12 @@ interface XEntry {
 }
 interface DiscordEntry {
   netuid: number; name: string; signal: "alpha" | "active";
+  alphaScore: number;
+  alphaTypes?: string[];
   summary: string; keyInsights: string[];
   messageCount: number; uniquePosters: number; scannedAt: string;
   composite_score: number | null; social_score: number | null;
+  releaseHint?: boolean;
 }
 interface KolRadarEntry {
   handle: string; name: string; tier: number; weight: number; followers: number;
@@ -369,39 +372,89 @@ export default function SocialPage() {
           <div className="bg-gray-900/60 border border-gray-800 rounded-xl overflow-hidden">
             <div className="px-5 py-4 border-b border-gray-800">
               <h2 className="font-bold text-white">💬 Discord Alpha</h2>
-              <p className="text-xs text-gray-500 mt-0.5">Channels with genuine alpha signals — AI-classified every 3 hours</p>
+              <p className="text-xs text-gray-500 mt-0.5">AI scans every channel — scores quality + quantity of alpha signals</p>
             </div>
             <div className="divide-y divide-gray-800/60">
               {discordLeaderboard.length === 0 ? (
-                <div className="p-6 text-center text-gray-600 text-sm">No Discord data yet</div>
+                <div className="p-6 text-center text-gray-600 text-sm">No Discord data yet — run /api/discord-scan to populate</div>
               ) : discordLeaderboard.map((d, i) => (
                 <div
                   key={d.netuid}
-                  className="px-4 py-3 hover:bg-gray-800/30 cursor-pointer transition-colors"
-                  onClick={() => router.push(`/subnets/${d.netuid}`)}
+                  className="px-4 py-3 hover:bg-gray-800/30 transition-colors"
                 >
-                  <div className="flex items-center gap-3">
-                    <span className="text-xs text-gray-600 w-5 text-right tabular-nums">{i + 1}</span>
+                  <div className="flex items-start gap-3">
+                    <span className="text-xs text-gray-600 w-5 text-right tabular-nums mt-0.5 shrink-0">{i + 1}</span>
+
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-gray-600 bg-gray-800 px-1.5 py-0.5 rounded font-mono">SN{d.netuid}</span>
-                        <span className="font-medium text-sm text-gray-200 truncate">{d.name}</span>
-                        <span className={`text-xs px-1.5 py-0.5 rounded font-semibold shrink-0 ${discordSignalStyle(d.signal)}`}>
+                      {/* Row 1: name + badges */}
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <button
+                          onClick={() => router.push(`/subnets/${d.netuid}`)}
+                          className="flex items-center gap-1.5 hover:text-green-400 transition-colors"
+                        >
+                          <span className="text-xs text-gray-600 bg-gray-800 px-1.5 py-0.5 rounded font-mono">SN{d.netuid}</span>
+                          <span className="font-semibold text-sm text-gray-200">{d.name}</span>
+                        </button>
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold shrink-0 ${discordSignalStyle(d.signal)}`}>
                           {d.signal.toUpperCase()}
                         </span>
+                        {d.releaseHint && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded font-bold bg-yellow-500/20 text-yellow-300 border border-yellow-500/40 shrink-0">
+                            🚀 RELEASE HINT
+                          </span>
+                        )}
+                        {/* Alpha type badges */}
+                        {d.alphaTypes?.filter((t, i, arr) => arr.indexOf(t) === i).filter(t => t !== "general").map(type => (
+                          <span key={type} className="text-[10px] px-1.5 py-0.5 rounded bg-gray-800 text-gray-500 border border-gray-700 shrink-0">
+                            {type === "partnership" ? "🤝 partnership" :
+                             type === "feature" ? "⚡ feature" :
+                             type === "launch" ? "🚀 launch" :
+                             type === "dev_update" ? "⎇ dev update" :
+                             type === "team" ? "👤 team" : type}
+                          </span>
+                        ))}
                       </div>
-                      <div className="text-xs text-gray-500 mt-0.5">
+
+                      {/* Row 2: meta */}
+                      <div className="text-xs text-gray-600 mt-0.5">
                         {d.messageCount} msgs · {d.uniquePosters} posters · {timeAgo(d.scannedAt)}
                       </div>
+
+                      {/* Row 3: AI summary */}
                       {d.summary && (
-                        <div className="text-xs text-gray-400 mt-1 line-clamp-2 leading-relaxed">{d.summary}</div>
+                        <p className="text-xs text-gray-400 mt-1.5 leading-relaxed">{d.summary}</p>
+                      )}
+
+                      {/* Row 4: key insights */}
+                      {d.keyInsights && d.keyInsights.length > 0 && (
+                        <ul className="mt-1.5 space-y-0.5">
+                          {d.keyInsights.map((insight, ii) => (
+                            <li key={ii} className="flex items-start gap-1.5 text-xs text-gray-500 leading-relaxed">
+                              <span className="text-green-500 mt-0.5 shrink-0">›</span>
+                              <span>{insight}</span>
+                            </li>
+                          ))}
+                        </ul>
                       )}
                     </div>
-                    <div className="text-right shrink-0">
+
+                    {/* Score column */}
+                    <div className="text-right shrink-0 min-w-[48px]">
+                      <div className={`text-lg font-bold tabular-nums leading-none ${
+                        (d.alphaScore ?? 0) >= 70 ? "text-green-400" :
+                        (d.alphaScore ?? 0) >= 45 ? "text-yellow-400" :
+                        (d.alphaScore ?? 0) >= 20 ? "text-orange-400" :
+                        "text-gray-600"
+                      }`}>
+                        {d.alphaScore ?? "—"}
+                      </div>
+                      <div className="text-[10px] text-gray-600 mt-0.5">alpha</div>
                       {d.composite_score != null && (
-                        <div className={`text-sm font-bold tabular-nums ${agapColor(d.composite_score)}`}>{d.composite_score}</div>
+                        <>
+                          <div className={`text-xs font-semibold tabular-nums mt-1 ${agapColor(d.composite_score)}`}>{d.composite_score}</div>
+                          <div className="text-[10px] text-gray-600">aGap</div>
+                        </>
                       )}
-                      {d.composite_score != null && <div className="text-xs text-gray-600">aGap</div>}
                     </div>
                   </div>
                 </div>

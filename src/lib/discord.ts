@@ -37,6 +37,8 @@ export interface DiscordAlphaResult {
   netuid: number | null;
   subnetName: string;
   signal: "alpha" | "active" | "quiet" | "noise";
+  alphaScore: number;      // 0-100: quality × quantity combined score
+  alphaTypes?: string[];   // e.g. ["partnership", "feature", "launch"]
   summary: string;
   keyInsights: string[];
   messageCount: number;

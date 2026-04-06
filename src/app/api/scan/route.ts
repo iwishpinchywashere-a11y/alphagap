@@ -1787,11 +1787,12 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
 
   // ── Build Discord signal map for social scoring ─────────────────
   // netuid → { signal, messageCount, uniquePosters, scannedAt, releaseHint }
-  const discordMap = new Map<number, { signal: string; messageCount: number; uniquePosters: number; scannedAt: string; releaseHint?: boolean }>();
+  const discordMap = new Map<number, { signal: string; alphaScore?: number; messageCount: number; uniquePosters: number; scannedAt: string; releaseHint?: boolean }>();
   for (const disc of discordResults) {
     if (disc.netuid && disc.netuid > 0) {
       discordMap.set(disc.netuid, {
         signal: disc.signal,
+        alphaScore: (disc as Record<string, unknown>).alphaScore as number | undefined,
         messageCount: disc.messageCount,
         uniquePosters: disc.uniquePosters,
         scannedAt: disc.scannedAt || new Date().toISOString(),
@@ -1879,9 +1880,14 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
       const discFresh = discAgeHours <= 12 ? 1.0
         : discAgeHours <= 48 ? Math.max(0.4, 1 - (discAgeHours - 12) / 36 * 0.6)
         : 0.4;
-      if (disc.signal === "alpha") {
+      if (disc.alphaScore != null) {
+        // Use AI quality score directly: alphaScore 0-100 → 0-30 pts, scaled by freshness
+        // release hint gets a 5pt bonus on top
+        const base = Math.round(disc.alphaScore / 100 * 28) + (disc.releaseHint ? 5 : 0);
+        discordPts = Math.round(Math.min(30, base) * discFresh);
+      } else if (disc.signal === "alpha") {
         const base = disc.releaseHint
-          ? Math.min(30, (22 + Math.min(disc.uniquePosters, 8))) // release hint = massive early alpha bonus
+          ? Math.min(30, (22 + Math.min(disc.uniquePosters, 8)))
           : Math.min(20, (13 + Math.min(disc.uniquePosters, 7)));
         discordPts = Math.round(base * discFresh);
       } else if (disc.signal === "active") {
