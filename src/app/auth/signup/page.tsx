@@ -36,9 +36,7 @@ function SignUpForm() {
 
     setLoading(true);
     try {
-      // 1. Create account + get Stripe checkout URL in one request.
-      //    The server creates the user AND the Stripe checkout session,
-      //    so we can redirect straight to Stripe — no signIn() timing issues.
+      // 1. Create account
       const res = await fetch("/api/auth/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -47,7 +45,6 @@ function SignUpForm() {
           email: email.toLowerCase().trim(),
           password,
           turnstileToken,
-          plan,
         }),
       });
       const data = await res.json();
@@ -57,27 +54,25 @@ function SignUpForm() {
         return;
       }
 
-      // 2. Sign in silently in the background while we have the password.
-      //    auth.ts authorize() retries up to 3x for blob propagation delay,
-      //    so this should succeed. Even if it doesn't, we still go to Stripe —
-      //    the user can sign in after payment with no friction.
-      const signInPromise = signIn("credentials", {
+      // 2. Sign in immediately — authorize() retries up to 3x (1.8s) to handle
+      //    Vercel Blob propagation delay, so this reliably succeeds right after signup.
+      const signInRes = await signIn("credentials", {
         email: email.toLowerCase().trim(),
         password,
         redirect: false,
       }).catch(() => null);
 
-      // 3. Navigate to Stripe checkout (or fallback signin→/checkout).
-      if (data.checkoutUrl) {
-        // Wait briefly for signIn to complete so the session cookie is set
-        // before the browser navigates away to Stripe.
-        await signInPromise;
-        window.location.href = data.checkoutUrl;
-      } else {
-        // Stripe session creation failed — sign in then go through /checkout.
-        await signInPromise;
-        window.location.href = `/checkout?plan=${plan}`;
+      if (!signInRes?.ok) {
+        // Extremely unlikely with retries, but handle gracefully
+        setError("Account created! Please sign in to continue to payment.");
+        setLoading(false);
+        window.location.href = `/auth/signin?callbackUrl=${encodeURIComponent(`/checkout?plan=${plan}`)}`;
+        return;
       }
+
+      // 3. Go directly to /checkout — session is established, it will create
+      //    the Stripe checkout session and redirect to Stripe automatically.
+      window.location.href = `/checkout?plan=${plan}`;
     } catch {
       setError("Something went wrong. Please try again.");
       setLoading(false);
