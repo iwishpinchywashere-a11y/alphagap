@@ -18,13 +18,14 @@ function MiniSparkline({ up }: { up: boolean }) {
 }
 
 // ── Mock dashboard row ────────────────────────────────────────────
-function MockRow({ rank, name, netuid, agap, flow, dev, eval: evalScore, social, price, change, whale, surge, trend }: {
+function MockRow({ rank, name, netuid, agap, flow, dev, eval: evalScore, velo, price, change, whale, surge }: {
   rank: number; name: string; netuid: number; agap: number; flow: number; dev: number;
-  eval: number; social: number; price: string; change: string;
-  whale?: boolean; surge?: boolean; trend?: boolean;
+  eval: number; velo: number; price: string; change: string;
+  whale?: boolean; surge?: boolean;
 }) {
   const agapColor = agap >= 80 ? "text-green-400" : agap >= 60 ? "text-yellow-400" : "text-orange-400";
   const scoreColor = (s: number) => s >= 75 ? "text-green-400" : s >= 55 ? "text-yellow-400" : "text-orange-400";
+  const veloColor = velo >= 70 ? "text-green-400" : velo >= 40 ? "text-yellow-400" : "text-red-400";
   const positive = !change.startsWith("-");
   return (
     <tr className="border-b border-gray-800/50 hover:bg-gray-800/20 transition-colors">
@@ -35,18 +36,14 @@ function MockRow({ rank, name, netuid, agap, flow, dev, eval: evalScore, social,
           <span className="font-semibold text-gray-100 text-sm">{name}</span>
           {whale && <span title="Whale accumulating" className="text-xs">🐋</span>}
           {surge && <span title="Volume surge" className="text-xs">🤑</span>}
-          {trend && <span title="Deregistration risk" className="text-xs">⚠️</span>}
         </div>
       </td>
       <td className={`px-3 py-2.5 text-right font-bold tabular-nums text-lg ${agapColor}`}>{agap}</td>
       <td className={`px-3 py-2.5 text-right tabular-nums text-sm font-semibold ${scoreColor(flow)}`}>{flow}</td>
       <td className={`px-3 py-2.5 text-right tabular-nums text-sm font-semibold ${scoreColor(dev)}`}>{dev}</td>
       <td className={`px-3 py-2.5 text-right tabular-nums text-sm font-semibold ${scoreColor(evalScore)}`}>{evalScore}</td>
-      <td className={`px-3 py-2.5 text-right tabular-nums text-sm font-semibold ${scoreColor(social)}`}>{social}</td>
+      <td className={`px-3 py-2.5 text-right tabular-nums text-sm font-bold ${veloColor}`}>{velo}</td>
       <td className="px-3 py-2.5 text-right tabular-nums text-sm text-gray-300">{price}</td>
-      <td className="px-3 py-2.5 text-right">
-        <MiniSparkline up={positive} />
-      </td>
       <td className={`px-3 py-2.5 text-right tabular-nums text-sm font-medium ${positive ? "text-green-400" : "text-red-400"}`}>
         {change}
       </td>
@@ -346,7 +343,7 @@ function SubscribeContent() {
                   The highest scores = the biggest opportunities right now.
                 </p>
                 <div className="flex flex-wrap gap-2 mb-4">
-                  {["Sort by any metric", "8 smart filters", "🐋 Whale signals", "🤑 Volume surges", "⚠️ Risk flags", "Sparkline charts", "Category filters"].map(t => (
+                  {["Sort by any metric", "9 smart filters", "🐋 Whale signals", "🤑 Volume surges", "⚡ aGap Velocity score", "⚠️ Risk flags", "Category filters"].map(t => (
                     <span key={t} className="text-xs px-2 py-1 bg-gray-800 border border-gray-700 rounded-full text-gray-400">{t}</span>
                   ))}
                 </div>
@@ -363,18 +360,18 @@ function SubscribeContent() {
                         <th className="px-3 py-2 text-right">Flow</th>
                         <th className="px-3 py-2 text-right">Dev</th>
                         <th className="px-3 py-2 text-right">eVal</th>
-                        <th className="px-3 py-2 text-right">Social</th>
+                        <th className="px-3 py-2 text-right">Prod</th>
+                        <th className="px-3 py-2 text-right">Velo ⚡</th>
                         <th className="px-3 py-2 text-right">Price</th>
-                        <th className="px-3 py-2 text-right">Trend</th>
                         <th className="px-3 py-2 text-right">24h</th>
                       </tr>
                     </thead>
                     <tbody>
-                      <MockRow rank={1} name="Templar" netuid={3} agap={87} flow={82} dev={91} eval={78} social={74} price="$0.284" change="+8.2%" whale={true} />
-                      <MockRow rank={2} name="Gradients" netuid={56} agap={79} flow={91} dev={65} eval={88} social={62} price="$0.042" change="+12.4%" surge={true} />
-                      <MockRow rank={3} name="Macrocosmos" netuid={13} agap={76} flow={71} dev={88} eval={72} social={65} price="$0.156" change="+3.1%" whale={true} />
-                      <MockRow rank={4} name="Targon" netuid={4} agap={74} flow={68} dev={79} eval={82} social={71} price="$0.093" change="-2.4%" />
-                      <MockRow rank={5} name="Chutes" netuid={64} agap={71} flow={74} dev={85} eval={66} social={58} price="$0.037" change="+5.7%" />
+                      <MockRow rank={1} name="Templar" netuid={3} agap={87} flow={82} dev={91} eval={78} velo={85} price="$0.284" change="+8.2%" whale={true} />
+                      <MockRow rank={2} name="Gradients" netuid={56} agap={79} flow={91} dev={65} eval={88} velo={91} price="$0.042" change="+12.4%" surge={true} />
+                      <MockRow rank={3} name="Macrocosmos" netuid={13} agap={76} flow={71} dev={88} eval={72} velo={62} price="$0.156" change="+3.1%" whale={true} />
+                      <MockRow rank={4} name="Targon" netuid={4} agap={74} flow={68} dev={79} eval={82} velo={44} price="$0.093" change="-2.4%" />
+                      <MockRow rank={5} name="Chutes" netuid={64} agap={71} flow={74} dev={85} eval={66} velo={78} price="$0.037" change="+5.7%" />
                     </tbody>
                   </table>
                 </div>
@@ -480,6 +477,80 @@ function SubscribeContent() {
                     <div className="text-xl mb-1.5">{f.icon}</div>
                     <div className="text-xs font-semibold text-gray-200">{f.label}</div>
                     <div className="text-[10px] text-gray-600 mt-0.5">{f.desc}</div>
+                  </div>
+                ))}
+              </div>
+            </FeatureCard>
+
+            {/* Feature 5b: Whales */}
+            <FeatureCard icon="🐋" title="Whale & Smart Money Tracker" badge="NEW">
+              <p className="text-sm text-gray-400 leading-relaxed mb-4">
+                A dedicated live feed of every whale wallet move, smart money flow, and unusual volume spike across all subnets.
+                See exactly <span className="text-white font-medium">who is buying, who is selling, and how hard</span> — before the price moves.
+              </p>
+              <div className="grid sm:grid-cols-3 gap-3 mb-4">
+                {[
+                  { icon: "🐋", label: "Whale Accumulation", desc: "Buy/sell ratio flags wallets 2x+ larger on the buy side" },
+                  { icon: "🤑", label: "Volume Surges", desc: "Detects 2.5x+ spikes vs 5-day rolling buy average" },
+                  { icon: "⚡", label: "Flow Signals", desc: "Catches when net flow flips positive or spikes sharply" },
+                ].map(f => (
+                  <div key={f.label} className="bg-gray-900/60 border border-gray-800 rounded-lg p-3">
+                    <div className="text-xl mb-1.5">{f.icon}</div>
+                    <div className="text-xs font-semibold text-gray-200 mb-0.5">{f.label}</div>
+                    <div className="text-[10px] text-gray-600">{f.desc}</div>
+                  </div>
+                ))}
+              </div>
+              <div className="bg-gray-950 rounded-xl border border-gray-800 divide-y divide-gray-800/60">
+                {[
+                  { netuid: 3, name: "Templar", badge: "🐋 WHALE BUY", badgeColor: "text-cyan-300", detail: "2.34x avg buy size vs sells · Net +$142K in 24h", velo: 85 },
+                  { netuid: 64, name: "Chutes", badge: "🤑 VOL SURGE", badgeColor: "text-yellow-300", detail: "5.2x rolling average buy volume · Net +$89K in 24h", velo: 91 },
+                  { netuid: 56, name: "Gradients", badge: "⚡ FLOW SPIKE", badgeColor: "text-purple-300", detail: "Flow spiked 3.1x vs yesterday · Accelerating inflows", velo: 78 },
+                ].map(r => (
+                  <div key={r.netuid} className="flex items-center justify-between px-4 py-3">
+                    <div>
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <span className="text-[10px] text-gray-600 font-mono">SN{r.netuid}</span>
+                        <span className="font-semibold text-sm text-white">{r.name}</span>
+                        <span className={`text-[10px] font-bold ${r.badgeColor}`}>{r.badge}</span>
+                      </div>
+                      <span className="text-xs text-gray-500">{r.detail}</span>
+                    </div>
+                    <span className={`text-sm font-bold tabular-nums ${r.velo >= 70 ? "text-green-400" : "text-yellow-400"}`}>{r.velo}</span>
+                  </div>
+                ))}
+              </div>
+            </FeatureCard>
+
+            {/* Feature 5c: Pump Lab */}
+            <FeatureCard icon="🧪" title="Pump Lab — Early Alpha Detector" badge="NEW">
+              <p className="text-sm text-gray-400 leading-relaxed mb-4">
+                Track subnets showing early signs of a pump <span className="text-white font-medium">before the crowd catches on</span>.
+                Pump Lab monitors a curated watchlist for unusual staking inflows, volume acceleration, and social heat all converging at once.
+                It&apos;s the closest thing to a heads-up the market will give you.
+              </p>
+              <div className="bg-gray-950 rounded-xl border border-gray-800 overflow-hidden">
+                <div className="px-4 py-2.5 border-b border-gray-800 flex items-center justify-between">
+                  <span className="text-xs text-gray-500 font-medium uppercase tracking-wide">🧪 Active Watch</span>
+                  <span className="text-[10px] text-gray-600">Auto-detected · Updated every scan</span>
+                </div>
+                {[
+                  { netuid: 3, name: "Templar", signals: ["🐋 Whales buying", "📈 Emissions +18%", "🔥 KOL heat 95"], score: 87 },
+                  { netuid: 56, name: "Gradients", signals: ["🤑 5.2x vol surge", "⚡ Flow spiked 3x"], score: 79 },
+                ].map(r => (
+                  <div key={r.netuid} className="px-4 py-3 border-b border-gray-800/60 last:border-0">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] text-gray-600 font-mono">SN{r.netuid}</span>
+                        <span className="font-semibold text-sm text-white">{r.name}</span>
+                      </div>
+                      <span className="text-lg font-bold text-green-400">{r.score}</span>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {r.signals.map(s => (
+                        <span key={s} className="text-[10px] px-2 py-0.5 bg-gray-800 border border-gray-700 rounded-full text-gray-400">{s}</span>
+                      ))}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -594,14 +665,15 @@ function SubscribeContent() {
               <h3 className="font-bold text-green-400 mb-4">✓ With AlphaGap</h3>
               <ul className="space-y-3 text-sm text-gray-400">
                 {[
-                  "Open dashboard — top subnets ranked",
+                  "Open dashboard — top subnets ranked by aGap",
+                  "Whale Tracker shows exactly who's buying",
+                  "Volume surges flagged automatically",
+                  "Pump Lab detects early momentum convergence",
                   "Signals analyzed and explained in plain English",
                   "Discord alpha surfaced automatically",
                   "KOL activity tracked and heat-scored",
                   "eVal ratio calculated every scan",
-                  "Whale moves detected in real-time",
-                  "Price lag detected across 3 timeframes",
-                  "aGap composite score does the math",
+                  "aGap Velocity score shows momentum at a glance",
                   "5 minutes to review your daily alpha",
                   "Never miss a major development again",
                 ].map(i => (
@@ -641,13 +713,16 @@ function SubscribeContent() {
 
             <ul className="space-y-3 mb-8">
               {[
-                "Full access to the Alpha Leaderboard",
-                "AI Signal Intelligence — all 128 subnets",
+                "Alpha Leaderboard — 128 subnets scored & ranked",
+                "⚡ aGap Velocity — score momentum at a glance",
+                "🐋 Whale & Smart Money Tracker",
+                "🤑 Volume Surge detection",
+                "🧪 Pump Lab — early alpha detector",
+                "AI Signal Intelligence — every dev event explained",
                 "Social Intelligence & KOL Radar",
                 "Daily AI Deep-Dive Reports",
                 "All 128 Subnet Detail pages",
                 "Performance Tracker",
-                "Whale Detection & Volume Surge alerts",
                 "Discord Alpha Scanner",
                 "Updated every 10 minutes",
                 "Cancel anytime via self-serve portal",
