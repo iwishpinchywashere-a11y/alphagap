@@ -52,10 +52,12 @@ export default async function CheckoutPage({
   let stripeUrl: string | null = null;
   let errorMsg: string | null = null;
 
-  const user = await getUserByEmail(email);
+  // Retry up to 3x (1.8s total) to handle Vercel Blob propagation delay
+  // after a fresh signup on a different serverless instance
+  const user = await getUserByEmail(email, { retries: 3 });
 
   if (!user) {
-    errorMsg = "User record not found. Please contact support.";
+    errorMsg = `User record not found for ${email}. This is a temporary sync issue — please try again in a moment.`;
   } else if (user.stripeSubscriptionId) {
     // Already subscribed — check if still active
     const sub = await getStripe().subscriptions.retrieve(user.stripeSubscriptionId).catch(() => null);

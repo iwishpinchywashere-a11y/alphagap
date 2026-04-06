@@ -53,9 +53,18 @@ async function writeBlob(name: string, data: unknown): Promise<void> {
   });
 }
 
-export async function getUserByEmail(email: string): Promise<User | null> {
+export async function getUserByEmail(email: string, { retries = 0 } = {}): Promise<User | null> {
   const hash = emailHash(email);
-  return readBlob<User>(`users/${hash}.json`);
+  const user = await readBlob<User>(`users/${hash}.json`);
+  if (user) return user;
+  // Vercel Blob can have brief propagation delay after a write on a different
+  // serverless instance. Retry up to `retries` times with 600ms spacing.
+  for (let i = 0; i < retries; i++) {
+    await new Promise(r => setTimeout(r, 600));
+    const retry = await readBlob<User>(`users/${hash}.json`);
+    if (retry) return retry;
+  }
+  return null;
 }
 
 export async function createUser(user: User): Promise<void> {
