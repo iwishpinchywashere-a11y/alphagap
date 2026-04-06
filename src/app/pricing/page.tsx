@@ -80,9 +80,11 @@ export default function PricingPage() {
       <div className="relative max-w-3xl mx-auto px-4 py-14 sm:py-20">
         {/* Header */}
         <div className="text-center mb-12">
-          <Link href="/" className="inline-block mb-10">
-            <img src="/alphagap_logo_dark.svg" alt="AlphaGap" className="h-9 w-auto mx-auto" />
-          </Link>
+          <div className="flex justify-center mb-10">
+            <Link href="/">
+              <img src="/alphagap_logo_dark.svg" alt="AlphaGap" className="h-9 w-auto" />
+            </Link>
+          </div>
           <div className="flex justify-center mb-4">
             <span className="bg-green-500/10 border border-green-500/20 text-green-400 text-xs font-semibold px-3 py-1 rounded-full uppercase tracking-wider">
               Simple pricing
