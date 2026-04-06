@@ -66,18 +66,10 @@ function SignUpForm() {
         return;
       }
 
-      // 3. Go to Stripe checkout with selected plan
-      const checkoutRes = await fetch("/api/stripe/checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ plan }),
-      });
-      const checkoutData = await checkoutRes.json();
-      if (checkoutData.url) {
-        window.location.href = checkoutData.url;
-      } else {
-        router.push("/dashboard");
-      }
+      // 3. Navigate to Stripe checkout — full browser navigation so the
+      //    session cookie is guaranteed to be sent (avoids race condition
+      //    with fetch immediately after signIn).
+      window.location.href = `/api/stripe/checkout-redirect?plan=${plan}`;
     } catch {
       setError("Something went wrong. Please try again.");
     } finally {
