@@ -1151,9 +1151,40 @@ export default function TestingPage() {
               });
               const research: ResearchResult = await rRes.json();
               setAutopsies((prev) =>
-                prev.map((a, idx) =>
-                  idx === i ? { ...a, research, researchLoading: false } : a
-                )
+                prev.map((a, idx) => {
+                  if (idx !== i) return a;
+                  // If GitHub research found commits, override the Dev Spike finding
+                  // (buildFindings uses sparse SQLite history; GitHub API is ground truth)
+                  let updatedFindings = a.findings;
+                  if (research.github && research.github.totalCommits > 0) {
+                    const gh = research.github;
+                    updatedFindings = a.findings.map(f => {
+                      if (f.label !== "Dev Spike") return f;
+                      let detail: string;
+                      let strength: "strong" | "moderate" | "weak";
+                      if (gh.spikeMultiplier >= 3) {
+                        detail = `${gh.totalCommits} commits in 30d — ${gh.spikeWindow.toFixed(1)}/day pre-pump vs ${gh.baselineAvgPerDay.toFixed(1)}/day baseline (${gh.spikeMultiplier.toFixed(1)}× spike 🔥)`;
+                        strength = "strong";
+                      } else if (gh.spikeMultiplier >= 1.5) {
+                        detail = `${gh.totalCommits} commits in 30d — ${gh.spikeMultiplier.toFixed(1)}× acceleration above baseline in pre-pump window`;
+                        strength = "moderate";
+                      } else if (gh.totalCommits >= 5) {
+                        detail = `${gh.totalCommits} commits in 30d with steady activity in the pre-pump window`;
+                        strength = "moderate";
+                      } else {
+                        detail = `${gh.totalCommits} commits in 30d — low dev activity before pump`;
+                        strength = "weak";
+                      }
+                      if (gh.hasRelease && gh.releaseInfo) {
+                        const pumpMs2 = a.pumpEvent ? new Date(a.pumpEvent.startDate).getTime() : Date.now();
+                        detail += ` · Release "${gh.releaseInfo.name}" dropped ${Math.round((pumpMs2 - new Date(gh.releaseInfo.date).getTime()) / 86400000)}d before pump`;
+                        strength = "strong";
+                      }
+                      return { ...f, detail, strength, fired: strength !== "weak" };
+                    });
+                  }
+                  return { ...a, research, researchLoading: false, findings: updatedFindings };
+                })
               );
             } catch {
               setAutopsies((prev) =>
