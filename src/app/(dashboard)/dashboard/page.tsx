@@ -246,7 +246,7 @@ export default function LeaderboardPage() {
                 </thead>
                 <tbody>
                   {sortedLeaderboard.map((sub, i) => {
-                    const isLocked = !isPro && i < 10;
+                    const isLocked = !isPro && i < 20;
                     return (<React.Fragment key={sub.netuid}>
                     <tr
                       className={`border-b transition-colors ${isLocked ? "opacity-50 pointer-events-none select-none" : "cursor-pointer"} ${
@@ -365,14 +365,14 @@ export default function LeaderboardPage() {
                       </td>
                     </tr>
                     {/* CTA injected in the middle of the locked section */}
-                    {!isPro && i === 4 && (
+                    {!isPro && i === 9 && (
                       <tr>
                         <td colSpan={19} className="py-5 text-center bg-[#0a0a0f]/60">
                           <div className="inline-flex flex-col items-center gap-2">
                             <a href="/subscribe" className="px-7 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-black font-bold rounded-xl text-base hover:from-green-400 hover:to-emerald-500 transition-all shadow-xl shadow-green-500/25">
                               Get Full Access →
                             </a>
-                            <p className="text-xs text-gray-600">Top 10 subnets by aGap score are locked on the free plan</p>
+                            <p className="text-xs text-white font-bold">Top 20 subnets by aGap score are locked on the free plan</p>
                           </div>
                         </td>
                       </tr>

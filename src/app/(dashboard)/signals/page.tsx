@@ -115,7 +115,7 @@ export default function SignalsPage() {
             </div>
 
             {sorted.map((sig, sigIndex) => {
-              const isLocked = !isPro && sigIndex >= 1;
+              const isLocked = !isPro && sigIndex >= 3;
               const lb = leaderboard.find((s) => s.netuid === sig.netuid);
               const mcapStr = formatMcap(lb?.market_cap);
               const agap = lb?.composite_score;
@@ -218,10 +218,10 @@ export default function SignalsPage() {
                     </div>
                   </div>
                 </div>
-                {/* CTA injected right after the first visible signal */}
-                {!isPro && sigIndex === 0 && sorted.length > 1 && (
+                {/* CTA injected right after the 3rd visible signal */}
+                {!isPro && sigIndex === 2 && sorted.length > 3 && (
                   <div className="flex flex-col items-center gap-2 py-6 border border-gray-800 rounded-xl bg-gray-900/30">
-                    <p className="text-sm text-gray-500">🔒 {sorted.length - 1} more signals locked</p>
+                    <p className="text-sm text-gray-500">🔒 {sorted.length - 3} more signals locked</p>
                     <a href="/subscribe" className="px-7 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-black font-bold rounded-xl text-base hover:from-green-400 hover:to-emerald-500 transition-all shadow-xl shadow-green-500/25">
                       Get Full Access →
                     </a>
