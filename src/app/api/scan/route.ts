@@ -478,6 +478,7 @@ export async function GET() {
     22:  "desearch_ai",     // DeSearch
     23:  "trishoolai",      // Trishool
     24:  "QuasarModels",    // Quasar
+    26:  "kinitroai",        // Kinitro
     27:  "nodex0_",         // Nodexo
     33:  "ReadyAI_",        // ReadyAI
     34:  "BitMindAI",       // BitMind
@@ -491,6 +492,7 @@ export async function GET() {
     48:  "qBitTensorLabs",  // qBitTensor (SN48)
     50:  "SynthdataCo",     // Synth
     51:  "lium_io",         // lium.io
+    52:  "TensorplexLabs",  // Dojo (SN52)
     54:  "yanez__ai",       // Yanez MIID
     56:  "gradients_ai",    // Gradients
     58:  "handshake_58",    // Handshake
