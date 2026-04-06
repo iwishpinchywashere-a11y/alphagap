@@ -270,8 +270,7 @@ interface LeaderboardEntry {
   benchmark_summary?: string;
   annual_revenue_usd?: number;
   momentum_boost?: number;       // signed MOMENTUM pillar contribution (±15 max)
-  score_change_24h?: number;     // aGap score change vs ~24h ago snapshot
-  score_change_7d?: number;      // aGap score change vs ~7d ago snapshot
+  agap_velo?: number;            // aGap Velocity score 0-100
 }
 
 // ── Stitch3 campaign data (cached in Vercel Blob) ────────────────
@@ -2632,13 +2631,33 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
 
       for (const entry of leaderboard) {
         const key = String(entry.netuid);
-        if (snap24h && snap24h[key] != null && snap24h[key].agap > 0) {
-          const pct = ((entry.composite_score - snap24h[key].agap) / snap24h[key].agap) * 100;
-          entry.score_change_24h = Math.round(pct * 10) / 10;
-        }
-        if (snap7d && snap7d[key] != null && snap7d[key].agap > 0) {
-          const pct = ((entry.composite_score - snap7d[key].agap) / snap7d[key].agap) * 100;
-          entry.score_change_7d = Math.round(pct * 10) / 10;
+        const cur = entry.composite_score;
+        const d24 = (snap24h && snap24h[key] != null) ? cur - snap24h[key].agap : null;
+        const d7  = (snap7d  && snap7d[key]  != null) ? cur - snap7d[key].agap  : null;
+
+        if (d24 !== null && d7 !== null) {
+          // ── aGap Velo formula ─────────────────────────────────────────────
+          // Level significance: moves at high score levels matter exponentially
+          // more. Below ~10 = near zero weight; at 50 ≈ 0.58; at 80 ≈ 0.85
+          const levelMult = Math.pow(Math.max(0, cur - 10) / 90, 0.6);
+
+          // Blended velocity: 60% weight on 24h speed (what's happening NOW),
+          // 40% on the 7-day daily average (trend direction)
+          const dailyAvg7d = d7 / 7;
+          const velocity   = d24 * 0.6 + dailyAvg7d * 0.4;
+
+          // Acceleration bonus: moving faster than your recent trend = signal
+          // tanh caps it so outlier spikes don't blow the scale
+          const acceleration = d24 - dailyAvg7d;
+          const accelBonus   = Math.tanh(acceleration / 10) * 5;
+
+          // Combine: level-weighted velocity + acceleration cherry on top
+          const rawSignal = velocity * levelMult + accelBonus;
+
+          // Map to 0-100: anchor 35 = flat/neutral, scale factor 5
+          // Typical ranges: strong up (rawSignal ~12) → ~95; strong down → ~5
+          const velo = Math.max(0, Math.min(100, Math.round(35 + rawSignal * 5)));
+          entry.agap_velo = velo;
         }
       }
 

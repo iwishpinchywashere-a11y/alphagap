@@ -27,8 +27,7 @@ function SparkLine({ prices }: { prices: number[] }) {
 
 const COLUMNS: [keyof SubnetScore, string, string][] = [
   ["composite_score", "aGap", "AlphaGap Score (0-100). Our composite intelligence score. Identifies subnets where fundamentals significantly exceed current market valuation — the higher the score, the larger the opportunity gap our models have detected."],
-  ["score_change_24h", "aGap 24H%", "Percentage change in aGap score over the last 24 hours. Rising scores indicate improving fundamentals or a widening opportunity gap."],
-  ["score_change_7d", "aGap 7D%", "Percentage change in aGap score over the last 7 days. A consistently rising aGap score is one of our strongest early signals."],
+  ["agap_velo", "Velo ⚡", "aGap Velocity (0–100). Measures the speed and significance of a subnet's score movement. Weights both how fast the score is changing and how meaningful that level is — a move from 50→80 scores far higher than 1→20. 80–100 = explosive upward momentum. Below 30 = declining."],
   ["flow_score", "Flow", "Momentum Score (0-100). Tracks price action across multiple timeframes, whale and smart money movements, and unusual volume surges. High flow = strong market momentum and accumulation signals."],
   ["dev_score", "Dev", "Development Score (0-100). Measures the quality and velocity of real engineering work happening inside the subnet. Built on proprietary analysis of actual development activity."],
   ["eval_score", "eVal", "Emissions-to-Valuation Score (0-100). Watches emissions, validators, stakers, and miners to identify the gap between what the Bittensor network allocates to a subnet versus how the market has priced it. High eVal = the market is underpricing network conviction."],
@@ -285,17 +284,16 @@ export default function LeaderboardPage() {
                         style={{ background: "rgba(16, 185, 129, 0.06)", borderLeft: "2px solid rgba(16, 185, 129, 0.15)" }}>
                         {sub.composite_score}
                       </td>
-                      {(["score_change_24h", "score_change_7d"] as const).map((col) => (
-                        <td key={col} className={`py-2 px-3 text-right font-medium tabular-nums text-xs ${
-                          sub[col] == null ? "text-gray-700" :
-                          (sub[col] as number) > 0 ? "text-green-400" :
-                          (sub[col] as number) < 0 ? "text-red-400" : "text-gray-500"
-                        }`}>
-                          {sub[col] != null
-                            ? `${(sub[col] as number) > 0 ? "+" : ""}${(sub[col] as number).toFixed(1)}%`
-                            : "\u2014"}
-                        </td>
-                      ))}
+                      <td className={`py-2 px-3 text-right font-bold tabular-nums text-sm ${
+                        sub.agap_velo == null ? "text-gray-700" :
+                        sub.agap_velo >= 80 ? "text-cyan-300" :
+                        sub.agap_velo >= 60 ? "text-green-400" :
+                        sub.agap_velo >= 40 ? "text-yellow-400" :
+                        sub.agap_velo >= 25 ? "text-orange-400" :
+                        "text-red-500"
+                      }`}>
+                        {sub.agap_velo != null ? sub.agap_velo : "—"}
+                      </td>
                       <td className={`py-2 px-3 text-right font-semibold tabular-nums ${scoreColor(sub.flow_score)}`}>
                         {sub.whale_signal === "accumulating" && <span title={`Whale accumulation (${sub.whale_ratio}x)`} className="mr-0.5 text-xs">🐋</span>}
                         {sub.whale_signal === "distributing" && <span title={`Whale distribution (${sub.whale_ratio}x)`} className="mr-0.5 text-xs opacity-50">🔻</span>}
