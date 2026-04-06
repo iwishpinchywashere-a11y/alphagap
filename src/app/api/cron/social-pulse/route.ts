@@ -63,9 +63,13 @@ interface DesearchTweet {
 
 // ── Helpers ────────────────────────────────────────────────────────
 function computeHeatScore(kolWeight: number, engagement: number): number {
-  const kolBase = Math.round(kolWeight * 0.70);
-  // log10(10)=1→11, log10(100)=2→22, log10(1000)=3→33, log10(10000)=4→44 (cap 30)
-  const engBoost = Math.min(30, Math.round(Math.log10(Math.max(engagement, 10)) * 11));
+  // KOL weight: 35 pts max — establishes a credibility floor but doesn't dominate.
+  // Engagement: 65 pts max on sqrt scale — gives real dynamic range across typical
+  // BT tweet engagements (10–500). sqrt(10)*3.5≈11, sqrt(50)*3.5≈25,
+  // sqrt(100)*3.5=35, sqrt(350)*3.5≈65 (cap). Old log10 formula clustered
+  // all Tier-1 tweets at 67–70 regardless of actual signal quality.
+  const kolBase = Math.round(kolWeight * 0.35);
+  const engBoost = Math.min(65, Math.round(Math.sqrt(Math.max(engagement, 1)) * 3.5));
   return Math.min(100, kolBase + engBoost);
 }
 
@@ -152,26 +156,74 @@ export async function GET(req: Request) {
     }
   }
 
-  function matchTweet(tweet: DesearchTweet): number | null {
+  // Bittensor context gate — tweet must mention one of these to be subnet-related.
+  // Prevents KOL timeline tweets about VC/crypto/general topics from being labeled as subnets.
+  const BITTENSOR_SIGNALS = [
+    "bittensor", "$tao", "#tao", "dtao", "opentensor", "taoshi",
+    "macrocosmos", "subnet", "netuid", "metagraph", "yuma",
+    "tao alpha", "taomarketcap", "taostats",
+  ];
+  function hasBittensorContext(text: string): boolean {
+    const t = text.toLowerCase();
+    if (BITTENSOR_SIGNALS.some(s => t.includes(s))) return true;
+    // Explicit SN# notation (e.g. "SN64", "sn3") is Bittensor-specific
+    if (/\bsn\d{1,3}\b/i.test(t)) return true;
+    return false;
+  }
+
+  // Generic English words that happen to be subnet names — block from name-based matching.
+  // These only match if the tweet has an explicit SN# or @handle reference instead.
+  const GENERIC_NAME_BLOCKLIST = new Set([
+    "investing", "vision", "atlas", "apex", "prime", "core", "genesis",
+    "nexus", "origin", "signal", "pulse", "oracle", "forge", "bridge",
+    "score", "quasar", "synth", "swarm", "beam", "nova", "echo",
+  ]);
+
+  // Returns ALL matching netuids for a tweet (supports multi-subnet mentions).
+  function matchTweet(tweet: DesearchTweet): number[] {
     const text = tweet.text.toLowerCase();
     const author = tweet.user.username.toLowerCase();
-    if (handleToNetuid.has(author)) return handleToNetuid.get(author)!;
+    const matched = new Set<number>();
+
+    // Subnet's own official Twitter handle — high confidence.
+    if (handleToNetuid.has(author)) {
+      if (hasBittensorContext(text)) matched.add(handleToNetuid.get(author)!);
+      else {
+        const ownName = netuidToName.get(handleToNetuid.get(author)!)?.toLowerCase() || "";
+        if (ownName.length >= 4 && text.includes(ownName)) matched.add(handleToNetuid.get(author)!);
+      }
+      return [...matched];
+    }
+
+    // All remaining matches require Bittensor context
+    if (!hasBittensorContext(text)) return [];
+
+    // @subnet_handle mentions — collect ALL mentioned handles
     for (const [handle, netuid] of handleToNetuid) {
-      if (text.includes(`@${handle}`)) return netuid;
+      if (text.includes(`@${handle}`)) matched.add(netuid);
     }
-    for (const [name, netuid] of nameToNetuid) {
-      if (name.length >= 4 && text.includes(name)) return netuid;
+
+    // SN# explicit mentions — collect ALL SN numbers in the tweet
+    const snMatches = [...text.matchAll(/\bsn(\d{1,3})\b/gi)];
+    for (const m of snMatches) {
+      const n = parseInt(m[1]);
+      if (n > 0 && n <= 128) matched.add(n);
     }
+
+    // Name matches — collect ALL subnet names found (skip generic words)
     const normText = text.replace(/[-_\s]/g, "");
+    for (const [name, netuid] of nameToNetuid) {
+      if (name.length >= 5 && !GENERIC_NAME_BLOCKLIST.has(name) && text.includes(name)) {
+        matched.add(netuid);
+      }
+    }
     for (const [norm, netuid] of normNameToNetuid) {
-      if (norm.length >= 4 && normText.includes(norm)) return netuid;
+      if (norm.length >= 5 && !GENERIC_NAME_BLOCKLIST.has(norm) && normText.includes(norm)) {
+        matched.add(netuid);
+      }
     }
-    const snMatch = text.match(/\bsn(\d{1,3})\b/);
-    if (snMatch) {
-      const n = parseInt(snMatch[1]);
-      if (n > 0 && n <= 128) return n;
-    }
-    return null;
+
+    return [...matched];
   }
 
   // ── Fetch KOL timelines ──────────────────────────────────────────
@@ -210,29 +262,31 @@ export async function GET(req: Request) {
     const tweetAge = Date.now() - new Date(tweet.created_at).getTime();
     if (tweetAge > WINDOW_MS) return;
 
-    const netuid = matchTweet(tweet);
-    if (!netuid) return;
+    const netuids = matchTweet(tweet);
+    if (netuids.length === 0) return;
 
     const engagement = tweet.like_count + tweet.retweet_count + tweet.reply_count + (tweet.quote_count ?? 0);
     const heatScore = computeHeatScore(kolWeight, engagement);
-
-    // Minimum bar: at least some signal worth tracking
     if (heatScore < 25) return;
 
-    newEvents.push({
-      tweet_id: tweet.id,
-      netuid,
-      subnet_name: netuidToName.get(netuid) ?? `SN${netuid}`,
-      kol_handle: kolHandle,
-      kol_name: kolName,
-      kol_weight: kolWeight,
-      kol_tier: kolTier,
-      tweet_text: tweet.text.slice(0, 280),
-      tweet_url: `https://x.com/${kolHandle}/status/${tweet.id}`,
-      engagement,
-      heat_score: heatScore,
-      detected_at: new Date().toISOString(),
-    });
+    // Credit every subnet mentioned — multi-subnet tweets boost all referenced subnets.
+    // Use tweet_id + netuid as the dedup key so one tweet can credit multiple subnets.
+    for (const netuid of netuids) {
+      newEvents.push({
+        tweet_id: `${tweet.id}_${netuid}`,
+        netuid,
+        subnet_name: netuidToName.get(netuid) ?? `SN${netuid}`,
+        kol_handle: kolHandle,
+        kol_name: kolName,
+        kol_weight: kolWeight,
+        kol_tier: kolTier,
+        tweet_text: tweet.text.slice(0, 280),
+        tweet_url: `https://x.com/${kolHandle}/status/${tweet.id}`,
+        engagement,
+        heat_score: heatScore,
+        detected_at: new Date().toISOString(),
+      });
+    }
   };
 
   for (const r of kolResults) {

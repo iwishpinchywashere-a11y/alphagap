@@ -38,10 +38,10 @@ export default function LandingPage() {
             <img src="/alphagap_logo_dark.svg" alt="AlphaGap" className="h-12 w-auto" />
           </div>
           <Link
-            href="/dashboard"
+            href="/subscribe"
             className="px-5 py-2.5 bg-gradient-to-r from-green-500 to-emerald-600 text-black font-semibold rounded-lg hover:from-green-400 hover:to-emerald-500 transition-all shadow-lg shadow-green-500/20 text-sm"
           >
-            Launch Dashboard →
+            Get Access →
           </Link>
         </div>
       </nav>
@@ -85,10 +85,10 @@ export default function LandingPage() {
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
-              href="/dashboard"
+              href="/subscribe"
               className="px-8 py-4 bg-gradient-to-r from-green-500 to-emerald-600 text-black font-bold rounded-xl hover:from-green-400 hover:to-emerald-500 transition-all shadow-xl shadow-green-500/25 text-lg"
             >
-              Open the Dashboard
+              Get Full Access — $19/mo
             </Link>
             <a
               href="#how-it-works"
@@ -411,13 +411,13 @@ export default function LandingPage() {
           </h2>
           <p className="text-gray-400 text-lg mb-10 max-w-xl mx-auto">
             Join the traders who see what the market doesn&apos;t.
-            Free access. No account required. Updated every scan.
+            $19/month. Cancel anytime. Updated every scan.
           </p>
           <Link
-            href="/dashboard"
+            href="/subscribe"
             className="inline-flex px-10 py-5 bg-gradient-to-r from-green-500 to-emerald-600 text-black font-bold rounded-xl hover:from-green-400 hover:to-emerald-500 transition-all shadow-2xl shadow-green-500/30 text-xl"
           >
-            Launch AlphaGap Dashboard →
+            Get Full Access — $19/month →
           </Link>
         </div>
       </section>

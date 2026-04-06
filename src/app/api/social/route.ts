@@ -29,6 +29,13 @@ interface DiscordResult {
   summary: string; keyInsights: string[];
   messageCount: number; uniquePosters: number; scannedAt: string;
 }
+interface DiscordOutput {
+  scannedAt: string;
+  channelsScanned: number;
+  channelsWithActivity: number;
+  alphaChannels: number;
+  results: DiscordResult[];
+}
 interface LeaderboardEntry {
   netuid: number; name: string; composite_score: number; social_score: number;
   dev_score: number; market_cap?: number; alpha_price?: number;
@@ -41,12 +48,12 @@ export async function GET() {
   const [scanLatest, socialHot, discordRaw] = await Promise.all([
     readBlob<{ leaderboard: LeaderboardEntry[] }>("scan-latest.json", token),
     readBlob<SocialHot>("social-hot.json", token),
-    readBlob<DiscordResult[]>("discord-latest.json", token),
+    readBlob<DiscordOutput>("discord-latest.json", token),
   ]);
 
   const leaderboard: LeaderboardEntry[] = scanLatest?.leaderboard ?? [];
   const hotEvents: HeatEvent[] = socialHot?.events ?? [];
-  const discordData: DiscordResult[] = Array.isArray(discordRaw) ? discordRaw : [];
+  const discordData: DiscordResult[] = discordRaw?.results ?? [];
 
   const leaderMap = new Map(leaderboard.map(s => [s.netuid, s]));
 
@@ -145,7 +152,7 @@ export async function GET() {
       kolsTracked: KOL_DATABASE.length,
       tier1Count: tier1Kols.length,
       tier2Count: tier2Kols.length,
-      discordChannelsScanned: discordData.length,
+      discordChannelsScanned: discordRaw?.channelsScanned ?? discordData.length,
       discordAlphaCount: discordData.filter(d => d.signal === "alpha").length,
       discordActiveCount: discordData.filter(d => d.signal === "active").length,
     },

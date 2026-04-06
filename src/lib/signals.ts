@@ -133,7 +133,10 @@ export function detectFlowInflections(): Signal[] {
   for (const row of rows) {
     // Detect flow turning positive (was negative or zero, now positive)
     if (row.current_flow > 0 && row.prev_flow <= 0) {
-      const strength = Math.min(95, 50 + Math.abs(row.current_flow) * 10);
+      // Log scale so small flips (0.1 TAO) score ~52 and large ones (50+ TAO) hit 95.
+      // Old linear scale clustered everything at 68 for typical 1-2 TAO flows.
+      const flowMag = Math.log10(Math.max(row.current_flow, 0.1) + 1) * 35;
+      const strength = Math.min(95, Math.round(50 + flowMag));
       signals.push({
         netuid: row.netuid,
         signal_type: "flow_inflection",
@@ -150,12 +153,14 @@ export function detectFlowInflections(): Signal[] {
       row.prev_flow > 0 &&
       row.current_flow > row.prev_flow * 2
     ) {
-      const strength = Math.min(85, 40 + (row.current_flow / row.prev_flow) * 10);
+      // Log2 scale: 2x→60, 3x→72, 5x→83, 10x→95. Old formula clustered at 60-70.
+      const ratio = row.current_flow / row.prev_flow;
+      const strength = Math.min(95, Math.round(40 + Math.log2(ratio) * 22));
       signals.push({
         netuid: row.netuid,
         signal_type: "flow_spike",
         strength,
-        title: `Flow spiked ${(row.current_flow / row.prev_flow).toFixed(1)}x`,
+        title: `Flow spiked ${ratio.toFixed(1)}x`,
         description: `24h flow jumped from ${row.prev_flow.toFixed(2)} to ${row.current_flow.toFixed(2)} TAO. Accelerating inflows.`,
         source: "taostats",
       });
@@ -163,10 +168,13 @@ export function detectFlowInflections(): Signal[] {
 
     // Detect flow turning negative (was positive, now negative)
     if (row.current_flow < 0 && row.prev_flow >= 0) {
+      // Dynamic: small flips ~25, large reversals ~55. Was hardcoded 30 for everything.
+      const flipSize = Math.abs(row.current_flow - row.prev_flow);
+      const strength = Math.min(60, Math.round(20 + Math.log10(Math.max(flipSize, 0.1) + 1) * 25));
       signals.push({
         netuid: row.netuid,
         signal_type: "flow_warning",
-        strength: 30,
+        strength,
         title: `Flow turned negative: ${row.current_flow.toFixed(2)} TAO/24h`,
         description: `Net flow flipped from +${row.prev_flow.toFixed(2)} to ${row.current_flow.toFixed(2)} TAO. Outflows beginning.`,
         source: "taostats",
@@ -175,6 +183,45 @@ export function detectFlowInflections(): Signal[] {
   }
 
   return signals;
+}
+
+// ── Dev Quality Scorer ───────────────────────────────────────────
+// Scores the QUALITY of dev activity based on event content, not just count.
+// Returns 20–95: 20-35=noise/chores, 40-55=routine work, 60-75=real features,
+// 80-90=major launch/release, 95=once-in-a-while breakthrough.
+export function scoreDevQuality(events: Array<{ title: string; event_type: string }>): number {
+  // Event type base: releases >> PRs >> pushes
+  const hasRelease = events.some(e => e.event_type === "ReleaseEvent");
+  const prCount = events.filter(e => e.event_type === "PullRequestEvent").length;
+  const pushCount = events.filter(e => e.event_type === "PushEvent").length;
+
+  let typePts = 0;
+  if (hasRelease) typePts = 35;       // Actual versioned release = huge signal
+  else if (prCount >= 3) typePts = 20; // Multiple PRs merged = real feature work
+  else if (prCount >= 1) typePts = 14;
+  else typePts = 6;                    // Push-only = smaller signal
+
+  // Keyword quality tiers
+  const allText = events.map(e => e.title.toLowerCase()).join(" ");
+
+  const tier1 = ["launch", "live", "mainnet", "production", "v1.", "v2.", "v3.", "v4.",
+    "major release", "ship", "shipped", "breakthrough", "milestone", "new product", "goes live"];
+  const tier2 = ["new feature", "add ", "implement", "new model", "new endpoint", "new api",
+    "deploy", "release", "improve", "upgrade", "support ", "enable ", "performance", "speed",
+    "accuracy", "new miner", "new validator"];
+  const tier3 = ["fix ", "update", "refactor", "optimize", "patch", "cleanup", "enhancement"];
+  const penalty = ["chore", "ci:", "test:", "bump version", "update deps", "typo",
+    "lint", "format ", "readme", "bump ", "dependabot", "minor fix", "housekeeping"];
+
+  const t1hits = tier1.filter(k => allText.includes(k)).length;
+  const t2hits = tier2.filter(k => allText.includes(k)).length;
+  const t3hits = tier3.filter(k => allText.includes(k)).length;
+  const phits  = penalty.filter(k => allText.includes(k)).length;
+
+  const keywordPts = Math.min(50, t1hits * 20 + t2hits * 8 + t3hits * 3) - Math.min(20, phits * 7);
+
+  const raw = typePts + keywordPts;
+  return Math.min(95, Math.max(20, Math.round(raw)));
 }
 
 // ── Dev Activity Spike Detection ─────────────────────────────────
@@ -205,13 +252,30 @@ export function detectDevSpikes(): Signal[] {
   for (const row of rows) {
     const dailyAvg = row.week_events / 7;
     if (row.recent_events > dailyAvg * 2 || row.recent_events > 10) {
-      const strength = Math.min(80, 30 + row.recent_events * 5);
+      // Fetch the actual event titles to score content quality
+      const events = db.prepare(
+        `SELECT title, event_type FROM github_events
+         WHERE repo = ? AND created_at > datetime('now', '-24 hours')
+         AND event_type IN ('PushEvent', 'PullRequestEvent', 'ReleaseEvent')
+         LIMIT 30`
+      ).all(row.repo) as Array<{ title: string; event_type: string }>;
+
+      const qualityScore = scoreDevQuality(events);
+
+      // Label the signal based on quality tier
+      const qualityLabel =
+        qualityScore >= 85 ? "Major launch / release" :
+        qualityScore >= 70 ? "Significant feature shipped" :
+        qualityScore >= 55 ? "Active development" :
+        qualityScore >= 40 ? "Routine dev work" :
+        "Minor / infra updates";
+
       signals.push({
         netuid: row.netuid,
         signal_type: "dev_spike",
-        strength,
-        title: `Dev activity spike: ${row.recent_events} events in 24h`,
-        description: `${row.repo} has ${row.recent_events} events in the last 24h vs ${dailyAvg.toFixed(1)} daily average. Something is shipping.`,
+        strength: qualityScore,
+        title: `${qualityLabel}: ${row.recent_events} events in 24h`,
+        description: `${row.repo} — ${row.recent_events} events in 24h vs ${dailyAvg.toFixed(1)} daily avg. Top events: ${events.slice(0, 3).map(e => e.title).join(" · ")}`,
         source: "github",
         source_url: `https://github.com/${row.repo}`,
       });
