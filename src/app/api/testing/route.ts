@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { put, list as blobList } from "@vercel/blob";
+import { put, get as blobGet } from "@vercel/blob";
 
 export const dynamic = "force-dynamic";
 
@@ -17,23 +17,23 @@ export interface TrackedPumper {
 
 export interface PumpTrackerData {
   tracked: TrackedPumper[];
-  blocklist: string[]; // names that were manually deleted — never auto-add again
+  blocklist: string[];
 }
 
-// ── Blob helpers ──────────────────────────────────────────────────────────────
-// Use blobList + public URL fetch pattern (same approach that worked before the
-// access:"public" error — now works because we store the blob publicly).
-// This avoids the blobGet caching issue where private reads return stale data.
+// ── Blob helpers — private access, same pattern as scan-latest.json ─────────
 
 async function readData(token: string): Promise<PumpTrackerData> {
   try {
-    const { blobs } = await blobList({ token, prefix: BLOB_NAME });
-    const blob = blobs.find((b) => b.pathname === BLOB_NAME);
-    if (!blob) return { tracked: [], blocklist: [] };
-    // Fetch with cache-busting so we always get the latest written version
-    const res = await fetch(`${blob.url}?_=${Date.now()}`, { cache: "no-store" });
-    if (!res.ok) return { tracked: [], blocklist: [] };
-    const json = await res.json();
+    const result = await blobGet(BLOB_NAME, { token, access: "private" });
+    if (!result?.stream) return { tracked: [], blocklist: [] };
+    const reader = result.stream.getReader();
+    const chunks: Uint8Array[] = [];
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(value);
+    }
+    const json = JSON.parse(Buffer.concat(chunks).toString("utf-8"));
     if (Array.isArray(json)) return { tracked: json, blocklist: [] };
     return { tracked: json.tracked ?? [], blocklist: json.blocklist ?? [] };
   } catch {
@@ -42,8 +42,11 @@ async function readData(token: string): Promise<PumpTrackerData> {
 }
 
 async function writeData(token: string, data: PumpTrackerData) {
+  // Use "private" access — same as how scan-latest.json is stored.
+  // The store does not permit public blobs.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await put(BLOB_NAME, JSON.stringify(data, null, 2), {
-    access: "public",
+    access: "private" as any, // eslint-disable-line @typescript-eslint/no-explicit-any
     token,
     addRandomSuffix: false,
     allowOverwrite: true,
@@ -55,37 +58,45 @@ async function writeData(token: string, data: PumpTrackerData) {
 
 export async function GET() {
   const token = process.env.BLOB_READ_WRITE_TOKEN || "";
+  if (!token) return NextResponse.json({ tracked: [], blocklist: [] });
   const data = await readData(token);
   return NextResponse.json(data);
 }
 
-// ── POST — add a new pumper ───────────────────────────────────────────────────
+// ── POST — add a new pumper (or force-reset with _reset flag) ─────────────────
 
 export async function POST(req: NextRequest) {
   const token = process.env.BLOB_READ_WRITE_TOKEN || "";
-  const body = await req.json() as Partial<TrackedPumper> & { _reset?: boolean; _data?: PumpTrackerData };
+  if (!token) return NextResponse.json({ error: "no token" }, { status: 500 });
 
-  // Secret reset endpoint: POST with { _reset: true, _data: {...} } to force-write exact state
-  if (body._reset && body._data) {
-    await writeData(token, body._data);
-    return NextResponse.json({ ok: true, reset: true });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const body = await req.json() as any;
+
+  // Secret reset: POST { _reset: true, _data: {...} } to force-write exact state
+  if (body._reset === true && body._data) {
+    try {
+      await writeData(token, body._data as PumpTrackerData);
+      return NextResponse.json({ ok: true, reset: true });
+    } catch (e) {
+      return NextResponse.json({ error: String(e) }, { status: 500 });
+    }
   }
 
-  if (!body.name) return NextResponse.json({ error: "name required" }, { status: 400 });
+  const name: string | undefined = body.name;
+  if (!name) return NextResponse.json({ error: "name required" }, { status: 400 });
 
   const data = await readData(token);
 
-  // Don't add if blocklisted
-  if (data.blocklist.some((b) => b.toLowerCase() === body.name!.toLowerCase())) {
+  if (data.blocklist.some((b) => b.toLowerCase() === name.toLowerCase())) {
     return NextResponse.json({ error: "blocklisted" }, { status: 409 });
   }
 
-  const exists = data.tracked.some((p) => p.name.toLowerCase() === body.name!.toLowerCase());
+  const exists = data.tracked.some((p) => p.name.toLowerCase() === name.toLowerCase());
   if (exists) return NextResponse.json({ error: "already tracked" }, { status: 409 });
 
   const newEntry: TrackedPumper = {
-    name: body.name,
-    searchName: body.searchName || body.name.toLowerCase(),
+    name,
+    searchName: body.searchName || name.toLowerCase(),
     netuid: body.netuid ?? null,
     added_at: new Date().toISOString().split("T")[0],
     reason: body.reason || "manual add",
@@ -93,14 +104,20 @@ export async function POST(req: NextRequest) {
     pump_date: body.pump_date,
   };
   data.tracked.push(newEntry);
-  await writeData(token, data);
+  try {
+    await writeData(token, data);
+  } catch (e) {
+    return NextResponse.json({ error: String(e) }, { status: 500 });
+  }
   return NextResponse.json({ ok: true, entry: newEntry });
 }
 
-// ── DELETE — remove a pumper and blocklist it so it can't be auto-added back ──
+// ── DELETE — remove a pumper and blocklist it ─────────────────────────────────
 
 export async function DELETE(req: NextRequest) {
   const token = process.env.BLOB_READ_WRITE_TOKEN || "";
+  if (!token) return NextResponse.json({ error: "no token" }, { status: 500 });
+
   const { name } = await req.json() as { name: string };
   if (!name) return NextResponse.json({ error: "name required" }, { status: 400 });
 
@@ -111,11 +128,14 @@ export async function DELETE(req: NextRequest) {
   }
 
   data.tracked = filtered;
-  // Add to blocklist so auto-detect never re-adds it
   if (!data.blocklist.some((b) => b.toLowerCase() === name.toLowerCase())) {
     data.blocklist.push(name.toLowerCase());
   }
 
-  await writeData(token, data);
+  try {
+    await writeData(token, data);
+  } catch (e) {
+    return NextResponse.json({ error: String(e) }, { status: 500 });
+  }
   return NextResponse.json({ ok: true });
 }
