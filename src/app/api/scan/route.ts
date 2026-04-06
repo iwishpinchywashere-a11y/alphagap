@@ -2637,28 +2637,30 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
 
         if (d24 !== null || d7 !== null) {
           // ── aGap Velo formula ─────────────────────────────────────────────
-          // Level significance: moves at high score levels matter exponentially
-          // more. Below ~10 = near zero weight; at 50 ≈ 0.58; at 80 ≈ 0.85
+          // Level significance: moves at high score levels matter far more.
+          // score 20 → 0.27×  |  score 50 → 0.58×  |  score 80 → 0.86×
+          // This makes 1→20 nearly invisible and 60→80 fire loudly.
           const levelMult = Math.pow(Math.max(0, cur - 10) / 90, 0.6);
 
-          // Blended velocity: use whatever snapshots are available.
-          // Full formula (both): 60% recent speed + 40% 7d daily avg.
-          // Partial (one only): fall back to that signal alone.
+          // Velocity: blend 24h speed (recent) + 7d daily average (trend).
+          // Falls back gracefully to whichever snapshot is available.
           const dailyAvg7d = d7 !== null ? d7 / 7 : null;
           const velocity = (d24 !== null && dailyAvg7d !== null)
             ? d24 * 0.6 + dailyAvg7d * 0.4
             : (d24 !== null ? d24 : dailyAvg7d!);
 
-          // Acceleration bonus: only meaningful when both signals exist
+          // Scale factor: aGap scores are 0-100 so raw deltas are small.
+          // Calibrated so a sustained +15pt/7d move at score 70 → ~80 Velo.
+          // Flat = 35. Strong up (+2 pts/day at high level) = 80+.
+          const veloBase = 35 + velocity * levelMult * 25;
+
+          // Acceleration bonus (±10 pts): rewards subnets moving faster
+          // than their own recent trend — early momentum signal.
           const accelBonus = (d24 !== null && dailyAvg7d !== null)
-            ? Math.tanh((d24 - dailyAvg7d) / 10) * 5
+            ? Math.tanh((d24 - dailyAvg7d) / 8) * 10
             : 0;
 
-          // Combine: level-weighted velocity + acceleration cherry on top
-          const rawSignal = velocity * levelMult + accelBonus;
-
-          // Map to 0-100: anchor 35 = flat/neutral, scale factor 5
-          const velo = Math.max(0, Math.min(100, Math.round(35 + rawSignal * 5)));
+          const velo = Math.max(0, Math.min(100, Math.round(veloBase + accelBonus)));
           entry.agap_velo = velo;
         }
       }
