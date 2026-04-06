@@ -270,10 +270,8 @@ export default function LeaderboardPage() {
                       </td>
                       <td className={`py-2 px-3 text-right font-bold tabular-nums text-sm ${
                         sub.agap_velo == null ? "text-gray-700" :
-                        sub.agap_velo >= 80 ? "text-cyan-300" :
-                        sub.agap_velo >= 60 ? "text-green-400" :
+                        sub.agap_velo >= 70 ? "text-green-400" :
                         sub.agap_velo >= 40 ? "text-yellow-400" :
-                        sub.agap_velo >= 25 ? "text-orange-400" :
                         "text-red-500"
                       }`}>
                         {sub.agap_velo != null ? sub.agap_velo : "—"}
