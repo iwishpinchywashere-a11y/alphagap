@@ -214,7 +214,7 @@ export default function LeaderboardPage() {
                 <p className="text-xs text-white font-bold">Top 20 subnets are locked on the free plan</p>
                 <a
                   href="/pricing"
-                  className="px-8 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-black font-bold rounded-xl text-sm hover:from-green-400 hover:to-emerald-500 transition-all shadow-lg shadow-green-500/30"
+                  className="px-8 py-3.5 bg-gradient-to-r from-green-500 to-emerald-600 text-black font-bold rounded-xl text-base hover:from-green-400 hover:to-emerald-500 transition-all shadow-xl shadow-green-500/30"
                 >
                   Get Full Access →
                 </a>

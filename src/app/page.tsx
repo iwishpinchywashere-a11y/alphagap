@@ -150,7 +150,7 @@ export default function LandingPage() {
                   <svg viewBox="0 0 24 24" className="w-8 h-8 text-red-400" fill="none" stroke="currentColor" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18L9 11.25l4.306 4.307a11.95 11.95 0 015.814-5.519l2.74-1.22m0 0l-5.94-2.28m5.94 2.28l-2.28 5.941" /></svg>
                 ),
                 title: "Price Lag",
-                desc: "When markets fall behind",
+                desc: "When markets fall behind execution",
                 glow: "group-hover:shadow-red-500/20",
                 border: "group-hover:border-red-400/30",
                 iconBg: "bg-red-500/10",
@@ -168,13 +168,13 @@ export default function LandingPage() {
               },
               {
                 icon: (
-                  <svg viewBox="0 0 24 24" className="w-8 h-8" fill="currentColor"><path d="M12 0A12 12 0 000 12a12 12 0 0012 12 12 12 0 0012-12A12 12 0 0012 0zm5.01 4.744c.688 0 1.25.561 1.25 1.249a1.25 1.25 0 01-2.498.056l-2.597-.547-.8 3.747c1.824.07 3.48.632 4.674 1.488.308-.309.73-.491 1.207-.491.968 0 1.754.786 1.754 1.754 0 .716-.435 1.333-1.01 1.614a3.111 3.111 0 01.042.52c0 2.694-3.13 4.87-7.004 4.87-3.874 0-7.004-2.176-7.004-4.87 0-.183.015-.366.043-.534A1.748 1.748 0 014.028 12c0-.968.786-1.754 1.754-1.754.463 0 .898.196 1.207.49 1.207-.883 2.878-1.43 4.744-1.487l.885-4.182a.342.342 0 01.14-.197.35.35 0 01.238-.042l2.906.617a1.214 1.214 0 011.108-.701zM9.25 12C8.561 12 8 12.562 8 13.25c0 .687.561 1.248 1.25 1.248.687 0 1.248-.561 1.248-1.249 0-.688-.561-1.249-1.249-1.249zm5.5 0c-.687 0-1.248.561-1.248 1.25 0 .687.561 1.248 1.249 1.248.688 0 1.249-.561 1.249-1.249 0-.687-.562-1.249-1.25-1.249zm-5.466 3.99a.327.327 0 00-.231.094.33.33 0 000 .463c.842.842 2.484.913 2.961.913.477 0 2.105-.056 2.961-.913a.361.361 0 000-.462.342.342 0 00-.462 0c-.545.533-1.684.73-2.512.73-.828 0-1.953-.197-2.498-.73a.327.327 0 00-.219-.095z"/></svg>
+                  <svg viewBox="0 0 24 24" className="w-8 h-8 text-cyan-400" fill="none" stroke="currentColor" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M3 13.5c1.5-2 3-3 4.5-3s3 2 4.5 2 3-1 4.5-3" /><path strokeLinecap="round" strokeLinejoin="round" d="M3 8.5c1.5-2 3-3 4.5-3s3 2 4.5 2 3-1 4.5-3" /><path strokeLinecap="round" strokeLinejoin="round" d="M3 18.5c1.5-2 3-3 4.5-3s3 2 4.5 2 3-1 4.5-3" /></svg>
                 ),
-                title: "Reddit Chatter",
-                desc: "Community sentiment",
-                glow: "group-hover:shadow-orange-500/20",
-                border: "group-hover:border-orange-400/30",
-                iconBg: "bg-orange-500/10",
+                title: "Unusual Volume",
+                desc: "We spot the start of big price movements",
+                glow: "group-hover:shadow-cyan-500/20",
+                border: "group-hover:border-cyan-400/30",
+                iconBg: "bg-cyan-500/10",
               },
               {
                 icon: <span className="text-3xl">💬</span>,
