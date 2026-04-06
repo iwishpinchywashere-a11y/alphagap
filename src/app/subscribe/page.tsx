@@ -733,7 +733,7 @@ function SubscribeContent() {
                 ))}
               </ul>
               <a
-                href="/auth/signup"
+                href="/dashboard"
                 className="w-full text-center py-3 border border-gray-700 text-gray-400 hover:border-gray-600 hover:text-gray-200 rounded-xl text-sm font-medium transition-colors"
               >
                 Go to Dashboard →
