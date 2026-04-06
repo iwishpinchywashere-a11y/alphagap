@@ -1988,11 +1988,13 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
 
     const prevEma = prev.ema;
     if (rawScore >= prevEma) {
-      // RISING: fast reaction (80% current, 20% historical) — was 70/30
+      // RISING: fast reaction — market hasn't priced it in yet
       return Math.round(0.8 * rawScore + 0.2 * prevEma);
     } else {
-      // FALLING: slow decay (40% current, 60% historical) — was 30/70
-      return Math.round(0.4 * rawScore + 0.6 * prevEma);
+      // FALLING: moderate decay (55% current, 45% historical)
+      // Less sticky on the way down so consistent quality builders
+      // aren't permanently trapped by a bad stretch
+      return Math.round(0.55 * rawScore + 0.45 * prevEma);
     }
   }
 
@@ -2097,6 +2099,25 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
     // We WANT good dev subnets, but not to over-reward ones the market already knows.
     // The FRESH ACTIVITY bonus below is the gap signal, not the level.
     const buildingPts = devScore * 0.25;
+
+    // CONSISTENT BUILDER BONUS (0-10 pts)
+    // Rewards teams that ship week after week — sustained 30d cadence
+    // that the spike detector misses because it looks for outliers.
+    // High 30d commits + contributors = the market probably still hasn't
+    // fully priced in institutional-grade dev output.
+    const spikeDailyBaseline30 = commits30d > 0 ? commits30d / 30 : 0;
+    let consistentBuilderBonus = 0;
+    if (spikeDailyBaseline30 >= 3 && contributors30d >= 3) {
+      // Power team: high cadence + multi-contributor = top tier
+      consistentBuilderBonus = 10;
+    } else if (spikeDailyBaseline30 >= 2 && contributors30d >= 2) {
+      consistentBuilderBonus = 7;
+    } else if (spikeDailyBaseline30 >= 1 && contributors30d >= 2) {
+      consistentBuilderBonus = 5;
+    } else if (spikeDailyBaseline30 >= 1) {
+      // Solo consistent builder — still worth something
+      consistentBuilderBonus = 3;
+    }
 
     // DEV SPIKE BONUS (0-15 pts) — THE KEY GAP SIGNAL FOR DEV
     // Detects: today's commits are significantly above this subnet's own 30d daily average.
@@ -2471,7 +2492,7 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
     else if (productScore >= 70 && pch7d  <= -10) productVsPriceBonus = 4;
     else if (productScore >= 50 && pch30d <= -25) productVsPriceBonus = 3;
 
-    const rawAGap = buildingPts + devSpikeBonus + priceLag + floorReversalBonus + socialMomentum + evalBoost + evalVsPriceBonus + viability + campaignBoost + whaleBoost + emissionBoost + volBoost + stakingBoost + rootPropBonus + productAGapPts + productAwarenessGap + productVsPriceBonus + momentumBoost;
+    const rawAGap = buildingPts + consistentBuilderBonus + devSpikeBonus + priceLag + floorReversalBonus + socialMomentum + evalBoost + evalVsPriceBonus + viability + campaignBoost + whaleBoost + emissionBoost + volBoost + stakingBoost + rootPropBonus + productAGapPts + productAwarenessGap + productVsPriceBonus + momentumBoost;
     const clampedRaw = Math.max(1, Math.min(100, Math.round(rawAGap)));
     const aGap = smoothAGap(d.netuid, clampedRaw);
 
