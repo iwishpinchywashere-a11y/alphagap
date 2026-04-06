@@ -1250,24 +1250,23 @@ export default function TestingPage() {
 
   return (
     <div className="min-h-screen bg-[#0a0a0f] text-white">
-      <BlurGate tier={tier} required="premium" minHeight="500px">
-      <div className="max-w-screen-xl mx-auto px-4 md:px-6 py-8 space-y-8">
-
-        {/* Page header */}
-        <div>
-          <div className="flex items-center gap-3 mb-1">
-            <h1 className="text-2xl font-bold text-white">🔬 Pump Autopsy Lab</h1>
-            <span className="text-xs bg-yellow-900/50 text-yellow-400 border border-yellow-800/40 rounded-full px-2 py-0.5 font-medium">BETA</span>
-          </div>
-          <p className="text-gray-500 text-sm max-w-2xl">
-            Backtesting which signals fire before price pumps. Tracks subnets that have pumped strongly on the 7D timeframe and audits what indicators preceded the move — to sharpen the AlphaGap algo.
-          </p>
-          <div className="flex items-center gap-2 mt-3 text-xs text-gray-600">
-            <Link href="/dashboard" className="hover:text-gray-400 transition-colors">Dashboard</Link>
-            <span>/</span>
-            <span className="text-gray-400">Pump Autopsy</span>
-          </div>
+      {/* Page header always visible */}
+      <div className="max-w-screen-xl mx-auto px-4 md:px-6 pt-8 pb-4">
+        <div className="flex items-center gap-3 mb-1">
+          <h1 className="text-2xl font-bold text-white">🔬 Pump Autopsy Lab</h1>
+          <span className="text-xs bg-yellow-900/50 text-yellow-400 border border-yellow-800/40 rounded-full px-2 py-0.5 font-medium">BETA</span>
         </div>
+        <p className="text-gray-500 text-sm max-w-2xl">
+          Backtesting which signals fire before price pumps. Tracks subnets that have pumped strongly on the 7D timeframe and audits what indicators preceded the move — to sharpen the AlphaGap algo.
+        </p>
+        <div className="flex items-center gap-2 mt-3 text-xs text-gray-600">
+          <Link href="/dashboard" className="hover:text-gray-400 transition-colors">Dashboard</Link>
+          <span>/</span>
+          <span className="text-gray-400">Pump Autopsy</span>
+        </div>
+      </div>
+      <BlurGate tier={tier} required="premium" minHeight="500px">
+      <div className="max-w-screen-xl mx-auto px-4 md:px-6 pb-8 space-y-8">
 
         {/* Auto-added pumpers banner */}
         {autoDetected.length > 0 && (

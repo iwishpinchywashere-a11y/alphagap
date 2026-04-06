@@ -261,17 +261,22 @@ export default function LeaderboardPage() {
                     >
                       <td className="py-2 px-3 text-white text-xs tabular-nums font-medium">{i + 1}</td>
                       <td className="py-2 px-3">
-                        <div className="flex items-center gap-2">
-                          {/* Block logo on locked rows so subnet is unidentifiable */}
-                          {isLocked
-                            ? <div className="w-5 h-5 rounded-full bg-gray-700 flex-shrink-0" />
-                            : <SubnetLogo netuid={sub.netuid} name={sub.name} size={20} />
-                          }
-                          <span className="text-[10px] text-gray-600 font-mono tracking-tight">SN{sub.netuid}</span>
-                          <span className="font-bold text-[15px] text-gray-100 leading-tight">{sub.name}</span>
-                          {sub.has_campaign && <span title="Active Stitch3 marketing campaign" className="text-sm">🔥</span>}
-                          {sub.dereg_top3 && <span title="Top-3 deregistration risk — one of the 3 subnets with the lowest SubnetRadar health score" className="text-sm cursor-help">⚠️</span>}
-                        </div>
+                        {isLocked ? (
+                          /* Fully blacked-out on locked rows — no name or logo visible */
+                          <div className="flex items-center gap-2">
+                            <div className="w-5 h-5 rounded-full bg-gray-800 flex-shrink-0" />
+                            <div className="w-8 h-3 rounded bg-gray-800 flex-shrink-0" />
+                            <div className="w-24 h-3.5 rounded bg-gray-800" />
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <SubnetLogo netuid={sub.netuid} name={sub.name} size={20} />
+                            <span className="text-[10px] text-gray-600 font-mono tracking-tight">SN{sub.netuid}</span>
+                            <span className="font-bold text-[15px] text-gray-100 leading-tight">{sub.name}</span>
+                            {sub.has_campaign && <span title="Active Stitch3 marketing campaign" className="text-sm">🔥</span>}
+                            {sub.dereg_top3 && <span title="Top-3 deregistration risk — one of the 3 subnets with the lowest SubnetRadar health score" className="text-sm cursor-help">⚠️</span>}
+                          </div>
+                        )}
                       </td>
                       <td className={`py-2 px-3 text-right font-bold text-lg tabular-nums ${scoreColor(sub.composite_score)}`}
                         style={{ background: "rgba(16, 185, 129, 0.06)", borderLeft: "2px solid rgba(16, 185, 129, 0.15)" }}>
@@ -359,13 +364,13 @@ export default function LeaderboardPage() {
                           : <span className="text-gray-700">—</span>}
                       </td>
                     </tr>
-                    {/* CTA injected right after the last locked row */}
-                    {!isPro && i === 9 && (
+                    {/* CTA injected in the middle of the locked section */}
+                    {!isPro && i === 4 && (
                       <tr>
                         <td colSpan={19} className="py-5 text-center bg-[#0a0a0f]/60">
                           <div className="inline-flex flex-col items-center gap-2">
                             <a href="/subscribe" className="px-7 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-black font-bold rounded-xl text-base hover:from-green-400 hover:to-emerald-500 transition-all shadow-xl shadow-green-500/25">
-                              Get Full Access — Pro $29/mo →
+                              Get Full Access →
                             </a>
                             <p className="text-xs text-gray-600">Top 10 subnets by aGap score are locked on the free plan</p>
                           </div>

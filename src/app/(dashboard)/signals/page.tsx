@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import React, { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useDashboard } from "@/components/dashboard/DashboardProvider";
@@ -121,8 +121,8 @@ export default function SignalsPage() {
               const agap = lb?.composite_score;
 
               return (
+                <React.Fragment key={`${sig.netuid}-${sig.signal_type}-${(sig.signal_date || sig.created_at || "").slice(0, 10)}`}>
                 <div
-                  key={`${sig.netuid}-${sig.signal_type}-${(sig.signal_date || sig.created_at || "").slice(0, 10)}`}
                   className={`relative bg-gray-900/50 border rounded-lg overflow-hidden transition-colors ${isLocked ? "blur-sm opacity-40 pointer-events-none select-none" : "cursor-pointer hover:border-gray-600"} ${
                     sig.strength >= 80 ? "border-green-800/60 signal-hot" :
                     sig.strength >= 50 ? "border-yellow-900/40" : "border-gray-800"
@@ -218,18 +218,18 @@ export default function SignalsPage() {
                     </div>
                   </div>
                 </div>
+                {/* CTA injected right after the first visible signal */}
+                {!isPro && sigIndex === 0 && sorted.length > 1 && (
+                  <div className="flex flex-col items-center gap-2 py-6 border border-gray-800 rounded-xl bg-gray-900/30">
+                    <p className="text-sm text-gray-500">🔒 {sorted.length - 1} more signals locked</p>
+                    <a href="/subscribe" className="px-7 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-black font-bold rounded-xl text-base hover:from-green-400 hover:to-emerald-500 transition-all shadow-xl shadow-green-500/25">
+                      Get Full Access →
+                    </a>
+                  </div>
+                )}
+                </React.Fragment>
               );
             })}
-
-            {/* Upgrade CTA for free users */}
-            {!isPro && sorted.length > 1 && (
-              <div className="flex flex-col items-center gap-2 py-6 border border-gray-800 rounded-xl bg-gray-900/30">
-                <p className="text-sm text-gray-500">🔒 {sorted.length - 1} more signals locked</p>
-                <a href="/subscribe" className="px-5 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-black font-bold rounded-xl text-sm hover:from-green-400 hover:to-emerald-500 transition-all shadow-lg shadow-green-500/20">
-                  Unlock All Signals — Pro $29/mo →
-                </a>
-              </div>
-            )}
           </div>
         )}
       </div>

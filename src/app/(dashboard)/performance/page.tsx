@@ -87,9 +87,15 @@ export default function PerformancePage() {
 
   return (
     <main className="flex-1 overflow-auto p-4 md:p-6">
+      {/* Header always visible */}
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-white mb-1">Portfolio Performance</h1>
+        <p className="text-sm text-gray-500 max-w-2xl">
+          Tracks a simulated $100 auto-buy portfolio — every time a subnet&apos;s aGap score crosses <span className="text-green-400 font-semibold">80</span>, it&apos;s added as a position. Watch real alpha token returns over time.
+        </p>
+      </div>
       <BlurGate tier={tier} required="premium" minHeight="500px">
       <div className="space-y-6">
-        <h2 className="text-lg font-bold">Portfolio Performance</h2>
 
         {portfolioLoading && (
           <div className="flex items-center justify-center py-20 text-gray-500">
