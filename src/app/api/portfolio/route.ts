@@ -111,8 +111,8 @@ export async function GET() {
   }
 }
 
-// PATCH /api/portfolio — update or remove a position by netuid
-// Body: { netuid: number, remove?: boolean, buyAGapScore?: number, buyPriceUsd?: number }
+// PATCH /api/portfolio — update or remove position(s) by netuid
+// Body: { netuid: number, remove?: boolean, ... } OR { netuids: number[], remove: true } for batch removal
 export async function PATCH(req: Request) {
   if (!process.env.BLOB_READ_WRITE_TOKEN) {
     return NextResponse.json({ error: "No blob storage" }, { status: 500 });
@@ -120,16 +120,31 @@ export async function PATCH(req: Request) {
   try {
     const { put } = await import("@vercel/blob");
     const body = await req.json() as {
-      netuid: number;
+      netuid?: number;
+      netuids?: number[];
       remove?: boolean;
       buyAGapScore?: number;
       buyPriceUsd?: number;
       buyDate?: string;
     };
+
+    // Batch remove: { netuids: [3, 4, 15, ...], remove: true }
+    if (body.netuids && body.remove) {
+      const portfolio = await loadPortfolio();
+      const toRemove = new Set(body.netuids);
+      const removed = portfolio.positions.filter(p => toRemove.has(p.netuid));
+      portfolio.positions = portfolio.positions.filter(p => !toRemove.has(p.netuid));
+      await put("portfolio.json", JSON.stringify(portfolio), {
+        access: "private", addRandomSuffix: false, allowOverwrite: true, contentType: "application/json",
+      });
+      return NextResponse.json({ ok: true, action: "batch_removed", removed: removed.map(p => p.name), remaining: portfolio.positions.length });
+    }
+
+    const netuid = body.netuid!;
     const portfolio = await loadPortfolio();
-    const idx = portfolio.positions.findIndex(p => p.netuid === body.netuid);
+    const idx = portfolio.positions.findIndex(p => p.netuid === netuid);
     if (idx === -1) {
-      return NextResponse.json({ error: `No position with netuid ${body.netuid}` }, { status: 404 });
+      return NextResponse.json({ error: `No position with netuid ${netuid}` }, { status: 404 });
     }
     if (body.remove) {
       const removed = portfolio.positions.splice(idx, 1)[0];
