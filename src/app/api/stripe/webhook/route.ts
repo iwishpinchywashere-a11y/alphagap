@@ -3,6 +3,13 @@ import type Stripe from "stripe";
 import { getStripe } from "@/lib/stripe-client";
 import { getUserByStripeCustomerId, updateUser, updateUserListEntry } from "@/lib/users";
 
+/** Detect tier from subscription price amount (in cents) */
+function tierFromSub(sub: Stripe.Subscription): "pro" | "premium" {
+  const amount = sub.items.data[0]?.price?.unit_amount ?? 0;
+  if (amount >= 4900) return "premium";
+  return "pro";
+}
+
 export const dynamic = "force-dynamic";
 
 // Stripe requires the raw body for signature verification
@@ -34,13 +41,15 @@ export async function POST(req: Request) {
         const user = await getUserByStripeCustomerId(sub.customer as string);
         if (user) {
           const status = mapSubStatus(sub.status);
+          const subscriptionTier = tierFromSub(sub);
           await updateUser(user.email, {
             stripeSubscriptionId: sub.id,
             subscriptionStatus: status,
+            subscriptionTier,
             subscriptionPeriodEnd: (sub as any).current_period_end,
           });
           await updateUserListEntry(user.email, { subscriptionStatus: status });
-          console.log(`[webhook] Updated ${user.email} → ${status}`);
+          console.log(`[webhook] Updated ${user.email} → ${status} (${subscriptionTier})`);
         }
         break;
       }
@@ -80,12 +89,15 @@ export async function POST(req: Request) {
           const sub = await getStripe().subscriptions.retrieve(checkoutSession.subscription as string);
           const user = await getUserByStripeCustomerId(sub.customer as string);
           if (user) {
+            const status = mapSubStatus(sub.status);
+            const subscriptionTier = tierFromSub(sub);
             await updateUser(user.email, {
               stripeSubscriptionId: sub.id,
-              subscriptionStatus: mapSubStatus(sub.status),
+              subscriptionStatus: status,
+              subscriptionTier,
               subscriptionPeriodEnd: (sub as any).current_period_end,
             });
-            await updateUserListEntry(user.email, { subscriptionStatus: mapSubStatus(sub.status) });
+            await updateUserListEntry(user.email, { subscriptionStatus: status });
           }
         }
         break;

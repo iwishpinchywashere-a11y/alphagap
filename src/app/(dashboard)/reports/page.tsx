@@ -1,6 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSession } from "next-auth/react";
+import BlurGate from "@/components/BlurGate";
+import { getTier, canAccessPro } from "@/lib/subscription";
 
 interface ReportMeta {
   date: string;
@@ -15,6 +18,9 @@ interface ReportFull extends ReportMeta {
 }
 
 export default function ReportsPage() {
+  const { data: session } = useSession();
+  const tier = getTier(session);
+  const isPro = canAccessPro(tier);
   const [reports, setReports] = useState<ReportMeta[]>([]);
   const [currentReport, setCurrentReport] = useState<ReportFull | null>(null);
   const [loadingReport, setLoadingReport] = useState(false);
@@ -52,6 +58,9 @@ export default function ReportsPage() {
       <div className="space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
           <h2 className="text-lg font-bold">Daily Deep Dive Reports</h2>
+          {!isPro && (
+            <span className="text-xs text-gray-500 bg-gray-800 px-2 py-1 rounded-full border border-gray-700">🔒 Pro feature</span>
+          )}
           <div className="flex items-center gap-2">
             <input
               type="text"
@@ -72,6 +81,7 @@ export default function ReportsPage() {
           </div>
         )}
 
+        <BlurGate tier={tier} required="pro" minHeight="300px">
         <div className="space-y-3">
           {filtered.map((r) => {
             const isExpanded = currentReport?.date === r.date;
@@ -132,6 +142,7 @@ export default function ReportsPage() {
             );
           })}
         </div>
+        </BlurGate>
       </div>
     </main>
   );

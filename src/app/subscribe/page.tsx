@@ -162,7 +162,7 @@ function SubscribeContent() {
   const subStatus = (session?.user as any)?.subscriptionStatus;
   const isSubscribed = subStatus === "active" || subStatus === "trialing";
 
-  async function handleSubscribe() {
+  async function handleSubscribe(plan: "pro" | "premium" = "pro") {
     if (!session) {
       router.push("/auth/signup");
       return;
@@ -173,7 +173,11 @@ function SubscribeContent() {
     }
     setCheckoutLoading(true);
     try {
-      const res = await fetch("/api/stripe/checkout", { method: "POST" });
+      const res = await fetch("/api/stripe/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ plan }),
+      });
       const data = await res.json();
       if (data.url) window.location.href = data.url;
     } finally {
@@ -183,8 +187,8 @@ function SubscribeContent() {
 
   const ctaLabel = checkoutLoading ? "Loading…"
     : isSubscribed ? "Open Dashboard →"
-    : session ? "Subscribe — $19/month →"
-    : "Get Full Access — $19/month →";
+    : session ? "Subscribe →"
+    : "Get Started →";
 
   return (
     <div className="min-h-screen bg-[#0a0a0f] text-white overflow-x-hidden">
@@ -205,7 +209,7 @@ function SubscribeContent() {
               <>
                 <Link href="/auth/signin" className="text-sm text-gray-400 hover:text-white transition-colors">Sign In</Link>
                 <button
-                  onClick={handleSubscribe}
+                  onClick={() => handleSubscribe("pro")}
                   className="text-sm bg-gradient-to-r from-green-500 to-emerald-600 text-black font-bold px-4 py-1.5 rounded-lg hover:from-green-400 hover:to-emerald-500 transition-all shadow-md shadow-green-500/20"
                 >
                   Get Access
@@ -254,7 +258,7 @@ function SubscribeContent() {
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-4">
             <button
-              onClick={handleSubscribe}
+              onClick={() => handleSubscribe("pro")}
               disabled={checkoutLoading}
               className="px-9 py-4 bg-gradient-to-r from-green-500 to-emerald-600 text-black font-bold rounded-xl hover:from-green-400 hover:to-emerald-500 transition-all shadow-2xl shadow-green-500/30 text-lg disabled:opacity-60"
             >
@@ -267,7 +271,7 @@ function SubscribeContent() {
               See pricing ↓
             </button>
           </div>
-          <p className="text-xs text-gray-600 mb-12">$19/month · Cancel anytime · Instant access after payment</p>
+          <p className="text-xs text-gray-600 mb-12">Free to start · Pro $29/mo · Premium $49/mo · Cancel anytime</p>
 
           {/* What we monitor — graphic boxes */}
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 max-w-3xl mx-auto text-left">
@@ -696,61 +700,134 @@ function SubscribeContent() {
 
       {/* ── Pricing ── */}
       <section ref={pricingRef} className="py-24 px-5">
-        <div className="max-w-md mx-auto">
-          <h2 className="text-3xl font-bold text-center mb-3">Simple pricing</h2>
-          <p className="text-gray-500 text-center text-sm mb-10">
-            One plan. Full access. One missed 10x opportunity costs more than a year of AlphaGap.
+        <div className="max-w-4xl mx-auto">
+          <h2 className="text-3xl font-bold text-center mb-3">Simple, transparent pricing</h2>
+          <p className="text-gray-500 text-center text-sm mb-12">
+            Start free. Upgrade when you&apos;re ready. One missed 10x opportunity costs more than a year of AlphaGap.
           </p>
 
-          <div className="relative bg-[#0d0d14] border border-green-500/30 rounded-3xl p-8 shadow-2xl shadow-green-500/10">
-            <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-              <span className="bg-gradient-to-r from-green-500 to-emerald-600 text-black text-xs font-bold px-4 py-1 rounded-full">
-                FULL ACCESS
-              </span>
-            </div>
+          <div className="grid sm:grid-cols-3 gap-5">
 
-            <div className="text-center mb-8">
-              <div className="flex items-baseline justify-center gap-1 mb-1">
-                <span className="text-5xl font-bold text-white">$19</span>
-                <span className="text-gray-500 text-lg">/month</span>
+            {/* Free */}
+            <div className="bg-[#0d0d14] border border-gray-800 rounded-3xl p-7 flex flex-col">
+              <div className="mb-6">
+                <div className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Free</div>
+                <div className="flex items-baseline gap-1 mb-1">
+                  <span className="text-4xl font-bold text-white">$0</span>
+                  <span className="text-gray-600">/month</span>
+                </div>
+                <p className="text-xs text-gray-600">Preview mode · No card required</p>
               </div>
-              <p className="text-gray-500 text-sm">Cancel anytime · Instant access</p>
+              <ul className="space-y-2.5 mb-8 flex-1">
+                {[
+                  "Leaderboard preview (top 10 blurred)",
+                  "1 signal preview",
+                  "Whale tracker preview",
+                  "Social feed headers only",
+                  "Reports locked",
+                ].map(f => (
+                  <li key={f} className="flex items-start gap-2 text-xs text-gray-500">
+                    <span className="text-gray-700 shrink-0 mt-0.5">◦</span>
+                    {f}
+                  </li>
+                ))}
+              </ul>
+              <a
+                href="/auth/signup"
+                className="w-full text-center py-3 border border-gray-700 text-gray-400 hover:border-gray-600 hover:text-gray-200 rounded-xl text-sm font-medium transition-colors"
+              >
+                Go to Dashboard →
+              </a>
             </div>
 
-            <ul className="space-y-3 mb-8">
-              {[
-                "Alpha Leaderboard — 128 subnets scored & ranked",
-                "⚡ aGap Velocity — score momentum at a glance",
-                "🐋 Whale & Smart Money Tracker",
-                "🤑 Volume Surge detection",
-                "🧪 Pump Lab — early alpha detector",
-                "AI Signal Intelligence — every dev event explained",
-                "Social Intelligence & KOL Radar",
-                "Daily AI Deep-Dive Reports",
-                "All 128 Subnet Detail pages",
-                "Performance Tracker",
-                "Discord Alpha Scanner",
-                "Updated every 10 minutes",
-                "Cancel anytime via self-serve portal",
-              ].map(f => (
-                <li key={f} className="flex items-center gap-3 text-sm text-gray-300">
-                  <span className="text-green-400 shrink-0">✓</span>
-                  {f}
-                </li>
-              ))}
-            </ul>
+            {/* Pro */}
+            <div className="relative bg-[#0d0d14] border border-green-500/40 rounded-3xl p-7 flex flex-col shadow-xl shadow-green-500/10">
+              <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                <span className="bg-gradient-to-r from-green-500 to-emerald-600 text-black text-[10px] font-bold px-3 py-1 rounded-full">
+                  MOST POPULAR
+                </span>
+              </div>
+              <div className="mb-6">
+                <div className="text-xs font-bold text-green-500 uppercase tracking-wider mb-2">Pro</div>
+                <div className="flex items-baseline gap-1 mb-1">
+                  <span className="text-4xl font-bold text-white">$29</span>
+                  <span className="text-gray-500">/month</span>
+                </div>
+                <p className="text-xs text-gray-600">Cancel anytime · Instant access</p>
+              </div>
+              <ul className="space-y-2.5 mb-8 flex-1">
+                {[
+                  "Full Alpha Leaderboard — all 128 subnets",
+                  "All sorting & filtering",
+                  "AI Signal Intelligence — all signals",
+                  "Daily AI Deep-Dive Reports",
+                  "All 128 Subnet Detail pages",
+                  "Updated every 10 minutes",
+                ].map(f => (
+                  <li key={f} className="flex items-start gap-2 text-xs text-gray-300">
+                    <span className="text-green-400 shrink-0 mt-0.5">✓</span>
+                    {f}
+                  </li>
+                ))}
+                {[
+                  "Whale & Smart Money Tracker",
+                  "Social Intelligence & KOL Radar",
+                  "Pump Lab · Performance Tracker",
+                ].map(f => (
+                  <li key={f} className="flex items-start gap-2 text-xs text-gray-600">
+                    <span className="text-gray-700 shrink-0 mt-0.5">✕</span>
+                    {f}
+                  </li>
+                ))}
+              </ul>
+              <button
+                onClick={() => handleSubscribe("pro")}
+                disabled={checkoutLoading}
+                className="w-full bg-gradient-to-r from-green-500 to-emerald-600 text-black font-bold rounded-xl py-3.5 text-sm hover:from-green-400 hover:to-emerald-500 transition-all shadow-lg shadow-green-500/25 disabled:opacity-60"
+              >
+                {isSubscribed ? "Open Dashboard →" : checkoutLoading ? "Loading…" : session ? "Subscribe — $29/mo →" : "Get Pro — $29/mo →"}
+              </button>
+              <p className="text-center text-[11px] text-gray-700 mt-3">Powered by Stripe · Secure checkout</p>
+            </div>
 
-            <button
-              onClick={handleSubscribe}
-              disabled={checkoutLoading}
-              className="w-full bg-gradient-to-r from-green-500 to-emerald-600 text-black font-bold rounded-xl py-4 text-lg hover:from-green-400 hover:to-emerald-500 transition-all shadow-xl shadow-green-500/25 disabled:opacity-60"
-            >
-              {ctaLabel}
-            </button>
+            {/* Premium */}
+            <div className="relative bg-[#0d0d14] border border-purple-500/30 rounded-3xl p-7 flex flex-col">
+              <div className="mb-6">
+                <div className="text-xs font-bold text-purple-400 uppercase tracking-wider mb-2">Premium</div>
+                <div className="flex items-baseline gap-1 mb-1">
+                  <span className="text-4xl font-bold text-white">$49</span>
+                  <span className="text-gray-500">/month</span>
+                </div>
+                <p className="text-xs text-gray-600">Cancel anytime · Instant access</p>
+              </div>
+              <ul className="space-y-2.5 mb-8 flex-1">
+                {[
+                  "Everything in Pro",
+                  "🐋 Whale & Smart Money Tracker",
+                  "📡 Social Intelligence & KOL Radar",
+                  "🧪 Pump Lab — early alpha detector",
+                  "📈 Performance Tracker",
+                  "📊 Analytics & Scatter Plots",
+                  "🏆 Benchmark Rankings",
+                  "Discord Alpha Scanner",
+                  "Full access to every page",
+                ].map(f => (
+                  <li key={f} className="flex items-start gap-2 text-xs text-gray-300">
+                    <span className="text-purple-400 shrink-0 mt-0.5">✓</span>
+                    {f}
+                  </li>
+                ))}
+              </ul>
+              <button
+                onClick={() => handleSubscribe("premium")}
+                disabled={checkoutLoading}
+                className="w-full bg-gradient-to-r from-purple-600 to-violet-700 text-white font-bold rounded-xl py-3.5 text-sm hover:from-purple-500 hover:to-violet-600 transition-all shadow-lg shadow-purple-500/20 disabled:opacity-60"
+              >
+                {isSubscribed ? "Open Dashboard →" : checkoutLoading ? "Loading…" : session ? "Subscribe — $49/mo →" : "Get Premium — $49/mo →"}
+              </button>
+              <p className="text-center text-[11px] text-gray-700 mt-3">Powered by Stripe · Secure checkout</p>
+            </div>
 
-            <p className="text-center text-xs text-gray-600 mt-4">
-              Powered by Stripe · Secure checkout · Instant access after payment
-            </p>
           </div>
         </div>
       </section>
@@ -814,7 +891,7 @@ function SubscribeContent() {
             $19/month. No long-term commitment. Cancel anytime.
           </p>
           <button
-            onClick={handleSubscribe}
+            onClick={() => handleSubscribe("pro")}
             disabled={checkoutLoading}
             className="px-10 py-5 bg-gradient-to-r from-green-500 to-emerald-600 text-black font-bold rounded-xl hover:from-green-400 hover:to-emerald-500 transition-all shadow-2xl shadow-green-500/30 text-xl disabled:opacity-60"
           >

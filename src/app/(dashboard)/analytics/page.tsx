@@ -2,8 +2,11 @@
 
 import { useState, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { useDashboard } from "@/components/dashboard/DashboardProvider";
 import type { SubnetScore } from "@/lib/types";
+import BlurGate from "@/components/BlurGate";
+import { getTier } from "@/lib/subscription";
 
 // ── Formatters ────────────────────────────────────────────────────
 function fmtMcap(v: number): string {
@@ -422,6 +425,8 @@ function Top10List({
 // ── Analytics page ────────────────────────────────────────────────
 export default function AnalyticsPage() {
   const { leaderboard, scanning } = useDashboard();
+  const { data: session } = useSession();
+  const tier = getTier(session);
 
   if (scanning && leaderboard.length === 0) {
     return (
@@ -475,77 +480,85 @@ export default function AnalyticsPage() {
           <div className="flex items-center gap-2 mb-3">
             <span className="text-xs font-semibold bg-green-500/20 text-green-400 border border-green-500/30 rounded px-2 py-0.5">Signature Chart</span>
           </div>
-          <ScatterPlot
-            points={agapVsMcap}
-            title="aGap Score vs Market Cap"
-            subtitle="High aGap + low market cap = strongest opportunity signal. Bottom-right is where to look."
-            xLabel="aGap Score"
-            yLabel="Market Cap"
-            formatX={v => v.toFixed(0)}
-            formatY={fmtMcap}
-            xMax100
-            yLog
-            alphaX="right" alphaY="bottom"
-            alphaLabel="Alpha 🔥"
-            overLabel="Priced In ⚠️"
-          />
-          <Top10List points={agapVsMcap} scoreLabel="aGap Score" ratioLabel="aGap Value per $ MCap" />
+          <BlurGate tier={tier} required="premium" minHeight="300px">
+            <ScatterPlot
+              points={agapVsMcap}
+              title="aGap Score vs Market Cap"
+              subtitle="High aGap + low market cap = strongest opportunity signal. Bottom-right is where to look."
+              xLabel="aGap Score"
+              yLabel="Market Cap"
+              formatX={v => v.toFixed(0)}
+              formatY={fmtMcap}
+              xMax100
+              yLog
+              alphaX="right" alphaY="bottom"
+              alphaLabel="Alpha 🔥"
+              overLabel="Priced In ⚠️"
+            />
+            <Top10List points={agapVsMcap} scoreLabel="aGap Score" ratioLabel="aGap Value per $ MCap" />
+          </BlurGate>
         </div>
 
         {/* Chart 2: Dev Activity vs Market Cap */}
         <div>
-          <ScatterPlot
-            points={devVsMcap}
-            title="Dev Activity vs Market Cap"
-            subtitle="Subnets in the bottom-right are shipping hard but the market hasn't noticed yet."
-            xLabel="Dev Score"
-            yLabel="Market Cap"
-            formatX={v => v.toFixed(0)}
-            formatY={fmtMcap}
-            xMax100
-            yLog
-            alphaX="right" alphaY="bottom"
-            alphaLabel="High Dev, Low Cap 🔥"
-            overLabel="Overhyped ⚠️"
-          />
-          <Top10List points={devVsMcap} scoreLabel="Dev Score" ratioLabel="Dev Activity per $ MCap" />
+          <BlurGate tier={tier} required="premium" minHeight="300px">
+            <ScatterPlot
+              points={devVsMcap}
+              title="Dev Activity vs Market Cap"
+              subtitle="Subnets in the bottom-right are shipping hard but the market hasn't noticed yet."
+              xLabel="Dev Score"
+              yLabel="Market Cap"
+              formatX={v => v.toFixed(0)}
+              formatY={fmtMcap}
+              xMax100
+              yLog
+              alphaX="right" alphaY="bottom"
+              alphaLabel="High Dev, Low Cap 🔥"
+              overLabel="Overhyped ⚠️"
+            />
+            <Top10List points={devVsMcap} scoreLabel="Dev Score" ratioLabel="Dev Activity per $ MCap" />
+          </BlurGate>
         </div>
 
         {/* Chart 3: Emission Share vs Market Cap */}
         <div>
-          <ScatterPlot
-            points={emVsMcap}
-            title="Emission Share vs Market Cap"
-            subtitle="High network emissions, low market cap — the market hasn't priced in what the network is paying out."
-            xLabel="Emission % (log scale)"
-            yLabel="Market Cap"
-            formatX={v => v >= 1 ? `${v.toFixed(1)}%` : `${v.toFixed(3)}%`}
-            formatY={fmtMcap}
-            yLog xLog
-            alphaX="right" alphaY="bottom"
-            alphaLabel="Undervalued 🔥"
-            overLabel="Overvalued ⚠️"
-          />
-          <Top10List points={emVsMcap} scoreLabel="Emission %" ratioLabel="Emission Yield per $ MCap" />
+          <BlurGate tier={tier} required="premium" minHeight="300px">
+            <ScatterPlot
+              points={emVsMcap}
+              title="Emission Share vs Market Cap"
+              subtitle="High network emissions, low market cap — the market hasn't priced in what the network is paying out."
+              xLabel="Emission % (log scale)"
+              yLabel="Market Cap"
+              formatX={v => v >= 1 ? `${v.toFixed(1)}%` : `${v.toFixed(3)}%`}
+              formatY={fmtMcap}
+              yLog xLog
+              alphaX="right" alphaY="bottom"
+              alphaLabel="Undervalued 🔥"
+              overLabel="Overvalued ⚠️"
+            />
+            <Top10List points={emVsMcap} scoreLabel="Emission %" ratioLabel="Emission Yield per $ MCap" />
+          </BlurGate>
         </div>
 
         {/* Chart 4: Social Score vs Market Cap */}
         <div>
-          <ScatterPlot
-            points={socialVsMcap}
-            title="Social Velocity vs Market Cap"
-            subtitle="High social buzz, low market cap — community and KOL attention that hasn't been priced in yet."
-            xLabel="Social Score"
-            yLabel="Market Cap"
-            formatX={v => v.toFixed(0)}
-            formatY={fmtMcap}
-            xMax100
-            yLog
-            alphaX="right" alphaY="bottom"
-            alphaLabel="Hidden Gem 🔥"
-            overLabel="Overhyped ⚠️"
-          />
-          <Top10List points={socialVsMcap} scoreLabel="Social Score" ratioLabel="Social Buzz per $ MCap" />
+          <BlurGate tier={tier} required="premium" minHeight="300px">
+            <ScatterPlot
+              points={socialVsMcap}
+              title="Social Velocity vs Market Cap"
+              subtitle="High social buzz, low market cap — community and KOL attention that hasn't been priced in yet."
+              xLabel="Social Score"
+              yLabel="Market Cap"
+              formatX={v => v.toFixed(0)}
+              formatY={fmtMcap}
+              xMax100
+              yLog
+              alphaX="right" alphaY="bottom"
+              alphaLabel="Hidden Gem 🔥"
+              overLabel="Overhyped ⚠️"
+            />
+            <Top10List points={socialVsMcap} scoreLabel="Social Score" ratioLabel="Social Buzz per $ MCap" />
+          </BlurGate>
         </div>
 
       </div>

@@ -2,10 +2,12 @@
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { useDashboard } from "@/components/dashboard/DashboardProvider";
 import SubnetDetailPanel from "@/components/dashboard/SubnetDetailPanel";
 import SubnetLogo from "@/components/dashboard/SubnetLogo";
 import { scoreColor, flowColor, formatNum } from "@/lib/formatters";
+import { getTier, canAccessPro } from "@/lib/subscription";
 import type { SubnetScore } from "@/lib/types";
 
 
@@ -32,6 +34,9 @@ const COLUMNS: [keyof SubnetScore, string, string][] = [
 export default function LeaderboardPage() {
   const { leaderboard, taoPrice, scanning, signals, setSelectedSubnet, infoPopup, setInfoPopup } = useDashboard();
   const router = useRouter();
+  const { data: session } = useSession();
+  const tier = getTier(session);
+  const isPro = canAccessPro(tier);
   const [sortCol, setSortCol] = useState<keyof SubnetScore>("composite_score");
   const [sortAsc, setSortAsc] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -48,6 +53,7 @@ export default function LeaderboardPage() {
   const [filtersOpen, setFiltersOpen] = useState(false);
 
   const handleSort = (col: keyof SubnetScore) => {
+    if (!isPro) return; // free users cannot sort
     if (sortCol === col) setSortAsc(!sortAsc);
     else { setSortCol(col); setSortAsc(false); }
   };
@@ -211,7 +217,7 @@ export default function LeaderboardPage() {
                     {COLUMNS.map(([key, label, tooltip]) => (
                       <React.Fragment key={key}>
                         <th
-                          className={`text-right py-2 px-3 font-medium cursor-pointer hover:text-gray-300 transition-colors select-none ${key === "composite_score" ? "text-green-400/80" : ""}`}
+                          className={`text-right py-2 px-3 font-medium transition-colors select-none ${isPro ? "cursor-pointer hover:text-gray-300" : "cursor-not-allowed opacity-60"} ${key === "composite_score" ? "text-green-400/80" : ""}`}
                           onClick={() => handleSort(key)}
                           style={key === "composite_score" ? { background: "rgba(16, 185, 129, 0.06)", borderLeft: "2px solid rgba(16, 185, 129, 0.15)" } : undefined}
                         >
@@ -239,17 +245,18 @@ export default function LeaderboardPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {sortedLeaderboard.map((sub, i) => (
-                    <tr
+                  {sortedLeaderboard.map((sub, i) => {
+                    const isLocked = !isPro && i < 10;
+                    return (<tr
                       key={sub.netuid}
-                      className={`border-b cursor-pointer transition-colors ${
+                      className={`border-b transition-colors ${isLocked ? "blur-sm opacity-40 pointer-events-none select-none" : "cursor-pointer"} ${
                         sub.composite_score >= 80
                           ? "border-green-500/20 bg-green-900/20 hover:bg-green-900/35"
                           : i % 2 === 0
                           ? "border-gray-800/40 bg-gray-900/30 hover:bg-gray-800/50"
                           : "border-gray-800/40 hover:bg-gray-800/50"
                       }`}
-                      onClick={() => router.push(`/subnets/${sub.netuid}`)}
+                      onClick={() => !isLocked && router.push(`/subnets/${sub.netuid}`)}
                     >
                       <td className="py-2 px-3 text-gray-600 text-xs tabular-nums">{i + 1}</td>
                       <td className="py-2 px-3">
@@ -346,8 +353,21 @@ export default function LeaderboardPage() {
                           ? <span className="bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded text-xs font-semibold">{sub.signal_count}</span>
                           : <span className="text-gray-700">—</span>}
                       </td>
+                    </tr>);
+                  })}
+                  {/* Upgrade CTA row for free users */}
+                  {!isPro && (
+                    <tr>
+                      <td colSpan={19} className="py-6 text-center">
+                        <div className="inline-flex flex-col items-center gap-2">
+                          <p className="text-sm text-gray-500">🔒 Top 10 subnets by aGap score are locked</p>
+                          <a href="/subscribe" className="px-5 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-black font-bold rounded-xl text-sm hover:from-green-400 hover:to-emerald-500 transition-all shadow-lg shadow-green-500/20">
+                            Get Full Access — Pro $29/mo →
+                          </a>
+                        </div>
+                      </td>
                     </tr>
-                  ))}
+                  )}
                 </tbody>
               </table>
             </div>

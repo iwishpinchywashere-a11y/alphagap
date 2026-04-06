@@ -1,7 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSession } from "next-auth/react";
 import type { PortfolioData } from "@/lib/types";
+import BlurGate from "@/components/BlurGate";
+import { getTier } from "@/lib/subscription";
 
 // Pure SVG chart — no external deps
 function PortfolioChart({ history }: { history: { date: string; totalValue: number }[] }) {
@@ -68,6 +71,8 @@ function PortfolioChart({ history }: { history: { date: string; totalValue: numb
 }
 
 export default function PerformancePage() {
+  const { data: session } = useSession();
+  const tier = getTier(session);
   const [portfolioData, setPortfolioData] = useState<PortfolioData | null>(null);
   const [portfolioLoading, setPortfolioLoading] = useState(true);
 
@@ -82,6 +87,7 @@ export default function PerformancePage() {
 
   return (
     <main className="flex-1 overflow-auto p-4 md:p-6">
+      <BlurGate tier={tier} required="premium" minHeight="500px">
       <div className="space-y-6">
         <h2 className="text-lg font-bold">Portfolio Performance</h2>
 
@@ -229,6 +235,7 @@ export default function PerformancePage() {
           </>
         )}
       </div>
+      </BlurGate>
     </main>
   );
 }

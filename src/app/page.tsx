@@ -85,18 +85,19 @@ export default function LandingPage() {
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
-              href="/subscribe"
+              href="/auth/signup"
               className="px-8 py-4 bg-gradient-to-r from-green-500 to-emerald-600 text-black font-bold rounded-xl hover:from-green-400 hover:to-emerald-500 transition-all shadow-xl shadow-green-500/25 text-lg"
             >
-              Get Full Access — $19/mo
+              Start for Free →
             </Link>
-            <a
-              href="#how-it-works"
-              className="px-8 py-4 text-gray-400 hover:text-white transition-colors text-lg"
+            <Link
+              href="/subscribe"
+              className="px-8 py-4 border border-green-500/30 text-green-400 hover:border-green-500/60 hover:text-green-300 transition-all rounded-xl text-lg font-medium"
             >
-              How it works ↓
-            </a>
+              See Plans ↓
+            </Link>
           </div>
+          <p className="text-xs text-gray-600 mt-3">Free preview · Pro from $29/mo · Premium from $49/mo</p>
         </div>
       </section>
 
@@ -411,14 +412,22 @@ export default function LandingPage() {
           </h2>
           <p className="text-gray-400 text-lg mb-10 max-w-xl mx-auto">
             Join the traders who see what the market doesn&apos;t.
-            $19/month. Cancel anytime. Updated every scan.
+            Free to start. Pro from $29/mo. Cancel anytime.
           </p>
-          <Link
-            href="/subscribe"
-            className="inline-flex px-10 py-5 bg-gradient-to-r from-green-500 to-emerald-600 text-black font-bold rounded-xl hover:from-green-400 hover:to-emerald-500 transition-all shadow-2xl shadow-green-500/30 text-xl"
-          >
-            Get Full Access — $19/month →
-          </Link>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+            <Link
+              href="/auth/signup"
+              className="inline-flex px-10 py-5 bg-gradient-to-r from-green-500 to-emerald-600 text-black font-bold rounded-xl hover:from-green-400 hover:to-emerald-500 transition-all shadow-2xl shadow-green-500/30 text-xl"
+            >
+              Start for Free →
+            </Link>
+            <Link
+              href="/subscribe"
+              className="inline-flex px-8 py-5 border border-green-500/30 text-green-400 hover:border-green-500/60 transition-all rounded-xl text-lg font-medium"
+            >
+              See Plans
+            </Link>
+          </div>
         </div>
       </section>
 

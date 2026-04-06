@@ -2,13 +2,19 @@
 
 import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { useDashboard } from "@/components/dashboard/DashboardProvider";
 import SubnetDetailPanel from "@/components/dashboard/SubnetDetailPanel";
 import { signalColor, signalIcon, timeAgo, formatMcap } from "@/lib/formatters";
+import BlurGate from "@/components/BlurGate";
+import { getTier, canAccessPro } from "@/lib/subscription";
 
 export default function SignalsPage() {
   const { signals, leaderboard, scanning, setSelectedSubnet } = useDashboard();
   const router = useRouter();
+  const { data: session } = useSession();
+  const tier = getTier(session);
+  const isPro = canAccessPro(tier);
   void setSelectedSubnet;
   const [signalSort, setSignalSort] = useState<"score" | "date">("score");
   const [searchQuery, setSearchQuery] = useState("");
@@ -92,21 +98,24 @@ export default function SignalsPage() {
               <div className="flex items-center gap-2">
                 <span className="text-xs text-gray-500 mr-2">{signals.length} signals</span>
                 <button
-                  onClick={() => setSignalSort("score")}
-                  className={`px-3 py-1 text-xs rounded-full transition-colors ${signalSort === "score" ? "bg-green-600 text-white" : "bg-gray-800 text-gray-400 hover:bg-gray-700"}`}
+                  onClick={() => isPro && setSignalSort("score")}
+                  title={!isPro ? "Upgrade to Pro to sort" : undefined}
+                  className={`px-3 py-1 text-xs rounded-full transition-colors ${signalSort === "score" && isPro ? "bg-green-600 text-white" : "bg-gray-800 text-gray-400"} ${isPro ? "hover:bg-gray-700 cursor-pointer" : "opacity-50 cursor-not-allowed"}`}
                 >
                   🏆 Top Score
                 </button>
                 <button
-                  onClick={() => setSignalSort("date")}
-                  className={`px-3 py-1 text-xs rounded-full transition-colors ${signalSort === "date" ? "bg-green-600 text-white" : "bg-gray-800 text-gray-400 hover:bg-gray-700"}`}
+                  onClick={() => isPro && setSignalSort("date")}
+                  title={!isPro ? "Upgrade to Pro to sort" : undefined}
+                  className={`px-3 py-1 text-xs rounded-full transition-colors ${signalSort === "date" && isPro ? "bg-green-600 text-white" : "bg-gray-800 text-gray-400"} ${isPro ? "hover:bg-gray-700 cursor-pointer" : "opacity-50 cursor-not-allowed"}`}
                 >
                   🕐 Latest
                 </button>
               </div>
             </div>
 
-            {sorted.map((sig) => {
+            {sorted.map((sig, sigIndex) => {
+              const isLocked = !isPro && sigIndex >= 1;
               const lb = leaderboard.find((s) => s.netuid === sig.netuid);
               const mcapStr = formatMcap(lb?.market_cap);
               const agap = lb?.composite_score;
@@ -114,11 +123,11 @@ export default function SignalsPage() {
               return (
                 <div
                   key={`${sig.netuid}-${sig.signal_type}-${(sig.signal_date || sig.created_at || "").slice(0, 10)}`}
-                  className={`bg-gray-900/50 border rounded-lg overflow-hidden transition-colors cursor-pointer ${
+                  className={`relative bg-gray-900/50 border rounded-lg overflow-hidden transition-colors ${isLocked ? "blur-sm opacity-40 pointer-events-none select-none" : "cursor-pointer hover:border-gray-600"} ${
                     sig.strength >= 80 ? "border-green-800/60 signal-hot" :
                     sig.strength >= 50 ? "border-yellow-900/40" : "border-gray-800"
-                  } hover:border-gray-600`}
-                  onClick={() => router.push(`/subnets/${sig.netuid}`)}
+                  }`}
+                  onClick={() => !isLocked && router.push(`/subnets/${sig.netuid}`)}
                 >
                   {/* Header */}
                   <div className={`px-4 py-2.5 flex items-center justify-between ${
@@ -211,6 +220,16 @@ export default function SignalsPage() {
                 </div>
               );
             })}
+
+            {/* Upgrade CTA for free users */}
+            {!isPro && sorted.length > 1 && (
+              <div className="flex flex-col items-center gap-2 py-6 border border-gray-800 rounded-xl bg-gray-900/30">
+                <p className="text-sm text-gray-500">🔒 {sorted.length - 1} more signals locked</p>
+                <a href="/subscribe" className="px-5 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-black font-bold rounded-xl text-sm hover:from-green-400 hover:to-emerald-500 transition-all shadow-lg shadow-green-500/20">
+                  Unlock All Signals — Pro $29/mo →
+                </a>
+              </div>
+            )}
           </div>
         )}
       </div>

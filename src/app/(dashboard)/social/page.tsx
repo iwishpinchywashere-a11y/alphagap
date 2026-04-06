@@ -2,6 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
+import BlurGate from "@/components/BlurGate";
+import { getTier } from "@/lib/subscription";
 
 // ── Types ──────────────────────────────────────────────────────────
 interface HotTweet {
@@ -117,6 +120,8 @@ function StatCard({ label, value, sub }: { label: string; value: string | number
 // ── Page ───────────────────────────────────────────────────────────
 export default function SocialPage() {
   const router = useRouter();
+  const { data: session } = useSession();
+  const tier = getTier(session);
   const [data, setData] = useState<SocialData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -199,6 +204,7 @@ export default function SocialPage() {
             <span className="text-xs text-gray-600">{hotTweets.length} events</span>
           </div>
 
+          <BlurGate tier={tier} required="premium" minHeight="300px">
           {hotTweets.length === 0 ? (
             <div className="p-8 text-center text-gray-600 text-sm">
               No heat events yet. Pulse runs every 10 minutes — check back soon.
@@ -320,6 +326,7 @@ export default function SocialPage() {
               </table>
             </div>
           )}
+          </BlurGate>
         </div>
 
         {/* ── X Leaderboard + Discord Leaderboard ── */}
@@ -331,6 +338,7 @@ export default function SocialPage() {
               <h2 className="font-bold text-white">𝕏 Top Subnets on X</h2>
               <p className="text-xs text-gray-500 mt-0.5">Ranked by social score — includes KOL heat boost</p>
             </div>
+            <BlurGate tier={tier} required="premium" minHeight="200px">
             <div className="divide-y divide-gray-800/60">
               {xLeaderboard.length === 0 ? (
                 <div className="p-6 text-center text-gray-600 text-sm">No X data yet</div>
@@ -366,6 +374,7 @@ export default function SocialPage() {
                 </div>
               ))}
             </div>
+            </BlurGate>
           </div>
 
           {/* Discord Leaderboard */}
@@ -374,6 +383,7 @@ export default function SocialPage() {
               <h2 className="font-bold text-white">💬 Discord Alpha</h2>
               <p className="text-xs text-gray-500 mt-0.5">AI scans every channel — scores quality + quantity of alpha signals</p>
             </div>
+            <BlurGate tier={tier} required="premium" minHeight="200px">
             <div className="divide-y divide-gray-800/60">
               {discordLeaderboard.length === 0 ? (
                 <div className="p-6 text-center text-gray-600 text-sm">No Discord data yet — run /api/discord-scan to populate</div>
@@ -460,6 +470,7 @@ export default function SocialPage() {
                 </div>
               ))}
             </div>
+            </BlurGate>
           </div>
         </div>
 
@@ -469,6 +480,7 @@ export default function SocialPage() {
             <h2 className="font-bold text-white">📡 KOL Radar</h2>
             <p className="text-xs text-gray-500 mt-0.5">Which KOLs have been most active about Bittensor subnets in the last 72h</p>
           </div>
+          <BlurGate tier={tier} required="premium" minHeight="200px">
           {kolRadar.length === 0 ? (
             <div className="p-6 text-center text-gray-600 text-sm">No KOL activity detected yet</div>
           ) : (
@@ -525,6 +537,7 @@ export default function SocialPage() {
               </table>
             </div>
           )}
+          </BlurGate>
         </div>
 
 

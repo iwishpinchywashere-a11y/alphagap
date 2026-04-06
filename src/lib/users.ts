@@ -15,6 +15,7 @@ export interface User {
   subscriptionStatus: "none" | "active" | "canceled" | "past_due" | "trialing";
   subscriptionPeriodEnd?: number; // Unix timestamp
   isAdmin?: boolean;
+  subscriptionTier?: "pro" | "premium";
   createdAt: string;
 }
 

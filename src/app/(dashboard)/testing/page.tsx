@@ -2,8 +2,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
 import type { SubnetScore } from "@/lib/types";
 import type { TrackedPumper } from "@/app/api/testing/route";
+import BlurGate from "@/components/BlurGate";
+import { getTier } from "@/lib/subscription";
 
 // ── Types ─────────────────────────────────────────────────────────────────
 
@@ -1023,6 +1026,8 @@ function AutopsyCard({ autopsy, onRemove }: { autopsy: Autopsy; onRemove: () => 
 // ── Main page ──────────────────────────────────────────────────────────────
 
 export default function TestingPage() {
+  const { data: session } = useSession();
+  const tier = getTier(session);
   const [autopsies, setAutopsies] = useState<Autopsy[]>([]);
   const [autoDetected, setAutoDetected] = useState<TrackedPumper[]>([]);
   const [addModal, setAddModal] = useState(false);
@@ -1245,6 +1250,7 @@ export default function TestingPage() {
 
   return (
     <div className="min-h-screen bg-[#0a0a0f] text-white">
+      <BlurGate tier={tier} required="premium" minHeight="500px">
       <div className="max-w-screen-xl mx-auto px-4 md:px-6 py-8 space-y-8">
 
         {/* Page header */}
@@ -1386,6 +1392,7 @@ export default function TestingPage() {
           </div>
         )}
       </div>
+      </BlurGate>
     </div>
   );
 }

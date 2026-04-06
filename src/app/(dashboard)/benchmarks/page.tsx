@@ -2,8 +2,11 @@
 // v2
 import { useState } from "react";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
 import SubnetLogo from "@/components/dashboard/SubnetLogo";
 import { BENCHMARK_DATA, type BenchmarkEntry } from "@/lib/benchmarks";
+import BlurGate from "@/components/BlurGate";
+import { getTier, canAccessPremium } from "@/lib/subscription";
 
 function formatRevenue(usd: number): string {
   if (usd === 0) return "Pre-revenue";
@@ -32,6 +35,9 @@ function CostBadge({ pct }: { pct: number }) {
 const CATEGORIES = ["All", ...Array.from(new Set(BENCHMARK_DATA.map(b => b.benchmark_category))).sort()];
 
 export default function BenchmarksPage() {
+  const { data: session } = useSession();
+  const tier = getTier(session);
+  const isPremium = canAccessPremium(tier);
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [sortBy, setSortBy] = useState<"benchmark_score" | "cost_saving_pct" | "annual_revenue_usd">("benchmark_score");
@@ -119,6 +125,7 @@ export default function BenchmarksPage() {
       {/* Main table */}
       <div className="space-y-2">
         {filtered.map((b, i) => (
+          i === 0 || isPremium ? (
           <div key={b.subnet_id} className="bg-gray-900/60 border border-gray-800 rounded-xl overflow-hidden hover:border-gray-700 transition-colors">
             {/* Main row */}
             <div
@@ -241,6 +248,28 @@ export default function BenchmarksPage() {
               </div>
             )}
           </div>
+          ) : (
+            <BlurGate key={b.subnet_id} tier={tier} required="premium" minHeight="200px">
+              <div className="bg-gray-900/60 border border-gray-800 rounded-xl overflow-hidden">
+                <div className="flex items-center gap-3 p-4">
+                  <span className="text-gray-600 text-sm tabular-nums w-5 text-center flex-shrink-0">{i + 1}</span>
+                  <div className="flex-shrink-0">
+                    <SubnetLogo netuid={b.subnet_id} name={b.subnet_name} size={28} />
+                  </div>
+                  <div className="flex-1 min-w-0 md:flex-none md:w-44 lg:w-56">
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-bold text-white truncate">{b.subnet_name}</span>
+                      <span className="text-[10px] text-gray-600 font-mono flex-shrink-0">SN{b.subnet_id}</span>
+                    </div>
+                    <div className="text-[10px] text-gray-500 mt-0.5 truncate">{b.benchmark_category}</div>
+                  </div>
+                  <div className="flex-shrink-0 ml-auto">
+                    <BenchBadge score={b.benchmark_score} />
+                  </div>
+                </div>
+              </div>
+            </BlurGate>
+          )
         ))}
       </div>
 

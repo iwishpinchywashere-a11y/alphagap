@@ -40,6 +40,8 @@ export const authOptions: NextAuthOptions = {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         token.subscriptionStatus = (user as any).subscriptionStatus ?? "none";
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        token.subscriptionTier = (user as any).subscriptionTier ?? null;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         token.isAdmin = (user as any).isAdmin ?? emailIsAdmin(user.email) ?? false;
       }
       // Refresh subscription status on each session check
@@ -47,6 +49,7 @@ export const authOptions: NextAuthOptions = {
         const fresh = await getUserByEmail(token.email as string);
         if (fresh) {
           token.subscriptionStatus = fresh.subscriptionStatus;
+          token.subscriptionTier = fresh.subscriptionTier ?? null;
           token.isAdmin = (fresh.isAdmin ?? false) || emailIsAdmin(token.email as string);
         }
       }
@@ -60,6 +63,8 @@ export const authOptions: NextAuthOptions = {
       if (session.user) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (session.user as any).subscriptionStatus = token.subscriptionStatus ?? "none";
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (session.user as any).subscriptionTier = token.subscriptionTier ?? null;
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (session.user as any).isAdmin = token.isAdmin ?? false;
         // eslint-disable-next-line @typescript-eslint/no-explicit-any

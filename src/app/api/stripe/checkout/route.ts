@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { getStripe, PLAN } from "@/lib/stripe-client";
+import { getStripe, PLANS, type PlanKey } from "@/lib/stripe-client";
 import { getUserByEmail, setStripeCustomerLookup, updateUser } from "@/lib/users";
 
 export const dynamic = "force-dynamic";
@@ -13,6 +13,10 @@ export async function POST(req: Request) {
   }
 
   try {
+    const body = await req.json().catch(() => ({}));
+    const planKey: PlanKey = body.plan === "premium" ? "premium" : "pro";
+    const plan = PLANS[planKey];
+
     const stripe = getStripe();
     const user = await getUserByEmail(session.user.email);
     if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
@@ -45,14 +49,14 @@ export async function POST(req: Request) {
       mode: "subscription",
       line_items: [{
         price_data: {
-          currency: PLAN.currency,
+          currency: plan.currency,
           product_data: {
-            name: PLAN.name,
-            description: PLAN.description,
+            name: plan.name,
+            description: plan.description,
             images: [`${baseUrl}/alphagap_logo_dark.svg`],
           },
-          recurring: { interval: PLAN.interval },
-          unit_amount: PLAN.amount,
+          recurring: { interval: plan.interval },
+          unit_amount: plan.amount,
         },
         quantity: 1,
       }],
@@ -60,7 +64,7 @@ export async function POST(req: Request) {
       cancel_url: `${baseUrl}/subscribe?canceled=true`,
       allow_promotion_codes: true,
       subscription_data: {
-        metadata: { userEmail: user.email, userId: user.id },
+        metadata: { userEmail: user.email, userId: user.id, plan: planKey },
       },
     });
 
