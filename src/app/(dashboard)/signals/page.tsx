@@ -223,7 +223,7 @@ export default function SignalsPage() {
                   <div className="flex flex-col items-center gap-2 py-6 border border-gray-800 rounded-xl bg-gray-900/30">
                     <p className="text-sm text-gray-500">🔒 {sorted.length - 3} more signals locked</p>
                     <a href="/pricing" className="px-7 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-black font-bold rounded-xl text-base hover:from-green-400 hover:to-emerald-500 transition-all shadow-xl shadow-green-500/25">
-                      Get Full Access →
+                      Get Access →
                     </a>
                   </div>
                 )}

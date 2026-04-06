@@ -36,7 +36,7 @@ export default function BlurGate({
 
   const buttonLabel =
     label ??
-    (required === "premium" ? "Upgrade to Premium →" : "Get Full Access →");
+    (required === "premium" ? "Upgrade to Premium →" : "Get Access →");
 
   const subLabel =
     required === "premium"
