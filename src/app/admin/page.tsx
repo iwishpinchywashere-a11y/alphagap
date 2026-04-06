@@ -125,8 +125,8 @@ export default function AdminPage() {
           {[
             { label: "Total Users", value: users.length },
             { label: "Active Subs", value: active },
-            { label: "MRR", value: stats ? `$${stats.mrr.toFixed(0)}` : "—" },
-            { label: "Total Revenue", value: stats ? `$${stats.totalRevenue.toFixed(0)}` : "—" },
+            { label: "MRR", value: stats?.mrr != null ? `$${stats.mrr.toFixed(0)}` : "—" },
+            { label: "Total Revenue", value: stats?.totalRevenue != null ? `$${stats.totalRevenue.toFixed(0)}` : "—" },
           ].map(s => (
             <div key={s.label} className="bg-gray-900/60 border border-gray-800 rounded-xl p-4">
               <div className="text-xs text-gray-500 mb-1">{s.label}</div>
