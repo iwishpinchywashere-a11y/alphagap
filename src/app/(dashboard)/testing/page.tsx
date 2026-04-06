@@ -136,6 +136,32 @@ function buildFindings(
   const pre14 = getWindow(scores, pumpEvent.startDate, 14);
   const pre7  = getWindow(scores, pumpEvent.startDate, 7);
 
+  // ── AlphaGap Composite Score ──────────────────────────────────────
+  // This is the #1 signal: if AlphaGap's own score was high before the pump,
+  // that means our algo detected it. Check current scores + recent scoreHistory.
+  const agapNow = current?.composite_score ?? 0;
+  // Look at scores just before the pump — or fall back to current score
+  const prePumpScores = pre7.length > 0 ? pre7 : pre14;
+  const agapAtPump = prePumpScores.length > 0
+    ? prePumpScores[prePumpScores.length - 1].agap
+    : agapNow;
+  const effectiveAgap = Math.max(agapAtPump, agapNow);
+  const agapFired = effectiveAgap >= 65;
+  findings.push({
+    icon: "🎯",
+    label: "AlphaGap Score (Primary Signal)",
+    detail: effectiveAgap >= 80
+      ? `aGap score was ${effectiveAgap}/100 before the pump — top-tier rating. AlphaGap actively flagged this subnet as HIGH VALUE. Sub-scores → Dev: ${current?.dev_score ?? "?"}, Social: ${current?.social_score ?? "?"}, Product: ${current?.product_score ?? "?"}`
+      : effectiveAgap >= 65
+      ? `aGap score was ${effectiveAgap}/100 going into the pump — above-average signal. AlphaGap detected meaningful activity on this subnet.`
+      : effectiveAgap > 0
+      ? `aGap score was ${effectiveAgap}/100 at pump time — below threshold for a strong call. Pump may have been external catalyst.`
+      : "No aGap score data available for the pre-pump window.",
+    strength: effectiveAgap >= 80 ? "strong" : effectiveAgap >= 65 ? "moderate" : "weak",
+    daysBeforePump: prePumpScores.length > 0 ? Math.min(7, prePumpScores.length) : 0,
+    fired: agapFired,
+  });
+
   // ── Dev spike ──────────────────────────────────────────────────────
   const devTrend14 = trend(pre14.map((s) => s.dev));
   const devTrend7  = trend(pre7.map((s) => s.dev));
@@ -292,7 +318,14 @@ function buildNarrative(
 
   let narrative = `${name} pumped ${gainStr} over 7 days, starting ${daysAgoStr}. `;
 
-  if (strongSignals.length > 0) {
+  // If AlphaGap score was the primary signal, lead with that
+  const agapFinding = findings.find(f => f.label.includes("AlphaGap Score") && f.fired);
+  if (agapFinding && current?.composite_score != null && current.composite_score >= 65) {
+    narrative += `AlphaGap's composite score was ${current.composite_score}/100 — our algorithm was actively flagging this subnet as high-value before the move. `;
+    if (strongSignals.length > 1) {
+      narrative += `Combined with ${strongSignals.filter(s => !s.includes("AlphaGap")).join(" and ")}, the signal stack was strong. `;
+    }
+  } else if (strongSignals.length > 0) {
     narrative += `The strongest pre-pump indicators were ${strongSignals.join(" and ")}. `;
   } else if (firedSignals.length > 0) {
     narrative += `Pre-pump signals included ${firedSignals.slice(0, 3).join(", ")}. `;
@@ -1049,7 +1082,8 @@ export default function TestingPage() {
       }
       setAutoDetected(autoAdded); // just track what was newly added this session
 
-      // 3) Initialise autopsy stubs
+      // 3) Initialise autopsy stubs — sort newest first
+      tracked.sort((a, b) => new Date(b.added_at).getTime() - new Date(a.added_at).getTime());
       const stubs: Autopsy[] = tracked.map((p) => {
         const current = p.netuid != null
           ? leaderboard.find((s) => s.netuid === p.netuid) ?? resolveName(p, leaderboard)
@@ -1088,42 +1122,32 @@ export default function TestingPage() {
 
           setAutopsies((prev) =>
             prev.map((a, idx) =>
-              idx === i ? { ...a, detail, pumpEvent, findings, narrative, loading: false, researchLoading: !!pumpEvent } : a
+              idx === i ? { ...a, detail, pumpEvent, findings, narrative, loading: false, researchLoading: true } : a
             )
           );
 
-          // Kick off retroactive research if we found a pump event
-          if (pumpEvent && detail.identity?.github_repo) {
+          // Always kick off retroactive research — even without a pump event,
+          // show what AlphaGap signals were firing for this subnet
+          {
             try {
+              // Pass current AlphaGap scores so research route can identify what we predicted
+              const currentScores = stub.current ? {
+                composite_score: stub.current.composite_score,
+                dev_score: stub.current.dev_score,
+                social_score: stub.current.social_score,
+                product_score: stub.current.product_score,
+                emission_pct: stub.current.emission_pct ?? 0,
+              } : undefined;
+
               const rRes = await fetch("/api/testing/research", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                   netuid,
-                  github_repo: detail.identity.github_repo,
+                  github_repo: detail.identity?.github_repo,
                   pump_start_date: pumpEvent.startDate,
+                  current_scores: currentScores,
                 }),
-              });
-              const research: ResearchResult = await rRes.json();
-              setAutopsies((prev) =>
-                prev.map((a, idx) =>
-                  idx === i ? { ...a, research, researchLoading: false } : a
-                )
-              );
-            } catch {
-              setAutopsies((prev) =>
-                prev.map((a, idx) =>
-                  idx === i ? { ...a, researchLoading: false } : a
-                )
-              );
-            }
-          } else if (pumpEvent) {
-            // No GitHub repo — still do emission research
-            try {
-              const rRes = await fetch("/api/testing/research", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ netuid, pump_start_date: pumpEvent.startDate }),
               });
               const research: ResearchResult = await rRes.json();
               setAutopsies((prev) =>

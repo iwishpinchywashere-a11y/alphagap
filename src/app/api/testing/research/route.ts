@@ -291,6 +291,95 @@ async function researchEmission(
   }
 }
 
+// ── AlphaGap signal research from scan-latest.json ────────────────────────
+
+async function researchAlphaGapSignal(
+  netuid: number,
+  currentScores?: { composite_score?: number; dev_score?: number; social_score?: number; product_score?: number; emission_pct?: number }
+): Promise<string[]> {
+  const findings: string[] = [];
+
+  // Try to pull live data from scan blob if no scores passed
+  let scores = currentScores;
+  if (!scores || scores.composite_score == null) {
+    try {
+      const token = process.env.BLOB_READ_WRITE_TOKEN || "";
+      if (token) {
+        const { get: blobGet } = await import("@vercel/blob");
+        const blob = await blobGet("scan-latest.json", { token, access: "private" });
+        if (blob?.stream) {
+          const reader = blob.stream.getReader();
+          const chunks: Uint8Array[] = [];
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            chunks.push(value);
+          }
+          const scan = JSON.parse(Buffer.concat(chunks).toString("utf-8"));
+          const entry = (scan.leaderboard ?? []).find((e: { netuid: number }) => e.netuid === netuid);
+          if (entry) {
+            scores = {
+              composite_score: entry.composite_score,
+              dev_score: entry.dev_score,
+              social_score: entry.social_score,
+              product_score: entry.product_score,
+              emission_pct: entry.emission_pct,
+            };
+          }
+        }
+      }
+    } catch { /* best-effort */ }
+  }
+
+  if (!scores || scores.composite_score == null) {
+    findings.push("⚠️ No AlphaGap score data available — subnet may not be in the scan leaderboard");
+    return findings;
+  }
+
+  const { composite_score = 0, dev_score = 0, social_score = 0, product_score = 0, emission_pct = 0 } = scores;
+
+  if (composite_score >= 80) {
+    findings.push(`🎯 AlphaGap STRONG SIGNAL: Composite score was ${composite_score}/100 (top-tier). Our algorithm correctly identified this as a high-value subnet BEFORE the pump. This is the primary prediction signal.`);
+  } else if (composite_score >= 65) {
+    findings.push(`🎯 AlphaGap MODERATE SIGNAL: Composite score was ${composite_score}/100 — above-average rating that flagged meaningful activity before the pump.`);
+  } else if (composite_score >= 45) {
+    findings.push(`📊 AlphaGap score was ${composite_score}/100 at the time — mid-tier, pump may have been partially externally driven.`);
+  } else {
+    findings.push(`📊 AlphaGap score was ${composite_score}/100 — below signal threshold. This pump was likely driven by factors outside what AlphaGap currently measures.`);
+  }
+
+  // Sub-score breakdown
+  const breakdown: string[] = [];
+  if (dev_score >= 70) breakdown.push(`Dev ${dev_score} 🔥`);
+  else if (dev_score >= 50) breakdown.push(`Dev ${dev_score} 📈`);
+  else breakdown.push(`Dev ${dev_score}`);
+
+  if (social_score >= 70) breakdown.push(`Social ${social_score} 🔥`);
+  else if (social_score >= 50) breakdown.push(`Social ${social_score} 📈`);
+  else breakdown.push(`Social ${social_score}`);
+
+  if (product_score >= 70) breakdown.push(`Product ${product_score} 🔥`);
+  else if (product_score >= 50) breakdown.push(`Product ${product_score} 📈`);
+  else breakdown.push(`Product ${product_score}`);
+
+  if (emission_pct > 0) breakdown.push(`Em% ${(emission_pct * 100).toFixed(3)}%`);
+
+  findings.push(`📋 Sub-score breakdown: ${breakdown.join(" · ")}`);
+
+  // What drove the score
+  const drivers: string[] = [];
+  if (dev_score >= 70) drivers.push("strong developer activity");
+  if (social_score >= 70) drivers.push("elevated social/KOL buzz");
+  if (product_score >= 80) drivers.push("confirmed benchmarked product (beating centralized AI providers)");
+  else if (product_score >= 60) drivers.push("live product with verifiable traction");
+
+  if (drivers.length > 0) {
+    findings.push(`✅ Key drivers behind the high score: ${drivers.join(", ")}.`);
+  }
+
+  return findings;
+}
+
 // ── Route handler ──────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
@@ -298,19 +387,31 @@ export async function POST(req: NextRequest) {
     netuid: number;
     github_repo?: string;
     pump_start_date: string;
+    // Optional: pass current AlphaGap scores from client to avoid re-fetching blob
+    current_scores?: {
+      composite_score?: number;
+      dev_score?: number;
+      social_score?: number;
+      product_score?: number;
+      emission_pct?: number;
+    };
   };
 
-  const { netuid, github_repo, pump_start_date } = body;
+  const { netuid, github_repo, pump_start_date, current_scores } = body;
   if (!netuid || !pump_start_date) {
     return NextResponse.json({ error: "netuid and pump_start_date required" }, { status: 400 });
   }
 
-  const [github, emission] = await Promise.all([
+  const [github, emission, agapFindings] = await Promise.all([
     github_repo ? researchGitHub(github_repo, pump_start_date) : Promise.resolve(null),
     researchEmission(netuid, pump_start_date),
+    researchAlphaGapSignal(netuid, current_scores),
   ]);
 
   const overallFindings: string[] = [];
+
+  // Lead with AlphaGap's own signal — this is the most important finding
+  overallFindings.push(...agapFindings);
 
   if (github) {
     overallFindings.push(github.finding);
@@ -320,7 +421,7 @@ export async function POST(req: NextRequest) {
   } else if (github_repo) {
     overallFindings.push("GitHub repo found but no commit data available (may be private)");
   } else {
-    overallFindings.push("No GitHub repo linked — can't analyze dev activity retroactively");
+    overallFindings.push("No GitHub repo linked — GitHub dev activity can't be analyzed retroactively");
   }
 
   if (emission) {
