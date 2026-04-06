@@ -988,34 +988,35 @@ HEADLINE: [8 words max. What they actually built/shipped. Concrete, specific, no
 [Your boldest, most direct investment call. Is the market sleeping on this? Is this priced in or not? Be opinionated.]
 
 HOW TO SCORE — the score is INVESTMENT SIGNAL STRENGTH: (dev quality) × (market opportunity).
-Use the FULL range 1–100. Most signals should land between 15–85. Avoid clustering near 65-72 — that range is reserved for genuinely notable work, not average days.
+Use the FULL range 1–100. Be aggressive — a great signal deserves 80, 85, 90. A bad signal deserves 10.
 
-DEV QUALITY tiers (be honest, most days are NOT "Meaningful"):
+DEV QUALITY tiers:
 - Noise (1–15): version bumps, dep updates, CI fixes, README edits, typos, linting
 - Routine (16–30): small bug fixes, minor config changes, test additions, solo-contributor chores
 - Incremental (31–50): small features, refactors with purpose, moderate PRs, consistent team activity
-- Meaningful (51–68): real new capability, new API endpoint, protocol improvement, multi-contributor sprint
-- Significant (69–82): major feature launch, new model shipped, protocol upgrade, public release
+- Meaningful (51–65): real new capability, new API endpoint, protocol improvement, multi-contributor sprint
+- Significant (66–82): major feature launch, new model shipped, protocol upgrade, public release, important bugfix
 - Extraordinary (83–100): paradigm shift, breakthrough capability, first-ever feature in category, massive release
 
 MARKET OPPORTUNITY — adjust UP or DOWN based on context:
 - Small mcap ($1M–$10M) building hard, token flat/down → undervaluation signal, +10 to +20
 - Medium mcap ($10M–$50M) meaningful dev, token flat → worth noting, +5 to +10
 - Large mcap ($50M+) routine commits → likely priced in already, −5 to −15
-- Token down 10%+ while team ships hard → market sleeping, +10 to +15
-- Token up 20%+ today → already reflected, −5 to −10
-- 5+ unique contributors in one day → team is serious, +5
+- Token down 10%+ while team ships hard → market sleeping on this, +10 to +15
+- Token up 20%+ today → already reflected in price, −5 to −10
+- 3+ unique contributors in one day → team is serious, +5
 
-CALIBRATION EXAMPLES (spread across the full range):
+CALIBRATION EXAMPLES (use these as anchors — don't be afraid to match them):
 - Bumped 3 npm deps + CI fix at $80M mcap: 8
 - Fixed a race condition bug, one contributor at $5M mcap: 22
 - Added unit tests + refactored auth module, token flat at $12M: 38
-- Shipped new inference endpoint + 3 PRs merged at $8M, token down 5%: 58
-- Released new validator protocol with 7 contributors at $15M, token flat: 74
-- Launched v2.0 with new architecture + public release, $20M mcap, token down 12%: 87
+- Shipped new inference endpoint + 3 PRs merged at $8M, token down 5%: 62
+- Shipped new API endpoint + improved accuracy, $5M mcap, token flat: 72
+- Released new validator protocol with 3+ contributors at $15M, token flat: 80
+- Launched v2.0 with new architecture + public release, $20M mcap, token down 12%: 90
 - First-ever real-time video generation model on Bittensor, $3M mcap, completely undiscovered: 97
 
-IMPORTANT: If you find yourself about to write a score between 62–72, ask yourself — is this ACTUALLY notable, or is it just average work? Average work = 35–50. Reserve 62–72 for genuinely good feature shipping.
+BE DECISIVE. If it's a real feature shipped by a real team, score it 70+. If it's a major release or capability leap, score it 80+. Don't self-censor. The leaderboard is useless if every signal clusters between 55–70.
 
 Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete sentence.`;
 
@@ -1086,7 +1087,7 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
     if (ctx.act.prs_merged_1d >= 5) s += 15;
     else if (ctx.act.prs_merged_1d >= 3) s += 10;
     else if (ctx.act.prs_merged_1d >= 1) s += 5;
-    return Math.min(72, s); // cap fallback at 72 — AI must judge higher scores
+    return Math.min(85, s); // fallback cap — AI can push higher with full context
   }
 
   // Try AI analysis for as many signals as time allows
