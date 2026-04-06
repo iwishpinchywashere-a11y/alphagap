@@ -488,6 +488,7 @@ export async function GET() {
     43:  "GraphiteSubnet",  // Graphite
     44:  "webuildscore",    // Score (SN44)
     46:  "resilabsai",      // RESI
+    48:  "qBitTensorLabs",  // qBitTensor (SN48)
     50:  "SynthdataCo",     // Synth
     51:  "lium_io",         // lium.io
     54:  "yanez__ai",       // Yanez MIID
@@ -496,6 +497,7 @@ export async function GET() {
     59:  "babelbit",        // Babelbit
     60:  "bitsecai",        // Bitsec.ai
     61:  "_redteam_",       // RedTeam
+    63:  "qBitTensorLabs",  // qBitTensor (SN63)
     62:  "ridges_ai",       // Ridges
     64:  "chutes_ai",       // Chutes
     65:  "TPN_Labs",        // TAO Private Network
@@ -509,7 +511,7 @@ export async function GET() {
     88:  "Investing88ai",   // Investing (SN88)
     91:  "bitstarterAI",    // Bitstarter #1
     93:  "Bitcast_network", // Bitcast
-    97:  "DistStateAndMe",  // distil (Distributed State)
+    97:  "arbos_born",       // distil / Arbo (SN97) — DistStateAndMe founder still tracked via KOL tier-2
     121: "sundaebar_ai",    // sundae_bar
     122: "Bitrecs",         // Bitrecs
     124: "SwarmSubnet",     // Swarm
