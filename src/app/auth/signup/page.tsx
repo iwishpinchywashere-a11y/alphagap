@@ -2,19 +2,19 @@
 
 import { Suspense, useState } from "react";
 import { signIn } from "next-auth/react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Turnstile } from "@marsidev/react-turnstile";
 
 const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
 
 function SignUpForm() {
-  const router = useRouter();
   const params = useSearchParams();
   const plan = (params.get("plan") === "premium" ? "premium" : "pro") as "pro" | "premium";
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState("");
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [error, setError] = useState("");
@@ -29,7 +29,6 @@ function SignUpForm() {
       return;
     }
 
-    // If Turnstile is configured but hasn't been solved yet
     if (TURNSTILE_SITE_KEY && !turnstileToken) {
       setError("Please complete the CAPTCHA check");
       return;
@@ -51,28 +50,21 @@ function SignUpForm() {
       const data = await res.json();
       if (!res.ok) {
         setError(data.error || "Failed to create account");
+        setLoading(false);
         return;
       }
 
-      // 2. Sign in automatically
-      const signInRes = await signIn("credentials", {
+      // 2. Sign in with redirect — NextAuth sets the session cookie server-side
+      //    and then redirects the browser to the callbackUrl, guaranteeing the
+      //    cookie is present before the checkout endpoint is hit.
+      await signIn("credentials", {
         email: email.toLowerCase().trim(),
         password,
-        redirect: false,
+        callbackUrl: `/api/stripe/checkout-redirect?plan=${plan}`,
       });
-      if (signInRes?.error) {
-        setError("Account created but sign-in failed. Please sign in manually.");
-        router.push("/auth/signin");
-        return;
-      }
-
-      // 3. Navigate to Stripe checkout — full browser navigation so the
-      //    session cookie is guaranteed to be sent (avoids race condition
-      //    with fetch immediately after signIn).
-      window.location.href = `/api/stripe/checkout-redirect?plan=${plan}`;
+      // Page navigates away on success; stay loading if somehow still here
     } catch {
       setError("Something went wrong. Please try again.");
-    } finally {
       setLoading(false);
     }
   }
@@ -132,16 +124,35 @@ function SignUpForm() {
 
           <div>
             <label className="block text-xs font-medium text-gray-400 mb-1.5">Password</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              minLength={8}
-              autoComplete="new-password"
-              placeholder="Min. 8 characters"
-              className="w-full bg-gray-800/60 border border-gray-700 rounded-lg px-3.5 py-2.5 text-sm text-gray-100 placeholder-gray-600 focus:outline-none focus:border-green-600 focus:ring-1 focus:ring-green-600/30 transition-colors"
-            />
+            <div className="relative">
+              <input
+                type={showPassword ? "text" : "password"}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                minLength={8}
+                autoComplete="new-password"
+                placeholder="Min. 8 characters"
+                className="w-full bg-gray-800/60 border border-gray-700 rounded-lg px-3.5 py-2.5 pr-10 text-sm text-gray-100 placeholder-gray-600 focus:outline-none focus:border-green-600 focus:ring-1 focus:ring-green-600/30 transition-colors"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(v => !v)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 transition-colors"
+                tabIndex={-1}
+              >
+                {showPassword ? (
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 4.411m0 0L21 21" />
+                  </svg>
+                ) : (
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                  </svg>
+                )}
+              </button>
+            </div>
           </div>
 
           {/* Cloudflare Turnstile — only renders when NEXT_PUBLIC_TURNSTILE_SITE_KEY is set */}
