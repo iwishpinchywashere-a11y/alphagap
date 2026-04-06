@@ -1145,7 +1145,7 @@ export default function TestingPage() {
                 body: JSON.stringify({
                   netuid,
                   github_repo: detail.identity?.github_repo,
-                  pump_start_date: pumpEvent.startDate,
+                  pump_start_date: pumpEvent?.startDate,
                   current_scores: currentScores,
                 }),
               });
