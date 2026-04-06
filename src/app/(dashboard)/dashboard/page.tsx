@@ -27,6 +27,8 @@ function SparkLine({ prices }: { prices: number[] }) {
 
 const COLUMNS: [keyof SubnetScore, string, string][] = [
   ["composite_score", "aGap", "Alpha Gap Score (0-100). The core metric. Finds subnets building quality work where the price hasn't caught up yet. Formula: Dev quality (50pts) + Price lag across 24h/7d/30d (30pts) + Social gap (15pts) + Emission value gap (15pts) - Market cap penalty."],
+  ["score_change_24h", "aGap 24H", "Change in aGap score over the last 24 hours. Green = score rising, Red = score falling."],
+  ["score_change_7d", "aGap 7D", "Change in aGap score over the last 7 days. Tracks momentum in our core intelligence signal."],
   ["flow_score", "Flow", "Flow & Momentum (0-100). Combines price momentum across 24h, 7d, and 30d timeframes, whale activity, and reversal bonuses."],
   ["dev_score", "Dev", "Development Score (0-100). Measures actual GitHub + HuggingFace activity quality based on commits, PRs, contributors, and AI models published."],
   ["eval_score", "eVal", "Emissions-to-Valuation (0-100). Finds the gap between what the network pays a subnet (emissions) vs what the market values it (market cap). Also factors in the validator/miner ratio — subnets with balanced, healthy node composition score higher."],
@@ -283,6 +285,17 @@ export default function LeaderboardPage() {
                         style={{ background: "rgba(16, 185, 129, 0.06)", borderLeft: "2px solid rgba(16, 185, 129, 0.15)" }}>
                         {sub.composite_score}
                       </td>
+                      {(["score_change_24h", "score_change_7d"] as const).map((col) => (
+                        <td key={col} className={`py-2 px-3 text-right font-medium tabular-nums text-xs ${
+                          sub[col] == null ? "text-gray-700" :
+                          (sub[col] as number) > 0 ? "text-green-400" :
+                          (sub[col] as number) < 0 ? "text-red-400" : "text-gray-500"
+                        }`}>
+                          {sub[col] != null
+                            ? `${(sub[col] as number) > 0 ? "+" : ""}${(sub[col] as number).toFixed(1)}`
+                            : "\u2014"}
+                        </td>
+                      ))}
                       <td className={`py-2 px-3 text-right font-semibold tabular-nums ${scoreColor(sub.flow_score)}`}>
                         {sub.whale_signal === "accumulating" && <span title={`Whale accumulation (${sub.whale_ratio}x)`} className="mr-0.5 text-xs">🐋</span>}
                         {sub.whale_signal === "distributing" && <span title={`Whale distribution (${sub.whale_ratio}x)`} className="mr-0.5 text-xs opacity-50">🔻</span>}

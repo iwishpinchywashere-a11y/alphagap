@@ -88,4 +88,6 @@ export interface SubnetScore {
   benchmark_summary?: string;    // human-readable benchmark findings
   annual_revenue_usd?: number;   // estimated annual revenue
   momentum_boost?: number;       // MOMENTUM pillar score (signed, ±15 max)
+  score_change_24h?: number;     // aGap score change vs ~24h ago snapshot
+  score_change_7d?: number;      // aGap score change vs ~7d ago snapshot
 }

@@ -270,6 +270,8 @@ interface LeaderboardEntry {
   benchmark_summary?: string;
   annual_revenue_usd?: number;
   momentum_boost?: number;       // signed MOMENTUM pillar contribution (±15 max)
+  score_change_24h?: number;     // aGap score change vs ~24h ago snapshot
+  score_change_7d?: number;      // aGap score change vs ~7d ago snapshot
 }
 
 // ── Stitch3 campaign data (cached in Vercel Blob) ────────────────
@@ -2586,6 +2588,40 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
           scoreHistory = JSON.parse(Buffer.concat(chunks).toString("utf-8"));
         }
       } catch { /* start fresh */ }
+
+      // ── Compute 24h and 7d aGap score changes ──────────────────────
+      // Find the snapshot closest to 24h ago and 7d ago, then diff with current score.
+      const now24 = Date.now();
+      const target24h = now24 - 24 * 3600 * 1000;
+      const target7d  = now24 - 7 * 24 * 3600 * 1000;
+      const allTs = Object.keys(scoreHistory).sort(); // ascending ISO strings sort correctly
+
+      // Find the timestamp closest to a target epoch
+      function closestSnapshot(targetMs: number): Record<string, ScoreRow> | null {
+        if (allTs.length === 0) return null;
+        let best = allTs[0];
+        let bestDiff = Math.abs(new Date(allTs[0]).getTime() - targetMs);
+        for (const ts of allTs) {
+          const diff = Math.abs(new Date(ts).getTime() - targetMs);
+          if (diff < bestDiff) { best = ts; bestDiff = diff; }
+        }
+        // Only use if within ±6h window of target
+        if (bestDiff > 6 * 3600 * 1000) return null;
+        return scoreHistory[best];
+      }
+
+      const snap24h = closestSnapshot(target24h);
+      const snap7d  = closestSnapshot(target7d);
+
+      for (const entry of leaderboard) {
+        const key = String(entry.netuid);
+        if (snap24h && snap24h[key] != null) {
+          entry.score_change_24h = Math.round((entry.composite_score - snap24h[key].agap) * 10) / 10;
+        }
+        if (snap7d && snap7d[key] != null) {
+          entry.score_change_7d = Math.round((entry.composite_score - snap7d[key].agap) * 10) / 10;
+        }
+      }
 
       // Use full ISO timestamp so every scan writes its own entry (enables intraday charts)
       const scanTs = new Date().toISOString(); // e.g. "2024-01-15T14:30:00.000Z"
