@@ -36,6 +36,7 @@ export default function AdminPage() {
   const [actionEmail, setActionEmail] = useState("");
   const [actionMsg, setActionMsg] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
+  const [filter, setFilter] = useState<"all" | "pro" | "premium">("all");
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const isAdmin = (session?.user as any)?.isAdmin ||
@@ -104,6 +105,14 @@ export default function AdminPage() {
   }
 
   const active = users.filter(u => u.subscriptionStatus === "active" || u.subscriptionStatus === "trialing").length;
+  const proCount = users.filter(u => (u.subscriptionStatus === "active" || u.subscriptionStatus === "trialing") && (u as any).subscriptionTier !== "premium").length;
+  const premiumCount = users.filter(u => (u.subscriptionStatus === "active" || u.subscriptionStatus === "trialing") && (u as any).subscriptionTier === "premium").length;
+
+  const filteredUsers = users.filter(u => {
+    if (filter === "pro") return (u.subscriptionStatus === "active" || u.subscriptionStatus === "trialing") && (u as any).subscriptionTier !== "premium";
+    if (filter === "premium") return (u.subscriptionStatus === "active" || u.subscriptionStatus === "trialing") && (u as any).subscriptionTier === "premium";
+    return true;
+  });
 
   return (
     <div className="min-h-screen bg-[#0a0a0f] px-4 py-8">
@@ -180,12 +189,33 @@ export default function AdminPage() {
 
         {/* User List */}
         <div className="bg-gray-900/60 border border-gray-800 rounded-2xl overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-800 flex items-center justify-between">
-            <h2 className="font-semibold text-white">All Users ({users.length})</h2>
+          <div className="px-6 py-4 border-b border-gray-800 flex items-center gap-3 flex-wrap">
+            {([
+              { key: "all", label: "All Users", count: users.length },
+              { key: "pro", label: "Pro Users", count: proCount },
+              { key: "premium", label: "Premium Users", count: premiumCount },
+            ] as const).map(f => (
+              <button
+                key={f.key}
+                onClick={() => setFilter(f.key)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
+                  filter === f.key
+                    ? "bg-green-500/15 border-green-500/40 text-green-400"
+                    : "bg-gray-800/60 border-gray-700 text-gray-400 hover:text-gray-200 hover:border-gray-600"
+                }`}
+              >
+                {f.label}
+                <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full ${
+                  filter === f.key ? "bg-green-500/20 text-green-300" : "bg-gray-700 text-gray-400"
+                }`}>
+                  {f.count}
+                </span>
+              </button>
+            ))}
           </div>
 
-          {users.length === 0 ? (
-            <div className="p-8 text-center text-gray-600 text-sm">No users yet</div>
+          {filteredUsers.length === 0 ? (
+            <div className="p-8 text-center text-gray-600 text-sm">No users in this category</div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
@@ -199,7 +229,7 @@ export default function AdminPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {users.map(user => (
+                  {filteredUsers.map(user => (
                     <tr key={user.email} className="border-b border-gray-800/60 hover:bg-gray-800/20 transition-colors">
                       <td className="px-4 py-3">
                         <div className="font-medium text-gray-200">{user.name}</div>
