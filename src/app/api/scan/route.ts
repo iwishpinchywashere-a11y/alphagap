@@ -1934,7 +1934,13 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
         const wpData: WebsiteProductCache = JSON.parse(Buffer.concat(chunks).toString("utf-8"));
         for (const [nid, result] of Object.entries(wpData.subnets)) {
           if (result.reachable && result.score > 0) {
-            websiteProductMap.set(Number(nid), { score: result.score, signals: result.signals });
+            websiteProductMap.set(Number(nid), {
+              score: result.score,
+              signals: result.signals,
+              stage: result.stage,
+              summary: result.summary,
+              ai_scored: result.ai_scored,
+            });
           }
         }
         console.log(`[scan] Loaded website product data for ${websiteProductMap.size} subnets`);
@@ -2105,14 +2111,17 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
     // that the spike detector misses because it looks for outliers.
     // High 30d commits + contributors = the market probably still hasn't
     // fully priced in institutional-grade dev output.
-    const spikeDailyBaseline30 = commits30d > 0 ? commits30d / 30 : 0;
+    const devRaw30 = devMap.get(d.netuid);
+    const cb_commits30d = devRaw30?.commits_30d || 0;
+    const cb_contributors30d = devRaw30?.unique_contributors_30d || 0;
+    const spikeDailyBaseline30 = cb_commits30d > 0 ? cb_commits30d / 30 : 0;
     let consistentBuilderBonus = 0;
-    if (spikeDailyBaseline30 >= 3 && contributors30d >= 3) {
+    if (spikeDailyBaseline30 >= 3 && cb_contributors30d >= 3) {
       // Power team: high cadence + multi-contributor = top tier
       consistentBuilderBonus = 10;
-    } else if (spikeDailyBaseline30 >= 2 && contributors30d >= 2) {
+    } else if (spikeDailyBaseline30 >= 2 && cb_contributors30d >= 2) {
       consistentBuilderBonus = 7;
-    } else if (spikeDailyBaseline30 >= 1 && contributors30d >= 2) {
+    } else if (spikeDailyBaseline30 >= 1 && cb_contributors30d >= 2) {
       consistentBuilderBonus = 5;
     } else if (spikeDailyBaseline30 >= 1) {
       // Solo consistent builder — still worth something

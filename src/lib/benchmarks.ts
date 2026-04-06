@@ -353,8 +353,11 @@ export interface UtilityHeuristicInputs {
 
 // ── Website scan data (from /api/scan-websites blob cache) ────────
 export interface WebsiteSignalData {
-  score: number;      // 0–80 raw from HTML analysis
-  signals: string[];  // e.g. ["pricing_page", "live_product", "enterprise"]
+  score: number;                                                         // 0–80 AI-rated or keyword score
+  signals: string[];                                                     // e.g. ["live_product", "revenue", "api"]
+  stage?: "revenue" | "live" | "beta" | "waitlist" | "research" | "unknown"; // AI-detected stage
+  summary?: string;                                                      // AI one-sentence description
+  ai_scored?: boolean;
 }
 
 // ── computeProductScore ───────────────────────────────────────────
@@ -392,7 +395,20 @@ export function computeProductScore(
   }
 
   // ── 2. Website scan ────────────────────────────────────────────────────────
-  const websiteScore = websiteData?.score ?? 0;
+  // If AI scored it, apply a stage bonus so "revenue" sites rank above "waitlist" even
+  // if the raw keyword count happened to be similar.
+  let websiteScore = websiteData?.score ?? 0;
+  if (websiteData?.ai_scored && websiteData.stage) {
+    const stageFloor: Record<string, number> = {
+      revenue: 60,   // AI said they're charging customers — floor at 60
+      live:    45,   // AI confirmed live product — floor at 45
+      beta:    30,   // AI confirmed beta — floor at 30
+      waitlist: 15,
+      research: 10,
+      unknown: 0,
+    };
+    websiteScore = Math.max(websiteScore, stageFloor[websiteData.stage] ?? 0);
+  }
 
   // ── 3. Manual milestone ────────────────────────────────────────────────────
   const milestone = MILESTONE_MAP.get(netuid);
