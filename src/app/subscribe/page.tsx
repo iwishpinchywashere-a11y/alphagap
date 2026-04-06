@@ -164,7 +164,7 @@ function SubscribeContent() {
 
   async function handleSubscribe(plan: "pro" | "premium" = "pro") {
     if (!session) {
-      router.push("/auth/signup");
+      router.push("/pricing");
       return;
     }
     if (isSubscribed) {

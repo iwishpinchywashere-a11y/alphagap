@@ -225,7 +225,7 @@ export default function DashboardHeader() {
                 Sign In
               </Link>
               <Link
-                href="/auth/signup"
+                href="/pricing"
                 onClick={closeDropdown}
                 className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-green-400 hover:bg-gray-800 transition-colors"
               >
