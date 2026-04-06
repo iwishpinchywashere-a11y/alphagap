@@ -239,7 +239,8 @@ function SubscribeContent() {
           <h1 className="text-5xl sm:text-6xl md:text-7xl font-bold tracking-tight leading-[1.08] mb-6">
             Find the next
             <br />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-green-400 via-emerald-300 to-green-400">hot Bittensor subnet</span>
+            <span className="flame-text">🔥 hot</span>
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-green-400 via-emerald-300 to-green-400"> Bittensor subnet</span>
             <br />
             before everyone else.
           </h1>

@@ -41,3 +41,17 @@ html {
 .signal-hot {
   animation: pulse-glow 2s ease-in-out infinite;
 }
+
+@keyframes flame {
+  0%   { color: #ff4500; text-shadow: 0 0 8px #ff4500, 0 0 20px #ff6a00, 0 0 40px #ff9500; transform: scaleY(1)   skewX(0deg); }
+  20%  { color: #ff6a00; text-shadow: 0 0 6px #ff6a00, 0 0 18px #ffb300, 0 0 35px #ff4500; transform: scaleY(1.03) skewX(-1deg); }
+  40%  { color: #ffb300; text-shadow: 0 0 10px #ffb300, 0 0 25px #ff6a00, 0 0 50px #ff4500; transform: scaleY(0.97) skewX(1deg); }
+  60%  { color: #ff6a00; text-shadow: 0 0 7px #ff4500, 0 0 22px #ff9500, 0 0 44px #ffb300; transform: scaleY(1.02) skewX(-0.5deg); }
+  80%  { color: #ff9500; text-shadow: 0 0 9px #ffb300, 0 0 20px #ff4500, 0 0 38px #ff6a00; transform: scaleY(0.98) skewX(1deg); }
+  100% { color: #ff4500; text-shadow: 0 0 8px #ff4500, 0 0 20px #ff6a00, 0 0 40px #ff9500; transform: scaleY(1)   skewX(0deg); }
+}
+
+.flame-text {
+  display: inline-block;
+  animation: flame 1.6s ease-in-out infinite;
+}
