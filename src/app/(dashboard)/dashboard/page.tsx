@@ -234,9 +234,6 @@ export default function LeaderboardPage() {
                             <span className="ml-1 text-green-400">{sortAsc ? "\u25B2" : "\u25BC"}</span>
                           )}
                         </th>
-                        {key === "market_cap" && (
-                          <th className="py-2 px-3 font-medium text-gray-600">Trend</th>
-                        )}
                       </React.Fragment>
                     ))}
                   </tr>
