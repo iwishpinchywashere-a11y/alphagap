@@ -245,12 +245,12 @@ function SubscribeContent() {
             before everyone else.
           </h1>
 
-          <p className="text-lg sm:text-xl text-gray-400 max-w-2xl mx-auto mb-4 leading-relaxed">
-            AlphaGap monitors every subnet development update, whale wallets &amp; smart money,
-            social media buzz, on-chain emission signals, new feature launches and much more across all{" "}
-            <span className="text-white font-medium">128 Bittensor subnets</span> — 24 hours a day, 7 days a week.
+          <p className="text-xl sm:text-2xl text-gray-300 max-w-2xl mx-auto mb-8 leading-relaxed">
+            We save you hours of research time every day. While you sleep, we&apos;re scoring every subnet against 20+ signals so that when you wake up,
+            the best opportunities are right in front of you.
           </p>
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-6">
+
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-4">
             <button
               onClick={handleSubscribe}
               disabled={checkoutLoading}
@@ -265,31 +265,27 @@ function SubscribeContent() {
               See pricing ↓
             </button>
           </div>
+          <p className="text-xs text-gray-600 mb-12">$19/month · Cancel anytime · Instant access after payment</p>
 
-          <p className="text-xl sm:text-2xl text-gray-300 max-w-2xl mx-auto mb-4 leading-relaxed">
-            We save you hours of research time every day. While you sleep, we&apos;re scoring every subnet against 20+ signals so that when you wake up,
-            the best opportunities are right in front of you.
-          </p>
-          <p className="text-xs text-gray-600 mt-4">$19/month · Cancel anytime · Instant access after payment</p>
+          {/* What we monitor — graphic boxes */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 max-w-3xl mx-auto text-left">
+            {[
+              { icon: "🛠️", title: "Dev Activity", desc: "Every GitHub commit, release, and engineering milestone across all subnets" },
+              { icon: "🐋", title: "Whale Wallets", desc: "Smart money flows, large stake moves, and whale buy/sell ratios in real time" },
+              { icon: "📣", title: "Social Buzz", desc: "KOL tweets, community hype, and viral momentum before it hits the price" },
+              { icon: "⛓️", title: "Emission Signals", desc: "On-chain allocation shifts — when the Bittensor network votes more TAO to a subnet" },
+              { icon: "🚀", title: "Product Launches", desc: "New feature releases, live apps, and real-world deployments detected automatically" },
+              { icon: "🕐", title: "128 Subnets · 24/7", desc: "Every active Bittensor subnet tracked continuously — nothing slips through" },
+            ].map(item => (
+              <div key={item.title} className="bg-white/[0.03] border border-white/[0.07] rounded-xl p-4 hover:border-green-500/20 hover:bg-white/[0.05] transition-colors">
+                <div className="text-2xl mb-2">{item.icon}</div>
+                <div className="text-sm font-semibold text-white mb-1">{item.title}</div>
+                <div className="text-xs text-gray-500 leading-relaxed">{item.desc}</div>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
-
-      {/* ── Stats strip ── */}
-      <div className="border-y border-white/[0.05] bg-white/[0.01]">
-        <div className="max-w-5xl mx-auto px-5 py-5 grid grid-cols-2 md:grid-cols-4 gap-4">
-          {[
-            { value: `${liveStats.subnets}`, label: "Subnets tracked" },
-            { value: "15+", label: "Signals per subnet" },
-            { value: "Every 10 min", label: "Scan frequency" },
-            { value: "300+", label: "KOLs monitored" },
-          ].map(s => (
-            <div key={s.label} className="text-center">
-              <div className="text-2xl font-bold text-white tabular-nums">{s.value}</div>
-              <div className="text-xs text-gray-500 mt-0.5">{s.label}</div>
-            </div>
-          ))}
-        </div>
-      </div>
 
       {/* ── The Problem ── */}
       <section className="py-20 px-5">
