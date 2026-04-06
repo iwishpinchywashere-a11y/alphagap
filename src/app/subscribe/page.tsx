@@ -274,7 +274,7 @@ function SubscribeContent() {
               onClick={() => pricingRef.current?.scrollIntoView({ behavior: "smooth" })}
               className="px-8 py-4 text-gray-400 hover:text-white transition-colors text-lg"
             >
-              See pricing ↓
+              Explore Premium ↓
             </button>
           </div>
           <p className="text-xs text-gray-600 mb-12">Free to start · Pro $29/mo · Premium $49/mo · Cancel anytime</p>
