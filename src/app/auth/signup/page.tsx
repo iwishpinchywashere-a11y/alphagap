@@ -1,15 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { signIn } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Turnstile } from "@marsidev/react-turnstile";
 
 const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
 
-export default function SignUpPage() {
+function SignUpForm() {
   const router = useRouter();
+  const params = useSearchParams();
+  const plan = (params.get("plan") === "premium" ? "premium" : "pro") as "pro" | "premium";
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -58,8 +60,12 @@ export default function SignUpPage() {
         return;
       }
 
-      // 3. Go to Stripe checkout
-      const checkoutRes = await fetch("/api/stripe/checkout", { method: "POST" });
+      // 3. Go to Stripe checkout with selected plan
+      const checkoutRes = await fetch("/api/stripe/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ plan }),
+      });
       const checkoutData = await checkoutRes.json();
       if (checkoutData.url) {
         window.location.href = checkoutData.url;
@@ -83,7 +89,14 @@ export default function SignUpPage() {
             <img src="/alphagap_logo_dark.svg" alt="AlphaGap" className="h-10 w-auto mx-auto mb-4" />
           </Link>
           <h1 className="text-2xl font-bold text-white">Create your account</h1>
-          <p className="text-gray-500 text-sm mt-1">Then complete payment — cancel anytime</p>
+          <p className="text-gray-500 text-sm mt-1">
+            Then complete payment — cancel anytime
+          </p>
+          {plan && (
+            <p className="text-xs text-green-400/80 mt-1 font-medium">
+              Selected: AlphaGap {plan === "premium" ? "Premium ($49/mo)" : "Pro ($29/mo)"}
+            </p>
+          )}
         </div>
 
         <form onSubmit={handleSubmit} className="bg-gray-900/60 border border-gray-800 rounded-2xl p-6 space-y-4">
@@ -166,5 +179,13 @@ export default function SignUpPage() {
         </form>
       </div>
     </div>
+  );
+}
+
+export default function SignUpPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center"><div className="text-green-400 animate-spin text-2xl">⟳</div></div>}>
+      <SignUpForm />
+    </Suspense>
   );
 }

@@ -208,6 +208,19 @@ export default function LeaderboardPage() {
               })()}
             </div>
 
+            {/* Mobile-only sticky CTA — sits above the horizontally-scrolling table */}
+            {!isPro && (
+              <div className="md:hidden mb-3 flex flex-col items-center gap-1.5 py-4 px-4 rounded-xl bg-[#0a0a0f]/80 border border-gray-800">
+                <p className="text-xs text-white font-bold">Top 20 subnets are locked on the free plan</p>
+                <a
+                  href="/pricing"
+                  className="px-8 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-black font-bold rounded-xl text-sm hover:from-green-400 hover:to-emerald-500 transition-all shadow-lg shadow-green-500/30"
+                >
+                  Get Full Access →
+                </a>
+              </div>
+            )}
+
             <div className="overflow-x-auto -mx-4 md:mx-0 px-4 md:px-0">
               <table className="w-full text-sm font-data min-w-[900px]">
                 <thead>
@@ -364,12 +377,12 @@ export default function LeaderboardPage() {
                           : <span className="text-gray-700">—</span>}
                       </td>
                     </tr>
-                    {/* CTA injected in the middle of the locked section */}
+                    {/* CTA injected in the middle of the locked section — desktop only */}
                     {!isPro && i === 9 && (
-                      <tr>
+                      <tr className="hidden md:table-row">
                         <td colSpan={19} className="py-5 text-center bg-[#0a0a0f]/60">
                           <div className="inline-flex flex-col items-center gap-2">
-                            <a href="/subscribe" className="px-8 py-3.5 bg-gradient-to-r from-green-500 to-emerald-600 text-black font-bold rounded-xl text-base hover:from-green-400 hover:to-emerald-500 transition-all shadow-xl shadow-green-500/30">
+                            <a href="/pricing" className="px-8 py-3.5 bg-gradient-to-r from-green-500 to-emerald-600 text-black font-bold rounded-xl text-base hover:from-green-400 hover:to-emerald-500 transition-all shadow-xl shadow-green-500/30">
                               Get Full Access →
                             </a>
                             <p className="text-xs text-white font-bold">Top 20 subnets by aGap score are locked on the free plan</p>

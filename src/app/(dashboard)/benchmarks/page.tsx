@@ -29,7 +29,11 @@ function BenchBadge({ score }: { score: number }) {
 
 function CostBadge({ pct }: { pct: number }) {
   const color = pct >= 80 ? "text-emerald-400" : pct >= 60 ? "text-green-400" : pct >= 40 ? "text-yellow-400" : "text-orange-400";
-  return <span className={`font-bold ${color}`}>{pct}% cheaper</span>;
+  return (
+    <span className={`font-bold ${color}`}>
+      {pct}%<span className="hidden sm:inline"> cheaper</span>
+    </span>
+  );
 }
 
 const CATEGORIES = ["All", ...Array.from(new Set(BENCHMARK_DATA.map(b => b.benchmark_category))).sort()];
@@ -167,12 +171,9 @@ export default function BenchmarksPage() {
                 <div className="text-[10px] text-gray-600">{b.active_users}</div>
               </div>
 
-              {/* Mobile-only: cost + revenue stacked */}
-              <div className="flex md:hidden flex-col items-end gap-0.5 flex-shrink-0">
+              {/* Mobile-only: cost badge only (revenue hidden to save space) */}
+              <div className="flex md:hidden items-center flex-shrink-0">
                 <CostBadge pct={b.cost_saving_pct} />
-                <div className={`text-[10px] ${b.annual_revenue_usd > 0 ? "text-gray-400" : "text-gray-600"}`}>
-                  {formatRevenue(b.annual_revenue_usd)}
-                </div>
               </div>
 
               {/* Score badge */}

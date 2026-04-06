@@ -246,9 +246,15 @@ function SubscribeContent() {
             Find the next
             <br />
             <span className="flame-text">HOT</span>
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-green-400 via-emerald-300 to-green-400"> Bittensor subnet</span>
-            <br />
-            before everyone else.
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-green-400 via-emerald-300 to-green-400"> Bittensor</span>
+            {/* On mobile, "subnet" and "before" share a line naturally. On sm+, explicit break after "Bittensor" */}
+            <br className="hidden sm:block" />
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-green-400 via-emerald-300 to-green-400">{" "}subnet</span>
+            {/* On mobile break before "everyone else", not between subnet/before */}
+            <br className="sm:hidden" />
+            {" "}before
+            <br className="hidden sm:block" />
+            {" "}everyone else.
           </h1>
 
           <p className="text-xl sm:text-2xl text-gray-300 max-w-2xl mx-auto mb-8 leading-relaxed">

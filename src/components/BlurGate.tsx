@@ -23,7 +23,7 @@ export default function BlurGate({
   tier,
   required,
   children,
-  href = "/subscribe",
+  href = "/pricing",
   label,
   minHeight = "200px",
 }: BlurGateProps) {
