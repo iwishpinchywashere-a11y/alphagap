@@ -126,7 +126,7 @@ export default function TermsPage() {
 
             <h3 className="font-semibold text-white mt-4 mb-2">Data Retention &amp; Deletion</h3>
             <p className="mb-3">
-              We retain your personal data for as long as your account is active or as needed to provide services. You may request deletion of your account and associated data by contacting us at <a href="mailto:support@alphagap.io" className="text-green-400 hover:text-green-300">support@alphagap.io</a>. Some data may be retained for legal compliance purposes.
+              We retain your personal data for as long as your account is active or as needed to provide services. You may request deletion of your account and associated data by contacting us at <a href="mailto:hello@getbeanstock.com" className="text-green-400 hover:text-green-300">hello@getbeanstock.com</a>. Some data may be retained for legal compliance purposes.
             </p>
 
             <h3 className="font-semibold text-white mt-4 mb-2">Cookies</h3>
@@ -170,8 +170,8 @@ export default function TermsPage() {
               <p>Operating as AlphaGap</p>
               <p>
                 Email:{" "}
-                <a href="mailto:support@alphagap.io" className="text-green-400 hover:text-green-300 transition-colors">
-                  support@alphagap.io
+                <a href="mailto:hello@getbeanstock.com" className="text-green-400 hover:text-green-300 transition-colors">
+                  hello@getbeanstock.com
                 </a>
               </p>
             </div>
