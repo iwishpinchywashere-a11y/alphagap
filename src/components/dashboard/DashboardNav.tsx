@@ -11,8 +11,8 @@ export default function DashboardNav() {
   const tabs = [
     { href: "/dashboard", label: "Alpha Leaderboard" },
     { href: "/signals", label: `Signals${signals.length > 0 ? ` (${signals.length})` : ""}` },
-    { href: "/whales", label: "Whales" },
     { href: "/reports", label: "Reports" },
+    { href: "/whales", label: "Whales" },
     { href: "/social", label: "Social" },
     { href: "/analytics", label: "Analytics" },
     { href: "/benchmarks", label: "Benchmarks" },

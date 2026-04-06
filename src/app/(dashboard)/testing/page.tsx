@@ -1060,7 +1060,7 @@ export default function TestingPage() {
       const newPumpers = leaderboard
         .filter(
           (s) =>
-            (s.price_change_7d ?? 0) >= 30 &&
+            (s.price_change_7d ?? 0) >= 20 &&
             !trackedNames.has(s.name.toLowerCase()) &&
             !tracked.some((t) => s.name.toLowerCase().includes((t.searchName || t.name).toLowerCase()))
         )

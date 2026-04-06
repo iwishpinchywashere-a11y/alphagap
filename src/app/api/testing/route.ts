@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { put, list as blobList } from "@vercel/blob";
+import { put, list as blobList, get as blobGet } from "@vercel/blob";
 
 export const dynamic = "force-dynamic";
 
@@ -24,13 +24,16 @@ export interface PumpTrackerData {
 
 async function readData(token: string): Promise<PumpTrackerData> {
   try {
-    const { blobs } = await blobList({ token, prefix: BLOB_NAME });
-    const blob = blobs.find((b) => b.pathname === BLOB_NAME);
-    if (!blob) return { tracked: [], blocklist: [] };
-    const res = await fetch(blob.url);
-    if (!res.ok) return { tracked: [], blocklist: [] };
-    const json = await res.json();
-    // Backwards compat: old format was just an array
+    const result = await blobGet(BLOB_NAME, { token, access: "private" });
+    if (!result?.stream) return { tracked: [], blocklist: [] };
+    const reader = result.stream.getReader();
+    const chunks: Uint8Array[] = [];
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(value);
+    }
+    const json = JSON.parse(Buffer.concat(chunks).toString("utf-8"));
     if (Array.isArray(json)) return { tracked: json, blocklist: [] };
     return { tracked: json.tracked ?? [], blocklist: json.blocklist ?? [] };
   } catch {
@@ -40,7 +43,7 @@ async function readData(token: string): Promise<PumpTrackerData> {
 
 async function writeData(token: string, data: PumpTrackerData) {
   await put(BLOB_NAME, JSON.stringify(data, null, 2), {
-    access: "public",   // public so fetch(blob.url) works without auth
+    access: "private" as never,
     token,
     addRandomSuffix: false,
     allowOverwrite: true,
