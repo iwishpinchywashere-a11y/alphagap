@@ -39,7 +39,7 @@ export async function GET(req: Request) {
       if (customerIds.length > 0) {
         const invoices = await stripe.invoices.list({ limit: 100 });
         totalRevenue = invoices.data
-          .filter(inv => inv.paid && customerIds.includes(inv.customer as string))
+          .filter(inv => inv.status === "paid" && customerIds.includes(inv.customer as string))
           .reduce((sum, inv) => sum + (inv.amount_paid ?? 0) / 100, 0);
       }
       return NextResponse.json({ activeSubscriptions: alphagapSubs.length, mrr, totalRevenue });
