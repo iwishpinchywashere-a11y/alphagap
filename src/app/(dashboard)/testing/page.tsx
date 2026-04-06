@@ -497,16 +497,20 @@ function ScoreTable({ scores, pump }: { scores: ScoreRow[]; pump: PumpEvent | nu
   }
 
   // Pick 4 snapshots: -30d, -14d, -7d, closest to pump start
+  // Returns null if no snapshot is within 4 days of the target — avoids
+  // repeating stale values when we simply don't have historical data.
   const pumpMs = pump ? new Date(pump.startDate).getTime() : Date.now();
-  const snap = (daysBack: number) => {
+  const snap = (daysBack: number): ScoreRow | null => {
     const target = pumpMs - daysBack * 86400000;
-    return scores.reduce(
+    const best = scores.reduce(
       (best, s) => {
         const diff = Math.abs(new Date(s.date).getTime() - target);
         return diff < Math.abs(new Date(best.date).getTime() - target) ? s : best;
       },
       scores[0]
     );
+    const bestDiff = Math.abs(new Date(best.date).getTime() - target);
+    return bestDiff <= 4 * 86400000 ? best : null;
   };
   const cols = pump
     ? [
@@ -520,6 +524,7 @@ function ScoreTable({ scores, pump }: { scores: ScoreRow[]; pump: PumpEvent | nu
         { label: "mid",  row: scores[Math.floor(scores.length / 2)] },
         { label: "recent", row: scores[scores.length - 1] },
       ];
+  const missingHistory = pump && cols.some(c => c.row === null);
 
   const scoreColor = (v: number) =>
     v >= 70 ? "text-green-400" : v >= 45 ? "text-yellow-400" : "text-red-400";
@@ -566,6 +571,11 @@ function ScoreTable({ scores, pump }: { scores: ScoreRow[]; pump: PumpEvent | nu
           })}
         </tbody>
       </table>
+      {missingHistory && (
+        <div className="mt-2 text-[10px] text-gray-600 italic">
+          — = no AlphaGap score snapshot available for that period. History only goes back to when this subnet was first tracked.
+        </div>
+      )}
     </div>
   );
 }
