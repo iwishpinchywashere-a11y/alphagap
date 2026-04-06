@@ -214,7 +214,7 @@ export default function LeaderboardPage() {
                 <p className="text-xs text-white font-bold">Top 20 subnets are locked on the free plan</p>
                 <a
                   href="/pricing"
-                  className="px-8 py-3.5 bg-gradient-to-r from-green-500 to-emerald-600 text-black font-bold rounded-xl text-base hover:from-green-400 hover:to-emerald-500 transition-all shadow-xl shadow-green-500/30"
+                  className="font-sans px-8 py-3.5 bg-gradient-to-r from-green-500 to-emerald-600 text-black font-bold rounded-xl text-base hover:from-green-400 hover:to-emerald-500 transition-all shadow-xl shadow-green-500/30"
                 >
                   Get Access →
                 </a>
@@ -382,7 +382,7 @@ export default function LeaderboardPage() {
                       <tr className="hidden md:table-row">
                         <td colSpan={19} className="py-5 text-center bg-[#0a0a0f]/60">
                           <div className="inline-flex flex-col items-center gap-2">
-                            <a href="/pricing" className="px-8 py-3.5 bg-gradient-to-r from-green-500 to-emerald-600 text-black font-bold rounded-xl text-base hover:from-green-400 hover:to-emerald-500 transition-all shadow-xl shadow-green-500/30">
+                            <a href="/pricing" className="font-sans px-8 py-3.5 bg-gradient-to-r from-green-500 to-emerald-600 text-black font-bold rounded-xl text-base hover:from-green-400 hover:to-emerald-500 transition-all shadow-xl shadow-green-500/30">
                               Get Access →
                             </a>
                             <p className="text-xs text-white font-bold">Top 20 subnets by aGap score are locked on the free plan</p>
