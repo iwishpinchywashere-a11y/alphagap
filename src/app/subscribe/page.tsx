@@ -250,12 +250,7 @@ function SubscribeContent() {
             social media buzz, on-chain emission signals, new feature launches and much more across all{" "}
             <span className="text-white font-medium">128 Bittensor subnets</span> — 24 hours a day, 7 days a week.
           </p>
-          <p className="text-base text-gray-500 max-w-xl mx-auto mb-10">
-            We save you hours of research time every day. While you sleep, we&apos;re scoring every subnet against 20+ signals so that when you wake up,
-            the best opportunities are right in front of you.
-          </p>
-
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-6">
             <button
               onClick={handleSubscribe}
               disabled={checkoutLoading}
@@ -270,6 +265,11 @@ function SubscribeContent() {
               See pricing ↓
             </button>
           </div>
+
+          <p className="text-xl sm:text-2xl text-gray-300 max-w-2xl mx-auto mb-4 leading-relaxed">
+            We save you hours of research time every day. While you sleep, we&apos;re scoring every subnet against 20+ signals so that when you wake up,
+            the best opportunities are right in front of you.
+          </p>
           <p className="text-xs text-gray-600 mt-4">$19/month · Cancel anytime · Instant access after payment</p>
         </div>
       </section>
