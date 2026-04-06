@@ -2376,8 +2376,8 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
           if (whaleRatio >= 2.0) {
             whaleSignal = "accumulating";
             // Whale accumulation boost — bigger boost if dev is also high
-            if (devScore >= 40) whaleBoost = 12;  // whales + dev = strong conviction
-            else whaleBoost = 7;                   // whales alone = moderate signal
+            if (devScore >= 40) whaleBoost = 16;  // whales + dev = strong conviction
+            else whaleBoost = 10;                  // whales alone = solid signal
           } else if (whaleRatio <= 0.5) {
             whaleSignal = "distributing";
             whaleBoost = -7; // whales selling = caution
@@ -2392,12 +2392,12 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
       // Strong net staking-in: override to accumulating if not already distributing
       if (whaleSignal !== "distributing") {
         whaleSignal = "accumulating";
-        whaleBoost = Math.min(16, whaleBoost + 8);
+        whaleBoost = Math.min(20, whaleBoost + 8);
       }
     } else if (srWhaleNet >= 200) {
       if (whaleSignal !== "distributing") {
         whaleSignal = "accumulating";
-        whaleBoost = Math.min(16, whaleBoost + 4);
+        whaleBoost = Math.min(20, whaleBoost + 4);
       }
     } else if (srWhaleNet <= -500) {
       // Heavy unstaking: flag as distributing regardless of pool signal
@@ -2414,11 +2414,11 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
     // Reduced ceiling from 18 → 10 pts: by the time you see 10x volume, the gap is closing.
     const surgeRatioForAGap = volumeSurgeMap.get(d.netuid) || 0;
     let volBoost = 0;
-    if (surgeRatioForAGap >= 10) volBoost = 10;
-    else if (surgeRatioForAGap >= 7) volBoost = 8;
-    else if (surgeRatioForAGap >= 5) volBoost = 6;
-    else if (surgeRatioForAGap >= 3.5) volBoost = 4;
-    else if (surgeRatioForAGap >= 2.5) volBoost = 2;
+    if (surgeRatioForAGap >= 10) volBoost = 15;
+    else if (surgeRatioForAGap >= 7)  volBoost = 12;
+    else if (surgeRatioForAGap >= 5)  volBoost = 9;
+    else if (surgeRatioForAGap >= 3.5) volBoost = 6;
+    else if (surgeRatioForAGap >= 2.5) volBoost = 3;
 
     // ── MOMENTUM CONFIRMATION (±5 pts) ──────────────────────────────────────
     // Intentionally small. A subnet already up 30% in 7d has a CLOSED gap, not an open one.
@@ -2470,9 +2470,10 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
     // Three separate signals stack to reward the specific case of:
     //   "amazing product + nobody knows about it + price still underwater"
 
-    // 1. Base product contribution (0–35 pts)
-    //    productScore 0–100 × 0.35. Formally benchmarked hits 35, milestone hits ~28–32.
-    const productAGapPts = productScore * 0.35;
+    // 1. Base product contribution (0–25 pts)
+    //    productScore 0–100 × 0.25. Formally benchmarked hits 25, milestone hits ~20–23.
+    //    Reduced from 0.35 to balance against Flow (whale/volume) signals.
+    const productAGapPts = productScore * 0.25;
 
     // 2. Product awareness gap (0–12 pts) — THE CORE ALPHA THESIS
     //    High product score + low social = market genuinely hasn't noticed yet.
