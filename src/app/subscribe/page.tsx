@@ -246,8 +246,8 @@ function SubscribeContent() {
           </h1>
 
           <p className="text-lg sm:text-xl text-gray-400 max-w-2xl mx-auto mb-4 leading-relaxed">
-            AlphaGap monitors every GitHub commit, HuggingFace deployment, whale wallet,
-            KOL tweet, and on-chain emission signal across all{" "}
+            AlphaGap monitors every subnet development update, whale wallets &amp; smart money,
+            social media buzz, on-chain emission signals, new feature launches and much more across all{" "}
             <span className="text-white font-medium">128 Bittensor subnets</span> — 24 hours a day, 7 days a week.
           </p>
           <p className="text-base text-gray-500 max-w-xl mx-auto mb-10">
