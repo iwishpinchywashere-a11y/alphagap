@@ -42,15 +42,18 @@ export default function AdminPage() {
     (process.env.NEXT_PUBLIC_ADMIN_CHECK === "true");
 
   useEffect(() => {
-    if (status !== "authenticated") return;
+    if (status === "loading") return;
+    if (status === "unauthenticated") { setLoading(false); return; }
+    // Only fetch if admin — avoids 403 spam
+    if (!isAdmin) { setLoading(false); return; }
     Promise.all([
       fetch("/api/admin/users").then(r => r.json()),
       fetch("/api/admin/users?action=stripe-stats").then(r => r.json()),
     ]).then(([userData, stripeData]) => {
       setUsers(userData.users ?? []);
       setStats(stripeData);
-    }).finally(() => setLoading(false));
-  }, [status]);
+    }).catch(() => {}).finally(() => setLoading(false));
+  }, [status, isAdmin]);
 
   async function doAction(action: "grant" | "revoke" | "make-admin", email: string) {
     setActionLoading(true);
