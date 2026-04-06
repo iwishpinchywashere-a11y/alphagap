@@ -27,8 +27,8 @@ function SparkLine({ prices }: { prices: number[] }) {
 
 const COLUMNS: [keyof SubnetScore, string, string][] = [
   ["composite_score", "aGap", "AlphaGap Score (0-100). Our composite intelligence score. Identifies subnets where fundamentals significantly exceed current market valuation — the higher the score, the larger the opportunity gap our models have detected."],
-  ["score_change_24h", "aGap 24H", "Change in aGap score over the last 24 hours. Rising scores indicate improving fundamentals or a widening opportunity gap."],
-  ["score_change_7d", "aGap 7D", "Change in aGap score over the last 7 days. A consistently rising aGap score is one of our strongest early signals."],
+  ["score_change_24h", "aGap 24H%", "Percentage change in aGap score over the last 24 hours. Rising scores indicate improving fundamentals or a widening opportunity gap."],
+  ["score_change_7d", "aGap 7D%", "Percentage change in aGap score over the last 7 days. A consistently rising aGap score is one of our strongest early signals."],
   ["flow_score", "Flow", "Momentum Score (0-100). Tracks price action across multiple timeframes, whale and smart money movements, and unusual volume surges. High flow = strong market momentum and accumulation signals."],
   ["dev_score", "Dev", "Development Score (0-100). Measures the quality and velocity of real engineering work happening inside the subnet. Built on proprietary analysis of actual development activity."],
   ["eval_score", "eVal", "Emissions-to-Valuation Score (0-100). Watches emissions, validators, stakers, and miners to identify the gap between what the Bittensor network allocates to a subnet versus how the market has priced it. High eVal = the market is underpricing network conviction."],
@@ -292,7 +292,7 @@ export default function LeaderboardPage() {
                           (sub[col] as number) < 0 ? "text-red-400" : "text-gray-500"
                         }`}>
                           {sub[col] != null
-                            ? `${(sub[col] as number) > 0 ? "+" : ""}${(sub[col] as number).toFixed(1)}`
+                            ? `${(sub[col] as number) > 0 ? "+" : ""}${(sub[col] as number).toFixed(1)}%`
                             : "\u2014"}
                         </td>
                       ))}

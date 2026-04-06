@@ -2612,8 +2612,8 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
       const target7d  = now24 - 7 * 24 * 3600 * 1000;
       const allTs = Object.keys(scoreHistory).sort(); // ascending ISO strings sort correctly
 
-      // Find the timestamp closest to a target epoch
-      function closestSnapshot(targetMs: number): Record<string, ScoreRow> | null {
+      // Find the timestamp closest to a target epoch, within the given tolerance (ms)
+      function closestSnapshot(targetMs: number, toleranceMs: number): Record<string, ScoreRow> | null {
         if (allTs.length === 0) return null;
         let best = allTs[0];
         let bestDiff = Math.abs(new Date(allTs[0]).getTime() - targetMs);
@@ -2621,21 +2621,24 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
           const diff = Math.abs(new Date(ts).getTime() - targetMs);
           if (diff < bestDiff) { best = ts; bestDiff = diff; }
         }
-        // Only use if within ±6h window of target
-        if (bestDiff > 6 * 3600 * 1000) return null;
+        if (bestDiff > toleranceMs) return null;
         return scoreHistory[best];
       }
 
-      const snap24h = closestSnapshot(target24h);
-      const snap7d  = closestSnapshot(target7d);
+      // 24h: accept nearest snapshot within ±12h (handles sparse history during recovery)
+      // 7d:  accept nearest snapshot within ±24h
+      const snap24h = closestSnapshot(target24h, 12 * 3600 * 1000);
+      const snap7d  = closestSnapshot(target7d,  24 * 3600 * 1000);
 
       for (const entry of leaderboard) {
         const key = String(entry.netuid);
-        if (snap24h && snap24h[key] != null) {
-          entry.score_change_24h = Math.round((entry.composite_score - snap24h[key].agap) * 10) / 10;
+        if (snap24h && snap24h[key] != null && snap24h[key].agap > 0) {
+          const pct = ((entry.composite_score - snap24h[key].agap) / snap24h[key].agap) * 100;
+          entry.score_change_24h = Math.round(pct * 10) / 10;
         }
-        if (snap7d && snap7d[key] != null) {
-          entry.score_change_7d = Math.round((entry.composite_score - snap7d[key].agap) * 10) / 10;
+        if (snap7d && snap7d[key] != null && snap7d[key].agap > 0) {
+          const pct = ((entry.composite_score - snap7d[key].agap) / snap7d[key].agap) * 100;
+          entry.score_change_7d = Math.round(pct * 10) / 10;
         }
       }
 
