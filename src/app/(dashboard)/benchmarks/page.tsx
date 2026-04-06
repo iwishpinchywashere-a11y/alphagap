@@ -255,8 +255,11 @@ export default function BenchmarksPage() {
           <BlurGate tier={tier} required="premium" minHeight="400px">
             <div className="space-y-2">
               {filtered.slice(1).map((b, i) => (
-                <div key={b.subnet_id} className="bg-gray-900/60 border border-gray-800 rounded-xl overflow-hidden">
-                  <div className="flex items-center gap-3 p-4">
+                <div key={b.subnet_id} className="bg-gray-900/60 border border-gray-800 rounded-xl overflow-hidden hover:border-gray-700 transition-colors">
+                  <div
+                    className="flex items-center gap-3 p-4 cursor-pointer"
+                    onClick={() => setExpandedId(expandedId === b.subnet_id ? null : b.subnet_id)}
+                  >
                     <span className="text-gray-600 text-sm tabular-nums w-5 text-center flex-shrink-0">{i + 2}</span>
                     <div className="flex-shrink-0">
                       <SubnetLogo netuid={b.subnet_id} name={b.subnet_name} size={28} />
@@ -268,10 +271,80 @@ export default function BenchmarksPage() {
                       </div>
                       <div className="text-[10px] text-gray-500 mt-0.5 truncate">{b.benchmark_category}</div>
                     </div>
-                    <div className="flex-shrink-0 ml-auto">
+                    <div className="hidden md:block flex-none w-36">
+                      <CostBadge pct={b.cost_saving_pct} />
+                      <span className="text-[10px] text-gray-500 ml-1">vs {b.vs_provider.split(" / ")[0]}</span>
+                    </div>
+                    <div className="hidden md:block flex-1 min-w-0">
+                      <span className="text-xs text-emerald-400/80 font-medium line-clamp-2">{b.perf_delta}</span>
+                    </div>
+                    <div className="hidden md:block flex-none w-28 text-right">
+                      <div className={`text-xs font-semibold ${b.annual_revenue_usd > 0 ? "text-white" : "text-gray-600"}`}>
+                        {formatRevenue(b.annual_revenue_usd)}
+                      </div>
+                      <div className="text-[10px] text-gray-600">{b.active_users}</div>
+                    </div>
+                    <div className="flex md:hidden items-center flex-shrink-0">
+                      <CostBadge pct={b.cost_saving_pct} />
+                    </div>
+                    <div className="flex-shrink-0 flex items-center gap-2">
                       <BenchBadge score={b.benchmark_score} />
+                      <span className="text-gray-600 text-xs">{expandedId === b.subnet_id ? "▲" : "▼"}</span>
                     </div>
                   </div>
+                  {expandedId === b.subnet_id && (
+                    <div className="border-t border-gray-800 px-4 py-4 bg-gray-950/40">
+                      <div className="grid md:grid-cols-2 gap-4">
+                        <div>
+                          <div className="text-[10px] text-gray-500 uppercase tracking-wider font-medium mb-1.5">Benchmark Findings</div>
+                          <p className="text-sm text-gray-300 leading-relaxed">{b.benchmark_summary}</p>
+                        </div>
+                        <div className="space-y-3">
+                          <div>
+                            <div className="text-[10px] text-gray-500 uppercase tracking-wider font-medium mb-1">Competing Against</div>
+                            <div className="text-sm text-gray-300">{b.vs_provider}</div>
+                          </div>
+                          <div>
+                            <div className="text-[10px] text-gray-500 uppercase tracking-wider font-medium mb-1">Key Advantage</div>
+                            <div className="text-sm text-emerald-400 font-medium">{b.perf_delta}</div>
+                          </div>
+                          <div className="flex items-start gap-6">
+                            <div>
+                              <div className="text-[10px] text-gray-500 uppercase tracking-wider font-medium mb-1">Revenue</div>
+                              <div className="text-sm text-white font-semibold">{formatRevenue(b.annual_revenue_usd)}</div>
+                            </div>
+                            <div>
+                              <div className="text-[10px] text-gray-500 uppercase tracking-wider font-medium mb-1">Users</div>
+                              <div className="text-sm text-white font-semibold">{b.active_users}</div>
+                            </div>
+                            <div>
+                              <div className="text-[10px] text-gray-500 uppercase tracking-wider font-medium mb-1">Last Updated</div>
+                              <div className="text-sm text-gray-400">{b.last_updated}</div>
+                            </div>
+                          </div>
+                          <div>
+                            <div className="text-[10px] text-gray-500 uppercase tracking-wider font-medium mb-1">Sources</div>
+                            <div className="flex flex-wrap gap-1.5">
+                              {b.sources.map((src, si) => (
+                                <a key={si} href={src} target="_blank" rel="noopener noreferrer"
+                                  onClick={e => e.stopPropagation()}
+                                  className="text-[10px] text-blue-400 hover:text-blue-300 underline underline-offset-2 transition-colors">
+                                  Source {si + 1}
+                                </a>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="mt-3 pt-3 border-t border-gray-800/50 flex items-center justify-between">
+                        <div className="text-[10px] text-gray-600">Scores based on verifiable benchmark data. Not audited.</div>
+                        <Link href={`/subnets/${b.subnet_id}`} onClick={e => e.stopPropagation()}
+                          className="text-xs text-emerald-400 hover:text-emerald-300 font-medium transition-colors">
+                          View full analysis &rarr;
+                        </Link>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
