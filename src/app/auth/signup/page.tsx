@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useState } from "react";
+import { signIn } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Turnstile } from "@marsidev/react-turnstile";
@@ -56,14 +57,26 @@ function SignUpForm() {
         return;
       }
 
-      // 2. Redirect directly to Stripe (no signIn needed at this stage).
-      //    After payment, Stripe sends user to /dashboard. They sign in there.
+      // 2. Sign in silently in the background while we have the password.
+      //    auth.ts authorize() retries up to 3x for blob propagation delay,
+      //    so this should succeed. Even if it doesn't, we still go to Stripe —
+      //    the user can sign in after payment with no friction.
+      const signInPromise = signIn("credentials", {
+        email: email.toLowerCase().trim(),
+        password,
+        redirect: false,
+      }).catch(() => null);
+
+      // 3. Navigate to Stripe checkout (or fallback signin→/checkout).
       if (data.checkoutUrl) {
+        // Wait briefly for signIn to complete so the session cookie is set
+        // before the browser navigates away to Stripe.
+        await signInPromise;
         window.location.href = data.checkoutUrl;
       } else {
-        // Stripe session creation failed (non-fatal) — fall back to /checkout
-        // which will prompt them to sign in first, then retry Stripe.
-        window.location.href = `/auth/signin?callbackUrl=${encodeURIComponent(`/checkout?plan=${plan}`)}`;
+        // Stripe session creation failed — sign in then go through /checkout.
+        await signInPromise;
+        window.location.href = `/checkout?plan=${plan}`;
       }
     } catch {
       setError("Something went wrong. Please try again.");

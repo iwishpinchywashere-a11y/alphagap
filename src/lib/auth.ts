@@ -13,7 +13,10 @@ export const authOptions: NextAuthOptions = {
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null;
-        const user = await getUserByEmail(credentials.email);
+        // Retry up to 3x (1.8s total) to handle Vercel Blob propagation delay
+        // after a fresh signup — the user blob may not yet be visible on this
+        // serverless instance even though it was just written on another.
+        const user = await getUserByEmail(credentials.email, { retries: 3 });
         if (!user) return null;
         const valid = await bcrypt.compare(credentials.password, user.passwordHash);
         if (!valid) return null;
