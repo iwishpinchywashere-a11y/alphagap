@@ -464,11 +464,15 @@ export async function GET() {
   // These supplement (not replace) registry data; registry handle takes priority if set.
   const TWITTER_HANDLE_OVERRIDES: Record<number, string> = {
     1:   "macrocosmosai",   // Macrocosmos (SN1 Apex)
+    2:   "omron_ai",        // Omron (zkML / Inference)
     3:   "tplr_ai",         // Templar (τemplar)
     4:   "TargonCompute",   // Targon
     5:   "manifoldlabs",    // Manifold Labs (SN5)
     6:   "numinous_ai",     // Numinous
+    7:   "SubVortexTao",    // SubVortex
     8:   "VantaTrading",    // Vanta
+    9:   "IOTA_SN9",        // IOTA (Macrocosmos pretraining)
+    10:  "apollozkp",       // Apollo ZKP
     11:  "TrajectoryRL",    // TrajectoryRL
     12:  "ComputeHorde",    // Compute Horde
     13:  "Data_SN13",       // Data Universe
@@ -477,45 +481,60 @@ export async function GET() {
     16:  "bitads_ai",       // BitAds
     17:  "404gen_",         // 404-GEN
     18:  "zeussubnet",      // Zeus
+    19:  "nineteen_ai",     // NineteenAI (Rayon Labs)
+    20:  "TeamRizzoAI",     // BitAgent / Rizzo (SN20)
+    21:  "omegalabsai",     // OMEGA Any-to-Any (Omega Labs)
     22:  "desearch_ai",     // DeSearch
     23:  "trishoolai",      // Trishool
     24:  "QuasarModels",    // Quasar
-    26:  "kinitroai",        // Kinitro
+    26:  "kinitroai",       // Kinitro
     27:  "nodex0_",         // Nodexo
+    28:  "FoundryServices", // Foundry S&P 500 Oracle
+    30:  "WomboAI",         // WOMBO / DREAM
+    32:  "ai_detection",    // It's AI (LLM Detection)
     33:  "ReadyAI_",        // ReadyAI
     34:  "BitMindAI",       // BitMind
     36:  "AutoppiaAI",      // Web Agents - Autoppia
     37:  "AureliusAligned", // Aurelius
     39:  "basilic_ai",      // Basilica
+    40:  "chunking_subnet", // Chunking
     41:  "almanac_market",  // Almanac
+    42:  "getmasafi",       // Masa (real-time social data)
     43:  "GraphiteSubnet",  // Graphite
     44:  "webuildscore",    // Score (SN44)
+    45:  "TeamRizzoAI",     // Talisman AI / SWE-Rizzo (SN45)
     46:  "resilabsai",      // RESI
     48:  "qBitTensorLabs",  // qBitTensor (SN48)
     50:  "SynthdataCo",     // Synth
     51:  "lium_io",         // lium.io
     52:  "TensorplexLabs",  // Dojo (SN52)
+    53:  "celiumcompute",   // Celium
     54:  "yanez__ai",       // Yanez MIID
+    55:  "GenomesDAO",      // NIOME / GenomesDAO
     56:  "gradients_ai",    // Gradients
+    57:  "Gaia_AI_",        // Gaia (Geospatial / Weather)
     58:  "handshake_58",    // Handshake
     59:  "babelbit",        // Babelbit
     60:  "bitsecai",        // Bitsec.ai
     61:  "_redteam_",       // RedTeam
-    63:  "qBitTensorLabs",  // qBitTensor (SN63)
     62:  "ridges_ai",       // Ridges
+    63:  "qBitTensorLabs",  // qBitTensor (SN63)
     64:  "chutes_ai",       // Chutes
     65:  "TPN_Labs",        // TAO Private Network
     66:  "alpha_core_ai",   // AlphaCore
     68:  "metanova_labs",   // NOVA (MetaNova Labs)
+    70:  "dFusionAI",       // Vericore / dFusion AI
     71:  "LeadpoetAI",      // Leadpoet
+    72:  "NATIXNetwork",    // StreetVision / NATIX
     74:  "gittensor_io",    // Gittensor
     75:  "hippius_subnet",  // Hippius
     81:  "grail_ai",        // grail
+    82:  "HermesSubnet",    // Hermes (SubQuery)
     85:  "vidaio_",         // Vidaio
     88:  "Investing88ai",   // Investing (SN88)
     91:  "bitstarterAI",    // Bitstarter #1
     93:  "Bitcast_network", // Bitcast
-    97:  "arbos_born",       // distil / Arbo (SN97) — DistStateAndMe founder still tracked via KOL tier-2
+    97:  "arbos_born",      // distil / Arbo (SN97)
     121: "sundaebar_ai",    // sundae_bar
     122: "Bitrecs",         // Bitrecs
     124: "SwarmSubnet",     // Swarm
