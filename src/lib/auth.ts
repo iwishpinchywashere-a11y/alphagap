@@ -30,19 +30,29 @@ export const authOptions: NextAuthOptions = {
   session: { strategy: "jwt" },
   callbacks: {
     async jwt({ token, user, trigger }) {
+      // Helper: check ADMIN_EMAILS env var
+      const adminEmails = (process.env.ADMIN_EMAILS || "")
+        .split(",").map((e: string) => e.trim().toLowerCase()).filter(Boolean);
+      const emailIsAdmin = (email?: string | null) =>
+        !!email && adminEmails.includes(email.toLowerCase());
+
       if (user) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         token.subscriptionStatus = (user as any).subscriptionStatus ?? "none";
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        token.isAdmin = (user as any).isAdmin ?? false;
+        token.isAdmin = (user as any).isAdmin ?? emailIsAdmin(user.email) ?? false;
       }
       // Refresh subscription status on each session check
       if (trigger === "update" && token.email) {
         const fresh = await getUserByEmail(token.email as string);
         if (fresh) {
           token.subscriptionStatus = fresh.subscriptionStatus;
-          token.isAdmin = fresh.isAdmin ?? false;
+          token.isAdmin = (fresh.isAdmin ?? false) || emailIsAdmin(token.email as string);
         }
+      }
+      // Always ensure ADMIN_EMAILS users get isAdmin=true even without refresh
+      if (emailIsAdmin(token.email as string)) {
+        token.isAdmin = true;
       }
       return token;
     },
