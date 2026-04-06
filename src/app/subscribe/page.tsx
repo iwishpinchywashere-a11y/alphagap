@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import SubnetLogo from "@/components/dashboard/SubnetLogo";
 
 // ── Mini sparkline ────────────────────────────────────────────────
 function MiniSparkline({ up }: { up: boolean }) {
@@ -18,35 +19,39 @@ function MiniSparkline({ up }: { up: boolean }) {
 }
 
 // ── Mock dashboard row ────────────────────────────────────────────
-function MockRow({ rank, name, netuid, agap, flow, dev, eval: evalScore, velo, price, change, whale, surge }: {
+function MockRow({ rank, name, netuid, agap, flow, dev, eval: evalScore, velo, price, change, emPct, emDelta, category, whale, surge }: {
   rank: number; name: string; netuid: number; agap: number; flow: number; dev: number;
   eval: number; velo: number; price: string; change: string;
+  emPct: string; emDelta: string; category: string;
   whale?: boolean; surge?: boolean;
 }) {
   const agapColor = agap >= 80 ? "text-green-400" : agap >= 60 ? "text-yellow-400" : "text-orange-400";
   const scoreColor = (s: number) => s >= 75 ? "text-green-400" : s >= 55 ? "text-yellow-400" : "text-orange-400";
   const veloColor = velo >= 70 ? "text-green-400" : velo >= 40 ? "text-yellow-400" : "text-red-400";
   const positive = !change.startsWith("-");
+  const emUp = emDelta.startsWith("+");
   return (
     <tr className="border-b border-gray-800/50 hover:bg-gray-800/20 transition-colors">
-      <td className="px-3 py-2.5 text-xs text-gray-600 tabular-nums w-8">{rank}</td>
+      <td className="px-3 py-2.5 text-xs text-gray-600 tabular-nums w-6">{rank}</td>
       <td className="px-3 py-2.5">
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-2">
+          <SubnetLogo netuid={netuid} name={name} size={20} />
           <span className="text-[10px] text-gray-600 font-mono">SN{netuid}</span>
           <span className="font-semibold text-gray-100 text-sm">{name}</span>
-          {whale && <span title="Whale accumulating" className="text-xs">🐋</span>}
-          {surge && <span title="Volume surge" className="text-xs">🤑</span>}
+          {whale && <span className="text-xs">🐋</span>}
+          {surge && <span className="text-xs">🤑</span>}
+          <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-gray-800 text-gray-500 border border-gray-700">{category}</span>
         </div>
       </td>
       <td className={`px-3 py-2.5 text-right font-bold tabular-nums text-lg ${agapColor}`}>{agap}</td>
+      <td className={`px-3 py-2.5 text-right tabular-nums text-sm font-bold ${veloColor}`}>{velo}</td>
       <td className={`px-3 py-2.5 text-right tabular-nums text-sm font-semibold ${scoreColor(flow)}`}>{flow}</td>
       <td className={`px-3 py-2.5 text-right tabular-nums text-sm font-semibold ${scoreColor(dev)}`}>{dev}</td>
       <td className={`px-3 py-2.5 text-right tabular-nums text-sm font-semibold ${scoreColor(evalScore)}`}>{evalScore}</td>
-      <td className={`px-3 py-2.5 text-right tabular-nums text-sm font-bold ${veloColor}`}>{velo}</td>
+      <td className="px-3 py-2.5 text-right tabular-nums text-xs text-gray-400">{emPct}</td>
+      <td className={`px-3 py-2.5 text-right tabular-nums text-xs font-medium ${emUp ? "text-green-400" : "text-red-400"}`}>{emDelta}</td>
       <td className="px-3 py-2.5 text-right tabular-nums text-sm text-gray-300">{price}</td>
-      <td className={`px-3 py-2.5 text-right tabular-nums text-sm font-medium ${positive ? "text-green-400" : "text-red-400"}`}>
-        {change}
-      </td>
+      <td className={`px-3 py-2.5 text-right tabular-nums text-sm font-medium ${positive ? "text-green-400" : "text-red-400"}`}>{change}</td>
     </tr>
   );
 }
@@ -354,24 +359,25 @@ function SubscribeContent() {
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="text-left text-[10px] text-gray-600 border-b border-gray-800 font-medium">
-                        <th className="px-3 py-2 w-8">#</th>
+                        <th className="px-3 py-2 w-6">#</th>
                         <th className="px-3 py-2">Subnet</th>
                         <th className="px-3 py-2 text-right">aGap</th>
+                        <th className="px-3 py-2 text-right">Velo ⚡</th>
                         <th className="px-3 py-2 text-right">Flow</th>
                         <th className="px-3 py-2 text-right">Dev</th>
                         <th className="px-3 py-2 text-right">eVal</th>
-                        <th className="px-3 py-2 text-right">Prod</th>
-                        <th className="px-3 py-2 text-right">Velo ⚡</th>
+                        <th className="px-3 py-2 text-right">Em %</th>
+                        <th className="px-3 py-2 text-right">Em Δ</th>
                         <th className="px-3 py-2 text-right">Price</th>
                         <th className="px-3 py-2 text-right">24h</th>
                       </tr>
                     </thead>
                     <tbody>
-                      <MockRow rank={1} name="Templar" netuid={3} agap={87} flow={82} dev={91} eval={78} velo={85} price="$0.284" change="+8.2%" whale={true} />
-                      <MockRow rank={2} name="Gradients" netuid={56} agap={79} flow={91} dev={65} eval={88} velo={91} price="$0.042" change="+12.4%" surge={true} />
-                      <MockRow rank={3} name="Macrocosmos" netuid={13} agap={76} flow={71} dev={88} eval={72} velo={62} price="$0.156" change="+3.1%" whale={true} />
-                      <MockRow rank={4} name="Targon" netuid={4} agap={74} flow={68} dev={79} eval={82} velo={44} price="$0.093" change="-2.4%" />
-                      <MockRow rank={5} name="Chutes" netuid={64} agap={71} flow={74} dev={85} eval={66} velo={78} price="$0.037" change="+5.7%" />
+                      <MockRow rank={1} name="Templar" netuid={3} agap={87} flow={82} dev={91} eval={78} velo={85} emPct="18.2%" emDelta="+2.4%" category="Bandwidth" price="$0.284" change="+8.2%" whale={true} />
+                      <MockRow rank={2} name="Gradients" netuid={56} agap={79} flow={91} dev={65} eval={88} velo={91} emPct="6.1%" emDelta="+5.8%" category="Training" price="$0.042" change="+12.4%" surge={true} />
+                      <MockRow rank={3} name="Macrocosmos" netuid={13} agap={76} flow={71} dev={88} eval={72} velo={62} emPct="4.7%" emDelta="+0.3%" category="Data" price="$0.156" change="+3.1%" whale={true} />
+                      <MockRow rank={4} name="Targon" netuid={4} agap={74} flow={68} dev={79} eval={82} velo={44} emPct="9.3%" emDelta="-1.2%" category="Inference" price="$0.093" change="-2.4%" />
+                      <MockRow rank={5} name="Chutes" netuid={64} agap={71} flow={74} dev={85} eval={66} velo={78} emPct="3.9%" emDelta="+0.8%" category="Inference" price="$0.037" change="+5.7%" />
                     </tbody>
                   </table>
                 </div>
