@@ -54,15 +54,23 @@ function SignUpForm() {
         return;
       }
 
-      // 2. Sign in with redirect — NextAuth sets the session cookie server-side
-      //    and then redirects the browser to the callbackUrl, guaranteeing the
-      //    cookie is present before the checkout endpoint is hit.
-      await signIn("credentials", {
+      // 2. Sign in (no redirect — just establish the session cookie)
+      const signInRes = await signIn("credentials", {
         email: email.toLowerCase().trim(),
         password,
-        callbackUrl: `/api/stripe/checkout-redirect?plan=${plan}`,
+        redirect: false,
       });
-      // Page navigates away on success; stay loading if somehow still here
+      if (signInRes?.error) {
+        setError("Account created but sign-in failed. Please sign in manually.");
+        setLoading(false);
+        window.location.href = `/auth/signin?callbackUrl=${encodeURIComponent(`/checkout?plan=${plan}`)}`;
+        return;
+      }
+
+      // 3. Navigate to the /checkout server-component page.
+      //    Being a full page navigation, the session cookie is guaranteed to
+      //    be present when the server renders it — no race condition possible.
+      window.location.href = `/checkout?plan=${plan}`;
     } catch {
       setError("Something went wrong. Please try again.");
       setLoading(false);
