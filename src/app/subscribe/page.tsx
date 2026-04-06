@@ -913,6 +913,11 @@ function SubscribeContent() {
           <p className="text-sm text-gray-300 leading-relaxed">
             <span className="font-semibold text-white">Not financial advice.</span> AlphaGap is an educational intelligence tool designed to help you research Bittensor subnets more efficiently. Nothing on this platform constitutes financial, investment, or trading advice. All data, scores, signals, and analysis are provided for informational purposes only. Cryptocurrency and digital asset markets are highly volatile. Past signal performance does not guarantee future results. Always do your own research and never invest more than you can afford to lose. AlphaGap is not responsible for any investment decisions you make based on information provided on this platform.
           </p>
+          <p className="mt-4">
+            <a href="/terms" className="text-green-400 hover:text-green-300 text-sm underline underline-offset-2 transition-colors">
+              Terms of Service &amp; Privacy Policy
+            </a>
+          </p>
         </div>
       </section>
 

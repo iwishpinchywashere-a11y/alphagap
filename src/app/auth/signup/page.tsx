@@ -16,12 +16,18 @@ function SignUpForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [turnstileToken, setTurnstileToken] = useState("");
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
+
+    if (!agreedToTerms) {
+      setError("Please accept the Terms of Service & Privacy Policy to continue.");
+      return;
+    }
 
     // If Turnstile is configured but hasn't been solved yet
     if (TURNSTILE_SITE_KEY && !turnstileToken) {
@@ -158,16 +164,31 @@ function SignUpForm() {
             </div>
           )}
 
+          <label className="flex items-start gap-2.5 cursor-pointer group">
+            <input
+              type="checkbox"
+              checked={agreedToTerms}
+              onChange={(e) => setAgreedToTerms(e.target.checked)}
+              className="mt-0.5 h-4 w-4 flex-shrink-0 rounded border-gray-600 bg-gray-800 text-green-500 focus:ring-green-600 focus:ring-offset-gray-900"
+            />
+            <span className="text-xs text-gray-400 leading-relaxed">
+              I have read and agree to the{" "}
+              <Link href="/terms" target="_blank" className="text-green-400 hover:text-green-300 underline underline-offset-2 transition-colors">
+                Terms of Service &amp; Privacy Policy
+              </Link>
+            </span>
+          </label>
+
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || !agreedToTerms}
             className="w-full bg-gradient-to-r from-green-500 to-emerald-600 text-black font-bold rounded-lg py-2.5 text-sm hover:from-green-400 hover:to-emerald-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-green-500/20"
           >
             {loading ? "Setting up account…" : "Create Account & Subscribe →"}
           </button>
 
           <p className="text-center text-[11px] text-gray-600 leading-relaxed">
-            By continuing you agree to our terms. You&apos;ll be redirected to Stripe to complete payment.
+            You&apos;ll be redirected to Stripe to complete payment.
           </p>
 
           <p className="text-center text-xs text-gray-600">
