@@ -48,9 +48,12 @@ export interface DiscordAlphaResult {
 const DISCORD_BASE = "https://discord.com/api/v10";
 
 function getAuthHeader(token: string): string {
+  // Already has a prefix — pass through as-is
   if (token.startsWith("Bot ") || token.startsWith("Bearer ")) return token;
-  // Discord bot tokens always require the "Bot " prefix — add it if missing
-  return `Bot ${token}`;
+  // Raw token (no prefix) — used as-is for user tokens which work without a prefix.
+  // Do NOT add "Bot " — that prefix is only valid for bot application tokens and will
+  // cause 401 Unauthorized when the token belongs to a user account.
+  return token;
 }
 
 // Convert timestamp to Discord snowflake ID (for message pagination)
