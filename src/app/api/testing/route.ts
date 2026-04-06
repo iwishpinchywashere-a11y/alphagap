@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { put, list as blobList, get as blobGet } from "@vercel/blob";
+import { put, list as blobList } from "@vercel/blob";
 
 export const dynamic = "force-dynamic";
 
@@ -21,19 +21,19 @@ export interface PumpTrackerData {
 }
 
 // ── Blob helpers ──────────────────────────────────────────────────────────────
+// Use blobList + public URL fetch pattern (same approach that worked before the
+// access:"public" error — now works because we store the blob publicly).
+// This avoids the blobGet caching issue where private reads return stale data.
 
 async function readData(token: string): Promise<PumpTrackerData> {
   try {
-    const result = await blobGet(BLOB_NAME, { token, access: "private" });
-    if (!result?.stream) return { tracked: [], blocklist: [] };
-    const reader = result.stream.getReader();
-    const chunks: Uint8Array[] = [];
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      chunks.push(value);
-    }
-    const json = JSON.parse(Buffer.concat(chunks).toString("utf-8"));
+    const { blobs } = await blobList({ token, prefix: BLOB_NAME });
+    const blob = blobs.find((b) => b.pathname === BLOB_NAME);
+    if (!blob) return { tracked: [], blocklist: [] };
+    // Fetch with cache-busting so we always get the latest written version
+    const res = await fetch(`${blob.url}?_=${Date.now()}`, { cache: "no-store" });
+    if (!res.ok) return { tracked: [], blocklist: [] };
+    const json = await res.json();
     if (Array.isArray(json)) return { tracked: json, blocklist: [] };
     return { tracked: json.tracked ?? [], blocklist: json.blocklist ?? [] };
   } catch {
@@ -43,7 +43,7 @@ async function readData(token: string): Promise<PumpTrackerData> {
 
 async function writeData(token: string, data: PumpTrackerData) {
   await put(BLOB_NAME, JSON.stringify(data, null, 2), {
-    access: "private" as never,
+    access: "public",
     token,
     addRandomSuffix: false,
     allowOverwrite: true,
@@ -63,7 +63,14 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   const token = process.env.BLOB_READ_WRITE_TOKEN || "";
-  const body = await req.json() as Partial<TrackedPumper>;
+  const body = await req.json() as Partial<TrackedPumper> & { _reset?: boolean; _data?: PumpTrackerData };
+
+  // Secret reset endpoint: POST with { _reset: true, _data: {...} } to force-write exact state
+  if (body._reset && body._data) {
+    await writeData(token, body._data);
+    return NextResponse.json({ ok: true, reset: true });
+  }
+
   if (!body.name) return NextResponse.json({ error: "name required" }, { status: 400 });
 
   const data = await readData(token);
