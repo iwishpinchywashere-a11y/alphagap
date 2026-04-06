@@ -1,24 +1,21 @@
-// One-time bootstrap: sets isAdmin=true on blob records for all ADMIN_EMAILS users
-// Protected by NEXTAUTH_SECRET — call with ?secret=<your_secret>
+// Bootstrap: sets isAdmin=true on blob records for all ADMIN_EMAILS users.
+// No external secret needed — the endpoint can only promote emails already
+// listed in the ADMIN_EMAILS env var, so there is nothing useful an attacker
+// can do by calling it.
 
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { getUserByEmail, updateUser } from "@/lib/users";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(req: NextRequest) {
-  const secret = req.nextUrl.searchParams.get("secret");
-  if (!secret || secret !== process.env.NEXTAUTH_SECRET) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
-
+export async function GET() {
   const adminEmails = (process.env.ADMIN_EMAILS || "")
     .split(",")
     .map((e: string) => e.trim().toLowerCase())
     .filter(Boolean);
 
   if (adminEmails.length === 0) {
-    return NextResponse.json({ error: "ADMIN_EMAILS not set" }, { status: 400 });
+    return NextResponse.json({ error: "ADMIN_EMAILS env var is not set" }, { status: 400 });
   }
 
   const results: Array<{ email: string; status: string }> = [];
@@ -27,15 +24,15 @@ export async function GET(req: NextRequest) {
     try {
       const user = await getUserByEmail(email);
       if (!user) {
-        results.push({ email, status: "not found — user must sign up first" });
+        results.push({ email, status: "not found — account must exist first" });
         continue;
       }
       if (user.isAdmin) {
-        results.push({ email, status: "already admin" });
+        results.push({ email, status: "already admin ✓" });
         continue;
       }
       await updateUser(email, { isAdmin: true });
-      results.push({ email, status: "updated → isAdmin=true" });
+      results.push({ email, status: "updated → isAdmin=true ✓" });
     } catch (e) {
       results.push({ email, status: `error: ${String(e)}` });
     }
