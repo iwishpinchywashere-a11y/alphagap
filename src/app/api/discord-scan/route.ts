@@ -109,7 +109,7 @@ export async function GET() {
         } as DiscordAlphaResult)),
       };
       await put("discord-latest.json", JSON.stringify(partial), {
-        access: "private", addRandomSuffix: false, contentType: "application/json",
+        access: "private", addRandomSuffix: false, allowOverwrite: true, contentType: "application/json",
       }).catch(() => {});
       console.log("[discord-scan] Early partial save written");
     }
