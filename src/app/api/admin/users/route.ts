@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { getUserList, getUserByEmail, updateUser, updateUserListEntry } from "@/lib/users";
+import { getUserList, getUserByEmail, updateUser, updateUserListEntry, deleteUser } from "@/lib/users";
 import { getStripe } from "@/lib/stripe-client";
 
 export const dynamic = "force-dynamic";
@@ -23,21 +23,26 @@ export async function GET(req: Request) {
   const action = url.searchParams.get("action");
 
   if (action === "stripe-stats") {
-    // Pull live stats from Stripe
+    // Pull live stats from Stripe — only count AlphaGap subscriptions
     try {
       const stripe = getStripe();
-      const [subs, charges] = await Promise.all([
-        stripe.subscriptions.list({ status: "active", limit: 100 }),
-        stripe.charges.list({ limit: 100 }),
-      ]);
-      const mrr = subs.data.reduce((sum, s) => {
+      // Only subscriptions with AlphaGap metadata
+      const subs = await stripe.subscriptions.list({ status: "active", limit: 100 });
+      const alphagapSubs = subs.data.filter(s => s.metadata?.userEmail);
+      const mrr = alphagapSubs.reduce((sum, s) => {
         const item = s.items.data[0];
         return sum + (item?.price?.unit_amount ?? 0) / 100;
       }, 0);
-      const totalRevenue = charges.data
-        .filter(c => c.paid && !c.refunded)
-        .reduce((sum, c) => sum + c.amount / 100, 0);
-      return NextResponse.json({ activeSubscriptions: subs.data.length, mrr, totalRevenue });
+      // Count revenue only from AlphaGap invoices
+      const customerIds = alphagapSubs.map(s => s.customer as string).filter(Boolean);
+      let totalRevenue = 0;
+      if (customerIds.length > 0) {
+        const invoices = await stripe.invoices.list({ limit: 100 });
+        totalRevenue = invoices.data
+          .filter(inv => inv.paid && customerIds.includes(inv.customer as string))
+          .reduce((sum, inv) => sum + (inv.amount_paid ?? 0) / 100, 0);
+      }
+      return NextResponse.json({ activeSubscriptions: alphagapSubs.length, mrr, totalRevenue });
     } catch (e) {
       return NextResponse.json({ error: String(e) }, { status: 500 });
     }
@@ -72,6 +77,11 @@ export async function POST(req: Request) {
   if (action === "make-admin") {
     await updateUser(email, { isAdmin: true });
     return NextResponse.json({ ok: true, message: `${email} is now an admin` });
+  }
+
+  if (action === "delete") {
+    await deleteUser(email);
+    return NextResponse.json({ ok: true, message: `Account deleted: ${email}` });
   }
 
   return NextResponse.json({ error: "Unknown action" }, { status: 400 });

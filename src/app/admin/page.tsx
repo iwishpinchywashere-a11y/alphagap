@@ -55,7 +55,8 @@ export default function AdminPage() {
     }).catch(() => {}).finally(() => setLoading(false));
   }, [status, isAdmin]);
 
-  async function doAction(action: "grant" | "revoke" | "make-admin", email: string) {
+  async function doAction(action: "grant" | "revoke" | "make-admin" | "delete", email: string) {
+    if (action === "delete" && !confirm(`Permanently delete account: ${email}?`)) return;
     setActionLoading(true);
     setActionMsg("");
     try {
@@ -67,11 +68,15 @@ export default function AdminPage() {
       const data = await res.json();
       setActionMsg(data.message || data.error || "Done");
       if (res.ok) {
-        setUsers(prev => prev.map(u =>
-          u.email === email
-            ? { ...u, subscriptionStatus: action === "grant" ? "active" : action === "revoke" ? "canceled" : u.subscriptionStatus }
-            : u
-        ));
+        if (action === "delete") {
+          setUsers(prev => prev.filter(u => u.email !== email));
+        } else {
+          setUsers(prev => prev.map(u =>
+            u.email === email
+              ? { ...u, subscriptionStatus: action === "grant" ? "active" : action === "revoke" ? "canceled" : u.subscriptionStatus }
+              : u
+          ));
+        }
       }
     } finally {
       setActionLoading(false);
@@ -230,6 +235,13 @@ export default function AdminPage() {
                               Revoke
                             </button>
                           )}
+                          <button
+                            onClick={() => doAction("delete", user.email)}
+                            disabled={actionLoading}
+                            className="text-xs px-2 py-1 bg-red-900/30 hover:bg-red-900/60 text-red-500 border border-red-900/40 rounded transition-colors"
+                          >
+                            Delete
+                          </button>
                         </div>
                       </td>
                     </tr>

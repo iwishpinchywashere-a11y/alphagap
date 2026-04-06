@@ -2,7 +2,7 @@
 // Each user is stored as users/{emailHash}.json
 // Stripe reverse lookups: stripe-customers/{customerId}.json
 
-import { put, get as blobGet } from "@vercel/blob";
+import { put, get as blobGet, del as blobDel, list as blobList } from "@vercel/blob";
 import crypto from "crypto";
 
 export interface User {
@@ -119,4 +119,38 @@ export async function updateUserListEntry(email: string, updates: Partial<UserLi
     list[idx] = { ...list[idx], ...updates };
     await writeBlob("admin/user-list.json", list);
   }
+}
+
+export async function deleteUser(email: string): Promise<void> {
+  const hash = emailHash(email);
+
+  // Delete user blob
+  try {
+    const { blobs } = await blobList({ prefix: `users/${hash}`, token: TOKEN() });
+    for (const b of blobs) await blobDel(b.url, { token: TOKEN() });
+  } catch { /* ignore */ }
+
+  // Delete auth-tokens for this user (best-effort)
+  try {
+    const { blobs } = await blobList({ prefix: "auth-tokens/", token: TOKEN() });
+    for (const b of blobs) {
+      try {
+        const res = await blobGet(b.pathname, { token: TOKEN(), access: "private" });
+        if (res?.stream) {
+          const reader = res.stream.getReader();
+          const chunks: Uint8Array[] = [];
+          while (true) { const { done, value } = await reader.read(); if (done) break; chunks.push(value); }
+          const parsed = JSON.parse(Buffer.concat(chunks).toString("utf-8"));
+          if (parsed?.email?.toLowerCase() === email.toLowerCase()) {
+            await blobDel(b.url, { token: TOKEN() });
+          }
+        }
+      } catch { /* ignore individual */ }
+    }
+  } catch { /* ignore */ }
+
+  // Remove from admin user list
+  const list = await getUserList();
+  const filtered = list.filter(u => u.email.toLowerCase() !== email.toLowerCase());
+  await writeBlob("admin/user-list.json", filtered);
 }
