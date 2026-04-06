@@ -15,18 +15,10 @@ export interface TrackedPumper {
   pump_date?: string;    // approximate date of pump peak
 }
 
-const DEFAULTS: TrackedPumper[] = [
-  { name: "Beam",             searchName: "beam",    added_at: "2026-04-03", reason: "7D price pump" },
-  { name: "Djinn",            searchName: "djinn",   added_at: "2026-04-03", reason: "7D price pump" },
-  { name: "404 GEN",          searchName: "404",     added_at: "2026-04-03", reason: "7D price pump" },
-  { name: "Tau",              searchName: "tau",     added_at: "2026-04-03", reason: "7D price pump" },
-  { name: "Vidaio",           searchName: "vidaio",  added_at: "2026-04-03", reason: "7D price pump" },
-];
-
 async function readTracker(token: string): Promise<TrackedPumper[]> {
   try {
     const result = await blobGet(BLOB_NAME, { token, access: "private" });
-    if (!result?.stream) return DEFAULTS;
+    if (!result?.stream) return [];
     const reader = result.stream.getReader();
     const chunks: Uint8Array[] = [];
     while (true) {
@@ -34,16 +26,9 @@ async function readTracker(token: string): Promise<TrackedPumper[]> {
       if (done) break;
       chunks.push(value);
     }
-    const parsed = JSON.parse(Buffer.concat(chunks).toString("utf-8")) as TrackedPumper[];
-    // Merge any missing defaults
-    const existing = new Set(parsed.map((p) => p.name.toLowerCase()));
-    const merged = [...parsed];
-    for (const d of DEFAULTS) {
-      if (!existing.has(d.name.toLowerCase())) merged.push(d);
-    }
-    return merged;
+    return JSON.parse(Buffer.concat(chunks).toString("utf-8")) as TrackedPumper[];
   } catch {
-    return DEFAULTS;
+    return [];
   }
 }
 
