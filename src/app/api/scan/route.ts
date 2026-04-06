@@ -2727,6 +2727,13 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
   const duration = Date.now() - startTime;
   console.log(`[scan] Complete in ${duration}ms. ${leaderboard.length} subnets, ${mergedSignals.length} signals (${signals.length} new this scan).`);
 
+  // Trigger pump lab auto-detect in background (fire-and-forget, never blocks scan response)
+  const baseUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000";
+  fetch(`${baseUrl}/api/testing/auto-detect`, { signal: AbortSignal.timeout(15000) })
+    .then(r => r.json())
+    .then(d => { if (d.added?.length) console.log(`[scan] Pump lab auto-added: ${d.added.map((e: {name:string}) => e.name).join(", ")}`); })
+    .catch(() => { /* non-critical */ });
+
   // Bump this when leaderboard schema changes (forces dashboard to rescan instead of using stale blob)
   const SCAN_SCHEMA_VERSION = 11; // v11: dereg_top3 uses SR healthScore directly, no bad fallback
 

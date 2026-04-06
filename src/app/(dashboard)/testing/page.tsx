@@ -981,7 +981,7 @@ function AutopsyCard({ autopsy, onRemove }: { autopsy: Autopsy; onRemove: () => 
 
 export default function TestingPage() {
   const [autopsies, setAutopsies] = useState<Autopsy[]>([]);
-  const [autoDetected, setAutoDetected] = useState<SubnetScore[]>([]);
+  const [autoDetected, setAutoDetected] = useState<TrackedPumper[]>([]);
   const [addModal, setAddModal] = useState(false);
   const [addName, setAddName] = useState("");
   const [addNetuid, setAddNetuid] = useState("");
@@ -1012,15 +1012,42 @@ export default function TestingPage() {
       const scanData = await scanRes.json();
       const leaderboard: SubnetScore[] = scanData.leaderboard ?? [];
 
-      // Auto-detect: subnets with >50% 7D pump not yet tracked
+      // Auto-detect AND auto-add: subnets with >30% 7D pump not yet tracked
       const trackedNames = new Set(tracked.map((t) => (t.searchName || t.name).toLowerCase()));
-      const newPumpers = leaderboard.filter(
-        (s) =>
-          (s.price_change_7d ?? 0) >= 50 &&
-          !trackedNames.has(s.name.toLowerCase()) &&
-          !tracked.some((t) => s.name.toLowerCase().includes((t.searchName || t.name).toLowerCase()))
-      );
-      setAutoDetected(newPumpers.sort((a, b) => (b.price_change_7d ?? 0) - (a.price_change_7d ?? 0)).slice(0, 5));
+      const newPumpers = leaderboard
+        .filter(
+          (s) =>
+            (s.price_change_7d ?? 0) >= 30 &&
+            !trackedNames.has(s.name.toLowerCase()) &&
+            !tracked.some((t) => s.name.toLowerCase().includes((t.searchName || t.name).toLowerCase()))
+        )
+        .sort((a, b) => (b.price_change_7d ?? 0) - (a.price_change_7d ?? 0))
+        .slice(0, 8); // cap at 8 per run
+
+      // Auto-add them — fire-and-forget, 409 if already exists is fine
+      const autoAdded: TrackedPumper[] = [];
+      for (const sub of newPumpers) {
+        try {
+          const res = await fetch("/api/testing", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              name: sub.name,
+              searchName: sub.name.toLowerCase(),
+              netuid: sub.netuid,
+              reason: `Auto-detected: +${(sub.price_change_7d ?? 0).toFixed(0)}% 7D`,
+              pump_pct: sub.price_change_7d ?? 0,
+            }),
+          });
+          if (res.ok) {
+            const { entry } = await res.json();
+            autoAdded.push(entry);
+            tracked.push(entry); // add to local list so stubs include it
+            trackedNames.add(sub.name.toLowerCase());
+          }
+        } catch { /* skip */ }
+      }
+      setAutoDetected(autoAdded); // just track what was newly added this session
 
       // 3) Initialise autopsy stubs
       const stubs: Autopsy[] = tracked.map((p) => {
@@ -1149,12 +1176,7 @@ export default function TestingPage() {
     }
   }
 
-  async function trackAutoDetected(sub: SubnetScore) {
-    await handleAddNew(sub.name, sub.netuid, `Auto-detected: +${(sub.price_change_7d ?? 0).toFixed(0)}% 7D`);
-  }
-
   const loading = autopsies.some((a) => a.loading);
-  const fmtPct = (v: number) => `${v >= 0 ? "+" : ""}${v.toFixed(1)}%`;
 
   return (
     <div className="min-h-screen bg-[#0a0a0f] text-white">
@@ -1176,25 +1198,20 @@ export default function TestingPage() {
           </div>
         </div>
 
-        {/* Auto-detected pumpers banner */}
+        {/* Auto-added pumpers banner */}
         {autoDetected.length > 0 && (
-          <div className="bg-yellow-950/20 border border-yellow-800/30 rounded-xl p-4">
+          <div className="bg-green-950/20 border border-green-800/30 rounded-xl p-4">
             <div className="flex items-center gap-2 mb-3">
-              <span className="text-yellow-400 font-semibold text-sm">🚀 New Pumpers Detected</span>
-              <span className="text-xs text-gray-500">Subnets with &gt;50% 7D gain not yet tracked</span>
+              <span className="text-green-400 font-semibold text-sm">🚀 Auto-added {autoDetected.length} new pumper{autoDetected.length > 1 ? "s" : ""}</span>
+              <span className="text-xs text-gray-500">Detected &gt;30% 7D gain — added automatically for study</span>
             </div>
             <div className="flex flex-wrap gap-3">
-              {autoDetected.map((sub) => (
-                <div key={sub.netuid} className="flex items-center gap-2 bg-yellow-950/30 border border-yellow-800/20 rounded-lg px-3 py-2">
-                  <span className="text-white font-medium text-sm">{sub.name}</span>
-                  <span className="text-xs text-gray-500">SN{sub.netuid}</span>
-                  <span className="text-green-400 font-bold text-sm">{fmtPct(sub.price_change_7d ?? 0)}</span>
-                  <button
-                    onClick={() => trackAutoDetected(sub)}
-                    className="text-xs bg-yellow-800/40 hover:bg-yellow-800/60 text-yellow-300 rounded px-2 py-0.5 transition-colors ml-1"
-                  >
-                    + Track
-                  </button>
+              {autoDetected.map((p) => (
+                <div key={p.netuid ?? p.name} className="flex items-center gap-2 bg-green-950/30 border border-green-800/20 rounded-lg px-3 py-2">
+                  <span className="text-white font-medium text-sm">{p.name}</span>
+                  {p.netuid != null && <span className="text-xs text-gray-500">SN{p.netuid}</span>}
+                  {p.pump_pct != null && <span className="text-green-400 font-bold text-sm">+{p.pump_pct.toFixed(0)}%</span>}
+                  <span className="text-xs text-green-600">✓ added</span>
                 </div>
               ))}
             </div>
