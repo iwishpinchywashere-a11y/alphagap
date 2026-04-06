@@ -302,7 +302,7 @@ export default function WhalesPage() {
         <div className="flex flex-col items-center justify-center h-64 text-center">
           <div className="text-4xl mb-3">🌊</div>
           <p className="text-gray-500 text-sm">No whale activity detected right now.</p>
-          <p className="text-gray-600 text-xs mt-1">Data refreshes every 10 minutes.</p>
+          <p className="text-gray-600 text-xs mt-1">Scanning.</p>
         </div>
       ) : (
         <div className="flex flex-col gap-2">

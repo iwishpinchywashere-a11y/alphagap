@@ -78,7 +78,7 @@ export default function SignalsPage() {
           <div className="flex flex-col items-center justify-center h-96 text-center">
             <div className="text-6xl mb-4">📡</div>
             <h2 className="text-xl font-bold mb-2">No Signals Yet</h2>
-            <p className="text-gray-500 max-w-md">Signals refresh automatically every 10 minutes.</p>
+            <p className="text-gray-500 max-w-md">Scanning for signals.</p>
           </div>
         )}
 

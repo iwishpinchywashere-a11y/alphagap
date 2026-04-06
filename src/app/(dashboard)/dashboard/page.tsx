@@ -106,8 +106,8 @@ export default function LeaderboardPage() {
         {!scanning && leaderboard.length === 0 && (
           <div className="flex flex-col items-center justify-center h-96 text-center">
             <div className="text-6xl mb-4">&#x1F50D;</div>
-            <h2 className="text-xl font-bold mb-2">Loading Data…</h2>
-            <p className="text-gray-500 max-w-md">Data refreshes automatically every 10 minutes.</p>
+            <h2 className="text-xl font-bold mb-2">Scanning…</h2>
+            <p className="text-gray-500 max-w-md">Fetching the latest subnet data.</p>
           </div>
         )}
 
