@@ -32,7 +32,7 @@ export default function DashboardHeader() {
     : null;
 
   return (
-    <header className="border-b border-gray-800 px-4 md:px-6 py-3 md:py-4 flex items-center justify-between flex-wrap gap-2 max-w-full overflow-hidden">
+    <header className="border-b border-gray-800 px-4 md:px-6 py-3 md:py-4 flex items-center justify-between flex-wrap gap-2 max-w-full overflow-x-auto">
       <div className="flex items-center gap-4">
         <a href="/dashboard">
           <img src="/alphagap_logo_dark.svg" alt="AlphaGap" className="h-12 w-auto" />
