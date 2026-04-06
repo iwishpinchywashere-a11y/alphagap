@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
-import { getUserByEmail, createUser } from "@/lib/users";
+import { getUserByEmail, createUser, setStripeCustomerLookup, updateUser } from "@/lib/users";
+import { getStripe, PLANS, type PlanKey } from "@/lib/stripe-client";
 import { createToken } from "@/lib/tokens";
 import { sendWelcomeEmail } from "@/lib/email";
 
@@ -24,7 +25,8 @@ async function verifyTurnstile(token: string): Promise<boolean> {
 
 export async function POST(req: Request) {
   try {
-    const { email, password, name, turnstileToken } = await req.json();
+    const { email, password, name, turnstileToken, plan: planParam } = await req.json();
+    const planKey: PlanKey = planParam === "premium" ? "premium" : "pro";
 
     if (!email || !password || !name) {
       return NextResponse.json({ error: "Name, email and password are required" }, { status: 400 });
@@ -52,9 +54,10 @@ export async function POST(req: Request) {
     const passwordHash = await bcrypt.hash(password, 12);
     const cleanEmail = email.toLowerCase().trim();
     const cleanName = name.trim();
+    const userId = crypto.randomUUID();
 
     await createUser({
-      id: crypto.randomUUID(),
+      id: userId,
       email: cleanEmail,
       name: cleanName,
       passwordHash,
@@ -70,7 +73,49 @@ export async function POST(req: Request) {
       ),
     ).catch((e) => console.error("[signup] token create failed:", e));
 
-    return NextResponse.json({ ok: true });
+    // ── Create Stripe checkout session immediately ──────────────────
+    // This avoids any session/cookie timing issues. The browser redirects
+    // directly to Stripe — no next-auth signIn() needed at this stage.
+    let checkoutUrl: string | null = null;
+    try {
+      const stripe = getStripe();
+      const plan = PLANS[planKey];
+      const baseUrl = (process.env.NEXTAUTH_URL || "https://alphagap.io").replace(/\/$/, "");
+
+      const customer = await stripe.customers.create({
+        email: cleanEmail,
+        name: cleanName,
+        metadata: { userId },
+      });
+      await setStripeCustomerLookup(cleanEmail, customer.id);
+      await updateUser(cleanEmail, { stripeCustomerId: customer.id });
+
+      const session = await stripe.checkout.sessions.create({
+        customer: customer.id,
+        mode: "subscription",
+        line_items: [{
+          price_data: {
+            currency: plan.currency,
+            product_data: { name: plan.name, description: plan.description },
+            recurring: { interval: plan.interval },
+            unit_amount: plan.amount,
+          },
+          quantity: 1,
+        }],
+        success_url: `${baseUrl}/dashboard?welcome=true`,
+        cancel_url: `${baseUrl}/pricing?canceled=true`,
+        allow_promotion_codes: true,
+        subscription_data: {
+          metadata: { userEmail: cleanEmail, userId, plan: planKey },
+        },
+      });
+      checkoutUrl = session.url;
+    } catch (stripeErr) {
+      // Non-fatal: account is created; user can go through /checkout as fallback
+      console.error("[signup] Stripe session creation failed:", stripeErr);
+    }
+
+    return NextResponse.json({ ok: true, checkoutUrl });
   } catch (e) {
     console.error("[signup]", e);
     return NextResponse.json({ error: "Failed to create account" }, { status: 500 });

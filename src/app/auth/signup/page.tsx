@@ -1,7 +1,6 @@
 "use client";
 
 import { Suspense, useState } from "react";
-import { signIn } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Turnstile } from "@marsidev/react-turnstile";
@@ -36,7 +35,9 @@ function SignUpForm() {
 
     setLoading(true);
     try {
-      // 1. Create account
+      // 1. Create account + get Stripe checkout URL in one request.
+      //    The server creates the user AND the Stripe checkout session,
+      //    so we can redirect straight to Stripe — no signIn() timing issues.
       const res = await fetch("/api/auth/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -45,6 +46,7 @@ function SignUpForm() {
           email: email.toLowerCase().trim(),
           password,
           turnstileToken,
+          plan,
         }),
       });
       const data = await res.json();
@@ -54,23 +56,15 @@ function SignUpForm() {
         return;
       }
 
-      // 2. Sign in (no redirect — just establish the session cookie)
-      const signInRes = await signIn("credentials", {
-        email: email.toLowerCase().trim(),
-        password,
-        redirect: false,
-      });
-      if (signInRes?.error) {
-        setError("Account created but sign-in failed. Please sign in manually.");
-        setLoading(false);
+      // 2. Redirect directly to Stripe (no signIn needed at this stage).
+      //    After payment, Stripe sends user to /dashboard. They sign in there.
+      if (data.checkoutUrl) {
+        window.location.href = data.checkoutUrl;
+      } else {
+        // Stripe session creation failed (non-fatal) — fall back to /checkout
+        // which will prompt them to sign in first, then retry Stripe.
         window.location.href = `/auth/signin?callbackUrl=${encodeURIComponent(`/checkout?plan=${plan}`)}`;
-        return;
       }
-
-      // 3. Navigate to the /checkout server-component page.
-      //    Being a full page navigation, the session cookie is guaranteed to
-      //    be present when the server renders it — no race condition possible.
-      window.location.href = `/checkout?plan=${plan}`;
     } catch {
       setError("Something went wrong. Please try again.");
       setLoading(false);
