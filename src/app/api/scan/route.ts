@@ -461,8 +461,10 @@ export async function GET() {
   // Many subnets have X accounts that are not in the TaoStats identity registry.
   // These supplement (not replace) registry data; registry handle takes priority if set.
   const TWITTER_HANDLE_OVERRIDES: Record<number, string> = {
+    1:   "macrocosmosai",   // Macrocosmos (SN1 Apex)
     3:   "tplr_ai",         // Templar (τemplar)
     4:   "TargonCompute",   // Targon
+    5:   "manifoldlabs",    // Manifold Labs (SN5)
     6:   "numinous_ai",     // Numinous
     8:   "VantaTrading",    // Vanta
     11:  "TrajectoryRL",    // TrajectoryRL
@@ -793,16 +795,10 @@ export async function GET() {
       if (handle) twitterHandleMap.set(handle.toLowerCase(), id.netuid);
     }
 
-    // Search for top 15 subnet handles (batch into 3 queries of 5 handles each)
-    // Prioritize subnets with high emissions or dev activity
-    const priorityNetuids = new Set([
-      ...devActivity.filter(a => a.commits_1d > 0).map(a => a.netuid).slice(0, 10),
-      ...[...poolMap.entries()].sort((a, b) => parseFloat(b[1].root_prop || "0") - parseFloat(a[1].root_prop || "0")).slice(0, 10).map(([n]) => n),
-    ]);
-
-    const handleEntries = [...twitterHandleMap.entries()]
-      .filter(([, netuid]) => priorityNetuids.has(netuid))
-      .slice(0, 15);
+    // Search ALL known subnet handles (up to 50, batched 5 at a time = 10 Desearch queries)
+    // Previously limited to top-15 priority subnets — now we scan everything in the handle map
+    // so @PinchyAlpha's full following list is covered every scan.
+    const handleEntries = [...twitterHandleMap.entries()].slice(0, 50);
 
     if (handleEntries.length > 0) {
       // Batch handles into groups of 5 for Desearch "from:" queries
