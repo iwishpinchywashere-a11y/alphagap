@@ -134,6 +134,22 @@ export const BENCHMARK_DATA: BenchmarkEntry[] = [
     ],
   },
   {
+    subnet_id: 50,
+    subnet_name: "Synth",
+    benchmark_score: 82,
+    benchmark_category: "AI Price Forecasting",
+    vs_provider: "Polymarket Research / Refinitiv / Traditional Quant Desks",
+    cost_saving_pct: 80,
+    perf_delta: "~110% return in 4-week Polymarket trial on $500K volume",
+    benchmark_summary: "First Bittensor subnet with agentic x402 payments; probabilistic price forecasting API live on Polymarket, Deribit, Bybit, and Koshi institutional risk desk; Monte Carlo simulation paths for BTC, ETH, SOL, XAU, SPY, NVDA, TSLA, AAPL, GOOGL at 1h/24h horizons; $6M Optimism Foundation grant; in a 4-week Polymarket trial a $2K test account returned ~110% on $500K trading volume",
+    active_users: "Institutional traders",
+    annual_revenue_usd: 0,
+    last_updated: "2026-04-04",
+    sources: [
+      "https://www.synthdata.co/",
+    ],
+  },
+  {
     subnet_id: 56,
     subnet_name: "Gradients",
     benchmark_score: 70,

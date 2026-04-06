@@ -57,7 +57,7 @@ function ScatterPlot({
   points, title, subtitle,
   xLabel, yLabel,
   formatX, formatY,
-  yLog = false, xMax100 = false,
+  yLog = false, xLog = false, xMax100 = false,
   alphaX = "right", alphaY = "bottom",
   alphaLabel = "Alpha Zone 🔥",
   overLabel = "Overvalued ⚠️",
@@ -67,7 +67,7 @@ function ScatterPlot({
   xLabel: string; yLabel: string;
   formatX: (v: number) => string;
   formatY: (v: number) => string;
-  yLog?: boolean; xMax100?: boolean;
+  yLog?: boolean; xLog?: boolean; xMax100?: boolean;
   alphaX?: "left" | "right";
   alphaY?: "top" | "bottom";
   alphaLabel?: string; overLabel?: string;
@@ -92,12 +92,15 @@ function ScatterPlot({
     );
   }
 
-  // ── X scale (linear, 0-100 for scores) ───────────────────────────
+  // ── X scale (log or linear) ───────────────────────────────────────
   const xVals = valid.map(p => p.x);
   const xDataMin = Math.min(...xVals); const xDataMax = Math.max(...xVals);
-  const xLo = xMax100 ? 0 : Math.max(0, xDataMin - (xDataMax - xDataMin) * 0.08);
-  const xHi = xMax100 ? 100 : xDataMax + (xDataMax - xDataMin) * 0.08;
-  const xS = (v: number) => PAD.left + ((v - xLo) / (xHi - xLo)) * cW;
+  const xLo = xMax100 ? 0 : xLog ? logVal(xDataMin * 0.6) : Math.max(0, xDataMin - (xDataMax - xDataMin) * 0.08);
+  const xHi = xMax100 ? 100 : xLog ? logVal(xDataMax * 1.6) : xDataMax + (xDataMax - xDataMin) * 0.08;
+  const xS = (v: number) => {
+    const lv = xLog ? logVal(v) : v;
+    return PAD.left + ((lv - xLo) / (xHi - xLo)) * cW;
+  };
 
   // ── Y scale (log or linear) ───────────────────────────────────────
   const yVals = valid.map(p => p.y);
@@ -112,6 +115,8 @@ function ScatterPlot({
   // X axis ticks
   const xTicks = xMax100
     ? [0, 20, 40, 60, 80, 100]
+    : xLog
+    ? niceLogTicks(xDataMin * 0.5, xDataMax * 2)
     : (() => {
         const step = (xHi - xLo) / 5;
         return Array.from({ length: 6 }, (_, i) => xLo + i * step);
@@ -126,7 +131,9 @@ function ScatterPlot({
       })();
 
   // Quadrant dividers (median of x and y)
-  const xMed = valid.reduce((s, p) => s + p.x, 0) / valid.length;
+  const xMed = xLog
+    ? Math.pow(10, valid.reduce((s, p) => s + logVal(p.x), 0) / valid.length)
+    : valid.reduce((s, p) => s + p.x, 0) / valid.length;
   const yMed = yLog
     ? Math.pow(10, valid.reduce((s, p) => s + logVal(p.y), 0) / valid.length)
     : valid.reduce((s, p) => s + p.y, 0) / valid.length;
@@ -326,6 +333,92 @@ function ScatterPlot({
   );
 }
 
+// ── Top-10 value list ─────────────────────────────────────────────
+// Shows subnets ranked by score / log10(marketCap) — best "alpha per dollar"
+function Top10List({
+  points,
+  scoreLabel,
+  ratioLabel,
+}: {
+  points: ScatterPoint[];
+  scoreLabel: string;
+  ratioLabel: string;
+}) {
+  const router = useRouter();
+  const valid = points.filter(p => p.x > 0 && p.y > 1e6 && isFinite(p.x) && isFinite(p.y));
+  const ranked = [...valid]
+    .map(p => ({ ...p, ratio: p.x / Math.log10(p.y) }))
+    .sort((a, b) => b.ratio - a.ratio)
+    .slice(0, 10);
+
+  if (ranked.length === 0) return null;
+
+  const maxRatio = ranked[0].ratio;
+
+  return (
+    <div className="bg-gray-900/40 border border-gray-800/60 rounded-xl p-4 mt-3">
+      <div className="flex items-center justify-between mb-3">
+        <h4 className="text-sm font-semibold text-gray-300">Top 10 — Best {ratioLabel}</h4>
+        <span className="text-[10px] text-gray-600">ranked by {scoreLabel} ÷ log(market cap)</span>
+      </div>
+      <div className="space-y-1.5">
+        {ranked.map((p, i) => (
+          <div
+            key={p.netuid}
+            className="flex items-center gap-3 cursor-pointer hover:bg-gray-800/40 rounded-lg px-2 py-1.5 transition-colors group"
+            onClick={() => router.push(`/subnets/${p.netuid}`)}
+          >
+            {/* Rank */}
+            <span className="text-xs tabular-nums text-gray-600 w-4 flex-shrink-0">{i + 1}</span>
+
+            {/* Name */}
+            <span className="flex-1 min-w-0 text-sm font-medium text-gray-200 truncate group-hover:text-white transition-colors">
+              {p.name}
+            </span>
+
+            {/* Score */}
+            <span className="text-xs tabular-nums text-gray-400 w-10 text-right flex-shrink-0">
+              {p.x.toFixed(p.x < 1 ? 3 : 1)}
+            </span>
+
+            {/* Market cap */}
+            <span className="text-xs tabular-nums text-gray-500 w-16 text-right flex-shrink-0">
+              {fmtMcap(p.y)}
+            </span>
+
+            {/* Ratio bar */}
+            <div className="w-20 flex-shrink-0 hidden sm:block">
+              <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
+                <div
+                  className="h-full rounded-full"
+                  style={{
+                    width: `${(p.ratio / maxRatio) * 100}%`,
+                    background: agapColor(p.agap),
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* aGap dot */}
+            <span
+              className="w-2 h-2 rounded-full flex-shrink-0"
+              style={{ background: agapColor(p.agap) }}
+              title={`aGap: ${p.agap}`}
+            />
+          </div>
+        ))}
+      </div>
+      <div className="mt-2 pt-2 border-t border-gray-800/50 flex items-center gap-4 text-[10px] text-gray-600">
+        <span>{scoreLabel}: raw score value</span>
+        <span>·</span>
+        <span>MCap: market capitalisation</span>
+        <span>·</span>
+        <span className="ml-auto">Click any row to open subnet</span>
+      </div>
+    </div>
+  );
+}
+
 // ── Analytics page ────────────────────────────────────────────────
 export default function AnalyticsPage() {
   const { leaderboard, scanning } = useDashboard();
@@ -396,54 +489,64 @@ export default function AnalyticsPage() {
             alphaLabel="Alpha 🔥"
             overLabel="Priced In ⚠️"
           />
+          <Top10List points={agapVsMcap} scoreLabel="aGap Score" ratioLabel="aGap Value per $ MCap" />
         </div>
 
         {/* Chart 2: Dev Activity vs Market Cap */}
-        <ScatterPlot
-          points={devVsMcap}
-          title="Dev Activity vs Market Cap"
-          subtitle="Subnets in the bottom-right are shipping hard but the market hasn't noticed yet."
-          xLabel="Dev Score"
-          yLabel="Market Cap"
-          formatX={v => v.toFixed(0)}
-          formatY={fmtMcap}
-          xMax100
-          yLog
-          alphaX="right" alphaY="bottom"
-          alphaLabel="High Dev, Low Cap 🔥"
-          overLabel="Overhyped ⚠️"
-        />
+        <div>
+          <ScatterPlot
+            points={devVsMcap}
+            title="Dev Activity vs Market Cap"
+            subtitle="Subnets in the bottom-right are shipping hard but the market hasn't noticed yet."
+            xLabel="Dev Score"
+            yLabel="Market Cap"
+            formatX={v => v.toFixed(0)}
+            formatY={fmtMcap}
+            xMax100
+            yLog
+            alphaX="right" alphaY="bottom"
+            alphaLabel="High Dev, Low Cap 🔥"
+            overLabel="Overhyped ⚠️"
+          />
+          <Top10List points={devVsMcap} scoreLabel="Dev Score" ratioLabel="Dev Activity per $ MCap" />
+        </div>
 
         {/* Chart 3: Emission Share vs Market Cap */}
-        <ScatterPlot
-          points={emVsMcap}
-          title="Emission Share vs Market Cap"
-          subtitle="High network emissions, low market cap — the market hasn't priced in what the network is paying out."
-          xLabel="Emission %"
-          yLabel="Market Cap"
-          formatX={v => `${v.toFixed(2)}%`}
-          formatY={fmtMcap}
-          yLog
-          alphaX="right" alphaY="bottom"
-          alphaLabel="Undervalued 🔥"
-          overLabel="Overvalued ⚠️"
-        />
+        <div>
+          <ScatterPlot
+            points={emVsMcap}
+            title="Emission Share vs Market Cap"
+            subtitle="High network emissions, low market cap — the market hasn't priced in what the network is paying out."
+            xLabel="Emission % (log scale)"
+            yLabel="Market Cap"
+            formatX={v => v >= 1 ? `${v.toFixed(1)}%` : `${v.toFixed(3)}%`}
+            formatY={fmtMcap}
+            yLog xLog
+            alphaX="right" alphaY="bottom"
+            alphaLabel="Undervalued 🔥"
+            overLabel="Overvalued ⚠️"
+          />
+          <Top10List points={emVsMcap} scoreLabel="Emission %" ratioLabel="Emission Yield per $ MCap" />
+        </div>
 
         {/* Chart 4: Social Score vs Market Cap */}
-        <ScatterPlot
-          points={socialVsMcap}
-          title="Social Velocity vs Market Cap"
-          subtitle="High social buzz, low market cap — community and KOL attention that hasn't been priced in yet."
-          xLabel="Social Score"
-          yLabel="Market Cap"
-          formatX={v => v.toFixed(0)}
-          formatY={fmtMcap}
-          xMax100
-          yLog
-          alphaX="right" alphaY="bottom"
-          alphaLabel="Hidden Gem 🔥"
-          overLabel="Overhyped ⚠️"
-        />
+        <div>
+          <ScatterPlot
+            points={socialVsMcap}
+            title="Social Velocity vs Market Cap"
+            subtitle="High social buzz, low market cap — community and KOL attention that hasn't been priced in yet."
+            xLabel="Social Score"
+            yLabel="Market Cap"
+            formatX={v => v.toFixed(0)}
+            formatY={fmtMcap}
+            xMax100
+            yLog
+            alphaX="right" alphaY="bottom"
+            alphaLabel="Hidden Gem 🔥"
+            overLabel="Overhyped ⚠️"
+          />
+          <Top10List points={socialVsMcap} scoreLabel="Social Score" ratioLabel="Social Buzz per $ MCap" />
+        </div>
 
       </div>
     </main>
