@@ -251,8 +251,8 @@ function SubscribeContent() {
             <span className="text-white font-medium">128 Bittensor subnets</span> — 24 hours a day, 7 days a week.
           </p>
           <p className="text-base text-gray-500 max-w-xl mx-auto mb-10">
-            While you sleep, we&apos;re scoring every subnet against 15+ signals so that when you wake up,
-            the best opportunities are right at the top of the list.
+            We save you hours of research time every day. While you sleep, we&apos;re scoring every subnet against 20+ signals so that when you wake up,
+            the best opportunities are right in front of you.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
