@@ -26,24 +26,24 @@ function SparkLine({ prices }: { prices: number[] }) {
 }
 
 const COLUMNS: [keyof SubnetScore, string, string][] = [
-  ["composite_score", "aGap", "Alpha Gap Score (0-100). The core metric. Finds subnets building quality work where the price hasn't caught up yet. Formula: Dev quality (50pts) + Price lag across 24h/7d/30d (30pts) + Social gap (15pts) + Emission value gap (15pts) - Market cap penalty."],
-  ["score_change_24h", "aGap 24H", "Change in aGap score over the last 24 hours. Green = score rising, Red = score falling."],
-  ["score_change_7d", "aGap 7D", "Change in aGap score over the last 7 days. Tracks momentum in our core intelligence signal."],
-  ["flow_score", "Flow", "Flow & Momentum (0-100). Combines price momentum across 24h, 7d, and 30d timeframes, whale activity, and reversal bonuses."],
-  ["dev_score", "Dev", "Development Score (0-100). Measures actual GitHub + HuggingFace activity quality based on commits, PRs, contributors, and AI models published."],
-  ["eval_score", "eVal", "Emissions-to-Valuation (0-100). Finds the gap between what the network pays a subnet (emissions) vs what the market values it (market cap). Also factors in the validator/miner ratio — subnets with balanced, healthy node composition score higher."],
-  ["product_score", "Prod", "Product / Utility Score (0–100). Four-tier scoring: Formally benchmarked vs AWS/Google/OpenAI (highest confidence, up to 100). Website scan — AlphaGap scans each subnet's live website daily for pricing pages, login/app access, enterprise contact, beta signups (up to 80). Curated milestones — manually verified product launches, partnerships, and revenue events (up to 80, shown as ~N). Heuristic — proxy signals from emissions, validators, and dev activity (up to 60, shown as ~N). This column is the core 'early alpha' detector: subnets building real product that the market hasn't priced in yet."],
-  ["social_score", "Social", "Social Velocity (0-100). Multi-source social intelligence: X/Twitter KOL mentions and Discord activity across the Bittensor ecosystem."],
-  ["emission_pct", "Em %", "Emission share — percentage of total Bittensor network emissions allocated to this subnet."],
-  ["emission_change_pct", "Em Δ", "Daily change in emission %. Green = increased, Red = decreased."],
+  ["composite_score", "aGap", "AlphaGap Score (0-100). Our composite intelligence score. Identifies subnets where fundamentals significantly exceed current market valuation — the higher the score, the larger the opportunity gap our models have detected."],
+  ["score_change_24h", "aGap 24H", "Change in aGap score over the last 24 hours. Rising scores indicate improving fundamentals or a widening opportunity gap."],
+  ["score_change_7d", "aGap 7D", "Change in aGap score over the last 7 days. A consistently rising aGap score is one of our strongest early signals."],
+  ["flow_score", "Flow", "Momentum Score (0-100). Measures price action and market dynamics across multiple timeframes. High flow = strong market momentum."],
+  ["dev_score", "Dev", "Development Score (0-100). Measures the quality and velocity of real engineering work happening inside the subnet. Built on proprietary analysis of actual development activity."],
+  ["eval_score", "eVal", "Emissions-to-Valuation Score (0-100). Identifies the gap between what the Bittensor network allocates to a subnet versus how the market has priced it. High eVal = the market is underpricing network conviction."],
+  ["product_score", "Prod", "Product & Utility Score (0-100). Assesses real-world deployments and evidence of actual usage. Formally benchmarked subnets (highest confidence) are marked without a tilde. Estimated scores are shown as ~N. This column is the core early alpha detector: subnets building real product the market hasn't priced in."],
+  ["social_score", "Social", "Social Velocity Score (0-100). Measures community awareness and KOL engagement across the Bittensor ecosystem. Low social + high aGap = hidden alpha."],
+  ["emission_pct", "Em %", "Emission share — percentage of total Bittensor network emissions currently allocated to this subnet."],
+  ["emission_change_pct", "Em Δ", "Recent change in emission allocation. Green = the network is voting more resources toward this subnet. Red = allocation is declining."],
   ["alpha_price", "Price", "Current alpha token price in USD."],
   ["market_cap", "MCap", "Total market capitalization in USD."],
   ["price_change_1h", "1h %", "Price change in the last 1 hour."],
   ["price_change_24h", "24h %", "Price change in the last 24 hours."],
   ["price_change_7d", "7d %", "Price change over the last 7 days."],
   ["price_change_30d", "30d %", "Price change over the last 30 days."],
-  ["net_flow_24h", "24h Net", "Net USD flow in the last 24 hours. Positive = more buying than selling."],
-  ["signal_count", "Signals", "Number of intelligence signals detected for this subnet."],
+  ["net_flow_24h", "24h Net", "Net USD flow in the last 24 hours. Positive = net buying pressure. A key early signal for institutional or whale accumulation."],
+  ["signal_count", "Signals", "Number of intelligence signals detected for this subnet in the current scan window."],
 ];
 
 export default function LeaderboardPage() {

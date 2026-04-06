@@ -61,7 +61,7 @@ export default function SignalsPage() {
           <div className="flex flex-col items-center justify-center h-96 text-center">
             <div className="text-4xl mb-4 animate-spin">&#x21BB;</div>
             <h2 className="text-xl font-bold mb-2">Loading Signals&hellip;</h2>
-            <p className="text-gray-500 max-w-md mb-4">Scanning GitHub, HuggingFace, X, and Discord.</p>
+            <p className="text-gray-500 max-w-md mb-4">Scanning the ecosystem for signals&hellip;</p>
             <div className="w-64 h-2 bg-gray-800 rounded-full overflow-hidden">
               <div className="h-full bg-green-400 rounded-full animate-pulse" style={{ width: "60%" }} />
             </div>

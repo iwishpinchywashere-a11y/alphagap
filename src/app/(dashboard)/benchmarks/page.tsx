@@ -219,7 +219,7 @@ export default function BenchmarksPage() {
                 </div>
                 <div className="mt-3 pt-3 border-t border-gray-800/50 flex items-center justify-between">
                   <div className="text-[10px] text-gray-600">
-                    Benchmark scores are composite assessments based on public benchmark data, cost comparisons, and real-world usage stats. Not audited.
+                    Scores based on verifiable benchmark data. Not audited.
                   </div>
                   <Link
                     href={`/subnets/${b.subnet_id}`}
@@ -237,16 +237,13 @@ export default function BenchmarksPage() {
 
       {/* Methodology note */}
       <div className="mt-6 p-4 bg-gray-900/40 border border-gray-800/60 rounded-xl">
-        <div className="text-sm font-semibold text-gray-300 mb-2">How Benchmark Scores Work</div>
+        <div className="text-sm font-semibold text-gray-300 mb-2">About Benchmark Scores</div>
         <p className="text-xs text-gray-500 leading-relaxed">
-          Benchmark scores (0&ndash;100) are composite assessments comparing each subnet&apos;s real-world performance against the leading centralized AI providers in the same category.
-          Factors include: cost per unit of compute, throughput, reliability, and real user adoption. Only subnets with publicly verifiable benchmark data are listed.
-          Scores feed into the <strong className="text-gray-400">Prod</strong> column on the main dashboard &mdash; subnets beating centralized providers AND generating revenue get up to +10 pts added to their AGap score.
+          Benchmark scores (0&ndash;100) compare each subnet&apos;s real-world performance against the leading centralized AI providers in the same category.
+          Only subnets with verifiable, publicly available benchmark data are listed here. Benchmark results directly feed into a subnet&apos;s overall AlphaGap score.
         </p>
-        <div className="mt-3 flex items-center gap-4 text-[10px] text-gray-600">
-          <span>Sources: taoflute.com &middot; taostats.io &middot; subnetalpha.ai &middot; subnet documentation</span>
-          <span>&middot;</span>
-          <span>Updated: April 3, 2026</span>
+        <div className="mt-3 text-[10px] text-gray-600">
+          Updated: April 3, 2026
         </div>
       </div>
     </main>
