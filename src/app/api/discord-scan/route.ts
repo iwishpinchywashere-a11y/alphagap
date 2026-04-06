@@ -15,19 +15,19 @@ import {
 } from "@/lib/discord";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 800;
+export const maxDuration = 240; // 4 min — fits Vercel Pro limit comfortably
 
 const DISCORD_TOKEN = process.env.DISCORD_TOKEN || "";
 const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY || "";
 
-// Scan all subnet channels — no cap now that we're on Vercel Pro
-const MAX_CHANNELS = 999;
+// Prioritise channels we can map to a netuid — cap at 80 to stay within time budget
+const MAX_CHANNELS = 80;
 // Messages per channel
-const MESSAGES_PER_CHANNEL = 50;
+const MESSAGES_PER_CHANNEL = 30;
 // Minimum messages to bother analyzing
-const MIN_MESSAGES_TO_ANALYZE = 3;
-// Delay between channel fetches to respect rate limits (ms)
-const RATE_LIMIT_DELAY = 250;
+const MIN_MESSAGES_TO_ANALYZE = 2;
+// Delay between channel fetches (ms) — small enough to finish in time
+const RATE_LIMIT_DELAY = 100;
 
 export async function GET() {
   if (!DISCORD_TOKEN) {
@@ -85,6 +85,34 @@ export async function GET() {
     // 3. Filter to channels with enough activity
     const activeChannels = channelScans.filter(c => c.messages.length >= MIN_MESSAGES_TO_ANALYZE);
     console.log(`[discord-scan] ${activeChannels.length} channels have ${MIN_MESSAGES_TO_ANALYZE}+ messages in last 24h`);
+
+    // ── Early save: write raw counts to blob immediately so dashboard has
+    // something even if AI analysis times out later
+    if (process.env.BLOB_READ_WRITE_TOKEN && channelScans.length > 0) {
+      const partial = {
+        scannedAt: new Date().toISOString(),
+        channelsScanned: channelsToScan.length,
+        channelsWithActivity: activeChannels.length,
+        alphaChannels: 0,
+        partial: true,
+        results: channelScans.map(c => ({
+          channelId: c.channelId,
+          channelName: c.channelName,
+          netuid: c.netuid,
+          subnetName: formatSubnetName(c.channelName),
+          signal: c.messages.length >= MIN_MESSAGES_TO_ANALYZE ? "active" : "quiet",
+          summary: `${c.messages.length} messages in the last 24h.`,
+          keyInsights: [] as string[],
+          messageCount: c.messages.length,
+          uniquePosters: new Set(c.messages.filter(m => !m.author.bot).map(m => m.author.username)).size,
+          scannedAt: new Date().toISOString(),
+        } as DiscordAlphaResult)),
+      };
+      await put("discord-latest.json", JSON.stringify(partial), {
+        access: "private", addRandomSuffix: false, contentType: "application/json",
+      }).catch(() => {});
+      console.log("[discord-scan] Early partial save written");
+    }
 
     // 4. Batch AI analysis — group channels into batches of 8 to minimize API calls
     const results: DiscordAlphaResult[] = [];
@@ -224,6 +252,14 @@ SIGNAL TYPES:
 - "quiet": Low activity, routine/maintenance chat, generic questions.
 - "noise": Spam, price talk only, complaints, shitposting, nothing of substance.
 
+RELEASE HINT — set releaseHint: true when you detect ANY of:
+- An imminent release, update, or launch being discussed or teased (e.g. "dropping tomorrow", "v2 this week", "mainnet soon")
+- Devs previewing unreleased features or showing early footage/demos
+- A confirmed launch date or milestone timeline being shared
+- A major architectural upgrade or breaking change being announced
+- Partnership or integration going live imminently
+This is the highest-priority early alpha signal — even a hint of a release from a credible source counts.
+
 ${channelTexts.join("\n\n")}
 
 Respond with a JSON array. One object per channel IN THE SAME ORDER as above:
@@ -231,6 +267,7 @@ Respond with a JSON array. One object per channel IN THE SAME ORDER as above:
   {
     "channelName": "exact channel name",
     "signal": "alpha|active|quiet|noise",
+    "releaseHint": false,
     "summary": "One punchy sentence. What's actually happening here?",
     "keyInsights": ["specific insight 1", "specific insight 2"] // 0-3 items, only for alpha/active
   }
@@ -238,6 +275,7 @@ Respond with a JSON array. One object per channel IN THE SAME ORDER as above:
 
 Rules:
 - Be STINGY with "alpha". Only tag as alpha if there's genuinely investable information.
+- releaseHint should almost always be false — only true when there's a concrete, credible release signal.
 - "active" = real technical community engaged (not just price chat)
 - keyInsights should be concrete: name features, timelines, people, announcements. Not vague.
 - If a channel is just "ser wen moon" type chat, it's noise.
@@ -271,6 +309,7 @@ Rules:
     const parsed: Array<{
       channelName: string;
       signal: "alpha" | "active" | "quiet" | "noise";
+      releaseHint?: boolean;
       summary: string;
       keyInsights: string[];
     }> = JSON.parse(jsonText);
@@ -285,6 +324,7 @@ Rules:
         netuid: ch.netuid,
         subnetName: formatSubnetName(ch.channelName),
         signal: ai.signal,
+        releaseHint: ai.releaseHint === true,
         summary: ai.summary,
         keyInsights: ai.keyInsights || [],
         messageCount: ch.messages.length,
