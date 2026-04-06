@@ -150,6 +150,16 @@ export default function PricingPage() {
           ))}
         </div>
 
+        {/* Learn more */}
+        <div className="text-center mb-4">
+          <Link
+            href="/subscribe"
+            className="inline-block px-6 py-2.5 border border-gray-700 text-gray-300 hover:border-gray-500 hover:text-white rounded-xl text-sm font-medium transition-colors"
+          >
+            Learn About Pro &amp; Premium →
+          </Link>
+        </div>
+
         {/* Free tier note */}
         <div className="text-center border border-gray-800 rounded-xl p-4 bg-gray-900/30">
           <p className="text-sm text-gray-400">
