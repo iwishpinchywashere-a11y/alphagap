@@ -32,7 +32,7 @@ export default function DashboardHeader() {
     : null;
 
   return (
-    <header className="border-b border-gray-800 px-4 md:px-6 py-3 md:py-4 flex items-center justify-between flex-wrap gap-2 max-w-full overflow-x-auto">
+    <header className="relative z-50 border-b border-gray-800 px-4 md:px-6 py-3 md:py-4 flex items-center justify-between flex-wrap gap-2 max-w-full overflow-x-auto">
       <div className="flex items-center gap-4">
         <a href="/dashboard">
           <img src="/alphagap_logo_dark.svg" alt="AlphaGap" className="h-12 w-auto" />
@@ -78,7 +78,7 @@ export default function DashboardHeader() {
           </button>
 
           {open && (
-            <div className="absolute right-0 top-full mt-2 w-56 bg-gray-900 border border-gray-700 rounded-xl shadow-2xl z-50 overflow-hidden">
+            <div className="absolute right-0 top-full mt-2 w-56 bg-gray-900 border border-gray-700 rounded-xl shadow-2xl z-[200] overflow-hidden">
               {session ? (
                 <>
                   {/* User info */}
