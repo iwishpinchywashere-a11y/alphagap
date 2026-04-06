@@ -523,13 +523,16 @@ export async function GET() {
     65:  "TPN_Labs",        // TAO Private Network
     66:  "alpha_core_ai",   // AlphaCore
     68:  "metanova_labs",   // NOVA (MetaNova Labs)
+    67:  "Tenex_SN67",      // Tenex (DeFi margin)
     70:  "dFusionAI",       // Vericore / dFusion AI
     71:  "LeadpoetAI",      // Leadpoet
     72:  "NATIXNetwork",    // StreetVision / NATIX
     74:  "gittensor_io",    // Gittensor
     75:  "hippius_subnet",  // Hippius
+    78:  "Loosh_ai",        // Loosh (machine consciousness)
     81:  "grail_ai",        // grail
     82:  "HermesSubnet",    // Hermes (SubQuery)
+    98:  "CreatorBid",      // Creator (CreatorBid agents)
     85:  "vidaio_",         // Vidaio
     88:  "Investing88ai",   // Investing (SN88)
     91:  "bitstarterAI",    // Bitstarter #1
