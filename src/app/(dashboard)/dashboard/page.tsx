@@ -8,22 +8,6 @@ import SubnetLogo from "@/components/dashboard/SubnetLogo";
 import { scoreColor, flowColor, formatNum } from "@/lib/formatters";
 import type { SubnetScore } from "@/lib/types";
 
-function SparkLine({ prices }: { prices: number[] }) {
-  if (!prices || prices.length < 2) return <span className="text-gray-700 text-xs">—</span>;
-  const min = Math.min(...prices);
-  const max = Math.max(...prices);
-  const range = max - min || 1;
-  const W = 56, H = 18;
-  const pts = prices.map((p, i) =>
-    `${(i / (prices.length - 1)) * W},${H - ((p - min) / range) * (H - 2) - 1}`
-  ).join(" ");
-  const isUp = prices[prices.length - 1] >= prices[0];
-  return (
-    <svg width={W} height={H} className="opacity-80 block">
-      <polyline points={pts} fill="none" stroke={isUp ? "#10b981" : "#ef4444"} strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />
-    </svg>
-  );
-}
 
 const COLUMNS: [keyof SubnetScore, string, string][] = [
   ["composite_score", "aGap", "AlphaGap Score (0-100). Our composite intelligence score. Identifies subnets where fundamentals significantly exceed current market valuation — the higher the score, the larger the opportunity gap our models have detected."],
@@ -343,9 +327,7 @@ export default function LeaderboardPage() {
                       <td className="py-2 px-3 text-right text-gray-400 tabular-nums">
                         {sub.market_cap != null ? `$${formatNum(sub.market_cap)}` : "\u2014"}
                       </td>
-                      <td className="py-2 px-2">
-                        <SparkLine prices={sub.sparkline_prices ?? []} />
-                      </td>
+
                       {(["price_change_1h", "price_change_24h", "price_change_7d", "price_change_30d"] as const).map((col) => (
                         <td key={col} className={`py-2 px-3 text-right font-medium tabular-nums ${
                           sub[col] == null ? "text-gray-600" :
