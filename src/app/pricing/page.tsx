@@ -83,8 +83,10 @@ export default function PricingPage() {
           <Link href="/" className="inline-block mb-10">
             <img src="/alphagap_logo_dark.svg" alt="AlphaGap" className="h-9 w-auto mx-auto" />
           </Link>
-          <div className="inline-block bg-green-500/10 border border-green-500/20 text-green-400 text-xs font-semibold px-3 py-1 rounded-full uppercase tracking-wider mb-4">
-            Simple pricing
+          <div className="flex justify-center mb-4">
+            <span className="bg-green-500/10 border border-green-500/20 text-green-400 text-xs font-semibold px-3 py-1 rounded-full uppercase tracking-wider">
+              Simple pricing
+            </span>
           </div>
           <h1 className="text-3xl sm:text-4xl font-bold text-white mb-3">Pick your plan</h1>
           <p className="text-gray-400 text-base">No hidden fees. Cancel anytime. Switch plans anytime.</p>
