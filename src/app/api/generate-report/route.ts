@@ -184,13 +184,25 @@ async function generateReport(forceNetuid?: number) {
     const website = identity?.subnet_url || "Unknown";
     const description = identity?.description || identity?.summary || "No description available";
 
+    // Emission % from leaderboard (ground truth — more accurate than root_prop)
+    const emissionPct = lbEntry.emission_pct != null
+      ? `${(lbEntry.emission_pct as number).toFixed(2)}%`
+      : rootProp !== "?" ? `${rootProp}% (root prop)` : "?";
+
     // Step 4: Generate the deep-dive report with Claude
     const prompt = `You are the AlphaGap Intelligence Engine generating a DEEP DIVE daily report. This is the most important content we produce — our readers use these reports to make investment decisions in the Bittensor ecosystem.
 
-Write a comprehensive, magazine-quality intelligence report on this subnet. Be specific, data-driven, and give actionable insights. Use actual numbers from the data below. This should read like a professional research report that people would pay for.
+Write a comprehensive, magazine-quality intelligence report on this subnet. Be specific, data-driven, and give actionable insights. Use actual numbers from the data below.
+
+⚠️ ACCURACY RULES — MANDATORY:
+1. ONLY use numbers that appear EXPLICITLY in the data section below. Do NOT calculate, infer, or estimate any figures.
+2. For emission percentage, use ONLY the "Emission %" value provided. Do NOT use Root Prop or any other field for this claim.
+3. For price, market cap, volume — use ONLY the exact figures provided.
+4. If a data field shows "?" it means unknown — say "data unavailable" or omit that claim entirely.
+5. Never extrapolate trends or compound statistics not explicitly in the data.
 
 ═══════════════════════════════════════
-SUBNET DATA
+SUBNET DATA (USE ONLY THESE NUMBERS)
 ═══════════════════════════════════════
 
 Name: ${targetName} (SN${targetNetuid})
@@ -213,7 +225,9 @@ MARKET DATA:
   24h Change: ${pch24h}% | 7d: ${pch1w}% | 30d: ${pch1m}%
   Buy Volume: ${buyVol} TAO (${buys} buys)
   Sell Volume: ${sellVol} TAO (${sells} sells)
-  Emission Rank: ${rank} | Root Prop: ${rootProp}%
+  Emission %: ${emissionPct}   ← USE THIS EXACT FIGURE for any emission % claims
+  Emission Rank: ${rank}
+  Root Prop (validator weight share): ${rootProp}%   ← this is NOT the same as Emission %
 
 DEV ACTIVITY:
   Today: ${dev?.commits_1d || 0} commits, ${dev?.prs_merged_1d || 0} PRs merged
@@ -289,7 +303,51 @@ Write the report using EXACTLY this structure. Each section should be substantiv
     }
 
     const data = await res.json();
-    const reportContent = data.content?.[0]?.text || "Report generation failed";
+    let reportContent: string = data.content?.[0]?.text || "Report generation failed";
+
+    // ── Step 4b: Fact-check the report ──────────────────────────────────────
+    // Scan for any numeric claims that contradict known ground-truth values.
+    // If found, append a correction note so readers aren't misled.
+    const factErrors: string[] = [];
+
+    // Check emission % — if the report contains a % figure near the wrong rootProp value
+    if (lbEntry.emission_pct != null) {
+      const trueEmPct = (lbEntry.emission_pct as number).toFixed(2);
+      // Look for patterns like "X% of ... emissions" or "capturing X%" in the text
+      const emPctMatches = reportContent.match(/(\d+\.?\d*)\s*%\s*(of\s*(Bittensor('s)?\s*)?(total\s*)?emissions?|of\s*emissions?|emissions?\s*share)/gi) || [];
+      for (const m of emPctMatches) {
+        const numMatch = m.match(/(\d+\.?\d*)/);
+        if (numMatch) {
+          const claimed = parseFloat(numMatch[1]);
+          const truth = parseFloat(trueEmPct);
+          // Flag if claimed value is off by more than 1 percentage point AND it's not the root prop
+          if (Math.abs(claimed - truth) > 1 && Math.abs(claimed - parseFloat(rootProp)) < 0.5) {
+            factErrors.push(`Emission % appears as ${claimed}% in report but actual value is ${trueEmPct}% (root prop ${rootProp}% was incorrectly used)`);
+          }
+        }
+      }
+    }
+
+    // Check market cap
+    if (mcap !== "?" && mcap !== "0.0") {
+      const mcapNum = parseFloat(mcap);
+      const mcapMatches = reportContent.match(/\$(\d+\.?\d*)\s*[Mm](illion)?/g) || [];
+      for (const m of mcapMatches) {
+        const numMatch = m.match(/(\d+\.?\d*)/);
+        if (numMatch) {
+          const claimed = parseFloat(numMatch[1]);
+          if (Math.abs(claimed - mcapNum) / Math.max(mcapNum, 1) > 0.25) {
+            factErrors.push(`Market cap appears as $${claimed}M but actual value is $${mcapNum}M`);
+          }
+        }
+      }
+    }
+
+    if (factErrors.length > 0) {
+      console.warn(`[report] Fact-check warnings for ${targetName}:`, factErrors);
+      // Append a correction section at the end of the report
+      reportContent += `\n\n---\n> ⚠️ **Data Note:** The following figures were auto-corrected by the AlphaGap fact-checker:\n${factErrors.map(e => `> - ${e}`).join("\n")}`;
+    }
 
     // Step 5: Store the report in Vercel Blob
     const today = new Date().toISOString().split("T")[0];
