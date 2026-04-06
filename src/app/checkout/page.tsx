@@ -1,9 +1,9 @@
 /**
  * /checkout?plan=pro|premium
  *
- * Server component — session cookies are guaranteed to be present when
- * this page renders, so getServerSession never returns null due to timing.
- * Creates a Stripe checkout session and immediately redirects to Stripe.
+ * Server component — session cookies are guaranteed to be present.
+ * IMPORTANT: redirect() must NOT be called inside try/catch in Next.js
+ * because redirect() works by throwing NEXT_REDIRECT, which catch blocks catch.
  */
 import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
@@ -20,64 +20,121 @@ export default async function CheckoutPage({
 }) {
   const params = await searchParams;
   const planKey: PlanKey = params.plan === "premium" ? "premium" : "pro";
-
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.email) {
-    redirect("/pricing");
-  }
-
   const baseUrl = (process.env.NEXTAUTH_URL || "https://alphagap.io").replace(/\/$/, "");
 
-  try {
-    const plan = PLANS[planKey];
-    const stripe = getStripe();
-    const user = await getUserByEmail(session.user.email);
-    if (!user) redirect("/pricing");
+  // ── 1. Auth check ──────────────────────────────────────────────
+  const session = await getServerSession(authOptions);
+  const email = session?.user?.email;
 
-    // Already subscribed → send straight to dashboard
-    if (user.stripeSubscriptionId) {
-      const sub = await stripe.subscriptions.retrieve(user.stripeSubscriptionId).catch(() => null);
-      if (sub && (sub.status === "active" || sub.status === "trialing")) {
-        redirect("/dashboard?welcome=true");
-      }
-    }
-
-    // Reuse or create Stripe customer
-    let customerId = user.stripeCustomerId;
-    if (!customerId) {
-      const customer = await stripe.customers.create({
-        email: user.email,
-        name: user.name,
-        metadata: { userId: user.id },
-      });
-      customerId = customer.id;
-      await setStripeCustomerLookup(user.email, customerId);
-      await updateUser(user.email, { stripeCustomerId: customerId });
-    }
-
-    const checkoutSession = await stripe.checkout.sessions.create({
-      customer: customerId,
-      mode: "subscription",
-      line_items: [{
-        price_data: {
-          currency: plan.currency,
-          product_data: { name: plan.name, description: plan.description },
-          recurring: { interval: plan.interval },
-          unit_amount: plan.amount,
-        },
-        quantity: 1,
-      }],
-      success_url: `${baseUrl}/dashboard?welcome=true`,
-      cancel_url: `${baseUrl}/pricing?canceled=true`,
-      allow_promotion_codes: true,
-      subscription_data: {
-        metadata: { userEmail: user.email, userId: user.id, plan: planKey },
-      },
-    });
-
-    if (!checkoutSession.url) redirect("/pricing");
-    redirect(checkoutSession.url);
-  } catch {
-    redirect("/pricing");
+  if (!email) {
+    // Session not found — show debug info instead of silent redirect
+    return (
+      <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center p-8">
+        <div className="max-w-md w-full bg-gray-900 border border-red-500/30 rounded-2xl p-8 text-center">
+          <div className="text-4xl mb-4">🔒</div>
+          <h1 className="text-white font-bold text-xl mb-2">Session not found</h1>
+          <p className="text-gray-400 text-sm mb-6">
+            Your account was created but we couldn&apos;t establish a session.
+            Please sign in manually to continue to checkout.
+          </p>
+          <a
+            href={`/auth/signin?callbackUrl=${encodeURIComponent(`/checkout?plan=${planKey}`)}`}
+            className="inline-block bg-gradient-to-r from-green-500 to-emerald-600 text-black font-bold px-6 py-3 rounded-lg text-sm"
+          >
+            Sign In → Continue to Payment
+          </a>
+        </div>
+      </div>
+    );
   }
+
+  // ── 2. Load user + build Stripe checkout URL ───────────────────
+  let stripeUrl: string | null = null;
+  let errorMsg: string | null = null;
+
+  const user = await getUserByEmail(email);
+
+  if (!user) {
+    errorMsg = "User record not found. Please contact support.";
+  } else if (user.stripeSubscriptionId) {
+    // Already subscribed — check if still active
+    const sub = await getStripe().subscriptions.retrieve(user.stripeSubscriptionId).catch(() => null);
+    if (sub && (sub.status === "active" || sub.status === "trialing")) {
+      redirect("/dashboard?welcome=true");
+    }
+  }
+
+  if (!errorMsg && user) {
+    try {
+      const stripe = getStripe();
+      const plan = PLANS[planKey];
+
+      let customerId = user.stripeCustomerId;
+      if (!customerId) {
+        const customer = await stripe.customers.create({
+          email: user.email,
+          name: user.name,
+          metadata: { userId: user.id },
+        });
+        customerId = customer.id;
+        await setStripeCustomerLookup(user.email, customerId);
+        await updateUser(user.email, { stripeCustomerId: customerId });
+      }
+
+      const checkoutSession = await stripe.checkout.sessions.create({
+        customer: customerId,
+        mode: "subscription",
+        line_items: [{
+          price_data: {
+            currency: plan.currency,
+            product_data: { name: plan.name, description: plan.description },
+            recurring: { interval: plan.interval },
+            unit_amount: plan.amount,
+          },
+          quantity: 1,
+        }],
+        success_url: `${baseUrl}/dashboard?welcome=true`,
+        cancel_url: `${baseUrl}/pricing?canceled=true`,
+        allow_promotion_codes: true,
+        subscription_data: {
+          metadata: { userEmail: user.email, userId: user.id, plan: planKey },
+        },
+      });
+
+      stripeUrl = checkoutSession.url;
+    } catch (e) {
+      errorMsg = e instanceof Error ? e.message : "Failed to create checkout session.";
+    }
+  }
+
+  // ── 3. Redirect or show error ──────────────────────────────────
+  // redirect() is called OUTSIDE try/catch so NEXT_REDIRECT propagates correctly
+  if (stripeUrl) {
+    redirect(stripeUrl);
+  }
+
+  return (
+    <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center p-8">
+      <div className="max-w-md w-full bg-gray-900 border border-red-500/30 rounded-2xl p-8 text-center">
+        <div className="text-4xl mb-4">⚠️</div>
+        <h1 className="text-white font-bold text-xl mb-2">Checkout setup failed</h1>
+        <p className="text-red-400 text-sm mb-2 font-mono">{errorMsg}</p>
+        <p className="text-gray-500 text-xs mb-6">Signed in as: {email}</p>
+        <div className="flex gap-3 justify-center">
+          <a
+            href={`/checkout?plan=${planKey}`}
+            className="inline-block bg-gradient-to-r from-green-500 to-emerald-600 text-black font-bold px-6 py-3 rounded-lg text-sm"
+          >
+            Try Again
+          </a>
+          <a
+            href="/pricing"
+            className="inline-block bg-gray-800 text-gray-300 px-6 py-3 rounded-lg text-sm"
+          >
+            Back to Pricing
+          </a>
+        </div>
+      </div>
+    </div>
+  );
 }
