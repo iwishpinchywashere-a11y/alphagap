@@ -910,8 +910,8 @@ function SubscribeContent() {
       {/* ── Disclaimer ── */}
       <section className="py-10 px-5 border-t border-white/[0.04]">
         <div className="max-w-3xl mx-auto text-center">
-          <p className="text-xs text-gray-600 leading-relaxed">
-            <span className="font-semibold text-gray-500">Not financial advice.</span> AlphaGap is an educational intelligence tool designed to help you research Bittensor subnets more efficiently. Nothing on this platform constitutes financial, investment, or trading advice. All data, scores, signals, and analysis are provided for informational purposes only. Cryptocurrency and digital asset markets are highly volatile. Past signal performance does not guarantee future results. Always do your own research and never invest more than you can afford to lose. AlphaGap is not responsible for any investment decisions you make based on information provided on this platform.
+          <p className="text-sm text-gray-300 leading-relaxed">
+            <span className="font-semibold text-white">Not financial advice.</span> AlphaGap is an educational intelligence tool designed to help you research Bittensor subnets more efficiently. Nothing on this platform constitutes financial, investment, or trading advice. All data, scores, signals, and analysis are provided for informational purposes only. Cryptocurrency and digital asset markets are highly volatile. Past signal performance does not guarantee future results. Always do your own research and never invest more than you can afford to lose. AlphaGap is not responsible for any investment decisions you make based on information provided on this platform.
           </p>
         </div>
       </section>
