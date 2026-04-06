@@ -122,48 +122,57 @@ export default function BenchmarksPage() {
           <div key={b.subnet_id} className="bg-gray-900/60 border border-gray-800 rounded-xl overflow-hidden hover:border-gray-700 transition-colors">
             {/* Main row */}
             <div
-              className="flex items-start gap-3 p-4 cursor-pointer"
+              className="flex items-center gap-3 p-4 cursor-pointer"
               onClick={() => setExpandedId(expandedId === b.subnet_id ? null : b.subnet_id)}
             >
               {/* Rank */}
-              <span className="text-gray-600 text-sm tabular-nums w-5 text-center flex-shrink-0 pt-1">{i + 1}</span>
+              <span className="text-gray-600 text-sm tabular-nums w-5 text-center flex-shrink-0">{i + 1}</span>
 
               {/* Logo */}
-              <div className="flex-shrink-0 pt-0.5">
+              <div className="flex-shrink-0">
                 <SubnetLogo netuid={b.subnet_id} name={b.subnet_name} size={28} />
               </div>
 
-              {/* Content: fills remaining width */}
-              <div className="flex-1 min-w-0">
-                {/* Top line: name + score + caret */}
-                <div className="flex items-center gap-2">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="font-bold text-white truncate">{b.subnet_name}</span>
-                      <span className="text-[10px] text-gray-600 font-mono flex-shrink-0">SN{b.subnet_id}</span>
-                    </div>
-                    <div className="text-[10px] text-gray-500 mt-0.5 truncate">{b.benchmark_category}</div>
-                  </div>
-                  <div className="flex-shrink-0 flex items-center gap-2">
-                    <BenchBadge score={b.benchmark_score} />
-                    <span className="text-gray-600 text-xs">{expandedId === b.subnet_id ? "▲" : "▼"}</span>
-                  </div>
+              {/* Name + category — fixed width on desktop */}
+              <div className="flex-1 min-w-0 md:flex-none md:w-44 lg:w-56">
+                <div className="flex items-center gap-1.5">
+                  <span className="font-bold text-white truncate">{b.subnet_name}</span>
+                  <span className="text-[10px] text-gray-600 font-mono flex-shrink-0">SN{b.subnet_id}</span>
                 </div>
+                <div className="text-[10px] text-gray-500 mt-0.5 truncate">{b.benchmark_category}</div>
+              </div>
 
-                {/* Bottom line: cost saving + perf + revenue */}
-                <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
-                  <div>
-                    <CostBadge pct={b.cost_saving_pct} />
-                    <span className="text-[10px] text-gray-500 ml-1">vs {b.vs_provider.split(" / ")[0]}</span>
-                  </div>
-                  <span className="hidden sm:inline text-xs text-emerald-400/80 font-medium">{b.perf_delta}</span>
-                  <div className="ml-auto text-right">
-                    <div className={`text-xs font-semibold ${b.annual_revenue_usd > 0 ? "text-white" : "text-gray-600"}`}>
-                      {formatRevenue(b.annual_revenue_usd)}
-                    </div>
-                    <div className="text-[10px] text-gray-600">{b.active_users}</div>
-                  </div>
+              {/* Cost saving — desktop only */}
+              <div className="hidden md:block flex-none w-36">
+                <CostBadge pct={b.cost_saving_pct} />
+                <span className="text-[10px] text-gray-500 ml-1">vs {b.vs_provider.split(" / ")[0]}</span>
+              </div>
+
+              {/* Perf delta — desktop only, fills remaining space */}
+              <div className="hidden md:block flex-1 min-w-0">
+                <span className="text-xs text-emerald-400/80 font-medium line-clamp-2">{b.perf_delta}</span>
+              </div>
+
+              {/* Revenue + users — desktop only */}
+              <div className="hidden md:block flex-none w-28 text-right">
+                <div className={`text-xs font-semibold ${b.annual_revenue_usd > 0 ? "text-white" : "text-gray-600"}`}>
+                  {formatRevenue(b.annual_revenue_usd)}
                 </div>
+                <div className="text-[10px] text-gray-600">{b.active_users}</div>
+              </div>
+
+              {/* Mobile-only: cost + revenue stacked */}
+              <div className="flex md:hidden flex-col items-end gap-0.5 flex-shrink-0">
+                <CostBadge pct={b.cost_saving_pct} />
+                <div className={`text-[10px] ${b.annual_revenue_usd > 0 ? "text-gray-400" : "text-gray-600"}`}>
+                  {formatRevenue(b.annual_revenue_usd)}
+                </div>
+              </div>
+
+              {/* Score badge */}
+              <div className="flex-shrink-0 flex items-center gap-2">
+                <BenchBadge score={b.benchmark_score} />
+                <span className="text-gray-600 text-xs">{expandedId === b.subnet_id ? "▲" : "▼"}</span>
               </div>
             </div>
 
