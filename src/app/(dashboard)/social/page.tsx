@@ -474,64 +474,6 @@ export default function SocialPage() {
           )}
         </div>
 
-        {/* ── Under the Hood ── */}
-        <div className="bg-gray-900/40 border border-gray-800/60 rounded-xl p-5">
-          <h2 className="font-bold text-white mb-4">🔧 Under the Hood</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-sm">
-
-            {/* How X scoring works */}
-            <div>
-              <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">X / Twitter Scoring</h3>
-              <div className="space-y-2 text-xs text-gray-500 leading-relaxed">
-                <p>Every 10 min, the social pulse checks <span className="text-gray-300">all {stats.tier1Count + stats.tier2Count} tracked KOLs</span> for new subnet-related tweets.</p>
-                <p>Heat score = <span className="text-green-400 font-mono">KOL weight × 0.70</span> + <span className="text-blue-400 font-mono">log₁₀(engagement) × 11</span>, capped at 100.</p>
-                <p>A <span className="text-green-400">Tier 1</span> KOL (const, opentensor) with just 50 likes → heat <strong className="text-white">88</strong>. With 200 likes → heat <strong className="text-white">95</strong>.</p>
-                <p>Heat stays at full strength for <strong className="text-white">48h</strong>, then decays to 0 over the next 24h.</p>
-                <p>Final social score = <span className="text-white font-mono">max(organic, heat)</span> — KOL events only ever boost, never hurt.</p>
-              </div>
-            </div>
-
-            {/* How Discord scoring works */}
-            <div>
-              <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Discord Scoring</h3>
-              <div className="space-y-2 text-xs text-gray-500 leading-relaxed">
-                <p>Every 3h, Claude Haiku reads the last 24h of messages from <span className="text-gray-300">{stats.discordChannelsScanned} subnet channels</span> in the Bittensor Discord.</p>
-                <p>Each channel is classified as:</p>
-                <ul className="space-y-1 pl-2">
-                  <li><span className="text-green-400 font-semibold">ALPHA</span> — dev previews, partnerships, insider hints → +15–20 pts</li>
-                  <li><span className="text-blue-400 font-semibold">ACTIVE</span> — substantive community discussion → +6–12 pts</li>
-                  <li><span className="text-gray-500">QUIET / NOISE</span> — low activity or spam → 0 pts</li>
-                </ul>
-                <p>Unique poster count is used as a quality multiplier within each tier.</p>
-              </div>
-            </div>
-
-            {/* KOL Tier breakdown */}
-            <div>
-              <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">KOL Tiers Being Tracked</h3>
-              <div className="space-y-2 text-xs">
-                <div className="flex items-center justify-between py-1.5 border-b border-gray-800">
-                  <span className={`px-1.5 py-0.5 rounded border font-semibold text-xs ${tierBadge(1)}`}>Tier 1</span>
-                  <span className="text-gray-400">Founders, core team, OTF</span>
-                  <span className="text-white font-bold">{stats.tier1Count}</span>
-                </div>
-                <div className="flex items-center justify-between py-1.5 border-b border-gray-800">
-                  <span className={`px-1.5 py-0.5 rounded border font-semibold text-xs ${tierBadge(2)}`}>Tier 2</span>
-                  <span className="text-gray-400">Major KOLs, subnet leads</span>
-                  <span className="text-white font-bold">{stats.tier2Count}</span>
-                </div>
-                <div className="flex items-center justify-between py-1.5">
-                  <span className={`px-1.5 py-0.5 rounded border font-semibold text-xs ${tierBadge(3)}`}>T3/T4</span>
-                  <span className="text-gray-400">Community (broad search only)</span>
-                  <span className="text-white font-bold">{stats.kolsTracked - stats.tier1Count - stats.tier2Count}</span>
-                </div>
-                <div className="mt-3 text-gray-600 leading-relaxed">
-                  Tier 1 &amp; 2 get individual timeline fetches. Tier 3/4 accounts are captured via broad search queries but don&apos;t generate heat events on their own.
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
 
       </div>
     </main>
