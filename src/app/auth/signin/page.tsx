@@ -14,6 +14,27 @@ function SignInForm() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [forgotLoading, setForgotLoading] = useState(false);
+  const [forgotSent, setForgotSent] = useState(false);
+
+  async function handleForgotPassword() {
+    if (!email) {
+      setError("Enter your email above then click Forgot password");
+      return;
+    }
+    setForgotLoading(true);
+    try {
+      await fetch("/api/auth/forgot-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.toLowerCase().trim() }),
+      });
+      setForgotSent(true);
+      setError("");
+    } finally {
+      setForgotLoading(false);
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -97,10 +118,27 @@ function SignInForm() {
             {loading ? "Signing in…" : "Sign In"}
           </button>
 
+          {forgotSent ? (
+            <div className="bg-green-500/10 border border-green-500/20 rounded-lg px-4 py-3 text-green-400 text-sm text-center">
+              Password reset email sent — check your inbox.
+            </div>
+          ) : (
+            <div className="text-center">
+              <button
+                type="button"
+                onClick={handleForgotPassword}
+                disabled={forgotLoading}
+                className="text-xs text-gray-500 hover:text-gray-300 transition-colors disabled:opacity-50"
+              >
+                {forgotLoading ? "Sending…" : "Forgot password?"}
+              </button>
+            </div>
+          )}
+
           <p className="text-center text-xs text-gray-600">
             Don&apos;t have an account?{" "}
             <Link href="/subscribe" className="text-green-400 hover:text-green-300 transition-colors">
-              Get access for $19/mo
+              Get started free
             </Link>
           </p>
         </form>

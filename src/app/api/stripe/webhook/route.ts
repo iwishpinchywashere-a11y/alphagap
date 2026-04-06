@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type Stripe from "stripe";
 import { getStripe } from "@/lib/stripe-client";
 import { getUserByStripeCustomerId, updateUser, updateUserListEntry } from "@/lib/users";
+import { sendSubscriptionConfirmationEmail } from "@/lib/email";
 
 /** Detect tier from subscription price amount (in cents) */
 function tierFromSub(sub: Stripe.Subscription): "pro" | "premium" {
@@ -91,13 +92,23 @@ export async function POST(req: Request) {
           if (user) {
             const status = mapSubStatus(sub.status);
             const subscriptionTier = tierFromSub(sub);
+            const periodEnd = (sub as any).current_period_end as number;
+            const amountCents = sub.items.data[0]?.price?.unit_amount ?? 0;
             await updateUser(user.email, {
               stripeSubscriptionId: sub.id,
               subscriptionStatus: status,
               subscriptionTier,
-              subscriptionPeriodEnd: (sub as any).current_period_end,
+              subscriptionPeriodEnd: periodEnd,
             });
             await updateUserListEntry(user.email, { subscriptionStatus: status });
+            // Send subscription confirmation email
+            sendSubscriptionConfirmationEmail(
+              user.name,
+              user.email,
+              subscriptionTier,
+              amountCents,
+              periodEnd,
+            ).catch((e) => console.error("[webhook] confirmation email failed:", e));
           }
         }
         break;

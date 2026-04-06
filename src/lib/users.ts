@@ -17,6 +17,7 @@ export interface User {
   isAdmin?: boolean;
   subscriptionTier?: "pro" | "premium";
   createdAt: string;
+  emailVerified?: boolean;
 }
 
 function emailHash(email: string): string {

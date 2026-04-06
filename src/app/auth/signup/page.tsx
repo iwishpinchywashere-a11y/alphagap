@@ -4,25 +4,41 @@ import { useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { Turnstile } from "@marsidev/react-turnstile";
+
+const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
 
 export default function SignUpPage() {
   const router = useRouter();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [turnstileToken, setTurnstileToken] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
+
+    // If Turnstile is configured but hasn't been solved yet
+    if (TURNSTILE_SITE_KEY && !turnstileToken) {
+      setError("Please complete the CAPTCHA check");
+      return;
+    }
+
     setLoading(true);
     try {
       // 1. Create account
       const res = await fetch("/api/auth/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email: email.toLowerCase().trim(), password }),
+        body: JSON.stringify({
+          name,
+          email: email.toLowerCase().trim(),
+          password,
+          turnstileToken,
+        }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -67,7 +83,7 @@ export default function SignUpPage() {
             <img src="/alphagap_logo_dark.svg" alt="AlphaGap" className="h-10 w-auto mx-auto mb-4" />
           </Link>
           <h1 className="text-2xl font-bold text-white">Create your account</h1>
-          <p className="text-gray-500 text-sm mt-1">Then complete payment — $19/month, cancel anytime</p>
+          <p className="text-gray-500 text-sm mt-1">Then complete payment — cancel anytime</p>
         </div>
 
         <form onSubmit={handleSubmit} className="bg-gray-900/60 border border-gray-800 rounded-2xl p-6 space-y-4">
@@ -82,7 +98,7 @@ export default function SignUpPage() {
             <input
               type="text"
               value={name}
-              onChange={e => setName(e.target.value)}
+              onChange={(e) => setName(e.target.value)}
               required
               autoComplete="name"
               placeholder="Your name"
@@ -95,7 +111,7 @@ export default function SignUpPage() {
             <input
               type="email"
               value={email}
-              onChange={e => setEmail(e.target.value)}
+              onChange={(e) => setEmail(e.target.value)}
               required
               autoComplete="email"
               placeholder="you@example.com"
@@ -108,7 +124,7 @@ export default function SignUpPage() {
             <input
               type="password"
               value={password}
-              onChange={e => setPassword(e.target.value)}
+              onChange={(e) => setPassword(e.target.value)}
               required
               minLength={8}
               autoComplete="new-password"
@@ -116,6 +132,18 @@ export default function SignUpPage() {
               className="w-full bg-gray-800/60 border border-gray-700 rounded-lg px-3.5 py-2.5 text-sm text-gray-100 placeholder-gray-600 focus:outline-none focus:border-green-600 focus:ring-1 focus:ring-green-600/30 transition-colors"
             />
           </div>
+
+          {/* Cloudflare Turnstile — only renders when NEXT_PUBLIC_TURNSTILE_SITE_KEY is set */}
+          {TURNSTILE_SITE_KEY && (
+            <div className="flex justify-center">
+              <Turnstile
+                siteKey={TURNSTILE_SITE_KEY}
+                onSuccess={setTurnstileToken}
+                onExpire={() => setTurnstileToken("")}
+                options={{ theme: "dark", size: "normal" }}
+              />
+            </div>
+          )}
 
           <button
             type="submit"

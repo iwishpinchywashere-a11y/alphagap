@@ -8,8 +8,10 @@ import Link from "next/link";
 export default function AccountPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
-  const [portalLoading, setPortalLoading] = useState(false);
+    const [portalLoading, setPortalLoading] = useState(false);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
 
   if (status === "loading") {
     return (
@@ -36,6 +38,20 @@ export default function AccountPage() {
       if (data.url) window.location.href = data.url;
     } finally {
       setPortalLoading(false);
+    }
+  }
+
+  async function sendPasswordReset() {
+    setResetLoading(true);
+    try {
+      await fetch("/api/auth/forgot-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: session?.user?.email }),
+      });
+      setResetSent(true);
+    } finally {
+      setResetLoading(false);
     }
   }
 
@@ -125,6 +141,29 @@ export default function AccountPage() {
                 className="w-full bg-gradient-to-r from-green-500 to-emerald-600 text-black font-bold rounded-lg py-2.5 text-sm hover:from-green-400 hover:to-emerald-500 transition-all disabled:opacity-50 shadow-lg shadow-green-500/20"
               >
                 {checkoutLoading ? "Loading…" : "Subscribe for $19/month →"}
+              </button>
+            </>
+          )}
+        </div>
+
+        {/* Security */}
+        <div className="bg-gray-900/60 border border-gray-800 rounded-2xl p-6 mb-4">
+          <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-4">Security</h2>
+          {resetSent ? (
+            <div className="bg-green-500/10 border border-green-500/20 rounded-lg px-4 py-3 text-green-400 text-sm text-center">
+              Password reset email sent — check your inbox.
+            </div>
+          ) : (
+            <>
+              <p className="text-xs text-gray-500 mb-3">
+                We&apos;ll email you a secure link to reset your password.
+              </p>
+              <button
+                onClick={sendPasswordReset}
+                disabled={resetLoading}
+                className="w-full bg-gray-800 hover:bg-gray-700 border border-gray-700 text-gray-200 rounded-lg py-2.5 text-sm font-medium transition-colors disabled:opacity-50"
+              >
+                {resetLoading ? "Sending…" : "Send Password Reset Email"}
               </button>
             </>
           )}
