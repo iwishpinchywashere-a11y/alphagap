@@ -17,7 +17,7 @@ const jetbrains = JetBrains_Mono({
 
 export const metadata: Metadata = {
   title: "AlphaGap | Bittensor Subnet Intelligence",
-  description: "Find alpha before everyone else. Track GitHub, HuggingFace, and on-chain signals across 128 Bittensor subnets.",
+  description: "Find the alpha gap before everyone else. Our AI scans thousands of data points across the Bittensor ecosystem to surface undervalued subnets before the market catches on.",
   icons: {
     icon: [
       { url: "/alphagap_icon.svg", type: "image/svg+xml" },
@@ -27,7 +27,7 @@ export const metadata: Metadata = {
   },
   openGraph: {
     title: "AlphaGap | Bittensor Subnet Intelligence",
-    description: "Find alpha before everyone else. Track GitHub, HuggingFace, and on-chain signals across 128 Bittensor subnets.",
+    description: "Find the alpha gap before everyone else. Our AI scans thousands of data points across the Bittensor ecosystem to surface undervalued subnets before the market catches on.",
     images: [{ url: "/alphagap_logo_dark.svg" }],
   },
 };
