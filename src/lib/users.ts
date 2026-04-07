@@ -98,6 +98,7 @@ export interface UserListEntry {
   email: string;
   name: string;
   subscriptionStatus: User["subscriptionStatus"];
+  subscriptionTier?: "pro" | "premium" | null;
   stripeCustomerId?: string;
   createdAt: string;
 }
@@ -113,6 +114,7 @@ export async function addToUserList(user: User): Promise<void> {
     email: user.email,
     name: user.name,
     subscriptionStatus: user.subscriptionStatus,
+    subscriptionTier: user.subscriptionTier ?? null,
     stripeCustomerId: user.stripeCustomerId,
     createdAt: user.createdAt,
   };
