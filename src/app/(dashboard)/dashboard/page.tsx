@@ -31,15 +31,47 @@ const COLUMNS: [keyof SubnetScore, string, string][] = [
   ["signal_count", "Signals", "Number of intelligence signals detected for this subnet in the current scan window."],
 ];
 
-// Separate component for useSearchParams (requires Suspense boundary)
+// Separate component for useSearchParams (requires Suspense boundary).
+// When returning from Stripe (?welcome=true):
+//   1. Calls /api/sync-subscription to pull live status directly from Stripe
+//   2. Once active, does a hard redirect to /dashboard (drops ?welcome=true)
+//      so the page reloads with the fresh session cookie — guaranteed to show Pro.
 function WelcomeRefresh() {
   const searchParams = useSearchParams();
   const { update: updateSession } = useSession();
+
   useEffect(() => {
     if (searchParams.get("welcome") !== "true") return;
-    const timer = setTimeout(() => { updateSession(); }, 3000);
-    return () => clearTimeout(timer);
-  }, [searchParams, updateSession]);
+
+    let attempts = 0;
+    const maxAttempts = 15;
+    let timerId: ReturnType<typeof setTimeout>;
+
+    const poll = async () => {
+      if (attempts >= maxAttempts) return;
+      attempts++;
+      try {
+        // 1. Ask server to sync subscription status directly from Stripe API
+        const res = await fetch("/api/sync-subscription", { method: "POST" });
+        const data = await res.json() as { status?: string };
+        if (data.status === "active" || data.status === "trialing") {
+          // 2. Re-encode the JWT cookie with fresh data from blob
+          await updateSession();
+          // 3. Hard reload so the page reads the updated cookie
+          window.location.replace("/dashboard");
+          return;
+        }
+      } catch {
+        // ignore, retry
+      }
+      timerId = setTimeout(poll, 2000);
+    };
+
+    timerId = setTimeout(poll, 1000);
+    return () => clearTimeout(timerId);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
   return null;
 }
 
@@ -225,13 +257,14 @@ export default function LeaderboardPage() {
             {/* Mobile-only sticky CTA — sits above the horizontally-scrolling table */}
             {!isPro && (
               <div className="md:hidden mb-3 flex flex-col items-center gap-1.5 py-4 px-4 rounded-xl bg-[#0a0a0f]/80 border border-gray-800">
-                <p className="text-xs text-white font-bold">Top 20 subnets are locked on the free plan</p>
+                <p className="text-xs text-white font-bold">Top 20 Subnets are hidden on the free plan</p>
                 <a
                   href="/pricing"
                   className="font-sans px-8 py-3.5 bg-gradient-to-r from-green-500 to-emerald-600 text-black font-bold rounded-xl text-base hover:from-green-400 hover:to-emerald-500 transition-all shadow-xl shadow-green-500/30"
                 >
                   Get Access →
                 </a>
+                <p className="text-xs text-white/50">Scroll down to view free analysis</p>
               </div>
             )}
 
@@ -325,27 +358,8 @@ export default function LeaderboardPage() {
                       </td>
                       <td className={`py-2 px-3 text-right font-semibold tabular-nums ${scoreColor(sub.dev_score)}`}>{sub.dev_score}</td>
                       <td className={`py-2 px-3 text-right font-semibold tabular-nums ${scoreColor(sub.eval_score || 0)}`}>{sub.eval_score || 0}</td>
-                      <td className={`py-2 px-3 text-right font-semibold tabular-nums ${
-                        sub.product_score
-                          ? sub.utility_estimated ? "text-emerald-600" : "text-emerald-400"
-                          : "text-gray-700"
-                      }`}>
-                        {sub.product_score != null ? (
-                          <span
-                            title={(() => {
-                              const src = sub.product_source;
-                              if (src === "benchmark") return sub.benchmark_summary || "Formally benchmarked vs centralized AI providers.";
-                              if (src === "website") return `Website scan detected product signals (pricing, live app, enterprise) on this subnet's official site.`;
-                              if (src === "milestone") return `Curated product milestone: confirmed launch, partnership, or revenue event detected for this subnet.`;
-                              return `Estimated from proxy signals: emission share, validator quality, dev activity, and market conviction.`;
-                            })()}
-                            className="cursor-help"
-                          >
-                            {sub.utility_estimated ? "~" : ""}{sub.product_score}
-                            {sub.product_source === "website" && <span className="text-[9px] text-emerald-500/60 ml-0.5" title="Website scan">🌐</span>}
-                            {sub.product_source === "milestone" && <span className="text-[9px] text-emerald-500/60 ml-0.5" title="Curated product milestone">🚀</span>}
-                          </span>
-                        ) : "\u2014"}
+                      <td className={`py-2 px-3 text-right font-semibold tabular-nums ${scoreColor(sub.product_score || 0)}`}>
+                        {sub.product_score != null ? sub.product_score : "\u2014"}
                       </td>
                       <td className={`py-2 px-3 text-right font-semibold tabular-nums ${scoreColor(sub.social_score || 0)}`}>{sub.social_score || 0}</td>
                       <td className="py-2 px-3 text-right text-gray-400 tabular-nums">
@@ -396,10 +410,11 @@ export default function LeaderboardPage() {
                       <tr className="hidden md:table-row">
                         <td colSpan={19} className="py-5 text-center bg-[#0a0a0f]/60">
                           <div className="inline-flex flex-col items-center gap-2">
+                            <p className="text-xs text-white font-bold">Top 20 Subnets are hidden on the free plan</p>
                             <a href="/pricing" className="font-sans px-8 py-3.5 bg-gradient-to-r from-green-500 to-emerald-600 text-black font-bold rounded-xl text-base hover:from-green-400 hover:to-emerald-500 transition-all shadow-xl shadow-green-500/30">
                               Get Access →
                             </a>
-                            <p className="text-xs text-white font-bold">Top 20 subnets by aGap score are locked on the free plan</p>
+                            <p className="text-xs text-white/50">Scroll down to view free analysis</p>
                           </div>
                         </td>
                       </tr>
