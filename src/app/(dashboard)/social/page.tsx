@@ -322,149 +322,140 @@ export default function SocialPage() {
           </BlurGate>
         </div>
 
-        {/* ── X Leaderboard + Discord Leaderboard ── */}
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-
-          {/* X Leaderboard */}
-          <div className="bg-gray-900/60 border border-gray-800 rounded-xl overflow-hidden">
-            <div className="px-5 py-4 border-b border-gray-800">
-              <h2 className="font-bold text-white">𝕏 Top Subnets on X</h2>
-              <p className="text-xs text-gray-500 mt-0.5">Ranked by social score — includes KOL heat boost</p>
-            </div>
-            <BlurGate tier={tier} required="premium" minHeight="200px">
-            <div className="divide-y divide-gray-800/60">
-              {xLeaderboard.length === 0 ? (
-                <div className="p-6 text-center text-gray-600 text-sm">No X data yet</div>
-              ) : xLeaderboard.map((s, i) => (
-                <div
-                  key={s.netuid}
-                  className="px-4 py-3 flex items-center gap-3 hover:bg-gray-800/30 cursor-pointer transition-colors"
-                  onClick={() => router.push(`/subnets/${s.netuid}`)}
-                >
-                  <span className="text-xs text-gray-600 w-5 text-right tabular-nums">{i + 1}</span>
+        {/* ── Discord Alpha ── */}
+        <div className="bg-gray-900/60 border border-gray-800 rounded-xl overflow-hidden">
+          <div className="px-5 py-4 border-b border-gray-800">
+            <h2 className="font-bold text-white">💬 Discord Alpha</h2>
+            <p className="text-xs text-gray-500 mt-0.5">AI scans every channel — scores quality + quantity of alpha signals</p>
+          </div>
+          <BlurGate tier={tier} required="premium" minHeight="200px">
+          <div className="divide-y divide-gray-800/60">
+            {discordLeaderboard.length === 0 ? (
+              <div className="p-6 text-center text-gray-600 text-sm">No Discord data yet — run /api/discord-scan to populate</div>
+            ) : discordLeaderboard.map((d, i) => (
+              <div
+                key={d.netuid}
+                className="px-4 py-3 hover:bg-gray-800/30 transition-colors"
+              >
+                <div className="flex items-start gap-3">
+                  <span className="text-xs text-gray-600 w-5 text-right tabular-nums mt-0.5 shrink-0">{i + 1}</span>
 
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-gray-600 bg-gray-800 px-1.5 py-0.5 rounded font-mono">SN{s.netuid}</span>
-                      <span className="font-medium text-sm text-gray-200 truncate">{s.name}</span>
-                      {s.kol_boost >= 60 && (
-                        <span className="text-xs px-1.5 py-0.5 rounded border bg-green-500/15 text-green-400 border-green-500/30 shrink-0">
-                          KOL 🔥
+                    {/* Row 1: name + badges */}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <button
+                        onClick={() => router.push(`/subnets/${d.netuid}`)}
+                        className="flex items-center gap-1.5 hover:text-green-400 transition-colors"
+                      >
+                        <span className="text-xs text-gray-600 bg-gray-800 px-1.5 py-0.5 rounded font-mono">SN{d.netuid}</span>
+                        <span className="font-semibold text-sm text-gray-200">{d.name}</span>
+                      </button>
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold shrink-0 ${discordSignalStyle(d.signal)}`}>
+                        {d.signal.toUpperCase()}
+                      </span>
+                      {d.releaseHint && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded font-bold bg-yellow-500/20 text-yellow-300 border border-yellow-500/40 shrink-0">
+                          🚀 RELEASE HINT
                         </span>
                       )}
+                      {d.alphaTypes?.filter((t, i, arr) => arr.indexOf(t) === i).filter(t => t !== "general").map(type => (
+                        <span key={type} className="text-[10px] px-1.5 py-0.5 rounded bg-gray-800 text-gray-500 border border-gray-700 shrink-0">
+                          {type === "partnership" ? "🤝 partnership" :
+                           type === "feature" ? "⚡ feature" :
+                           type === "launch" ? "🚀 launch" :
+                           type === "dev_update" ? "⎇ dev update" :
+                           type === "team" ? "👤 team" : type}
+                        </span>
+                      ))}
                     </div>
-                    {s.top_kol && (
-                      <div className="text-xs text-gray-600 mt-0.5">
-                        Top: @{s.top_kol} · {fmtFollowers(s.top_kol_followers)} followers · {s.tweet_count} event{s.tweet_count !== 1 ? "s" : ""}
-                      </div>
+
+                    <div className="text-xs text-gray-600 mt-0.5">
+                      {d.messageCount} msgs · {d.uniquePosters} posters · {timeAgo(d.scannedAt)}
+                    </div>
+
+                    {d.summary && (
+                      <p className="text-xs text-gray-400 mt-1.5 leading-relaxed">{d.summary}</p>
+                    )}
+
+                    {d.keyInsights && d.keyInsights.length > 0 && (
+                      <ul className="mt-1.5 space-y-0.5">
+                        {d.keyInsights.map((insight, ii) => (
+                          <li key={ii} className="flex items-start gap-1.5 text-xs text-gray-500 leading-relaxed">
+                            <span className="text-green-500 mt-0.5 shrink-0">›</span>
+                            <span>{insight}</span>
+                          </li>
+                        ))}
+                      </ul>
                     )}
                   </div>
 
-                  <div className="text-right shrink-0">
-                    <div className="text-base font-bold tabular-nums text-green-400">{s.social_score}</div>
-                    <div className={`text-xs tabular-nums ${agapColor(s.composite_score)}`}>aGap {s.composite_score}</div>
+                  <div className="text-right shrink-0 min-w-[48px]">
+                    <div className={`text-lg font-bold tabular-nums leading-none ${
+                      (d.alphaScore ?? 0) >= 70 ? "text-green-400" :
+                      (d.alphaScore ?? 0) >= 45 ? "text-yellow-400" :
+                      (d.alphaScore ?? 0) >= 20 ? "text-orange-400" :
+                      "text-gray-600"
+                    }`}>
+                      {d.alphaScore ?? "—"}
+                    </div>
+                    <div className="text-[10px] text-gray-600 mt-0.5">alpha</div>
+                    {d.composite_score != null && (
+                      <>
+                        <div className={`text-xs font-semibold tabular-nums mt-1 ${agapColor(d.composite_score)}`}>{d.composite_score}</div>
+                        <div className="text-[10px] text-gray-600">aGap</div>
+                      </>
+                    )}
                   </div>
                 </div>
-              ))}
-            </div>
-            </BlurGate>
+              </div>
+            ))}
           </div>
+          </BlurGate>
+        </div>
 
-          {/* Discord Leaderboard */}
-          <div className="bg-gray-900/60 border border-gray-800 rounded-xl overflow-hidden">
-            <div className="px-5 py-4 border-b border-gray-800">
-              <h2 className="font-bold text-white">💬 Discord Alpha</h2>
-              <p className="text-xs text-gray-500 mt-0.5">AI scans every channel — scores quality + quantity of alpha signals</p>
-            </div>
-            <BlurGate tier={tier} required="premium" minHeight="200px">
-            <div className="divide-y divide-gray-800/60">
-              {discordLeaderboard.length === 0 ? (
-                <div className="p-6 text-center text-gray-600 text-sm">No Discord data yet — run /api/discord-scan to populate</div>
-              ) : discordLeaderboard.map((d, i) => (
-                <div
-                  key={d.netuid}
-                  className="px-4 py-3 hover:bg-gray-800/30 transition-colors"
-                >
-                  <div className="flex items-start gap-3">
-                    <span className="text-xs text-gray-600 w-5 text-right tabular-nums mt-0.5 shrink-0">{i + 1}</span>
+        {/* ── Top Subnets on X ── */}
+        <div className="bg-gray-900/60 border border-gray-800 rounded-xl overflow-hidden">
+          <div className="px-5 py-4 border-b border-gray-800">
+            <h2 className="font-bold text-white">𝕏 Top Subnets on X</h2>
+            <p className="text-xs text-gray-500 mt-0.5">Ranked by social score — includes KOL heat boost</p>
+          </div>
+          <BlurGate tier={tier} required="premium" minHeight="200px">
+          <div className="divide-y divide-gray-800/60">
+            {xLeaderboard.length === 0 ? (
+              <div className="p-6 text-center text-gray-600 text-sm">No X data yet</div>
+            ) : xLeaderboard.map((s, i) => (
+              <div
+                key={s.netuid}
+                className="px-4 py-3 flex items-center gap-3 hover:bg-gray-800/30 cursor-pointer transition-colors"
+                onClick={() => router.push(`/subnets/${s.netuid}`)}
+              >
+                <span className="text-xs text-gray-600 w-5 text-right tabular-nums">{i + 1}</span>
 
-                    <div className="flex-1 min-w-0">
-                      {/* Row 1: name + badges */}
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <button
-                          onClick={() => router.push(`/subnets/${d.netuid}`)}
-                          className="flex items-center gap-1.5 hover:text-green-400 transition-colors"
-                        >
-                          <span className="text-xs text-gray-600 bg-gray-800 px-1.5 py-0.5 rounded font-mono">SN{d.netuid}</span>
-                          <span className="font-semibold text-sm text-gray-200">{d.name}</span>
-                        </button>
-                        <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold shrink-0 ${discordSignalStyle(d.signal)}`}>
-                          {d.signal.toUpperCase()}
-                        </span>
-                        {d.releaseHint && (
-                          <span className="text-[10px] px-1.5 py-0.5 rounded font-bold bg-yellow-500/20 text-yellow-300 border border-yellow-500/40 shrink-0">
-                            🚀 RELEASE HINT
-                          </span>
-                        )}
-                        {/* Alpha type badges */}
-                        {d.alphaTypes?.filter((t, i, arr) => arr.indexOf(t) === i).filter(t => t !== "general").map(type => (
-                          <span key={type} className="text-[10px] px-1.5 py-0.5 rounded bg-gray-800 text-gray-500 border border-gray-700 shrink-0">
-                            {type === "partnership" ? "🤝 partnership" :
-                             type === "feature" ? "⚡ feature" :
-                             type === "launch" ? "🚀 launch" :
-                             type === "dev_update" ? "⎇ dev update" :
-                             type === "team" ? "👤 team" : type}
-                          </span>
-                        ))}
-                      </div>
-
-                      {/* Row 2: meta */}
-                      <div className="text-xs text-gray-600 mt-0.5">
-                        {d.messageCount} msgs · {d.uniquePosters} posters · {timeAgo(d.scannedAt)}
-                      </div>
-
-                      {/* Row 3: AI summary */}
-                      {d.summary && (
-                        <p className="text-xs text-gray-400 mt-1.5 leading-relaxed">{d.summary}</p>
-                      )}
-
-                      {/* Row 4: key insights */}
-                      {d.keyInsights && d.keyInsights.length > 0 && (
-                        <ul className="mt-1.5 space-y-0.5">
-                          {d.keyInsights.map((insight, ii) => (
-                            <li key={ii} className="flex items-start gap-1.5 text-xs text-gray-500 leading-relaxed">
-                              <span className="text-green-500 mt-0.5 shrink-0">›</span>
-                              <span>{insight}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                    </div>
-
-                    {/* Score column */}
-                    <div className="text-right shrink-0 min-w-[48px]">
-                      <div className={`text-lg font-bold tabular-nums leading-none ${
-                        (d.alphaScore ?? 0) >= 70 ? "text-green-400" :
-                        (d.alphaScore ?? 0) >= 45 ? "text-yellow-400" :
-                        (d.alphaScore ?? 0) >= 20 ? "text-orange-400" :
-                        "text-gray-600"
-                      }`}>
-                        {d.alphaScore ?? "—"}
-                      </div>
-                      <div className="text-[10px] text-gray-600 mt-0.5">alpha</div>
-                      {d.composite_score != null && (
-                        <>
-                          <div className={`text-xs font-semibold tabular-nums mt-1 ${agapColor(d.composite_score)}`}>{d.composite_score}</div>
-                          <div className="text-[10px] text-gray-600">aGap</div>
-                        </>
-                      )}
-                    </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-gray-600 bg-gray-800 px-1.5 py-0.5 rounded font-mono">SN{s.netuid}</span>
+                    <span className="font-medium text-sm text-gray-200 truncate">{s.name}</span>
+                    {s.kol_boost >= 60 && (
+                      <span className="text-xs px-1.5 py-0.5 rounded border bg-green-500/15 text-green-400 border-green-500/30 shrink-0">
+                        KOL 🔥
+                      </span>
+                    )}
                   </div>
+                  {s.top_kol && (
+                    <div className="text-xs text-gray-600 mt-0.5">
+                      Top: @{s.top_kol} · {fmtFollowers(s.top_kol_followers)} followers · {s.tweet_count} event{s.tweet_count !== 1 ? "s" : ""}
+                    </div>
+                  )}
                 </div>
-              ))}
-            </div>
-            </BlurGate>
+
+                <div className="text-right shrink-0">
+                  <div className="text-base font-bold tabular-nums text-green-400">{s.social_score}</div>
+                  <div className={`text-xs tabular-nums ${agapColor(s.composite_score)}`}>aGap {s.composite_score}</div>
+                </div>
+              </div>
+            ))}
           </div>
+          </BlurGate>
         </div>
 
         {/* ── KOL Radar ── */}
