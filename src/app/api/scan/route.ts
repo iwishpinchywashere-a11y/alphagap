@@ -2831,6 +2831,32 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
     console.error("[scan] Failed to save emission history:", e);
   }
 
+  // ── Append current buy volumes to history ─────────────────────────
+  // Mirror of the emission history loop above — was missing, which meant
+  // hist.length was always 0 and no volume surges were ever detected.
+  // Throttle to ~1 reading per hour so history stays compact.
+  const nowVol = new Date().toISOString();
+  for (const pool of pools) {
+    const key = String(pool.netuid);
+    const currentVol = parseFloat(pool.tao_buy_volume_24_hr || "0") / RAO;
+    if (currentVol <= 0) continue; // skip subnets with no buy activity
+
+    if (!volumeHistory[key]) volumeHistory[key] = [];
+    const hist = volumeHistory[key];
+
+    // Throttle: only append if last reading was >45 minutes ago
+    const lastEntry = hist[hist.length - 1];
+    const minutesSinceLast = lastEntry
+      ? (Date.now() - new Date(lastEntry.ts).getTime()) / 60000
+      : Infinity;
+
+    if (minutesSinceLast >= 45) {
+      hist.push({ vol: currentVol, ts: nowVol });
+      // Keep 5 days of roughly-hourly readings (~120 entries per subnet)
+      if (hist.length > 120) volumeHistory[key] = hist.slice(-120);
+    }
+  }
+
   // Save updated volume history
   try {
     if (process.env.BLOB_READ_WRITE_TOKEN) {
@@ -2840,7 +2866,7 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
         allowOverwrite: true,
         contentType: "application/json",
       });
-      console.log(`[scan] Volume history saved. ${volumeSurgeMap.size} subnets with surge data.`);
+      console.log(`[scan] Volume history saved. ${volumeSurgeMap.size} subnets with surge data. ${Object.keys(volumeHistory).length} subnets tracked.`);
     }
   } catch (e) {
     console.error("[scan] Failed to save volume history:", e);
