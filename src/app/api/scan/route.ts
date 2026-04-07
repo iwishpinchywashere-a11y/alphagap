@@ -2948,7 +2948,7 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
     .catch(() => { /* non-critical */ });
 
   // Bump this when leaderboard schema changes (forces dashboard to rescan instead of using stale blob)
-  const SCAN_SCHEMA_VERSION = 12; // v12: invest_agap long-term formula added
+  const SCAN_SCHEMA_VERSION = 13; // v13: invest_agap refined — network health, pre-launch, 0.70 normalization
 
   const responseData = {
     schema_version: SCAN_SCHEMA_VERSION,
