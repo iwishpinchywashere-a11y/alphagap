@@ -43,7 +43,9 @@ export async function GET(req: Request) {
       stripe.checkout.sessions.retrieve(sessionId, {
         expand: ["subscription", "subscription.items.data.price"],
       }),
-      sessionEmail ? getUserByEmail(sessionEmail).catch(() => null) : Promise.resolve(null),
+      // Retry up to 5× — Vercel Blob propagation delay can cause the user blob
+      // to be invisible on the serverless instance handling this redirect.
+      sessionEmail ? getUserByEmail(sessionEmail, { retries: 5 }).catch(() => null) : Promise.resolve(null),
     ]);
 
     if (checkoutSession.payment_status !== "paid") {
@@ -66,8 +68,9 @@ export async function GET(req: Request) {
     const status = "active";
     const periodEnd = (sub as any).current_period_end as number;
 
-    // Use blob user we already fetched, or look up by Stripe email if different
-    const user = userFromSession ?? await getUserByEmail(email).catch(() => null);
+    // Use blob user we already fetched, or look up by Stripe email if different.
+    // Retry here too — different code path for when session email != sub email.
+    const user = userFromSession ?? await getUserByEmail(email, { retries: 5 }).catch(() => null);
 
     // 2. Encode fresh JWT immediately — this is the critical path for the user experience.
     //    Blob updates happen in parallel below; webhook is the authoritative backup.

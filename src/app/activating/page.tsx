@@ -24,11 +24,21 @@ export default function ActivatingPage() {
     let timerId: ReturnType<typeof setTimeout>;
     let cancelled = false;
 
-    const redirectToDashboard = async () => {
-      try {
-        await updateSession();
-      } catch {
-        // ignore — redirect regardless
+    // blobConfirmed = true means sync-subscription verified the blob is active.
+    // Only call updateSession() in that case — it re-reads from the blob and
+    // refreshes the JWT correctly.
+    //
+    // If blob was NOT confirmed (timeout path), we MUST NOT call updateSession()
+    // because the jwt callback's trigger:"update" branch would read the stale blob
+    // (still "none") and OVERWRITE the "active" JWT that payment-success already
+    // minted. Skipping updateSession() leaves that good JWT intact.
+    const redirectToDashboard = async (blobConfirmed: boolean) => {
+      if (blobConfirmed) {
+        try {
+          await updateSession();
+        } catch {
+          // ignore — redirect regardless
+        }
       }
       if (!cancelled) {
         window.location.replace("/dashboard");
@@ -38,9 +48,11 @@ export default function ActivatingPage() {
     const poll = async () => {
       if (cancelled) return;
       if (attempts >= maxAttempts) {
-        // Timeout — just go to dashboard anyway
+        // Timeout — go to dashboard and trust the JWT payment-success already minted.
+        // Do NOT call updateSession() here — it would read the stale blob and
+        // overwrite our "active" JWT back to "none".
         setMessage("Taking you to your dashboard");
-        await redirectToDashboard();
+        await redirectToDashboard(false);
         return;
       }
 
@@ -52,7 +64,8 @@ export default function ActivatingPage() {
 
         if (data.status === "active" || data.status === "trialing") {
           setMessage("Access confirmed — loading your dashboard");
-          await redirectToDashboard();
+          // Blob is confirmed active — safe to call updateSession()
+          await redirectToDashboard(true);
           return;
         }
       } catch {

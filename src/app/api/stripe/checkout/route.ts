@@ -18,7 +18,9 @@ export async function POST(req: Request) {
     const plan = PLANS[planKey];
 
     const stripe = getStripe();
-    const user = await getUserByEmail(session.user.email);
+    // Retry up to 5× (3s total) — Vercel Blob propagation delay after fresh signup
+    // can cause the user blob to be invisible on a different serverless instance.
+    const user = await getUserByEmail(session.user.email, { retries: 5 });
     if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
     const baseUrl = process.env.NEXTAUTH_URL || "https://alphagap.vercel.app";
