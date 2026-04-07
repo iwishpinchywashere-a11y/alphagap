@@ -106,7 +106,7 @@ export async function getUserList(): Promise<UserListEntry[]> {
   return (await readBlob<UserListEntry[]>("admin/user-list.json")) ?? [];
 }
 
-async function addToUserList(user: User): Promise<void> {
+export async function addToUserList(user: User): Promise<void> {
   const list = await getUserList();
   const existing = list.findIndex(u => u.email === user.email);
   const entry: UserListEntry = {
@@ -123,7 +123,8 @@ async function addToUserList(user: User): Promise<void> {
 
 export async function updateUserListEntry(email: string, updates: Partial<UserListEntry>): Promise<void> {
   const list = await getUserList();
-  const idx = list.findIndex(u => u.email === email);
+  const normalised = email.toLowerCase().trim();
+  const idx = list.findIndex(u => u.email.toLowerCase().trim() === normalised);
   if (idx >= 0) {
     list[idx] = { ...list[idx], ...updates };
     await writeBlob("admin/user-list.json", list);

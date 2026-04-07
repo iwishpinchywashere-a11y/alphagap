@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { getUserList, getUserByEmail, updateUser, updateUserListEntry, deleteUser } from "@/lib/users";
+import { getUserList, getUserByEmail, updateUser, updateUserListEntry, addToUserList, deleteUser } from "@/lib/users";
 import { getStripe } from "@/lib/stripe-client";
 
 export const dynamic = "force-dynamic";
@@ -68,37 +68,45 @@ export async function POST(req: Request) {
   const user = await getUserByEmail(email);
   if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
+  // sync-user: user exists in blob but is missing from the admin list (e.g. after delete + re-signup race)
+  if (action === "sync-user") {
+    await addToUserList(user);
+    return NextResponse.json({ ok: true, message: `${email} synced to user list` });
+  }
+
   if (action === "grant") {
-    await updateUser(email, { subscriptionStatus: "active" });
-    await updateUserListEntry(email, { subscriptionStatus: "active" });
+    const updated = await updateUser(email, { subscriptionStatus: "active" });
+    // upsert into list — works even if the entry was missing
+    await addToUserList(updated);
     return NextResponse.json({ ok: true, message: `Access granted to ${email}` });
   }
 
   if (action === "revoke") {
-    await updateUser(email, { subscriptionStatus: "canceled" });
-    await updateUserListEntry(email, { subscriptionStatus: "canceled" });
+    const updated = await updateUser(email, { subscriptionStatus: "canceled" });
+    await addToUserList(updated);
     return NextResponse.json({ ok: true, message: `Access revoked for ${email}` });
   }
 
   if (action === "make-admin") {
-    await updateUser(email, { isAdmin: true });
+    const updated = await updateUser(email, { isAdmin: true });
+    await addToUserList(updated);
     return NextResponse.json({ ok: true, message: `${email} is now an admin` });
   }
 
   if (action === "set-tier") {
     if (tier === "free") {
-      await updateUser(email, { subscriptionStatus: "none", subscriptionTier: undefined });
-      await updateUserListEntry(email, { subscriptionStatus: "none" });
+      const updated = await updateUser(email, { subscriptionStatus: "none", subscriptionTier: undefined });
+      await addToUserList(updated);
       return NextResponse.json({ ok: true, message: `${email} set to Free` });
     }
     if (tier === "pro") {
-      await updateUser(email, { subscriptionStatus: "active", subscriptionTier: "pro" });
-      await updateUserListEntry(email, { subscriptionStatus: "active" });
+      const updated = await updateUser(email, { subscriptionStatus: "active", subscriptionTier: "pro" });
+      await addToUserList(updated);
       return NextResponse.json({ ok: true, message: `${email} set to Pro` });
     }
     if (tier === "premium") {
-      await updateUser(email, { subscriptionStatus: "active", subscriptionTier: "premium" });
-      await updateUserListEntry(email, { subscriptionStatus: "active" });
+      const updated = await updateUser(email, { subscriptionStatus: "active", subscriptionTier: "premium" });
+      await addToUserList(updated);
       return NextResponse.json({ ok: true, message: `${email} set to Premium` });
     }
     return NextResponse.json({ error: "Invalid tier. Use: free, pro, premium" }, { status: 400 });

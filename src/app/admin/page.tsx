@@ -57,7 +57,7 @@ export default function AdminPage() {
     }).catch(() => {}).finally(() => setLoading(false));
   }, [status, isAdmin]);
 
-  async function doAction(action: "grant" | "revoke" | "make-admin" | "delete" | "set-tier", email: string, tier?: "free" | "pro" | "premium") {
+  async function doAction(action: "grant" | "revoke" | "make-admin" | "delete" | "set-tier" | "sync-user", email: string, tier?: "free" | "pro" | "premium") {
     if (action === "delete" && !confirm(`Permanently delete account: ${email}?`)) return;
     setActionLoading(true);
     setActionMsg("");
@@ -70,7 +70,10 @@ export default function AdminPage() {
       const data = await res.json();
       setActionMsg(data.message || data.error || "Done");
       if (res.ok) {
-        if (action === "delete") {
+        if (action === "sync-user") {
+          // Re-fetch the full user list so the newly synced user appears
+          fetch("/api/admin/users").then(r => r.json()).then(d => setUsers(d.users ?? [])).catch(() => {});
+        } else if (action === "delete") {
           setUsers(prev => prev.filter(u => u.email !== email));
         } else if (action === "set-tier") {
           setUsers(prev => prev.map(u =>
@@ -191,6 +194,14 @@ export default function AdminPage() {
               className="px-4 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 text-gray-300 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
             >
               Make Admin
+            </button>
+            <button
+              onClick={() => doAction("sync-user", actionEmail)}
+              disabled={!actionEmail || actionLoading}
+              title="User exists (can log in) but is missing from this list — click to repair"
+              className="px-4 py-2 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/20 text-blue-400 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+            >
+              Sync to List
             </button>
           </div>
           {actionMsg && (
