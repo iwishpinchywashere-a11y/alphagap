@@ -34,6 +34,27 @@ export default function AccountPage() {
   const isPro = isActive && subscriptionTier === "pro";
   const isPremium = isActive && subscriptionTier === "premium";
   const [portalError, setPortalError] = useState("");
+  const [cancelConfirm, setCancelConfirm] = useState(false);
+  const [cancelLoading, setCancelLoading] = useState(false);
+  const [cancelDate, setCancelDate] = useState<string | null>(null);
+
+  async function cancelSubscription() {
+    setCancelLoading(true);
+    try {
+      const res = await fetch("/api/stripe/cancel", { method: "POST" });
+      const data = await res.json();
+      if (data.ok) {
+        setCancelDate(data.cancelDate);
+        setCancelConfirm(false);
+      } else {
+        alert(data.error || "Failed to cancel. Please contact hello@getbeanstock.com");
+      }
+    } catch {
+      alert("Failed to cancel. Please contact hello@getbeanstock.com");
+    } finally {
+      setCancelLoading(false);
+    }
+  }
 
   async function openPortal() {
     setPortalLoading(true);
@@ -162,10 +183,52 @@ export default function AccountPage() {
               >
                 {portalLoading ? "Opening…" : "Manage Billing & Invoices →"}
               </button>
-              <p className="text-xs text-gray-600 mt-2 text-center">Cancel, update payment method, or download invoices</p>
+              <p className="text-xs text-gray-600 mt-2 text-center">Update payment method or download invoices</p>
               {portalError && (
                 <p className="text-xs text-red-400 mt-2 text-center">{portalError}</p>
               )}
+
+              {/* Cancel subscription */}
+              <div className="border-t border-gray-800 mt-5 pt-5">
+                {cancelDate ? (
+                  <div className="bg-yellow-500/5 border border-yellow-500/20 rounded-lg px-4 py-3 text-center">
+                    <p className="text-sm text-yellow-400 font-medium">Subscription cancelled</p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      You&apos;ll keep full access until <span className="text-gray-300">{cancelDate}</span>
+                    </p>
+                  </div>
+                ) : cancelConfirm ? (
+                  <div className="bg-red-500/5 border border-red-500/20 rounded-lg px-4 py-4">
+                    <p className="text-sm text-red-400 font-medium mb-1">Are you sure?</p>
+                    <p className="text-xs text-gray-500 mb-4">
+                      You&apos;ll keep access until your current billing period ends. This cannot be undone.
+                    </p>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={cancelSubscription}
+                        disabled={cancelLoading}
+                        className="flex-1 bg-red-500/20 hover:bg-red-500/30 border border-red-500/30 text-red-400 rounded-lg py-2 text-sm font-medium transition-colors disabled:opacity-50"
+                      >
+                        {cancelLoading ? "Cancelling…" : "Yes, cancel my subscription"}
+                      </button>
+                      <button
+                        onClick={() => setCancelConfirm(false)}
+                        disabled={cancelLoading}
+                        className="px-4 bg-gray-800 hover:bg-gray-700 border border-gray-700 text-gray-400 rounded-lg py-2 text-sm transition-colors"
+                      >
+                        Keep it
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setCancelConfirm(true)}
+                    className="w-full text-sm text-gray-600 hover:text-red-400 transition-colors py-1"
+                  >
+                    Cancel subscription
+                  </button>
+                )}
+              </div>
             </>
           ) : (
             <>
