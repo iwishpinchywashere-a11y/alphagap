@@ -53,23 +53,8 @@ function SignUpForm() {
         return;
       }
 
-      // 2. Create session server-side — bypasses next-auth's client CSRF dance
-      //    which has timing issues right after signup. Our endpoint retries
-      //    the blob lookup up to 6x (4.2s) to handle propagation delay.
-      const sessionRes = await fetch("/api/auth/create-session", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.toLowerCase().trim(), password }),
-      }).catch(() => null);
-
-      if (!sessionRes?.ok) {
-        // Fallback: send to sign-in page — user signs in once, then lands on checkout
-        window.location.href = `/auth/signin?callbackUrl=${encodeURIComponent(`/checkout?plan=${plan}`)}`;
-        return;
-      }
-
-      // 3. Session cookie is now set — go directly to /checkout which will
-      //    create the Stripe session and redirect to Stripe automatically.
+      // Session cookie is set by the signup API in the same request —
+      // no separate create-session call needed. Go straight to checkout.
       window.location.href = `/checkout?plan=${plan}`;
     } catch {
       setError("Something went wrong. Please try again.");
@@ -113,7 +98,7 @@ function SignUpForm() {
               required
               autoComplete="name"
               placeholder="Your name"
-              className="w-full bg-gray-800/60 border border-gray-700 rounded-lg px-3.5 py-2.5 text-sm text-gray-100 placeholder-gray-600 focus:outline-none focus:border-green-600 focus:ring-1 focus:ring-green-600/30 transition-colors"
+              className="w-full bg-gray-800/60 border border-gray-700 rounded-lg px-3.5 py-2.5 text-base text-gray-100 placeholder-gray-600 focus:outline-none focus:border-green-600 focus:ring-1 focus:ring-green-600/30 transition-colors"
             />
           </div>
 
@@ -126,7 +111,7 @@ function SignUpForm() {
               required
               autoComplete="email"
               placeholder="you@example.com"
-              className="w-full bg-gray-800/60 border border-gray-700 rounded-lg px-3.5 py-2.5 text-sm text-gray-100 placeholder-gray-600 focus:outline-none focus:border-green-600 focus:ring-1 focus:ring-green-600/30 transition-colors"
+              className="w-full bg-gray-800/60 border border-gray-700 rounded-lg px-3.5 py-2.5 text-base text-gray-100 placeholder-gray-600 focus:outline-none focus:border-green-600 focus:ring-1 focus:ring-green-600/30 transition-colors"
             />
           </div>
 
@@ -141,7 +126,7 @@ function SignUpForm() {
                 minLength={8}
                 autoComplete="new-password"
                 placeholder="Min. 8 characters"
-                className="w-full bg-gray-800/60 border border-gray-700 rounded-lg px-3.5 py-2.5 pr-10 text-sm text-gray-100 placeholder-gray-600 focus:outline-none focus:border-green-600 focus:ring-1 focus:ring-green-600/30 transition-colors"
+                className="w-full bg-gray-800/60 border border-gray-700 rounded-lg px-3.5 py-2.5 pr-10 text-base text-gray-100 placeholder-gray-600 focus:outline-none focus:border-green-600 focus:ring-1 focus:ring-green-600/30 transition-colors"
               />
               <button
                 type="button"
