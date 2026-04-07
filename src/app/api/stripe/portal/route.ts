@@ -12,15 +12,17 @@ export async function POST() {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
+  const email = session.user.email;
+
   try {
-    const user = await getUserByEmail(session.user.email);
+    const user = await getUserByEmail(email);
     const stripe = getStripe();
     const baseUrl = (process.env.NEXTAUTH_URL || "https://alphagap.io").replace(/\/$/, "");
 
     // Resolve Stripe customer ID — prefer stored value, fall back to email lookup
     let customerId = user?.stripeCustomerId;
     if (!customerId) {
-      const existing = await stripe.customers.list({ email: session.user.email, limit: 1 });
+      const existing = await stripe.customers.list({ email, limit: 1 });
       if (existing.data.length === 0) {
         return NextResponse.json({ error: "No billing account found" }, { status: 404 });
       }
@@ -28,7 +30,7 @@ export async function POST() {
       // Persist it so we don't have to look it up again
       if (user) {
         import("@/lib/users").then(({ updateUser }) =>
-          updateUser(session.user.email!, { stripeCustomerId: customerId! }).catch(() => {})
+          updateUser(email, { stripeCustomerId: customerId! }).catch(() => {})
         );
       }
     }
