@@ -219,7 +219,7 @@ export default function LeaderboardPage() {
                     </span>
                     {infoPopup === thKey && (
                       <div
-                        className="absolute z-50 top-5 left-0 w-72 p-3 bg-gray-900 border border-green-800/50 rounded-lg shadow-xl text-xs text-gray-300 leading-relaxed"
+                        className="absolute z-50 top-5 right-0 w-72 max-w-[calc(100vw-2rem)] p-3 bg-gray-900 border border-green-800/50 rounded-lg shadow-xl text-xs text-gray-300 leading-relaxed"
                         onClick={(e) => e.stopPropagation()}
                       >
                         <div className="font-semibold text-green-400 mb-2">Time Horizon</div>
