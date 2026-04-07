@@ -2520,16 +2520,16 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
     const clampedRaw = Math.max(1, Math.min(100, Math.round(rawAGap)));
     const aGap = smoothAGap(d.netuid, clampedRaw);
 
-    // ── INVESTING aGap (PILLAR-CAPPED + REVENUE-ANCHORED formula, v17) ──────────
-    // Monthly horizon. Revenue traction is the #1 signal — completely absent from
-    // the trading formula, creating genuinely different rankings.
+    // ── INVESTING aGap (PILLAR-CAPPED + REVENUE-ANCHORED formula, v18) ──────────
+    // Monthly horizon. Tighter pillar caps + revenue floors to prevent on-chain
+    // noise (eval/emissions/whales) from burying real product subnets.
     //
-    // Architecture: 4 pillars + Revenue Traction + Market Validation + Synergy
-    //   Dev(28) + Product(36) + Network(14) + SmartMoney(12) + RevTraction(20) + MktVal(5) + Synergy(5)
-    //   Max theoretical = 120 → only confirmed-revenue + strong product + dev subnets hit 100.
+    // Architecture: 4 pillars + RevTraction + MktVal + Synergy + Revenue Floor
+    //   Dev(22) + Product(28) + Network(10) + Money(8) + RevTraction(20) + MktVal(5) + Synergy(4)
+    //   Max theoretical = 97.
     //
-    // Network is intentionally small (14) — eval/emissions are tactical week-to-week
-    // signals, not the reason to invest for months. Revenue is.
+    // Revenue floors: confirmed ARR guarantees a minimum score so network penalties
+    // can't bury a subnet that's generating real fiat revenue.
 
     // ── NETWORK HEALTH (used by Pillar 3) ────────────────────────────────────
     let investNetworkHealth = 0;
@@ -2553,10 +2553,6 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
 
     // ── REVENUE TRACTION BONUS (0–20 pts) ────────────────────────────────────
     // THE core investing differentiator — completely absent from trading formula.
-    // Confirmed revenue from BENCHMARK_DATA (high confidence) or estimated from
-    // PRODUCT_MILESTONES (lower confidence, capped at 85% of the benchmark tier).
-    // A subnet with real paying customers is a categorically different investment
-    // than one with great tech but zero revenue.
     const benchEntry  = BENCHMARK_MAP.get(d.netuid);
     const milestEntry = MILESTONE_MAP.get(d.netuid);
     const confirmedArr = benchEntry?.annual_revenue_usd ?? 0;
@@ -2571,67 +2567,83 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
     else if (estimatedArr >           0) revTractionBonus = arrIsEstimated ?  1 :  2;
 
     // ── MARKET VALIDATION BONUS (0–5 pts) ────────────────────────────────────
-    // Formally benchmarked vs AWS/GCP/OpenAI AND generating revenue = proven PMF.
-    // The rarest and most powerful long-term signal. Trading formula has nothing like this.
+    // Formally benchmarked AND generating revenue = proven PMF.
     let marketValidationBonus = 0;
     if      (productSource === "benchmark" && confirmedArr >= 1_000_000) marketValidationBonus = 5;
     else if (productSource === "benchmark" && confirmedArr >=   100_000) marketValidationBonus = 3;
     else if (productSource === "benchmark" && confirmedArr >          0) marketValidationBonus = 2;
     else if (productSource === "benchmark")                              marketValidationBonus = 1;
 
-    // ── PILLAR 1: DEV (max 28) ────────────────────────────────────────────────
-    // Sustained build cadence is the #1 long-term moat. Spike weight near-zero.
+    // ── PILLAR 1: DEV (max 22) ────────────────────────────────────────────────
     const rawDevPillar = (buildingPts * 1.0) + (consistentBuilderBonus * 2.2) + (devSpikeBonus * 0.10);
-    const pillarDev = Math.min(28, Math.round(rawDevPillar));
+    const pillarDev = Math.min(22, Math.round(rawDevPillar));
 
-    // ── PILLAR 2: PRODUCT (max 36) ────────────────────────────────────────────
-    // Product is the dominant pillar for investing — bigger cap than any other.
-    // Source quality: benchmarked (audited) > website (scanner) > milestone > heuristic.
+    // ── PILLAR 2: PRODUCT (max 28) ────────────────────────────────────────────
     const iProductSourceMult = productSource === "benchmark" ? 1.5 :
                                productSource === "website"   ? 1.3 :
                                productSource === "milestone" ? 1.1 :
                                                                0.9;
     const rawProductPillar = (productAGapPts * iProductSourceMult)
-                           + (productAwarenessGap * 2.0)   // hidden product = core long-term alpha
-                           + (productVsPriceBonus  * 2.0)  // great product + depressed price
-                           + (investPreLaunch       * 0.9); // stealth pre-launch
-    const pillarProduct = Math.min(36, Math.round(rawProductPillar));
+                           + (productAwarenessGap * 2.0)
+                           + (productVsPriceBonus  * 2.0)
+                           + (investPreLaunch       * 0.9);
+    const pillarProduct = Math.min(28, Math.round(rawProductPillar));
 
-    // ── PILLAR 3: NETWORK (max 14) ────────────────────────────────────────────
-    // INTENTIONALLY SMALL. Eval/emissions are weekly-horizon signals, not monthly.
-    // A subnet can be a great long-term investment even with moderate network metrics.
-    // Positive portion capped; penalties flow through below.
-    const rawNetworkPillar = (evalBoost            * 0.55)
-                           + (evalVsPriceBonus      * 1.2)
-                           + (Math.max(0, emissionBoost) * 0.35)
-                           + (stakingBoost          * 0.6)
-                           + (rootPropBonus         * 0.7)
+    // ── PILLAR 3: NETWORK (max 10) ────────────────────────────────────────────
+    // Eval/emissions are weekly signals. A subnet can be a great long-term
+    // investment with moderate on-chain metrics. Cap is intentionally tight.
+    const rawNetworkPillar = (evalBoost            * 0.45)
+                           + (evalVsPriceBonus      * 1.0)
+                           + (Math.max(0, emissionBoost) * 0.28)
+                           + (stakingBoost          * 0.5)
+                           + (rootPropBonus         * 0.6)
                            + Math.max(0, investNetworkHealth);
-    const pillarNetwork = Math.min(14, Math.round(rawNetworkPillar));
+    const pillarNetwork = Math.min(10, Math.round(rawNetworkPillar));
 
-    // ── PILLAR 4: SMART MONEY (max 12) ───────────────────────────────────────
-    // Whale conviction matters but is noisier over monthly horizons than product traction.
-    const rawMoneyPillar = (Math.max(0, whaleBoost) * 0.8) + (Math.max(0, volBoost) * 0.03);
-    const pillarMoney = Math.min(12, Math.round(rawMoneyPillar));
+    // ── PILLAR 4: SMART MONEY (max 8) ────────────────────────────────────────
+    const rawMoneyPillar = (Math.max(0, whaleBoost) * 0.6) + (Math.max(0, volBoost) * 0.02);
+    const pillarMoney = Math.min(8, Math.round(rawMoneyPillar));
 
-    // ── CROSS-PILLAR SYNERGY BONUS (max 5) ───────────────────────────────────
-    // Both dev AND product firing = a team that ships AND has real utility.
+    // ── CROSS-PILLAR SYNERGY (max 4) ─────────────────────────────────────────
     let investSynergy = 0;
-    if      (pillarDev >= 18 && pillarProduct >= 24) investSynergy = 5;
-    else if (pillarDev >= 12 && pillarProduct >= 16) investSynergy = 3;
+    if      (pillarDev >= 14 && pillarProduct >= 20) investSynergy = 4;
+    else if (pillarDev >=  8 && pillarProduct >= 14) investSynergy = 2;
 
-    // ── PENALTIES (applied outside pillars, not capped) ──────────────────────
-    const emissionPenalty      = Math.round(Math.min(0, emissionBoost) * 0.8);
-    const networkHealthPenalty = Math.min(0, investNetworkHealth);
-    const whalePenalty         = Math.min(0, whaleBoost);
-    const investDeregPenalty   = d.deregRisk ? -14 : 0;
+    // ── PENALTIES (reduced severity — on-chain noise shouldn't bury real products) ──
+    const emissionPenalty      = Math.round(Math.min(0, emissionBoost) * 0.45);
+    const networkHealthPenalty = Math.round(Math.min(0, investNetworkHealth) * 0.5);
+    const whalePenalty         = Math.round(Math.min(0, whaleBoost) * 0.7);
+    const investDeregPenalty   = d.deregRisk ? -12 : 0;
 
     const rawInvestAGap = pillarDev + pillarProduct + pillarNetwork + pillarMoney
                         + revTractionBonus + marketValidationBonus + investSynergy
                         + emissionPenalty + networkHealthPenalty + whalePenalty
                         + viability + investDeregPenalty;
 
-    const investAGap = Math.max(1, Math.min(100, Math.round(rawInvestAGap)));
+    const clampedInvestAGap = Math.max(1, Math.min(100, Math.round(rawInvestAGap)));
+
+    // ── REVENUE FLOOR ────────────────────────────────────────────────────────
+    // A subnet generating real fiat revenue can't be buried below a minimum by
+    // bad on-chain signals on a given day. The floor is what matters for a monthly
+    // thesis — not whether emissions ticked down this week.
+    // Confirmed ARR (BENCHMARK_DATA) gets a +4 floor bonus vs milestone estimates.
+    const isBenchmarked = productSource === "benchmark";
+    const floorBenchBonus = isBenchmarked ? 4 : 0;
+    let investRevFloor = 0;
+    if      (confirmedArr >= 10_000_000) investRevFloor = 80 + floorBenchBonus;
+    else if (confirmedArr >=  2_000_000) investRevFloor = 72 + floorBenchBonus;
+    else if (confirmedArr >=  1_000_000) investRevFloor = 65 + floorBenchBonus;
+    else if (confirmedArr >=    500_000) investRevFloor = 58 + floorBenchBonus;
+    else if (confirmedArr >=    100_000) investRevFloor = 52 + floorBenchBonus;
+    else if (confirmedArr >           0) investRevFloor = 44 + floorBenchBonus;
+    // Estimated ARR (milestone, lower confidence): smaller floors, no bench bonus
+    else if (estimatedArr >=  2_000_000) investRevFloor = 62;
+    else if (estimatedArr >=  1_000_000) investRevFloor = 56;
+    else if (estimatedArr >=    500_000) investRevFloor = 50;
+    else if (estimatedArr >=    100_000) investRevFloor = 42;
+    else if (estimatedArr >           0) investRevFloor = 36;
+
+    const investAGap = Math.max(investRevFloor, clampedInvestAGap);
 
     // Update history for next scan
     agapHistory[d.netuid] = { ema: aGap, lastUpdated: new Date().toISOString() };
@@ -2998,7 +3010,7 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
     .catch(() => { /* non-critical */ });
 
   // Bump this when leaderboard schema changes (forces dashboard to rescan instead of using stale blob)
-  const SCAN_SCHEMA_VERSION = 17; // v17: investing formula revenue-anchored — RevTraction(0-20)+MktVal(0-5), Network pillar 22→14, Money 18→12, Product 30→36
+  const SCAN_SCHEMA_VERSION = 18; // v18: pillar caps cut (Dev22,Prod28,Net10,Mon8), reduced penalties ×0.45-0.5, revenue floors from confirmed ARR
 
   const responseData = {
     schema_version: SCAN_SCHEMA_VERSION,
