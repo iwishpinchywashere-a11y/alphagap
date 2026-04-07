@@ -271,6 +271,7 @@ interface LeaderboardEntry {
   annual_revenue_usd?: number;
   momentum_boost?: number;       // signed MOMENTUM pillar contribution (±15 max)
   agap_velo?: number;            // aGap Velocity score 0-100
+  invest_agap?: number;          // Investing (long-term) aGap score 0-100
 }
 
 // ── Stitch3 campaign data (cached in Vercel Blob) ────────────────
