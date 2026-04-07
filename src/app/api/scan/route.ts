@@ -2436,20 +2436,16 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
     else if (surgeRatioForAGap >= 2.5) volBoost = 3;
 
     // ── MOMENTUM CONFIRMATION (±5 pts) ──────────────────────────────────────
-    // Intentionally small. A subnet already up 30% in 7d has a CLOSED gap, not an open one.
-    // This signal only serves as confirmation: "the gap is starting to close, still early."
-    // priceLag (gap detection) + floorReversalBonus (early reversal) do the heavy lifting.
-    // momentumBoost just adds a small kicker for subnets where trend confirmation aligns.
+    // Only rewards EARLY movement (5–10%). Large moves mean the gap is already closing —
+    // those are handled by gapClosurePenalty below, not rewarded here.
     let momentumBoost = 0;
 
-    // 7D uptrend (primary confirmation, capped low)
-    if      (pch7d >= 20) momentumBoost += 3;
-    else if (pch7d >= 10) momentumBoost += 2;
-    else if (pch7d >=  5) momentumBoost += 1;
-    else if (pch7d <= -25) momentumBoost -= 2; // sustained downtrend penalty
+    // 7D uptrend: only reward early signs. 20%+ means the gap is already closing — neutral.
+    if      (pch7d >= 5 && pch7d < 10) momentumBoost += 1;  // early signal, small reward
+    else if (pch7d <= -25) momentumBoost -= 2;               // sustained downtrend penalty
 
-    // 30D uptrend (secondary)
-    if      (pch30d >= 40) momentumBoost += 2;
+    // 30D uptrend (secondary) — only reward if not already captured by gap closure
+    if      (pch30d >= 40) momentumBoost += 1;  // was 2, reduced since big moves = gap closing
     else if (pch30d >= 15) momentumBoost += 1;
 
     // Whale confirmation (already covered by whaleBoost, just a tiny add here)
@@ -2457,6 +2453,17 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
     else if (whaleSignal === "distributing") momentumBoost -= 1;
 
     momentumBoost = Math.min(5, Math.max(-3, momentumBoost));
+
+    // ── GAP CLOSURE PENALTY ──────────────────────────────────────────────────
+    // When price has already moved significantly UP on multiple timeframes, the market
+    // is actively pricing in the thesis — the gap is CLOSING, not open.
+    // Two timeframes confirming together is stronger signal than either alone.
+    let gapClosurePenalty = 0;
+    if      (pch7d >= 20 && pch24h >= 5)  gapClosurePenalty = -15; // gap closing fast on both TFs
+    else if (pch7d >= 15 && pch24h >= 3)  gapClosurePenalty = -10;
+    else if (pch7d >= 10 && pch24h >= 5)  gapClosurePenalty = -8;  // shorter window, same pattern
+    else if (pch7d >= 20)                 gapClosurePenalty = -8;  // 7d run, today flat — still closed
+    else if (pch7d >= 10)                 gapClosurePenalty = -4;  // mild 7d run
 
     // ── PRODUCT / UTILITY SCORE (0–100 scale) ────────────────────────────────
     // Priority: benchmark (0–100) > website scan (0–80) > milestone (0–80) > heuristic (0–60)
@@ -2508,7 +2515,7 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
     else if (productScore >= 70 && pch7d  <= -10) productVsPriceBonus = 4;
     else if (productScore >= 50 && pch30d <= -25) productVsPriceBonus = 3;
 
-    const rawAGap = buildingPts + consistentBuilderBonus + devSpikeBonus + priceLag + floorReversalBonus + socialMomentum + evalBoost + evalVsPriceBonus + viability + campaignBoost + whaleBoost + emissionBoost + volBoost + stakingBoost + rootPropBonus + productAGapPts + productAwarenessGap + productVsPriceBonus + momentumBoost;
+    const rawAGap = buildingPts + consistentBuilderBonus + devSpikeBonus + priceLag + floorReversalBonus + socialMomentum + evalBoost + evalVsPriceBonus + viability + campaignBoost + whaleBoost + emissionBoost + volBoost + stakingBoost + rootPropBonus + productAGapPts + productAwarenessGap + productVsPriceBonus + momentumBoost + gapClosurePenalty;
     const clampedRaw = Math.max(1, Math.min(100, Math.round(rawAGap)));
     const aGap = smoothAGap(d.netuid, clampedRaw);
 
