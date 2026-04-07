@@ -2,8 +2,10 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useSession } from "next-auth/react";
 
 export default function LandingPage() {
+  const { data: session } = useSession();
   const [scrollY, setScrollY] = useState(0);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [stats, setStats] = useState<{ subnets: number; signals: number; reports: number; leaderboard: any[] }>({ subnets: 0, signals: 0, reports: 0, leaderboard: [] });
@@ -37,12 +39,21 @@ export default function LandingPage() {
           <div className="flex items-center">
             <img src="/alphagap_logo_dark.svg" alt="AlphaGap" className="h-12 w-auto" />
           </div>
-          <Link
-            href="/subscribe"
-            className="px-5 py-2.5 bg-gradient-to-r from-green-500 to-emerald-600 text-black font-semibold rounded-lg hover:from-green-400 hover:to-emerald-500 transition-all shadow-lg shadow-green-500/20 text-sm"
-          >
-            Get Access →
-          </Link>
+          {session ? (
+            <Link
+              href="/dashboard"
+              className="px-5 py-2.5 bg-gradient-to-r from-green-500 to-emerald-600 text-black font-semibold rounded-lg hover:from-green-400 hover:to-emerald-500 transition-all shadow-lg shadow-green-500/20 text-sm"
+            >
+              Dashboard →
+            </Link>
+          ) : (
+            <Link
+              href="/subscribe"
+              className="px-5 py-2.5 bg-gradient-to-r from-green-500 to-emerald-600 text-black font-semibold rounded-lg hover:from-green-400 hover:to-emerald-500 transition-all shadow-lg shadow-green-500/20 text-sm"
+            >
+              Get Access →
+            </Link>
+          )}
         </div>
       </nav>
 
@@ -94,7 +105,7 @@ export default function LandingPage() {
               href="/subscribe"
               className="px-8 py-4 border border-green-500/30 text-green-400 hover:border-green-500/60 hover:text-green-300 transition-all rounded-xl text-lg font-medium"
             >
-              See Plans ↓
+              Explore Premium ↓
             </Link>
           </div>
           <p className="text-xs text-gray-600 mt-3">Free preview · Pro from $29/mo · Premium from $49/mo</p>
@@ -425,7 +436,7 @@ export default function LandingPage() {
               href="/subscribe"
               className="inline-flex px-8 py-5 border border-green-500/30 text-green-400 hover:border-green-500/60 transition-all rounded-xl text-lg font-medium"
             >
-              See Plans
+              Explore Premium
             </Link>
           </div>
         </div>
