@@ -2973,7 +2973,7 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
     .catch(() => { /* non-critical */ });
 
   // Bump this when leaderboard schema changes (forces dashboard to rescan instead of using stale blob)
-  const SCAN_SCHEMA_VERSION = 15; // v15: Score/Manako (SN44) added to BENCHMARK_DATA (score 85→89), invest_agap pillar-capped v14
+  const SCAN_SCHEMA_VERSION = 16; // v16: 5 new benchmarks (Leadpoet SN71, Vidaio SN85, Mobius SN88, MetaNova SN68, Bitcast SN93) + updated milestones
 
   const responseData = {
     schema_version: SCAN_SCHEMA_VERSION,
