@@ -14,15 +14,27 @@ export async function POST() {
 
   try {
     const user = await getUserByEmail(session.user.email);
-    if (!user?.stripeCustomerId) {
-      return NextResponse.json({ error: "No billing account found" }, { status: 404 });
+    const stripe = getStripe();
+    const baseUrl = (process.env.NEXTAUTH_URL || "https://alphagap.io").replace(/\/$/, "");
+
+    // Resolve Stripe customer ID — prefer stored value, fall back to email lookup
+    let customerId = user?.stripeCustomerId;
+    if (!customerId) {
+      const existing = await stripe.customers.list({ email: session.user.email, limit: 1 });
+      if (existing.data.length === 0) {
+        return NextResponse.json({ error: "No billing account found" }, { status: 404 });
+      }
+      customerId = existing.data[0].id;
+      // Persist it so we don't have to look it up again
+      if (user) {
+        import("@/lib/users").then(({ updateUser }) =>
+          updateUser(session.user.email!, { stripeCustomerId: customerId! }).catch(() => {})
+        );
+      }
     }
 
-    const stripe = getStripe();
-    const baseUrl = process.env.NEXTAUTH_URL || "https://alphagap.vercel.app";
-
     const portalSession = await stripe.billingPortal.sessions.create({
-      customer: user.stripeCustomerId,
+      customer: customerId,
       return_url: `${baseUrl}/account`,
     });
 
