@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
-import { useRouter } from "next/navigation";
+import React, { useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useDashboard } from "@/components/dashboard/DashboardProvider";
 import SubnetDetailPanel from "@/components/dashboard/SubnetDetailPanel";
@@ -34,8 +34,20 @@ const COLUMNS: [keyof SubnetScore, string, string][] = [
 export default function LeaderboardPage() {
   const { leaderboard, taoPrice, scanning, signals, setSelectedSubnet, infoPopup, setInfoPopup } = useDashboard();
   const router = useRouter();
-  const { data: session } = useSession();
+  const searchParams = useSearchParams();
+  const { data: session, update: updateSession } = useSession();
   const tier = getTier(session);
+
+  // After returning from Stripe payment, refresh the session so the JWT picks
+  // up the updated subscription status that the webhook just wrote to the blob.
+  useEffect(() => {
+    if (searchParams.get("welcome") !== "true") return;
+    // Small delay to let the Stripe webhook process before we re-read the blob
+    const timer = setTimeout(() => {
+      updateSession();
+    }, 3000);
+    return () => clearTimeout(timer);
+  }, [searchParams, updateSession]);
   const isPro = canAccessPro(tier);
   const [sortCol, setSortCol] = useState<keyof SubnetScore>("composite_score");
   const [sortAsc, setSortAsc] = useState(false);
