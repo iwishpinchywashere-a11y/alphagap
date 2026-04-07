@@ -206,6 +206,37 @@ export default function LeaderboardPage() {
                 </button>
               </div>
 
+              {/* Time Horizon info popover */}
+              {(() => {
+                const thKey = "time-horizon-info";
+                return (
+                  <div className="relative flex-shrink-0">
+                    <span
+                      className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full border border-gray-700 text-[9px] text-gray-600 hover:text-green-400 hover:border-green-400 cursor-pointer transition-colors"
+                      onClick={(e) => { e.stopPropagation(); setInfoPopup(infoPopup === thKey ? null : thKey); }}
+                    >
+                      i
+                    </span>
+                    {infoPopup === thKey && (
+                      <div
+                        className="absolute z-50 top-5 left-0 w-72 p-3 bg-gray-900 border border-green-800/50 rounded-lg shadow-xl text-xs text-gray-300 leading-relaxed"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <div className="font-semibold text-green-400 mb-2">Time Horizon</div>
+                        <div className="mb-2">
+                          <span className="text-white font-medium">⚡ Trading (Short-Term)</span>
+                          <p className="text-gray-400 mt-0.5">Identifies subnets with the highest potential for price movement in the next 1–5 days. Best for active traders looking to capitalise on near-term catalysts.</p>
+                        </div>
+                        <div>
+                          <span className="text-purple-400 font-medium">📈 Investing (Long-Term)</span>
+                          <p className="text-gray-400 mt-0.5">Scores subnets on their 1–6 month fundamental outlook — prioritising real product development, network conviction, and smart money positioning over short-term price noise.</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+
               {/* Filters popover */}
               {(() => {
                 const FILTERS = [
