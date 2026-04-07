@@ -104,15 +104,14 @@ Ask yourself:
 Write your response in this EXACT format:
 
 📊 SCORE: [1-100]
-USE THE FULL RANGE. Do not cluster scores in the middle. Be decisive.
-- 90-100: Major product launch, new integration with real users, breakthrough model release, partnership announcement
-- 75-89: Significant new feature shipped, important infrastructure upgrade, meaningful model/dataset drop
-- 60-74: Multiple solid PRs merged, real features being built, steady meaningful progress
-- 45-59: Decent development work, bug fixes that improve the product, incremental features
-- 25-44: Routine maintenance, dependency updates, minor fixes, config changes
-- 10-24: Trivial changes, unclear what was done, insignificant flow movements
-- 1-9: Literally nothing or data is garbage
-The #1 signal of the day should be at LEAST 75. Spread your scores across the range. If everything clusters at 50, you're doing it wrong.
+USE THE FULL RANGE. Your score is absolute — not relative to other signals.
+- 90-100: Major product launch, live integration with real users, breakthrough model, partnership announced
+- 80-89: Significant new feature shipped, important infrastructure upgrade, meaningful model/dataset drop
+- 65-79: Multiple solid PRs merged, real product features being built, meaningful progress
+- 45-64: Decent development, bug fixes that improve the product, incremental but real features
+- 25-44: Routine maintenance, dependency updates, minor config changes
+- 10-24: Trivial changes, noise, unclear what was done
+- 1-9: Nothing signal, garbage data
 
 🔍 WHAT THEY BUILT: 2-3 sentences explaining SPECIFIC features, fixes, or products shipped. Read the commits and PRs. Name specific features. "Added Hyperliquid exchange integration" NOT "pushed commits to their repo".
 
@@ -121,13 +120,13 @@ The #1 signal of the day should be at LEAST 75. Spread your scores across the ra
 🎯 ALPHA ANGLE: One sentence — is there an alpha gap here? Is the market sleeping on this? Or is this already priced in? Factor in the current price movement and TAO flow data.
 
 Rules:
-- THE SCORE IS EVERYTHING. Be brutally honest. Most signals are 30-60. Only truly significant developments get 70+.
-- Routine dependency updates, version bumps, minor bug fixes = score 20-35
-- New product features, integrations, model launches = score 60-80
-- Major breakthroughs, product launches with real users, partnerships = score 85+
+- Good solid feature work = 65-79. Don't underscore real shipping.
+- Significant new capability or major release = 80-89. Use this range freely when warranted.
+- Only hold 90+ for genuine breakthroughs or major external partnerships.
+- Routine dependency updates, version bumps, chores = 20-40
 - If price is DOWN but development is significant = boost score (alpha gap!)
 - If price is UP and development is routine = lower score (already priced in)
-- ACCURACY over hype. Never inflate significance.
+- ACCURACY over hype. Never inflate insignificant work.
 - NO markdown bold/italic — just plain text with emoji headers
 - If you can't determine what was done, score it low and say so`;
 }
@@ -205,23 +204,8 @@ export async function analyzePendingSignals(maxBatch: number = 200): Promise<num
     }
   }
 
-  // Post-process: normalize scores to use full range
-  // The AI tends to cluster scores in the middle — stretch them out
-  if (analyzed > 0) {
-    const scores = db.prepare(
-      "SELECT MIN(strength) as min_s, MAX(strength) as max_s FROM signals WHERE analysis IS NOT NULL AND analysis_status = 'done'"
-    ).get() as { min_s: number; max_s: number };
-
-    if (scores && scores.max_s > scores.min_s) {
-      const range = scores.max_s - scores.min_s;
-      // Stretch to 10-90 range (top signal gets ~85-90, bottom gets ~10-15)
-      db.prepare(
-        `UPDATE signals SET strength = ROUND(10 + ((strength - ?) / ? * 80))
-         WHERE analysis IS NOT NULL AND analysis_status = 'done'`
-      ).run(scores.min_s, range);
-      console.log(`Normalized scores: ${scores.min_s}-${scores.max_s} → 10-90`);
-    }
-  }
+  // No post-processing normalization — Claude scores stand as-is.
+  // The prompt is calibrated to use the full range directly.
 
   return analyzed;
 }
