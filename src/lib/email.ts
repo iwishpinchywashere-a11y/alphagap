@@ -15,12 +15,11 @@ function baseTemplate(content: string): string {
 <body style="margin:0;padding:0;background:#0a0a0f;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
   <table width="100%" cellpadding="0" cellspacing="0" style="background:#0a0a0f;padding:48px 20px;">
     <tr><td align="center">
-      <table cellpadding="0" cellspacing="0" style="background:#111827;border:1px solid #1f2937;border-radius:16px;overflow:hidden;max-width:560px;width:100%;">
+      <table cellpadding="0" cellspacing="0" style="background:#0d0d14;border:1px solid #1a1a2e;border-radius:16px;overflow:hidden;max-width:560px;width:100%;">
         <!-- Header -->
         <tr>
-          <td style="background:linear-gradient(135deg,#064e3b 0%,#065f46 100%);padding:32px 40px;text-align:center;">
-            <div style="color:#10b981;font-size:26px;font-weight:800;letter-spacing:-0.5px;">AlphaGap</div>
-            <div style="color:#6ee7b7;font-size:11px;font-weight:600;letter-spacing:3px;text-transform:uppercase;margin-top:4px;">Bittensor Intelligence</div>
+          <td style="background:#0a0a0f;padding:32px 40px;text-align:center;border-bottom:1px solid #1a1a2e;">
+            <img src="${BASE_URL}/alphagap_logo_dark.svg" alt="AlphaGap" width="160" height="auto" style="display:block;margin:0 auto;" />
           </td>
         </tr>
         <!-- Body -->
@@ -31,9 +30,9 @@ function baseTemplate(content: string): string {
         </tr>
         <!-- Footer -->
         <tr>
-          <td style="border-top:1px solid #1f2937;padding:24px 40px;text-align:center;">
-            <p style="color:#374151;font-size:11px;margin:0 0 4px;">AlphaGap &middot; Bittensor Subnet Intelligence</p>
-            <p style="color:#374151;font-size:11px;margin:0;">Questions? Reply to this email or visit <a href="${BASE_URL}" style="color:#6b7280;text-decoration:underline;">alphagap.io</a></p>
+          <td style="border-top:1px solid #1a1a2e;padding:24px 40px;text-align:center;background:#080810;">
+            <p style="color:#2d2d4e;font-size:11px;margin:0 0 4px;">AlphaGap &middot; Bittensor Subnet Intelligence</p>
+            <p style="color:#2d2d4e;font-size:11px;margin:0;">Visit <a href="${BASE_URL}" style="color:#10b981;text-decoration:none;">alphagap.io</a></p>
           </td>
         </tr>
       </table>

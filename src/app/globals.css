@@ -28,6 +28,13 @@ html {
   overflow-x: hidden;
 }
 
+/* Prevent iOS Safari auto-zoom on input focus (triggers when font-size < 16px) */
+@media (max-width: 768px) {
+  input, textarea, select {
+    font-size: 16px !important;
+  }
+}
+
 /* Mono font for data: scores, prices, numbers */
 .font-data {
   font-family: var(--font-mono), "JetBrains Mono", monospace;

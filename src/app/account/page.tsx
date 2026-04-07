@@ -27,15 +27,27 @@ export default function AccountPage() {
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const subscriptionStatus = (session?.user as any)?.subscriptionStatus ?? "none";
+  const user = session?.user as any;
+  const subscriptionStatus = user?.subscriptionStatus ?? "none";
+  const subscriptionTier: "pro" | "premium" | null = user?.subscriptionTier ?? null;
   const isActive = subscriptionStatus === "active" || subscriptionStatus === "trialing";
+  const isPro = isActive && subscriptionTier === "pro";
+  const isPremium = isActive && subscriptionTier === "premium";
+  const [portalError, setPortalError] = useState("");
 
   async function openPortal() {
     setPortalLoading(true);
+    setPortalError("");
     try {
       const res = await fetch("/api/stripe/portal", { method: "POST" });
       const data = await res.json();
-      if (data.url) window.location.href = data.url;
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        setPortalError(data.error || "Could not open billing portal. Please contact hello@getbeanstock.com");
+      }
+    } catch {
+      setPortalError("Could not open billing portal. Please contact hello@getbeanstock.com");
     } finally {
       setPortalLoading(false);
     }
@@ -117,31 +129,61 @@ export default function AccountPage() {
 
           {isActive ? (
             <>
-              <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center justify-between mb-4">
                 <span className="text-gray-300 text-sm">Plan</span>
-                <span className="text-white font-semibold">AlphaGap Pro — $19/month</span>
+                <span className="text-white font-semibold">
+                  {isPremium ? "AlphaGap Premium — $49/mo" : "AlphaGap Pro — $29/mo"}
+                </span>
               </div>
+
+              {/* Upgrade to Premium (only shown for Pro users) */}
+              {isPro && (
+                <div className="bg-purple-500/5 border border-purple-500/20 rounded-xl p-4 mb-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="text-sm font-semibold text-purple-300 mb-1">Upgrade to Premium — $49/mo</div>
+                      <div className="text-xs text-gray-500">Unlocks Whale Tracker, KOL Radar, Pump Lab, Discord Scanner & more</div>
+                    </div>
+                  </div>
+                  <a
+                    href="/checkout?plan=premium"
+                    className="mt-3 w-full inline-block text-center bg-gradient-to-r from-purple-500 to-violet-600 text-white font-bold rounded-lg py-2.5 text-sm hover:from-purple-400 hover:to-violet-500 transition-all shadow-lg shadow-purple-500/20"
+                  >
+                    Upgrade to Premium →
+                  </a>
+                </div>
+              )}
+
+              {/* Billing portal */}
               <button
                 onClick={openPortal}
                 disabled={portalLoading}
                 className="w-full bg-gray-800 hover:bg-gray-700 border border-gray-700 text-gray-200 rounded-lg py-2.5 text-sm font-medium transition-colors disabled:opacity-50"
               >
-                {portalLoading ? "Opening portal…" : "Manage Billing & Invoices →"}
+                {portalLoading ? "Opening…" : "Manage Billing & Invoices →"}
               </button>
-              <p className="text-xs text-gray-600 mt-2 text-center">Cancel, update payment, or download invoices</p>
+              <p className="text-xs text-gray-600 mt-2 text-center">Cancel, update payment method, or download invoices</p>
+              {portalError && (
+                <p className="text-xs text-red-400 mt-2 text-center">{portalError}</p>
+              )}
             </>
           ) : (
             <>
               <p className="text-sm text-gray-500 mb-4">
                 Subscribe to unlock full access to AlphaGap — all signals, dashboard, social intel, and daily reports.
               </p>
-              <button
-                onClick={subscribe}
-                disabled={checkoutLoading}
-                className="w-full bg-gradient-to-r from-green-500 to-emerald-600 text-black font-bold rounded-lg py-2.5 text-sm hover:from-green-400 hover:to-emerald-500 transition-all disabled:opacity-50 shadow-lg shadow-green-500/20"
+              <a
+                href="/checkout?plan=pro"
+                className="w-full inline-block text-center bg-gradient-to-r from-green-500 to-emerald-600 text-black font-bold rounded-lg py-2.5 text-sm hover:from-green-400 hover:to-emerald-500 transition-all shadow-lg shadow-green-500/20"
               >
-                {checkoutLoading ? "Loading…" : "Subscribe for $19/month →"}
-              </button>
+                Get Pro — $29/mo →
+              </a>
+              <a
+                href="/checkout?plan=premium"
+                className="w-full inline-block text-center mt-2 bg-gradient-to-r from-purple-500 to-violet-600 text-white font-bold rounded-lg py-2.5 text-sm hover:from-purple-400 hover:to-violet-500 transition-all shadow-lg shadow-purple-500/20"
+              >
+                Get Premium — $49/mo →
+              </a>
             </>
           )}
         </div>
