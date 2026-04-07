@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useDashboard } from "@/components/dashboard/DashboardProvider";
@@ -31,23 +31,23 @@ const COLUMNS: [keyof SubnetScore, string, string][] = [
   ["signal_count", "Signals", "Number of intelligence signals detected for this subnet in the current scan window."],
 ];
 
+// Separate component for useSearchParams (requires Suspense boundary)
+function WelcomeRefresh() {
+  const searchParams = useSearchParams();
+  const { update: updateSession } = useSession();
+  useEffect(() => {
+    if (searchParams.get("welcome") !== "true") return;
+    const timer = setTimeout(() => { updateSession(); }, 3000);
+    return () => clearTimeout(timer);
+  }, [searchParams, updateSession]);
+  return null;
+}
+
 export default function LeaderboardPage() {
   const { leaderboard, taoPrice, scanning, signals, setSelectedSubnet, infoPopup, setInfoPopup } = useDashboard();
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const { data: session, update: updateSession } = useSession();
+  const { data: session } = useSession();
   const tier = getTier(session);
-
-  // After returning from Stripe payment, refresh the session so the JWT picks
-  // up the updated subscription status that the webhook just wrote to the blob.
-  useEffect(() => {
-    if (searchParams.get("welcome") !== "true") return;
-    // Small delay to let the Stripe webhook process before we re-read the blob
-    const timer = setTimeout(() => {
-      updateSession();
-    }, 3000);
-    return () => clearTimeout(timer);
-  }, [searchParams, updateSession]);
   const isPro = canAccessPro(tier);
   const [sortCol, setSortCol] = useState<keyof SubnetScore>("composite_score");
   const [sortAsc, setSortAsc] = useState(false);
@@ -93,6 +93,8 @@ export default function LeaderboardPage() {
 
   return (
     <main className="flex-1 flex overflow-x-hidden">
+      {/* Refreshes session 3s after returning from Stripe payment */}
+      <Suspense fallback={null}><WelcomeRefresh /></Suspense>
       <div className="flex-1 overflow-auto p-4 md:p-6 max-w-full">
         {/* Refreshing banner */}
         {scanning && leaderboard.length > 0 && (
