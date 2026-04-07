@@ -1,7 +1,6 @@
 "use client";
 
 import { Suspense, useState } from "react";
-import { signIn } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Turnstile } from "@marsidev/react-turnstile";
@@ -54,24 +53,23 @@ function SignUpForm() {
         return;
       }
 
-      // 2. Sign in immediately — authorize() retries up to 3x (1.8s) to handle
-      //    Vercel Blob propagation delay, so this reliably succeeds right after signup.
-      const signInRes = await signIn("credentials", {
-        email: email.toLowerCase().trim(),
-        password,
-        redirect: false,
+      // 2. Create session server-side — bypasses next-auth's client CSRF dance
+      //    which has timing issues right after signup. Our endpoint retries
+      //    the blob lookup up to 6x (4.2s) to handle propagation delay.
+      const sessionRes = await fetch("/api/auth/create-session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.toLowerCase().trim(), password }),
       }).catch(() => null);
 
-      if (!signInRes?.ok) {
-        // Extremely unlikely with retries, but handle gracefully
-        setError("Account created! Please sign in to continue to payment.");
-        setLoading(false);
+      if (!sessionRes?.ok) {
+        // Fallback: send to sign-in page — user signs in once, then lands on checkout
         window.location.href = `/auth/signin?callbackUrl=${encodeURIComponent(`/checkout?plan=${plan}`)}`;
         return;
       }
 
-      // 3. Go directly to /checkout — session is established, it will create
-      //    the Stripe checkout session and redirect to Stripe automatically.
+      // 3. Session cookie is now set — go directly to /checkout which will
+      //    create the Stripe session and redirect to Stripe automatically.
       window.location.href = `/checkout?plan=${plan}`;
     } catch {
       setError("Something went wrong. Please try again.");
