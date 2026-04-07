@@ -142,7 +142,7 @@ export async function sendSubscriptionConfirmationEmail(
     <p style="color:#4b5563;font-size:12px;margin:0;line-height:1.6;">
       Manage your subscription, update payment info, or cancel anytime from
       <a href="${BASE_URL}/account" style="color:${accentColor};text-decoration:none;">Account Settings</a>.
-      Questions? Just reply to this email.
+      Questions? Email us at <a href="mailto:hello@getbeanstock.com" style="color:${accentColor};text-decoration:none;">hello@getbeanstock.com</a>
     </p>
   `);
 
