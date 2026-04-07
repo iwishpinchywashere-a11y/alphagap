@@ -3010,7 +3010,7 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
     .catch(() => { /* non-critical */ });
 
   // Bump this when leaderboard schema changes (forces dashboard to rescan instead of using stale blob)
-  const SCAN_SCHEMA_VERSION = 18; // v18: pillar caps cut (Dev22,Prod28,Net10,Mon8), reduced penalties ×0.45-0.5, revenue floors from confirmed ARR
+  const SCAN_SCHEMA_VERSION = 19; // v19: April 2026 research sweep — 45+ new benchmark/milestone entries across 43 subnets
 
   const responseData = {
     schema_version: SCAN_SCHEMA_VERSION,
