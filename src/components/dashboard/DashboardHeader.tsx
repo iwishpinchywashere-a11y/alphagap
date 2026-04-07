@@ -22,7 +22,7 @@ export default function DashboardHeader() {
   const isAdmin: boolean = user?.isAdmin ?? false;
   const isActive = subStatus === "active" || subStatus === "trialing";
   const isPremium = isActive && subTier === "premium";
-  const isPro = isActive && !isPremium;
+  const isPro = isActive && !isPremium; // treat null/undefined tier as pro
 
   const openDropdown = useCallback(() => {
     if (!btnRef.current) return;

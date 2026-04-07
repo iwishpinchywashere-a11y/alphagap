@@ -31,8 +31,8 @@ export default function AccountPage() {
   const subscriptionStatus = user?.subscriptionStatus ?? "none";
   const subscriptionTier: "pro" | "premium" | null = user?.subscriptionTier ?? null;
   const isActive = subscriptionStatus === "active" || subscriptionStatus === "trialing";
-  const isPro = isActive && subscriptionTier === "pro";
   const isPremium = isActive && subscriptionTier === "premium";
+  const isPro = isActive && !isPremium; // treat null/undefined tier as pro (default active tier)
   const [portalError, setPortalError] = useState("");
   const [cancelConfirm, setCancelConfirm] = useState(false);
   const [cancelLoading, setCancelLoading] = useState(false);
