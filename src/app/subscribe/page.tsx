@@ -361,12 +361,12 @@ function SubscribeContent() {
                 {[
                   "Everything in Pro",
                   "🐋 Whale & Smart Money Tracker",
-                  "📡 Social Intelligence & KOL Radar",
+                  "📡 Twitter/X social momentum feed",
+                  "💬 Discord scanner finds alpha in real time",
                   "🧪 Pump Lab — early alpha detector",
                   "📈 Performance Tracker",
                   "📊 Analytics & Scatter Plots",
                   "🏆 Benchmark Rankings",
-                  "Discord Alpha Scanner",
                   "Full access to every page",
                 ].map(f => (
                   <li key={f} className="flex items-start gap-2 text-xs text-gray-300">

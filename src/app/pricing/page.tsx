@@ -30,7 +30,8 @@ const PLANS = [
     features: [
       "Everything in Pro",
       "Whale & smart money tracking",
-      "Social / KOL momentum feed",
+      "Twitter/X social momentum feed",
+      "Discord scanner finds alpha in real time",
       "Subnet analytics & score history",
       "Portfolio performance tracker",
       "Benchmark comparisons vs AWS/GCP",
