@@ -224,13 +224,14 @@ export default function LeaderboardPage() {
                       >
                         <div className="font-semibold text-green-400 mb-2">Time Horizon</div>
                         <div className="mb-2">
-                          <span className="text-white font-medium">⚡ Trading (Short-Term)</span>
-                          <p className="text-gray-400 mt-0.5">Identifies subnets with the highest potential for price movement in the next 1–5 days. Best for active traders looking to capitalise on near-term catalysts.</p>
+                          <span className="text-white font-medium">⚡ Trading</span>
+                          <p className="text-gray-400 mt-0.5">Scores subnets on a daily or weekly timeframe. Best for active traders looking to capitalise on near-term catalysts and momentum.</p>
                         </div>
-                        <div>
-                          <span className="text-purple-400 font-medium">📈 Investing (Long-Term)</span>
-                          <p className="text-gray-400 mt-0.5">Scores subnets on their 1–6 month fundamental outlook — prioritising real product development, network conviction, and smart money positioning over short-term price noise.</p>
+                        <div className="mb-3">
+                          <span className="text-purple-400 font-medium">📈 Investing</span>
+                          <p className="text-gray-400 mt-0.5">Scores subnets on a monthly timeframe — prioritising real product development, network health, smart money positioning, and fundamental conviction over short-term price noise.</p>
                         </div>
+                        <p className="text-gray-600 text-[10px] leading-relaxed border-t border-gray-800 pt-2">For educational purposes only. Not financial advice. Scores do not predict prices or future returns. Always do your own research.</p>
                       </div>
                     )}
                   </div>

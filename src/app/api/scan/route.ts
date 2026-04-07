@@ -2521,32 +2521,67 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
     const aGap = smoothAGap(d.netuid, clampedRaw);
 
     // ── INVESTING aGap (long-term formula) ───────────────────────────────────
-    // Optimised for 1–6 month horizon. Removes short-term timing signals
-    // (price lag, social buzz, floor reversal, gap closure penalty, momentum boost)
-    // and heavily weights sustained development, product utility, network emissions,
-    // and smart money positioning.
-    const rawInvestAGap =
-      (buildingPts          * 1.5) +   // dev: sustained building = #1 long-term moat
-      (consistentBuilderBonus * 1.5) + // consistent builders win long-term
-      (devSpikeBonus        * 0.7) +   // spikes less important than sustained cadence
-      (priceLag             * 0.3) +   // short-term dips irrelevant for long holds
+    // Optimised for monthly horizon. Removes short-term timing signals and adds
+    // network health, pre-launch detection, and a normalization factor so 100
+    // requires truly exceptional multi-signal convergence (not just 2-3 signals firing).
+
+    // Network health: validator count + miner incentive health.
+    // Long-term investors need subnets where miners are rewarded and validators engaged.
+    let investNetworkHealth = 0;
+    const iVals = d.validatorCount;
+    if      (iVals >= 60) investNetworkHealth += 8;
+    else if (iVals >= 40) investNetworkHealth += 5;
+    else if (iVals >= 20) investNetworkHealth += 2;
+    const iBurnPct = d.minerBurnPct;
+    if      (iBurnPct >= 80) investNetworkHealth -= 10; // miners getting nothing = structural weakness
+    else if (iBurnPct >= 60) investNetworkHealth -=  6;
+    else if (iBurnPct >= 40) investNetworkHealth -=  3;
+    else if (iBurnPct <= 10 && iVals >= 20) investNetworkHealth += 4; // healthy paid miners + active validators
+
+    // Pre-launch stealth bonus: building something real but market hasn't found it yet.
+    // Signals: strong dev + web presence detected by scanner + flying under radar.
+    // This is specifically what the website scanner enables in the investing context.
+    let investPreLaunch = 0;
+    const hasWebPresence = productSource === "website" || productSource === "heuristic";
+    if      (hasWebPresence && devScore >= 55 && socialScore <= 20 && productScore >= 35) investPreLaunch = 16;
+    else if (hasWebPresence && devScore >= 45 && socialScore <= 30 && productScore >= 30) investPreLaunch = 10;
+    else if (devScore >= 65 && socialScore <= 15) investPreLaunch = 8; // stealth builder, no website found yet
+
+    // Website-detected subnets (pre-launch) get boosted product points vs heuristic
+    const productMultiplier = productSource === "benchmark" ? 2.0 :   // shipped & benchmarked = top credit
+                              productSource === "website"    ? 1.9 :   // website detected = near-equal for investing
+                              productSource === "milestone"  ? 1.7 :   // milestone recorded
+                                                              1.5;     // heuristic estimate
+
+    // Deregistration risk — strong penalty: thesis takes months, can't hold a dying subnet
+    const investDeregPenalty = d.deregRisk ? -14 : 0;
+
+    const rawInvestAGap = (
+      (buildingPts            * 1.5) +   // dev: sustained building = #1 long-term moat
+      (consistentBuilderBonus * 1.5) +   // consistent builders win long-term
+      (devSpikeBonus          * 0.7) +   // spikes less important than sustained cadence
+      (priceLag               * 0.3) +   // short-term dips irrelevant for long holds
       // floorReversalBonus: 0 — pure short-term timing signal
-      (socialMomentum       * 0.2) +   // social buzz is noise over months
-      (evalBoost            * 1.5) +   // network conviction signals long-term health
-      (evalVsPriceBonus     * 1.7) +   // high eval + low price = best long-term gap
-      (emissionBoost        * 1.2) +   // sustained emission trends matter long-term
-      viability +                       // liquidity requirements unchanged
-      (stakingBoost         * 1.5) +   // staking = long-term holder conviction
-      (rootPropBonus        * 1.5) +   // top validators = long-term conviction
+      (socialMomentum         * 0.2) +   // social buzz is noise over months
+      (evalBoost              * 1.5) +   // network conviction signals long-term health
+      (evalVsPriceBonus       * 1.7) +   // high eval + low price = best long-term gap
+      (emissionBoost          * 1.2) +   // sustained emission trends matter long-term
+      viability +                         // liquidity requirements unchanged
+      (stakingBoost           * 1.5) +   // staking = long-term holder conviction
+      (rootPropBonus          * 1.5) +   // top validators = long-term conviction
       // campaignBoost: 0 — paid marketing is not a fundamental signal
-      (whaleBoost           * 1.4) +   // smart money positioning for long plays
-      (volBoost             * 0.25) +  // volume surge is a short-term signal
-      (productAGapPts       * 1.8) +   // real utility is the core long-term thesis
-      (productAwarenessGap  * 1.5) +   // hidden product = biggest long-term opportunity
-      (productVsPriceBonus  * 1.5);    // product vs price = core long-term gap
+      (whaleBoost             * 1.4) +   // smart money positioning for long plays
+      (volBoost               * 0.25) +  // volume surge is a short-term signal
+      (productAGapPts         * productMultiplier) + // source-aware product weight
+      (productAwarenessGap    * 1.5) +   // hidden product = biggest long-term opportunity
+      (productVsPriceBonus    * 1.5) +   // product vs price = core long-term gap
+      investNetworkHealth +               // validator count + miner health
+      investPreLaunch                     // building in stealth with web/dev signals
       // momentumBoost: 0 — short-term
       // gapClosurePenalty: 0 — up 20% this week can still be great long-term
-    const investAGap = Math.max(1, Math.min(100, Math.round(rawInvestAGap)));
+    ) * 0.70;                             // normalize: need ~143 raw to hit 100; only elite convergence qualifies
+
+    const investAGap = Math.max(1, Math.min(100, Math.round(rawInvestAGap + investDeregPenalty)));
 
     // Update history for next scan
     agapHistory[d.netuid] = { ema: aGap, lastUpdated: new Date().toISOString() };
