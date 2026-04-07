@@ -2913,7 +2913,7 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
     .catch(() => { /* non-critical */ });
 
   // Bump this when leaderboard schema changes (forces dashboard to rescan instead of using stale blob)
-  const SCAN_SCHEMA_VERSION = 11; // v11: dereg_top3 uses SR healthScore directly, no bad fallback
+  const SCAN_SCHEMA_VERSION = 12; // v12: invest_agap long-term formula added
 
   const responseData = {
     schema_version: SCAN_SCHEMA_VERSION,
