@@ -171,13 +171,24 @@ export async function GET(req: Request) {
     return false;
   }
 
-  // Generic English words that happen to be subnet names — block from name-based matching.
-  // These only match if the tweet has an explicit SN# or @handle reference instead.
+  // Generic English/crypto words that happen to be subnet names.
+  // These are blocked from name-based matching — a tweet must use SN# or @handle instead.
   const GENERIC_NAME_BLOCKLIST = new Set([
+    // English generics
     "investing", "vision", "atlas", "apex", "prime", "core", "genesis",
     "nexus", "origin", "signal", "pulse", "oracle", "forge", "bridge",
     "score", "quasar", "synth", "swarm", "beam", "nova", "echo",
+    "hone", "grail", "vanta", "soma", "kaito",
+    // Common DeFi/crypto words that collide with subnet names
+    "swap", "yield", "stake", "pool", "mint", "launch", "flow", "base",
   ]);
+
+  // Word-boundary match: requires the name to appear as a standalone word,
+  // not as a substring of another word (e.g. "chutes" must not match "parachutes").
+  function wordMatch(text: string, word: string): boolean {
+    const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    return new RegExp(`\\b${escaped}\\b`, "i").test(text);
+  }
 
   // Returns ALL matching netuids for a tweet (supports multi-subnet mentions).
   function matchTweet(tweet: DesearchTweet): number[] {
@@ -187,10 +198,17 @@ export async function GET(req: Request) {
 
     // Subnet's own official Twitter handle — high confidence.
     if (handleToNetuid.has(author)) {
-      if (hasBittensorContext(text)) matched.add(handleToNetuid.get(author)!);
-      else {
-        const ownName = netuidToName.get(handleToNetuid.get(author)!)?.toLowerCase() || "";
-        if (ownName.length >= 4 && text.includes(ownName)) matched.add(handleToNetuid.get(author)!);
+      if (hasBittensorContext(text)) {
+        matched.add(handleToNetuid.get(author)!);
+      } else {
+        // No Bittensor context: only credit if they explicitly name their own subnet
+        // as a whole word (not a substring). Require >= 5 chars so short names like
+        // "hone" don't accidentally match inside words like "phone" or "honest".
+        const netuid = handleToNetuid.get(author)!;
+        const ownName = netuidToName.get(netuid)?.toLowerCase() || "";
+        if (ownName.length >= 5 && wordMatch(text, ownName)) {
+          matched.add(netuid);
+        }
       }
       return [...matched];
     }
@@ -210,15 +228,19 @@ export async function GET(req: Request) {
       if (n > 0 && n <= 128) matched.add(n);
     }
 
-    // Name matches — collect ALL subnet names found (skip generic words)
-    const normText = text.replace(/[-_\s]/g, "");
+    // Name matches — whole-word only, skip blocklisted generic words.
+    // Minimum 5 chars so short common words don't slip through.
     for (const [name, netuid] of nameToNetuid) {
-      if (name.length >= 5 && !GENERIC_NAME_BLOCKLIST.has(name) && text.includes(name)) {
+      if (name.length >= 5 && !GENERIC_NAME_BLOCKLIST.has(name) && wordMatch(text, name)) {
         matched.add(netuid);
       }
     }
+
+    // Normalized name matches (handles hyphenated/spaced variants like "ready-ai" → "readyai").
+    // Require >= 8 chars after normalization to avoid short fragments matching inside longer words.
+    const normText = text.replace(/[-_\s]/g, "");
     for (const [norm, netuid] of normNameToNetuid) {
-      if (norm.length >= 5 && !GENERIC_NAME_BLOCKLIST.has(norm) && normText.includes(norm)) {
+      if (norm.length >= 8 && !GENERIC_NAME_BLOCKLIST.has(norm) && normText.includes(norm)) {
         matched.add(netuid);
       }
     }
