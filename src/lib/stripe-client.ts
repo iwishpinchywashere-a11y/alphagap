@@ -16,7 +16,7 @@ export function getStripe(): Stripe {
 export const PLAN = {
   name: "AlphaGap Pro",
   description: "Full access to AlphaGap Bittensor subnet intelligence",
-  amount: 2900,
+  amount: 100, // $1 TESTING PRICE — restore to 2900 before launch
   currency: "usd",
   interval: "month" as const,
 };
@@ -25,7 +25,7 @@ export const PLANS = {
   pro: {
     name: "AlphaGap Pro",
     description: "Full leaderboard, signals & reports access",
-    amount: 2900, // $29/mo
+    amount: 100, // $1 TESTING PRICE — restore to 2900 before launch
     currency: "usd",
     interval: "month" as const,
     tier: "pro" as const,
@@ -33,7 +33,7 @@ export const PLANS = {
   premium: {
     name: "AlphaGap Premium",
     description: "Full access to all AlphaGap features",
-    amount: 4900, // $49/mo
+    amount: 200, // $2 TESTING PRICE — restore to 4900 before launch
     currency: "usd",
     interval: "month" as const,
     tier: "premium" as const,

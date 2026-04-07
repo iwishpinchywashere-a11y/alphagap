@@ -7,7 +7,7 @@ import { sendSubscriptionConfirmationEmail } from "@/lib/email";
 /** Detect tier from subscription price amount (in cents) */
 function tierFromSub(sub: Stripe.Subscription): "pro" | "premium" {
   const amount = sub.items.data[0]?.price?.unit_amount ?? 0;
-  if (amount >= 4900) return "premium";
+  if (amount >= 200) return "premium"; // threshold: $2 testing (restore to 4900 for launch)
   return "pro";
 }
 
@@ -41,6 +41,15 @@ export async function POST(req: Request) {
         const sub = event.data.object as Stripe.Subscription;
         const user = await getUserByStripeCustomerId(sub.customer as string);
         if (user) {
+          // Don't let an old subscription's event downgrade an already-active user.
+          // Allow if: no current sub stored, OR this IS the current sub, OR this sub is active/trialing.
+          const isCurrentSub = !user.stripeSubscriptionId || user.stripeSubscriptionId === sub.id;
+          const isUpgrade = sub.status === "active" || sub.status === "trialing";
+          const wouldDowngrade = user.subscriptionStatus === "active" && !isCurrentSub && !isUpgrade;
+          if (wouldDowngrade) {
+            console.log(`[webhook] Skipping update from old sub ${sub.id} to avoid downgrade`);
+            break;
+          }
           const status = mapSubStatus(sub.status);
           const subscriptionTier = tierFromSub(sub);
           await updateUser(user.email, {
@@ -59,6 +68,13 @@ export async function POST(req: Request) {
         const sub = event.data.object as Stripe.Subscription;
         const user = await getUserByStripeCustomerId(sub.customer as string);
         if (user) {
+          // Only cancel if this is the user's CURRENT subscription.
+          // Ignore deletion events for old subscriptions (previous test payments etc.)
+          // so stale webhook retries don't overwrite an active status.
+          if (user.stripeSubscriptionId && user.stripeSubscriptionId !== sub.id) {
+            console.log(`[webhook] Ignoring deletion of old sub ${sub.id} (current: ${user.stripeSubscriptionId})`);
+            break;
+          }
           await updateUser(user.email, {
             subscriptionStatus: "canceled",
             subscriptionPeriodEnd: (sub as any).current_period_end,
@@ -88,13 +104,15 @@ export async function POST(req: Request) {
         const checkoutSession = event.data.object as Stripe.Checkout.Session;
         if (checkoutSession.mode === "subscription" && checkoutSession.subscription) {
           const sub = await getStripe().subscriptions.retrieve(checkoutSession.subscription as string);
-          const user = await getUserByStripeCustomerId(sub.customer as string);
+          const customerId = sub.customer as string;
+          const user = await getUserByStripeCustomerId(customerId);
           if (user) {
             const status = mapSubStatus(sub.status);
             const subscriptionTier = tierFromSub(sub);
             const periodEnd = (sub as any).current_period_end as number;
             const amountCents = sub.items.data[0]?.price?.unit_amount ?? 0;
             await updateUser(user.email, {
+              stripeCustomerId: customerId, // ensure stored even if checkout skipped it
               stripeSubscriptionId: sub.id,
               subscriptionStatus: status,
               subscriptionTier,
