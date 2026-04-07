@@ -25,6 +25,7 @@ export const authOptions: NextAuthOptions = {
           email: user.email,
           name: user.name,
           subscriptionStatus: user.subscriptionStatus,
+          subscriptionTier: user.subscriptionTier ?? null,
           isAdmin: user.isAdmin ?? false,
         };
       },
