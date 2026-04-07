@@ -165,6 +165,25 @@ export const BENCHMARK_DATA: BenchmarkEntry[] = [
       "https://www.ainvest.com/news/decentralized-ai-rising-cost-efficiency-network-growth-bittensor-subnet-62-2509/",
     ],
   },
+  {
+    subnet_id: 44,
+    subnet_name: "Score / Manako",
+    benchmark_score: 85,
+    benchmark_category: "Computer Vision & Video Analytics",
+    vs_provider: "Google Video Intelligence API / AWS Rekognition / Manual Video Annotation",
+    cost_saving_pct: 99,
+    perf_delta: "94% per-frame accuracy; 1,000× faster than manual",
+    benchmark_summary: "Score's Manako platform processes a full 90-minute football match in ~2 minutes for ~$10 vs $10,000+ with manual annotation teams (99%+ cost reduction, 1,000× speed). Validated on the SoccerNet GSR challenge using GS-HOTA (Game State Higher Order Tracking Accuracy) metric — 94% per-frame accuracy. Describes itself as '150B addressable cameras globally'. Live enterprise deployments: Reading FC (tactical analytics), major European petroleum CCTV monitoring ($5B betting syndicate, 20% revenue share), Two-a-Day South Africa (fruit packing QC). First five-figure monthly recurring invoice confirmed Nov 2025. 20% of all commercial revenue directed to SN44 ALPHA token buybacks. No-code interface via Manako: connect any camera, describe what to detect in plain language, instant alerts. Plans for basketball, tennis, security, retail, and 2026 World Cup fantasy sports app.",
+    active_users: "4+ enterprise clients",
+    annual_revenue_usd: 180000,
+    last_updated: "2026-04-07",
+    sources: [
+      "https://www.wearescore.com/",
+      "https://manako.ai/",
+      "https://subnetalpha.ai/subnet/score/",
+      "https://github.com/score-technologies/score-vision",
+    ],
+  },
 ];
 
 // Quick lookup by subnet_id
@@ -235,12 +254,12 @@ export const PRODUCT_MILESTONES: ProductMilestone[] = [
   },
   {
     netuid: 44,
-    subnet_name: "Score",
+    subnet_name: "Score / Manako",
     stage: "revenue",
     milestone_date: "2025-11-01",
-    title: "First five-figure recurring invoice — enterprise computer vision live across 4 industries",
-    description: "Score's Manako platform has a confirmed first five-figure monthly recurring invoice (Nov 2025). Live enterprise partnerships: Reading FC (football analytics), major European petroleum company CCTV monitoring (60-day trial converting at 100%), $5B sports betting syndicate (20% revenue share on upside), Two-a-Day Africa (fruit packing quality control, announced ~Mar 2026). Access to 283 football leagues and 400K match dataset. 20% of commercial revenue directed to ALPHA token buybacks.",
-    source_url: "https://subnetalpha.ai/subnet/score/",
+    title: "Manako — enterprise computer vision live, first five-figure MRR, 4 industries, 99% cheaper than AWS Rekognition",
+    description: "Score's Manako platform (manako.ai) is the no-code commercial layer on top of Bittensor SN44. Businesses describe detections in plain language — Manako handles the rest across any camera feed. Validated on SoccerNet GSR challenge with GS-HOTA metric (94% per-frame accuracy). Full 90-min match processed in ~2 min for ~$10 vs $10,000+ manually (99% cost reduction, 1,000× speed). Live enterprise deployments: Reading FC (football tactical analytics), major European petroleum company CCTV monitoring (converted 100% after 60-day trial), $5B sports betting syndicate (20% revenue share), Two-a-Day South Africa (fruit packing quality control). First confirmed five-figure monthly recurring invoice Nov 2025. 20% of all commercial revenue directed to SN44 ALPHA buybacks. 283 football leagues + 400K match dataset. Expansion planned: basketball, tennis, security, retail analytics, 2026 World Cup fantasy app. Goldman Sachs veteran appointed chairman. Astrid Intelligence (AQSE:ASTR) publicly highlights SN44 holdings.",
+    source_url: "https://www.wearescore.com/",
     estimated_arr_usd: 180_000,
     confidence: "high",
   },
