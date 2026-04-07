@@ -2520,68 +2520,93 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
     const clampedRaw = Math.max(1, Math.min(100, Math.round(rawAGap)));
     const aGap = smoothAGap(d.netuid, clampedRaw);
 
-    // ── INVESTING aGap (long-term formula) ───────────────────────────────────
-    // Optimised for monthly horizon. Removes short-term timing signals and adds
-    // network health, pre-launch detection, and a normalization factor so 100
-    // requires truly exceptional multi-signal convergence (not just 2-3 signals firing).
+    // ── INVESTING aGap (PILLAR-CAPPED formula, v14) ──────────────────────────
+    // Monthly horizon. Four hard-capped pillars — hitting 100 requires genuine
+    // multi-pillar convergence. All short-term signals (price action, social buzz,
+    // volume surge, floor reversals, campaign) are completely excluded.
+    //
+    // Pillar maximums: Dev(32) + Product(30) + Network(22) + SmartMoney(18) + Synergy(5) = 107
+    // → only subnets that are elite across ALL pillars touch 100.
 
-    // Network health: validator count + miner incentive health.
-    // Long-term investors need subnets where miners are rewarded and validators engaged.
+    // ── NETWORK HEALTH (used by Pillar 3) ────────────────────────────────────
+    // Validator count + miner incentive health. Long-term investors need subnets
+    // where miners are rewarded and validators engaged.
     let investNetworkHealth = 0;
     const iVals = d.validatorCount;
-    if      (iVals >= 60) investNetworkHealth += 8;
-    else if (iVals >= 40) investNetworkHealth += 5;
-    else if (iVals >= 20) investNetworkHealth += 2;
+    if      (iVals >= 64) investNetworkHealth += 10;
+    else if (iVals >= 48) investNetworkHealth +=  7;
+    else if (iVals >= 32) investNetworkHealth +=  4;
+    else if (iVals >= 16) investNetworkHealth +=  2;
     const iBurnPct = d.minerBurnPct;
-    if      (iBurnPct >= 80) investNetworkHealth -= 10; // miners getting nothing = structural weakness
-    else if (iBurnPct >= 60) investNetworkHealth -=  6;
+    if      (iBurnPct >= 80) investNetworkHealth -= 12; // miners getting nothing = structural rot
+    else if (iBurnPct >= 60) investNetworkHealth -=  7;
     else if (iBurnPct >= 40) investNetworkHealth -=  3;
-    else if (iBurnPct <= 10 && iVals >= 20) investNetworkHealth += 4; // healthy paid miners + active validators
+    else if (iBurnPct <= 10 && iVals >= 16) investNetworkHealth += 4; // healthy paid miners + active validators
 
-    // Pre-launch stealth bonus: building something real but market hasn't found it yet.
-    // Signals: strong dev + web presence detected by scanner + flying under radar.
-    // This is specifically what the website scanner enables in the investing context.
+    // ── PRE-LAUNCH STEALTH (used by Pillar 2) ────────────────────────────────
+    // Building something real but market hasn't found it yet.
+    // The website scanner specifically enables this in the investing context.
     let investPreLaunch = 0;
     const hasWebPresence = productSource === "website" || productSource === "heuristic";
-    if      (hasWebPresence && devScore >= 55 && socialScore <= 20 && productScore >= 35) investPreLaunch = 16;
-    else if (hasWebPresence && devScore >= 45 && socialScore <= 30 && productScore >= 30) investPreLaunch = 10;
+    if      (hasWebPresence && devScore >= 55 && socialScore <= 20 && productScore >= 35) investPreLaunch = 18;
+    else if (hasWebPresence && devScore >= 45 && socialScore <= 30 && productScore >= 30) investPreLaunch = 12;
     else if (devScore >= 65 && socialScore <= 15) investPreLaunch = 8; // stealth builder, no website found yet
 
-    // Website-detected subnets (pre-launch) get boosted product points vs heuristic
-    const productMultiplier = productSource === "benchmark" ? 2.0 :   // shipped & benchmarked = top credit
-                              productSource === "website"    ? 1.9 :   // website detected = near-equal for investing
-                              productSource === "milestone"  ? 1.7 :   // milestone recorded
-                                                              1.5;     // heuristic estimate
+    // ── PILLAR 1: DEV (max 32) ────────────────────────────────────────────────
+    // Sustained building is the #1 long-term moat. Consistent cadence is valued
+    // far more than one-day spikes. devSpike gets near-zero weight.
+    const rawDevPillar = (buildingPts * 1.0) + (consistentBuilderBonus * 2.2) + (devSpikeBonus * 0.12);
+    const pillarDev = Math.min(32, Math.round(rawDevPillar));
 
-    // Deregistration risk — strong penalty: thesis takes months, can't hold a dying subnet
-    const investDeregPenalty = d.deregRisk ? -14 : 0;
+    // ── PILLAR 2: PRODUCT (max 30) ────────────────────────────────────────────
+    // Real utility the market hasn't priced in yet. Source quality matters:
+    // benchmarked products get higher credit than heuristic estimates.
+    const productSourceMult = productSource === "benchmark" ? 1.4 :
+                              productSource === "website"   ? 1.3 :
+                              productSource === "milestone" ? 1.1 :
+                                                              0.9;
+    const rawProductPillar = (productAGapPts * productSourceMult)
+                           + (productAwarenessGap * 1.9)   // hidden product = core alpha
+                           + (productVsPriceBonus  * 1.9)  // great product + depressed price
+                           + (investPreLaunch       * 0.9); // stealth pre-launch signal
+    const pillarProduct = Math.min(30, Math.round(rawProductPillar));
 
-    const rawInvestAGap = (
-      (buildingPts            * 1.5) +   // dev: sustained building = #1 long-term moat
-      (consistentBuilderBonus * 1.5) +   // consistent builders win long-term
-      (devSpikeBonus          * 0.7) +   // spikes less important than sustained cadence
-      (priceLag               * 0.3) +   // short-term dips irrelevant for long holds
-      // floorReversalBonus: 0 — pure short-term timing signal
-      (socialMomentum         * 0.2) +   // social buzz is noise over months
-      (evalBoost              * 1.5) +   // network conviction signals long-term health
-      (evalVsPriceBonus       * 1.7) +   // high eval + low price = best long-term gap
-      (emissionBoost          * 1.2) +   // sustained emission trends matter long-term
-      viability +                         // liquidity requirements unchanged
-      (stakingBoost           * 1.5) +   // staking = long-term holder conviction
-      (rootPropBonus          * 1.5) +   // top validators = long-term conviction
-      // campaignBoost: 0 — paid marketing is not a fundamental signal
-      (whaleBoost             * 1.4) +   // smart money positioning for long plays
-      (volBoost               * 0.25) +  // volume surge is a short-term signal
-      (productAGapPts         * productMultiplier) + // source-aware product weight
-      (productAwarenessGap    * 1.5) +   // hidden product = biggest long-term opportunity
-      (productVsPriceBonus    * 1.5) +   // product vs price = core long-term gap
-      investNetworkHealth +               // validator count + miner health
-      investPreLaunch                     // building in stealth with web/dev signals
-      // momentumBoost: 0 — short-term
-      // gapClosurePenalty: 0 — up 20% this week can still be great long-term
-    ) * 0.70;                             // normalize: need ~143 raw to hit 100; only elite convergence qualifies
+    // ── PILLAR 3: NETWORK (max 22) ────────────────────────────────────────────
+    // On-chain health: validator conviction, emission trajectory, staking, root allocation.
+    // Only the POSITIVE portion of emission/networkHealth is capped here;
+    // penalties flow through below the pillar (see emissionPenalty).
+    const rawNetworkPillar = (evalBoost            * 1.0)
+                           + (evalVsPriceBonus      * 2.0)    // high eval + depressed price = best long gap
+                           + (Math.max(0, emissionBoost) * 0.6)
+                           + (stakingBoost          * 1.0)
+                           + (rootPropBonus         * 1.2)
+                           + Math.max(0, investNetworkHealth);
+    const pillarNetwork = Math.min(22, Math.round(rawNetworkPillar));
 
-    const investAGap = Math.max(1, Math.min(100, Math.round(rawInvestAGap + investDeregPenalty)));
+    // ── PILLAR 4: SMART MONEY (max 18) ────────────────────────────────────────
+    // Whale accumulation and large-stake conviction. Volume is a lagging, noisy signal
+    // for long holds so it gets near-zero weight.
+    const rawMoneyPillar = (Math.max(0, whaleBoost) * 1.2) + (Math.max(0, volBoost) * 0.04);
+    const pillarMoney = Math.min(18, Math.round(rawMoneyPillar));
+
+    // ── CROSS-PILLAR SYNERGY BONUS (max 5) ───────────────────────────────────
+    // When dev + product BOTH fire strongly, that's the rarest and most powerful
+    // long-term signal (team building something real AND the market hasn't found it).
+    let investSynergy = 0;
+    if      (pillarDev >= 22 && pillarProduct >= 20) investSynergy = 5;
+    else if (pillarDev >= 16 && pillarProduct >= 14) investSynergy = 3;
+
+    // ── PENALTIES (applied outside pillars, not blocked by caps) ─────────────
+    const emissionPenalty      = Math.round(Math.min(0, emissionBoost) * 0.9);
+    const networkHealthPenalty = Math.min(0, investNetworkHealth);
+    const whalePenalty         = Math.min(0, whaleBoost); // distributing signal = caution
+    const investDeregPenalty   = d.deregRisk ? -14 : 0;
+
+    const rawInvestAGap = pillarDev + pillarProduct + pillarNetwork + pillarMoney + investSynergy
+                        + emissionPenalty + networkHealthPenalty + whalePenalty
+                        + viability + investDeregPenalty;
+
+    const investAGap = Math.max(1, Math.min(100, Math.round(rawInvestAGap)));
 
     // Update history for next scan
     agapHistory[d.netuid] = { ema: aGap, lastUpdated: new Date().toISOString() };
@@ -2948,7 +2973,7 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
     .catch(() => { /* non-critical */ });
 
   // Bump this when leaderboard schema changes (forces dashboard to rescan instead of using stale blob)
-  const SCAN_SCHEMA_VERSION = 13; // v13: invest_agap refined — network health, pre-launch, 0.70 normalization
+  const SCAN_SCHEMA_VERSION = 14; // v14: invest_agap pillar-capped (Dev32+Product30+Network22+Money18) — fully differentiated from trading
 
   const responseData = {
     schema_version: SCAN_SCHEMA_VERSION,
