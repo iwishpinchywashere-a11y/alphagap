@@ -18,8 +18,11 @@ export default function DashboardHeader() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const user = session?.user as any;
   const subStatus: string = user?.subscriptionStatus ?? "none";
+  const subTier: string = user?.subscriptionTier ?? "";
   const isAdmin: boolean = user?.isAdmin ?? false;
   const isActive = subStatus === "active" || subStatus === "trialing";
+  const isPremium = isActive && subTier === "premium";
+  const isPro = isActive && !isPremium;
 
   const openDropdown = useCallback(() => {
     if (!btnRef.current) return;
@@ -139,11 +142,13 @@ export default function DashboardHeader() {
                 </div>
                 <div className="mt-2.5">
                   <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${
-                    isActive
-                      ? "text-green-400 bg-green-500/10 border-green-500/30"
-                      : "text-gray-500 bg-gray-800 border-gray-700"
+                    isPremium
+                      ? "text-purple-400 bg-purple-500/10 border-purple-500/30"
+                      : isActive
+                        ? "text-green-400 bg-green-500/10 border-green-500/30"
+                        : "text-gray-500 bg-gray-800 border-gray-700"
                   }`}>
-                    {isActive ? "✓ Pro Subscriber" : "No subscription"}
+                    {isPremium ? "✓ Premium Subscriber" : isActive ? "✓ Pro Subscriber" : "No subscription"}
                   </span>
                 </div>
               </div>
@@ -172,7 +177,19 @@ export default function DashboardHeader() {
                     Upgrade to Pro
                   </Link>
                 )}
-                {isActive && (
+                {isPro && (
+                  <Link
+                    href="/checkout?plan=premium"
+                    onClick={closeDropdown}
+                    className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-purple-400 hover:bg-purple-500/10 transition-colors font-medium"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3l14 9-14 9V3z" />
+                    </svg>
+                    Get Premium →
+                  </Link>
+                )}
+                {isPremium && (
                   <button
                     onClick={async () => {
                       closeDropdown();

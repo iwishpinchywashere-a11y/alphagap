@@ -870,7 +870,7 @@ function SubscribeContent() {
             AlphaGap finds those windows before anyone else.
           </p>
           <p className="text-gray-500 text-base mb-10">
-            $19/month. No long-term commitment. Cancel anytime.
+            $29/month. No long-term commitment. Cancel anytime.
           </p>
           <button
             onClick={() => handleSubscribe("pro")}
