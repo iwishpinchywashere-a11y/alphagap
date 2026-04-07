@@ -43,39 +43,7 @@ function baseTemplate(content: string): string {
 </html>`;
 }
 
-/** Welcome email sent immediately after signup with email verification link */
-export async function sendWelcomeEmail(name: string, email: string, verificationToken: string) {
-  const verifyUrl = `${BASE_URL}/auth/verify-email?token=${verificationToken}`;
-  const firstName = name.split(" ")[0];
-
-  const html = baseTemplate(`
-    <h1 style="color:#ffffff;font-size:24px;font-weight:700;margin:0 0 12px 0;">Welcome to AlphaGap, ${firstName}! 👋</h1>
-    <p style="color:#9ca3af;font-size:15px;line-height:1.7;margin:0 0 28px 0;">
-      You now have access to Bittensor subnet intelligence — the leaderboard, AI signals, whale tracking, and more.
-      Just verify your email to secure your account and you're good to go.
-    </p>
-    <div style="background:#0d1117;border:1px solid #1f2937;border-radius:12px;padding:28px;margin:0 0 28px 0;text-align:center;">
-      <p style="color:#9ca3af;font-size:13px;margin:0 0 20px 0;">Click below to confirm your email address:</p>
-      <a href="${verifyUrl}"
-         style="display:inline-block;background:linear-gradient(135deg,#10b981,#059669);color:#000000;font-weight:700;font-size:15px;padding:14px 36px;border-radius:10px;text-decoration:none;letter-spacing:-0.2px;">
-        Verify Email Address &rarr;
-      </a>
-      <p style="color:#4b5563;font-size:11px;margin:16px 0 0 0;">Link expires in 24 hours</p>
-    </div>
-    <p style="color:#4b5563;font-size:12px;margin:0;line-height:1.6;">
-      If you didn&apos;t create an AlphaGap account, you can safely ignore this email.
-    </p>
-  `);
-
-  return resend.emails.send({
-    from: FROM,
-    to: email,
-    subject: "Welcome to AlphaGap — please verify your email",
-    html,
-  });
-}
-
-/** Subscription receipt sent when Stripe checkout completes */
+/** Subscription confirmation + receipt sent when Stripe checkout completes */
 export async function sendSubscriptionConfirmationEmail(
   name: string,
   email: string,
@@ -85,54 +53,103 @@ export async function sendSubscriptionConfirmationEmail(
 ) {
   const firstName = name.split(" ")[0];
   const tierLabel = tier === "premium" ? "AlphaGap Premium" : "AlphaGap Pro";
+  const accentColor = tier === "premium" ? "#a855f7" : "#10b981";
+  const accentBg = tier === "premium" ? "#2e1065" : "#064e3b";
   const amountStr = `$${(amountCents / 100).toFixed(0)}/month`;
   const renewDate = new Date(periodEnd * 1000).toLocaleDateString("en-US", {
     month: "long", day: "numeric", year: "numeric",
   });
 
+  const proFeatures = [
+    "Full Alpha Leaderboard — all 128 subnets ranked",
+    "All sorting & filtering tools",
+    "AI Signal Intelligence — GitHub & HuggingFace signals",
+    "Daily AI Deep-Dive Reports",
+    "All 128 Subnet Detail pages",
+    "Leaderboard updated every 10 minutes",
+  ];
+
+  const premiumFeatures = [
+    "Everything in Pro",
+    "🐋 Whale & Smart Money Tracker",
+    "📡 Social Intelligence & KOL Radar",
+    "🧪 Pump Lab — early alpha detector",
+    "📈 Performance Tracker",
+    "📊 Analytics & Scatter Plots",
+    "🏆 Benchmark Rankings",
+    "Discord Alpha Scanner",
+    "Full access to every page",
+  ];
+
+  const features = tier === "premium" ? premiumFeatures : proFeatures;
+
+  const featureRows = features.map(f => `
+    <tr>
+      <td style="padding:9px 0;border-bottom:1px solid #1a2235;">
+        <span style="color:${accentColor};font-weight:700;margin-right:10px;">✓</span>
+        <span style="color:#d1d5db;font-size:13px;">${f}</span>
+      </td>
+    </tr>
+  `).join("");
+
   const html = baseTemplate(`
-    <h1 style="color:#ffffff;font-size:24px;font-weight:700;margin:0 0 12px 0;">Subscription confirmed! 🎉</h1>
+    <h1 style="color:#ffffff;font-size:26px;font-weight:800;margin:0 0 8px 0;">Welcome to ${tierLabel}! 🎉</h1>
     <p style="color:#9ca3af;font-size:15px;line-height:1.7;margin:0 0 28px 0;">
-      Hi ${firstName}, your <strong style="color:#ffffff;">${tierLabel}</strong> subscription is now active. Here&apos;s your receipt.
+      Hey ${firstName}, you&apos;re in. Your subscription is active and you have full access starting right now.
     </p>
-    <div style="background:#0d1117;border:1px solid #1f2937;border-radius:12px;padding:28px;margin:0 0 28px 0;">
+
+    <!-- Access list -->
+    <div style="background:#0d1117;border:1px solid #1f2937;border-radius:12px;padding:24px 28px;margin:0 0 24px 0;">
+      <p style="color:${accentColor};font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;margin:0 0 16px 0;">What you have access to</p>
+      <table width="100%" cellpadding="0" cellspacing="0">
+        ${featureRows}
+      </table>
+    </div>
+
+    <!-- CTA -->
+    <div style="text-align:center;margin:0 0 28px 0;">
+      <a href="${BASE_URL}/dashboard"
+         style="display:inline-block;background:linear-gradient(135deg,${accentColor},${accentColor === "#10b981" ? "#059669" : "#7c3aed"});color:#000000;font-weight:700;font-size:15px;padding:14px 40px;border-radius:10px;text-decoration:none;letter-spacing:-0.2px;">
+        Open Your Dashboard &rarr;
+      </a>
+    </div>
+
+    <!-- Receipt -->
+    <div style="background:#0d1117;border:1px solid #1f2937;border-radius:12px;padding:24px 28px;margin:0 0 24px 0;">
+      <p style="color:#6b7280;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;margin:0 0 16px 0;">Receipt</p>
       <table width="100%" cellpadding="0" cellspacing="0">
         <tr>
-          <td style="color:#6b7280;font-size:13px;padding:10px 0;border-bottom:1px solid #1f2937;">Plan</td>
-          <td style="color:#ffffff;font-size:13px;font-weight:600;text-align:right;padding:10px 0;border-bottom:1px solid #1f2937;">${tierLabel}</td>
+          <td style="color:#6b7280;font-size:13px;padding:8px 0;border-bottom:1px solid #1a2235;">Plan</td>
+          <td style="color:#ffffff;font-size:13px;font-weight:600;text-align:right;padding:8px 0;border-bottom:1px solid #1a2235;">${tierLabel}</td>
         </tr>
         <tr>
-          <td style="color:#6b7280;font-size:13px;padding:10px 0;border-bottom:1px solid #1f2937;">Amount</td>
-          <td style="color:#ffffff;font-size:13px;font-weight:600;text-align:right;padding:10px 0;border-bottom:1px solid #1f2937;">${amountStr}</td>
+          <td style="color:#6b7280;font-size:13px;padding:8px 0;border-bottom:1px solid #1a2235;">Amount</td>
+          <td style="color:#ffffff;font-size:13px;font-weight:600;text-align:right;padding:8px 0;border-bottom:1px solid #1a2235;">${amountStr}</td>
         </tr>
         <tr>
-          <td style="color:#6b7280;font-size:13px;padding:10px 0;border-bottom:1px solid #1f2937;">Status</td>
-          <td style="text-align:right;padding:10px 0;border-bottom:1px solid #1f2937;">
-            <span style="background:#064e3b;color:#10b981;font-size:11px;font-weight:700;padding:3px 12px;border-radius:20px;text-transform:uppercase;letter-spacing:0.5px;">Active</span>
+          <td style="color:#6b7280;font-size:13px;padding:8px 0;border-bottom:1px solid #1a2235;">Status</td>
+          <td style="text-align:right;padding:8px 0;border-bottom:1px solid #1a2235;">
+            <span style="background:${accentBg};color:${accentColor};font-size:11px;font-weight:700;padding:3px 12px;border-radius:20px;text-transform:uppercase;letter-spacing:0.5px;">Active</span>
           </td>
         </tr>
         <tr>
-          <td style="color:#6b7280;font-size:13px;padding:10px 0;">Next renewal</td>
-          <td style="color:#ffffff;font-size:13px;font-weight:600;text-align:right;padding:10px 0;">${renewDate}</td>
+          <td style="color:#6b7280;font-size:13px;padding:8px 0;">Next renewal</td>
+          <td style="color:#ffffff;font-size:13px;font-weight:600;text-align:right;padding:8px 0;">${renewDate}</td>
         </tr>
       </table>
     </div>
-    <div style="text-align:center;margin:0 0 28px 0;">
-      <a href="${BASE_URL}/dashboard"
-         style="display:inline-block;background:linear-gradient(135deg,#10b981,#059669);color:#000000;font-weight:700;font-size:15px;padding:14px 36px;border-radius:10px;text-decoration:none;">
-        Go to Dashboard &rarr;
-      </a>
-    </div>
+
     <p style="color:#4b5563;font-size:12px;margin:0;line-height:1.6;">
-      Manage your subscription, update payment, or download invoices anytime from
-      <a href="${BASE_URL}/account" style="color:#10b981;text-decoration:none;">Account Settings</a>.
+      Manage your subscription, update payment info, or cancel anytime from
+      <a href="${BASE_URL}/account" style="color:${accentColor};text-decoration:none;">Account Settings</a>.
+      Questions? Just reply to this email.
     </p>
   `);
 
   return resend.emails.send({
     from: FROM,
     to: email,
-    subject: `${tierLabel} — subscription confirmed`,
+    subject: `You're in — ${tierLabel} access confirmed`,
     html,
   });
 }

@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
+import { encode } from "next-auth/jwt";
 import { getUserByEmail, createUser } from "@/lib/users";
-import { createToken } from "@/lib/tokens";
-import { sendWelcomeEmail } from "@/lib/email";
 
 export const dynamic = "force-dynamic";
 
@@ -52,25 +51,54 @@ export async function POST(req: Request) {
     const passwordHash = await bcrypt.hash(password, 12);
     const cleanEmail = email.toLowerCase().trim();
     const cleanName = name.trim();
+    const userId = crypto.randomUUID();
 
-    await createUser({
-      id: crypto.randomUUID(),
+    const user = {
+      id: userId,
       email: cleanEmail,
       name: cleanName,
       passwordHash,
-      subscriptionStatus: "none",
-      emailVerified: false,
+      subscriptionStatus: "none" as const,
       createdAt: new Date().toISOString(),
+    };
+
+    await createUser(user);
+
+    // ── Create session cookie right here, same request, same instance ──
+    // The user blob was just written above — no cross-instance propagation needed.
+    const adminEmails = (process.env.ADMIN_EMAILS || "")
+      .split(",").map((e: string) => e.trim().toLowerCase()).filter(Boolean);
+    const isAdmin = adminEmails.includes(cleanEmail);
+
+    const token = await encode({
+      token: {
+        sub: userId,
+        email: cleanEmail,
+        name: cleanName,
+        picture: null,
+        subscriptionStatus: "none",
+        subscriptionTier: null,
+        isAdmin,
+      },
+      secret: process.env.NEXTAUTH_SECRET!,
+      maxAge: 30 * 24 * 60 * 60, // 30 days
     });
 
-    // Send welcome + verification email (fire and forget — don't block signup)
-    createToken(cleanEmail, "verify").then((token) =>
-      sendWelcomeEmail(cleanName, cleanEmail, token).catch((e) =>
-        console.error("[signup] welcome email failed:", e),
-      ),
-    ).catch((e) => console.error("[signup] token create failed:", e));
+    const secure = (process.env.NEXTAUTH_URL || "").startsWith("https");
+    const cookieName = secure
+      ? "__Secure-next-auth.session-token"
+      : "next-auth.session-token";
 
-    return NextResponse.json({ ok: true });
+
+    const response = NextResponse.json({ ok: true });
+    response.cookies.set(cookieName, token, {
+      httpOnly: true,
+      secure,
+      sameSite: "lax",
+      path: "/",
+      maxAge: 30 * 24 * 60 * 60,
+    });
+    return response;
   } catch (e) {
     console.error("[signup]", e);
     return NextResponse.json({ error: "Failed to create account" }, { status: 500 });
