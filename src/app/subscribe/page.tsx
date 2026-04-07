@@ -360,6 +360,7 @@ function SubscribeContent() {
               <ul className="space-y-2.5 mb-8 flex-1">
                 {[
                   "Everything in Pro",
+                  "📈 Investing Analysis — long-term aGap scoring designed for serious investors",
                   "🐋 Whale & Smart Money Tracker",
                   "📡 Twitter/X social momentum feed",
                   "💬 Discord scanner finds alpha in real time",

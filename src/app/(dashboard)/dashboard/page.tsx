@@ -7,7 +7,7 @@ import { useDashboard } from "@/components/dashboard/DashboardProvider";
 import SubnetDetailPanel from "@/components/dashboard/SubnetDetailPanel";
 import SubnetLogo from "@/components/dashboard/SubnetLogo";
 import { scoreColor, flowColor, formatNum } from "@/lib/formatters";
-import { getTier, canAccessPro } from "@/lib/subscription";
+import { getTier, canAccessPro, canAccessPremium } from "@/lib/subscription";
 import type { SubnetScore } from "@/lib/types";
 
 
@@ -96,6 +96,8 @@ export default function LeaderboardPage() {
   const [filterCategory, setFilterCategory] = useState<string>("");
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [timeHorizon, setTimeHorizon] = useState<"trading" | "investing">("trading");
+  const [showInvestingGate, setShowInvestingGate] = useState(false);
+  const isPremium = canAccessPremium(tier);
 
   // Returns the aGap score for a subnet based on the active time horizon
   const activeAGap = (sub: SubnetScore) =>
@@ -181,29 +183,59 @@ export default function LeaderboardPage() {
                 className="bg-gray-800/60 border border-gray-700 rounded-lg px-3 py-1.5 text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:border-green-600 focus:ring-1 focus:ring-green-600/30 w-full max-w-[180px]"
               />
               {/* Time Horizon toggle */}
-              <div className="flex items-center rounded-lg border border-gray-700 bg-gray-800/60 p-0.5 flex-shrink-0">
-                <button
-                  onClick={() => setTimeHorizon("trading")}
-                  className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors whitespace-nowrap ${
-                    timeHorizon === "trading"
-                      ? "bg-green-500/20 border border-green-500/40 text-green-400"
-                      : "text-gray-500 hover:text-gray-300"
-                  }`}
-                  title="Trading (Short-Term): aGap optimised for 1–5 day price movements — rewards price lag, social buzz, and short-term reversal patterns."
-                >
-                  ⚡ Trading
-                </button>
-                <button
-                  onClick={() => setTimeHorizon("investing")}
-                  className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors whitespace-nowrap ${
-                    timeHorizon === "investing"
-                      ? "bg-purple-500/20 border border-purple-500/40 text-purple-400"
-                      : "text-gray-500 hover:text-gray-300"
-                  }`}
-                  title="Investing (Long-Term): aGap optimised for 1–6 month horizon — weights sustained development, real product utility, smart money positioning, and network emissions. Ignores short-term price noise."
-                >
-                  📈 Investing
-                </button>
+              <div className="relative flex-shrink-0">
+                {showInvestingGate && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setShowInvestingGate(false)} />
+                    <div
+                      className="absolute left-0 top-full mt-2 z-50 w-64 p-3.5 bg-gray-900 border border-purple-500/40 rounded-xl shadow-2xl text-xs leading-relaxed"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div className="font-semibold text-purple-400 mb-1.5">📈 Investing Analysis</div>
+                      <p className="text-gray-400 mb-3 leading-relaxed">Long-term aGap scoring designed for serious investors. Weights real product development, smart money positioning, and fundamental conviction — not short-term noise.</p>
+                      <p className="text-gray-600 text-[10px] mb-3">Available on Premium only.</p>
+                      <a
+                        href="/pricing"
+                        className="block w-full text-center py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-lg font-semibold transition-colors"
+                      >
+                        Upgrade to Premium →
+                      </a>
+                    </div>
+                  </>
+                )}
+                <div className="flex items-center rounded-lg border border-gray-700 bg-gray-800/60 p-0.5">
+                  <button
+                    onClick={() => { setTimeHorizon("trading"); setShowInvestingGate(false); }}
+                    className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors whitespace-nowrap ${
+                      timeHorizon === "trading"
+                        ? "bg-green-500/20 border border-green-500/40 text-green-400"
+                        : "text-gray-500 hover:text-gray-300"
+                    }`}
+                    title="Trading (Short-Term): aGap optimised for 1–5 day price movements — rewards price lag, social buzz, and short-term reversal patterns."
+                  >
+                    ⚡ Trading
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (!isPremium) {
+                        setShowInvestingGate(v => !v);
+                      } else {
+                        setTimeHorizon("investing");
+                        setShowInvestingGate(false);
+                      }
+                    }}
+                    className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors whitespace-nowrap ${
+                      timeHorizon === "investing"
+                        ? "bg-purple-500/20 border border-purple-500/40 text-purple-400"
+                        : !isPremium
+                        ? "text-gray-600 hover:text-gray-400"
+                        : "text-gray-500 hover:text-gray-300"
+                    }`}
+                    title={isPremium ? "Investing (Long-Term): aGap optimised for 1–6 month horizon — weights sustained development, real product utility, smart money positioning, and network emissions." : "Investing Analysis — Premium feature"}
+                  >
+                    📈 Investing{!isPremium && <span className="ml-1 text-purple-500/70">✦</span>}
+                  </button>
+                </div>
               </div>
 
               {/* Time Horizon info popover */}

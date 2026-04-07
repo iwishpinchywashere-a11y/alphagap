@@ -29,6 +29,7 @@ const PLANS = [
     highlight: true,
     features: [
       "Everything in Pro",
+      "Investing Analysis — long-term aGap scoring designed for serious investors",
       "Whale & smart money tracking",
       "Twitter/X social momentum feed",
       "Discord scanner finds alpha in real time",
