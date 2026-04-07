@@ -88,24 +88,12 @@ export async function GET(req: Request) {
       maxAge: 30 * 24 * 60 * 60,
     });
 
-    // 3. Set cookie and redirect immediately — don't block on blob writes
-    const secure = baseUrl.startsWith("https");
-    const cookieName = secure
-      ? "__Secure-next-auth.session-token"
-      : "next-auth.session-token";
-
-    const response = NextResponse.redirect(`${baseUrl}/dashboard`);
-    response.cookies.set(cookieName, token, {
-      httpOnly: true,
-      secure,
-      sameSite: "lax",
-      path: "/",
-      maxAge: 30 * 24 * 60 * 60,
-    });
-
-    // 4. Fire blob updates without awaiting — webhook handles persistence as backup
+    // 3. Persist subscription to blob before redirecting — Vercel terminates the
+    //    function as soon as we return, so fire-and-forget won't complete.
+    //    Run all three writes in parallel; /activating page will sync-verify via Stripe
+    //    as a belt-and-suspenders check once the user lands there.
     if (user) {
-      Promise.all([
+      await Promise.all([
         updateUser(email, {
           stripeCustomerId: customerId,
           stripeSubscriptionId: sub.id,
@@ -117,6 +105,21 @@ export async function GET(req: Request) {
         setStripeCustomerLookup(email, customerId),
       ]).catch((e) => console.error("[payment-success] blob updates failed:", e));
     }
+
+    // 4. Set cookie and redirect to /activating loading page
+    const secure = baseUrl.startsWith("https");
+    const cookieName = secure
+      ? "__Secure-next-auth.session-token"
+      : "next-auth.session-token";
+
+    const response = NextResponse.redirect(`${baseUrl}/activating`);
+    response.cookies.set(cookieName, token, {
+      httpOnly: true,
+      secure,
+      sameSite: "lax",
+      path: "/",
+      maxAge: 30 * 24 * 60 * 60,
+    });
 
     return response;
 

@@ -328,7 +328,8 @@ function SubscribeContent() {
                 {[
                   "Whale & Smart Money Tracker",
                   "Social Intelligence & KOL Radar",
-                  "Pump Lab · Performance Tracker",
+                  "Pump Lab — early alpha detector",
+                  "Performance Tracker — measuring results",
                 ].map(f => (
                   <li key={f} className="flex items-start gap-2 text-xs text-gray-600">
                     <span className="text-gray-700 shrink-0 mt-0.5">✕</span>

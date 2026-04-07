@@ -185,13 +185,6 @@ export default function SocialPage() {
           <StatCard label="Discord Scanned" value={stats.discordChannelsScanned} sub="subnet channels" />
           <StatCard label="Discord Alpha" value={stats.discordAlphaCount} sub="channels signalling" />
           <StatCard label="Discord Active" value={stats.discordActiveCount} sub="channels engaged" />
-          <div className="bg-gray-900/60 border border-gray-800 rounded-lg px-4 py-3 col-span-1">
-            <div className="text-xs text-gray-500 mb-0.5">Heat Formula</div>
-            <div className="text-xs text-gray-400 leading-relaxed">
-              <span className="text-green-400 font-mono">KOL×0.7</span> + <span className="text-blue-400 font-mono">log(eng)×11</span><br />
-              <span className="text-gray-500">cap 100 · decay over 72h</span>
-            </div>
-          </div>
         </div>
 
         {/* ── Hot KOL Tweets ── */}
