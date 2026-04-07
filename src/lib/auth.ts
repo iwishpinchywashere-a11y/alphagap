@@ -41,6 +41,7 @@ export const authOptions: NextAuthOptions = {
         !!email && adminEmails.includes(email.toLowerCase());
 
       if (user) {
+        // Seed token with authorize() result as a fallback
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         token.subscriptionStatus = (user as any).subscriptionStatus ?? "none";
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -48,9 +49,11 @@ export const authOptions: NextAuthOptions = {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         token.isAdmin = (user as any).isAdmin ?? emailIsAdmin(user.email) ?? false;
       }
-      // Refresh subscription status on each session check
-      if (trigger === "update" && token.email) {
-        const fresh = await getUserByEmail(token.email as string);
+      // On sign-in OR explicit updateSession() call: always do a fresh blob read
+      // with retries so a manually-updated subscription (or post-payment blob write)
+      // is always reflected — even if authorize() ran on a stale Vercel instance.
+      if ((trigger === "signIn" || trigger === "update") && token.email) {
+        const fresh = await getUserByEmail(token.email as string, { retries: 5 });
         if (fresh) {
           token.subscriptionStatus = fresh.subscriptionStatus;
           token.subscriptionTier = fresh.subscriptionTier ?? null;
