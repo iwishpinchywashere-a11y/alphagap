@@ -165,12 +165,10 @@ export default function ReportsPage() {
                 className="w-full flex items-start sm:items-center justify-between px-4 sm:px-5 py-3 hover:bg-gray-800/40 transition-colors text-left gap-2"
                 onClick={() => isExpanded ? setCurrentReport(null) : loadReport(r.date)}
               >
-                <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 min-w-0">
-                  <span className="text-xs text-green-400 font-medium uppercase tracking-wide shrink-0">Deep Dive</span>
+                <div className="flex items-center gap-0 min-w-0">
                   <span className="text-sm font-semibold text-white truncate">
-                    {r.subnet_name ? `${r.subnet_name} (SN${r.netuid})` : dateLabel}
+                    {r.subnet_name ? `${r.subnet_name} — ${dateLabel}` : dateLabel}
                   </span>
-                  {r.subnet_name && <span className="text-xs text-gray-500 shrink-0">{dateLabel}</span>}
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   {r.composite_score != null && (
@@ -208,12 +206,10 @@ export default function ReportsPage() {
                       className="w-full flex items-start sm:items-center justify-between px-4 sm:px-5 py-3 hover:bg-gray-800/40 transition-colors text-left gap-2"
                       onClick={() => isExpanded ? setCurrentReport(null) : loadReport(r.date)}
                     >
-                      <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 min-w-0">
-                        <span className="text-xs text-green-400 font-medium uppercase tracking-wide shrink-0">Deep Dive</span>
+                      <div className="flex items-center gap-0 min-w-0">
                         <span className="text-sm font-semibold text-white truncate">
-                          {r.subnet_name ? `${r.subnet_name} (SN${r.netuid})` : dateLabel}
+                          {r.subnet_name ? `${r.subnet_name} — ${dateLabel}` : dateLabel}
                         </span>
-                        {r.subnet_name && <span className="text-xs text-gray-500 shrink-0">{dateLabel}</span>}
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
                         {r.composite_score != null && (
