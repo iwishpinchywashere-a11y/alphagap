@@ -89,4 +89,5 @@ export interface SubnetScore {
   annual_revenue_usd?: number;   // estimated annual revenue
   momentum_boost?: number;       // MOMENTUM pillar score (signed, ±15 max)
   agap_velo?: number;            // aGap Velocity score 0-100
+  invest_agap?: number;          // Investing (long-term) aGap score 0-100
 }

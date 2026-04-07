@@ -2519,6 +2519,34 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
     const clampedRaw = Math.max(1, Math.min(100, Math.round(rawAGap)));
     const aGap = smoothAGap(d.netuid, clampedRaw);
 
+    // ── INVESTING aGap (long-term formula) ───────────────────────────────────
+    // Optimised for 1–6 month horizon. Removes short-term timing signals
+    // (price lag, social buzz, floor reversal, gap closure penalty, momentum boost)
+    // and heavily weights sustained development, product utility, network emissions,
+    // and smart money positioning.
+    const rawInvestAGap =
+      (buildingPts          * 1.5) +   // dev: sustained building = #1 long-term moat
+      (consistentBuilderBonus * 1.5) + // consistent builders win long-term
+      (devSpikeBonus        * 0.7) +   // spikes less important than sustained cadence
+      (priceLag             * 0.3) +   // short-term dips irrelevant for long holds
+      // floorReversalBonus: 0 — pure short-term timing signal
+      (socialMomentum       * 0.2) +   // social buzz is noise over months
+      (evalBoost            * 1.5) +   // network conviction signals long-term health
+      (evalVsPriceBonus     * 1.7) +   // high eval + low price = best long-term gap
+      (emissionBoost        * 1.2) +   // sustained emission trends matter long-term
+      viability +                       // liquidity requirements unchanged
+      (stakingBoost         * 1.5) +   // staking = long-term holder conviction
+      (rootPropBonus        * 1.5) +   // top validators = long-term conviction
+      // campaignBoost: 0 — paid marketing is not a fundamental signal
+      (whaleBoost           * 1.4) +   // smart money positioning for long plays
+      (volBoost             * 0.25) +  // volume surge is a short-term signal
+      (productAGapPts       * 1.8) +   // real utility is the core long-term thesis
+      (productAwarenessGap  * 1.5) +   // hidden product = biggest long-term opportunity
+      (productVsPriceBonus  * 1.5);    // product vs price = core long-term gap
+      // momentumBoost: 0 — short-term
+      // gapClosurePenalty: 0 — up 20% this week can still be great long-term
+    const investAGap = Math.max(1, Math.min(100, Math.round(rawInvestAGap)));
+
     // Update history for next scan
     agapHistory[d.netuid] = { ema: aGap, lastUpdated: new Date().toISOString() };
 
@@ -2565,6 +2593,7 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
       benchmark_summary: BENCHMARK_MAP.get(d.netuid)?.benchmark_summary,
       annual_revenue_usd: BENCHMARK_MAP.get(d.netuid)?.annual_revenue_usd,
       momentum_boost: momentumBoost !== 0 ? momentumBoost : undefined,
+      invest_agap: investAGap,
     });
   }
 

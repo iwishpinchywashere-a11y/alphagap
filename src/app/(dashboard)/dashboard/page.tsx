@@ -95,6 +95,11 @@ export default function LeaderboardPage() {
   const [filterVolumeSurge, setFilterVolumeSurge] = useState(false);
   const [filterCategory, setFilterCategory] = useState<string>("");
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [timeHorizon, setTimeHorizon] = useState<"trading" | "investing">("trading");
+
+  // Returns the aGap score for a subnet based on the active time horizon
+  const activeAGap = (sub: SubnetScore) =>
+    timeHorizon === "investing" ? (sub.invest_agap ?? sub.composite_score) : sub.composite_score;
 
   const handleSort = (col: keyof SubnetScore) => {
     if (!isPro) return; // free users cannot sort
@@ -116,8 +121,13 @@ export default function LeaderboardPage() {
     .filter((sub) => !filterVolumeSurge || sub.volume_surge === true)
     .filter((sub) => !filterCategory || sub.category === filterCategory)
     .sort((a, b) => {
-      const av = a[sortCol] ?? -Infinity;
-      const bv = b[sortCol] ?? -Infinity;
+      // In investing mode, sort the aGap column by invest_agap instead of composite_score
+      const av = (sortCol === "composite_score" && timeHorizon === "investing")
+        ? (a.invest_agap ?? a.composite_score)
+        : (a[sortCol] ?? -Infinity);
+      const bv = (sortCol === "composite_score" && timeHorizon === "investing")
+        ? (b.invest_agap ?? b.composite_score)
+        : (b[sortCol] ?? -Infinity);
       if (av < bv) return sortAsc ? -1 : 1;
       if (av > bv) return sortAsc ? 1 : -1;
       return 0;
@@ -162,7 +172,7 @@ export default function LeaderboardPage() {
             {/* Title row */}
             <h2 className="text-lg font-bold mb-2">Alpha Leaderboard</h2>
             {/* Search + Filters row */}
-            <div className="flex items-center gap-2 mb-4">
+            <div className="flex items-center gap-2 mb-4 flex-wrap">
               <input
                 type="text"
                 placeholder="Search subnets..."
@@ -170,6 +180,32 @@ export default function LeaderboardPage() {
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="bg-gray-800/60 border border-gray-700 rounded-lg px-3 py-1.5 text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:border-green-600 focus:ring-1 focus:ring-green-600/30 w-full max-w-[180px]"
               />
+              {/* Time Horizon toggle */}
+              <div className="flex items-center rounded-lg border border-gray-700 bg-gray-800/60 p-0.5 flex-shrink-0">
+                <button
+                  onClick={() => setTimeHorizon("trading")}
+                  className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors whitespace-nowrap ${
+                    timeHorizon === "trading"
+                      ? "bg-green-500/20 border border-green-500/40 text-green-400"
+                      : "text-gray-500 hover:text-gray-300"
+                  }`}
+                  title="Trading (Short-Term): aGap optimised for 1–5 day price movements — rewards price lag, social buzz, and short-term reversal patterns."
+                >
+                  ⚡ Trading
+                </button>
+                <button
+                  onClick={() => setTimeHorizon("investing")}
+                  className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors whitespace-nowrap ${
+                    timeHorizon === "investing"
+                      ? "bg-purple-500/20 border border-purple-500/40 text-purple-400"
+                      : "text-gray-500 hover:text-gray-300"
+                  }`}
+                  title="Investing (Long-Term): aGap optimised for 1–6 month horizon — weights sustained development, real product utility, smart money positioning, and network emissions. Ignores short-term price noise."
+                >
+                  📈 Investing
+                </button>
+              </div>
+
               {/* Filters popover */}
               {(() => {
                 const FILTERS = [
@@ -277,11 +313,11 @@ export default function LeaderboardPage() {
                     {COLUMNS.map(([key, label, tooltip]) => (
                       <React.Fragment key={key}>
                         <th
-                          className={`text-right py-2 px-3 font-medium transition-colors select-none ${isPro ? "cursor-pointer hover:text-gray-300" : "cursor-not-allowed opacity-60"} ${key === "composite_score" ? "text-green-400/80" : ""}`}
+                          className={`text-right py-2 px-3 font-medium transition-colors select-none ${isPro ? "cursor-pointer hover:text-gray-300" : "cursor-not-allowed opacity-60"} ${key === "composite_score" ? (timeHorizon === "investing" ? "text-purple-400/80" : "text-green-400/80") : ""}`}
                           onClick={() => handleSort(key)}
-                          style={key === "composite_score" ? { background: "rgba(16, 185, 129, 0.06)", borderLeft: "2px solid rgba(16, 185, 129, 0.15)" } : undefined}
+                          style={key === "composite_score" ? (timeHorizon === "investing" ? { background: "rgba(168, 85, 247, 0.06)", borderLeft: "2px solid rgba(168, 85, 247, 0.15)" } : { background: "rgba(16, 185, 129, 0.06)", borderLeft: "2px solid rgba(16, 185, 129, 0.15)" }) : undefined}
                         >
-                          {label}
+                          {key === "composite_score" ? (timeHorizon === "investing" ? "aGap 📈" : label) : label}
                           {tooltip && (
                             <span
                               className="ml-1 inline-flex items-center justify-center w-3.5 h-3.5 rounded-full border border-gray-700 text-[9px] text-gray-600 hover:text-green-400 hover:border-green-400 cursor-help relative normal-case tracking-normal"
@@ -310,8 +346,8 @@ export default function LeaderboardPage() {
                     return (<React.Fragment key={sub.netuid}>
                     <tr
                       className={`border-b transition-colors ${isLocked ? "opacity-50 pointer-events-none select-none" : "cursor-pointer"} ${
-                        sub.composite_score >= 80
-                          ? "border-green-500/20 bg-green-900/20 hover:bg-green-900/35"
+                        activeAGap(sub) >= 80
+                          ? (timeHorizon === "investing" ? "border-purple-500/20 bg-purple-900/10 hover:bg-purple-900/20" : "border-green-500/20 bg-green-900/20 hover:bg-green-900/35")
                           : i % 2 === 0
                           ? "border-gray-800/40 bg-gray-900/30 hover:bg-gray-800/50"
                           : "border-gray-800/40 hover:bg-gray-800/50"
@@ -338,9 +374,9 @@ export default function LeaderboardPage() {
                           </div>
                         )}
                       </td>
-                      <td className={`py-2 px-3 text-right font-bold text-lg tabular-nums ${scoreColor(sub.composite_score)}`}
-                        style={{ background: "rgba(16, 185, 129, 0.06)", borderLeft: "2px solid rgba(16, 185, 129, 0.15)" }}>
-                        {sub.composite_score}
+                      <td className={`py-2 px-3 text-right font-bold text-lg tabular-nums ${scoreColor(activeAGap(sub))}`}
+                        style={timeHorizon === "investing" ? { background: "rgba(168, 85, 247, 0.06)", borderLeft: "2px solid rgba(168, 85, 247, 0.15)" } : { background: "rgba(16, 185, 129, 0.06)", borderLeft: "2px solid rgba(16, 185, 129, 0.15)" }}>
+                        {activeAGap(sub)}
                       </td>
                       <td className={`py-2 px-3 text-right font-bold tabular-nums text-sm ${
                         sub.agap_velo == null ? "text-gray-700" :
