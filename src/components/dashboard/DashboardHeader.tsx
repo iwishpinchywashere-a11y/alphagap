@@ -167,14 +167,14 @@ export default function DashboardHeader() {
                 </Link>
                 {!isActive && (
                   <Link
-                    href="/subscribe"
+                    href="/pricing"
                     onClick={closeDropdown}
                     className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-green-400 hover:bg-gray-800 transition-colors"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                     </svg>
-                    Upgrade to Pro
+                    Get Pro or Premium
                   </Link>
                 )}
                 {isPro && (
