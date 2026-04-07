@@ -8,6 +8,7 @@ interface UserEntry {
   email: string;
   name: string;
   subscriptionStatus: "none" | "active" | "canceled" | "past_due" | "trialing";
+  subscriptionTier?: "pro" | "premium" | null;
   stripeCustomerId?: string;
   createdAt: string;
 }
@@ -56,7 +57,7 @@ export default function AdminPage() {
     }).catch(() => {}).finally(() => setLoading(false));
   }, [status, isAdmin]);
 
-  async function doAction(action: "grant" | "revoke" | "make-admin" | "delete", email: string) {
+  async function doAction(action: "grant" | "revoke" | "make-admin" | "delete" | "set-tier", email: string, tier?: "free" | "pro" | "premium") {
     if (action === "delete" && !confirm(`Permanently delete account: ${email}?`)) return;
     setActionLoading(true);
     setActionMsg("");
@@ -64,13 +65,23 @@ export default function AdminPage() {
       const res = await fetch("/api/admin/users", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action, email }),
+        body: JSON.stringify({ action, email, tier }),
       });
       const data = await res.json();
       setActionMsg(data.message || data.error || "Done");
       if (res.ok) {
         if (action === "delete") {
           setUsers(prev => prev.filter(u => u.email !== email));
+        } else if (action === "set-tier") {
+          setUsers(prev => prev.map(u =>
+            u.email === email
+              ? {
+                  ...u,
+                  subscriptionStatus: tier === "free" ? "none" : "active",
+                  subscriptionTier: tier === "free" ? null : tier,
+                }
+              : u
+          ));
         } else {
           setUsers(prev => prev.map(u =>
             u.email === email
@@ -222,14 +233,17 @@ export default function AdminPage() {
                 <thead>
                   <tr className="text-left text-xs text-gray-600 border-b border-gray-800">
                     <th className="px-4 py-3">Name / Email</th>
-                    <th className="px-4 py-3">Status</th>
+                    <th className="px-4 py-3">Status / Tier</th>
                     <th className="px-4 py-3 hidden md:table-cell">Joined</th>
-                    <th className="px-4 py-3 hidden lg:table-cell">Stripe ID</th>
+                    <th className="px-4 py-3">Set Tier</th>
                     <th className="px-4 py-3 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredUsers.map(user => (
+                  {filteredUsers.map(user => {
+                    const isActive = user.subscriptionStatus === "active" || user.subscriptionStatus === "trialing";
+                    const currentTier = isActive ? (user.subscriptionTier ?? "pro") : "free";
+                    return (
                     <tr key={user.email} className="border-b border-gray-800/60 hover:bg-gray-800/20 transition-colors">
                       <td className="px-4 py-3">
                         <div className="font-medium text-gray-200">{user.name}</div>
@@ -239,43 +253,45 @@ export default function AdminPage() {
                         <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${statusBadge(user.subscriptionStatus)}`}>
                           {user.subscriptionStatus}
                         </span>
+                        {isActive && (
+                          <span className={`ml-1.5 text-xs font-bold px-2 py-0.5 rounded-full border ${user.subscriptionTier === "premium" ? "bg-purple-500/10 text-purple-400 border-purple-500/20" : "bg-green-500/10 text-green-400 border-green-500/20"}`}>
+                            {user.subscriptionTier === "premium" ? "Premium" : "Pro"}
+                          </span>
+                        )}
                       </td>
                       <td className="px-4 py-3 text-xs text-gray-500 hidden md:table-cell">
                         {new Date(user.createdAt).toLocaleDateString()}
                       </td>
-                      <td className="px-4 py-3 text-xs text-gray-600 font-mono hidden lg:table-cell">
-                        {user.stripeCustomerId?.slice(0, 14) ?? "—"}
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          {user.subscriptionStatus !== "active" ? (
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-1">
+                          {(["free", "pro", "premium"] as const).map(t => (
                             <button
-                              onClick={() => doAction("grant", user.email)}
-                              disabled={actionLoading}
-                              className="text-xs px-2 py-1 bg-green-500/10 hover:bg-green-500/20 text-green-400 border border-green-500/20 rounded transition-colors"
+                              key={t}
+                              onClick={() => doAction("set-tier", user.email, t)}
+                              disabled={actionLoading || currentTier === t}
+                              className={`text-xs px-2 py-1 rounded border font-medium transition-colors disabled:opacity-40 disabled:cursor-default ${
+                                currentTier === t
+                                  ? t === "premium" ? "bg-purple-500/20 text-purple-300 border-purple-500/40" : t === "pro" ? "bg-green-500/20 text-green-300 border-green-500/40" : "bg-gray-700 text-gray-300 border-gray-600"
+                                  : "bg-gray-800 text-gray-500 border-gray-700 hover:text-gray-200 hover:border-gray-500"
+                              }`}
                             >
-                              Grant
+                              {t.charAt(0).toUpperCase() + t.slice(1)}
                             </button>
-                          ) : (
-                            <button
-                              onClick={() => doAction("revoke", user.email)}
-                              disabled={actionLoading}
-                              className="text-xs px-2 py-1 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded transition-colors"
-                            >
-                              Revoke
-                            </button>
-                          )}
-                          <button
-                            onClick={() => doAction("delete", user.email)}
-                            disabled={actionLoading}
-                            className="text-xs px-2 py-1 bg-red-900/30 hover:bg-red-900/60 text-red-500 border border-red-900/40 rounded transition-colors"
-                          >
-                            Delete
-                          </button>
+                          ))}
                         </div>
                       </td>
+                      <td className="px-4 py-3 text-right">
+                        <button
+                          onClick={() => doAction("delete", user.email)}
+                          disabled={actionLoading}
+                          className="text-xs px-2 py-1 bg-red-900/30 hover:bg-red-900/60 text-red-500 border border-red-900/40 rounded transition-colors"
+                        >
+                          Delete
+                        </button>
+                      </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

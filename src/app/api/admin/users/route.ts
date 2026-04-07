@@ -57,7 +57,13 @@ export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
   if (!isAdmin(session)) return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
 
-  const { action, email } = await req.json();
+  const { action, email, tier } = await req.json();
+
+  // Delete doesn't require the user blob to exist — just wipe everything by email
+  if (action === "delete") {
+    await deleteUser(email);
+    return NextResponse.json({ ok: true, message: `Account deleted: ${email}` });
+  }
 
   const user = await getUserByEmail(email);
   if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
@@ -79,9 +85,23 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true, message: `${email} is now an admin` });
   }
 
-  if (action === "delete") {
-    await deleteUser(email);
-    return NextResponse.json({ ok: true, message: `Account deleted: ${email}` });
+  if (action === "set-tier") {
+    if (tier === "free") {
+      await updateUser(email, { subscriptionStatus: "none", subscriptionTier: undefined });
+      await updateUserListEntry(email, { subscriptionStatus: "none" });
+      return NextResponse.json({ ok: true, message: `${email} set to Free` });
+    }
+    if (tier === "pro") {
+      await updateUser(email, { subscriptionStatus: "active", subscriptionTier: "pro" });
+      await updateUserListEntry(email, { subscriptionStatus: "active" });
+      return NextResponse.json({ ok: true, message: `${email} set to Pro` });
+    }
+    if (tier === "premium") {
+      await updateUser(email, { subscriptionStatus: "active", subscriptionTier: "premium" });
+      await updateUserListEntry(email, { subscriptionStatus: "active" });
+      return NextResponse.json({ ok: true, message: `${email} set to Premium` });
+    }
+    return NextResponse.json({ error: "Invalid tier. Use: free, pro, premium" }, { status: 400 });
   }
 
   return NextResponse.json({ error: "Unknown action" }, { status: 400 });

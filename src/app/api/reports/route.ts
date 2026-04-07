@@ -30,15 +30,36 @@ export async function GET(req: NextRequest) {
       return NextResponse.json(JSON.parse(text));
     }
 
-    // List all reports
+    // List all reports, fetching each to include subnet meta
     const { blobs } = await list({ prefix: "reports/", limit: 30 });
-    const reports = blobs
+    const dated = blobs
       .map(b => {
         const dateMatch = b.pathname.match(/reports\/(\d{4}-\d{2}-\d{2})\.json/);
-        return dateMatch ? { date: dateMatch[1], url: b.pathname, size: b.size, uploaded: b.uploadedAt } : null;
+        return dateMatch ? { date: dateMatch[1], pathname: b.pathname } : null;
       })
       .filter(Boolean)
-      .sort((a, b) => b!.date.localeCompare(a!.date));
+      .sort((a, b) => b!.date.localeCompare(a!.date)) as { date: string; pathname: string }[];
+
+    // Fetch all in parallel to extract subnet meta (strip content to keep response small)
+    const reports = await Promise.all(
+      dated.map(async ({ date, pathname }) => {
+        try {
+          const result = await get(pathname, { token: process.env.BLOB_READ_WRITE_TOKEN!, access: "private" });
+          if (!result?.stream) return { date };
+          const reader = result.stream.getReader();
+          const chunks: Uint8Array[] = [];
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            chunks.push(value);
+          }
+          const { content: _content, ...meta } = JSON.parse(Buffer.concat(chunks).toString("utf-8"));
+          return meta;
+        } catch {
+          return { date };
+        }
+      })
+    );
 
     return NextResponse.json({ reports });
   } catch (e) {
