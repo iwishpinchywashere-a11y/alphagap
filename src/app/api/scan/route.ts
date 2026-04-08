@@ -2565,7 +2565,13 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
     // other strong pillars (dev, emissions, staking) can still push the score above 80.
     // If price is falling across ALL timeframes with no reversal anywhere, the market
     // has spoken consistently — cap the score so it can't trigger auto-buy signals.
-    const sustainedDeclineCap = deepSustainedDecline ? 65 : sustainedDecline ? 72 : 100;
+    //
+    // POST-PUMP FADE: pch30d can be misleadingly high after a pump even as price bleeds.
+    // Catch this separately using short-term timeframes only.
+    const postPumpFade = pch30d >= 50 && pch7d <= -15 && pch24h <= -3;  // pumped, now fading hard
+    const sustainedDeclineCap = deepSustainedDecline ? 65
+      : (sustainedDecline || postPumpFade) ? 72
+      : 100;
     const clampedRaw = Math.max(1, Math.min(sustainedDeclineCap, Math.round(rawAGap)));
     const aGap = smoothAGap(d.netuid, clampedRaw);
 
