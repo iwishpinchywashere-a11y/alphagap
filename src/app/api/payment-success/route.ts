@@ -109,6 +109,19 @@ export async function GET(req: Request) {
       ]).catch((e) => console.error("[payment-success] blob updates failed:", e));
     }
 
+    // 4. Cancel previous subscription on upgrade (e.g. Pro → Premium).
+    // The old sub ID is stored in checkout session metadata by the checkout route.
+    // We do this here (not just in the webhook) because payment-success runs
+    // synchronously before the webhook fires, and is the most reliable code path.
+    const prevSubId = checkoutSession.metadata?.previousSubscriptionId
+      || sub.metadata?.previousSubscriptionId;
+    if (prevSubId && prevSubId !== sub.id) {
+      await stripe.subscriptions.cancel(prevSubId).catch((e) =>
+        console.error("[payment-success] Failed to cancel old sub:", e)
+      );
+      console.log(`[payment-success] Cancelled old sub ${prevSubId} on upgrade for ${email}`);
+    }
+
     // 4. Set cookie and redirect to /activating loading page
     const secure = baseUrl.startsWith("https");
     const cookieName = secure

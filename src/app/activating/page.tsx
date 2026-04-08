@@ -114,7 +114,7 @@ export default function ActivatingPage() {
           <span className="text-green-400">{dots}</span>
         </p>
         <p className="text-gray-600 text-sm">
-          Your payment was successful — we&apos;re activating your Pro access
+          Your payment was successful — we&apos;re activating your access
         </p>
       </div>
 
