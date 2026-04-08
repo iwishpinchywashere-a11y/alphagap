@@ -2732,24 +2732,34 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
     leaderboard.sort((a, b) => b.composite_score - a.composite_score);
   }
 
-  // ── Tag top-3 deregistration risks ──────────────────────────────
-  // SR's /api/data/subnets returns a healthScore (0-100) per subnet.
-  // status is always "active" — never trust it. Use healthScore directly.
-  // Pick the 3 subnets with the lowest SR health score. No fallback —
-  // if SR data is unavailable, show no warning rather than show it wrong.
-  const deregCandidates = leaderboard
-    .map(e => {
-      const sr = srSubnetMap.get(e.netuid);
-      // Only include subnets that SR actually returned data for (health > 0 guard
-      // prevents subnets missing from SR from defaulting to 0 and looking "worst")
-      if (!sr || sr.healthScore === 0) return null;
-      return { netuid: e.netuid, health: sr.healthScore };
-    })
-    .filter((e): e is { netuid: number; health: number } => e !== null)
-    .sort((a, b) => a.health - b.health)
-    .slice(0, 3);
+  // ── Tag deregistration risks ─────────────────────────────────────
+  // Primary source: TaoMarketCap's deregistration_risk boolean (already fetched).
+  // Fallback: SubnetRadar healthScore (bottom-3) if TMC flags nothing.
+  // SR API has been unreliable (403s from server-side), so TMC is preferred.
+  const tmcDeregNetuids = new Set(
+    leaderboard
+      .filter(e => tmcMap.get(e.netuid)?.deregistration_risk === true)
+      .map(e => e.netuid)
+  );
 
-  const deregTop3Netuids = new Set(deregCandidates.map(e => e.netuid));
+  let deregTop3Netuids: Set<number>;
+  if (tmcDeregNetuids.size > 0) {
+    // TMC has data — use all flagged subnets (typically 2-5)
+    deregTop3Netuids = tmcDeregNetuids;
+  } else {
+    // TMC unavailable — fall back to SR bottom-3 by healthScore
+    const srCandidates = leaderboard
+      .map(e => {
+        const sr = srSubnetMap.get(e.netuid);
+        if (!sr || sr.healthScore === 0) return null;
+        return { netuid: e.netuid, health: sr.healthScore };
+      })
+      .filter((e): e is { netuid: number; health: number } => e !== null)
+      .sort((a, b) => a.health - b.health)
+      .slice(0, 3);
+    deregTop3Netuids = new Set(srCandidates.map(e => e.netuid));
+  }
+
   for (const entry of leaderboard) {
     if (deregTop3Netuids.has(entry.netuid)) entry.dereg_top3 = true;
   }

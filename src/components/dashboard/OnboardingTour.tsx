@@ -20,7 +20,7 @@ const STEPS = [
   },
   {
     title: "🏆 Alpha Leaderboard",
-    body: "Your home base. Every Bittensor subnet ranked by aGap score — the higher the score, the bigger the gap between real value and what the market has priced in. This is where you find opportunities first.",
+    body: "Your home base. Every subnet ranked by aGap score — the higher the score, the bigger the gap between real value and market price. Tap any i button in the column headers to learn what each score means. Use the Trading toggle for short-term opportunities and Investing for a long-term outlook.",
     target: "nav-trigger",
     arrow: true,
   },
@@ -51,6 +51,24 @@ const STEPS = [
   {
     title: "🐋 Whales",
     body: "Follow smart money. Monitor large wallet accumulation patterns, buy/sell ratios, and staking conviction across the ecosystem in real time.",
+    target: "nav-trigger",
+    arrow: true,
+  },
+  {
+    title: "📈 Analytics",
+    body: "Dive into historical aGap score trends, subnet rankings over time, and signal activity charts. See how opportunities have evolved and spot patterns before they repeat.",
+    target: "nav-trigger",
+    arrow: true,
+  },
+  {
+    title: "🎯 Performance",
+    body: "Track how AlphaGap's calls have played out. See which high-scoring subnets followed through with price action — and use the track record to sharpen your conviction.",
+    target: "nav-trigger",
+    arrow: true,
+  },
+  {
+    title: "🧪 Pump Lab",
+    body: "Test your thesis before you commit. Simulate how changes in dev activity, social momentum, or whale accumulation would affect a subnet's aGap score — your personal alpha sandbox.",
     target: "nav-trigger",
     arrow: true,
   },
