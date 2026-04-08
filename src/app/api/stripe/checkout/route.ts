@@ -31,7 +31,7 @@ export async function POST(req: Request) {
     let customerId = user.stripeCustomerId;
     if (!customerId) {
       const existing = await stripe.customers.list({ email: user.email, limit: 5 }).catch(() => null);
-      customerId = existing?.data[0]?.id ?? null;
+      customerId = existing?.data[0]?.id ?? undefined;
       if (customerId) {
         // Found one — persist it so future calls skip the lookup
         await Promise.all([
