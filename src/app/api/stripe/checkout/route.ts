@@ -42,41 +42,39 @@ export async function POST(req: Request) {
     if (user.stripeSubscriptionId) {
       const sub = await stripe.subscriptions.retrieve(user.stripeSubscriptionId).catch(() => null);
       if (sub && (sub.status === "active" || sub.status === "trialing")) {
-        // If they're already on this plan (or higher), just go to dashboard
-        const currentTier = user.subscriptionTier ?? "pro";
+        // Determine current tier from the actual Stripe price amount (source of truth)
+        // Never trust the blob tier — it may be stale or incorrectly set
+        const currentAmount = sub.items.data[0]?.price?.unit_amount ?? 0;
         const tierRank = { pro: 1, premium: 2 };
+        const currentTier: PlanKey = currentAmount >= PLANS.premium.amount ? "premium" : "pro";
+
         if ((tierRank[currentTier] ?? 0) >= (tierRank[planKey] ?? 0)) {
+          // Already on this plan or higher — just go to dashboard
           return NextResponse.json({ url: `${baseUrl}/dashboard?welcome=true` });
         }
 
-        // Upgrading from Pro → Premium: update the existing subscription's price
-        const existingItem = sub.items.data[0];
-        const updatedSub = await stripe.subscriptions.update(sub.id, {
-          items: [{
-            id: existingItem.id,
+        // Upgrading (e.g. Pro → Premium): create a new Checkout Session in subscription mode
+        // Stripe will handle proration automatically when the customer has an existing subscription
+        const upgradeSession = await stripe.checkout.sessions.create({
+          customer: customerId,
+          mode: "subscription",
+          line_items: [{
             price_data: {
               currency: plan.currency,
               product_data: { name: plan.name, description: plan.description },
               recurring: { interval: plan.interval },
               unit_amount: plan.amount,
             },
+            quantity: 1,
           }],
-          proration_behavior: "always_invoice",
-          metadata: { userEmail: user.email, userId: user.id, plan: planKey },
+          success_url: `${baseUrl}/api/payment-success?session_id={CHECKOUT_SESSION_ID}`,
+          cancel_url: `${baseUrl}/subscribe?canceled=true`,
+          allow_promotion_codes: true,
+          subscription_data: {
+            metadata: { userEmail: user.email, userId: user.id, plan: planKey },
+          },
         });
-
-        // Update user record immediately so it's reflected on next session
-        await updateUser(user.email, { subscriptionTier: planKey });
-
-        // Redirect to the latest invoice's hosted page so they confirm payment, or dashboard if nothing due
-        const latestInvoiceId = updatedSub.latest_invoice;
-        if (latestInvoiceId && typeof latestInvoiceId === "string") {
-          const invoice = await stripe.invoices.retrieve(latestInvoiceId);
-          if (invoice.hosted_invoice_url && invoice.status !== "paid") {
-            return NextResponse.json({ url: invoice.hosted_invoice_url });
-          }
-        }
-        return NextResponse.json({ url: `${baseUrl}/dashboard?upgraded=true` });
+        return NextResponse.json({ url: upgradeSession.url });
       }
     }
 
