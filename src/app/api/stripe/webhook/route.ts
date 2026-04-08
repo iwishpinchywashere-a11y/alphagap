@@ -7,7 +7,7 @@ import { sendSubscriptionConfirmationEmail } from "@/lib/email";
 /** Detect tier from subscription price amount (in cents) */
 function tierFromSub(sub: Stripe.Subscription): "pro" | "premium" {
   const amount = sub.items.data[0]?.price?.unit_amount ?? 0;
-  if (amount >= 200) return "premium"; // threshold: $2 testing (restore to 4900 for launch)
+  if (amount >= 4900) return "premium";
   return "pro";
 }
 
