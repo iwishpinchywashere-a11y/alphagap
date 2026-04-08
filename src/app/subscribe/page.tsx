@@ -134,6 +134,76 @@ function FeatureCard({ icon, title, badge, children }: {
   );
 }
 
+// ── Upgrade confirmation modal ────────────────────────────────────
+function UpgradeModal({ proratedAmount, onConfirm, onCancel, loading }: {
+  proratedAmount: number | null;
+  onConfirm: () => void;
+  onCancel: () => void;
+  loading: boolean;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center px-4" style={{ background: "rgba(0,0,0,0.75)" }}>
+      <div className="bg-[#111118] border border-gray-700 rounded-2xl w-full max-w-md p-6 shadow-2xl">
+        <div className="flex items-center gap-3 mb-5">
+          <div className="w-10 h-10 rounded-xl bg-green-500/15 border border-green-500/30 flex items-center justify-center text-lg">⬆</div>
+          <div>
+            <div className="font-bold text-white text-lg">Upgrade to Premium</div>
+            <div className="text-xs text-gray-500">Charged instantly to your card on file</div>
+          </div>
+        </div>
+
+        {/* What you get */}
+        <div className="bg-gray-900/60 border border-gray-800 rounded-xl p-4 mb-5 space-y-2.5">
+          {[
+            { icon: "📈", text: "Portfolio performance tracker — simulated $100 auto-buys" },
+            { icon: "🎯", text: "aGap Velocity score — momentum signals before the market" },
+            { icon: "🔬", text: "Investing aGap — long-term value scoring" },
+            { icon: "🐋", text: "Whale accumulation & smart-money signals" },
+            { icon: "📊", text: "Full price history, sparklines & volume surge alerts" },
+            { icon: "🤖", text: "AI-generated subnet reports" },
+          ].map(({ icon, text }) => (
+            <div key={text} className="flex items-start gap-2.5">
+              <span className="text-base leading-none mt-0.5">{icon}</span>
+              <span className="text-sm text-gray-300">{text}</span>
+            </div>
+          ))}
+        </div>
+
+        {/* Pricing */}
+        <div className="border border-gray-800 rounded-xl p-4 mb-5 space-y-2">
+          {proratedAmount !== null && (
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-400">Due today <span className="text-gray-600 text-xs">(prorated credit applied)</span></span>
+              <span className="font-bold text-white">${(proratedAmount / 100).toFixed(2)}</span>
+            </div>
+          )}
+          <div className="flex justify-between text-sm">
+            <span className="text-gray-400">Then monthly</span>
+            <span className="font-semibold text-white">$49 / mo</span>
+          </div>
+        </div>
+
+        <div className="flex gap-3">
+          <button
+            onClick={onCancel}
+            disabled={loading}
+            className="flex-1 py-2.5 rounded-xl border border-gray-700 text-gray-400 text-sm font-medium hover:border-gray-600 hover:text-gray-200 transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onConfirm}
+            disabled={loading}
+            className="flex-1 py-2.5 rounded-xl bg-green-500 hover:bg-green-400 text-black text-sm font-bold transition-colors disabled:opacity-60"
+          >
+            {loading ? "Upgrading…" : "Confirm Upgrade →"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Main page ─────────────────────────────────────────────────────
 function SubscribeContent() {
   const { data: session } = useSession();
@@ -141,6 +211,9 @@ function SubscribeContent() {
   const params = useSearchParams();
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [liveStats, setLiveStats] = useState({ subnets: 122, signals: 0, lastScan: "" });
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [proratedAmount, setProratedAmount] = useState<number | null>(null);
+  const [upgradeLoading, setUpgradeLoading] = useState(false);
 
   useEffect(() => {
     fetch("/api/cached-scan")
@@ -166,13 +239,28 @@ function SubscribeContent() {
       router.push("/pricing");
       return;
     }
-    // Only short-circuit if they're already on this plan or higher
     const currentTier = (session?.user as any)?.subscriptionTier as string | undefined;
     const tierRank: Record<string, number> = { pro: 1, premium: 2 };
     if (isSubscribed && (tierRank[currentTier ?? ""] ?? 0) >= (tierRank[plan] ?? 0)) {
       router.push("/dashboard");
       return;
     }
+    // Pro user upgrading to Premium — show confirmation modal with prorated amount
+    if (isSubscribed && plan === "premium") {
+      setCheckoutLoading(true);
+      try {
+        const res = await fetch("/api/stripe/upgrade-preview");
+        const data = await res.json();
+        setProratedAmount(data.amountDue ?? null);
+      } catch {
+        setProratedAmount(null);
+      } finally {
+        setCheckoutLoading(false);
+      }
+      setShowUpgradeModal(true);
+      return;
+    }
+    // New subscriber — go through Stripe Checkout
     setCheckoutLoading(true);
     try {
       const res = await fetch("/api/stripe/checkout", {
@@ -187,6 +275,21 @@ function SubscribeContent() {
     }
   }
 
+  async function confirmUpgrade() {
+    setUpgradeLoading(true);
+    try {
+      const res = await fetch("/api/stripe/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ plan: "premium" }),
+      });
+      const data = await res.json();
+      if (data.url) window.location.href = data.url;
+    } finally {
+      setUpgradeLoading(false);
+    }
+  }
+
   const ctaLabel = checkoutLoading ? "Loading…"
     : isSubscribed ? "Open Dashboard →"
     : session ? "Subscribe →"
@@ -194,6 +297,14 @@ function SubscribeContent() {
 
   return (
     <div className="min-h-screen bg-[#0a0a0f] text-white overflow-x-hidden">
+      {showUpgradeModal && (
+        <UpgradeModal
+          proratedAmount={proratedAmount}
+          onConfirm={confirmUpgrade}
+          onCancel={() => setShowUpgradeModal(false)}
+          loading={upgradeLoading}
+        />
+      )}
 
       {/* ── Sticky Nav ── */}
       <nav className="fixed top-0 left-0 right-0 z-50 backdrop-blur-xl bg-[#0a0a0f]/85 border-b border-white/5">
