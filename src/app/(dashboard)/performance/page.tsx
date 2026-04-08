@@ -75,6 +75,7 @@ export default function PerformancePage() {
   const tier = getTier(session);
   const [portfolioData, setPortfolioData] = useState<PortfolioData | null>(null);
   const [portfolioLoading, setPortfolioLoading] = useState(true);
+  const [chartView, setChartView] = useState<"current" | "max">("current");
 
   useEffect(() => {
     setPortfolioLoading(true);
@@ -116,8 +117,13 @@ export default function PerformancePage() {
 
         {!portfolioLoading && portfolioData && portfolioData.positions.length > 0 && (
           <>
-            {/* Summary strip */}
+            {/* Summary strip — order: Deployed, Value, Total Return, Max Return */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="bg-gray-900/70 border border-gray-800 rounded-xl p-4">
+                <div className="text-xs text-gray-500 mb-1">Cash Deployed</div>
+                <div className="text-2xl font-bold text-white">${portfolioData.summary.totalCost.toFixed(0)}</div>
+                <div className="text-xs text-gray-600 mt-0.5">{portfolioData.summary.positionCount} positions × $100</div>
+              </div>
               <div className="bg-gray-900/70 border border-gray-800 rounded-xl p-4">
                 <div className="text-xs text-gray-500 mb-1">Portfolio Value</div>
                 <div className="text-2xl font-bold text-white">${portfolioData.summary.totalValue.toFixed(2)}</div>
@@ -130,11 +136,6 @@ export default function PerformancePage() {
                 <div className={`text-xs mt-0.5 ${portfolioData.summary.totalPnlPct >= 0 ? "text-yellow-500" : "text-red-500"}`}>
                   {portfolioData.summary.totalPnlPct >= 0 ? "+" : ""}{portfolioData.summary.totalPnlPct.toFixed(1)}% all-time
                 </div>
-              </div>
-              <div className="bg-gray-900/70 border border-gray-800 rounded-xl p-4">
-                <div className="text-xs text-gray-500 mb-1">Cash Deployed</div>
-                <div className="text-2xl font-bold text-white">${portfolioData.summary.totalCost.toFixed(0)}</div>
-                <div className="text-xs text-gray-600 mt-0.5">{portfolioData.summary.positionCount} positions × $100</div>
               </div>
               <div className="bg-gray-900/70 border border-gray-800 rounded-xl p-4">
                 <div className="text-xs text-gray-500 mb-1">Max Return</div>
@@ -154,12 +155,42 @@ export default function PerformancePage() {
             </div>
 
             {/* Chart */}
-            {portfolioData.history.length >= 2 ? (
-              <div className="bg-gray-900/70 border border-gray-800 rounded-xl p-5">
-                <div className="text-xs text-gray-500 uppercase tracking-wider mb-4">Portfolio Value Over Time</div>
-                <PortfolioChart history={portfolioData.history} />
-              </div>
-            ) : (
+            {portfolioData.history.length >= 2 ? (() => {
+              // Compute max-value history: for each date, sum alphaTokens × peak price
+              // for all positions that had been bought by that date
+              const maxHistory = portfolioData.history.map(h => {
+                const maxValue = portfolioData.positions
+                  .filter(p => p.buyDate <= h.date)
+                  .reduce((sum, p) => {
+                    const peak = (p as any).manualPeakPrice ?? p.peakPrice ?? p.buyPriceUsd;
+                    return sum + p.alphaTokens * peak;
+                  }, 0);
+                return { date: h.date, totalValue: Math.round(maxValue * 100) / 100 };
+              });
+              const displayHistory = chartView === "max" ? maxHistory : portfolioData.history;
+              return (
+                <div className="bg-gray-900/70 border border-gray-800 rounded-xl p-5">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="text-xs text-gray-500 uppercase tracking-wider">Portfolio Value Over Time</div>
+                    <div className="flex rounded-lg overflow-hidden border border-gray-700 text-xs">
+                      <button
+                        onClick={() => setChartView("current")}
+                        className={`px-3 py-1.5 font-medium transition-colors ${chartView === "current" ? "bg-yellow-400/20 text-yellow-400" : "text-gray-500 hover:text-gray-300"}`}
+                      >
+                        Current Value
+                      </button>
+                      <button
+                        onClick={() => setChartView("max")}
+                        className={`px-3 py-1.5 font-medium transition-colors border-l border-gray-700 ${chartView === "max" ? "bg-green-400/20 text-green-400" : "text-gray-500 hover:text-gray-300"}`}
+                      >
+                        Max Value
+                      </button>
+                    </div>
+                  </div>
+                  <PortfolioChart history={displayHistory} />
+                </div>
+              );
+            })() : (
               <div className="bg-gray-900/70 border border-gray-800 rounded-xl p-5">
                 <div className="text-xs text-gray-500 uppercase tracking-wider mb-2">Portfolio Value Chart</div>
                 <div className="text-center py-6 text-gray-600 text-sm">Chart builds as data accumulates — check back tomorrow 📊</div>
