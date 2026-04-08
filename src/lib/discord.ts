@@ -44,6 +44,7 @@ export interface DiscordAlphaResult {
   messageCount: number;
   uniquePosters: number;
   scannedAt: string;
+  lastActivityAt?: string; // timestamp of most recent message in channel
   releaseHint?: boolean; // true if imminent release, major update, or launch date mentioned
 }
 
@@ -207,6 +208,11 @@ export function filterSubnetChannels(channels: DiscordChannel[]): DiscordChannel
 // Get Discord snowflake for 24 hours ago (to only fetch recent messages)
 export function get24hSnowflake(): string {
   const ms = Date.now() - 24 * 60 * 60 * 1000;
+  return timestampToSnowflake(ms);
+}
+
+export function getHoursAgoSnowflake(hours: number): string {
+  const ms = Date.now() - hours * 60 * 60 * 1000;
   return timestampToSnowflake(ms);
 }
 

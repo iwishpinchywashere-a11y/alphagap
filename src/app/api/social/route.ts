@@ -123,6 +123,7 @@ export async function GET() {
       messageCount: d.messageCount,
       uniquePosters: d.uniquePosters,
       scannedAt: d.scannedAt,
+      lastActivityAt: (d as any).lastActivityAt ?? null,
       composite_score: leaderMap.get(d.netuid!)?.composite_score ?? null,
       social_score: leaderMap.get(d.netuid!)?.social_score ?? null,
     }));

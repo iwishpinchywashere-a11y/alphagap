@@ -9,7 +9,7 @@ import {
   fetchChannelMessages,
   filterSubnetChannels,
   parseNetuidFromChannel,
-  get24hSnowflake,
+  getHoursAgoSnowflake,
   type DiscordAlphaResult,
   type DiscordMessage,
 } from "@/lib/discord";
@@ -51,7 +51,9 @@ export async function GET() {
     });
 
     const channelsToScan = sorted.slice(0, MAX_CHANNELS);
-    const afterSnowflake = get24hSnowflake();
+    // 6h window: signals change meaningfully between scans instead of
+    // showing the same 24h block of messages every 3 hours.
+    const afterSnowflake = getHoursAgoSnowflake(6);
 
     // 2. Fetch messages from each channel
     const channelScans: Array<{
@@ -356,6 +358,11 @@ Rules:
         : ai.signal === "noise" ? 0
         : 10;
 
+      const humanMsgs = ch.messages.filter(m => !m.author.bot);
+      const lastActivityAt = humanMsgs.length > 0
+        ? humanMsgs.sort((a, b) => b.timestamp.localeCompare(a.timestamp))[0].timestamp
+        : undefined;
+
       return {
         channelId: ch.channelId,
         channelName: ch.channelName,
@@ -370,6 +377,7 @@ Rules:
         messageCount: ch.messages.length,
         uniquePosters,
         scannedAt: new Date().toISOString(),
+        lastActivityAt,
       };
     });
   } catch (e) {

@@ -25,7 +25,7 @@ interface DiscordEntry {
   alphaScore: number;
   alphaTypes?: string[];
   summary: string; keyInsights: string[];
-  messageCount: number; uniquePosters: number; scannedAt: string;
+  messageCount: number; uniquePosters: number; scannedAt: string; lastActivityAt?: string;
   composite_score: number | null; social_score: number | null;
   releaseHint?: boolean;
 }
@@ -228,7 +228,7 @@ export default function SocialPage() {
                       <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold shrink-0 ${discordSignalStyle(d.signal)}`}>{d.signal.toUpperCase()}</span>
                       {d.releaseHint && <span className="text-[10px] px-1.5 py-0.5 rounded font-bold bg-yellow-500/20 text-yellow-300 border border-yellow-500/40 shrink-0">🚀 RELEASE HINT</span>}
                     </div>
-                    <div className="text-xs text-gray-600 mt-0.5">{d.messageCount} msgs · {d.uniquePosters} posters · {timeAgo(d.scannedAt)}</div>
+                    <div className="text-xs text-gray-600 mt-0.5">{d.messageCount} msgs · {d.uniquePosters} posters · {timeAgo(d.lastActivityAt ?? d.scannedAt)}</div>
                     {d.summary && <p className="text-xs text-gray-400 mt-1.5 leading-relaxed">{d.summary}</p>}
                     {d.keyInsights && d.keyInsights.length > 0 && (
                       <ul className="mt-1.5 space-y-0.5">
@@ -289,7 +289,7 @@ export default function SocialPage() {
                     </div>
 
                     <div className="text-xs text-gray-600 mt-0.5">
-                      {d.messageCount} msgs · {d.uniquePosters} posters · {timeAgo(d.scannedAt)}
+                      {d.messageCount} msgs · {d.uniquePosters} posters · {timeAgo(d.lastActivityAt ?? d.scannedAt)}
                     </div>
 
                     {d.summary && (
