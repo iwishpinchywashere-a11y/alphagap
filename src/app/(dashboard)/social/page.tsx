@@ -177,6 +177,25 @@ export default function SocialPage() {
           </div>
         </div>
 
+        {/* ── Section Nav ── */}
+        <div className="flex items-center gap-2 flex-wrap">
+          {[
+            { id: "discord", label: "Discord Alpha", icon: "💬" },
+            { id: "hot-tweets", label: "Viral KOL Tweets", icon: "🔥" },
+            { id: "x-leaderboard", label: "Top on X", icon: "𝕏" },
+            { id: "kol-radar", label: "KOL Radar", icon: "📡" },
+          ].map(({ id, label, icon }) => (
+            <button
+              key={id}
+              onClick={() => document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" })}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-gray-700 text-gray-400 hover:border-gray-500 hover:text-white transition-colors bg-gray-900/60"
+            >
+              <span>{icon}</span>
+              {label}
+            </button>
+          ))}
+        </div>
+
         {/* ── Stats Bar ── */}
         <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
           <StatCard label="Hot Events" value={stats.totalHotEvents} sub="last 72h" />
@@ -188,7 +207,7 @@ export default function SocialPage() {
         </div>
 
         {/* ── Discord Alpha ── */}
-        <div className="bg-gray-900/60 border border-gray-800 rounded-xl overflow-hidden">
+        <div id="discord" className="bg-gray-900/60 border border-gray-800 rounded-xl overflow-hidden">
           <div className="px-5 py-4 border-b border-gray-800">
             <h2 className="font-bold text-white">💬 Discord Alpha</h2>
             <p className="text-xs text-gray-500 mt-0.5">AI scans every channel — scores quality + quantity of alpha signals</p>
@@ -278,7 +297,7 @@ export default function SocialPage() {
         </div>
 
         {/* ── Hot KOL Tweets ── */}
-        <div className="bg-gray-900/60 border border-gray-800 rounded-xl overflow-hidden">
+        <div id="hot-tweets" className="bg-gray-900/60 border border-gray-800 rounded-xl overflow-hidden">
           <div className="px-5 py-4 border-b border-gray-800 flex items-center justify-between">
             <div>
               <h2 className="font-bold text-white">🔥 Viral KOL Tweets</h2>
@@ -413,7 +432,7 @@ export default function SocialPage() {
         </div>
 
         {/* ── Top Subnets on X ── */}
-        <div className="bg-gray-900/60 border border-gray-800 rounded-xl overflow-hidden">
+        <div id="x-leaderboard" className="bg-gray-900/60 border border-gray-800 rounded-xl overflow-hidden">
           <div className="px-5 py-4 border-b border-gray-800">
             <h2 className="font-bold text-white">𝕏 Top Subnets on X</h2>
             <p className="text-xs text-gray-500 mt-0.5">Ranked by social score — includes KOL heat boost</p>
@@ -458,7 +477,7 @@ export default function SocialPage() {
         </div>
 
         {/* ── KOL Radar ── */}
-        <div className="bg-gray-900/60 border border-gray-800 rounded-xl overflow-hidden">
+        <div id="kol-radar" className="bg-gray-900/60 border border-gray-800 rounded-xl overflow-hidden">
           <div className="px-5 py-4 border-b border-gray-800">
             <h2 className="font-bold text-white">📡 KOL Radar</h2>
             <p className="text-xs text-gray-500 mt-0.5">Which KOLs have been most active about Bittensor subnets in the last 72h</p>
