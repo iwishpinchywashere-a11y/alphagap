@@ -63,7 +63,7 @@ export async function POST(req: Request) {
             subscriptionTier,
             subscriptionPeriodEnd: (sub as any).current_period_end,
           });
-          await updateUserListEntry(user.email, { subscriptionStatus: status });
+          await updateUserListEntry(user.email, { subscriptionStatus: status, subscriptionTier });
           console.log(`[webhook] Updated ${user.email} → ${status} (${subscriptionTier})`);
         }
         break;
@@ -123,7 +123,7 @@ export async function POST(req: Request) {
               subscriptionTier,
               subscriptionPeriodEnd: periodEnd,
             });
-            await updateUserListEntry(user.email, { subscriptionStatus: status });
+            await updateUserListEntry(user.email, { subscriptionStatus: status, subscriptionTier });
 
             // Cancel any other active subscriptions for this customer (upgrade deduplication).
             // payment-success already attempts this synchronously; this is the backup.
