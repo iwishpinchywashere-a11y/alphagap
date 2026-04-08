@@ -166,7 +166,10 @@ function SubscribeContent() {
       router.push("/pricing");
       return;
     }
-    if (isSubscribed) {
+    // Only short-circuit if they're already on this plan or higher
+    const currentTier = (session?.user as any)?.subscriptionTier as string | undefined;
+    const tierRank: Record<string, number> = { pro: 1, premium: 2 };
+    if (isSubscribed && (tierRank[currentTier ?? ""] ?? 0) >= (tierRank[plan] ?? 0)) {
       router.push("/dashboard");
       return;
     }
