@@ -185,7 +185,7 @@ export async function GET(req: Request) {
     // English generics
     "investing", "vision", "atlas", "apex", "prime", "core", "genesis",
     "nexus", "origin", "signal", "pulse", "oracle", "forge", "bridge",
-    "score", "quasar", "synth", "swarm", "beam", "nova", "echo",
+    "score", "quasar", "synth", "swarm", "beam", "echo",
     "hone", "grail", "vanta", "soma", "kaito",
     // Common DeFi/crypto words that collide with subnet names
     "swap", "yield", "stake", "pool", "mint", "launch", "flow", "base",

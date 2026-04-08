@@ -670,7 +670,7 @@ export async function GET() {
     const GENERIC_NAME_BLOCKLIST_SCAN = new Set([
       "investing", "vision", "atlas", "apex", "prime", "core", "genesis",
       "nexus", "origin", "signal", "pulse", "oracle", "forge", "bridge",
-      "score", "quasar", "synth", "swarm", "beam", "nova", "echo",
+      "score", "quasar", "synth", "swarm", "beam", "echo",
       "liquidity", "leverage", "margin", "trading", "market", "alpha", "delta",
       "hone", "grail", "vanta", "soma", "kaito",
       "swap", "yield", "stake", "pool", "mint", "launch", "flow", "base",
