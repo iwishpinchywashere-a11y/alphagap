@@ -38,48 +38,64 @@ export async function POST(req: Request) {
       await updateUser(user.email, { stripeCustomerId: customerId });
     }
 
-    // Check for existing active subscription
+    // Check for existing active subscription.
+    // First try the stored sub ID; fallback to listing from Stripe in case the blob
+    // hasn't propagated yet (Vercel Blob eventual-consistency race on fast upgrades).
+    let activeSub = null;
     if (user.stripeSubscriptionId) {
-      const sub = await stripe.subscriptions.retrieve(user.stripeSubscriptionId).catch(() => null);
-      if (sub && (sub.status === "active" || sub.status === "trialing")) {
-        // Determine current tier from the actual Stripe price amount (source of truth)
-        // Never trust the blob tier — it may be stale or incorrectly set
-        const currentAmount = sub.items.data[0]?.price?.unit_amount ?? 0;
-        const tierRank = { pro: 1, premium: 2 };
-        const currentTier: PlanKey = currentAmount >= PLANS.premium.amount ? "premium" : "pro";
+      activeSub = await stripe.subscriptions.retrieve(user.stripeSubscriptionId, {
+        expand: ["items.data.price"],
+      }).catch(() => null);
+      if (activeSub?.status !== "active" && activeSub?.status !== "trialing") activeSub = null;
+    }
+    if (!activeSub && customerId) {
+      const listed = await stripe.subscriptions.list({
+        customer: customerId,
+        status: "active",
+        limit: 5,
+        expand: ["data.items.data.price"],
+      }).catch(() => null);
+      activeSub = listed?.data[0] ?? null;
+    }
 
-        if ((tierRank[currentTier] ?? 0) >= (tierRank[planKey] ?? 0)) {
-          // Already on this plan or higher — just go to dashboard
-          return NextResponse.json({ url: `${baseUrl}/dashboard?welcome=true` });
-        }
+    if (activeSub) {
+      const sub = activeSub;
+      // Determine current tier from the actual Stripe price amount (source of truth)
+      const currentAmount = sub.items.data[0]?.price?.unit_amount ?? 0;
+      const tierRank = { pro: 1, premium: 2 };
+      const currentTier: PlanKey = currentAmount >= PLANS.premium.amount ? "premium" : "pro";
 
-        // Upgrading (e.g. Pro → Premium): update the existing subscription in-place.
-        // This charges ONLY the prorated difference to the card on file — no new checkout.
-        // Stripe generates an immediate invoice for (premium_price - unused_pro_credit).
-        const existingItemId = sub.items.data[0]?.id;
-        if (!existingItemId) {
-          return NextResponse.json({ error: "Cannot find subscription item to upgrade" }, { status: 500 });
-        }
-
-        // subscriptions.update() requires a Price ID (not inline price_data),
-        // so we create a one-off Price object for this upgrade.
-        const upgradePrice = await stripe.prices.create({
-          unit_amount: plan.amount,
-          currency: plan.currency,
-          recurring: { interval: plan.interval },
-          product_data: { name: plan.name },
-          metadata: { plan: planKey },
-        });
-
-        await stripe.subscriptions.update(user.stripeSubscriptionId!, {
-          items: [{ id: existingItemId, price: upgradePrice.id }],
-          proration_behavior: "always_invoice",  // charge prorated diff immediately
-          metadata: { plan: planKey, userEmail: user.email, userId: user.id },
-        });
-
-        // Redirect to upgrade-success which mints a fresh JWT with the new tier
-        return NextResponse.json({ url: `${baseUrl}/api/stripe/upgrade-success?plan=${planKey}` });
+      if ((tierRank[currentTier] ?? 0) >= (tierRank[planKey] ?? 0)) {
+        // Already on this plan or higher — just go to dashboard
+        return NextResponse.json({ url: `${baseUrl}/dashboard?welcome=true` });
       }
+
+      // Upgrading (e.g. Pro → Premium): update the existing subscription in-place.
+      // This charges ONLY the prorated difference to the card on file — no new checkout.
+      // Stripe generates an immediate invoice for (premium_price - unused_pro_credit).
+      const existingItemId = sub.items.data[0]?.id;
+      if (!existingItemId) {
+        return NextResponse.json({ error: "Cannot find subscription item to upgrade" }, { status: 500 });
+      }
+
+      // subscriptions.update() requires a Price ID (not inline price_data),
+      // so we create a one-off Price object for this upgrade.
+      const upgradePrice = await stripe.prices.create({
+        unit_amount: plan.amount,
+        currency: plan.currency,
+        recurring: { interval: plan.interval },
+        product_data: { name: plan.name },
+        metadata: { plan: planKey },
+      });
+
+      await stripe.subscriptions.update(sub.id, {
+        items: [{ id: existingItemId, price: upgradePrice.id }],
+        proration_behavior: "always_invoice",  // charge prorated diff immediately
+        metadata: { plan: planKey, userEmail: user.email, userId: user.id },
+      });
+
+      // Redirect to upgrade-success which mints a fresh JWT with the new tier
+      return NextResponse.json({ url: `${baseUrl}/api/stripe/upgrade-success?plan=${planKey}` });
     }
 
     const checkoutSession = await stripe.checkout.sessions.create({
