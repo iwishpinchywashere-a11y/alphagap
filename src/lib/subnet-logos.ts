@@ -43,7 +43,7 @@ export const SUBNET_LOGOS: Record<number, string> = {
   46: "https://resi-public.nyc3.cdn.digitaloceanspaces.com/color_3_r.png",
   48: "https://i.imgur.com/fAC1VJY.jpeg",
   49: "https://tournaments.nepher.ai/logo.png",
-  50: "https://taostats.io/images/subnets/50.webp",
+  50: "/subnets/sn50-synth.jpg",
   51: "https://raw.githubusercontent.com/Datura-ai/lium-logos/refs/heads/main/Celium_Icon_FullColor.png",
   55: "https://miro.medium.com/v2/resize:fit:1400/format:webp/1*pgi-9hji1nosR-l7taHQeA.png",
   56: "https://gradients-public.s3.eu-central-003.backblazeb2.com/gradientslogo.png",
