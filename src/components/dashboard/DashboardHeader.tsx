@@ -179,7 +179,7 @@ export default function DashboardHeader() {
                 )}
                 {isPro && (
                   <Link
-                    href="/subscribe?plan=premium"
+                    href="/pricing"
                     onClick={closeDropdown}
                     className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-purple-400 hover:bg-purple-500/10 transition-colors font-medium"
                   >
