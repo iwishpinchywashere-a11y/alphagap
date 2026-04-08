@@ -189,6 +189,7 @@ export async function GET(req: Request) {
     "hone", "grail", "vanta", "soma", "kaito",
     // Common DeFi/crypto words that collide with subnet names
     "swap", "yield", "stake", "pool", "mint", "launch", "flow", "base",
+    "liquidity", "leverage", "margin", "trading", "market", "alpha", "delta",
   ]);
 
   // Word-boundary match: requires the name to appear as a standalone word,

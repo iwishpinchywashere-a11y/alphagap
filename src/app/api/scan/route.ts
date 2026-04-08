@@ -671,6 +671,9 @@ export async function GET() {
       "investing", "vision", "atlas", "apex", "prime", "core", "genesis",
       "nexus", "origin", "signal", "pulse", "oracle", "forge", "bridge",
       "score", "quasar", "synth", "swarm", "beam", "nova", "echo",
+      "liquidity", "leverage", "margin", "trading", "market", "alpha", "delta",
+      "hone", "grail", "vanta", "soma", "kaito",
+      "swap", "yield", "stake", "pool", "mint", "launch", "flow", "base",
     ]);
 
     function matchTweetToSubnet(tweet: DesearchTweet): number[] {
