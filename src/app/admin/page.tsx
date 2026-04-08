@@ -37,7 +37,7 @@ export default function AdminPage() {
   const [actionEmail, setActionEmail] = useState("");
   const [actionMsg, setActionMsg] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
-  const [filter, setFilter] = useState<"all" | "pro" | "premium">("all");
+  const [filter, setFilter] = useState<"all" | "pro" | "premium" | "free">("all");
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const isAdmin = (session?.user as any)?.isAdmin ||
@@ -122,9 +122,12 @@ export default function AdminPage() {
   const proCount = users.filter(u => (u.subscriptionStatus === "active" || u.subscriptionStatus === "trialing") && (u as any).subscriptionTier !== "premium").length;
   const premiumCount = users.filter(u => (u.subscriptionStatus === "active" || u.subscriptionStatus === "trialing") && (u as any).subscriptionTier === "premium").length;
 
+  const freeCount = users.filter(u => u.subscriptionStatus !== "active" && u.subscriptionStatus !== "trialing").length;
+
   const filteredUsers = users.filter(u => {
     if (filter === "pro") return (u.subscriptionStatus === "active" || u.subscriptionStatus === "trialing") && (u as any).subscriptionTier !== "premium";
     if (filter === "premium") return (u.subscriptionStatus === "active" || u.subscriptionStatus === "trialing") && (u as any).subscriptionTier === "premium";
+    if (filter === "free") return u.subscriptionStatus !== "active" && u.subscriptionStatus !== "trialing";
     return true;
   });
 
@@ -214,8 +217,9 @@ export default function AdminPage() {
           <div className="px-6 py-4 border-b border-gray-800 flex items-center gap-3 flex-wrap">
             {([
               { key: "all", label: "All Users", count: users.length },
-              { key: "pro", label: "Pro Users", count: proCount },
-              { key: "premium", label: "Premium Users", count: premiumCount },
+              { key: "pro", label: "Pro", count: proCount },
+              { key: "premium", label: "Premium", count: premiumCount },
+              { key: "free", label: "Free", count: freeCount },
             ] as const).map(f => (
               <button
                 key={f.key}
