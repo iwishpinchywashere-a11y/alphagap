@@ -153,6 +153,61 @@ export async function sendSubscriptionConfirmationEmail(
   });
 }
 
+/** Cancellation confirmation — access continues until period end */
+export async function sendCancellationEmail(
+  name: string,
+  email: string,
+  tier: "pro" | "premium",
+  periodEnd: number,
+) {
+  const firstName = name.split(" ")[0];
+  const tierLabel = tier === "premium" ? "AlphaGap Premium" : "AlphaGap Pro";
+  const accessUntil = new Date(periodEnd * 1000).toLocaleDateString("en-US", {
+    month: "long", day: "numeric", year: "numeric",
+  });
+
+  const html = baseTemplate(`
+    <h1 style="color:#ffffff;font-size:24px;font-weight:700;margin:0 0 12px 0;">Your subscription has been cancelled</h1>
+    <p style="color:#9ca3af;font-size:15px;line-height:1.7;margin:0 0 24px 0;">
+      Hi ${firstName}, we&apos;ve received your cancellation request for <strong style="color:#ffffff;">${tierLabel}</strong>.
+      No further charges will be made.
+    </p>
+
+    <div style="background:#0d1117;border:1px solid #1f2937;border-radius:12px;padding:24px 28px;margin:0 0 24px 0;">
+      <p style="color:#10b981;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;margin:0 0 16px 0;">You still have full access until</p>
+      <p style="color:#ffffff;font-size:28px;font-weight:800;margin:0;">${accessUntil}</p>
+      <p style="color:#6b7280;font-size:13px;margin:12px 0 0 0;">Your ${tierLabel} features remain fully active until this date.</p>
+    </div>
+
+    <div style="text-align:center;margin:0 0 28px 0;">
+      <a href="${BASE_URL}/dashboard"
+         style="display:inline-block;background:linear-gradient(135deg,#10b981,#059669);color:#000000;font-weight:700;font-size:15px;padding:14px 40px;border-radius:10px;text-decoration:none;">
+        Keep Using AlphaGap &rarr;
+      </a>
+    </div>
+
+    <div style="background:#0d1117;border:1px solid #1f2937;border-radius:12px;padding:20px 28px;margin:0 0 24px 0;">
+      <p style="color:#6b7280;font-size:13px;margin:0;line-height:1.7;">
+        Changed your mind? You can resubscribe anytime from
+        <a href="${BASE_URL}/account" style="color:#10b981;text-decoration:none;">Account Settings</a> —
+        your data and history will still be there.
+      </p>
+    </div>
+
+    <p style="color:#4b5563;font-size:12px;margin:0;line-height:1.6;">
+      Questions or feedback? Reply to this email or reach us at
+      <a href="mailto:hello@getbeanstock.com" style="color:#10b981;text-decoration:none;">hello@getbeanstock.com</a>
+    </p>
+  `);
+
+  return resend.emails.send({
+    from: FROM,
+    to: email,
+    subject: `Your ${tierLabel} subscription has been cancelled`,
+    html,
+  });
+}
+
 /** Password reset email — token expires in 1 hour */
 export async function sendPasswordResetEmail(name: string, email: string, resetToken: string) {
   const firstName = name.split(" ")[0];

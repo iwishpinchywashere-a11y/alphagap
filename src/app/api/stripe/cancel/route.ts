@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { getStripe } from "@/lib/stripe-client";
 import { getUserByEmail, updateUser, updateUserListEntry } from "@/lib/users";
+import { sendCancellationEmail } from "@/lib/email";
 
 export const dynamic = "force-dynamic";
 
@@ -96,6 +97,14 @@ export async function POST() {
       updateUser(email, updatePayload),
       updateUserListEntry(email, { subscriptionStatus: "active" }),
     ]).catch(() => {});
+
+    // Send cancellation confirmation email (best-effort)
+    sendCancellationEmail(
+      user.name ?? email,
+      email,
+      (user.subscriptionTier ?? "pro") as "pro" | "premium",
+      periodEnd,
+    ).catch((e) => console.error("[stripe/cancel] email failed:", e));
 
     return NextResponse.json({ ok: true, cancelDate, periodEnd });
   } catch (e) {
