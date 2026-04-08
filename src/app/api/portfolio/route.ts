@@ -15,6 +15,7 @@ export interface PortfolioPosition {
   buyPriceUsd: number;    // alpha token price in USD at buy time
   amountUsd: number;      // always $100
   alphaTokens: number;    // amountUsd / buyPriceUsd
+  peakPrice?: number;     // highest alpha price seen since buy (updated by scan cron)
 }
 
 export interface PortfolioSnapshot {
@@ -78,6 +79,11 @@ export async function GET() {
       const change24h = live?.change24h ?? 0;
       const pnl24hUsd = currentValue * (change24h / 100);
 
+      // Max P&L: what would the return have been if sold at peak?
+      const peakPrice = pos.peakPrice ?? null;
+      const maxPnlUsd = peakPrice != null ? pos.alphaTokens * peakPrice - pos.amountUsd : null;
+      const maxPnlPct = peakPrice != null ? ((pos.alphaTokens * peakPrice - pos.amountUsd) / pos.amountUsd) * 100 : null;
+
       return {
         ...pos,
         currentPrice,
@@ -86,6 +92,9 @@ export async function GET() {
         totalPnlPct,
         change24h,
         pnl24hUsd,
+        peakPrice,
+        maxPnlUsd,
+        maxPnlPct,
       };
     });
 
@@ -93,6 +102,15 @@ export async function GET() {
     const totalCost = enriched.reduce((s, p) => s + p.amountUsd, 0);
     const totalPnlUsd = totalValue - totalCost;
     const totalPnlPct = totalCost > 0 ? ((totalValue - totalCost) / totalCost) * 100 : 0;
+
+    // Max Return: sum of best-case gains across all positions with peak data
+    const posWithPeak = enriched.filter(p => p.maxPnlUsd != null);
+    const maxReturnUsd = posWithPeak.length > 0
+      ? posWithPeak.reduce((s, p) => s + (p.maxPnlUsd ?? 0), 0)
+      : null;
+    const maxReturnPct = posWithPeak.length > 0 && totalCost > 0
+      ? ((posWithPeak.reduce((s, p) => s + (p.alphaTokens * (p.peakPrice ?? 0)), 0) - posWithPeak.reduce((s, p) => s + p.amountUsd, 0)) / posWithPeak.reduce((s, p) => s + p.amountUsd, 0)) * 100
+      : null;
 
     return NextResponse.json({
       positions: enriched,
@@ -104,6 +122,8 @@ export async function GET() {
         totalPnlPct,
         positionCount: enriched.length,
         taoPrice,
+        maxReturnUsd,
+        maxReturnPct,
       },
     });
   } catch (e) {

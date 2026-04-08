@@ -141,6 +141,21 @@ export default function PerformancePage() {
                 <div className="text-2xl font-bold text-green-400">aGap ≥ 80</div>
                 <div className="text-xs text-gray-600 mt-0.5">auto-tracked</div>
               </div>
+              <div className="bg-gray-900/70 border border-gray-800 rounded-xl p-4">
+                <div className="text-xs text-gray-500 mb-1">Max Return</div>
+                {portfolioData.summary.maxReturnUsd != null ? (
+                  <>
+                    <div className="text-2xl font-bold text-yellow-400">
+                      {(portfolioData.summary.maxReturnUsd ?? 0) >= 0 ? "+" : ""}${(portfolioData.summary.maxReturnUsd ?? 0).toFixed(2)}
+                    </div>
+                    <div className="text-xs text-yellow-500 mt-0.5">
+                      {(portfolioData.summary.maxReturnPct ?? 0) >= 0 ? "+" : ""}{(portfolioData.summary.maxReturnPct ?? 0).toFixed(1)}% if sold at peak
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-2xl font-bold text-gray-600">—</div>
+                )}
+              </div>
             </div>
 
             {/* Chart */}
@@ -174,7 +189,8 @@ export default function PerformancePage() {
                       <th className="text-right px-3 py-3">Tokens</th>
                       <th className="text-right px-3 py-3">Value</th>
                       <th className="text-right px-3 py-3">24h P&L</th>
-                      <th className="text-right px-5 py-3">Total P&L</th>
+                      <th className="text-right px-3 py-3">Total P&L</th>
+                      <th className="text-right px-5 py-3">Max P&L</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-800/40">
@@ -207,13 +223,27 @@ export default function PerformancePage() {
                             {pos.change24h >= 0 ? "+" : ""}{pos.change24h.toFixed(1)}%
                           </span>
                         </td>
-                        <td className="text-right px-5 py-3">
+                        <td className="text-right px-3 py-3">
                           <div className={`font-semibold ${pos.totalPnlUsd >= 0 ? "text-green-400" : "text-red-400"}`}>
                             {pos.totalPnlUsd >= 0 ? "+" : ""}${pos.totalPnlUsd.toFixed(2)}
                           </div>
                           <div className={`text-xs ${pos.totalPnlPct >= 0 ? "text-green-500" : "text-red-500"}`}>
                             {pos.totalPnlPct >= 0 ? "+" : ""}{pos.totalPnlPct.toFixed(1)}%
                           </div>
+                        </td>
+                        <td className="text-right px-5 py-3">
+                          {pos.maxPnlUsd != null ? (
+                            <>
+                              <div className="font-semibold text-yellow-400">
+                                {(pos.maxPnlUsd ?? 0) >= 0 ? "+" : ""}${(pos.maxPnlUsd ?? 0).toFixed(2)}
+                              </div>
+                              <div className="text-xs text-yellow-500">
+                                {(pos.maxPnlPct ?? 0) >= 0 ? "+" : ""}{(pos.maxPnlPct ?? 0).toFixed(1)}%
+                              </div>
+                            </>
+                          ) : (
+                            <span className="text-gray-600 text-xs">—</span>
+                          )}
                         </td>
                       </tr>
                     ))}
@@ -223,11 +253,23 @@ export default function PerformancePage() {
                       <td className="px-5 py-3 text-gray-400" colSpan={6}>Total</td>
                       <td className="text-right px-3 py-3">${portfolioData.summary.totalValue.toFixed(2)}</td>
                       <td className="text-right px-3 py-3 text-gray-500">—</td>
-                      <td className={`text-right px-5 py-3 ${portfolioData.summary.totalPnlUsd >= 0 ? "text-green-400" : "text-red-400"}`}>
+                      <td className={`text-right px-3 py-3 ${portfolioData.summary.totalPnlUsd >= 0 ? "text-green-400" : "text-red-400"}`}>
                         {portfolioData.summary.totalPnlUsd >= 0 ? "+" : ""}${portfolioData.summary.totalPnlUsd.toFixed(2)}
                         <div className="text-xs font-normal">
                           ({portfolioData.summary.totalPnlPct >= 0 ? "+" : ""}{portfolioData.summary.totalPnlPct.toFixed(1)}%)
                         </div>
+                      </td>
+                      <td className="text-right px-5 py-3">
+                        {portfolioData.summary.maxReturnUsd != null ? (
+                          <span className="text-yellow-400">
+                            {(portfolioData.summary.maxReturnUsd ?? 0) >= 0 ? "+" : ""}${(portfolioData.summary.maxReturnUsd ?? 0).toFixed(2)}
+                            <div className="text-xs font-normal">
+                              ({(portfolioData.summary.maxReturnPct ?? 0) >= 0 ? "+" : ""}{(portfolioData.summary.maxReturnPct ?? 0).toFixed(1)}%)
+                            </div>
+                          </span>
+                        ) : (
+                          <span className="text-gray-600">—</span>
+                        )}
                       </td>
                     </tr>
                   </tfoot>

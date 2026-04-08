@@ -3124,6 +3124,16 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
         portfolioChanged = true;
       }
 
+      // Update peak price per position (used for Max P&L calculation)
+      for (const pos of portfolio.positions) {
+        const liveEntry = leaderboard.find(e => e.netuid === pos.netuid);
+        const currentPrice = liveEntry?.alpha_price ?? pos.buyPriceUsd;
+        if (!pos.peakPrice || currentPrice > pos.peakPrice) {
+          pos.peakPrice = currentPrice;
+          portfolioChanged = true;
+        }
+      }
+
       // Update today's portfolio value snapshot (even if no new buys)
       if (portfolio.positions.length > 0) {
         const totalValue = portfolio.positions.reduce((sum, pos) => {

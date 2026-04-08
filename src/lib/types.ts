@@ -28,6 +28,9 @@ export interface PortfolioPosition {
   totalPnlPct: number;
   change24h: number;
   pnl24hUsd: number;
+  peakPrice?: number;
+  maxPnlUsd?: number;
+  maxPnlPct?: number;
 }
 
 export interface PortfolioData {
@@ -40,6 +43,8 @@ export interface PortfolioData {
     totalPnlPct: number;
     positionCount: number;
     taoPrice: number;
+    maxReturnUsd: number | null;
+    maxReturnPct: number | null;
   };
 }
 
