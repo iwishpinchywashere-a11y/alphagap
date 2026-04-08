@@ -120,15 +120,18 @@ export async function POST(req: Request) {
             });
             await updateUserListEntry(user.email, { subscriptionStatus: status });
 
-            // Cancel the previous subscription if this was an upgrade
-            // The old sub ID is stored in the checkout session metadata
-            const prevSubId = checkoutSession.metadata?.previousSubscriptionId
-              || sub.metadata?.previousSubscriptionId;
-            if (prevSubId && prevSubId !== sub.id) {
-              await getStripe().subscriptions.cancel(prevSubId).catch((e) =>
-                console.error(`[webhook] Failed to cancel old sub ${prevSubId}:`, e)
-              );
-              console.log(`[webhook] Cancelled old sub ${prevSubId} after upgrade for ${user.email}`);
+            // Cancel any other active subscriptions for this customer (upgrade deduplication).
+            // payment-success already attempts this synchronously; this is the backup.
+            try {
+              const allSubs = await getStripe().subscriptions.list({ customer: customerId, status: "active" });
+              for (const oldSub of allSubs.data) {
+                if (oldSub.id !== sub.id) {
+                  await getStripe().subscriptions.cancel(oldSub.id);
+                  console.log(`[webhook] Cancelled old sub ${oldSub.id} for ${user.email}`);
+                }
+              }
+            } catch (e) {
+              console.error("[webhook] Failed to cancel old subs:", e);
             }
 
             // Send subscription confirmation email
