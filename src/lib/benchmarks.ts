@@ -1921,7 +1921,8 @@ export function computeProductScore(
     if (b.annual_revenue_usd >= 10_000_000) revBonus = 20;
     else if (b.annual_revenue_usd >= 2_000_000) revBonus = 14;
     else if (b.annual_revenue_usd >= 500_000)  revBonus = 8;
-    else if (b.annual_revenue_usd > 0)         revBonus = 4;
+    else if (b.annual_revenue_usd >= 100_000)  revBonus = 3;  // early revenue — real but small
+    else if (b.annual_revenue_usd > 0)         revBonus = 1;  // minimal / pilot revenue
 
     return {
       score: Math.min(100, b.benchmark_score + revBonus),

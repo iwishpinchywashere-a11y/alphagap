@@ -2502,19 +2502,33 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
     //    High product score + low social = market genuinely hasn't noticed yet.
     //    Chutes/Targon (high product + high social) score 0 here — gap is already closed.
     //    Leadpoet (high product + B2B/low CT presence) scores full 12 pts.
+    //
+    //    Revenue confidence scale: a subnet with $10M ARR that nobody's talking about is a TRUE gap.
+    //    A subnet with $100K ARR and low social may just be early-stage — market is accurately cautious.
+    //    Scale both awareness and price bonuses proportionally so low-revenue subnets can't hit 100.
+    const confirmedArrForAwareness = BENCHMARK_MAP.get(d.netuid)?.annual_revenue_usd ?? 0;
+    const awarenessRevScale =
+      confirmedArrForAwareness >= 5_000_000 ? 1.00  // proven business — full gap signal
+      : confirmedArrForAwareness >= 1_000_000 ? 0.85  // strong traction
+      : confirmedArrForAwareness >= 500_000   ? 0.72  // solid early revenue
+      : confirmedArrForAwareness >= 100_000   ? 0.45  // real but early — gap is smaller
+      : confirmedArrForAwareness >  0         ? 0.35  // pilot / minimal revenue
+      : 0.85;                                          // pre-revenue: pure product thesis, still strong
+
     let productAwarenessGap = 0;
-    if      (productScore >= 60 && socialScore <= 30) productAwarenessGap = 12;
-    else if (productScore >= 60 && socialScore <= 50) productAwarenessGap = 6;
-    else if (productScore >= 80 && socialScore <= 60) productAwarenessGap = 4;
+    if      (productScore >= 60 && socialScore <= 30) productAwarenessGap = Math.round(12 * awarenessRevScale);
+    else if (productScore >= 60 && socialScore <= 50) productAwarenessGap = Math.round(6  * awarenessRevScale);
+    else if (productScore >= 80 && socialScore <= 60) productAwarenessGap = Math.round(4  * awarenessRevScale);
 
     // 3. Product vs price gap (0–8 pts) — mirrors evalVsPriceBonus but for product signal
     //    High product + price underwater = market pricing the asset as if the product doesn't exist.
     //    Uses raw pch30d/pch7d (not clamped priceLag) so thresholds are always reachable.
+    //    Also revenue-scaled: a price-down signal on $100K ARR deserves less weight than $5M ARR.
     let productVsPriceBonus = 0;
-    if      (productScore >= 70 && pch30d <= -20) productVsPriceBonus = 8;
-    else if (productScore >= 70 && pch30d <= -10) productVsPriceBonus = 4;
-    else if (productScore >= 70 && pch7d  <= -10) productVsPriceBonus = 4;
-    else if (productScore >= 50 && pch30d <= -25) productVsPriceBonus = 3;
+    if      (productScore >= 70 && pch30d <= -20) productVsPriceBonus = Math.round(8 * awarenessRevScale);
+    else if (productScore >= 70 && pch30d <= -10) productVsPriceBonus = Math.round(4 * awarenessRevScale);
+    else if (productScore >= 70 && pch7d  <= -10) productVsPriceBonus = Math.round(4 * awarenessRevScale);
+    else if (productScore >= 50 && pch30d <= -25) productVsPriceBonus = Math.round(3 * awarenessRevScale);
 
     const rawAGap = buildingPts + consistentBuilderBonus + devSpikeBonus + priceLag + floorReversalBonus + socialMomentum + evalBoost + evalVsPriceBonus + viability + campaignBoost + whaleBoost + emissionBoost + volBoost + stakingBoost + rootPropBonus + productAGapPts + productAwarenessGap + productVsPriceBonus + momentumBoost + gapClosurePenalty;
     const clampedRaw = Math.max(1, Math.min(100, Math.round(rawAGap)));
@@ -3010,7 +3024,7 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
     .catch(() => { /* non-critical */ });
 
   // Bump this when leaderboard schema changes (forces dashboard to rescan instead of using stale blob)
-  const SCAN_SCHEMA_VERSION = 19; // v19: April 2026 research sweep — 45+ new benchmark/milestone entries across 43 subnets
+  const SCAN_SCHEMA_VERSION = 20; // v20: revenue-scaled awareness/price gap bonuses — low ARR subnets capped below 100
 
   const responseData = {
     schema_version: SCAN_SCHEMA_VERSION,
