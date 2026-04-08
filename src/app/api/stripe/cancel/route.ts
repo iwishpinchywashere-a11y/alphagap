@@ -23,20 +23,28 @@ export async function POST() {
     const stripe = getStripe();
     let subscriptionId = user.stripeSubscriptionId;
 
-    // If we don't have a subscription ID stored, look it up via Stripe
-    if (!subscriptionId) {
-      const customers = await stripe.customers.list({ email, limit: 5 });
-      for (const cust of customers.data) {
-        const subs = await stripe.subscriptions.list({
-          customer: cust.id,
-          status: "active",
-          limit: 1,
-        });
-        if (subs.data.length > 0) {
-          subscriptionId = subs.data[0].id;
-          break;
+    /** Look up a live subscription from Stripe directly (by email → customer → sub) */
+    async function lookupFromStripe(): Promise<string | undefined> {
+      // Try via stored customer ID first (faster)
+      const customerIds: string[] = [];
+      if (user!.stripeCustomerId) customerIds.push(user!.stripeCustomerId);
+      // Also search by email in case customer ID is stale
+      const byEmail = await stripe.customers.list({ email, limit: 5 }).catch(() => null);
+      for (const c of byEmail?.data ?? []) {
+        if (!customerIds.includes(c.id)) customerIds.push(c.id);
+      }
+      for (const custId of customerIds) {
+        for (const st of ["active", "trialing"] as const) {
+          const subs = await stripe.subscriptions.list({ customer: custId, status: st, limit: 1 }).catch(() => null);
+          if (subs?.data[0]) return subs.data[0].id;
         }
       }
+      return undefined;
+    }
+
+    // If we don't have a subscription ID stored, look it up via Stripe
+    if (!subscriptionId) {
+      subscriptionId = await lookupFromStripe();
     }
 
     if (!subscriptionId) {
@@ -44,9 +52,22 @@ export async function POST() {
     }
 
     // Cancel at period end — user keeps access until their billing date
-    const sub = await stripe.subscriptions.update(subscriptionId, {
-      cancel_at_period_end: true,
-    });
+    let sub;
+    try {
+      sub = await stripe.subscriptions.update(subscriptionId, {
+        cancel_at_period_end: true,
+      });
+    } catch (stripeErr: any) {
+      // Stored subscription ID is stale — do a fresh lookup and retry once
+      console.error("[stripe/cancel] update failed for stored ID, retrying with fresh lookup:", stripeErr?.message);
+      subscriptionId = await lookupFromStripe();
+      if (!subscriptionId) {
+        return NextResponse.json({ error: "No active subscription found" }, { status: 404 });
+      }
+      sub = await stripe.subscriptions.update(subscriptionId, {
+        cancel_at_period_end: true,
+      });
+    }
 
     const periodEnd = (sub as any).current_period_end as number;
     const cancelDate = new Date(periodEnd * 1000).toLocaleDateString("en-US", {
@@ -55,9 +76,13 @@ export async function POST() {
       year: "numeric",
     });
 
-    // Update the blob so we know cancellation is pending
+    // Update the blob so we know cancellation is pending; also fix stale sub ID if needed
+    const updatePayload: Record<string, unknown> = { subscriptionStatus: "active" };
+    if (subscriptionId && subscriptionId !== user.stripeSubscriptionId) {
+      updatePayload.stripeSubscriptionId = subscriptionId;
+    }
     await Promise.all([
-      updateUser(email, { subscriptionStatus: "active" }), // still active until period end
+      updateUser(email, updatePayload),
       updateUserListEntry(email, { subscriptionStatus: "active" }),
     ]).catch(() => {});
 
