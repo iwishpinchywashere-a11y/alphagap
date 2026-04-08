@@ -42,7 +42,41 @@ export async function POST(req: Request) {
     if (user.stripeSubscriptionId) {
       const sub = await stripe.subscriptions.retrieve(user.stripeSubscriptionId).catch(() => null);
       if (sub && (sub.status === "active" || sub.status === "trialing")) {
-        return NextResponse.json({ url: `${baseUrl}/dashboard?welcome=true` });
+        // If they're already on this plan (or higher), just go to dashboard
+        const currentTier = user.subscriptionTier ?? "pro";
+        const tierRank = { pro: 1, premium: 2 };
+        if ((tierRank[currentTier] ?? 0) >= (tierRank[planKey] ?? 0)) {
+          return NextResponse.json({ url: `${baseUrl}/dashboard?welcome=true` });
+        }
+
+        // Upgrading from Pro → Premium: update the existing subscription's price
+        const existingItem = sub.items.data[0];
+        const updatedSub = await stripe.subscriptions.update(sub.id, {
+          items: [{
+            id: existingItem.id,
+            price_data: {
+              currency: plan.currency,
+              product_data: { name: plan.name, description: plan.description },
+              recurring: { interval: plan.interval },
+              unit_amount: plan.amount,
+            },
+          }],
+          proration_behavior: "always_invoice",
+          metadata: { userEmail: user.email, userId: user.id, plan: planKey },
+        });
+
+        // Update user record immediately so it's reflected on next session
+        await updateUser(user.email, { subscriptionTier: planKey });
+
+        // Redirect to the latest invoice's hosted page so they confirm payment, or dashboard if nothing due
+        const latestInvoiceId = updatedSub.latest_invoice;
+        if (latestInvoiceId && typeof latestInvoiceId === "string") {
+          const invoice = await stripe.invoices.retrieve(latestInvoiceId);
+          if (invoice.hosted_invoice_url && invoice.status !== "paid") {
+            return NextResponse.json({ url: invoice.hosted_invoice_url });
+          }
+        }
+        return NextResponse.json({ url: `${baseUrl}/dashboard?upgraded=true` });
       }
     }
 
