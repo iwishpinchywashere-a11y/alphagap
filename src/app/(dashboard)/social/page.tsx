@@ -212,6 +212,41 @@ export default function SocialPage() {
             <h2 className="font-bold text-white">💬 Discord Alpha</h2>
             <p className="text-xs text-gray-500 mt-0.5">AI scans every channel — scores quality + quantity of alpha signals</p>
           </div>
+          {/* Sneak peek: top 1 entry visible to all tiers */}
+          {discordLeaderboard.length > 0 && tier !== "premium" && (() => { const d = discordLeaderboard[0]; return (
+            <div className="divide-y divide-gray-800/60">
+              <div className="px-4 py-3">
+                <div className="flex items-start gap-3">
+                  <span className="text-xs text-gray-600 w-5 text-right tabular-nums mt-0.5 shrink-0">1</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <button onClick={() => router.push(`/subnets/${d.netuid}`)} className="flex items-center gap-1.5 hover:text-green-400 transition-colors">
+                        <span className="text-xs text-gray-600 bg-gray-800 px-1.5 py-0.5 rounded font-mono">SN{d.netuid}</span>
+                        <span className="font-semibold text-sm text-gray-200">{d.name}</span>
+                      </button>
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold shrink-0 ${discordSignalStyle(d.signal)}`}>{d.signal.toUpperCase()}</span>
+                      {d.releaseHint && <span className="text-[10px] px-1.5 py-0.5 rounded font-bold bg-yellow-500/20 text-yellow-300 border border-yellow-500/40 shrink-0">🚀 RELEASE HINT</span>}
+                    </div>
+                    <div className="text-xs text-gray-600 mt-0.5">{d.messageCount} msgs · {d.uniquePosters} posters · {timeAgo(d.scannedAt)}</div>
+                    {d.summary && <p className="text-xs text-gray-400 mt-1.5 leading-relaxed">{d.summary}</p>}
+                    {d.keyInsights && d.keyInsights.length > 0 && (
+                      <ul className="mt-1.5 space-y-0.5">
+                        {d.keyInsights.slice(0, 2).map((insight, ii) => (
+                          <li key={ii} className="flex items-start gap-1.5 text-xs text-gray-500 leading-relaxed">
+                            <span className="text-green-500 mt-0.5 shrink-0">›</span><span>{insight}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                  <div className="text-right shrink-0 min-w-[48px]">
+                    <div className={`text-lg font-bold tabular-nums leading-none ${(d.alphaScore ?? 0) >= 70 ? "text-green-400" : (d.alphaScore ?? 0) >= 45 ? "text-yellow-400" : "text-orange-400"}`}>{d.alphaScore ?? "—"}</div>
+                    <div className="text-[10px] text-gray-600 mt-0.5">alpha</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ); })()}
           <BlurGate tier={tier} required="premium" minHeight="200px">
           <div className="divide-y divide-gray-800/60">
             {discordLeaderboard.length === 0 ? (
@@ -306,6 +341,53 @@ export default function SocialPage() {
             <span className="text-xs text-gray-600">{hotTweets.length} events</span>
           </div>
 
+          {/* Sneak peek: top 1 tweet visible to all tiers */}
+          {hotTweets.length > 0 && tier !== "premium" && (() => { const t = hotTweets[0]; return (
+            <div className="overflow-x-auto border-b border-gray-800/60">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-xs text-gray-600 border-b border-gray-800">
+                    <th className="px-4 py-2.5 w-12">Heat</th>
+                    <th className="px-4 py-2.5">KOL</th>
+                    <th className="px-4 py-2.5">Subnet</th>
+                    <th className="px-4 py-2.5 hidden lg:table-cell">Tweet</th>
+                    <th className="px-4 py-2.5 text-right">Engagement</th>
+                    <th className="px-4 py-2.5 text-right hidden sm:table-cell">aGap</th>
+                    <th className="px-4 py-2.5 text-right">Time</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr className="border-b border-gray-800/60 hover:bg-gray-800/30 cursor-pointer transition-colors" onClick={() => setExpandedTweet(expandedTweet === t.tweet_id ? null : t.tweet_id)}>
+                    <td className="px-4 py-3"><div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded border text-xs font-bold ${heatColor(t.heat_score)}`}>{t.heat_score}</div></td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <span className={`text-xs px-1.5 py-0.5 rounded border font-semibold ${tierBadge(t.kol_tier)}`}>{tierLabel(t.kol_tier)}</span>
+                        <div>
+                          <a href={`https://x.com/${t.kol_handle}`} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline font-medium" onClick={e => e.stopPropagation()}>@{t.kol_handle}</a>
+                          <div className="text-xs text-gray-600">{fmtFollowers(t.kol_followers)} followers</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <button className="text-left hover:text-green-400 transition-colors" onClick={e => { e.stopPropagation(); router.push(`/subnets/${t.netuid}`); }}>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs text-gray-600 bg-gray-800 px-1.5 py-0.5 rounded font-mono">SN{t.netuid}</span>
+                          <span className="font-medium text-gray-200 text-sm">{t.subnet_name}</span>
+                        </div>
+                      </button>
+                    </td>
+                    <td className="px-4 py-3 hidden lg:table-cell max-w-xs">
+                      <div className={`text-xs text-gray-400 leading-relaxed ${expandedTweet === t.tweet_id ? "" : "truncate"}`}>{t.tweet_text}</div>
+                      <a href={t.tweet_url} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-500 hover:underline mt-0.5 block" onClick={e => e.stopPropagation()}>View on X ↗</a>
+                    </td>
+                    <td className="px-4 py-3 text-right"><span className="text-xs text-gray-300 font-medium">{fmtEngagement(t.engagement)}</span></td>
+                    <td className="px-4 py-3 text-right hidden sm:table-cell"><span className={`text-xs font-semibold ${agapColor(t.subnet_agap)}`}>{t.subnet_agap ?? "—"}</span></td>
+                    <td className="px-4 py-3 text-right text-xs text-gray-500 whitespace-nowrap">{timeAgo(t.detected_at)}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          ); })()}
           <BlurGate tier={tier} required="premium" minHeight="300px">
           {hotTweets.length === 0 ? (
             <div className="p-8 text-center text-gray-600 text-sm">
