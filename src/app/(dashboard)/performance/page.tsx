@@ -7,30 +7,34 @@ import BlurGate from "@/components/BlurGate";
 import { getTier } from "@/lib/subscription";
 
 // Pure SVG chart — no external deps
-function PortfolioChart({ history }: { history: { date: string; totalValue: number }[] }) {
+function PortfolioChart({ history, costBasis }: { history: { date: string; totalValue: number }[]; costBasis: number }) {
   const W = 800, H = 160;
-  const PAD = { top: 12, right: 16, bottom: 28, left: 52 };
+  const PAD = { top: 12, right: 24, bottom: 28, left: 56 };
   const chartW = W - PAD.left - PAD.right;
   const chartH = H - PAD.top - PAD.bottom;
 
+  const base = costBasis > 0 ? costBasis : 1;
+  const toPct = (v: number) => ((v - base) / base) * 100;
+
   const values = history.map((h) => h.totalValue);
-  const minVal = Math.min(...values);
-  const maxVal = Math.max(...values);
-  const range = maxVal - minVal || 1;
+  const pctValues = values.map(toPct);
+  const minPct = Math.min(...pctValues);
+  const maxPct = Math.max(...pctValues);
+  const range = maxPct - minPct || 1;
   const padRange = range * 0.12;
-  const yMin = minVal - padRange;
-  const yMax = maxVal + padRange;
+  const yMin = minPct - padRange;
+  const yMax = maxPct + padRange;
 
   const xScale = (i: number) => PAD.left + (i / Math.max(history.length - 1, 1)) * chartW;
-  const yScale = (v: number) => PAD.top + chartH - ((v - yMin) / (yMax - yMin)) * chartH;
+  const yScale = (pct: number) => PAD.top + chartH - ((pct - yMin) / (yMax - yMin)) * chartH;
 
-  const pts = history.map((h, i) => `${xScale(i).toFixed(1)},${yScale(h.totalValue).toFixed(1)}`);
+  const pts = pctValues.map((pct, i) => `${xScale(i).toFixed(1)},${yScale(pct).toFixed(1)}`);
   const polyPoints = pts.join(" ");
   const firstX = xScale(0);
   const lastX = xScale(history.length - 1);
   const baseY = PAD.top + chartH;
   const areaPoints = `${firstX.toFixed(1)},${baseY} ${polyPoints} ${lastX.toFixed(1)},${baseY}`;
-  const isUp = values[values.length - 1] >= values[0];
+  const isUp = pctValues[pctValues.length - 1] >= pctValues[0];
   const lineColor = isUp ? "#4ade80" : "#f87171";
   const gradId = isUp ? "areaGreen" : "areaRed";
   const gradStop = isUp ? "#4ade80" : "#f87171";
@@ -41,7 +45,8 @@ function PortfolioChart({ history }: { history: { date: string; totalValue: numb
       x: xScale(i),
       label: new Date(history[i].date + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" }),
     }));
-  const lastPt = { x: xScale(history.length - 1), y: yScale(values[values.length - 1]) };
+  const lastPct = pctValues[pctValues.length - 1];
+  const lastPt = { x: xScale(history.length - 1), y: yScale(lastPct) };
 
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: "160px" }}>
@@ -51,10 +56,10 @@ function PortfolioChart({ history }: { history: { date: string; totalValue: numb
           <stop offset="100%" stopColor={gradStop} stopOpacity="0.01" />
         </linearGradient>
       </defs>
-      {yTicks.map((v, i) => (
+      {yTicks.map((pct, i) => (
         <g key={i}>
-          <line x1={PAD.left} y1={yScale(v).toFixed(1)} x2={PAD.left + chartW} y2={yScale(v).toFixed(1)} stroke="#1f2937" strokeWidth="1" />
-          <text x={PAD.left - 6} y={(yScale(v) + 4).toFixed(1)} fill="#6b7280" fontSize="10" textAnchor="end">${v.toFixed(0)}</text>
+          <line x1={PAD.left} y1={yScale(pct).toFixed(1)} x2={PAD.left + chartW} y2={yScale(pct).toFixed(1)} stroke="#1f2937" strokeWidth="1" />
+          <text x={PAD.left - 6} y={(yScale(pct) + 4).toFixed(1)} fill="#6b7280" fontSize="10" textAnchor="end">{pct >= 0 ? "+" : ""}{pct.toFixed(1)}%</text>
         </g>
       ))}
       <polygon points={areaPoints} fill={`url(#${gradId})`} />
@@ -63,8 +68,8 @@ function PortfolioChart({ history }: { history: { date: string; totalValue: numb
         <text key={i} x={l.x.toFixed(1)} y={H - 6} fill="#6b7280" fontSize="10" textAnchor="middle">{l.label}</text>
       ))}
       <circle cx={lastPt.x.toFixed(1)} cy={lastPt.y.toFixed(1)} r="4" fill={lineColor} />
-      <text x={(lastPt.x + 8).toFixed(1)} y={(lastPt.y + 4).toFixed(1)} fill={lineColor} fontSize="11" fontWeight="bold">
-        ${values[values.length - 1].toFixed(2)}
+      <text x={(lastPt.x - 4).toFixed(1)} y={(lastPt.y - 8).toFixed(1)} fill={lineColor} fontSize="11" fontWeight="bold" textAnchor="end">
+        {lastPct >= 0 ? "+" : ""}{lastPct.toFixed(1)}%
       </text>
     </svg>
   );
@@ -154,11 +159,11 @@ export default function PerformancePage() {
               </div>
               <div className="bg-gray-900/70 border border-gray-800 rounded-xl p-4">
                 <div className="text-xs text-gray-500 mb-1">Total Return</div>
-                <div className={`text-2xl font-bold ${portfolioData.summary.totalPnlUsd >= 0 ? "text-yellow-400" : "text-red-400"}`}>
-                  {portfolioData.summary.totalPnlUsd >= 0 ? "+" : ""}${portfolioData.summary.totalPnlUsd.toFixed(2)}
+                <div className={`text-2xl font-bold ${portfolioData.summary.totalPnlPct >= 0 ? "text-yellow-400" : "text-red-400"}`}>
+                  {portfolioData.summary.totalPnlPct >= 0 ? "+" : ""}{portfolioData.summary.totalPnlPct.toFixed(1)}% <span className="text-sm font-normal">all-time</span>
                 </div>
-                <div className={`text-xs mt-0.5 ${portfolioData.summary.totalPnlPct >= 0 ? "text-yellow-500" : "text-red-500"}`}>
-                  {portfolioData.summary.totalPnlPct >= 0 ? "+" : ""}{portfolioData.summary.totalPnlPct.toFixed(1)}% all-time
+                <div className={`text-xs mt-0.5 ${portfolioData.summary.totalPnlUsd >= 0 ? "text-yellow-500" : "text-red-500"}`}>
+                  {portfolioData.summary.totalPnlUsd >= 0 ? "+" : ""}${portfolioData.summary.totalPnlUsd.toFixed(2)}
                 </div>
               </div>
               <div className="bg-gray-900/70 border border-gray-800 rounded-xl p-4">
@@ -166,10 +171,10 @@ export default function PerformancePage() {
                 {portfolioData.summary.maxReturnUsd != null ? (
                   <>
                     <div className="text-2xl font-bold text-green-400">
-                      {(portfolioData.summary.maxReturnUsd ?? 0) >= 0 ? "+" : ""}${(portfolioData.summary.maxReturnUsd ?? 0).toFixed(2)}
+                      {(portfolioData.summary.maxReturnPct ?? 0) >= 0 ? "+" : ""}{(portfolioData.summary.maxReturnPct ?? 0).toFixed(1)}% <span className="text-sm font-normal">if sold at peak</span>
                     </div>
                     <div className="text-xs text-green-500 mt-0.5">
-                      {(portfolioData.summary.maxReturnPct ?? 0) >= 0 ? "+" : ""}{(portfolioData.summary.maxReturnPct ?? 0).toFixed(1)}% if sold at peak
+                      {(portfolioData.summary.maxReturnUsd ?? 0) >= 0 ? "+" : ""}${(portfolioData.summary.maxReturnUsd ?? 0).toFixed(2)}
                     </div>
                   </>
                 ) : (
@@ -211,7 +216,7 @@ export default function PerformancePage() {
                       </button>
                     </div>
                   </div>
-                  <PortfolioChart history={displayHistory} />
+                  <PortfolioChart history={displayHistory} costBasis={portfolioData.summary.totalCost} />
                 </div>
               );
             })() : (

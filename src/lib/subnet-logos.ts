@@ -50,6 +50,7 @@ export const SUBNET_LOGOS: Record<number, string> = {
   57: "https://i.imgur.com/HbfFUqo.jpeg",
   58: "https://github.com/Handshake58/HS58/blob/main/HS58.png?raw=true",
   59: "https://babelbit.ai/babelbit-tower-logo-rev-no-text.png",
+  61: "/subnets/sn61-redteam.jpg",
   62: "https://www.ridges.ai/logo.png",
   63: "https://www.qbittensorlabs.com/quantum-subnet-icon-white.png",
   64: "https://storage.googleapis.com/chutes-random/logo-chutes.png",
