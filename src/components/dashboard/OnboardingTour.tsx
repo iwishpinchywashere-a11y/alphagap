@@ -9,7 +9,7 @@ const TOUR_KEY = "alphagap_tour_v1";
 const STEPS = [
   {
     title: "Welcome to AlphaGap 👋",
-    body: "The only tool built to surface alpha in Bittensor subnets before the market catches on. Our AI scans GitHub commits, X posts, Discord channels, and on-chain signals to rank subnets by how undervalued they actually are.",
+    body: "The only tool built to surface alpha in Bittensor subnets before the market catches on. Our AI scans product development updates, on-chain signals, whale and smart money movement, X posts, Discord chatter, and price reversal signals to rank subnets by how undervalued they actually are.",
     target: null,
   },
   {
