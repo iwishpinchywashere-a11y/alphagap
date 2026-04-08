@@ -64,8 +64,13 @@ export async function POST() {
         cancel_at_period_end: true,
       });
     } catch (stripeErr: any) {
+      const msg: string = stripeErr?.message ?? "";
+      // Already fully canceled — nothing to do
+      if (msg.includes("canceled subscription")) {
+        return NextResponse.json({ error: "Your subscription has already been canceled" }, { status: 400 });
+      }
       // Stored subscription ID is stale — do a fresh lookup and retry once
-      console.error("[stripe/cancel] update failed for stored ID, retrying with fresh lookup:", stripeErr?.message);
+      console.error("[stripe/cancel] update failed for stored ID, retrying with fresh lookup:", msg);
       subscriptionId = await lookupFromStripe();
       if (!subscriptionId) {
         return NextResponse.json({ error: "No active subscription found" }, { status: 404 });
