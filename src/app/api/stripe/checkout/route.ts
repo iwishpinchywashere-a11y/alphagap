@@ -53,31 +53,32 @@ export async function POST(req: Request) {
           return NextResponse.json({ url: `${baseUrl}/dashboard?welcome=true` });
         }
 
-        // Upgrading (e.g. Pro → Premium): create a new Checkout Session.
-        // Store the old subscription ID in metadata so the webhook can cancel it
-        // immediately after payment is confirmed — prevents two active subs.
-        const previousSubscriptionId = user.stripeSubscriptionId;
-        const upgradeSession = await stripe.checkout.sessions.create({
-          customer: customerId,
-          mode: "subscription",
-          line_items: [{
-            price_data: {
-              currency: plan.currency,
-              product_data: { name: plan.name, description: plan.description },
-              recurring: { interval: plan.interval },
-              unit_amount: plan.amount,
-            },
-            quantity: 1,
-          }],
-          success_url: `${baseUrl}/api/payment-success?session_id={CHECKOUT_SESSION_ID}`,
-          cancel_url: `${baseUrl}/subscribe?canceled=true`,
-          allow_promotion_codes: true,
-          metadata: { previousSubscriptionId },
-          subscription_data: {
-            metadata: { userEmail: user.email, userId: user.id, plan: planKey, previousSubscriptionId },
-          },
+        // Upgrading (e.g. Pro → Premium): update the existing subscription in-place.
+        // This charges ONLY the prorated difference to the card on file — no new checkout.
+        // Stripe generates an immediate invoice for (premium_price - unused_pro_credit).
+        const existingItemId = sub.items.data[0]?.id;
+        if (!existingItemId) {
+          return NextResponse.json({ error: "Cannot find subscription item to upgrade" }, { status: 500 });
+        }
+
+        // subscriptions.update() requires a Price ID (not inline price_data),
+        // so we create a one-off Price object for this upgrade.
+        const upgradePrice = await stripe.prices.create({
+          unit_amount: plan.amount,
+          currency: plan.currency,
+          recurring: { interval: plan.interval },
+          product_data: { name: plan.name },
+          metadata: { plan: planKey },
         });
-        return NextResponse.json({ url: upgradeSession.url });
+
+        await stripe.subscriptions.update(user.stripeSubscriptionId!, {
+          items: [{ id: existingItemId, price: upgradePrice.id }],
+          proration_behavior: "always_invoice",  // charge prorated diff immediately
+          metadata: { plan: planKey, userEmail: user.email, userId: user.id },
+        });
+
+        // Redirect to upgrade-success which mints a fresh JWT with the new tier
+        return NextResponse.json({ url: `${baseUrl}/api/stripe/upgrade-success?plan=${planKey}` });
       }
     }
 

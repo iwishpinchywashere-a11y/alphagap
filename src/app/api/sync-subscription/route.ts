@@ -47,8 +47,13 @@ export async function POST() {
       return NextResponse.json({ status: "no_user" });
     }
 
-    // If already active/trialing, nothing to do
-    if (user.subscriptionStatus === "active" || user.subscriptionStatus === "trialing") {
+    // If already active/trialing at the expected tier, nothing to do.
+    // But don't early-exit during an upgrade — the blob tier may have just changed.
+    const sessionTier = session?.user?.subscriptionTier;
+    if (
+      (user.subscriptionStatus === "active" || user.subscriptionStatus === "trialing") &&
+      user.subscriptionTier === sessionTier
+    ) {
       return NextResponse.json({ status: user.subscriptionStatus, tier: user.subscriptionTier });
     }
 
