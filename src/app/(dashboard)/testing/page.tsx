@@ -1030,11 +1030,6 @@ export default function TestingPage() {
   const tier = getTier(session);
   const [autopsies, setAutopsies] = useState<Autopsy[]>([]);
   const [autoDetected, setAutoDetected] = useState<TrackedPumper[]>([]);
-  const [addModal, setAddModal] = useState(false);
-  const [addName, setAddName] = useState("");
-  const [addNetuid, setAddNetuid] = useState("");
-  const [addReason, setAddReason] = useState("");
-  const [saving, setSaving] = useState(false);
   const loadedRef = useRef(false);
 
   // Match a tracked pumper to a subnet in the leaderboard by name
@@ -1231,20 +1226,6 @@ export default function TestingPage() {
     setAutopsies((prev) => prev.filter((a) => a.pumper.name !== name));
   }
 
-  async function handleAddNew(name: string, netuid?: number, reason?: string) {
-    setSaving(true);
-    try {
-      await fetch("/api/testing", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, netuid: netuid ?? null, reason }),
-      });
-      // Reload page to pick up new entry
-      window.location.reload();
-    } finally {
-      setSaving(false);
-    }
-  }
 
   const loading = autopsies.some((a) => a.loading);
 
@@ -1308,16 +1289,6 @@ export default function TestingPage() {
           ))}
         </div>
 
-        {/* Add new button */}
-        <div className="flex justify-end">
-          <button
-            onClick={() => setAddModal(true)}
-            className="text-sm bg-blue-800/30 hover:bg-blue-800/50 border border-blue-700/40 text-blue-300 rounded-lg px-4 py-2 transition-colors"
-          >
-            + Add Pumper
-          </button>
-        </div>
-
         {/* Autopsy cards */}
         <div className="space-y-4">
           {autopsies.map((a) => (
@@ -1328,68 +1299,9 @@ export default function TestingPage() {
             />
           ))}
           {autopsies.length === 0 && !loading && (
-            <div className="text-center py-12 text-gray-600">No tracked pumpers yet. Add some above.</div>
+            <div className="text-center py-12 text-gray-600">No pumpers tracked yet.</div>
           )}
         </div>
-
-        {/* Add modal */}
-        {addModal && (
-          <div
-            className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4"
-            onClick={() => setAddModal(false)}
-          >
-            <div
-              className="bg-gray-900 border border-gray-700 rounded-2xl p-6 w-full max-w-md space-y-4"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <h2 className="text-lg font-bold text-white">Track a New Pumper</h2>
-              <div className="space-y-3">
-                <div>
-                  <label className="text-xs text-gray-400 block mb-1">Subnet Name *</label>
-                  <input
-                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500"
-                    placeholder="e.g. Apex"
-                    value={addName}
-                    onChange={(e) => setAddName(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <label className="text-xs text-gray-400 block mb-1">Netuid (optional)</label>
-                  <input
-                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500"
-                    placeholder="e.g. 42"
-                    value={addNetuid}
-                    onChange={(e) => setAddNetuid(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <label className="text-xs text-gray-400 block mb-1">Reason / Notes</label>
-                  <input
-                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500"
-                    placeholder="e.g. +87% 7D pump on Apr 5"
-                    value={addReason}
-                    onChange={(e) => setAddReason(e.target.value)}
-                  />
-                </div>
-              </div>
-              <div className="flex gap-3 pt-2">
-                <button
-                  className="flex-1 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg py-2 text-sm transition-colors"
-                  onClick={() => setAddModal(false)}
-                >
-                  Cancel
-                </button>
-                <button
-                  className="flex-1 bg-blue-700 hover:bg-blue-600 text-white rounded-lg py-2 text-sm font-medium transition-colors disabled:opacity-50"
-                  disabled={!addName || saving}
-                  onClick={() => handleAddNew(addName, addNetuid ? parseInt(addNetuid) : undefined, addReason)}
-                >
-                  {saving ? "Adding…" : "Track It"}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
       </BlurGate>
     </div>
