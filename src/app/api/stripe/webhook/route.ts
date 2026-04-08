@@ -38,7 +38,12 @@ export async function POST(req: Request) {
     switch (event.type) {
       case "customer.subscription.created":
       case "customer.subscription.updated": {
-        const sub = event.data.object as Stripe.Subscription;
+        const subRaw = event.data.object as Stripe.Subscription;
+        // Re-retrieve with expanded items so price.unit_amount is available.
+        // Webhook event objects don't expand nested objects by default.
+        const sub = await getStripe().subscriptions.retrieve(subRaw.id, {
+          expand: ["items.data.price"],
+        }).catch(() => subRaw);
         const user = await getUserByStripeCustomerId(sub.customer as string);
         if (user) {
           // Don't let an old subscription's event downgrade an already-active user.
@@ -103,7 +108,7 @@ export async function POST(req: Request) {
       case "checkout.session.completed": {
         const checkoutSession = event.data.object as Stripe.Checkout.Session;
         if (checkoutSession.mode === "subscription" && checkoutSession.subscription) {
-          const sub = await getStripe().subscriptions.retrieve(checkoutSession.subscription as string);
+          const sub = await getStripe().subscriptions.retrieve(checkoutSession.subscription as string, { expand: ["items.data.price"] });
           const customerId = sub.customer as string;
           const user = await getUserByStripeCustomerId(customerId);
           if (user) {
