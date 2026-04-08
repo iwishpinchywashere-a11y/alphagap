@@ -80,6 +80,8 @@ export async function updateUser(email: string, updates: Partial<User>): Promise
   const updated = { ...existing, ...updates };
   const hash = emailHash(email);
   await writeBlob(`users/${hash}.json`, updated);
+  // Always upsert into the admin list — self-heals any missing entry from signup race conditions
+  await addToUserList(updated);
   return updated;
 }
 
