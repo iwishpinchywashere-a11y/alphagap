@@ -146,6 +146,7 @@ export async function PATCH(req: Request) {
       buyAGapScore?: number;
       buyPriceUsd?: number;
       buyDate?: string;
+      peakPrice?: number;
     };
 
     // Batch remove: { netuids: [3, 4, 15, ...], remove: true }
@@ -179,6 +180,7 @@ export async function PATCH(req: Request) {
       portfolio.positions[idx].alphaTokens = portfolio.positions[idx].amountUsd / body.buyPriceUsd;
     }
     if (body.buyDate !== undefined) portfolio.positions[idx].buyDate = body.buyDate;
+    if (body.peakPrice !== undefined) portfolio.positions[idx].peakPrice = body.peakPrice;
     await put("portfolio.json", JSON.stringify(portfolio), {
       access: "private", addRandomSuffix: false, allowOverwrite: true, contentType: "application/json",
     });

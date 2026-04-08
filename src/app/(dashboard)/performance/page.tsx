@@ -124,10 +124,10 @@ export default function PerformancePage() {
               </div>
               <div className="bg-gray-900/70 border border-gray-800 rounded-xl p-4">
                 <div className="text-xs text-gray-500 mb-1">Total Return</div>
-                <div className={`text-2xl font-bold ${portfolioData.summary.totalPnlUsd >= 0 ? "text-green-400" : "text-red-400"}`}>
+                <div className={`text-2xl font-bold ${portfolioData.summary.totalPnlUsd >= 0 ? "text-yellow-400" : "text-red-400"}`}>
                   {portfolioData.summary.totalPnlUsd >= 0 ? "+" : ""}${portfolioData.summary.totalPnlUsd.toFixed(2)}
                 </div>
-                <div className={`text-xs mt-0.5 ${portfolioData.summary.totalPnlPct >= 0 ? "text-green-500" : "text-red-500"}`}>
+                <div className={`text-xs mt-0.5 ${portfolioData.summary.totalPnlPct >= 0 ? "text-yellow-500" : "text-red-500"}`}>
                   {portfolioData.summary.totalPnlPct >= 0 ? "+" : ""}{portfolioData.summary.totalPnlPct.toFixed(1)}% all-time
                 </div>
               </div>
@@ -137,18 +137,13 @@ export default function PerformancePage() {
                 <div className="text-xs text-gray-600 mt-0.5">{portfolioData.summary.positionCount} positions × $100</div>
               </div>
               <div className="bg-gray-900/70 border border-gray-800 rounded-xl p-4">
-                <div className="text-xs text-gray-500 mb-1">Buy Signal</div>
-                <div className="text-2xl font-bold text-green-400">aGap ≥ 80</div>
-                <div className="text-xs text-gray-600 mt-0.5">auto-tracked</div>
-              </div>
-              <div className="bg-gray-900/70 border border-gray-800 rounded-xl p-4">
                 <div className="text-xs text-gray-500 mb-1">Max Return</div>
                 {portfolioData.summary.maxReturnUsd != null ? (
                   <>
-                    <div className="text-2xl font-bold text-yellow-400">
+                    <div className="text-2xl font-bold text-green-400">
                       {(portfolioData.summary.maxReturnUsd ?? 0) >= 0 ? "+" : ""}${(portfolioData.summary.maxReturnUsd ?? 0).toFixed(2)}
                     </div>
-                    <div className="text-xs text-yellow-500 mt-0.5">
+                    <div className="text-xs text-green-500 mt-0.5">
                       {(portfolioData.summary.maxReturnPct ?? 0) >= 0 ? "+" : ""}{(portfolioData.summary.maxReturnPct ?? 0).toFixed(1)}% if sold at peak
                     </div>
                   </>
@@ -224,20 +219,20 @@ export default function PerformancePage() {
                           </span>
                         </td>
                         <td className="text-right px-3 py-3">
-                          <div className={`font-semibold ${pos.totalPnlUsd >= 0 ? "text-green-400" : "text-red-400"}`}>
+                          <div className={`font-semibold ${pos.totalPnlUsd >= 0 ? "text-yellow-400" : "text-red-400"}`}>
                             {pos.totalPnlUsd >= 0 ? "+" : ""}${pos.totalPnlUsd.toFixed(2)}
                           </div>
-                          <div className={`text-xs ${pos.totalPnlPct >= 0 ? "text-green-500" : "text-red-500"}`}>
+                          <div className={`text-xs ${pos.totalPnlPct >= 0 ? "text-yellow-500" : "text-red-500"}`}>
                             {pos.totalPnlPct >= 0 ? "+" : ""}{pos.totalPnlPct.toFixed(1)}%
                           </div>
                         </td>
                         <td className="text-right px-5 py-3">
                           {pos.maxPnlUsd != null ? (
                             <>
-                              <div className="font-semibold text-yellow-400">
+                              <div className="font-semibold text-green-400">
                                 {(pos.maxPnlUsd ?? 0) >= 0 ? "+" : ""}${(pos.maxPnlUsd ?? 0).toFixed(2)}
                               </div>
-                              <div className="text-xs text-yellow-500">
+                              <div className="text-xs text-green-500">
                                 {(pos.maxPnlPct ?? 0) >= 0 ? "+" : ""}{(pos.maxPnlPct ?? 0).toFixed(1)}%
                               </div>
                             </>
@@ -253,7 +248,7 @@ export default function PerformancePage() {
                       <td className="px-5 py-3 text-gray-400" colSpan={6}>Total</td>
                       <td className="text-right px-3 py-3">${portfolioData.summary.totalValue.toFixed(2)}</td>
                       <td className="text-right px-3 py-3 text-gray-500">—</td>
-                      <td className={`text-right px-3 py-3 ${portfolioData.summary.totalPnlUsd >= 0 ? "text-green-400" : "text-red-400"}`}>
+                      <td className={`text-right px-3 py-3 ${portfolioData.summary.totalPnlUsd >= 0 ? "text-yellow-400" : "text-red-400"}`}>
                         {portfolioData.summary.totalPnlUsd >= 0 ? "+" : ""}${portfolioData.summary.totalPnlUsd.toFixed(2)}
                         <div className="text-xs font-normal">
                           ({portfolioData.summary.totalPnlPct >= 0 ? "+" : ""}{portfolioData.summary.totalPnlPct.toFixed(1)}%)
@@ -261,7 +256,7 @@ export default function PerformancePage() {
                       </td>
                       <td className="text-right px-5 py-3">
                         {portfolioData.summary.maxReturnUsd != null ? (
-                          <span className="text-yellow-400">
+                          <span className="text-green-400">
                             {(portfolioData.summary.maxReturnUsd ?? 0) >= 0 ? "+" : ""}${(portfolioData.summary.maxReturnUsd ?? 0).toFixed(2)}
                             <div className="text-xs font-normal">
                               ({(portfolioData.summary.maxReturnPct ?? 0) >= 0 ? "+" : ""}{(portfolioData.summary.maxReturnPct ?? 0).toFixed(1)}%)
