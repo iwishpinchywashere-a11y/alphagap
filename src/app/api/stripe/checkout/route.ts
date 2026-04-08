@@ -25,22 +25,35 @@ export async function POST(req: Request) {
 
     const baseUrl = process.env.NEXTAUTH_URL || "https://alphagap.vercel.app";
 
-    // Reuse existing Stripe customer or create new one
+    // Resolve Stripe customer — check blob first, then search Stripe by email,
+    // only create a new customer as a last resort. This prevents a new empty
+    // customer being created when the blob hasn't propagated yet after signup.
     let customerId = user.stripeCustomerId;
     if (!customerId) {
-      const customer = await stripe.customers.create({
-        email: user.email,
-        name: user.name,
-        metadata: { userId: user.id },
-      });
-      customerId = customer.id;
-      await setStripeCustomerLookup(user.email, customerId);
-      await updateUser(user.email, { stripeCustomerId: customerId });
+      const existing = await stripe.customers.list({ email: user.email, limit: 5 }).catch(() => null);
+      customerId = existing?.data[0]?.id ?? null;
+      if (customerId) {
+        // Found one — persist it so future calls skip the lookup
+        await Promise.all([
+          setStripeCustomerLookup(user.email, customerId),
+          updateUser(user.email, { stripeCustomerId: customerId }),
+        ]).catch(() => {});
+      } else {
+        // Truly new user — create customer
+        const customer = await stripe.customers.create({
+          email: user.email,
+          name: user.name,
+          metadata: { userId: user.id },
+        });
+        customerId = customer.id;
+        await setStripeCustomerLookup(user.email, customerId);
+        await updateUser(user.email, { stripeCustomerId: customerId });
+      }
     }
 
-    // Check for existing active subscription.
-    // First try the stored sub ID; fallback to listing from Stripe in case the blob
-    // hasn't propagated yet (Vercel Blob eventual-consistency race on fast upgrades).
+    // Find any existing active subscription — try stored ID first, then list all
+    // for this customer. The Stripe list is the source of truth and handles blob
+    // propagation lag (user just subscribed and blob hasn't updated yet).
     let activeSub = null;
     if (user.stripeSubscriptionId) {
       activeSub = await stripe.subscriptions.retrieve(user.stripeSubscriptionId, {
@@ -48,14 +61,19 @@ export async function POST(req: Request) {
       }).catch(() => null);
       if (activeSub?.status !== "active" && activeSub?.status !== "trialing") activeSub = null;
     }
-    if (!activeSub && customerId) {
-      const listed = await stripe.subscriptions.list({
-        customer: customerId,
-        status: "active",
-        limit: 5,
-        expand: ["data.items.data.price"],
-      }).catch(() => null);
-      activeSub = listed?.data[0] ?? null;
+    if (!activeSub) {
+      // Search ALL customers for this email in case customer ID itself is stale
+      const customers = await stripe.customers.list({ email: user.email, limit: 5 }).catch(() => null);
+      for (const cust of customers?.data ?? []) {
+        const listed = await stripe.subscriptions.list({
+          customer: cust.id,
+          status: "active",
+          limit: 5,
+          expand: ["data.items.data.price"],
+        }).catch(() => null);
+        activeSub = listed?.data[0] ?? null;
+        if (activeSub) { customerId = cust.id; break; }
+      }
     }
 
     if (activeSub) {
