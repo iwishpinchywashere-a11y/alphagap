@@ -76,6 +76,30 @@ export default function PerformancePage() {
   const [portfolioData, setPortfolioData] = useState<PortfolioData | null>(null);
   const [portfolioLoading, setPortfolioLoading] = useState(true);
   const [chartView, setChartView] = useState<"current" | "max">("current");
+  type SortKey = "totalPnl" | "maxPnl" | "agap" | "bought" | "buyPrice" | "currentPrice" | "maxPrice" | "value" | "change24h";
+  const [sortKey, setSortKey] = useState<SortKey>("totalPnl");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+
+  function handleSort(key: SortKey) {
+    if (sortKey === key) setSortDir(d => d === "desc" ? "asc" : "desc");
+    else { setSortKey(key); setSortDir("desc"); }
+  }
+
+  function sortedPositions(positions: PortfolioData["positions"]) {
+    return [...positions].sort((a, b) => {
+      let av = 0, bv = 0;
+      if (sortKey === "totalPnl")     { av = a.totalPnlUsd;  bv = b.totalPnlUsd; }
+      if (sortKey === "maxPnl")       { av = a.maxPnlUsd ?? -Infinity; bv = b.maxPnlUsd ?? -Infinity; }
+      if (sortKey === "agap")         { av = a.buyAGapScore; bv = b.buyAGapScore; }
+      if (sortKey === "bought")       { av = new Date(a.buyDate).getTime(); bv = new Date(b.buyDate).getTime(); }
+      if (sortKey === "buyPrice")     { av = a.buyPriceUsd;  bv = b.buyPriceUsd; }
+      if (sortKey === "currentPrice") { av = a.currentPrice; bv = b.currentPrice; }
+      if (sortKey === "maxPrice")     { av = (a as any).manualPeakPrice ?? a.peakPrice ?? 0; bv = (b as any).manualPeakPrice ?? b.peakPrice ?? 0; }
+      if (sortKey === "value")        { av = a.currentValue; bv = b.currentValue; }
+      if (sortKey === "change24h")    { av = a.change24h;    bv = b.change24h; }
+      return sortDir === "desc" ? bv - av : av - bv;
+    });
+  }
 
   useEffect(() => {
     setPortfolioLoading(true);
@@ -208,19 +232,20 @@ export default function PerformancePage() {
                   <thead>
                     <tr className="text-xs text-gray-500 uppercase border-b border-gray-800/60">
                       <th className="text-left px-5 py-3">Subnet</th>
-                      <th className="text-right px-3 py-3">Total P&L</th>
-                      <th className="text-right px-3 py-3">Max P&L</th>
-                      <th className="text-right px-3 py-3">aGap</th>
-                      <th className="text-right px-3 py-3">Bought</th>
-                      <th className="text-right px-3 py-3">Buy Price</th>
-                      <th className="text-right px-3 py-3">Current</th>
-                      <th className="text-right px-3 py-3">Max Price</th>
-                      <th className="text-right px-3 py-3">Value</th>
-                      <th className="text-right px-5 py-3">24h P&L</th>
+                      {(["totalPnl","maxPnl","agap","bought","buyPrice","currentPrice","maxPrice","value","change24h"] as SortKey[]).map((key, i) => {
+                        const labels: Record<SortKey, string> = { totalPnl:"Total P&L", maxPnl:"Max P&L", agap:"aGap", bought:"Bought", buyPrice:"Buy Price", currentPrice:"Current", maxPrice:"Max Price", value:"Value", change24h:"24h P&L" };
+                        const active = sortKey === key;
+                        const isLast = i === 8;
+                        return (
+                          <th key={key} onClick={() => handleSort(key)} className={`text-right ${isLast ? "px-5" : "px-3"} py-3 cursor-pointer select-none whitespace-nowrap hover:text-gray-300 transition-colors ${active ? "text-white" : ""}`}>
+                            {labels[key]}{active ? (sortDir === "desc" ? " ↓" : " ↑") : ""}
+                          </th>
+                        );
+                      })}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-800/40">
-                    {portfolioData.positions.map((pos) => (
+                    {sortedPositions(portfolioData.positions).map((pos) => (
                       <tr key={pos.netuid} className="hover:bg-gray-800/30 transition-colors">
                         <td className="px-5 py-3">
                           <div className="font-medium text-white">{pos.name}</div>
