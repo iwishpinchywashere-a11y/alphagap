@@ -119,6 +119,18 @@ export async function POST(req: Request) {
               subscriptionPeriodEnd: periodEnd,
             });
             await updateUserListEntry(user.email, { subscriptionStatus: status });
+
+            // Cancel the previous subscription if this was an upgrade
+            // The old sub ID is stored in the checkout session metadata
+            const prevSubId = checkoutSession.metadata?.previousSubscriptionId
+              || sub.metadata?.previousSubscriptionId;
+            if (prevSubId && prevSubId !== sub.id) {
+              await getStripe().subscriptions.cancel(prevSubId).catch((e) =>
+                console.error(`[webhook] Failed to cancel old sub ${prevSubId}:`, e)
+              );
+              console.log(`[webhook] Cancelled old sub ${prevSubId} after upgrade for ${user.email}`);
+            }
+
             // Send subscription confirmation email
             sendSubscriptionConfirmationEmail(
               user.name,

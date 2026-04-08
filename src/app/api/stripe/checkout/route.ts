@@ -53,8 +53,10 @@ export async function POST(req: Request) {
           return NextResponse.json({ url: `${baseUrl}/dashboard?welcome=true` });
         }
 
-        // Upgrading (e.g. Pro → Premium): create a new Checkout Session in subscription mode
-        // Stripe will handle proration automatically when the customer has an existing subscription
+        // Upgrading (e.g. Pro → Premium): create a new Checkout Session.
+        // Store the old subscription ID in metadata so the webhook can cancel it
+        // immediately after payment is confirmed — prevents two active subs.
+        const previousSubscriptionId = user.stripeSubscriptionId;
         const upgradeSession = await stripe.checkout.sessions.create({
           customer: customerId,
           mode: "subscription",
@@ -70,8 +72,9 @@ export async function POST(req: Request) {
           success_url: `${baseUrl}/api/payment-success?session_id={CHECKOUT_SESSION_ID}`,
           cancel_url: `${baseUrl}/subscribe?canceled=true`,
           allow_promotion_codes: true,
+          metadata: { previousSubscriptionId },
           subscription_data: {
-            metadata: { userEmail: user.email, userId: user.id, plan: planKey },
+            metadata: { userEmail: user.email, userId: user.id, plan: planKey, previousSubscriptionId },
           },
         });
         return NextResponse.json({ url: upgradeSession.url });
