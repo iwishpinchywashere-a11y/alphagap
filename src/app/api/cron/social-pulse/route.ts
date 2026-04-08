@@ -134,7 +134,15 @@ export async function GET(req: Request) {
     seen_ids: [],
     last_pulse: "",
   };
-  const seenIds = new Set<string>(existing.seen_ids ?? []);
+  // Only keep seen_ids that are still in active events (same 72h window).
+  // Tweets that have aged out of events should be re-discoverable so fresh
+  // runs can pick up any new activity from the same tweet_id.
+  const activeEventTweetIds = new Set(
+    (existing.events ?? []).map(e => e.tweet_id.split("_")[0]) // strip _netuid suffix
+  );
+  const seenIds = new Set<string>(
+    (existing.seen_ids ?? []).filter(id => activeEventTweetIds.has(id))
+  );
 
   // ── Build subnet identity lookup ─────────────────────────────────
   const identities = await getSubnetIdentities().catch(() => []);
@@ -265,19 +273,27 @@ export async function GET(req: Request) {
     kols.map(kol => fetchKolTimeline(kol.handle).then(tweets => ({ kol, tweets })))
   );
 
-  // ── Also run a quick "latest bittensor" search for non-KOL viral tweets ──
+  // ── Also run broad Bittensor searches to catch fresh tweets ────────
   let searchTweets: DesearchTweet[] = [];
+  const searchQueries = [
+    "bittensor subnet",
+    "$TAO subnet",
+    "tao alpha subnet",
+  ];
   try {
-    const res = await fetch(
-      `https://api.desearch.ai/twitter?query=${encodeURIComponent("bittensor subnet")}&sort=Latest&count=50&lang=en`,
-      {
-        headers: { Authorization: DESEARCH_KEY },
-        signal: AbortSignal.timeout(10000),
-      }
+    const searchResults = await Promise.allSettled(
+      searchQueries.map(q =>
+        fetch(
+          `https://api.desearch.ai/twitter?query=${encodeURIComponent(q)}&sort=Latest&count=30&lang=en`,
+          { headers: { Authorization: DESEARCH_KEY }, signal: AbortSignal.timeout(10000) }
+        ).then(r => r.ok ? r.json() : null)
+      )
     );
-    if (res.ok) {
-      const data = await res.json();
-      searchTweets = Array.isArray(data) ? data : (data.results || data.tweets || []);
+    for (const r of searchResults) {
+      if (r.status === "fulfilled" && r.value) {
+        const tweets = Array.isArray(r.value) ? r.value : (r.value.results || r.value.tweets || []);
+        searchTweets.push(...tweets);
+      }
     }
   } catch { /* best effort */ }
 
