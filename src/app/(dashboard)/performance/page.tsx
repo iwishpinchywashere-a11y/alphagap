@@ -208,15 +208,15 @@ export default function PerformancePage() {
                   <thead>
                     <tr className="text-xs text-gray-500 uppercase border-b border-gray-800/60">
                       <th className="text-left px-5 py-3">Subnet</th>
+                      <th className="text-right px-3 py-3">Total P&L</th>
+                      <th className="text-right px-3 py-3">Max P&L</th>
                       <th className="text-right px-3 py-3">aGap</th>
                       <th className="text-right px-3 py-3">Bought</th>
                       <th className="text-right px-3 py-3">Buy Price</th>
                       <th className="text-right px-3 py-3">Current</th>
                       <th className="text-right px-3 py-3">Max Price</th>
                       <th className="text-right px-3 py-3">Value</th>
-                      <th className="text-right px-3 py-3">24h P&L</th>
-                      <th className="text-right px-3 py-3">Total P&L</th>
-                      <th className="text-right px-5 py-3">Max P&L</th>
+                      <th className="text-right px-5 py-3">24h P&L</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-800/40">
@@ -225,6 +225,28 @@ export default function PerformancePage() {
                         <td className="px-5 py-3">
                           <div className="font-medium text-white">{pos.name}</div>
                           <div className="text-xs text-gray-500">SN{pos.netuid}</div>
+                        </td>
+                        <td className="text-right px-3 py-3">
+                          <div className={`font-semibold ${pos.totalPnlUsd >= 0 ? "text-yellow-400" : "text-red-400"}`}>
+                            {pos.totalPnlUsd >= 0 ? "+" : ""}${pos.totalPnlUsd.toFixed(2)}
+                          </div>
+                          <div className={`text-xs ${pos.totalPnlPct >= 0 ? "text-yellow-500" : "text-red-500"}`}>
+                            {pos.totalPnlPct >= 0 ? "+" : ""}{pos.totalPnlPct.toFixed(1)}%
+                          </div>
+                        </td>
+                        <td className="text-right px-3 py-3">
+                          {pos.maxPnlUsd != null ? (
+                            <>
+                              <div className="font-semibold text-green-400">
+                                {(pos.maxPnlUsd ?? 0) >= 0 ? "+" : ""}${(pos.maxPnlUsd ?? 0).toFixed(2)}
+                              </div>
+                              <div className="text-xs text-green-500">
+                                {(pos.maxPnlPct ?? 0) >= 0 ? "+" : ""}{(pos.maxPnlPct ?? 0).toFixed(1)}%
+                              </div>
+                            </>
+                          ) : (
+                            <span className="text-gray-600 text-xs">—</span>
+                          )}
                         </td>
                         <td className="text-right px-3 py-3">
                           <span className="text-green-400 font-semibold">{pos.buyAGapScore}</span>
@@ -244,48 +266,24 @@ export default function PerformancePage() {
                           {pos.peakPrice != null ? `$${pos.peakPrice < 0.01 ? pos.peakPrice.toFixed(5) : pos.peakPrice.toFixed(4)}` : "—"}
                         </td>
                         <td className="text-right px-3 py-3 font-semibold">${pos.currentValue.toFixed(2)}</td>
-                        <td className="text-right px-3 py-3">
+                        <td className="text-right px-5 py-3">
                           <span className={pos.pnl24hUsd >= 0 ? "text-green-400" : "text-red-400"}>
                             {pos.change24h >= 0 ? "+" : ""}{pos.change24h.toFixed(1)}%
                           </span>
-                        </td>
-                        <td className="text-right px-3 py-3">
-                          <div className={`font-semibold ${pos.totalPnlUsd >= 0 ? "text-yellow-400" : "text-red-400"}`}>
-                            {pos.totalPnlUsd >= 0 ? "+" : ""}${pos.totalPnlUsd.toFixed(2)}
-                          </div>
-                          <div className={`text-xs ${pos.totalPnlPct >= 0 ? "text-yellow-500" : "text-red-500"}`}>
-                            {pos.totalPnlPct >= 0 ? "+" : ""}{pos.totalPnlPct.toFixed(1)}%
-                          </div>
-                        </td>
-                        <td className="text-right px-5 py-3">
-                          {pos.maxPnlUsd != null ? (
-                            <>
-                              <div className="font-semibold text-green-400">
-                                {(pos.maxPnlUsd ?? 0) >= 0 ? "+" : ""}${(pos.maxPnlUsd ?? 0).toFixed(2)}
-                              </div>
-                              <div className="text-xs text-green-500">
-                                {(pos.maxPnlPct ?? 0) >= 0 ? "+" : ""}{(pos.maxPnlPct ?? 0).toFixed(1)}%
-                              </div>
-                            </>
-                          ) : (
-                            <span className="text-gray-600 text-xs">—</span>
-                          )}
                         </td>
                       </tr>
                     ))}
                   </tbody>
                   <tfoot className="border-t border-gray-700">
                     <tr className="text-sm font-semibold">
-                      <td className="px-5 py-3 text-gray-400" colSpan={6}>Total</td>
-                      <td className="text-right px-3 py-3">${portfolioData.summary.totalValue.toFixed(2)}</td>
-                      <td className="text-right px-3 py-3 text-gray-500">—</td>
+                      <td className="px-5 py-3 text-gray-400">Total</td>
                       <td className={`text-right px-3 py-3 ${portfolioData.summary.totalPnlUsd >= 0 ? "text-yellow-400" : "text-red-400"}`}>
                         {portfolioData.summary.totalPnlUsd >= 0 ? "+" : ""}${portfolioData.summary.totalPnlUsd.toFixed(2)}
                         <div className="text-xs font-normal">
                           ({portfolioData.summary.totalPnlPct >= 0 ? "+" : ""}{portfolioData.summary.totalPnlPct.toFixed(1)}%)
                         </div>
                       </td>
-                      <td className="text-right px-5 py-3">
+                      <td className="text-right px-3 py-3">
                         {portfolioData.summary.maxReturnUsd != null ? (
                           <span className="text-green-400">
                             {(portfolioData.summary.maxReturnUsd ?? 0) >= 0 ? "+" : ""}${(portfolioData.summary.maxReturnUsd ?? 0).toFixed(2)}
@@ -297,6 +295,9 @@ export default function PerformancePage() {
                           <span className="text-gray-600">—</span>
                         )}
                       </td>
+                      <td className="text-right px-3 py-3 text-gray-500" colSpan={5}>—</td>
+                      <td className="text-right px-3 py-3">${portfolioData.summary.totalValue.toFixed(2)}</td>
+                      <td className="text-right px-5 py-3 text-gray-500">—</td>
                     </tr>
                   </tfoot>
                 </table>
