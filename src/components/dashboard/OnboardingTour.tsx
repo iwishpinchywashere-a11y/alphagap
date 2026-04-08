@@ -44,7 +44,7 @@ const STEPS = [
   },
   {
     title: "📊 Benchmarks",
-    body: "Real performance data comparing Bittensor subnets against AWS, Google Cloud, and OpenAI. Know which ones are genuinely better — not just hyped.",
+    body: "Real performance data comparing Bittensor subnets against centralized competitors like AWS, Google Cloud, and OpenAI, and more. Know which ones are genuinely better — not just hyped.",
     target: "nav-trigger",
     arrow: true,
   },
