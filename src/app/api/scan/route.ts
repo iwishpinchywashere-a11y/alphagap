@@ -2559,7 +2559,14 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
     else if (productScore >= 50 && pch30d <= -25) productVsPriceBonus = Math.round(3 * awarenessRevScale);
 
     const rawAGap = buildingPts + consistentBuilderBonus + devSpikeBonus + priceLag + floorReversalBonus + socialMomentum + evalBoost + evalVsPriceBonus + viability + campaignBoost + whaleBoost + emissionBoost + volBoost + stakingBoost + rootPropBonus + productAGapPts + productAwarenessGap + productVsPriceBonus + momentumBoost + gapClosurePenalty;
-    const clampedRaw = Math.max(1, Math.min(100, Math.round(rawAGap)));
+
+    // SUSTAINED DECLINE CEILING — hard cap on the final score for chronic bleeders.
+    // Reducing individual components (priceLag, evalVsPriceBonus) wasn't enough because
+    // other strong pillars (dev, emissions, staking) can still push the score above 80.
+    // If price is falling across ALL timeframes with no reversal anywhere, the market
+    // has spoken consistently — cap the score so it can't trigger auto-buy signals.
+    const sustainedDeclineCap = deepSustainedDecline ? 65 : sustainedDecline ? 72 : 100;
+    const clampedRaw = Math.max(1, Math.min(sustainedDeclineCap, Math.round(rawAGap)));
     const aGap = smoothAGap(d.netuid, clampedRaw);
 
     // ── INVESTING aGap (PILLAR-CAPPED + REVENUE-ANCHORED formula, v18) ──────────
