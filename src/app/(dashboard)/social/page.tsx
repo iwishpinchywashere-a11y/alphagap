@@ -11,7 +11,8 @@ interface HotTweet {
   tweet_id: string; netuid: number; subnet_name: string;
   kol_handle: string; kol_name: string; kol_weight: number; kol_tier: number;
   kol_followers: number; tweet_text: string; tweet_url: string;
-  engagement: number; heat_score: number; detected_at: string;
+  engagement: number; heat_score: number; momentum_score: number;
+  is_trending_now: boolean; detected_at: string;
   subnet_agap: number | null;
 }
 interface XEntry {
@@ -347,7 +348,7 @@ export default function SocialPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="text-left text-xs text-gray-600 border-b border-gray-800">
-                    <th className="px-4 py-2.5 w-12">Heat</th>
+                    <th className="px-4 py-2.5 w-16">Score</th>
                     <th className="px-4 py-2.5">KOL</th>
                     <th className="px-4 py-2.5">Subnet</th>
                     <th className="px-4 py-2.5 hidden lg:table-cell">Tweet</th>
@@ -358,7 +359,12 @@ export default function SocialPage() {
                 </thead>
                 <tbody>
                   <tr className="border-b border-gray-800/60 hover:bg-gray-800/30 cursor-pointer transition-colors" onClick={() => setExpandedTweet(expandedTweet === t.tweet_id ? null : t.tweet_id)}>
-                    <td className="px-4 py-3"><div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded border text-xs font-bold ${heatColor(t.heat_score)}`}>{t.heat_score}</div></td>
+                    <td className="px-4 py-3">
+                      <div className="flex flex-col items-start gap-0.5">
+                        {t.is_trending_now && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 border border-red-500/40 leading-none">🔴 LIVE</span>}
+                        <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded border text-xs font-bold ${heatColor(t.momentum_score ?? t.heat_score)}`}>{t.momentum_score ?? t.heat_score}</div>
+                      </div>
+                    </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
                         <span className={`text-xs px-1.5 py-0.5 rounded border font-semibold ${tierBadge(t.kol_tier)}`}>{tierLabel(t.kol_tier)}</span>
@@ -398,7 +404,7 @@ export default function SocialPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="text-left text-xs text-gray-600 border-b border-gray-800">
-                    <th className="px-4 py-2.5 w-12">Heat</th>
+                    <th className="px-4 py-2.5 w-16">Score</th>
                     <th className="px-4 py-2.5">KOL</th>
                     <th className="px-4 py-2.5">Subnet</th>
                     <th className="px-4 py-2.5 hidden lg:table-cell">Tweet</th>
@@ -416,10 +422,15 @@ export default function SocialPage() {
                         className="border-b border-gray-800/60 hover:bg-gray-800/30 cursor-pointer transition-colors"
                         onClick={() => setExpandedTweet(isExpanded ? null : t.tweet_id)}
                       >
-                        {/* Heat Score */}
+                        {/* Momentum Score */}
                         <td className="px-4 py-3">
-                          <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded border text-xs font-bold ${heatColor(t.heat_score)}`}>
-                            {t.heat_score}
+                          <div className="flex flex-col items-start gap-0.5">
+                            {t.is_trending_now && (
+                              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 border border-red-500/40 leading-none">🔴 LIVE</span>
+                            )}
+                            <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded border text-xs font-bold ${heatColor(t.momentum_score ?? t.heat_score)}`}>
+                              {t.momentum_score ?? t.heat_score}
+                            </div>
                           </div>
                         </td>
 

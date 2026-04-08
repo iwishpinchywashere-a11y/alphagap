@@ -57,14 +57,30 @@ export async function GET() {
 
   const leaderMap = new Map(leaderboard.map(s => [s.netuid, s]));
 
-  // ── Hot KOL Tweets (top 30 by heat, already sorted in blob) ────────
-  // Enrich with followers from KOL_DATABASE
+  // ── Hot KOL Tweets — ranked by heat × recency decay ─────────────
+  // Raw heat_score only reflects KOL weight + engagement. A 2-day-old tweet
+  // with high engagement should NOT outrank a fresh tweet gaining momentum.
+  // Decay formula: full score for <3h, fading to 15% at 48h.
   const kolMap = new Map(KOL_DATABASE.map(k => [k.handle.toLowerCase(), k]));
-  const hotTweets = hotEvents.slice(0, 30).map(e => ({
-    ...e,
-    kol_followers: kolMap.get(e.kol_handle.toLowerCase())?.followers ?? 0,
-    subnet_agap: leaderMap.get(e.netuid)?.composite_score ?? null,
-  }));
+  const now = Date.now();
+  function recencyDecay(detectedAt: string): number {
+    const ageHours = (now - new Date(detectedAt).getTime()) / 3_600_000;
+    if (ageHours < 3)  return 1.00;  // trending now
+    if (ageHours < 12) return 0.80;  // same day
+    if (ageHours < 24) return 0.60;  // yesterday
+    if (ageHours < 48) return 0.35;  // getting old
+    return 0.15;                      // nearly expired
+  }
+  const hotTweets = hotEvents
+    .map(e => ({
+      ...e,
+      kol_followers: kolMap.get(e.kol_handle.toLowerCase())?.followers ?? 0,
+      subnet_agap: leaderMap.get(e.netuid)?.composite_score ?? null,
+      momentum_score: Math.round(e.heat_score * recencyDecay(e.detected_at)),
+      is_trending_now: (now - new Date(e.detected_at).getTime()) < 6 * 3_600_000,
+    }))
+    .sort((a, b) => b.momentum_score - a.momentum_score)
+    .slice(0, 30);
 
   // ── X/Twitter Leaderboard — top 20 by social_score ──────────────────
   // Attach best heat event per subnet + KOL followers
