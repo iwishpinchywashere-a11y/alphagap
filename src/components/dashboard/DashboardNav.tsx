@@ -40,6 +40,7 @@ export default function DashboardNav() {
     <div ref={menuRef} className="relative border-b border-gray-800">
       {/* Trigger bar */}
       <button
+        data-tour="nav-trigger"
         onClick={() => setOpen(v => !v)}
         className="flex items-center gap-2.5 w-full px-4 py-3 text-left hover:bg-gray-900/40 transition-colors"
       >
