@@ -29,6 +29,7 @@ export interface PortfolioPosition {
   change24h: number;
   pnl24hUsd: number;
   peakPrice?: number;
+  manualPeakPrice?: number;
   maxPnlUsd?: number;
   maxPnlPct?: number;
 }

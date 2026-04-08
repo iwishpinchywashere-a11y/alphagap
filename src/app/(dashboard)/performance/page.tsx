@@ -181,7 +181,7 @@ export default function PerformancePage() {
                       <th className="text-right px-3 py-3">Bought</th>
                       <th className="text-right px-3 py-3">Buy Price</th>
                       <th className="text-right px-3 py-3">Current</th>
-                      <th className="text-right px-3 py-3">Tokens</th>
+                      <th className="text-right px-3 py-3">Max Price</th>
                       <th className="text-right px-3 py-3">Value</th>
                       <th className="text-right px-3 py-3">24h P&L</th>
                       <th className="text-right px-3 py-3">Total P&L</th>
@@ -209,8 +209,8 @@ export default function PerformancePage() {
                             ${pos.currentPrice < 0.01 ? pos.currentPrice.toFixed(5) : pos.currentPrice.toFixed(4)}
                           </span>
                         </td>
-                        <td className="text-right px-3 py-3 text-gray-400 font-mono text-xs">
-                          {pos.alphaTokens >= 1000 ? `${(pos.alphaTokens / 1000).toFixed(1)}K` : pos.alphaTokens.toFixed(1)}
+                        <td className="text-right px-3 py-3 font-mono text-xs text-green-400">
+                          {pos.peakPrice != null ? `$${pos.peakPrice < 0.01 ? pos.peakPrice.toFixed(5) : pos.peakPrice.toFixed(4)}` : "—"}
                         </td>
                         <td className="text-right px-3 py-3 font-semibold">${pos.currentValue.toFixed(2)}</td>
                         <td className="text-right px-3 py-3">

@@ -16,6 +16,7 @@ export interface PortfolioPosition {
   amountUsd: number;      // always $100
   alphaTokens: number;    // amountUsd / buyPriceUsd
   peakPrice?: number;     // highest alpha price seen since buy (updated by scan cron)
+  manualPeakPrice?: number; // manually set peak — never overwritten by scan
 }
 
 export interface PortfolioSnapshot {
@@ -79,8 +80,8 @@ export async function GET() {
       const change24h = live?.change24h ?? 0;
       const pnl24hUsd = currentValue * (change24h / 100);
 
-      // Max P&L: what would the return have been if sold at peak?
-      const peakPrice = pos.peakPrice ?? null;
+      // Max P&L: manualPeakPrice (set via admin PATCH) takes priority over scan-tracked peakPrice
+      const peakPrice = pos.manualPeakPrice ?? pos.peakPrice ?? null;
       const maxPnlUsd = peakPrice != null ? pos.alphaTokens * peakPrice - pos.amountUsd : null;
       const maxPnlPct = peakPrice != null ? ((pos.alphaTokens * peakPrice - pos.amountUsd) / pos.amountUsd) * 100 : null;
 
@@ -147,7 +148,23 @@ export async function PATCH(req: Request) {
       buyPriceUsd?: number;
       buyDate?: string;
       peakPrice?: number;
+      // Batch peak update: { peaks: { "85": 4.87, "11": 5.16, ... } }
+      peaks?: Record<string, number>;
     };
+
+    // Batch peak prices: { peaks: { "85": 4.87, "11": 5.16 } }
+    if (body.peaks) {
+      const portfolio = await loadPortfolio();
+      for (const [netuidStr, price] of Object.entries(body.peaks)) {
+        const netuid = parseInt(netuidStr, 10);
+        const pos = portfolio.positions.find(p => p.netuid === netuid);
+        if (pos) pos.manualPeakPrice = price;
+      }
+      await put("portfolio.json", JSON.stringify(portfolio), {
+        access: "private", addRandomSuffix: false, allowOverwrite: true, contentType: "application/json",
+      });
+      return NextResponse.json({ ok: true, action: "peaks_updated", count: Object.keys(body.peaks).length });
+    }
 
     // Batch remove: { netuids: [3, 4, 15, ...], remove: true }
     if (body.netuids && body.remove) {
@@ -180,7 +197,10 @@ export async function PATCH(req: Request) {
       portfolio.positions[idx].alphaTokens = portfolio.positions[idx].amountUsd / body.buyPriceUsd;
     }
     if (body.buyDate !== undefined) portfolio.positions[idx].buyDate = body.buyDate;
-    if (body.peakPrice !== undefined) portfolio.positions[idx].peakPrice = body.peakPrice;
+    if (body.peakPrice !== undefined) {
+      // Store as manualPeakPrice so the scan cron can never overwrite it
+      portfolio.positions[idx].manualPeakPrice = body.peakPrice;
+    }
     await put("portfolio.json", JSON.stringify(portfolio), {
       access: "private", addRandomSuffix: false, allowOverwrite: true, contentType: "application/json",
     });

@@ -3156,6 +3156,16 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
       }
 
       if (portfolioChanged) {
+        // Re-read blob right before writing to merge any peak prices set
+        // by the PATCH endpoint since we first loaded (prevents race condition
+        // where scan overwrites a manually-patched higher peak price).
+        const freshPortfolio = await loadPortfolio();
+        for (const pos of portfolio.positions) {
+          const fresh = freshPortfolio.positions.find(p => p.netuid === pos.netuid);
+          if (fresh?.peakPrice && (!pos.peakPrice || fresh.peakPrice > pos.peakPrice)) {
+            pos.peakPrice = fresh.peakPrice;
+          }
+        }
         await put("portfolio.json", JSON.stringify(portfolio), {
           access: "private",
           addRandomSuffix: false,
