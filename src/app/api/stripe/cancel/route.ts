@@ -34,12 +34,17 @@ export async function POST() {
         if (!customerIds.includes(c.id)) customerIds.push(c.id);
       }
       for (const custId of customerIds) {
-        for (const st of ["active", "trialing", "past_due"] as const) {
-          const subs = await stripe.subscriptions.list({ customer: custId, status: st, limit: 1 }).catch(() => null);
-          if (subs?.data[0]) return subs.data[0].id;
+        // Use "all" to find any subscription regardless of status
+        const subs = await stripe.subscriptions.list({ customer: custId, status: "all", limit: 10 }).catch(() => null);
+        console.log(`[stripe/cancel] customer ${custId} subs:`, subs?.data.map(s => `${s.id}=${s.status}`).join(", ") || "none");
+        // Prefer active/trialing, fall back to past_due
+        const ranked = ["active", "trialing", "past_due"];
+        for (const st of ranked) {
+          const match = subs?.data.find(s => s.status === st);
+          if (match) return match.id;
         }
       }
-      console.error(`[stripe/cancel] No subscription found for ${email}, customerIds: ${customerIds.join(", ")}`);
+      console.error(`[stripe/cancel] No cancellable subscription found for ${email}, customerIds: ${customerIds.join(", ")}`);
       return undefined;
     }
 
