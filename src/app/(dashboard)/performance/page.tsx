@@ -260,10 +260,10 @@ export default function PerformancePage() {
                           {pos.maxPnlUsd != null ? (
                             <>
                               <div className="font-semibold text-green-400">
-                                {(pos.maxPnlUsd ?? 0) >= 0 ? "+" : ""}${(pos.maxPnlUsd ?? 0).toFixed(2)}
+                                {(pos.maxPnlPct ?? 0) >= 0 ? "+" : ""}{(pos.maxPnlPct ?? 0).toFixed(1)}%
                               </div>
                               <div className="text-xs text-green-500">
-                                {(pos.maxPnlPct ?? 0) >= 0 ? "+" : ""}{(pos.maxPnlPct ?? 0).toFixed(1)}%
+                                {(pos.maxPnlUsd ?? 0) >= 0 ? "+" : ""}${(pos.maxPnlUsd ?? 0).toFixed(2)}
                               </div>
                             </>
                           ) : (
@@ -271,11 +271,11 @@ export default function PerformancePage() {
                           )}
                         </td>
                         <td className="text-right px-3 py-3">
-                          <div className={`font-semibold ${pos.totalPnlUsd >= 0 ? "text-yellow-400" : "text-red-400"}`}>
-                            {pos.totalPnlUsd >= 0 ? "+" : ""}${pos.totalPnlUsd.toFixed(2)}
-                          </div>
-                          <div className={`text-xs ${pos.totalPnlPct >= 0 ? "text-yellow-500" : "text-red-500"}`}>
+                          <div className={`font-semibold ${pos.totalPnlPct >= 0 ? "text-yellow-400" : "text-red-400"}`}>
                             {pos.totalPnlPct >= 0 ? "+" : ""}{pos.totalPnlPct.toFixed(1)}%
+                          </div>
+                          <div className={`text-xs ${pos.totalPnlUsd >= 0 ? "text-yellow-500" : "text-red-500"}`}>
+                            {pos.totalPnlUsd >= 0 ? "+" : ""}${pos.totalPnlUsd.toFixed(2)}
                           </div>
                         </td>
                         <td className="text-right px-3 py-3">
