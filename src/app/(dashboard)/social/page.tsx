@@ -361,7 +361,7 @@ export default function SocialPage() {
                   <tr className="border-b border-gray-800/60 hover:bg-gray-800/30 cursor-pointer transition-colors" onClick={() => setExpandedTweet(expandedTweet === t.tweet_id ? null : t.tweet_id)}>
                     <td className="px-4 py-3">
                       <div className="flex flex-col items-start gap-0.5">
-                        {t.is_trending_now && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 border border-red-500/40 leading-none">🔴 LIVE</span>}
+                        {t.is_trending_now && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-green-500/20 text-green-400 border border-green-500/40 leading-none">🟢 LIVE</span>}
                         <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded border text-xs font-bold ${heatColor(t.momentum_score ?? t.heat_score)}`}>{t.momentum_score ?? t.heat_score}</div>
                       </div>
                     </td>
@@ -426,7 +426,7 @@ export default function SocialPage() {
                         <td className="px-4 py-3">
                           <div className="flex flex-col items-start gap-0.5">
                             {t.is_trending_now && (
-                              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 border border-red-500/40 leading-none">🔴 LIVE</span>
+                              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-green-500/20 text-green-400 border border-green-500/40 leading-none">🟢 LIVE</span>
                             )}
                             <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded border text-xs font-bold ${heatColor(t.momentum_score ?? t.heat_score)}`}>
                               {t.momentum_score ?? t.heat_score}
