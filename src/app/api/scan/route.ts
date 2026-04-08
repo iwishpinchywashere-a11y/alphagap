@@ -698,10 +698,17 @@ export async function GET() {
       }
 
       // SN# explicit mentions — collect ALL SN numbers in the tweet
-      const snMatches = [...text.matchAll(/\bsn(\d{1,3})\b/gi)];
-      for (const m of snMatches) {
-        const n = parseInt(m[1]);
-        if (n > 0 && n <= 128) matched.add(n);
+      // Matches: "SN3", "SN 3", "SN#3", "subnet 3", "subnet #3", "netuid 3"
+      const snPatterns = [
+        /\bsn\s*#?\s*(\d{1,3})\b/gi,
+        /\bsubnet\s*#?\s*(\d{1,3})\b/gi,
+        /\bnetuid\s*#?\s*(\d{1,3})\b/gi,
+      ];
+      for (const pattern of snPatterns) {
+        for (const m of [...text.matchAll(pattern)]) {
+          const n = parseInt(m[1]);
+          if (n > 0 && n <= 128) matched.add(n);
+        }
       }
 
       // Subnet name — ≥5 chars, skip generic English words

@@ -222,10 +222,18 @@ export async function GET(req: Request) {
     }
 
     // SN# explicit mentions — collect ALL SN numbers in the tweet
-    const snMatches = [...text.matchAll(/\bsn(\d{1,3})\b/gi)];
-    for (const m of snMatches) {
-      const n = parseInt(m[1]);
-      if (n > 0 && n <= 128) matched.add(n);
+    // Matches: "SN3", "sn64", "SN 3", "SN#3", "subnet 3", "subnet #3", "subnet3"
+    const snPatterns = [
+      /\bsn\s*#?\s*(\d{1,3})\b/gi,          // SN3, SN 3, SN#3, sn3
+      /\bsubnet\s*#?\s*(\d{1,3})\b/gi,       // subnet 3, subnet #3, subnet3
+      /\bnetuid\s*#?\s*(\d{1,3})\b/gi,       // netuid 3, netuid #3
+    ];
+    for (const pattern of snPatterns) {
+      const matches = [...text.matchAll(pattern)];
+      for (const m of matches) {
+        const n = parseInt(m[1]);
+        if (n > 0 && n <= 128) matched.add(n);
+      }
     }
 
     // Name matches — whole-word only, skip blocklisted generic words.
