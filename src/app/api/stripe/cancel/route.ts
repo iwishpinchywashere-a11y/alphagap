@@ -34,11 +34,12 @@ export async function POST() {
         if (!customerIds.includes(c.id)) customerIds.push(c.id);
       }
       for (const custId of customerIds) {
-        for (const st of ["active", "trialing"] as const) {
+        for (const st of ["active", "trialing", "past_due"] as const) {
           const subs = await stripe.subscriptions.list({ customer: custId, status: st, limit: 1 }).catch(() => null);
           if (subs?.data[0]) return subs.data[0].id;
         }
       }
+      console.error(`[stripe/cancel] No subscription found for ${email}, customerIds: ${customerIds.join(", ")}`);
       return undefined;
     }
 
