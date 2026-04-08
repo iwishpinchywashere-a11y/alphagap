@@ -237,7 +237,7 @@ export default function PerformancePage() {
                   <thead>
                     <tr className="text-xs text-gray-500 uppercase border-b border-gray-800/60">
                       <th className="text-left px-5 py-3">Subnet</th>
-                      {(["totalPnl","maxPnl","agap","bought","buyPrice","currentPrice","maxPrice","value","change24h"] as SortKey[]).map((key, i) => {
+                      {(["maxPnl","totalPnl","agap","bought","buyPrice","currentPrice","maxPrice","value","change24h"] as SortKey[]).map((key, i) => {
                         const labels: Record<SortKey, string> = { totalPnl:"Total P&L", maxPnl:"Max P&L", agap:"aGap", bought:"Bought", buyPrice:"Buy Price", currentPrice:"Current", maxPrice:"Max Price", value:"Value", change24h:"24h P&L" };
                         const active = sortKey === key;
                         const isLast = i === 8;
@@ -257,14 +257,6 @@ export default function PerformancePage() {
                           <div className="text-xs text-gray-500">SN{pos.netuid}</div>
                         </td>
                         <td className="text-right px-3 py-3">
-                          <div className={`font-semibold ${pos.totalPnlUsd >= 0 ? "text-yellow-400" : "text-red-400"}`}>
-                            {pos.totalPnlUsd >= 0 ? "+" : ""}${pos.totalPnlUsd.toFixed(2)}
-                          </div>
-                          <div className={`text-xs ${pos.totalPnlPct >= 0 ? "text-yellow-500" : "text-red-500"}`}>
-                            {pos.totalPnlPct >= 0 ? "+" : ""}{pos.totalPnlPct.toFixed(1)}%
-                          </div>
-                        </td>
-                        <td className="text-right px-3 py-3">
                           {pos.maxPnlUsd != null ? (
                             <>
                               <div className="font-semibold text-green-400">
@@ -277,6 +269,14 @@ export default function PerformancePage() {
                           ) : (
                             <span className="text-gray-600 text-xs">—</span>
                           )}
+                        </td>
+                        <td className="text-right px-3 py-3">
+                          <div className={`font-semibold ${pos.totalPnlUsd >= 0 ? "text-yellow-400" : "text-red-400"}`}>
+                            {pos.totalPnlUsd >= 0 ? "+" : ""}${pos.totalPnlUsd.toFixed(2)}
+                          </div>
+                          <div className={`text-xs ${pos.totalPnlPct >= 0 ? "text-yellow-500" : "text-red-500"}`}>
+                            {pos.totalPnlPct >= 0 ? "+" : ""}{pos.totalPnlPct.toFixed(1)}%
+                          </div>
                         </td>
                         <td className="text-right px-3 py-3">
                           <span className="text-green-400 font-semibold">{pos.buyAGapScore}</span>
