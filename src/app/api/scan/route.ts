@@ -2225,6 +2225,20 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
 
     priceLag = Math.min(20, Math.max(-8, priceLag));
 
+    // SUSTAINED DECLINE DISCOUNT — the market may just be right
+    // If price is falling across ALL timeframes with zero reversal signal, this is no
+    // longer a "gap" — it's a trend. The algo would otherwise reward chronic bleeders
+    // every scan because each day's decline re-earns priceLag points.
+    // The reversal bonus (above) already rewards when momentum turns; this is the
+    // missing counterpart: penalise when it never does.
+    const sustainedDecline     = pch30d <= -20 && pch7d <= -10 && pch24h <= 0;
+    const deepSustainedDecline = pch30d <= -35 && pch7d <= -20 && pch24h <= -3;
+    if (deepSustainedDecline) {
+      priceLag = Math.max(-8, priceLag - 12);  // accelerating bleed — steep cut
+    } else if (sustainedDecline) {
+      priceLag = Math.max(-8, priceLag - 8);   // consistent bleed — meaningful cut
+    }
+
     // PRICE FLOOR REVERSAL — bounced hard off recent low (bottom reversal pattern)
     let floorReversalBonus = 0;
     if (d.sparklinePrices.length >= 10) {
@@ -2270,6 +2284,10 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
     else if (evalScore >= 50 && pch30d <= -10) evalVsPriceBonus = 4;
     else if (evalScore >= 45 && pch7d  <= -10) evalVsPriceBonus = 3;
     else if (evalScore >= 40 && pch7d  <= -5)  evalVsPriceBonus = 2;
+    // Halve eval-vs-price bonus under sustained decline: if the market has been
+    // consistently disagreeing with validators for weeks, the "informed money" thesis
+    // gets weaker — maybe validators are wrong, or their conviction is fading.
+    if (sustainedDecline) evalVsPriceBonus = Math.floor(evalVsPriceBonus / 2);
 
     // 5. MARKET CAP VIABILITY — too small = uninvestable / too illiquid to act on
     // Subnets under $1M are hard to enter/exit without moving the price significantly.
