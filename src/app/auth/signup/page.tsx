@@ -4,7 +4,6 @@ import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Turnstile } from "@marsidev/react-turnstile";
-import AlphaGapLogo from "@/components/AlphaGapLogo";
 
 const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
 
@@ -70,7 +69,7 @@ function SignUpForm() {
       <div className="relative w-full max-w-sm">
         <div className="text-center mb-8">
           <Link href="/">
-            <div className="flex justify-center mb-4"><AlphaGapLogo height={40} /></div>
+            <img src="/alphagap_logo_dark.svg" alt="AlphaGap" className="h-10 w-auto mx-auto mb-4" />
           </Link>
           <h1 className="text-2xl font-bold text-white">Create your account</h1>
           <p className="text-gray-500 text-sm mt-1">

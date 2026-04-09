@@ -4,7 +4,6 @@ import { Suspense, useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import AlphaGapLogo from "@/components/AlphaGapLogo";
 
 function SignInForm() {
   const router = useRouter();
@@ -68,7 +67,7 @@ function SignInForm() {
         {/* Logo */}
         <div className="text-center mb-8">
           <Link href="/">
-            <div className="flex justify-center mb-4"><AlphaGapLogo height={40} /></div>
+            <img src="/alphagap_logo_dark.svg" alt="AlphaGap" className="h-10 w-auto mx-auto mb-4" />
           </Link>
           <h1 className="text-2xl font-bold text-white">Welcome back</h1>
           <p className="text-gray-500 text-sm mt-1">Sign in to your AlphaGap account</p>

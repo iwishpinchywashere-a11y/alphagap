@@ -4,7 +4,6 @@ import { useRef, useState, useEffect, useCallback } from "react";
 import { useSession, signOut } from "next-auth/react";
 import Link from "next/link";
 import { useDashboard } from "./DashboardProvider";
-import AlphaGapLogo from "@/components/AlphaGapLogo";
 
 interface DropdownPos { top: number; right: number }
 
@@ -77,7 +76,7 @@ export default function DashboardHeader() {
       <header className="border-b border-gray-800 px-4 md:px-6 py-3 md:py-4 flex items-center justify-between flex-wrap gap-2 max-w-full overflow-x-auto">
         <div className="flex items-center gap-4">
           <a href="/dashboard">
-            <AlphaGapLogo height={48} />
+            <img src="/alphagap_logo_dark.svg" alt="AlphaGap" className="h-12 w-auto" />
           </a>
           <span className="text-xs text-gray-500 border border-gray-700 rounded px-2 py-0.5 hidden sm:inline">
             Bittensor Subnet Intelligence

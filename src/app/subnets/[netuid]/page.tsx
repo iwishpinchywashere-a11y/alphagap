@@ -3,7 +3,6 @@
 import { use, useEffect, useRef, useState, useMemo } from "react";
 import Link from "next/link";
 import SocialLinks from "@/components/dashboard/SocialLinks";
-import AlphaGapLogo from "@/components/AlphaGapLogo";
 
 // ── Types ─────────────────────────────────────────────────────────
 interface ScoreRow { date: string; agap: number; flow: number; dev: number; eval: number; social: number; price: number; mcap: number; emission_pct: number }
@@ -422,7 +421,7 @@ export default function SubnetDetailPage({ params }: { params: Promise<{ netuid:
       {/* Nav */}
       <div className="border-b border-gray-800 px-4 md:px-6 py-3 flex items-center gap-4">
         <a href="/dashboard">
-          <AlphaGapLogo height={40} />
+          <img src="/alphagap_logo_dark.svg" alt="AlphaGap" className="h-10 w-auto" />
         </a>
         <div className="flex items-center gap-2 text-sm text-gray-500">
           <Link href="/dashboard" className="hover:text-gray-300 transition-colors">Dashboard</Link>

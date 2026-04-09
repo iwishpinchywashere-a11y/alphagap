@@ -1,15 +1,22 @@
-<svg width="1600" height="500" viewBox="0 0 1600 500" fill="none" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<svg width="1600" height="500" viewBox="0 0 1600 500" fill="none" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <linearGradient id="greenGrad" x1="0%" y1="100%" x2="100%" y2="0%">
+    <linearGradient id="greenGrad" x1="120" y1="260" x2="420" y2="80" gradientUnits="userSpaceOnUse">
       <stop offset="0%" stop-color="#059669"/>
       <stop offset="55%" stop-color="#22c55e"/>
       <stop offset="100%" stop-color="#4ade80"/>
     </linearGradient>
+    <linearGradient id="silverGrad" x1="110" y1="280" x2="300" y2="70" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#D6D9DE"/>
+      <stop offset="100%" stop-color="#FFFFFF"/>
+    </linearGradient>
   </defs>
-  <!-- Crown image -->
-  <image href="/alphagap_crown.png" x="20" y="30" width="440" height="440"/>
-  <!-- AlphaGap text -->
-  <text x="490" y="292"
+  <path d="M105 360 L248 82 Q258 68 274 83 L378 195 Q388 206 376 214 L338 240 Q328 247 320 236 L264 165 L149 360 Z"
+        fill="url(#silverGrad)" stroke="#0a0a0f" stroke-width="10" stroke-linejoin="round"/>
+  <path d="M312 285 L404 365 Q415 375 406 386 Q398 395 382 390 L298 360 Z"
+        fill="url(#greenGrad)" stroke="#0a0a0f" stroke-width="10" stroke-linejoin="round"/>
+  <path d="M105 360 C170 338, 235 300, 294 245 C338 205, 365 173, 393 136 L375 136 Q365 136 360 127 Q356 118 362 110 L445 72 Q454 68 461 72 Q469 77 466 87 L438 172 Q434 182 425 184 Q415 186 408 178 L404 173 C364 223, 328 261, 286 294 C231 338, 174 366, 111 379 Q95 382 91 373 Q87 364 105 360 Z"
+        fill="url(#greenGrad)" stroke="#0a0a0f" stroke-width="10" stroke-linejoin="round"/>
+  <text x="505" y="292"
         font-family="Inter, Poppins, Avenir Next, Segoe UI, Arial, sans-serif"
         font-size="180"
         font-style="italic"

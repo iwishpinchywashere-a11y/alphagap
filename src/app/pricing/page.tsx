@@ -4,7 +4,6 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useState } from "react";
-import AlphaGapLogo from "@/components/AlphaGapLogo";
 
 const PLANS = [
   {
@@ -84,7 +83,7 @@ export default function PricingPage() {
         <div className="text-center mb-12">
           <div className="flex justify-center mb-10">
             <Link href="/">
-              <AlphaGapLogo height={36} />
+              <img src="/alphagap_logo_dark.svg" alt="AlphaGap" className="h-9 w-auto" />
             </Link>
           </div>
           <div className="flex justify-center mb-4">
