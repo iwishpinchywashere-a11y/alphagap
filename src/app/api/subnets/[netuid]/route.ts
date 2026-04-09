@@ -67,13 +67,30 @@ export async function GET(
 
   // ── Score history (per-scan ISO timestamps) ──────────────────────
   type ScoreRow = { agap: number; flow: number; dev: number; eval: number; social: number; price: number; mcap: number; emission_pct: number };
-  const scoreHistory: Array<{ date: string } & ScoreRow> = [];
+  const scoreHistory: Array<{ date: string; rank?: number } & ScoreRow> = [];
   if (scoreHistoryAll) {
     for (const ts of Object.keys(scoreHistoryAll).sort()) {
-      const row = scoreHistoryAll[ts][String(netuid)];
-      if (row) scoreHistory.push({ date: ts, ...row });
+      const snapshot = scoreHistoryAll[ts];
+      const row = snapshot[String(netuid)];
+      if (!row) continue;
+      // Compute rank: position among all subnets sorted by agap desc (best = 1)
+      const allAgap = Object.values(snapshot).map(r => r.agap).sort((a, b) => b - a);
+      const rank = allAgap.indexOf(row.agap) + 1 || undefined;
+      scoreHistory.push({ date: ts, rank, ...row });
     }
   }
+
+  // ── aGap Rank history — best (lowest) rank per calendar day ────────
+  const rankByDay = new Map<string, number>();
+  for (const row of scoreHistory) {
+    if (row.rank == null) continue;
+    const day = row.date.slice(0, 10);
+    const prev = rankByDay.get(day);
+    if (prev == null || row.rank < prev) rankByDay.set(day, row.rank);
+  }
+  const rankHistory = [...rankByDay.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([date, rank]) => ({ date, rank }));
 
   // ── Emission history ─────────────────────────────────────────────
   const emissionData = (emissionHistory?.[String(netuid)] || [])
@@ -139,6 +156,7 @@ export async function GET(
     } : null,
     current,
     scoreHistory,
+    rankHistory,
     emissionHistory: emissionData,
     priceHistory,      // 92 days, always present
     sevenDayPrices,    // 7d 4h candles, always present

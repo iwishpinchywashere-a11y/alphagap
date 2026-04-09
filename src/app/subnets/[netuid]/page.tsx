@@ -19,11 +19,13 @@ interface MarketStats {
   fearGreedIndex: number; fearGreedSentiment: string;
   symbol: string; taoPrice: number;
 }
+interface RankPoint { date: string; rank: number }
 interface SubnetData {
   netuid: number; name: string;
   identity: { description?: string; summary?: string; github_repo?: string; twitter?: string; discord?: string; website?: string; tags?: string[] } | null;
   current: Record<string, number | string | boolean | null> | null;
   scoreHistory: ScoreRow[];
+  rankHistory: RankPoint[];
   emissionHistory: EmissionPoint[];
   priceHistory: PricePoint[];    // 92 days, always in initial response
   sevenDayPrices: PricePoint[];  // 7d 4h candles
@@ -196,8 +198,8 @@ function PriceChart({ data, color }: { data: PricePoint[]; color: string }) {
 
 // ── Score line chart (interactive) ───────────────────────────────
 // x values are ISO timestamp strings (one per scan, ~30min apart)
-function ScoreChart({ data, color, label, formatY = (v: number) => v.toFixed(0) }: {
-  data: { x: string; y: number }[]; color: string; label: string; formatY?: (v: number) => string;
+function ScoreChart({ data, color, label, formatY = (v: number) => v.toFixed(0), invertY = false }: {
+  data: { x: string; y: number }[]; color: string; label: string; formatY?: (v: number) => string; invertY?: boolean;
 }) {
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
@@ -233,7 +235,10 @@ function ScoreChart({ data, color, label, formatY = (v: number) => v.toFixed(0) 
   const range = maxV - minV || 1;
   const yMin = minV - range * 0.15; const yMax = maxV + range * 0.15;
   const xS = (i: number) => PAD.left + (i / Math.max(data.length - 1, 1)) * cW;
-  const yS = (v: number) => PAD.top + cH - ((v - yMin) / (yMax - yMin)) * cH;
+  // invertY: rank 1 is best so we flip the axis (low number = top of chart)
+  const yS = (v: number) => invertY
+    ? PAD.top + ((v - yMin) / (yMax - yMin)) * cH
+    : PAD.top + cH - ((v - yMin) / (yMax - yMin)) * cH;
   const pts = data.map((d, i) => `${xS(i).toFixed(1)},${yS(d.y).toFixed(1)}`).join(" ");
   const area = `${xS(0).toFixed(1)},${PAD.top + cH} ${pts} ${xS(data.length - 1).toFixed(1)},${PAD.top + cH}`;
   const gradId = `sg-${label.replace(/[\s%]+/g, "")}`;
@@ -413,6 +418,8 @@ export default function SubnetDetailPage({ params }: { params: Promise<{ netuid:
   const evalSeries = data.scoreHistory.map((r) => ({ x: r.date, y: r.eval }));
   const socialSeries = data.scoreHistory.map((r) => ({ x: r.date, y: r.social }));
   const emissionSeries = data.emissionHistory.map((r) => ({ x: r.timestamp, y: r.pct }));
+  const rankSeries = (data.rankHistory ?? []).map((r) => ({ x: r.date, y: r.rank }));
+  const currentRank = rankSeries.length > 0 ? rankSeries[rankSeries.length - 1].y : null;
 
   const TIMEFRAMES: Timeframe[] = ["1D", "7D", "1M", "3M", "1Y"];
 
@@ -591,6 +598,25 @@ export default function SubnetDetailPage({ params }: { params: Promise<{ netuid:
                     <ScoreChart data={d} color={color} label={label} formatY={formatY} />
                   </div>
                 ))}
+                {/* aGap Rank chart — inverted y-axis, rank 1 = top */}
+                <div className="bg-gray-900/60 border border-gray-800 rounded-xl p-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <div>
+                      <span className="text-xs text-gray-500 uppercase tracking-wide">aGap Rank</span>
+                      <span className="text-[10px] text-gray-600 ml-1.5">best rank per day</span>
+                    </div>
+                    <span className="text-lg font-bold tabular-nums text-amber-400">
+                      {currentRank != null ? `#${currentRank}` : "—"}
+                    </span>
+                  </div>
+                  <ScoreChart
+                    data={rankSeries}
+                    color="#f59e0b"
+                    label="aGap Rank"
+                    formatY={(v) => `#${Math.round(v)}`}
+                    invertY={true}
+                  />
+                </div>
               </div>
             </div>
 
