@@ -953,6 +953,23 @@ export const BENCHMARK_DATA: BenchmarkEntry[] = [
     last_updated: "2026-04-07",
     sources: ["https://subnetalpha.ai/subnet/bitsota/"],
   },
+  {
+    subnet_id: 120,
+    subnet_name: "Affine",
+    benchmark_score: 78,
+    benchmark_category: "AI Model Evaluation",
+    vs_provider: "Centralized AI Leaderboards (Chatbot Arena / LMSYS)",
+    cost_saving_pct: 70,
+    perf_delta: "Open decentralized arena outperforming single-team AI benchmarks",
+    benchmark_summary: "Affine (SN120) runs a decentralized open AI arena — 'One team can't build the best AI, so we stopped trying. We built an open arena instead.' Their April 2026 benchmark results went viral on X (5,000+ views), demonstrating that distributed evaluation across many teams outperforms centralized AI development. Affine is positioning as the decentralized alternative to LMSYS Chatbot Arena and similar centralized AI evaluation platforms.",
+    active_users: "Growing — viral launch April 2026",
+    annual_revenue_usd: 0,
+    last_updated: "2026-04-08",
+    sources: [
+      "https://x.com/affine_io/status/2041999022110490923",
+      "https://subnetalpha.ai/subnet/affine/",
+    ],
+  },
 ];
 
 // Quick lookup by subnet_id

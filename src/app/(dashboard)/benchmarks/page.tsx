@@ -1,12 +1,22 @@
 "use client";
 // v2
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import SubnetLogo from "@/components/dashboard/SubnetLogo";
 import { BENCHMARK_DATA, type BenchmarkEntry } from "@/lib/benchmarks";
 import BlurGate from "@/components/BlurGate";
 import { getTier } from "@/lib/subscription";
+
+interface BenchmarkAlert {
+  netuid: number;
+  subnet_name: string;
+  handle: string;
+  tweet_url: string;
+  tweet_text: string;
+  engagement: number;
+  detected_at: string;
+}
 
 function formatRevenue(usd: number): string {
   if (usd === 0) return "Pre-revenue";
@@ -44,6 +54,13 @@ export default function BenchmarksPage() {
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [sortBy, setSortBy] = useState<"benchmark_score" | "cost_saving_pct" | "annual_revenue_usd">("benchmark_score");
+  const [alerts, setAlerts] = useState<BenchmarkAlert[]>([]);
+
+  useEffect(() => {
+    fetch("/api/benchmarks/alerts").then(r => r.ok ? r.json() : null).then(d => {
+      if (Array.isArray(d)) setAlerts(d.slice(0, 5));
+    }).catch(() => {});
+  }, []);
 
   const filtered = [...BENCHMARK_DATA]
     .filter(b => selectedCategory === "All" || b.benchmark_category === selectedCategory)
@@ -56,6 +73,34 @@ export default function BenchmarksPage() {
 
   return (
     <main className="flex-1 overflow-auto p-4 md:p-6">
+
+      {/* Fresh benchmark/revenue alerts from official subnet accounts */}
+      {alerts.length > 0 && (
+        <div className="mb-6 bg-yellow-500/5 border border-yellow-500/20 rounded-xl p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-yellow-400 text-sm font-bold">📡 Fresh Subnet Benchmark Posts</span>
+            <span className="text-[10px] text-yellow-500/70 bg-yellow-500/10 px-2 py-0.5 rounded-full">Auto-detected from official accounts</span>
+          </div>
+          <div className="space-y-2">
+            {alerts.map((a, i) => (
+              <a key={i} href={a.tweet_url} target="_blank" rel="noopener noreferrer"
+                className="flex items-start gap-3 hover:bg-yellow-500/5 rounded-lg p-2 -mx-2 transition-colors group">
+                <SubnetLogo netuid={a.netuid} name={a.subnet_name} size={28} />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <span className="text-xs font-semibold text-yellow-300">{a.subnet_name}</span>
+                    <span className="text-[10px] text-gray-500">@{a.handle}</span>
+                    <span className="text-[10px] text-gray-600">{a.engagement} engagements</span>
+                  </div>
+                  <p className="text-xs text-gray-400 truncate group-hover:text-gray-300">{a.tweet_text}</p>
+                </div>
+                <span className="text-yellow-500/50 text-xs flex-shrink-0">↗</span>
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="mb-6">
         <div className="flex items-center gap-3 mb-1">

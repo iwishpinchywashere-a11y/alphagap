@@ -362,6 +362,71 @@ export async function GET(req: Request) {
     processKolTweet(tweet, kol.weight, kol.tier, kol.handle, kol.name);
   }
 
+  // ── Scan official subnet accounts for benchmark/revenue posts ───
+  // When a subnet's own account posts about benchmarks, revenue, or metrics,
+  // we flag it so the benchmarks page can surface it as fresh data.
+  const BENCHMARK_KEYWORDS = [
+    "benchmark", "revenue", "mrr", "arr", "annual recurring", "monthly recurring",
+    "cost saving", "cost reduction", "cheaper than", "vs gpt", "vs openai", "vs claude",
+    "vs aws", "vs google", "outperform", "beats", "faster than", "accuracy", "latency",
+    "throughput", "tokens/day", "requests/day", "users", "api calls", "live on",
+    "mainnet", "production", "launched", "shipping", "released",
+  ];
+
+  const benchmarkAlerts: Array<{
+    netuid: number; subnet_name: string; handle: string;
+    tweet_url: string; tweet_text: string; engagement: number; detected_at: string;
+  }> = [];
+
+  // Check all fetched KOL timelines — official subnet accounts are in handleToNetuid
+  for (const r of kolResults) {
+    if (r.status !== "fulfilled") continue;
+    const { kol, tweets } = r.value;
+    const netuid = handleToNetuid.get(kol.handle.toLowerCase());
+    if (!netuid) continue; // only official subnet accounts
+    for (const tweet of tweets) {
+      const text = tweet.text.toLowerCase();
+      const hasBenchmarkSignal = BENCHMARK_KEYWORDS.some(kw => text.includes(kw));
+      if (!hasBenchmarkSignal) continue;
+      const tweetAge = Date.now() - new Date(tweet.created_at).getTime();
+      if (tweetAge > 7 * 24 * 3600 * 1000) continue; // only last 7 days
+      const engagement = tweet.like_count + tweet.retweet_count + tweet.reply_count + (tweet.quote_count ?? 0);
+      benchmarkAlerts.push({
+        netuid,
+        subnet_name: netuidToName.get(netuid) ?? `SN${netuid}`,
+        handle: kol.handle,
+        tweet_url: `https://x.com/${kol.handle}/status/${tweet.id}`,
+        tweet_text: tweet.text.slice(0, 280),
+        engagement,
+        detected_at: new Date().toISOString(),
+      });
+    }
+  }
+
+  // Save benchmark alerts to blob if any found
+  if (benchmarkAlerts.length > 0 && token) {
+    try {
+      // Load existing alerts, merge, keep last 30 days
+      let existing_alerts: typeof benchmarkAlerts = [];
+      try {
+        const ab = await (await import("@vercel/blob")).get("benchmark-alerts.json", { token, access: "private" });
+        if (ab?.stream) {
+          const reader = ab.stream.getReader();
+          const chunks: Uint8Array[] = [];
+          while (true) { const { done, value } = await reader.read(); if (done) break; chunks.push(value); }
+          existing_alerts = JSON.parse(Buffer.concat(chunks).toString("utf-8"));
+        }
+      } catch { /* start fresh */ }
+      const cutoff30d = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString();
+      const merged = [...existing_alerts.filter(a => a.detected_at >= cutoff30d), ...benchmarkAlerts];
+      // Dedup by tweet_url
+      const deduped = [...new Map(merged.map(a => [a.tweet_url, a])).values()]
+        .sort((a, b) => b.engagement - a.engagement);
+      await put("benchmark-alerts.json", JSON.stringify(deduped), { access: "private", addRandomSuffix: false, allowOverwrite: true, token });
+      console.log(`[social-pulse] ${benchmarkAlerts.length} new benchmark alerts saved (${deduped.length} total)`);
+    } catch (e) { console.error("[social-pulse] benchmark alerts save failed:", e); }
+  }
+
   // ── Merge with existing events ───────────────────────────────────
   // Prune events older than 72h (48h full + 24h decay window)
   const cutoff = new Date(Date.now() - 72 * 60 * 60 * 1000).toISOString();
