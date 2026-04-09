@@ -2859,43 +2859,42 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
         const key = String(entry.netuid);
         const cur = entry.composite_score;
 
-        // Compute per-day velocity from each snapshot, normalised by actual elapsed time.
-        // This means a 9-hour-old snapshot is correctly scaled up to a daily rate,
-        // rather than producing a near-zero delta because only 9h of movement occurred.
-        let dailyVel24: number | null = null;
-        if (snap24h && snap24h.data[key] != null) {
-          const actualDays = Math.max((now24 - snap24h.actualMs) / 86400000, 0.1);
-          dailyVel24 = (cur - snap24h.data[key].agap) / actualDays;
-        }
+        // d24: raw delta from the nearest ~24h snapshot.
+        // NOT normalised — even if the snapshot is only 9h old, the raw delta is used
+        // directly (small movement = small contribution). Over-normalising a short window
+        // inflates noise into extreme 0/100 values.
+        const d24 = (snap24h && snap24h.data[key] != null) ? cur - snap24h.data[key].agap : null;
 
-        let dailyVel7d: number | null = null;
+        // d7: delta from the long-term snapshot, normalised to per-day by ACTUAL elapsed days
+        // (may be 8 days if bridging a data gap, not assumed to always be 7).
+        let dailyAvg7d: number | null = null;
         if (snap7d && snap7d.data[key] != null) {
-          const actualDays = Math.max((now24 - snap7d.actualMs) / 86400000, 0.5);
-          dailyVel7d = (cur - snap7d.data[key].agap) / actualDays;
+          const actualDays = Math.max((now24 - snap7d.actualMs) / 86400000, 1);
+          dailyAvg7d = (cur - snap7d.data[key].agap) / actualDays;
         }
 
-        if (dailyVel24 !== null || dailyVel7d !== null) {
+        if (d24 !== null || dailyAvg7d !== null) {
           // ── aGap Velo formula ─────────────────────────────────────────────
           // Level significance: moves at high score levels matter far more.
           // score 20 → 0.27×  |  score 50 → 0.58×  |  score 80 → 0.86×
           // This makes 1→20 nearly invisible and 60→80 fire loudly.
           const levelMult = Math.pow(Math.max(0, cur - 10) / 90, 0.6);
 
-          // Velocity: blend recent per-day rate (60%) + longer-term per-day rate (40%).
-          // Falls back gracefully to whichever snapshot is available.
-          const velocity = (dailyVel24 !== null && dailyVel7d !== null)
-            ? dailyVel24 * 0.6 + dailyVel7d * 0.4
-            : (dailyVel24 ?? dailyVel7d!);
+          // Velocity: blend 24h absolute movement (recent signal) +
+          // long-term per-day average (trend). Falls back if one is missing.
+          const velocity = (d24 !== null && dailyAvg7d !== null)
+            ? d24 * 0.6 + dailyAvg7d * 0.4
+            : (d24 ?? dailyAvg7d!);
 
           // Scale factor: aGap scores are 0-100 so raw deltas are small.
-          // Calibrated so a sustained +15pt/day move at score 70 → ~80 Velo.
+          // Calibrated so a sustained +15pt/7d move at score 70 → ~80 Velo.
           // Flat = 35. Strong up (+2 pts/day at high level) = 80+.
           const veloBase = 35 + velocity * levelMult * 25;
 
           // Acceleration bonus (±10 pts): rewards subnets moving faster
           // than their own recent trend — early momentum signal.
-          const accelBonus = (dailyVel24 !== null && dailyVel7d !== null)
-            ? Math.tanh((dailyVel24 - dailyVel7d) / 8) * 10
+          const accelBonus = (d24 !== null && dailyAvg7d !== null)
+            ? Math.tanh((d24 - dailyAvg7d) / 8) * 10
             : 0;
 
           const velo = Math.max(0, Math.min(100, Math.round(veloBase + accelBonus)));
