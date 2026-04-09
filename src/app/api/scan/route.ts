@@ -2833,8 +2833,9 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
       const target7d  = now24 - 7 * 24 * 3600 * 1000;
       const allTs = Object.keys(scoreHistory).sort(); // ascending ISO strings sort correctly
 
-      // Find the timestamp closest to a target epoch, within the given tolerance (ms)
-      function closestSnapshot(targetMs: number, toleranceMs: number): Record<string, ScoreRow> | null {
+      // Find the timestamp closest to a target epoch, within the given tolerance (ms).
+      // Returns data + the actual timestamp epoch so callers can normalise by real elapsed time.
+      function bestSnapshot(targetMs: number, toleranceMs: number): { data: Record<string, ScoreRow>; actualMs: number } | null {
         if (allTs.length === 0) return null;
         let best = allTs[0];
         let bestDiff = Math.abs(new Date(allTs[0]).getTime() - targetMs);
@@ -2843,46 +2844,58 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
           if (diff < bestDiff) { best = ts; bestDiff = diff; }
         }
         if (bestDiff > toleranceMs) return null;
-        return scoreHistory[best];
+        return { data: scoreHistory[best], actualMs: new Date(best).getTime() };
       }
 
-      // 24h: accept nearest snapshot within ±12h (handles sparse history during recovery)
-      // 7d:  accept nearest snapshot within ±24h
-      // Widen tolerance to ±18h so sparse history still produces velo scores
-      const snap24h = closestSnapshot(target24h, 18 * 3600 * 1000);
-      const snap7d  = closestSnapshot(target7d,  36 * 3600 * 1000);
+      // Tolerances: 24h ±18h,  7d ±5 days (bridges multi-day gaps in history).
+      // Velocity is always normalised to per-day rate using the ACTUAL elapsed time,
+      // so a snapshot that is 9 h old produces the same per-day score as one 25 h old.
+      const snap24h = bestSnapshot(target24h, 18 * 3600 * 1000);
+      const snap7d  = bestSnapshot(target7d,  5 * 24 * 3600 * 1000);
 
-      console.log(`[scan] Velo: ${allTs.length} history snapshots, snap24h=${snap24h ? "found" : "null"}, snap7d=${snap7d ? "found" : "null"}, oldest=${allTs[0] ?? "none"}, newest=${allTs[allTs.length - 1] ?? "none"}`);
+      console.log(`[scan] Velo: ${allTs.length} history snapshots, snap24h=${snap24h ? `found(${((now24 - snap24h.actualMs)/3600000).toFixed(1)}h ago)` : "null"}, snap7d=${snap7d ? `found(${((now24 - snap7d.actualMs)/3600000).toFixed(1)}h ago)` : "null"}, oldest=${allTs[0] ?? "none"}, newest=${allTs[allTs.length - 1] ?? "none"}`);
 
       for (const entry of leaderboard) {
         const key = String(entry.netuid);
         const cur = entry.composite_score;
-        const d24 = (snap24h && snap24h[key] != null) ? cur - snap24h[key].agap : null;
-        const d7  = (snap7d  && snap7d[key]  != null) ? cur - snap7d[key].agap  : null;
 
-        if (d24 !== null || d7 !== null) {
+        // Compute per-day velocity from each snapshot, normalised by actual elapsed time.
+        // This means a 9-hour-old snapshot is correctly scaled up to a daily rate,
+        // rather than producing a near-zero delta because only 9h of movement occurred.
+        let dailyVel24: number | null = null;
+        if (snap24h && snap24h.data[key] != null) {
+          const actualDays = Math.max((now24 - snap24h.actualMs) / 86400000, 0.1);
+          dailyVel24 = (cur - snap24h.data[key].agap) / actualDays;
+        }
+
+        let dailyVel7d: number | null = null;
+        if (snap7d && snap7d.data[key] != null) {
+          const actualDays = Math.max((now24 - snap7d.actualMs) / 86400000, 0.5);
+          dailyVel7d = (cur - snap7d.data[key].agap) / actualDays;
+        }
+
+        if (dailyVel24 !== null || dailyVel7d !== null) {
           // ── aGap Velo formula ─────────────────────────────────────────────
           // Level significance: moves at high score levels matter far more.
           // score 20 → 0.27×  |  score 50 → 0.58×  |  score 80 → 0.86×
           // This makes 1→20 nearly invisible and 60→80 fire loudly.
           const levelMult = Math.pow(Math.max(0, cur - 10) / 90, 0.6);
 
-          // Velocity: blend 24h speed (recent) + 7d daily average (trend).
+          // Velocity: blend recent per-day rate (60%) + longer-term per-day rate (40%).
           // Falls back gracefully to whichever snapshot is available.
-          const dailyAvg7d = d7 !== null ? d7 / 7 : null;
-          const velocity = (d24 !== null && dailyAvg7d !== null)
-            ? d24 * 0.6 + dailyAvg7d * 0.4
-            : (d24 !== null ? d24 : dailyAvg7d!);
+          const velocity = (dailyVel24 !== null && dailyVel7d !== null)
+            ? dailyVel24 * 0.6 + dailyVel7d * 0.4
+            : (dailyVel24 ?? dailyVel7d!);
 
           // Scale factor: aGap scores are 0-100 so raw deltas are small.
-          // Calibrated so a sustained +15pt/7d move at score 70 → ~80 Velo.
+          // Calibrated so a sustained +15pt/day move at score 70 → ~80 Velo.
           // Flat = 35. Strong up (+2 pts/day at high level) = 80+.
           const veloBase = 35 + velocity * levelMult * 25;
 
           // Acceleration bonus (±10 pts): rewards subnets moving faster
           // than their own recent trend — early momentum signal.
-          const accelBonus = (d24 !== null && dailyAvg7d !== null)
-            ? Math.tanh((d24 - dailyAvg7d) / 8) * 10
+          const accelBonus = (dailyVel24 !== null && dailyVel7d !== null)
+            ? Math.tanh((dailyVel24 - dailyVel7d) / 8) * 10
             : 0;
 
           const velo = Math.max(0, Math.min(100, Math.round(veloBase + accelBonus)));
