@@ -19,7 +19,7 @@ export const dynamic = "force-dynamic";
 
 function tierFromSub(sub: Stripe.Subscription): "pro" | "premium" {
   const amount = sub.items.data[0]?.price?.unit_amount ?? 0;
-  return amount >= 200 ? "premium" : "pro"; // threshold: $2 testing (restore to 4900 for launch)
+  return amount >= 4900 ? "premium" : "pro";
 }
 
 export async function GET(req: Request) {
