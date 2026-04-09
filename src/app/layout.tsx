@@ -40,7 +40,8 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${inter.variable} ${jetbrains.variable} h-full antialiased`}>
-      <head>
+      <body className="font-sans bg-[#0a0a0f] text-gray-100 min-h-full flex flex-col" style={{ fontFamily: "var(--font-inter), system-ui, sans-serif" }}>
+        <AuthSessionProvider>{children}</AuthSessionProvider>
         <Script
           src="https://www.googletagmanager.com/gtag/js?id=G-95NFVBB3JC"
           strategy="afterInteractive"
@@ -53,9 +54,6 @@ export default function RootLayout({
             gtag('config', 'G-95NFVBB3JC');
           `}
         </Script>
-      </head>
-      <body className="font-sans bg-[#0a0a0f] text-gray-100 min-h-full flex flex-col" style={{ fontFamily: "var(--font-inter), system-ui, sans-serif" }}>
-        <AuthSessionProvider>{children}</AuthSessionProvider>
       </body>
     </html>
   );
