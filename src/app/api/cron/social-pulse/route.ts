@@ -164,12 +164,23 @@ export async function GET(req: Request) {
     }
   }
 
+  // Hard-coded handle overrides for subnets whose handle isn't registered on TaoStats yet
+  const HANDLE_OVERRIDES: Record<string, number> = {
+    "affine_io": 120,
+  };
+  for (const [handle, netuid] of Object.entries(HANDLE_OVERRIDES)) {
+    if (!handleToNetuid.has(handle)) handleToNetuid.set(handle, netuid);
+    if (!netuidToName.has(netuid)) netuidToName.set(netuid, `SN${netuid}`);
+  }
+
   // Bittensor context gate — tweet must mention one of these to be subnet-related.
   // Prevents KOL timeline tweets about VC/crypto/general topics from being labeled as subnets.
+  // Also includes notable subnet names that are unambiguous enough to serve as context.
   const BITTENSOR_SIGNALS = [
     "bittensor", "$tao", "#tao", "dtao", "opentensor", "taoshi",
     "macrocosmos", "subnet", "netuid", "metagraph", "yuma",
     "tao alpha", "taomarketcap", "taostats",
+    "affine_io", "affine foundation", // SN120 — going viral, unambiguous
   ];
   function hasBittensorContext(text: string): boolean {
     const t = text.toLowerCase();
@@ -280,6 +291,7 @@ export async function GET(req: Request) {
     "bittensor subnet",
     "$TAO subnet",
     "tao alpha subnet",
+    "affine_io bittensor OR affine_io subnet OR affine_io $TAO",
   ];
   try {
     const searchResults = await Promise.allSettled(

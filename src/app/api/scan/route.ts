@@ -531,6 +531,7 @@ export async function GET() {
     91:  "bitstarterAI",    // Bitstarter #1
     93:  "Bitcast_network", // Bitcast
     97:  "arbos_born",      // distil / Arbo (SN97)
+    120: "affine_io",        // Affine (SN120)
     121: "sundaebar_ai",    // sundae_bar
     122: "Bitrecs",         // Bitrecs
     124: "SwarmSubnet",     // Swarm
@@ -658,6 +659,7 @@ export async function GET() {
       "bittensor", "$tao", "#tao", "dtao", "opentensor", "taoshi",
       "macrocosmos", "subnet", "netuid", "metagraph", "yuma",
       "tao alpha", "taomarketcap", "taostats",
+      "affine_io", "affine foundation", // SN120
     ];
     function hasBTContext(text: string): boolean {
       const t = text.toLowerCase();
