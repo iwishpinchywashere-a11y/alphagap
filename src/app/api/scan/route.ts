@@ -2777,6 +2777,17 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
     leaderboard.sort((a, b) => b.composite_score - a.composite_score);
   }
 
+  // ── Temporary dump penalty (Apr 9 2026) ─────────────────────────
+  // Templar (3), Basilica (39), Grail (81) had large token dumps.
+  // Apply -30 until manually removed.
+  const DUMP_PENALTY_NETUIDS = new Set([3, 39, 81]);
+  for (const entry of leaderboard) {
+    if (DUMP_PENALTY_NETUIDS.has(entry.netuid)) {
+      entry.composite_score = Math.max(0, entry.composite_score - 30);
+    }
+  }
+  leaderboard.sort((a, b) => b.composite_score - a.composite_score);
+
   // ── Tag deregistration risks ─────────────────────────────────────
   // Primary source: TaoMarketCap's deregistration_risk boolean (already fetched).
   // Fallback: SubnetRadar healthScore (bottom-3) if TMC flags nothing.
