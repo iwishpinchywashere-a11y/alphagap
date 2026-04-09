@@ -41,6 +41,9 @@ export default function ActivatingPage() {
         }
       }
       if (!cancelled) {
+        // Clear the onboarding tour flag so new subscribers always see
+        // the welcome tour when they land on the dashboard for the first time.
+        localStorage.removeItem("alphagap_tour_v1");
         window.location.replace("/dashboard");
       }
     };
