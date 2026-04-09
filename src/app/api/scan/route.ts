@@ -531,6 +531,7 @@ export async function GET() {
     91:  "bitstarterAI",    // Bitstarter #1
     93:  "Bitcast_network", // Bitcast
     97:  "arbos_born",      // distil / Arbo (SN97)
+    44:  "MaxScore",          // Score / Manako (SN44) — founder account
     120: "affine_io",        // Affine (SN120)
     121: "sundaebar_ai",    // sundae_bar
     122: "Bitrecs",         // Bitrecs
@@ -660,6 +661,7 @@ export async function GET() {
       "macrocosmos", "subnet", "netuid", "metagraph", "yuma",
       "tao alpha", "taomarketcap", "taostats",
       "affine_io", "affine foundation", // SN120
+      "maxscore", "manako", "wearescore", // SN44 Score — founder @MaxScore
     ];
     function hasBTContext(text: string): boolean {
       const t = text.toLowerCase();

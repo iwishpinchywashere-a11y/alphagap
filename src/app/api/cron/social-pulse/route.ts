@@ -167,6 +167,7 @@ export async function GET(req: Request) {
   // Hard-coded handle overrides for subnets whose handle isn't registered on TaoStats yet
   const HANDLE_OVERRIDES: Record<string, number> = {
     "affine_io": 120,
+    "MaxScore": 44,   // Score / Manako founder
   };
   for (const [handle, netuid] of Object.entries(HANDLE_OVERRIDES)) {
     if (!handleToNetuid.has(handle)) handleToNetuid.set(handle, netuid);
@@ -181,6 +182,7 @@ export async function GET(req: Request) {
     "macrocosmos", "subnet", "netuid", "metagraph", "yuma",
     "tao alpha", "taomarketcap", "taostats",
     "affine_io", "affine foundation", // SN120 — going viral, unambiguous
+    "maxscore", "manako", "wearescore", // SN44 Score — founder @MaxScore
   ];
   function hasBittensorContext(text: string): boolean {
     const t = text.toLowerCase();
@@ -292,6 +294,7 @@ export async function GET(req: Request) {
     "$TAO subnet",
     "tao alpha subnet",
     "affine_io bittensor OR affine_io subnet OR affine_io $TAO",
+    "MaxScore bittensor OR MaxScore subnet OR MaxScore $TAO OR MaxScore manako",
   ];
   try {
     const searchResults = await Promise.allSettled(

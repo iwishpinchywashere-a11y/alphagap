@@ -266,12 +266,13 @@ export const BENCHMARK_DATA: BenchmarkEntry[] = [
     benchmark_summary: "Score's Manako platform processes a full 90-minute football match in ~2 minutes for ~$10 vs $10,000+ with manual annotation teams (99%+ cost reduction, 1,000× speed). Validated on the SoccerNet GSR challenge using GS-HOTA (Game State Higher Order Tracking Accuracy) metric — 94% per-frame accuracy. Describes itself as '150B addressable cameras globally'. Live enterprise deployments: Reading FC (tactical analytics), major European petroleum CCTV monitoring ($5B betting syndicate, 20% revenue share), Two-a-Day South Africa (fruit packing QC). First five-figure monthly recurring invoice confirmed Nov 2025. 20% of all commercial revenue directed to SN44 ALPHA token buybacks. No-code interface via Manako: connect any camera, describe what to detect in plain language, instant alerts. Plans for basketball, tennis, security, retail, and 2026 World Cup fantasy sports app.",
     active_users: "4+ enterprise clients",
     annual_revenue_usd: 180000,
-    last_updated: "2026-04-07",
+    last_updated: "2026-04-09",
     sources: [
       "https://www.wearescore.com/",
       "https://manako.ai/",
       "https://subnetalpha.ai/subnet/score/",
       "https://github.com/score-technologies/score-vision",
+      "https://x.com/MaxScore/status/2042322226683220213",
     ],
   },
   {
