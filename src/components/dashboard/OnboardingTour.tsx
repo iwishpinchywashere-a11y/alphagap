@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
-import { useSession } from "next-auth/react";
 
 const TOUR_KEY = "alphagap_tour_v1";
 
@@ -80,19 +79,19 @@ const STEPS = [
 ];
 
 export default function OnboardingTour() {
-  const { data: session } = useSession();
   const [mounted, setMounted] = useState(false);
   const [visible, setVisible] = useState(false);
   const [step, setStep] = useState(0);
   const [targetRect, setTargetRect] = useState<DOMRect | null>(null);
 
-  // Only show once per browser, after sign-in
+  // Show once per browser on first dashboard visit — logged in or not.
+  // Paid subscribers get it reset in /activating so they see it fresh after payment.
   useEffect(() => {
     setMounted(true);
-    if (session?.user && !localStorage.getItem(TOUR_KEY)) {
+    if (!localStorage.getItem(TOUR_KEY)) {
       setVisible(true);
     }
-  }, [session?.user]);
+  }, []);
 
   const currentStep = STEPS[step];
 
