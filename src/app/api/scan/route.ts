@@ -2846,8 +2846,11 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
 
       // 24h: accept nearest snapshot within ±12h (handles sparse history during recovery)
       // 7d:  accept nearest snapshot within ±24h
-      const snap24h = closestSnapshot(target24h, 12 * 3600 * 1000);
-      const snap7d  = closestSnapshot(target7d,  24 * 3600 * 1000);
+      // Widen tolerance to ±18h so sparse history still produces velo scores
+      const snap24h = closestSnapshot(target24h, 18 * 3600 * 1000);
+      const snap7d  = closestSnapshot(target7d,  36 * 3600 * 1000);
+
+      console.log(`[scan] Velo: ${allTs.length} history snapshots, snap24h=${snap24h ? "found" : "null"}, snap7d=${snap7d ? "found" : "null"}, oldest=${allTs[0] ?? "none"}, newest=${allTs[allTs.length - 1] ?? "none"}`);
 
       for (const entry of leaderboard) {
         const key = String(entry.netuid);
