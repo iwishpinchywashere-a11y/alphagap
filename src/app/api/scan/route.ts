@@ -2805,24 +2805,8 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
     if (deregTop3Netuids.has(entry.netuid)) entry.dereg_top3 = true;
   }
 
-  // ── Early snapshot save ─────────────────────────────────────────
-  // Save prices + leaderboard NOW before slow AI analysis, so the
-  // dashboard always has fresh data even if the AI step times out.
-  if (process.env.BLOB_READ_WRITE_TOKEN) {
-    try {
-      await put("scan-prices.json", JSON.stringify({
-        leaderboard,
-        signals: [], // populated in final save
-        lastScan: new Date().toISOString(),
-        counts: { subnets: leaderboard.length, signals: 0 },
-        scanDuration: `${Math.round((Date.now() - startTime) / 1000)}s (prices only)`,
-        partial: true,
-      }), { access: "private", token: process.env.BLOB_READ_WRITE_TOKEN });
-      console.log("[scan] Early price snapshot saved to scan-prices.json");
-    } catch (e) { console.error("[scan] Failed early save:", e); }
-  }
-
   // ── Persist per-subnet score history (90-day daily snapshots) ──
+  // NOTE: Early price snapshot is saved AFTER this block so agap_velo is included.
   // Written once per scan. Each day's row is upserted so multiple scans
   // per day just overwrite the same date key. Used by /subnets/[netuid].
   if (process.env.BLOB_READ_WRITE_TOKEN) {
@@ -2924,6 +2908,23 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
       await put("subnet-scores-history.json", JSON.stringify(scoreHistory), { access: "private", token: process.env.BLOB_READ_WRITE_TOKEN });
       console.log(`[scan] Subnet score history: ${Object.keys(scoreHistory).length} snapshots stored`);
     } catch (e) { console.error("[scan] Subnet history save failed:", e); }
+  }
+
+  // ── Early snapshot save ─────────────────────────────────────────
+  // Saved AFTER velo computation so agap_velo is included in the price snapshot.
+  // This ensures the fallback path in cached-scan always has velo data.
+  if (process.env.BLOB_READ_WRITE_TOKEN) {
+    try {
+      await put("scan-prices.json", JSON.stringify({
+        leaderboard,
+        signals: [], // populated in final save
+        lastScan: new Date().toISOString(),
+        counts: { subnets: leaderboard.length, signals: 0 },
+        scanDuration: `${Math.round((Date.now() - startTime) / 1000)}s (prices only)`,
+        partial: true,
+      }), { access: "private", token: process.env.BLOB_READ_WRITE_TOKEN });
+      console.log("[scan] Early price snapshot saved to scan-prices.json");
+    } catch (e) { console.error("[scan] Failed early save:", e); }
   }
 
   // Sort signals by strength desc
