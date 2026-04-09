@@ -87,12 +87,6 @@ export default function DashboardHeader() {
         </div>
 
         <div className="flex items-center gap-4">
-          {lastScan && (
-            <span className="text-xs text-gray-500 hidden sm:inline">Last scan: {lastScan}</span>
-          )}
-          {scanResult && (
-            <span className="text-xs text-green-400 hidden sm:inline">{scanResult}</span>
-          )}
           {scanError && (
             <span className="text-xs text-red-400 max-w-xs truncate hidden sm:inline" title={scanError}>
               Error: {scanError.slice(0, 60)}
