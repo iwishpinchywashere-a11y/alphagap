@@ -2908,7 +2908,7 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
       const cutoff90 = new Date(Date.now() - 90 * 86400000).toISOString();
       for (const d of Object.keys(scoreHistory)) { if (d < cutoff90) delete scoreHistory[d]; }
 
-      await put("subnet-scores-history.json", JSON.stringify(scoreHistory), { access: "private", token: process.env.BLOB_READ_WRITE_TOKEN });
+      await put("subnet-scores-history.json", JSON.stringify(scoreHistory), { access: "private", addRandomSuffix: false, allowOverwrite: true, token: process.env.BLOB_READ_WRITE_TOKEN });
       console.log(`[scan] Subnet score history: ${Object.keys(scoreHistory).length} snapshots stored`);
     } catch (e) { console.error("[scan] Subnet history save failed:", e); }
   }
