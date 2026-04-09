@@ -2894,17 +2894,19 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
             ? d24 * 0.15 + dailyAvg7d * 0.85
             : (d24 ?? dailyAvg7d!);
 
-          // Neutral baseline = 50. tanh compresses extreme values so the score
-          // spreads naturally rather than hard-clipping to 0/100.
+          // Neutral baseline = 50. tanh compresses extreme values gracefully.
+          // Divisor=2 gives wide variance — rocketing subnets reach 90-100,
+          // declining subnets fall to 30-40, flat sits near 50.
           // Calibration (7d primary, lm≈0.8):
-          //   velocity=0           → velo=50  (flat, yellow)
-          //   velocity=+1/day      → velo≈55  (modest uptrend)
-          //   velocity=+3/day      → velo≈68  (strong uptrend)
-          //   velocity=+6/day      → velo≈82  (very strong)
-          //   velocity=-1/day      → velo≈45  (slight decline)
-          //   velocity=-3/day      → velo≈32  (clear decline)
+          //   velocity=0           → velo=50  (flat/neutral)
+          //   velocity=+1/day      → velo≈67  (solid uptrend)
+          //   velocity=+2/day      → velo≈80  (strong uptrend)
+          //   velocity=+3/day      → velo≈88  (very strong — near top)
+          //   velocity=+5/day      → velo≈97  (rocketing)
+          //   velocity=-1/day      → velo≈33  (declining)
+          //   velocity=-2/day      → velo≈20  (clear decline)
           const velo = Math.max(0, Math.min(100, Math.round(
-            50 + Math.tanh(velocity * levelMult / 6) * 50
+            50 + Math.tanh(velocity * levelMult / 2) * 50
           )));
           entry.agap_velo = velo;
         }
