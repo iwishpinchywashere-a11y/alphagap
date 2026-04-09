@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
-import Script from "next/script";
+import { GoogleAnalytics } from "@next/third-parties/google";
 import AuthSessionProvider from "@/components/auth/SessionProvider";
 import "./globals.css";
 
@@ -42,19 +42,8 @@ export default function RootLayout({
     <html lang="en" className={`${inter.variable} ${jetbrains.variable} h-full antialiased`}>
       <body className="font-sans bg-[#0a0a0f] text-gray-100 min-h-full flex flex-col" style={{ fontFamily: "var(--font-inter), system-ui, sans-serif" }}>
         <AuthSessionProvider>{children}</AuthSessionProvider>
-        <Script
-          src="https://www.googletagmanager.com/gtag/js?id=G-95NFVBB3JC"
-          strategy="afterInteractive"
-        />
-        <Script id="google-analytics" strategy="afterInteractive">
-          {`
-            window.dataLayer = window.dataLayer || [];
-            function gtag(){dataLayer.push(arguments);}
-            gtag('js', new Date());
-            gtag('config', 'G-95NFVBB3JC');
-          `}
-        </Script>
       </body>
+      <GoogleAnalytics gaId="G-95NFVBB3JC" />
     </html>
   );
 }
