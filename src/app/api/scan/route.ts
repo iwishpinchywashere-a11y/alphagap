@@ -2855,18 +2855,25 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
 
       console.log(`[scan] Velo: ${allTs.length} history snapshots, snap24h=${snap24h ? `found(${((now24 - snap24h.actualMs)/3600000).toFixed(1)}h ago)` : "null"}, snap7d=${snap7d ? `found(${((now24 - snap7d.actualMs)/3600000).toFixed(1)}h ago)` : "null"}, oldest=${allTs[0] ?? "none"}, newest=${allTs[allTs.length - 1] ?? "none"}`);
 
+      // Time elapsed for snap24h — used to scale d24 proportionally.
+      // A 16h snapshot covers 16/24 of a day; don't treat it the same as a full 24h snapshot.
+      const snap24hAge = snap24h ? (now24 - snap24h.actualMs) / 3600000 : 0; // hours
+
       for (const entry of leaderboard) {
         const key = String(entry.netuid);
         const cur = entry.composite_score;
 
-        // d24: raw delta from the nearest ~24h snapshot.
-        // NOT normalised — even if the snapshot is only 9h old, the raw delta is used
-        // directly (small movement = small contribution). Over-normalising a short window
-        // inflates noise into extreme 0/100 values.
-        const d24 = (snap24h && snap24h.data[key] != null) ? cur - snap24h.data[key].agap : null;
+        // d24: delta from nearest ~24h snapshot, scaled by fraction of 24h actually elapsed.
+        // This prevents a large intraday swing (e.g. +18 in 16h) from dominating the formula
+        // as if it were a full-day move, while still rewarding genuine strong momentum.
+        let d24: number | null = null;
+        if (snap24h && snap24h.data[key] != null) {
+          const scale = Math.min(snap24hAge / 24, 1.0); // 0 → 1 as window approaches 24h
+          d24 = (cur - snap24h.data[key].agap) * scale;
+        }
 
         // d7: delta from the long-term snapshot, normalised to per-day by ACTUAL elapsed days
-        // (may be 8 days if bridging a data gap, not assumed to always be 7).
+        // (may be 8+ days if bridging a data gap, not assumed to always be exactly 7).
         let dailyAvg7d: number | null = null;
         if (snap7d && snap7d.data[key] != null) {
           const actualDays = Math.max((now24 - snap7d.actualMs) / 86400000, 1);
@@ -2877,22 +2884,24 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
           // ── aGap Velo formula ─────────────────────────────────────────────
           // Level significance: moves at high score levels matter far more.
           // score 20 → 0.27×  |  score 50 → 0.58×  |  score 80 → 0.86×
-          // This makes 1→20 nearly invisible and 60→80 fire loudly.
           const levelMult = Math.pow(Math.max(0, cur - 10) / 90, 0.6);
 
-          // Velocity: blend 24h absolute movement (recent signal) +
-          // long-term per-day average (trend). Falls back if one is missing.
+          // Velocity: blend scaled 24h signal (recent) + per-day 7d average (trend).
+          // Falls back gracefully to whichever snapshot is available.
           const velocity = (d24 !== null && dailyAvg7d !== null)
             ? d24 * 0.6 + dailyAvg7d * 0.4
             : (d24 ?? dailyAvg7d!);
 
-          // Scale factor: aGap scores are 0-100 so raw deltas are small.
-          // Calibrated so a sustained +15pt/7d move at score 70 → ~80 Velo.
-          // Flat = 35. Strong up (+2 pts/day at high level) = 80+.
-          const veloBase = 35 + velocity * levelMult * 25;
+          // tanh compression so extreme one-day swings curve gracefully to the ceiling
+          // instead of hard-clipping. Calibration:
+          //   velocity=0           → tanh(0)=0     → veloBase=35  (flat/neutral)
+          //   velocity=2, lm=0.8  → tanh(0.27)    → veloBase≈51  (modest up)
+          //   velocity=5, lm=0.8  → tanh(0.67)    → veloBase≈73  (strong up)
+          //   velocity=10, lm=0.8 → tanh(1.33)    → veloBase≈91  (very strong)
+          //   velocity=-3, lm=0.8 → tanh(-0.4)    → veloBase≈10  (declining)
+          const veloBase = 35 + Math.tanh(velocity * levelMult / 6) * 65;
 
-          // Acceleration bonus (±10 pts): rewards subnets moving faster
-          // than their own recent trend — early momentum signal.
+          // Acceleration bonus (±10 pts): rewards subnets accelerating vs their trend.
           const accelBonus = (d24 !== null && dailyAvg7d !== null)
             ? Math.tanh((d24 - dailyAvg7d) / 8) * 10
             : 0;
