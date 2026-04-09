@@ -5,6 +5,7 @@ import { useSession } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import SubnetLogo from "@/components/dashboard/SubnetLogo";
+import AlphaGapLogo from "@/components/AlphaGapLogo";
 
 // ── Mini sparkline ────────────────────────────────────────────────
 function MiniSparkline({ up }: { up: boolean }) {
@@ -310,7 +311,7 @@ function SubscribeContent() {
       <nav className="fixed top-0 left-0 right-0 z-50 backdrop-blur-xl bg-[#0a0a0f]/85 border-b border-white/5">
         <div className="max-w-6xl mx-auto px-5 py-3.5 flex items-center justify-between">
           <Link href="/">
-            <img src="/alphagap_logo_dark.svg" alt="AlphaGap" className="h-9 w-auto" />
+            <AlphaGapLogo height={36} />
           </Link>
           <div className="flex items-center gap-3">
             {session ? (

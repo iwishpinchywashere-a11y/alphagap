@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import AlphaGapLogo from "@/components/AlphaGapLogo";
 
 export default function ActivatingPage() {
   const { update: updateSession } = useSession();
@@ -94,11 +95,7 @@ export default function ActivatingPage() {
   return (
     <div className="min-h-screen bg-[#0a0a0f] flex flex-col items-center justify-center px-4">
       {/* Logo */}
-      <img
-        src="/alphagap_logo_dark.svg"
-        alt="AlphaGap"
-        className="h-10 w-auto mb-12 opacity-80"
-      />
+      <AlphaGapLogo height={48} />
 
       {/* Spinner */}
       <div className="relative mb-8">

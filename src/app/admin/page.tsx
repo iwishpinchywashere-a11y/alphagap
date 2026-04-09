@@ -3,6 +3,7 @@
 import { useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import AlphaGapLogo from "@/components/AlphaGapLogo";
 
 interface UserEntry {
   email: string;
@@ -140,7 +141,7 @@ export default function AdminPage() {
           <div>
             <div className="flex items-center gap-3 mb-1">
               <Link href="/dashboard">
-                <img src="/alphagap_logo_dark.svg" alt="AlphaGap" className="h-8 w-auto" />
+                <AlphaGapLogo height={32} />
               </Link>
               <span className="text-xs font-semibold bg-red-500/15 text-red-400 border border-red-500/30 px-2 py-0.5 rounded">ADMIN</span>
             </div>

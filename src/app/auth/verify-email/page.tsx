@@ -3,6 +3,7 @@
 import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import AlphaGapLogo from "@/components/AlphaGapLogo";
 
 function VerifyContent() {
   const params = useSearchParams();
@@ -67,7 +68,7 @@ export default function VerifyEmailPage() {
       <div className="relative w-full max-w-sm">
         <div className="text-center mb-8">
           <Link href="/">
-            <img src="/alphagap_logo_dark.svg" alt="AlphaGap" className="h-10 w-auto mx-auto mb-4" />
+            <div className="flex justify-center mb-4"><AlphaGapLogo height={40} /></div>
           </Link>
         </div>
         <div className="bg-gray-900/60 border border-gray-800 rounded-2xl p-8">

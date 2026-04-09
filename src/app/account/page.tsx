@@ -4,6 +4,7 @@ import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import Link from "next/link";
+import AlphaGapLogo from "@/components/AlphaGapLogo";
 
 export default function AccountPage() {
   const { data: session, status } = useSession();
@@ -114,7 +115,7 @@ export default function AccountPage() {
         {/* Nav */}
         <div className="flex items-center justify-between mb-10">
           <Link href="/dashboard">
-            <img src="/alphagap_logo_dark.svg" alt="AlphaGap" className="h-9 w-auto" />
+            <AlphaGapLogo height={36} />
           </Link>
           <Link href="/dashboard" className="text-sm text-gray-500 hover:text-gray-300 transition-colors">
             ← Dashboard
