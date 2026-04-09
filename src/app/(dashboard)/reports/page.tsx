@@ -130,8 +130,11 @@ export default function ReportsPage() {
   return (
     <main className="flex-1 overflow-auto p-4 md:p-6">
       <div className="space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
+        <div className="mb-4">
           <h2 className="text-lg font-bold">Daily Deep Dive Reports</h2>
+          <p className="text-sm text-gray-500 mt-0.5">Daily AI-written deep-dives on the top-ranked subnet. Covers product maturity, developer velocity, market position, and the key catalysts and risks worth knowing — published every morning before the US market opens.</p>
+        </div>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
           {!isPro && (
             <span className="text-xs text-gray-500 bg-gray-800 px-2 py-1 rounded-full border border-gray-700">🔒 Analysis sections — Pro only</span>
           )}

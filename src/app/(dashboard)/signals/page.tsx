@@ -86,7 +86,10 @@ export default function SignalsPage() {
           <div className="space-y-4">
             <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
               <div className="flex items-center gap-3">
-                <h2 className="text-lg font-bold">Intelligence Feed</h2>
+                <div>
+                  <h2 className="text-lg font-bold">Intelligence Feed</h2>
+                  <p className="text-sm text-gray-500 mt-0.5">AI-scored developer activity across every active subnet — commits, model releases, and protocol upgrades ranked by signal strength. Updated every scan before the market reacts.</p>
+                </div>
                 <input
                   type="text"
                   placeholder="Search signals..."
