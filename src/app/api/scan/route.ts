@@ -2886,27 +2886,26 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
           // score 20 → 0.27×  |  score 50 → 0.58×  |  score 80 → 0.86×
           const levelMult = Math.pow(Math.max(0, cur - 10) / 90, 0.6);
 
-          // Velocity: blend scaled 24h signal (recent) + per-day 7d average (trend).
+          // Velocity: 7d daily average is the primary signal (85%).
+          // The scaled 24h delta is a small modifier (15%) so early-morning
+          // score outliers or intraday noise don't flip a rising subnet red.
           // Falls back gracefully to whichever snapshot is available.
           const velocity = (d24 !== null && dailyAvg7d !== null)
-            ? d24 * 0.6 + dailyAvg7d * 0.4
+            ? d24 * 0.15 + dailyAvg7d * 0.85
             : (d24 ?? dailyAvg7d!);
 
-          // tanh compression so extreme one-day swings curve gracefully to the ceiling
-          // instead of hard-clipping. Calibration:
-          //   velocity=0           → tanh(0)=0     → veloBase=35  (flat/neutral)
-          //   velocity=2, lm=0.8  → tanh(0.27)    → veloBase≈51  (modest up)
-          //   velocity=5, lm=0.8  → tanh(0.67)    → veloBase≈73  (strong up)
-          //   velocity=10, lm=0.8 → tanh(1.33)    → veloBase≈91  (very strong)
-          //   velocity=-3, lm=0.8 → tanh(-0.4)    → veloBase≈10  (declining)
-          const veloBase = 35 + Math.tanh(velocity * levelMult / 6) * 65;
-
-          // Acceleration bonus (±10 pts): rewards subnets accelerating vs their trend.
-          const accelBonus = (d24 !== null && dailyAvg7d !== null)
-            ? Math.tanh((d24 - dailyAvg7d) / 8) * 10
-            : 0;
-
-          const velo = Math.max(0, Math.min(100, Math.round(veloBase + accelBonus)));
+          // Neutral baseline = 50. tanh compresses extreme values so the score
+          // spreads naturally rather than hard-clipping to 0/100.
+          // Calibration (7d primary, lm≈0.8):
+          //   velocity=0           → velo=50  (flat, yellow)
+          //   velocity=+1/day      → velo≈55  (modest uptrend)
+          //   velocity=+3/day      → velo≈68  (strong uptrend)
+          //   velocity=+6/day      → velo≈82  (very strong)
+          //   velocity=-1/day      → velo≈45  (slight decline)
+          //   velocity=-3/day      → velo≈32  (clear decline)
+          const velo = Math.max(0, Math.min(100, Math.round(
+            50 + Math.tanh(velocity * levelMult / 6) * 50
+          )));
           entry.agap_velo = velo;
         }
       }
