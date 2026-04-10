@@ -133,7 +133,7 @@ export default function WhalesPage() {
     }
 
     // Flow signals from the signals feed
-    const flowTypes = ["flow_inflection", "flow_spike", "flow_warning"];
+    const flowTypes = ["flow_inflection", "flow_spike", "flow_warning", "whale_sell"];
     for (const sig of signals) {
       if (!flowTypes.includes(sig.signal_type)) continue;
       // Skip if already represented by whale/volume event
@@ -180,6 +180,19 @@ export default function WhalesPage() {
           detail: sig.description,
           badge: "⚠️ FLOW WARN",
           badgeColor: "bg-orange-500/20 text-orange-400 border-orange-500/30",
+          price: sub?.alpha_price ?? undefined,
+          change24h: sub?.price_change_24h ?? undefined,
+        });
+      } else if (sig.signal_type === "whale_sell") {
+        out.push({
+          netuid: sig.netuid,
+          name,
+          type: "distributing",
+          strength: sig.strength,
+          headline: sig.title,
+          detail: sig.description,
+          badge: "🔻 WHALE SELL",
+          badgeColor: "bg-red-500/20 text-red-400 border-red-500/30",
           price: sub?.alpha_price ?? undefined,
           change24h: sub?.price_change_24h ?? undefined,
         });
