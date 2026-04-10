@@ -2430,16 +2430,27 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
         const avgSell = sellVol / sells;
         if (avgSell > 0) {
           whaleRatio = Math.round(avgBuy / avgSell * 100) / 100;
-          if (whaleRatio >= 2.0) {
+          if (whaleRatio >= 1.5) {
             whaleSignal = "accumulating";
             // Whale accumulation boost — bigger boost if dev is also high
-            if (devScore >= 40) whaleBoost = 16;  // whales + dev = strong conviction
-            else whaleBoost = 10;                  // whales alone = solid signal
+            if (whaleRatio >= 2.5 && devScore >= 40) whaleBoost = 16; // very strong: big buys + dev
+            else if (whaleRatio >= 2.0) whaleBoost = 12;              // strong whale accumulation
+            else whaleBoost = 7;                                        // moderate buy-side lean
           } else if (whaleRatio <= 0.5) {
             whaleSignal = "distributing";
             whaleBoost = -7; // whales selling = caution
           }
         }
+      }
+
+      // Volume surge as whale buy signal — if unusual buying volume AND net positive flow,
+      // treat as smart money accumulation even if individual tx sizes are modest
+      const surgeRatio = volumeSurgeMap.get(d.netuid) || 0;
+      const netFlow = d.netFlow24h ?? 0;
+      if (surgeRatio >= 5 && netFlow > 0 && whaleSignal !== "distributing") {
+        whaleSignal = "accumulating";
+        whaleRatio = whaleRatio ?? Math.round(surgeRatio * 10) / 10;
+        whaleBoost = Math.min(16, whaleBoost + (surgeRatio >= 10 ? 12 : 8));
       }
     }
     // Supplement with SubnetRadar real-time large stake/unstake events (last ~30 min)
