@@ -271,7 +271,7 @@ function AuditCard({ audit }: { audit: SubnetAudit }) {
 }
 
 // ── Main Page ──────────────────────────────────────────────────────
-type SortKey = "grade" | "score" | "stale" | "burn" | "collusion";
+type SortKey = "score_desc" | "score_asc" | "grade" | "stale" | "burn" | "collusion";
 
 export default function AuditsPage() {
   const { data: session } = useSession();
@@ -287,7 +287,7 @@ export default function AuditsPage() {
   const [updatedAt, setUpdatedAt] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [sortKey, setSortKey] = useState<SortKey>("score");
+  const [sortKey, setSortKey] = useState<SortKey>("score_desc");
   const [filterGrade, setFilterGrade] = useState<string>("all");
   const [filterFlag, setFilterFlag] = useState<string>("all");
 
@@ -311,11 +311,13 @@ export default function AuditsPage() {
     if (filterGrade !== "all") list = list.filter(s => s.grade === filterGrade);
     if (filterFlag !== "all") list = list.filter(s => s.flags.some(f => f.type === filterFlag));
 
-    if (sortKey === "grade") {
+    if (sortKey === "score_desc") {
+      list.sort((a, b) => b.operationalScore - a.operationalScore);
+    } else if (sortKey === "score_asc") {
+      list.sort((a, b) => a.operationalScore - b.operationalScore);
+    } else if (sortKey === "grade") {
       const order = { A: 0, B: 1, C: 2, D: 3, F: 4 };
       list.sort((a, b) => (order[a.grade] ?? 5) - (order[b.grade] ?? 5));
-    } else if (sortKey === "score") {
-      list.sort((a, b) => a.operationalScore - b.operationalScore);
     } else if (sortKey === "stale") {
       list.sort((a, b) => b.staleValidatorPct - a.staleValidatorPct);
     } else if (sortKey === "burn") {
@@ -374,11 +376,12 @@ export default function AuditsPage() {
         <span className="text-xs text-gray-600">Sort by:</span>
         {(
           [
-            { key: "score", label: "Score (low→high)" },
-            { key: "grade", label: "Grade" },
-            { key: "stale", label: "Stale Validators" },
-            { key: "burn", label: "Burn Code" },
-            { key: "collusion", label: "Collusion Risk" },
+            { key: "score_desc", label: "Score (high→low)" },
+            { key: "score_asc",  label: "Score (low→high)" },
+            { key: "grade",      label: "Grade" },
+            { key: "stale",      label: "Stale Validators" },
+            { key: "burn",       label: "Burn Code" },
+            { key: "collusion",  label: "Collusion Risk" },
           ] as { key: SortKey; label: string }[]
         ).map(({ key, label }) => (
           <button
