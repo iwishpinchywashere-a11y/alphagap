@@ -430,6 +430,135 @@ export async function GET(req: Request) {
     } catch (e) { console.error("[social-pulse] benchmark alerts save failed:", e); }
   }
 
+  // ── Subnet own-account activity scan (throttled to once per 4 hours) ──
+  // Measures how actively subnets post on their own Twitter — a consistent tweeting
+  // team is a genuine signal even if no KOL has mentioned them recently.
+  // Scores 0-25 pts saved to subnet-activity.json, read by the main scan.
+  interface SubnetActivityEntry {
+    netuid: number; handle: string;
+    latestTweetAgeHours: number; // hours since most recent tweet
+    weeklyTweetCount: number;    // tweets in last 7 days
+    avgEngagement7d: number;     // average engagement per tweet last 7 days
+    activityScore: number;       // 0-25
+    updatedAt: string;
+  }
+  interface SubnetActivityBlob { subnets: Record<number, SubnetActivityEntry>; updatedAt: string }
+
+  const SUBNET_ACTIVITY_TTL_H = 4;
+  let existingActivity: SubnetActivityBlob = { subnets: {}, updatedAt: "" };
+  try {
+    const saBlob = await (await import("@vercel/blob")).get("subnet-activity.json", { token, access: "private" });
+    if (saBlob?.stream) {
+      const reader = saBlob.stream.getReader(); const chunks: Uint8Array[] = [];
+      while (true) { const { done, value } = await reader.read(); if (done) break; chunks.push(value); }
+      existingActivity = JSON.parse(Buffer.concat(chunks).toString("utf-8"));
+    }
+  } catch { /* first run */ }
+
+  const activityAgeH = existingActivity.updatedAt
+    ? (Date.now() - new Date(existingActivity.updatedAt).getTime()) / 3600000
+    : 999;
+
+  if (activityAgeH >= SUBNET_ACTIVITY_TTL_H) {
+    console.log(`[social-pulse] Subnet activity data ${Math.round(activityAgeH)}h old — refreshing...`);
+
+    function computeActivityScore(ageHours: number, weeklyCount: number, avgEng: number): number {
+      let base = 0;
+      if      (ageHours < 12) base = avgEng > 100 ? 22 : avgEng > 30 ? 18 : 14;
+      else if (ageHours < 24) base = 12;
+      else if (ageHours < 48) base = 9;
+      else if (ageHours < 72) base = 6;
+      else if (ageHours < 168) base = 3;
+      const volBonus = weeklyCount >= 7 ? 3 : weeklyCount >= 3 ? 1 : 0;
+      return Math.min(25, base + volBonus);
+    }
+
+    // Fetch timelines for all subnets with known Twitter handles
+    // Exclude handles already covered in KOL timelines (already processed above)
+    const kolHandleSet = new Set(kols.map(k => k.handle.toLowerCase()));
+    const subnetHandlesToFetch = [...handleToNetuid.entries()]
+      .filter(([handle]) => !kolHandleSet.has(handle.toLowerCase()));
+
+    const SEVEN_DAYS_MS = 7 * 24 * 3600 * 1000;
+    const now = Date.now();
+
+    const subnetActivityResults = await Promise.allSettled(
+      subnetHandlesToFetch.map(([handle, netuid]) =>
+        fetchKolTimeline(handle).then(tweets => ({ handle, netuid, tweets }))
+      )
+    );
+
+    const newActivity: SubnetActivityBlob = { subnets: { ...existingActivity.subnets }, updatedAt: new Date().toISOString() };
+
+    for (const r of subnetActivityResults) {
+      if (r.status !== "fulfilled") continue;
+      const { handle, netuid, tweets } = r.value;
+      if (!tweets || tweets.length === 0) continue;
+
+      const recent7d = tweets.filter(t => now - new Date(t.created_at).getTime() <= SEVEN_DAYS_MS);
+      if (recent7d.length === 0) {
+        newActivity.subnets[netuid] = {
+          netuid, handle, latestTweetAgeHours: 9999,
+          weeklyTweetCount: 0, avgEngagement7d: 0,
+          activityScore: 0, updatedAt: new Date().toISOString(),
+        };
+        continue;
+      }
+
+      const sorted = [...tweets].sort((a, b) =>
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+      const latestTweetAgeHours = (now - new Date(sorted[0].created_at).getTime()) / 3600000;
+      const weeklyTweetCount = recent7d.length;
+      const totalEng = recent7d.reduce((s, t) =>
+        s + t.like_count + t.retweet_count + t.reply_count + (t.quote_count ?? 0), 0);
+      const avgEngagement7d = weeklyTweetCount > 0 ? totalEng / weeklyTweetCount : 0;
+      const activityScore = computeActivityScore(latestTweetAgeHours, weeklyTweetCount, avgEngagement7d);
+
+      newActivity.subnets[netuid] = {
+        netuid, handle, latestTweetAgeHours,
+        weeklyTweetCount, avgEngagement7d,
+        activityScore, updatedAt: new Date().toISOString(),
+      };
+    }
+
+    // Also process KOL-fetched timelines that happen to be official subnet accounts
+    for (const r of kolResults) {
+      if (r.status !== "fulfilled") continue;
+      const { kol, tweets } = r.value;
+      const netuid = handleToNetuid.get(kol.handle.toLowerCase());
+      if (!netuid) continue;
+
+      const recent7d = tweets.filter(t => now - new Date(t.created_at).getTime() <= SEVEN_DAYS_MS);
+      if (recent7d.length === 0) continue;
+      const sorted = [...tweets].sort((a, b) =>
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+      const latestTweetAgeHours = (now - new Date(sorted[0].created_at).getTime()) / 3600000;
+      const weeklyTweetCount = recent7d.length;
+      const totalEng = recent7d.reduce((s, t) =>
+        s + t.like_count + t.retweet_count + t.reply_count + (t.quote_count ?? 0), 0);
+      const avgEngagement7d = weeklyTweetCount > 0 ? totalEng / weeklyTweetCount : 0;
+      const activityScore = computeActivityScore(latestTweetAgeHours, weeklyTweetCount, avgEngagement7d);
+
+      newActivity.subnets[netuid] = {
+        netuid, handle: kol.handle, latestTweetAgeHours,
+        weeklyTweetCount, avgEngagement7d,
+        activityScore, updatedAt: new Date().toISOString(),
+      };
+    }
+
+    try {
+      await put("subnet-activity.json", JSON.stringify(newActivity), {
+        access: "private", addRandomSuffix: false, allowOverwrite: true, token,
+      });
+      const scored = Object.values(newActivity.subnets).filter(s => s.activityScore > 0).length;
+      console.log(`[social-pulse] Subnet activity refreshed: ${Object.keys(newActivity.subnets).length} subnets, ${scored} with score > 0`);
+    } catch (e) { console.error("[social-pulse] subnet-activity.json save failed:", e); }
+  } else {
+    console.log(`[social-pulse] Subnet activity data fresh (${Math.round(activityAgeH)}h old), skipping refresh`);
+  }
+
   // ── Merge with existing events ───────────────────────────────────
   // Prune events older than 72h (48h full + 24h decay window)
   const cutoff = new Date(Date.now() - 72 * 60 * 60 * 1000).toISOString();

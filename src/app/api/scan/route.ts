@@ -1842,6 +1842,27 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
     } catch { /* no hot events yet */ }
   }
 
+  // ── Load subnet own-account activity (written by social-pulse every 4h) ──
+  // Tracks how actively each subnet posts on its own official Twitter.
+  // A subnet tweeting daily with updates deserves credit even if no KOL mentions them.
+  type SubnetActivityEntry = { netuid: number; latestTweetAgeHours: number; weeklyTweetCount: number; avgEngagement7d: number; activityScore: number };
+  const subnetActivityMap = new Map<number, SubnetActivityEntry>();
+  if (process.env.BLOB_READ_WRITE_TOKEN) {
+    try {
+      const { get: getSABlob } = await import("@vercel/blob");
+      const saBlob = await getSABlob("subnet-activity.json", { token: process.env.BLOB_READ_WRITE_TOKEN, access: "private" });
+      if (saBlob?.stream) {
+        const rdr = saBlob.stream.getReader(); const cks: Uint8Array[] = [];
+        while (true) { const { done, value } = await rdr.read(); if (done) break; cks.push(value); }
+        const saData = JSON.parse(Buffer.concat(cks).toString("utf-8")) as { subnets: Record<string, SubnetActivityEntry> };
+        for (const [nid, entry] of Object.entries(saData.subnets ?? {})) {
+          subnetActivityMap.set(Number(nid), entry);
+        }
+        console.log(`[scan] Loaded subnet activity data for ${subnetActivityMap.size} subnets`);
+      }
+    } catch { /* not written yet — runs after first social-pulse */ }
+  }
+
   // ── Social Score v3: Early Trend Detector ──────────────────────
   // HIGH score = catching a FRESH, multi-voice social trend (alpha window open)
   // LOW score = no signal or single voice that has aged out
@@ -1927,17 +1948,24 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
     else if (mentions >= 3) organicPts = 2;
     else if (mentions >= 1) organicPts = 1;
 
-    // ── Fallback: no signal at all ──
-    if (kolPts === 0 && discordPts === 0 && mentions <= 0) {
-      if (desearchFailed) {
-        const identity = identityMap.get(netuid);
-        if (identity?.twitter) return 8;
-        if (identity?.subnet_name) return 4;
-      }
+    // ── Subnet own-account activity (max 25 pts) ──
+    // Credit subnets that actively post on their own Twitter — consistent updates,
+    // milestones, and community engagement are genuine signals of team health,
+    // independent of whether any KOL has picked them up this week.
+    const ownActivity = subnetActivityMap.get(netuid);
+    const ownActivityPts = ownActivity?.activityScore ?? 0;
+
+    // ── Fallback: no active signals anywhere ──
+    // Even with zero mentions/KOL/discord/activity, give a small baseline if the
+    // subnet has a registered Twitter — they exist, they just aren't buzzing right now.
+    if (kolPts === 0 && discordPts === 0 && ownActivityPts === 0 && mentions <= 0) {
+      const identity = identityMap.get(netuid);
+      if (identity?.twitter) return 8;
+      if (identity?.subnet_name) return 4;
       return 0;
     }
 
-    return Math.min(100, Math.max(0, kolPts + clusterBonus + discordPts + organicPts));
+    return Math.min(100, Math.max(0, kolPts + clusterBonus + discordPts + organicPts + ownActivityPts));
   }
 
   // ── Load aGap score history for EMA smoothing ──────────────────
