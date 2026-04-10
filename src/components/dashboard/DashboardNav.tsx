@@ -20,6 +20,7 @@ export default function DashboardNav() {
     { href: "/analytics", label: "Analytics" },
     { href: "/benchmarks", label: "Benchmarks" },
     { href: "/performance", label: "Performance" },
+    { href: "/audits", label: "Audits" },
     { href: "/testing", label: "Pump Lab" },
   ];
 

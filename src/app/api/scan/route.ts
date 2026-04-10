@@ -1752,6 +1752,47 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
     else if (taoLocked >= 500) score += 2;
     else if (taoLocked >= 100) score += 1;
 
+    // 8. OPERATIONAL HEALTH (from audit-scan metagraph analysis, ±35 pts)
+    // Full structural health check: stale weights, burn-code miners, validator
+    // collusion, and overall network activity. These are the signals the market
+    // is least likely to have already priced in — a subnet can look great on
+    // price/emissions while being fundamentally broken at the protocol layer.
+    const audit = auditMap.get(d.netuid);
+    if (audit) {
+      // A. Validator weight staleness (max -18 pts / +6 pts)
+      // Stale validators may be copying weights or have abandoned the subnet.
+      // A subnet where >80% of validators haven't updated in 24h is a red flag.
+      if      (audit.staleValidatorPct >= 90) score -= 18;
+      else if (audit.staleValidatorPct >= 70) score -= 13;
+      else if (audit.staleValidatorPct >= 50) score -= 8;
+      else if (audit.staleValidatorPct >= 30) score -= 4;
+      else if (audit.staleValidatorPct <= 5 && audit.validatorCount >= 5) score += 6;
+
+      // B. Zero-incentive miners — burn code / miners not being queried (max -15 pts / +5 pts)
+      // This is distinct from minerBurnPct (which is financial). This is operational:
+      // are miners receiving ANY incentive signal at all from validators?
+      if      (audit.zeroIncentiveMinerPct >= 90) score -= 15;
+      else if (audit.zeroIncentiveMinerPct >= 70) score -= 10;
+      else if (audit.zeroIncentiveMinerPct >= 50) score -= 6;
+      else if (audit.zeroIncentiveMinerPct >= 30) score -= 3;
+      else if (audit.zeroIncentiveMinerPct <= 5 && audit.minerCount >= 5) score += 5;
+
+      // C. Trust concentration / collusion risk (max -12 pts / +4 pts)
+      // High Gini = a single validator or small cartel dominates trust.
+      // Collusion suppresses real miner competition and degrades subnet quality.
+      if      (audit.trustGini >= 0.92) score -= 12;
+      else if (audit.trustGini >= 0.80) score -= 8;
+      else if (audit.trustGini >= 0.65) score -= 4;
+      else if (audit.trustGini <= 0.35 && audit.validatorCount >= 8) score += 4;
+
+      // D. Overall operational grade bonus/penalty
+      // Grade A means all three of the above are healthy simultaneously — worth a bonus.
+      // Grade F with critical flags means multiple structural failures at once.
+      if      (audit.grade === "A") score += 6;
+      else if (audit.grade === "F" && audit.flags.some(f => f.severity === "critical")) score -= 8;
+      else if (audit.grade === "D") score -= 4;
+    }
+
     return { score: Math.max(0, Math.min(100, score)), ratio: evalRatio };
   }
 
@@ -1861,6 +1902,27 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
         console.log(`[scan] Loaded subnet activity data for ${subnetActivityMap.size} subnets`);
       }
     } catch { /* not written yet — runs after first social-pulse */ }
+  }
+
+  // ── Load audit data (written by /api/cron/audit-scan every 6h) ──
+  // Operational health: validator weight staleness, burn code, trust concentration.
+  // Used in computeEvalScore to penalise structurally unhealthy subnets.
+  type AuditEntry = { operationalScore: number; grade: string; staleValidatorPct: number; zeroIncentiveMinerPct: number; trustGini: number; flags: { type: string; severity: string }[] };
+  const auditMap = new Map<number, AuditEntry>();
+  if (process.env.BLOB_READ_WRITE_TOKEN) {
+    try {
+      const { get: getAuditBlob } = await import("@vercel/blob");
+      const auditBlob = await getAuditBlob("audit-data.json", { token: process.env.BLOB_READ_WRITE_TOKEN, access: "private" });
+      if (auditBlob?.stream) {
+        const rdr = auditBlob.stream.getReader(); const cks: Uint8Array[] = [];
+        while (true) { const { done, value } = await rdr.read(); if (done) break; cks.push(value); }
+        const auditData = JSON.parse(Buffer.concat(cks).toString("utf-8")) as { subnets: Record<string, AuditEntry> };
+        for (const [nid, entry] of Object.entries(auditData.subnets ?? {})) {
+          auditMap.set(Number(nid), entry);
+        }
+        console.log(`[scan] Loaded audit data for ${auditMap.size} subnets`);
+      }
+    } catch { /* not yet written — first cron run pending */ }
   }
 
   // ── Social Score v3: Early Trend Detector ──────────────────────

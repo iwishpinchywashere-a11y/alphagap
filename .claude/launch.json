@@ -3,12 +3,9 @@
   "configurations": [
     {
       "name": "alphagap-dev",
-      "runtimeExecutable": "/opt/homebrew/Cellar/node/25.6.1_1/bin/npm",
+      "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev"],
-      "port": 3000,
-      "env": {
-        "PATH": "/opt/homebrew/Cellar/node/25.6.1_1/bin:/usr/local/bin:/usr/bin:/bin"
-      }
+      "port": 3000
     }
   ]
 }
