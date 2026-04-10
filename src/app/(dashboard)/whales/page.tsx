@@ -136,9 +136,13 @@ export default function WhalesPage() {
     const flowTypes = ["flow_inflection", "flow_spike", "flow_warning", "whale_sell"];
     for (const sig of signals) {
       if (!flowTypes.includes(sig.signal_type)) continue;
-      // Skip if already represented by whale/volume event
+      // Skip if already represented by an equivalent whale/volume event
+      const alreadyType =
+        sig.signal_type === "flow_warning" || sig.signal_type === "whale_sell"
+          ? "distributing"
+          : ["accumulating", "volume_surge"];
       const already = out.find(e => e.netuid === sig.netuid &&
-        (sig.signal_type === "flow_warning" ? e.type === "distributing" : e.type === "accumulating" || e.type === "volume_surge"));
+        (Array.isArray(alreadyType) ? alreadyType.includes(e.type) : e.type === alreadyType));
       if (already) continue;
 
       const sub = leaderboard.find(s => s.netuid === sig.netuid);
