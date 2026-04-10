@@ -1907,7 +1907,7 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
   // ── Load audit data (written by /api/cron/audit-scan every 6h) ──
   // Operational health: validator weight staleness, burn code, trust concentration.
   // Used in computeEvalScore to penalise structurally unhealthy subnets.
-  type AuditEntry = { operationalScore: number; grade: string; staleValidatorPct: number; zeroIncentiveMinerPct: number; trustGini: number; flags: { type: string; severity: string }[] };
+  type AuditEntry = { operationalScore: number; grade: string; staleValidatorPct: number; zeroIncentiveMinerPct: number; trustGini: number; validatorCount: number; minerCount: number; flags: { type: string; severity: string }[] };
   const auditMap = new Map<number, AuditEntry>();
   if (process.env.BLOB_READ_WRITE_TOKEN) {
     try {
