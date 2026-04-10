@@ -1622,7 +1622,17 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
     else if (fg <= 35 && pch7d <= -10) fgScore = 1;  // fear in downtrend = mild contrarian signal
     else if (fg >= 85 && pch7d >= 30) fgScore = -2;  // extreme greed after big 7d pump = overextended
 
-    return Math.max(1, Math.min(100, score24h + score7d + score30d + reversalBonus + whaleScore + srWhaleScore + fgScore + volumeSurgeScore));
+    // SELL-OFF PENALTY — hard dump detected in 24h price action
+    // A single-day crash this severe signals active distribution / token dump.
+    // Overrides all positive signals — smart money is fleeing regardless of dev quality.
+    let selloffPenalty = 0;
+    if (pch24h <= -41) {
+      selloffPenalty = -65; // HUGE penalty: token in freefall, virtually no flow score
+    } else if (pch24h <= -25) {
+      selloffPenalty = -35; // Large penalty: major sell pressure, flow is clearly negative
+    }
+
+    return Math.max(1, Math.min(100, score24h + score7d + score30d + reversalBonus + whaleScore + srWhaleScore + fgScore + volumeSurgeScore + selloffPenalty));
   }
 
   // ── eVal: Emissions-to-Valuation score ──────────────────────────
