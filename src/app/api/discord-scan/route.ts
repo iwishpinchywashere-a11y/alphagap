@@ -20,14 +20,16 @@ export const maxDuration = 240; // 4 min — fits Vercel Pro limit comfortably
 const DISCORD_TOKEN = process.env.DISCORD_TOKEN || "";
 const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY || "";
 
-// Prioritise channels we can map to a netuid — cap at 80 to stay within time budget
-const MAX_CHANNELS = 80;
-// Messages per channel
-const MESSAGES_PER_CHANNEL = 30;
-// Minimum messages to bother analyzing
-const MIN_MESSAGES_TO_ANALYZE = 2;
-// Delay between channel fetches (ms) — small enough to finish in time
-const RATE_LIMIT_DELAY = 100;
+// Prioritise channels we can map to a netuid — cap at 120 to maximise coverage
+const MAX_CHANNELS = 120;
+// Messages per channel — more context = better AI analysis
+const MESSAGES_PER_CHANNEL = 50;
+// Minimum messages to bother analyzing — 1 so no channel with any activity is skipped
+const MIN_MESSAGES_TO_ANALYZE = 1;
+// Delay between channel fetches (ms)
+const RATE_LIMIT_DELAY = 80;
+// Minimum entries to surface on the social page — if below this, relax signal thresholds
+const MIN_ENTRIES_TARGET = 10;
 
 export async function GET() {
   if (!DISCORD_TOKEN) {
@@ -51,9 +53,9 @@ export async function GET() {
     });
 
     const channelsToScan = sorted.slice(0, MAX_CHANNELS);
-    // 6h window: signals change meaningfully between scans instead of
-    // showing the same 24h block of messages every 3 hours.
-    const afterSnowflake = getHoursAgoSnowflake(6);
+    // 24h window — gives every channel a full day to accumulate messages.
+    // The cron runs every 3h so results refresh frequently with fresh data.
+    const afterSnowflake = getHoursAgoSnowflake(24);
 
     // 2. Fetch messages from each channel
     const channelScans: Array<{
@@ -148,6 +150,28 @@ export async function GET() {
     // Sort results: alpha first, then active, quiet, noise
     const signalOrder = { alpha: 0, active: 1, quiet: 2, noise: 3 };
     results.sort((a, b) => signalOrder[a.signal] - signalOrder[b.signal]);
+
+    // ── Minimum 10 entries guarantee ─────────────────────────────────
+    // If we have fewer than MIN_ENTRIES_TARGET alpha/active entries,
+    // promote the best quiet channels (by message count) to "active"
+    // so the social page always has enough to show.
+    const surfaceable = results.filter(r => r.signal === "alpha" || r.signal === "active");
+    if (surfaceable.length < MIN_ENTRIES_TARGET) {
+      const deficit = MIN_ENTRIES_TARGET - surfaceable.length;
+      const promotable = results
+        .filter(r => r.signal === "quiet" && r.messageCount >= 1)
+        .sort((a, b) => b.messageCount - a.messageCount)
+        .slice(0, deficit);
+      for (const entry of promotable) {
+        entry.signal = "active";
+        entry.alphaScore = Math.max(entry.alphaScore ?? 0, 10);
+        if (!entry.summary || entry.summary.includes("No significant")) {
+          entry.summary = `${entry.messageCount} messages from ${entry.uniquePosters} community members in the last 24h.`;
+        }
+      }
+      console.log(`[discord-scan] Promoted ${promotable.length} quiet channels to meet minimum ${MIN_ENTRIES_TARGET} entries`);
+      results.sort((a, b) => signalOrder[a.signal] - signalOrder[b.signal]);
+    }
 
     // 5. Save to blob
     const output = {
@@ -246,62 +270,57 @@ async function analyzeBatch(
     return `=== #${ch.channelName} (${ch.messages.length} msgs, ${uniquePosters} posters) ===\n${recentMsgs}`;
   });
 
-  const prompt = `You are an alpha intelligence analyst for Bittensor subnet investments. Analyze these Discord channel conversations from the last 24 hours.
+  const prompt = `You are an alpha intelligence analyst for Bittensor subnet investments. Analyze these Discord channel conversations from the last 24 hours and extract every useful signal.
 
-For each channel, classify the signal, score it, and extract specific alpha insights.
+Your goal is to surface ACTIONABLE INTEL. Err on the side of classifying channels as "active" — we want to show investors what's happening across the ecosystem, not just the top 2-3 highlights.
 
 SIGNAL TYPES:
-- "alpha": Genuine alpha — dev previews, partnership hints, unreleased features, technical breakthroughs, insider mentions, launch dates, validator announcements. Something a serious investor NEEDS to know.
-- "active": Good community energy, substantive technical discussion, healthy ecosystem engagement. No specific alpha but positive signal.
-- "quiet": Low activity, routine/maintenance chat, generic questions.
-- "noise": Spam, price talk only, complaints, shitposting, nothing of substance.
+- "alpha": Genuine alpha — dev previews, partnership hints, unreleased features, technical breakthroughs, insider mentions, launch dates, validator announcements, major protocol changes. Something a serious investor NEEDS to know.
+- "active": Any real activity worth noting — technical discussion, builder questions, team engagement, community updates, support activity, bug reports showing a live product, feedback on features. If people are talking substantively about the subnet, it's active.
+- "quiet": Minimal or generic chat — only 1-3 messages with no substance, mostly greetings or filler.
+- "noise": Spam, bots, price complaints, pure shitposting with zero informational value.
 
-ALPHA SCORE (0-100): Score the overall investable signal quality + activity:
-- 80-100: Confirmed alpha — partnership announcement, launch date, major feature drop, insider info from dev/team
-- 60-79: Strong signals — dev previewing unreleased work, integration teased, validator discussing migration, team milestone
-- 40-59: Active + quality — real technical discussion, community building, multiple engaged builders
-- 20-39: Active but surface-level — decent activity, no specific alpha
-- 1-19: Quiet — low volume, generic chat
-- 0: Noise/spam/price talk only
+ALPHA SCORE (0-100):
+- 80-100: Confirmed alpha — partnership, launch date, major feature drop, insider/dev info
+- 60-79: Strong signal — dev previewing work, integration teased, validator migration, team milestone
+- 40-59: Active + quality — real technical discussion, builder engagement, multiple substantive posts
+- 20-39: Active — decent activity, community alive, some substance even if no big news
+- 5-19: Quiet — low volume, mostly generic
+- 0: Noise/spam only
 
-ALPHA TYPES — tag each key insight with its type:
-- "partnership": New partner, integration, or protocol collaboration being discussed or announced
-- "feature": New product feature, capability, or technical upgrade being built or teased
-- "launch": Launch date, mainnet, or public release being discussed or confirmed
-- "dev_update": Dev commits, GitHub activity, code update, or technical milestone
-- "team": New hire, advisor, or key team member announcement
-- "general": Other alpha that doesn't fit above
+KEY INSIGHT TYPES:
+- "partnership": New partner, integration, or protocol collaboration
+- "feature": New product feature, capability, or technical upgrade
+- "launch": Launch date, mainnet, public release, or major milestone
+- "dev_update": Dev commits, GitHub activity, code update, technical progress
+- "team": New hire, advisor, community growth, or key team activity
+- "community": Strong community signal — engagement, sentiment, builder activity
+- "general": Other useful intel
 
-RELEASE HINT — set releaseHint: true when you detect ANY of:
-- An imminent release, update, or launch being discussed or teased (e.g. "dropping tomorrow", "v2 this week", "mainnet soon")
-- Devs previewing unreleased features or showing early footage/demos
-- A confirmed launch date or milestone timeline being shared
-- A major architectural upgrade or breaking change being announced
-- Partnership or integration going live imminently
+RELEASE HINT — set true for: imminent release/launch being discussed, devs previewing unreleased work, confirmed launch dates, major architectural announcements, or partnership going live imminently.
 
 ${channelTexts.join("\n\n")}
 
-Respond with a JSON array. One object per channel IN THE SAME ORDER as above:
+Respond with a JSON array — one object per channel IN THE SAME ORDER:
 [
   {
     "channelName": "exact channel name",
     "signal": "alpha|active|quiet|noise",
     "alphaScore": 45,
     "releaseHint": false,
-    "summary": "One punchy sentence describing what is ACTUALLY happening — name the feature/partner/update if there is one.",
+    "summary": "One punchy, specific sentence. Name the actual feature/partner/activity — not 'community discussing updates' but 'Team shipping v2 API this week, 3 devs active fixing edge cases'.",
     "keyInsights": [
-      { "text": "Dev teased v2 model releasing next week with 3× speed improvement", "type": "feature" },
-      { "text": "Partnership with Chainlink confirmed in AMA", "type": "partnership" }
+      { "text": "Specific insight here — name features, people, dates", "type": "feature" }
     ]
   }
 ]
 
 Rules:
-- Be STINGY with "alpha". Only tag alpha if there's genuinely investable information.
-- Summary must be SPECIFIC — not "community is discussing updates" but "Team confirmed Ethereum bridge going live Thursday"
-- keyInsights: 0 for quiet/noise, 1-4 for alpha/active. Name specific features, partners, dates, people. Never be vague.
-- alphaScore must reflect BOTH quality (what was said) AND quantity (message count, unique posters). High message count + generic chat = max 35. Low message count + partnership hint = 65+.
-- releaseHint almost always false — only true with concrete credible release signal.
+- Be GENEROUS with "active" — if 3+ real humans posted anything substantive, it's active.
+- Be STINGY with "quiet" and "noise" — only use these for truly dead channels.
+- Summary must be SPECIFIC — mention actual topics, features, people, or events discussed.
+- keyInsights: 0 for quiet/noise, 1-3 for active, 1-4 for alpha. Be specific — name things.
+- alphaScore reflects BOTH quality AND quantity. A channel with 20 engaged builders discussing a bug = 30+.
 - Respond with ONLY the JSON array, no other text.`;
 
   try {
