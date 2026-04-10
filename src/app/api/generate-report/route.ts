@@ -69,11 +69,18 @@ async function generateReport(forceNetuid?: number) {
         return NextResponse.json({ error: "No scan data available" }, { status: 400 });
       }
 
-      // Get recent report netuids (last 3 days)
+      // Get report netuids from the last 21 days — never repeat a subnet in this window
+      const REPORT_COOLDOWN_DAYS = 21;
+      const cutoffDate = new Date(Date.now() - REPORT_COOLDOWN_DAYS * 24 * 60 * 60 * 1000)
+        .toISOString().slice(0, 10); // YYYY-MM-DD
       const recentNetuids = new Set<number>();
       try {
-        const { blobs } = await list({ prefix: "reports/", limit: 5 });
+        const { blobs } = await list({ prefix: "reports/", limit: 30 });
         for (const b of blobs) {
+          // Extract date from pathname like "reports/2026-04-09.json"
+          const dateMatch = b.pathname.match(/reports\/(\d{4}-\d{2}-\d{2})\.json/);
+          if (!dateMatch) continue;
+          if (dateMatch[1] < cutoffDate) continue; // older than 21 days — ignore
           try {
             const r = await get(b.pathname, { token: process.env.BLOB_READ_WRITE_TOKEN!, access: "private" });
             if (r?.stream) {
@@ -87,7 +94,7 @@ async function generateReport(forceNetuid?: number) {
         }
       } catch { /* no reports yet */ }
 
-      console.log(`[report] Recent report netuids to skip: ${[...recentNetuids].join(", ")}`);
+      console.log(`[report] Subnets reported in last ${REPORT_COOLDOWN_DAYS} days (skipping): ${[...recentNetuids].join(", ")}`);
 
       // Walk down the aGap ranking to find a subnet without a recent report
       const sorted = [...lb].sort((a, b) => (b.composite_score as number) - (a.composite_score as number));
