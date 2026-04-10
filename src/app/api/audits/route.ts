@@ -68,8 +68,13 @@ export async function GET(req: Request) {
     return NextResponse.json({ audit, updatedAt: data.updatedAt });
   }
 
+  // Subnets permanently excluded (Root network SN0 is not a real task subnet)
+  const AUDIT_EXCLUDED = new Set([0]);
+
   // All subnets — enrich with grade breakdown summary
-  const subnets = Object.values(data.subnets).sort((a, b) => a.operationalScore - b.operationalScore);
+  const subnets = Object.values(data.subnets)
+    .filter(s => !AUDIT_EXCLUDED.has(s.netuid))
+    .sort((a, b) => a.operationalScore - b.operationalScore);
   const grades = subnets.reduce((acc, s) => {
     acc[s.grade] = (acc[s.grade] || 0) + 1; return acc;
   }, {} as Record<string, number>);

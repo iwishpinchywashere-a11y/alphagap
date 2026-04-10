@@ -446,47 +446,20 @@ export default function AuditsPage() {
   return (
     <div className="space-y-4">
       {/* Page header */}
-      <div>
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-lg font-semibold text-white">Subnet Audits</h1>
-            <p className="text-xs text-gray-500 mt-0.5">
-              Operational health analysis — validator weight staleness, burn code detection, collusion risk
-            </p>
-          </div>
-          <div className="text-right">
-            <div className="text-[10px] text-gray-600 uppercase tracking-wider">Last updated</div>
-            <div className="text-xs text-gray-400 mt-0.5">
-              {updatedAt ? fmtTime(updatedAt) : "—"}
-            </div>
-          </div>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-lg font-semibold text-white">Subnet Audits</h1>
+          <p className="text-xs text-gray-500 mt-0.5 max-w-xl">
+            Operational health analysis —
+            <span className="text-gray-400"> ⏱ weight staleness</span>,
+            <span className="text-gray-400"> 🔥 burn code detection</span>,
+            <span className="text-gray-400"> ⚠ collusion risk</span>
+          </p>
         </div>
-
-        {/* What this measures */}
-        <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
-          <div className="rounded-lg bg-gray-900/40 border border-gray-800 px-3 py-2.5">
-            <div className="text-xs font-medium text-gray-300 flex items-center gap-1.5">
-              <span>⏱</span> Weight Staleness
-            </div>
-            <div className="text-[11px] text-gray-600 mt-1">
-              Are validators actually updating weights? Stale validators may be copying or inactive.
-            </div>
-          </div>
-          <div className="rounded-lg bg-gray-900/40 border border-gray-800 px-3 py-2.5">
-            <div className="text-xs font-medium text-gray-300 flex items-center gap-1.5">
-              <span>🔥</span> Burn Code Detection
-            </div>
-            <div className="text-[11px] text-gray-600 mt-1">
-              Miners registered but never queried — possible burn code or non-functional incentive mechanism.
-            </div>
-          </div>
-          <div className="rounded-lg bg-gray-900/40 border border-gray-800 px-3 py-2.5">
-            <div className="text-xs font-medium text-gray-300 flex items-center gap-1.5">
-              <span>⚠</span> Collusion Risk
-            </div>
-            <div className="text-[11px] text-gray-600 mt-1">
-              Trust Gini coefficient across validators — high concentration suggests coordinated weight copying.
-            </div>
+        <div className="shrink-0 text-right">
+          <div className="text-[10px] text-gray-600 uppercase tracking-wider">Last updated</div>
+          <div className="text-xs text-gray-400 mt-0.5">
+            {updatedAt ? fmtTime(updatedAt) : "—"}
           </div>
         </div>
       </div>

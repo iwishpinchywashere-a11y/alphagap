@@ -282,11 +282,15 @@ export async function GET(req: Request) {
 
   const startTime = Date.now();
 
+  // Subnets permanently excluded from audits (Root network is not a real task subnet)
+  const AUDIT_EXCLUDED_NETUIDS = new Set([0]);
+
   // Load subnet identities
-  const identities = await getSubnetIdentities().catch(() => []);
-  if (identities.length === 0) {
+  const allIdentities = await getSubnetIdentities().catch(() => []);
+  if (allIdentities.length === 0) {
     return NextResponse.json({ error: "No subnet identities" }, { status: 500 });
   }
+  const identities = allIdentities.filter(id => !AUDIT_EXCLUDED_NETUIDS.has(id.netuid));
 
   // Fetch metagraph in parallel batches of 8 to avoid rate limiting
   const BATCH_SIZE = 8;
