@@ -2777,13 +2777,18 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
     leaderboard.sort((a, b) => b.composite_score - a.composite_score);
   }
 
-  // ── Temporary dump penalty (Apr 9 2026) ─────────────────────────
+  // ── Dump penalty overrides (Apr 9 2026) ──────────────────────────
   // Templar (3), Basilica (39), Grail (81) had large token dumps.
-  // Hard-set to 20 until manually removed.
-  const DUMP_PENALTY_NETUIDS = new Set([3, 39, 81]);
+  // Scores are hard-set below until manually removed.
+  const DUMP_SCORE_OVERRIDES = new Map<number, number>([
+    [3,  45], // Templar
+    [39, 37], // Basilica
+    [81, 41], // Grail
+  ]);
   for (const entry of leaderboard) {
-    if (DUMP_PENALTY_NETUIDS.has(entry.netuid)) {
-      entry.composite_score = 20;
+    const override = DUMP_SCORE_OVERRIDES.get(entry.netuid);
+    if (override !== undefined) {
+      entry.composite_score = override;
     }
   }
   leaderboard.sort((a, b) => b.composite_score - a.composite_score);
