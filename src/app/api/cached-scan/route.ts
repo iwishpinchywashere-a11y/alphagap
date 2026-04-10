@@ -3,6 +3,28 @@ import { get } from "@vercel/blob";
 
 export const dynamic = "force-dynamic";
 
+// ── Hard score overrides ──────────────────────────────────────────
+// These subnets had large token dumps (Apr 9 2026).
+// Scores are locked here at the API layer until manually removed.
+// This runs on EVERY response so no scan can override them.
+const SCORE_OVERRIDES = new Map<number, number>([
+  [3,  40], // Templar
+  [39, 34], // Basilica
+  [81, 29], // Grail
+]);
+
+function applyScoreOverrides(data: Record<string, unknown>) {
+  if (!Array.isArray(data.leaderboard)) return data;
+  for (const entry of data.leaderboard as Array<Record<string, unknown>>) {
+    const override = SCORE_OVERRIDES.get(entry.netuid as number);
+    if (override !== undefined) entry.composite_score = override;
+  }
+  (data.leaderboard as Array<Record<string, unknown>>).sort(
+    (a, b) => (b.composite_score as number) - (a.composite_score as number)
+  );
+  return data;
+}
+
 async function readBlob(name: string, token: string) {
   const result = await get(name, { token, access: "private" });
   if (!result?.stream) return null;
@@ -30,7 +52,7 @@ export async function GET() {
       // Check freshness — prefer full scan if < 4h old
       const age = full.lastScan ? Date.now() - new Date(full.lastScan).getTime() : Infinity;
       if (age < 4 * 60 * 60 * 1000) {
-        return NextResponse.json({ ...full, cached: true });
+        return NextResponse.json(applyScoreOverrides({ ...full, cached: true }));
       }
 
       // Full scan is stale — try price snapshot as a supplement
@@ -39,23 +61,23 @@ export async function GET() {
         const priceAge = Date.now() - new Date(prices.lastScan).getTime();
         if (priceAge < age) {
           // Merge: use fresh prices/leaderboard from price snapshot, signals from full scan
-          return NextResponse.json({
+          return NextResponse.json(applyScoreOverrides({
             ...full,
             leaderboard: prices.leaderboard ?? full.leaderboard,
             cached: true,
             priceRefreshedAt: prices.lastScan,
-          });
+          }));
         }
       }
 
       // Fall back to stale full scan — still better than nothing
-      return NextResponse.json({ ...full, cached: true, stale: true });
+      return NextResponse.json(applyScoreOverrides({ ...full, cached: true, stale: true }));
     }
 
     // No full scan yet — try price-only snapshot
     const prices = await readBlob("scan-prices.json", token).catch(() => null);
     if (prices) {
-      return NextResponse.json({ ...prices, cached: true, partial: true });
+      return NextResponse.json(applyScoreOverrides({ ...prices, cached: true, partial: true }));
     }
 
     return NextResponse.json({ cached: false }, { status: 404 });
