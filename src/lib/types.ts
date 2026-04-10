@@ -12,6 +12,7 @@ export interface Signal {
   created_at: string;
   signal_date?: string;
   subnet_name?: string;
+  price_at_signal?: number;
 }
 
 export interface PortfolioPosition {

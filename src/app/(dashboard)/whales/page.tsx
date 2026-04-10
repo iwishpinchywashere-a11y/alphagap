@@ -211,7 +211,7 @@ export default function WhalesPage() {
           detail: sig.description,
           badge: "🔻 WHALE SELL",
           badgeColor: "bg-red-500/20 text-red-400 border-red-500/30",
-          price: sub?.alpha_price ?? undefined,
+          price: sig.price_at_signal ?? sub?.alpha_price ?? undefined,
           change24h: sub?.price_change_24h ?? undefined,
           signalDate: sig.signal_date || sig.created_at,
         });
