@@ -43,7 +43,15 @@ interface WhaleEvent {
   volumeRatio?: number;
   price?: number;
   change24h?: number;
+  signalDate?: string; // ISO date string
 }
+
+function formatWhaleDate(iso: string): string {
+  const d = new Date(iso);
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+const TODAY_ISO = new Date().toISOString();
 
 export default function WhalesPage() {
   const { leaderboard, signals, taoPrice, scanning } = useDashboard();
@@ -77,6 +85,7 @@ export default function WhalesPage() {
           whaleRatio: sub.whale_ratio,
           price: sub.alpha_price ?? undefined,
           change24h: sub.price_change_24h ?? undefined,
+          signalDate: TODAY_ISO,
         });
       }
 
@@ -100,6 +109,7 @@ export default function WhalesPage() {
           whaleRatio: sub.whale_ratio,
           price: sub.alpha_price ?? undefined,
           change24h: sub.price_change_24h ?? undefined,
+          signalDate: TODAY_ISO,
         });
       }
 
@@ -128,6 +138,7 @@ export default function WhalesPage() {
           netFlow: sub.net_flow_24h ?? undefined,
           price: sub.alpha_price ?? undefined,
           change24h: sub.price_change_24h ?? undefined,
+          signalDate: TODAY_ISO,
         });
       }
     }
@@ -160,6 +171,7 @@ export default function WhalesPage() {
           badgeColor: "bg-emerald-500/20 text-emerald-300 border-emerald-500/30",
           price: sub?.alpha_price ?? undefined,
           change24h: sub?.price_change_24h ?? undefined,
+          signalDate: sig.signal_date || sig.created_at,
         });
       } else if (sig.signal_type === "flow_spike") {
         out.push({
@@ -173,6 +185,7 @@ export default function WhalesPage() {
           badgeColor: "bg-purple-500/20 text-purple-300 border-purple-500/30",
           price: sub?.alpha_price ?? undefined,
           change24h: sub?.price_change_24h ?? undefined,
+          signalDate: sig.signal_date || sig.created_at,
         });
       } else if (sig.signal_type === "flow_warning") {
         out.push({
@@ -186,6 +199,7 @@ export default function WhalesPage() {
           badgeColor: "bg-orange-500/20 text-orange-400 border-orange-500/30",
           price: sub?.alpha_price ?? undefined,
           change24h: sub?.price_change_24h ?? undefined,
+          signalDate: sig.signal_date || sig.created_at,
         });
       } else if (sig.signal_type === "whale_sell") {
         out.push({
@@ -199,6 +213,7 @@ export default function WhalesPage() {
           badgeColor: "bg-red-500/20 text-red-400 border-red-500/30",
           price: sub?.alpha_price ?? undefined,
           change24h: sub?.price_change_24h ?? undefined,
+          signalDate: sig.signal_date || sig.created_at,
         });
       }
     }
@@ -397,6 +412,9 @@ function WhaleCard({
             <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${ev.badgeColor}`}>
               {ev.badge}
             </span>
+            {ev.signalDate && (
+              <span className="text-[10px] text-gray-600 ml-1">{formatWhaleDate(ev.signalDate)}</span>
+            )}
           </div>
           <p className="text-sm text-gray-200 font-medium leading-snug mb-1">{ev.headline}</p>
           <p className="text-xs text-gray-500 leading-relaxed">{ev.detail}</p>
