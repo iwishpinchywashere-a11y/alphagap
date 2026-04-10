@@ -48,9 +48,13 @@ export default function SignalsPage() {
       return a.netuid - b.netuid;              // final stable tiebreak
     }), [signals]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Whale-page signal types are excluded here — they live on /whales only
+  const WHALE_ONLY_TYPES = new Set(["whale_sell", "whale_buy"]);
+
   const base = signalSort === "score" ? byScore : byDate;
   const sorted = base.filter(
-    (sig) => !q || (sig.subnet_name || "").toLowerCase().includes(q) || sig.title.toLowerCase().includes(q) || `sn${sig.netuid}`.includes(q)
+    (sig) => !WHALE_ONLY_TYPES.has(sig.signal_type) &&
+      (!q || (sig.subnet_name || "").toLowerCase().includes(q) || sig.title.toLowerCase().includes(q) || `sn${sig.netuid}`.includes(q))
   );
 
   return (
