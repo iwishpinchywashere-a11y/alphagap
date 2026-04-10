@@ -217,17 +217,15 @@ function ScoreChart({ data, color, label, formatY = (v: number) => v.toFixed(0),
     );
   }
 
-  const fmtX = (ts: string) => {
-    const d = new Date(ts);
-    const hrs = (Date.now() - d.getTime()) / 3600000;
-    if (hrs < 48) return d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
-    return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-  };
+  // x-axis labels always show date (never time) so the axis reads left→right as a date range
+  const fmtX = (ts: string) =>
+    new Date(ts).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+
+  // Tooltip shows date + time for precise hover info
   const fmtTooltipTs = (ts: string) => {
     const d = new Date(ts);
-    const hrs = (Date.now() - d.getTime()) / 3600000;
-    if (hrs < 48) return d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
-    return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    return d.toLocaleDateString("en-US", { month: "short", day: "numeric" }) + " " +
+      d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
   };
 
   const values = data.map((d) => d.y);
