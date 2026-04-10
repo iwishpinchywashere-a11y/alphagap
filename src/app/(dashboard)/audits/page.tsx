@@ -446,7 +446,7 @@ export default function AuditsPage() {
   return (
     <div className="space-y-4">
       {/* Page header */}
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex items-start justify-between gap-4 px-4">
         <div>
           <h1 className="text-lg font-semibold text-white">Subnet Audits</h1>
           <p className="text-xs text-gray-500 mt-0.5 max-w-xl">
