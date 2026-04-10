@@ -3213,11 +3213,21 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
 
       let portfolioChanged = false;
 
-      // Auto-buy any subnet that just crossed the threshold
+      // Ensure purchasedNetUids is initialised and populated from existing positions
+      // (backfills the array on first run so no position ever gets re-bought)
+      if (!portfolio.purchasedNetUids) {
+        portfolio.purchasedNetUids = portfolio.positions.map(p => p.netuid);
+        portfolioChanged = true;
+      }
+      const purchased = new Set(portfolio.purchasedNetUids);
+
+      // Auto-buy any subnet that just crossed the threshold FOR THE FIRST TIME EVER.
+      // We check purchasedNetUids (not just active positions) so that removing a position
+      // from the UI never causes it to be re-bought with a later date/price.
       for (const entry of leaderboard) {
         if (entry.composite_score < BUY_THRESHOLD) continue;
         if (!entry.alpha_price || entry.alpha_price <= 0) continue;
-        if (portfolio.positions.some(p => p.netuid === entry.netuid)) continue;
+        if (purchased.has(entry.netuid)) continue; // already bought once — never re-buy
 
         const alphaTokens = BUY_AMOUNT_USD / entry.alpha_price;
         portfolio.positions.push({
@@ -3229,6 +3239,8 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
           amountUsd: BUY_AMOUNT_USD,
           alphaTokens,
         });
+        portfolio.purchasedNetUids!.push(entry.netuid);
+        purchased.add(entry.netuid);
         console.log(`[scan] Portfolio: bought SN${entry.netuid} ${entry.name} @ $${entry.alpha_price.toFixed(4)} (aGap ${entry.composite_score})`);
         portfolioChanged = true;
       }

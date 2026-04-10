@@ -27,6 +27,8 @@ export interface PortfolioSnapshot {
 export interface Portfolio {
   positions: PortfolioPosition[];
   history: PortfolioSnapshot[];
+  // All netuids ever purchased — prevents re-buying if a position is removed
+  purchasedNetUids?: number[];
 }
 
 export async function GET() {
@@ -134,6 +136,7 @@ export async function GET() {
 
 // PATCH /api/portfolio — update or remove position(s) by netuid
 // Body: { netuid: number, remove?: boolean, ... } OR { netuids: number[], remove: true } for batch removal
+// To add a new position manually: { netuid, name, buyDate, buyPriceUsd, buyAGapScore, add: true }
 export async function PATCH(req: Request) {
   if (!process.env.BLOB_READ_WRITE_TOKEN) {
     return NextResponse.json({ error: "No blob storage" }, { status: 500 });
@@ -144,6 +147,8 @@ export async function PATCH(req: Request) {
       netuid?: number;
       netuids?: number[];
       remove?: boolean;
+      add?: boolean;
+      name?: string;
       buyAGapScore?: number;
       buyPriceUsd?: number;
       buyDate?: string;
@@ -176,6 +181,33 @@ export async function PATCH(req: Request) {
         access: "private", addRandomSuffix: false, allowOverwrite: true, contentType: "application/json",
       });
       return NextResponse.json({ ok: true, action: "batch_removed", removed: removed.map(p => p.name), remaining: portfolio.positions.length });
+    }
+
+    // Add a new position manually (e.g. to backfill a past buy)
+    if (body.add) {
+      const portfolio = await loadPortfolio();
+      const netuid = body.netuid!;
+      const buyPriceUsd = body.buyPriceUsd!;
+      const amountUsd = 100;
+      const alphaTokens = amountUsd / buyPriceUsd;
+      // Remove existing position for this netuid if present (replace)
+      portfolio.positions = portfolio.positions.filter(p => p.netuid !== netuid);
+      portfolio.positions.push({
+        netuid,
+        name: body.name ?? `SN${netuid}`,
+        buyDate: body.buyDate ?? new Date().toISOString().slice(0, 10),
+        buyAGapScore: body.buyAGapScore ?? 80,
+        buyPriceUsd,
+        amountUsd,
+        alphaTokens,
+      });
+      // Also register in purchasedNetUids so scan never re-buys it
+      if (!portfolio.purchasedNetUids) portfolio.purchasedNetUids = [];
+      if (!portfolio.purchasedNetUids.includes(netuid)) portfolio.purchasedNetUids.push(netuid);
+      await put("portfolio.json", JSON.stringify(portfolio), {
+        access: "private", addRandomSuffix: false, allowOverwrite: true, contentType: "application/json",
+      });
+      return NextResponse.json({ ok: true, action: "added", netuid, buyDate: body.buyDate, buyPriceUsd });
     }
 
     const netuid = body.netuid!;
