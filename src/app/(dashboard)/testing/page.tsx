@@ -1141,14 +1141,15 @@ export default function TestingPage() {
           const findings = buildFindings(pumpEvent, detail.scoreHistory, detail.signals, stub.current);
           const narrative = buildNarrative(stub.pumper.name, pumpEvent, findings, detail.scoreHistory, stub.current);
 
+          // Only show research loading spinner if we have a pump date to research
+          const researchPumpDate = pumpEvent?.startDate ?? null;
+
           setAutopsies((prev) =>
             prev.map((a, idx) =>
-              idx === i ? { ...a, detail, pumpEvent, findings, narrative, loading: false, researchLoading: true } : a
+              idx === i ? { ...a, detail, pumpEvent, findings, narrative, loading: false, researchLoading: researchPumpDate != null } : a
             )
           );
 
-          // Kick off retroactive research — requires a pump start date
-          const researchPumpDate = pumpEvent?.startDate ?? null;
           if (researchPumpDate) {
             try {
               // Pass current AlphaGap scores so research route can identify what we predicted
