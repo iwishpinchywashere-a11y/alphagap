@@ -81,14 +81,24 @@ interface Autopsy {
 
 // ── Analysis helpers ───────────────────────────────────────────────────────
 
-function findBestPump(prices: PricePoint[]): PumpEvent | null {
+function findBestPump(prices: PricePoint[], targetDate?: string | null): PumpEvent | null {
   if (prices.length < 8) return null;
   let bestGain = -Infinity;
   let bestStart = 0;
   let bestEnd = 7;
   const WINDOW = 7;
 
+  // If a target pump date is given, only search within ±12 days of it so we
+  // don't accidentally surface an older/larger pump and miss the right event.
+  const targetMs = targetDate ? new Date(targetDate).getTime() : null;
+  const WINDOW_MS = 12 * 86400000;
+
   for (let i = 0; i <= prices.length - WINDOW - 1; i++) {
+    // If a target date was given, skip windows that start too far from it
+    if (targetMs !== null) {
+      const windowStartMs = new Date(prices[i].timestamp).getTime();
+      if (Math.abs(windowStartMs - targetMs) > WINDOW_MS) continue;
+    }
     const sp = prices[i].price;
     const ep = prices[i + WINDOW].price;
     if (sp <= 0) continue;
@@ -1126,7 +1136,7 @@ export default function TestingPage() {
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
           const detail: SubnetDetail = await res.json();
 
-          const pumpEvent = findBestPump(detail.priceHistory);
+          const pumpEvent = findBestPump(detail.priceHistory, stub.pumper.pump_date);
           const findings = buildFindings(pumpEvent, detail.scoreHistory, detail.signals, stub.current);
           const narrative = buildNarrative(stub.pumper.name, pumpEvent, findings, detail.scoreHistory, stub.current);
 
