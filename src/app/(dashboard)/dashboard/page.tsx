@@ -87,6 +87,7 @@ export default function LeaderboardPage() {
   const [filterMinCap, setFilterMinCap] = useState(false);
   const [filterHasEmissions, setFilterHasEmissions] = useState(false);
   const [filterWhaleAccum, setFilterWhaleAccum] = useState(false);
+  const [infoRect, setInfoRect] = useState<{ top: number; right: number } | null>(null);
   const [filterEmissionsRising, setFilterEmissionsRising] = useState(false);
   const [filterOversoldQuality, setFilterOversoldQuality] = useState(false);
   const [filterKolActive, setFilterKolActive] = useState(false);
@@ -384,16 +385,21 @@ export default function LeaderboardPage() {
                           {key === "composite_score" ? (timeHorizon === "investing" ? "aGap 📈" : label) : label}
                           {tooltip && (
                             <span
-                              className="ml-1 inline-flex items-center justify-center w-3.5 h-3.5 rounded-full border border-gray-700 text-[9px] text-gray-600 hover:text-green-400 hover:border-green-400 cursor-help relative normal-case tracking-normal"
-                              onClick={(e) => { e.stopPropagation(); e.preventDefault(); setInfoPopup(infoPopup === key ? null : key); }}
+                              className="ml-1 inline-flex items-center justify-center w-3.5 h-3.5 rounded-full border border-gray-700 text-[9px] text-gray-600 hover:text-green-400 hover:border-green-400 cursor-help normal-case tracking-normal"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                e.preventDefault();
+                                if (infoPopup === key) {
+                                  setInfoPopup(null);
+                                  setInfoRect(null);
+                                } else {
+                                  const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                                  setInfoRect({ top: r.bottom + 6, right: window.innerWidth - r.right });
+                                  setInfoPopup(key);
+                                }
+                              }}
                             >
                               i
-                              {infoPopup === key && (
-                                <div className="absolute z-50 top-5 right-0 w-72 p-3 bg-gray-900 border border-green-800/50 rounded-lg shadow-xl text-xs text-gray-300 font-normal whitespace-normal leading-relaxed normal-case tracking-normal" onClick={(e) => e.stopPropagation()}>
-                                  <div className="font-semibold text-green-400 mb-1">{label}</div>
-                                  {tooltip}
-                                </div>
-                              )}
                             </span>
                           )}
                           {sortCol === key && (
@@ -529,6 +535,22 @@ export default function LeaderboardPage() {
       </div>
 
       <SubnetDetailPanel />
+
+      {/* Column "i" tooltip — rendered at root level to escape overflow-x-auto clipping */}
+      {infoPopup && infoRect && (() => {
+        const col = COLUMNS.find(([k]) => k === infoPopup);
+        if (!col) return null;
+        return (
+          <div
+            className="fixed z-[200] w-72 p-3 bg-gray-900 border border-green-800/50 rounded-lg shadow-xl text-xs text-gray-300 font-normal whitespace-normal leading-relaxed"
+            style={{ top: infoRect.top, right: infoRect.right }}
+            onClick={() => { setInfoPopup(null); setInfoRect(null); }}
+          >
+            <div className="font-semibold text-green-400 mb-1">{col[1]}</div>
+            {col[2]}
+          </div>
+        );
+      })()}
     </main>
   );
 }
