@@ -37,7 +37,7 @@ interface SignalFinding {
   icon: string;
   label: string;
   detail: string;
-  strength: "strong" | "moderate" | "weak";
+  strength: "strong" | "high" | "moderate" | "weak";
   daysBeforePump: number;  // positive = before pump
   fired: boolean;
 }
@@ -170,7 +170,7 @@ function buildFindings(
       : effectiveAgap > 0
       ? `aGap score was ${effectiveAgap}/100 at pump time — below threshold for a strong call. Pump may have been external catalyst.`
       : "No aGap score data available for the pre-pump window.",
-    strength: effectiveAgap >= 80 ? "strong" : effectiveAgap >= 65 ? "moderate" : "weak",
+    strength: effectiveAgap >= 80 ? "strong" : effectiveAgap >= 65 ? "high" : "weak",
     daysBeforePump: prePumpScores.length > 0 ? Math.min(7, prePumpScores.length) : 0,
     fired: agapFired,
   });
@@ -236,7 +236,7 @@ function buildFindings(
       : current?.volume_surge
       ? `Current vol surge ${current.volume_surge_ratio?.toFixed(1) ?? ""}× normal — possibly still active`
       : "No clear volume surge detected in data window",
-    strength: volPrePump.length > 0 ? "strong" : current?.volume_surge ? "moderate" : "weak",
+    strength: volPrePump.length > 0 ? "strong" : current?.volume_surge ? "high" : "weak",
     daysBeforePump: volPrePump.length > 0
       ? Math.round((pumpMs - new Date(volPrePump[0].signal_date || volPrePump[0].created_at).getTime()) / 86400000)
       : 1,
@@ -620,7 +620,7 @@ function AutopsyCard({ autopsy, onRemove }: { autopsy: Autopsy; onRemove: () => 
   const mcap = current?.market_cap ?? ms?.marketCapUsd ?? null;
 
   const firedCount = findings.filter((f) => f.fired).length;
-  const strongCount = findings.filter((f) => f.fired && f.strength === "strong").length;
+  const strongCount = findings.filter((f) => f.fired && (f.strength === "strong" || f.strength === "high")).length;
 
   return (
     <div className="bg-gray-900/60 border border-gray-800 rounded-xl overflow-hidden">
@@ -737,7 +737,7 @@ function AutopsyCard({ autopsy, onRemove }: { autopsy: Autopsy; onRemove: () => 
               <div className="space-y-2">
                 {findings.map((f) => (
                   <div key={f.label} className={`flex items-start gap-3 rounded-lg px-3 py-2.5 border ${
-                    f.fired && f.strength === "strong"
+                    f.fired && (f.strength === "strong" || f.strength === "high")
                       ? "bg-green-950/30 border-green-800/30"
                       : f.fired && f.strength === "moderate"
                       ? "bg-yellow-950/20 border-yellow-800/20"
@@ -750,10 +750,11 @@ function AutopsyCard({ autopsy, onRemove }: { autopsy: Autopsy; onRemove: () => 
                         {f.fired ? (
                           <span className={`text-[10px] rounded-full px-1.5 py-0.5 font-medium ${
                             f.strength === "strong" ? "bg-green-900/60 text-green-400" :
+                            f.strength === "high"   ? "bg-green-900/60 text-green-400" :
                             f.strength === "moderate" ? "bg-yellow-900/60 text-yellow-400" :
                             "bg-gray-800 text-gray-400"
                           }`}>
-                            {f.strength === "strong" ? "✓ STRONG" : f.strength === "moderate" ? "~ MODERATE" : "~ WEAK"}
+                            {f.strength === "strong" ? "✓ STRONG" : f.strength === "high" ? "✓ HIGH" : f.strength === "moderate" ? "~ MODERATE" : "~ WEAK"}
                           </span>
                         ) : (
                           <span className="text-[10px] rounded-full px-1.5 py-0.5 bg-gray-800/60 text-gray-600">✗ NOT DETECTED</span>
