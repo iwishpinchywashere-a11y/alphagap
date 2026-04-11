@@ -997,7 +997,7 @@ function AutopsyCard({ autopsy, onRemove }: { autopsy: Autopsy; onRemove: () => 
                   )}
 
                   {/* Overall findings */}
-                  {autopsy.research.overallFindings.length > 0 && (
+                  {(autopsy.research.overallFindings?.length ?? 0) > 0 && (
                     <div className="bg-yellow-950/10 border border-yellow-800/20 rounded-xl px-4 py-3">
                       <div className="text-xs font-semibold text-yellow-400/80 mb-2">🔑 Key Retroactive Findings</div>
                       <ul className="space-y-1">
@@ -1146,9 +1146,9 @@ export default function TestingPage() {
             )
           );
 
-          // Always kick off retroactive research — even without a pump event,
-          // show what AlphaGap signals were firing for this subnet
-          {
+          // Kick off retroactive research — requires a pump start date
+          const researchPumpDate = pumpEvent?.startDate ?? null;
+          if (researchPumpDate) {
             try {
               // Pass current AlphaGap scores so research route can identify what we predicted
               const currentScores = stub.current ? {
@@ -1165,10 +1165,11 @@ export default function TestingPage() {
                 body: JSON.stringify({
                   netuid,
                   github_repo: detail.identity?.github_repo,
-                  pump_start_date: pumpEvent?.startDate,
+                  pump_start_date: researchPumpDate,
                   current_scores: currentScores,
                 }),
               });
+              if (!rRes.ok) throw new Error(`Research API ${rRes.status}`);
               const research: ResearchResult = await rRes.json();
               setAutopsies((prev) =>
                 prev.map((a, idx) => {
