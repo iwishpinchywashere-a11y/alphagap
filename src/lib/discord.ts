@@ -104,6 +104,7 @@ const SUBNET_NAME_MAP: Record<string, number> = {
   "templar": 3, "tplr": 3,
   "targon": 4,
   "kaito": 5,
+  "hone": 5,
   "numinous": 6,
   "vanta": 8,
   "cortex": 18, "zeus": 18,

@@ -23,7 +23,7 @@ const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY || "";
 // Prioritise channels we can map to a netuid — cap at 120 to maximise coverage
 const MAX_CHANNELS = 120;
 // Messages per channel — more context = better AI analysis
-const MESSAGES_PER_CHANNEL = 50;
+const MESSAGES_PER_CHANNEL = 100;
 // Minimum messages to bother analyzing — 1 so no channel with any activity is skipped
 const MIN_MESSAGES_TO_ANALYZE = 1;
 // Delay between channel fetches (ms)
@@ -272,24 +272,33 @@ async function analyzeBatch(
 
   const prompt = `You are an alpha intelligence analyst for Bittensor subnet investments. Analyze these Discord channel conversations from the last 24 hours and extract every useful signal.
 
-Your goal is to surface ACTIONABLE INTEL. Err on the side of classifying channels as "active" — we want to show investors what's happening across the ecosystem, not just the top 2-3 highlights.
+Your goal is to surface ACTIONABLE INTEL that serious investors would pay for. Err on the side of classifying channels as "active" — we want to show investors what's happening across the ecosystem.
 
 SIGNAL TYPES:
-- "alpha": Genuine alpha — dev previews, partnership hints, unreleased features, technical breakthroughs, insider mentions, launch dates, validator announcements, major protocol changes. Something a serious investor NEEDS to know.
-- "active": Any real activity worth noting — technical discussion, builder questions, team engagement, community updates, support activity, bug reports showing a live product, feedback on features. If people are talking substantively about the subnet, it's active.
+- "alpha": Genuine alpha — dev previews, partnership hints, unreleased features, technical breakthroughs, insider mentions, launch dates, validator announcements, major protocol changes, cross-subnet integrations. Something a serious investor NEEDS to know.
+- "active": Any real activity worth noting — technical discussion, builder questions, team engagement, community updates, support activity, bug reports showing a live product, feedback on features.
 - "quiet": Minimal or generic chat — only 1-3 messages with no substance, mostly greetings or filler.
 - "noise": Spam, bots, price complaints, pure shitposting with zero informational value.
 
-ALPHA SCORE (0-100):
-- 80-100: Confirmed alpha — partnership, launch date, major feature drop, insider/dev info
-- 60-79: Strong signal — dev previewing work, integration teased, validator migration, team milestone
+ALPHA SCORE (0-100) — BE AGGRESSIVE, DO NOT UNDERSCORE:
+- 90-100: HUGE alpha — confirmed partnership with named company/protocol, imminent launch with date, major product announcement, cross-subnet integration live or announced, exclusive technical breakthrough, team confirming something the market doesn't know yet. IF YOU SEE THIS, SCORE 90+.
+- 80-89: Strong confirmed alpha — partnership hinted strongly, major feature shipping imminently, dev sharing unreleased work publicly, significant validator/miner milestone
+- 60-79: Clear signal — dev previewing work, integration teased, team milestone, noteworthy technical update
 - 40-59: Active + quality — real technical discussion, builder engagement, multiple substantive posts
 - 20-39: Active — decent activity, community alive, some substance even if no big news
 - 5-19: Quiet — low volume, mostly generic
 - 0: Noise/spam only
 
+CRITICAL — THESE ARE ALWAYS ALPHA (score 85+):
+- Any mention of a partnership with a named company, protocol, or other Bittensor subnet
+- Any cross-subnet collaboration or integration being announced or discussed by team members
+- Product launches, mainnet announcements, or major upgrades with specifics
+- Dev or founder sharing something that hasn't been publicly announced yet
+- Any "we're partnering with X", "integration with Y going live", "launching Z on date D" style messages
+- Exclusive access, early beta invites, whitelist announcements
+
 KEY INSIGHT TYPES:
-- "partnership": New partner, integration, or protocol collaboration
+- "partnership": New partner, integration, or protocol collaboration — cross-subnet too
 - "feature": New product feature, capability, or technical upgrade
 - "launch": Launch date, mainnet, public release, or major milestone
 - "dev_update": Dev commits, GitHub activity, code update, technical progress
@@ -308,9 +317,9 @@ Respond with a JSON array — one object per channel IN THE SAME ORDER:
     "signal": "alpha|active|quiet|noise",
     "alphaScore": 45,
     "releaseHint": false,
-    "summary": "One punchy, specific sentence. Name the actual feature/partner/activity — not 'community discussing updates' but 'Team shipping v2 API this week, 3 devs active fixing edge cases'.",
+    "summary": "One punchy, specific sentence. Name the actual feature/partner/activity — not 'community discussing updates' but 'Team announcing integration with Targon (SN4) for compute routing, going live next week'.",
     "keyInsights": [
-      { "text": "Specific insight here — name features, people, dates", "type": "feature" }
+      { "text": "Specific insight here — name features, people, dates, partner names", "type": "partnership" }
     ]
   }
 ]
@@ -318,9 +327,10 @@ Respond with a JSON array — one object per channel IN THE SAME ORDER:
 Rules:
 - Be GENEROUS with "active" — if 3+ real humans posted anything substantive, it's active.
 - Be STINGY with "quiet" and "noise" — only use these for truly dead channels.
-- Summary must be SPECIFIC — mention actual topics, features, people, or events discussed.
-- keyInsights: 0 for quiet/noise, 1-3 for active, 1-4 for alpha. Be specific — name things.
-- alphaScore reflects BOTH quality AND quantity. A channel with 20 engaged builders discussing a bug = 30+.
+- DO NOT underscore partnership/launch/integration events. These are rare and high-value — always score 85+.
+- Summary must be SPECIFIC — mention actual topics, features, people, partner names, or events.
+- keyInsights: 0 for quiet/noise, 1-3 for active, 1-5 for alpha. Name actual companies, projects, features.
+- alphaScore reflects BOTH quality AND quantity. A channel where the founder announces a partnership = 90+.
 - Respond with ONLY the JSON array, no other text.`;
 
   try {

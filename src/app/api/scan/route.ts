@@ -1915,9 +1915,10 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
   function computeSocialScore(netuid: number, mentions: number, engagement: number): number {
     const { kolPts, clusterBonus } = getKolScore(netuid);
 
-    // ── Discord freshness signal (max 30 pts) ──
-    // releaseHint = true gets a large extra bonus — imminent release chatter is the
-    // highest-value early alpha: the market hasn't priced it yet and you're hearing it first.
+    // ── Discord freshness signal (max 55 pts for huge alpha) ──
+    // Partnerships, cross-subnet integrations, launch announcements = rare, high-value.
+    // When the AI scores something 85+, it should dramatically move the social score
+    // even if no KOL has tweeted about it yet — that's the whole point of Discord scanning.
     const disc = discordMap.get(netuid);
     let discordPts = 0;
     if (disc) {
@@ -1926,17 +1927,25 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
         : discAgeHours <= 48 ? Math.max(0.4, 1 - (discAgeHours - 12) / 36 * 0.6)
         : 0.4;
       if (disc.alphaScore != null) {
-        // Use AI quality score directly: alphaScore 0-100 → 0-30 pts, scaled by freshness
-        // release hint gets a 5pt bonus on top
-        const base = Math.round(disc.alphaScore / 100 * 28) + (disc.releaseHint ? 5 : 0);
-        discordPts = Math.round(Math.min(30, base) * discFresh);
+        // Non-linear scaling: huge alpha (85+) gets outsized impact on social score.
+        // alphaScore 0-84 → up to 35 pts | alphaScore 85-100 → up to 55 pts
+        // releaseHint adds 8 pts on top (partnership/launch/integration going live)
+        let base: number;
+        if (disc.alphaScore >= 85) {
+          // 85→42, 90→48, 95→52, 100→55 — true big alpha is unmissable
+          base = Math.round(35 + (disc.alphaScore - 85) / 15 * 20);
+        } else {
+          base = Math.round(disc.alphaScore / 100 * 35);
+        }
+        if (disc.releaseHint) base += 8;
+        discordPts = Math.round(Math.min(55, base) * discFresh);
       } else if (disc.signal === "alpha") {
         const base = disc.releaseHint
-          ? Math.min(30, (22 + Math.min(disc.uniquePosters, 8)))
-          : Math.min(20, (13 + Math.min(disc.uniquePosters, 7)));
+          ? Math.min(40, (28 + Math.min(disc.uniquePosters, 8) * 1.5))
+          : Math.min(28, (16 + Math.min(disc.uniquePosters, 7)));
         discordPts = Math.round(base * discFresh);
       } else if (disc.signal === "active") {
-        discordPts = Math.round(Math.min(10, (5 + Math.min(disc.uniquePosters, 5))) * discFresh);
+        discordPts = Math.round(Math.min(12, (5 + Math.min(disc.uniquePosters, 5))) * discFresh);
       }
     }
 

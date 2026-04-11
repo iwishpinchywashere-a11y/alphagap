@@ -228,13 +228,13 @@ export default function SocialPage() {
                       <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold shrink-0 ${discordSignalStyle(d.signal)}`}>{d.signal.toUpperCase()}</span>
                       {d.releaseHint && <span className="text-[10px] px-1.5 py-0.5 rounded font-bold bg-yellow-500/20 text-yellow-300 border border-yellow-500/40 shrink-0">🚀 RELEASE HINT</span>}
                     </div>
-                    <div className="text-xs text-gray-600 mt-0.5">{d.messageCount} msgs · {d.uniquePosters} posters · {timeAgo(d.lastActivityAt ?? d.scannedAt)}</div>
-                    {d.summary && <p className="text-xs text-gray-400 mt-1.5 leading-relaxed">{d.summary}</p>}
+                    <div className="text-xs text-gray-500 mt-0.5">{d.messageCount} msgs · {d.uniquePosters} posters · {timeAgo(d.lastActivityAt ?? d.scannedAt)}</div>
+                    {d.summary && <p className="text-sm text-gray-100 mt-1.5 leading-relaxed">{d.summary}</p>}
                     {d.keyInsights && d.keyInsights.length > 0 && (
                       <ul className="mt-1.5 space-y-0.5">
                         {d.keyInsights.slice(0, 2).map((insight, ii) => (
-                          <li key={ii} className="flex items-start gap-1.5 text-xs text-gray-500 leading-relaxed">
-                            <span className="text-green-500 mt-0.5 shrink-0">›</span><span>{insight}</span>
+                          <li key={ii} className="flex items-start gap-1.5 text-sm text-gray-300 leading-relaxed">
+                            <span className="text-green-400 mt-0.5 shrink-0">›</span><span>{insight}</span>
                           </li>
                         ))}
                       </ul>
@@ -288,19 +288,19 @@ export default function SocialPage() {
                       ))}
                     </div>
 
-                    <div className="text-xs text-gray-600 mt-0.5">
+                    <div className="text-xs text-gray-500 mt-0.5">
                       {d.messageCount} msgs · {d.uniquePosters} posters · {timeAgo(d.lastActivityAt ?? d.scannedAt)}
                     </div>
 
                     {d.summary && (
-                      <p className="text-xs text-gray-400 mt-1.5 leading-relaxed">{d.summary}</p>
+                      <p className="text-sm text-gray-100 mt-1.5 leading-relaxed">{d.summary}</p>
                     )}
 
                     {d.keyInsights && d.keyInsights.length > 0 && (
-                      <ul className="mt-1.5 space-y-0.5">
+                      <ul className="mt-2 space-y-1">
                         {d.keyInsights.map((insight, ii) => (
-                          <li key={ii} className="flex items-start gap-1.5 text-xs text-gray-500 leading-relaxed">
-                            <span className="text-green-500 mt-0.5 shrink-0">›</span>
+                          <li key={ii} className="flex items-start gap-1.5 text-sm text-gray-300 leading-relaxed">
+                            <span className="text-green-400 mt-0.5 shrink-0">›</span>
                             <span>{insight}</span>
                           </li>
                         ))}
