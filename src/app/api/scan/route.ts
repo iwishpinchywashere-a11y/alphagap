@@ -2834,20 +2834,6 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
     leaderboard.sort((a, b) => b.composite_score - a.composite_score);
   }
 
-  // ── Dump penalty overrides (Apr 9 2026) ──────────────────────────
-  // Templar (3), Basilica (39), Grail (81) had large token dumps.
-  // Scores are hard-set below until manually removed.
-  const DUMP_SCORE_OVERRIDES = new Map<number, number>([
-    [3,  45], // Templar
-    [39, 37], // Basilica
-    [81, 41], // Grail
-  ]);
-  for (const entry of leaderboard) {
-    const override = DUMP_SCORE_OVERRIDES.get(entry.netuid);
-    if (override !== undefined) {
-      entry.composite_score = override;
-    }
-  }
   leaderboard.sort((a, b) => b.composite_score - a.composite_score);
 
   // ── Tag deregistration risks ─────────────────────────────────────
