@@ -958,10 +958,37 @@ export async function GET() {
 
   console.log(`[scan] Context built for ${devContexts.length} subnets. Running AI analysis on all of them...`);
 
+  // ── Load dev-analysis cache (prevents re-analyzing unchanged commits) ─────
+  // Cache key = first commit message (contains date+sha — changes when new commits land).
+  // Only call Claude when the commit set has changed since the last analysis.
+  type DevAnalysisCache = Record<number, { cacheKey: string; description: string; score: number; headline: string | null; cachedAt: string }>;
+  let devAnalysisCache: DevAnalysisCache = {};
+  const BLOB_TOKEN_FOR_CACHE = process.env.BLOB_READ_WRITE_TOKEN || "";
+  if (BLOB_TOKEN_FOR_CACHE) {
+    try {
+      const cacheBlob = await blobGet("dev-analysis-cache.json", { token: BLOB_TOKEN_FOR_CACHE, access: "private" });
+      if (cacheBlob?.stream) {
+        const reader = cacheBlob.stream.getReader();
+        const chunks: Uint8Array[] = [];
+        while (true) { const { done, value } = await reader.read(); if (done) break; chunks.push(value); }
+        const allBytes = chunks.reduce((a, b) => { const c = new Uint8Array(a.length + b.length); c.set(a); c.set(b, a.length); return c; }, new Uint8Array(0));
+        devAnalysisCache = JSON.parse(Buffer.from(allBytes).toString("utf-8"));
+        console.log(`[scan] Loaded dev analysis cache for ${Object.keys(devAnalysisCache).length} subnets`);
+      }
+    } catch { /* cache miss is fine */ }
+  }
+
   // AI analysis returns both a description AND a quality-based score (1-100)
   // Score reflects what was actually built, not commit count.
   async function analyzeDevActivity(ctx: DevContext): Promise<{ description: string; score: number; headline: string | null }> {
     if (!ANTHROPIC_KEY) return { description: buildFallbackDescription(ctx), score: fallbackScore(ctx), headline: null };
+
+    // Cache check — skip Claude if the commit set hasn't changed
+    const cacheKey = ctx.commits[0] ?? `release:${ctx.release?.tag ?? "none"}`;
+    const cached = devAnalysisCache[ctx.act.netuid];
+    if (cached && cached.cacheKey === cacheKey) {
+      return { description: cached.description, score: cached.score, headline: cached.headline };
+    }
 
     const name = identityMap.get(ctx.act.netuid)?.subnet_name || `SN${ctx.act.netuid}`;
     const pool = poolMap.get(ctx.act.netuid);
@@ -1080,6 +1107,8 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
         .trim();
 
       console.log(`[scan] AI scored SN${ctx.act.netuid} (${name}): ${score}/100 — ${headline || "no headline"}`);
+      // Store in cache
+      devAnalysisCache[ctx.act.netuid] = { cacheKey, description, score, headline, cachedAt: new Date().toISOString() };
       return { description, score, headline };
     } catch {
       return { description: buildFallbackDescription(ctx), score: fallbackScore(ctx), headline: null };
@@ -1150,6 +1179,14 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
   }
 
   console.log(`[scan] Analyzed ${analyzedDevSignals.length} dev signals with AI.`);
+
+  // Persist updated dev analysis cache (fire-and-forget, don't block scan)
+  if (BLOB_TOKEN_FOR_CACHE && Object.keys(devAnalysisCache).length > 0) {
+    put("dev-analysis-cache.json", JSON.stringify(devAnalysisCache), {
+      access: "private", addRandomSuffix: false, allowOverwrite: true, contentType: "application/json",
+      token: BLOB_TOKEN_FOR_CACHE,
+    }).catch(e => console.warn("[scan] Failed to save dev analysis cache:", e));
+  }
 
   // Build quality map: netuid → AI quality score, used later to adjust dev_score
   const aiQualityMap = new Map<number, number>();
