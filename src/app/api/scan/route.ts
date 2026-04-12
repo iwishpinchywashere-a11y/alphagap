@@ -3015,18 +3015,6 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
     } catch (e) { console.error("[scan] Failed early save:", e); }
   }
 
-  // ── Filter suppressed signals ────────────────────────────────────
-  // Grail (81) dev_spike signals are suppressed due to token dump penalty (Apr 9 2026)
-  const SIGNAL_SUPPRESS: Array<{ netuid: number; signal_type: string }> = [
-    { netuid: 81, signal_type: "dev_spike" },
-  ];
-  for (const suppress of SIGNAL_SUPPRESS) {
-    const idx = signals.findIndex(
-      s => s.netuid === suppress.netuid && s.signal_type === suppress.signal_type
-    );
-    if (idx !== -1) signals.splice(idx, 1);
-  }
-
   // Sort signals by strength desc
   signals.sort((a, b) => b.strength - a.strength);
 
