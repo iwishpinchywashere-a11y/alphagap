@@ -1,31 +1,126 @@
 // Content generator for @AlphaGapTAO automated posts
-// Reads scan/discord/social blobs → Claude generates tweet copy
+//
+// 8 post types (strict — no others):
+//  1. agap_riser        — significant aGap score rise and why
+//  2. dev_update        — high-scoring dev signal from /signals (brief)
+//  3. whale_flow        — whale buy / smart money / volume surge from /whales
+//  4. discord_alpha     — Discord alpha drop from /social
+//  5. x_trending        — subnet trending on X and why, from /social
+//  6. analytics_ratios  — top 3 subnets by plot-chart ratio on /analytics
+//  7. benchmark_update  — new benchmark result beating centralised competitor
+//  8. performance_gain  — /performance max-return stat (aGap ≥80 signal → price now → max % gain)
 
 const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY || "";
 
+// ── Shared data shapes ────────────────────────────────────────────
+
 export interface SubnetScore {
-  netuid: number; name: string; composite_score: number; flow_score: number;
-  dev_score: number; eval_score: number; social_score: number;
-  alpha_price?: number; market_cap?: number;
-  price_change_7d?: number; price_change_24h?: number;
-  whale_signal?: string | null; volume_surge?: boolean; volume_surge_ratio?: number;
-  emission_pct?: number; emission_trend?: string | null;
+  netuid: number;
+  name: string;
+  composite_score: number;
+  composite_score_change?: number;   // delta since last scan
+  flow_score: number;
+  flow_score_change?: number;
+  dev_score: number;
+  dev_score_change?: number;
+  eval_score: number;
+  eval_score_change?: number;
+  social_score: number;
+  social_score_change?: number;
+  velo_score?: number;
+  velo_score_change?: number;
+  product_score?: number;
+  product_score_change?: number;
+  alpha_price?: number;
+  market_cap?: number;
+  price_change_7d?: number;
+  price_change_24h?: number;
+  whale_signal?: string | null;
+  volume_surge?: boolean;
+  volume_surge_ratio?: number;
+  emission_pct?: number;
+  emission_trend?: string | null;
 }
+
+export interface DiscordEntry {
+  subnetName: string;
+  netuid: number | null;
+  summary: string;
+  keyInsights: string[];
+  alphaScore?: number;
+  scannedAt: string;
+}
+
+export interface DevSignal {
+  name: string;
+  netuid: number;
+  title: string;
+  description: string;
+  score: number;
+  created_at: string;
+}
+
+export interface SocialTrendEntry {
+  subnetName: string;
+  netuid: number;
+  tweetCount?: number;
+  sentiment?: string;
+  topInsight?: string;
+  scannedAt: string;
+}
+
+export interface AnalyticsEntry {
+  netuid: number;
+  name: string;
+  ratio: number;          // e.g. emission/mcap or custom chart ratio
+  ratioLabel?: string;    // human-readable label for the ratio
+  composite_score: number;
+}
+
+export interface BenchmarkEntry {
+  netuid: number;
+  subnetName: string;
+  taskName: string;
+  score: number;           // subnet's benchmark score
+  centralizedScore?: number;  // competitor score (e.g. GPT-4o)
+  centralizedName?: string;
+  delta?: number;          // positive = beating centralised
+  updatedAt: string;
+  isNew?: boolean;
+}
+
+export interface PerformanceEntry {
+  netuid: number;
+  name: string;
+  agapScoreAtSignal: number;   // score when aGap hit ≥80
+  priceAtSignal: number;
+  priceNow: number;
+  maxPrice?: number;
+  maxGainPct: number;          // max % gain from signal price to max price
+  currentGainPct: number;      // current price vs signal price
+  signalDate: string;
+}
+
+// ── TweetPost ─────────────────────────────────────────────────────
+
+export type PostType =
+  | "agap_riser"
+  | "dev_update"
+  | "whale_flow"
+  | "discord_alpha"
+  | "x_trending"
+  | "analytics_ratios"
+  | "benchmark_update"
+  | "performance_gain";
 
 export interface TweetPost {
-  type: "top_movers" | "dev_signal" | "discord_alpha" | "whale_alert" | "eval_gap" | "daily_briefing";
+  type: PostType;
   tweets: string[];   // 1 = single tweet, 2+ = thread
-  rationale: string;  // internal, not posted
+  rationale: string;
+  screenshotPath?: string;   // optional alphagap.io path to screenshot
 }
 
-// ── Helper: truncate to fit in tweet ──────────────────────────────
-
-function fit(s: string, max = 275): string {
-  if (s.length <= max) return s;
-  return s.slice(0, max - 1) + "…";
-}
-
-// ── Format numbers ────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────
 
 function fmtMcap(v?: number): string {
   if (!v) return "";
@@ -39,7 +134,25 @@ function fmtPct(v?: number | null): string {
   return `${v >= 0 ? "+" : ""}${v.toFixed(1)}%`;
 }
 
-// ── AI tweet writer ────────────────────────────────────────────────
+function fmtPrice(v?: number): string {
+  if (!v) return "";
+  if (v < 0.01) return `$${v.toFixed(4)}`;
+  if (v < 1) return `$${v.toFixed(3)}`;
+  return `$${v.toFixed(2)}`;
+}
+
+// ── AI tweet writer ───────────────────────────────────────────────
+
+const TWEET_SYSTEM = `You are @AlphaGapTAO — a sharp, plain-English crypto signal account for Bittensor.
+
+Voice rules:
+- Write for someone curious about crypto/AI who doesn't follow Bittensor daily
+- NEVER list raw scores or numbers alone — always explain what they mean in plain English
+- Lead with the interesting thing: what is happening and why it matters
+- Be specific but human: "builders are shipping fast" not "Dev score: 85"
+- One clear point per tweet. No bullet lists. No jargon dumps.
+- Max 1 emoji. No hype words (moon, gem, alpha, LFG, DYOR).
+- Under 270 characters per tweet.`;
 
 async function writeTweet(prompt: string): Promise<string[]> {
   if (!ANTHROPIC_KEY) return [];
@@ -55,6 +168,7 @@ async function writeTweet(prompt: string): Promise<string[]> {
       body: JSON.stringify({
         model: "claude-haiku-4-5-20251001",
         max_tokens: 800,
+        system: TWEET_SYSTEM,
         messages: [{ role: "user", content: prompt }],
       }),
     });
@@ -62,93 +176,124 @@ async function writeTweet(prompt: string): Promise<string[]> {
     if (!res.ok) return [];
     const data = await res.json() as { content: Array<{ text: string }> };
     const text = data.content[0]?.text?.trim() ?? "";
-
-    // Split on ---NEXT--- delimiter for threads
     return text.split("---NEXT---").map((t) => t.trim()).filter(Boolean);
   } catch {
     return [];
   }
 }
 
-// ── Post type generators ──────────────────────────────────────────
+// ── 1. aGap Riser ─────────────────────────────────────────────────
+// Fired when a subnet's composite score rises significantly.
+// The tweet explains WHICH sub-scores drove the rise.
 
-export async function generateDailyBriefing(leaderboard: SubnetScore[]): Promise<TweetPost | null> {
-  const top5 = leaderboard.slice(0, 5);
-  const risers = leaderboard
-    .filter((s) => (s.price_change_24h ?? 0) >= 8)
-    .sort((a, b) => (b.price_change_24h ?? 0) - (a.price_change_24h ?? 0))
-    .slice(0, 3);
+export async function generateAgapRiser(subnet: SubnetScore): Promise<TweetPost | null> {
+  // Build a list of which scores moved
+  const drivers: string[] = [];
+  if ((subnet.velo_score_change ?? 0) >= 5) drivers.push(`Velocity +${subnet.velo_score_change?.toFixed(0)}`);
+  if ((subnet.flow_score_change ?? 0) >= 5) drivers.push(`Flow +${subnet.flow_score_change?.toFixed(0)}`);
+  if ((subnet.dev_score_change ?? 0) >= 5) drivers.push(`Dev +${subnet.dev_score_change?.toFixed(0)}`);
+  if ((subnet.eval_score_change ?? 0) >= 5) drivers.push(`Eval +${subnet.eval_score_change?.toFixed(0)}`);
+  if ((subnet.product_score_change ?? 0) >= 5) drivers.push(`Product +${subnet.product_score_change?.toFixed(0)}`);
+  if ((subnet.social_score_change ?? 0) >= 5) drivers.push(`Social +${subnet.social_score_change?.toFixed(0)}`);
+  if ((subnet.emission_trend) === "rising") drivers.push("Emissions rising");
 
-  const top5Lines = top5.map((s, i) =>
-    `${i + 1}. ${s.name} (SN${s.netuid}) — aGap ${s.composite_score} | Dev ${s.dev_score} | Flow ${s.flow_score} | MCap ${fmtMcap(s.market_cap)}`
-  ).join("\n");
+  const driversLine = drivers.length > 0 ? drivers.join(" · ") : "multiple sub-scores improving";
 
-  const riserLines = risers.length > 0
-    ? risers.map((s) => `${s.name}: ${fmtPct(s.price_change_24h)} 24H`).join(", ")
-    : "steady";
+  const prompt = `Write ONE tweet about this Bittensor subnet that suddenly became much more interesting.
 
-  const prompt = `You are @AlphaGapTAO — an AI that spots alpha in Bittensor subnets before the market does.
+Subnet: ${subnet.name} (SN${subnet.netuid})
+What changed: aGap score jumped ${fmtPct(subnet.composite_score_change)} to ${subnet.composite_score}/100
+Why it jumped: ${driversLine}
+Price so far: ${fmtPct(subnet.price_change_24h)} in 24h | Market cap: ${fmtMcap(subnet.market_cap)}
 
-Write a DAILY BRIEFING tweet thread (2 tweets) about today's top Bittensor subnets. Be sharp, confident, data-driven. No hype. No fluff. Use emojis sparingly (1-2 max total). Each tweet must be under 270 characters. Separate tweets with ---NEXT---
-
-Today's AlphaGap top 5 (ranked by composite score):
-${top5Lines}
-
-Notable 24H price movers: ${riserLines}
-
-Tweet 1: Lead with the #1 ranked subnet — why it's top, what signals are firing.
-Tweet 2: Quick scan of the rest of the top 5. End with "→ alphagap.io" CTA.
-
-Do NOT use phrases like "exciting", "thrilled", "amazing". Sound like a sharp analyst, not marketing copy.`;
+Explain what drove the jump in plain English — what does it mean that ${driversLine.toLowerCase()}? Why should someone pay attention? Price hasn't caught up yet if it's flat/down.
+End with "$${subnet.name.toUpperCase()} #Bittensor"`;
 
   const tweets = await writeTweet(prompt);
   if (!tweets.length) return null;
 
   return {
-    type: "daily_briefing",
+    type: "agap_riser",
     tweets,
-    rationale: `Daily briefing: top 5 — ${top5.map(s => s.name).join(", ")}`,
+    rationale: `aGap riser: ${subnet.name} +${subnet.composite_score_change?.toFixed(0)} pts (${driversLine})`,
+    screenshotPath: "/dashboard",
   };
 }
 
-export async function generateDevAlert(signal: { name: string; netuid: number; title: string; description: string; score: number }): Promise<TweetPost | null> {
-  const prompt = `You are @AlphaGapTAO — an AI that spots Bittensor alpha.
+// ── 2. Dev Update (from /signals) ────────────────────────────────
+// Brief summary of a high-scoring dev signal — much shorter than the full signal card.
 
-Write ONE tweet about this dev activity signal. Under 270 chars. Sharp, factual. 1 emoji max.
+export async function generateDevUpdate(signal: DevSignal): Promise<TweetPost | null> {
+  const prompt = `Write ONE tweet about something a Bittensor subnet just shipped.
 
 Subnet: ${signal.name} (SN${signal.netuid})
-Signal: ${signal.title}
+What happened: ${signal.title}
 Detail: ${signal.description}
-AlphaGap dev signal score: ${signal.score}/100
 
-Lead with the subnet name. Mention what was actually built (not vague "commits"). End with "$${signal.name.toUpperCase()} #Bittensor"`;
+Explain what was actually built and why it's a meaningful step forward — what problem does it solve or what capability does it add? Keep it concrete, not hype.
+End with "$${signal.name.toUpperCase()} #Bittensor"`;
 
   const tweets = await writeTweet(prompt);
   if (!tweets.length) return null;
 
   return {
-    type: "dev_signal",
+    type: "dev_update",
     tweets,
-    rationale: `Dev signal for ${signal.name} (SN${signal.netuid}): ${signal.title}`,
+    rationale: `Dev update: ${signal.name} (SN${signal.netuid}) — ${signal.title}`,
+    screenshotPath: "/signals",
   };
 }
 
-export async function generateDiscordAlpha(entry: {
-  subnetName: string; netuid: number; summary: string; keyInsights: string[];
-}): Promise<TweetPost | null> {
+// ── 3. Whale Flow / Volume Surge (/whales) ────────────────────────
+
+export async function generateWhaleFlow(subnet: SubnetScore): Promise<TweetPost | null> {
+  const isVolumeSurge = subnet.volume_surge && (subnet.volume_surge_ratio ?? 0) >= 2;
+  const isWhale = subnet.whale_signal === "accumulating";
+
+  if (!isVolumeSurge && !isWhale) return null;
+
+  const signalType = isWhale && isVolumeSurge
+    ? `Whale accumulation + volume surge (${subnet.volume_surge_ratio?.toFixed(1)}× normal)`
+    : isWhale
+    ? "Smart money accumulation detected"
+    : `Volume surge (${subnet.volume_surge_ratio?.toFixed(1)}× normal volume)`;
+
+  const prompt = `Write ONE tweet about unusual buying activity in a Bittensor subnet.
+
+Subnet: ${subnet.name} (SN${subnet.netuid})
+What's happening: ${signalType}
+Price context: ${fmtPct(subnet.price_change_24h)} in 24h, ${fmtPct(subnet.price_change_7d)} in 7d | MCap: ${fmtMcap(subnet.market_cap)}
+Fundamentals: the subnet scores well on development activity and is actively building
+
+Explain what the unusual activity suggests — someone is buying before the broader market notices. Mention whether price has moved yet or if this looks early.
+End with "#Bittensor #TAO"`;
+
+  const tweets = await writeTweet(prompt);
+  if (!tweets.length) return null;
+
+  return {
+    type: "whale_flow",
+    tweets,
+    rationale: `Whale/volume: ${subnet.name} — ${signalType}`,
+    screenshotPath: "/whales",
+  };
+}
+
+// ── 4. Discord Alpha (/social) ────────────────────────────────────
+
+export async function generateDiscordAlpha(entry: DiscordEntry): Promise<TweetPost | null> {
   const insights = entry.keyInsights.slice(0, 3).join("\n- ");
 
-  const prompt = `You are @AlphaGapTAO — an AI that catches Bittensor Discord alpha before it hits Twitter.
+  const prompt = `Write a 2-tweet thread about something being discussed in a Bittensor subnet's Discord before the broader market knows.
 
-Write a tweet thread (2 tweets) about this Discord alpha drop. Be specific. Name the actual thing happening. Under 270 chars each. Separate with ---NEXT---
-
-Subnet: ${entry.subnetName} (SN${entry.netuid})
-Discord summary: ${entry.summary}
-Key insights:
+Subnet: ${entry.subnetName}${entry.netuid ? ` (SN${entry.netuid})` : ""}
+What's being discussed: ${entry.summary}
+Key points:
 - ${insights}
 
-Tweet 1: The alpha drop — what's actually happening. Lead with "🔊 Discord alpha:" or "⚡ ${entry.subnetName} Discord:"
-Tweet 2: Why it matters for price/value. End with "Spotted by @AlphaGapTAO | alphagap.io"`;
+Tweet 1: What is actually happening — explain it simply so anyone can understand. Start with "🔊" or "⚡ ${entry.subnetName}:"
+Tweet 2: Why this matters and what it could mean for the subnet going forward. End with "Spotted by @AlphaGapTAO → alphagap.io/social"
+Separate with ---NEXT---`;
 
   const tweets = await writeTweet(prompt);
   if (!tweets.length) return null;
@@ -157,121 +302,240 @@ Tweet 2: Why it matters for price/value. End with "Spotted by @AlphaGapTAO | alp
     type: "discord_alpha",
     tweets,
     rationale: `Discord alpha: ${entry.subnetName} — ${entry.summary.slice(0, 80)}`,
+    screenshotPath: "/social",
   };
 }
 
-export async function generateWhaleAlert(subnet: SubnetScore): Promise<TweetPost | null> {
-  if (subnet.whale_signal !== "accumulating") return null;
+// ── 5. X Trending (/social) ───────────────────────────────────────
 
-  const prompt = `You are @AlphaGapTAO — tracking smart money in Bittensor.
+export async function generateXTrending(entries: SocialTrendEntry[]): Promise<TweetPost | null> {
+  if (!entries.length) return null;
+  const top3 = entries.slice(0, 3);
 
-Write ONE tweet about whale accumulation. Under 270 chars. Factual, no hype. 1 emoji max.
+  const lines = top3.map((e, i) =>
+    `${i + 1}. ${e.subnetName}${e.netuid ? ` (SN${e.netuid})` : ""}${e.tweetCount ? ` — ${e.tweetCount} mentions` : ""}${e.topInsight ? ` — "${e.topInsight}"` : ""}`
+  ).join("\n");
 
-Subnet: ${subnet.name} (SN${subnet.netuid})
-Whale signal: ACCUMULATING
-aGap composite score: ${subnet.composite_score}/100
-Dev score: ${subnet.dev_score} | Eval score: ${subnet.eval_score} | Flow score: ${subnet.flow_score}
-Market cap: ${fmtMcap(subnet.market_cap)}
-7D price: ${fmtPct(subnet.price_change_7d)}
+  const prompt = `Write ONE tweet about which Bittensor subnets are getting attention on X right now and why that matters.
 
-Lead with "🐋" then the subnet name. Note the aGap score and what's driving it. End with "#Bittensor"`;
+Top subnets being talked about:
+${lines}
+
+Don't just list them — explain what the conversation is about and why the buzz is worth paying attention to. What are people excited or concerned about?
+End with "→ alphagap.io/social #Bittensor"`;
 
   const tweets = await writeTweet(prompt);
   if (!tweets.length) return null;
 
   return {
-    type: "whale_alert",
+    type: "x_trending",
     tweets,
-    rationale: `Whale accumulation: ${subnet.name} (SN${subnet.netuid})`,
+    rationale: `X trending: ${top3.map(e => e.subnetName).join(", ")}`,
+    screenshotPath: "/social",
   };
 }
 
-export async function generateEvalGap(subnet: SubnetScore): Promise<TweetPost | null> {
-  const prompt = `You are @AlphaGapTAO — finding undervalued Bittensor subnets.
+// ── 6. Analytics Ratios — top 3 (/analytics) ─────────────────────
 
-Write ONE tweet about this valuation gap opportunity. Under 270 chars. Analytical tone. 1 emoji max.
+export async function generateAnalyticsRatios(entries: AnalyticsEntry[]): Promise<TweetPost | null> {
+  if (entries.length < 3) return null;
+  const top3 = entries.slice(0, 3);
 
-Subnet: ${subnet.name} (SN${subnet.netuid})
-eVal score: ${subnet.eval_score}/100 (high = network paying out relative to market cap = undervalued)
-aGap composite: ${subnet.composite_score}/100
-Market cap: ${fmtMcap(subnet.market_cap)}
-Emission: ${((subnet.emission_pct ?? 0) * 100).toFixed(2)}% of network emissions
-7D price: ${fmtPct(subnet.price_change_7d)}
+  const ratioLabel = top3[0].ratioLabel ?? "efficiency ratio";
+  const lines = top3.map((e, i) =>
+    `${i + 1}. ${e.name} (SN${e.netuid}) — ratio: ${e.ratio.toFixed(2)} | aGap: ${e.composite_score}`
+  ).join("\n");
 
-Explain the valuation gap in plain terms. What's the network paying vs what the market prices it at? End with "#Bittensor #TAO"`;
+  const prompt = `Write ONE tweet explaining which Bittensor subnets are getting the most output relative to their size right now.
+
+The metric (${ratioLabel}) basically measures: which subnets are punching above their weight?
+Top 3:
+${lines}
+
+Explain in plain English what it means to lead this metric and why it's relevant for spotting undervalued subnets. Don't list the raw numbers — say what they imply.
+End with "→ alphagap.io/analytics #Bittensor"`;
 
   const tweets = await writeTweet(prompt);
   if (!tweets.length) return null;
 
   return {
-    type: "eval_gap",
+    type: "analytics_ratios",
     tweets,
-    rationale: `Eval gap: ${subnet.name} eval=${subnet.eval_score}`,
+    rationale: `Analytics top 3 by ${ratioLabel}: ${top3.map(e => e.name).join(", ")}`,
+    screenshotPath: "/analytics",
   };
 }
 
-// ── Pick best post for this run ────────────────────────────────────
-// Priority: fresh discord alpha > whale alert > high eval gap > daily briefing
+// ── 7. Benchmark Update (/benchmarks) ────────────────────────────
 
-export async function pickBestPost(
-  leaderboard: SubnetScore[],
-  discordAlpha: Array<{ subnetName: string; netuid: number | null; summary: string; keyInsights: string[]; alphaScore?: number; scannedAt: string }>,
-  devSignals: Array<{ name: string; netuid: number; title: string; description: string; score: number; created_at: string }>,
-  alreadyPostedIds: Set<string>
-): Promise<TweetPost | null> {
+export async function generateBenchmarkUpdate(entry: BenchmarkEntry): Promise<TweetPost | null> {
+  const isBeating = (entry.delta ?? 0) > 0;
+  if (!isBeating && !entry.isNew) return null;
 
-  // 1. Fresh discord alpha (within last 6h, alphaScore ≥ 80)
+  const compLine = entry.centralizedName && entry.centralizedScore != null
+    ? `vs ${entry.centralizedName} (${entry.centralizedScore.toFixed(1)})`
+    : "vs centralised baseline";
+
+  const prompt = `Write ONE tweet about a decentralised AI network ${isBeating ? "beating" : "being measured against"} a centralised competitor.
+
+Subnet: ${entry.subnetName} (SN${entry.netuid})
+Task: ${entry.taskName}
+${entry.centralizedScore != null ? `Result: decentralised network vs ${compLine}` : `Result: new benchmark score ${entry.score.toFixed(1)}`}
+${entry.delta != null && entry.delta > 0 ? `Edge: ahead by ${entry.delta.toFixed(1)} points` : ""}
+
+Explain what the task is in simple terms and why it matters that ${isBeating ? "a decentralised subnet is winning" : "this is being tracked"}. Make the comparison feel real — not just numbers.
+End with "$${entry.subnetName.toUpperCase()} #Bittensor"`;
+
+  const tweets = await writeTweet(prompt);
+  if (!tweets.length) return null;
+
+  return {
+    type: "benchmark_update",
+    tweets,
+    rationale: `Benchmark: ${entry.subnetName} scored ${entry.score.toFixed(1)} on ${entry.taskName} ${isBeating ? `(beats ${entry.centralizedName ?? "centralised"})` : "(new)"}`,
+    screenshotPath: "/benchmarks",
+  };
+}
+
+// ── 8. Performance / Max Return (/performance) ───────────────────
+// Highlights subnets where aGap ≥80 signal fired, shows buy price vs now vs max gain.
+
+export async function generatePerformanceGain(entry: PerformanceEntry): Promise<TweetPost | null> {
+  const prompt = `Write a 2-tweet thread showing that an AlphaGap signal called a move before the market.
+
+Subnet: ${entry.name} (SN${entry.netuid})
+When flagged: ${new Date(entry.signalDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })} at ${fmtPrice(entry.priceAtSignal)}
+What happened: price went up ${fmtPct(entry.maxGainPct)} at its peak, currently ${fmtPct(entry.currentGainPct)} from the signal price
+
+Tweet 1: Set the scene — AlphaGap spotted this subnet building quietly while the price sat still, then flagged it. Keep it conversational.
+Tweet 2: What played out — the numbers tell the story here (use the actual % gains). End with "Track record → alphagap.io/performance"
+Separate with ---NEXT---`;
+
+  const tweets = await writeTweet(prompt);
+  if (!tweets.length) return null;
+
+  return {
+    type: "performance_gain",
+    tweets,
+    rationale: `Performance: ${entry.name} flagged at ${fmtPrice(entry.priceAtSignal)}, max gain ${fmtPct(entry.maxGainPct)}`,
+    screenshotPath: "/performance",
+  };
+}
+
+// ── Pick best post ────────────────────────────────────────────────
+// Priority order matching the 8 approved post types.
+// Skips types where no fresh/qualifying data exists.
+
+export interface BotData {
+  leaderboard: SubnetScore[];
+  discordAlpha: DiscordEntry[];
+  devSignals: DevSignal[];
+  socialTrending?: SocialTrendEntry[];
+  analyticsRatios?: AnalyticsEntry[];
+  benchmarkUpdates?: BenchmarkEntry[];
+  performanceGains?: PerformanceEntry[];
+  alreadyPostedIds: Set<string>;
+}
+
+export async function pickBestPost(data: BotData): Promise<TweetPost | null> {
+  const {
+    leaderboard,
+    discordAlpha,
+    devSignals,
+    socialTrending = [],
+    analyticsRatios = [],
+    benchmarkUpdates = [],
+    performanceGains = [],
+    alreadyPostedIds,
+  } = data;
+
+  // ── 1. aGap riser (composite_score_change ≥ 8 pts today) ─────────
+  const risers = leaderboard
+    .filter((s) => (s.composite_score_change ?? 0) >= 8 && !alreadyPostedIds.has(`agap_riser_${s.netuid}`))
+    .sort((a, b) => (b.composite_score_change ?? 0) - (a.composite_score_change ?? 0));
+
+  if (risers.length > 0) {
+    const post = await generateAgapRiser(risers[0]);
+    if (post) return post;
+  }
+
+  // ── 4. Discord alpha (fresh ≤ 6h, alphaScore ≥ 80) ───────────────
   const freshDiscord = discordAlpha
     .filter((d) => {
-      if (!d.netuid || alreadyPostedIds.has(`discord_${d.netuid}`)) return false;
+      if (!d.netuid || alreadyPostedIds.has(`discord_alpha_${d.netuid}`)) return false;
       const ageH = (Date.now() - new Date(d.scannedAt).getTime()) / 3600000;
       return ageH <= 6 && (d.alphaScore ?? 0) >= 80;
     })
     .sort((a, b) => (b.alphaScore ?? 0) - (a.alphaScore ?? 0));
 
-  if (freshDiscord.length > 0) {
-    const best = freshDiscord[0];
-    if (best.netuid) {
-      const post = await generateDiscordAlpha({ subnetName: best.subnetName, netuid: best.netuid, summary: best.summary, keyInsights: best.keyInsights });
-      if (post) return post;
-    }
-  }
-
-  // 2. Whale accumulation on high-scoring subnet
-  const whaleSubnets = leaderboard.filter(
-    (s) => s.whale_signal === "accumulating" && s.composite_score >= 55 && !alreadyPostedIds.has(`whale_${s.netuid}`)
-  ).sort((a, b) => b.composite_score - a.composite_score);
-
-  if (whaleSubnets.length > 0) {
-    const post = await generateWhaleAlert(whaleSubnets[0]);
+  if (freshDiscord.length > 0 && freshDiscord[0].netuid) {
+    const post = await generateDiscordAlpha(freshDiscord[0] as DiscordEntry & { netuid: number });
     if (post) return post;
   }
 
-  // 3. High eval gap (eval ≥ 70, not in top 3 by composite — hidden gem)
-  const evalGems = leaderboard
-    .slice(3)  // skip already well-known top 3
-    .filter((s) => s.eval_score >= 70 && s.composite_score >= 45 && !alreadyPostedIds.has(`eval_${s.netuid}`))
-    .sort((a, b) => b.eval_score - a.eval_score);
+  // ── 3. Whale flow / volume surge ─────────────────────────────────
+  const whaleTargets = leaderboard
+    .filter((s) => {
+      if (alreadyPostedIds.has(`whale_flow_${s.netuid}`)) return false;
+      return s.whale_signal === "accumulating" || ((s.volume_surge_ratio ?? 0) >= 2.5);
+    })
+    .sort((a, b) => b.composite_score - a.composite_score);
 
-  if (evalGems.length > 0) {
-    const post = await generateEvalGap(evalGems[0]);
+  if (whaleTargets.length > 0) {
+    const post = await generateWhaleFlow(whaleTargets[0]);
     if (post) return post;
   }
 
-  // 4. Strong dev signal (score ≥ 75, within last 24h)
+  // ── 2. Dev update (score ≥ 75, within last 24h) ───────────────────
   const freshDev = devSignals
     .filter((s) => {
-      if (alreadyPostedIds.has(`dev_${s.netuid}`)) return false;
+      if (alreadyPostedIds.has(`dev_update_${s.netuid}`)) return false;
       const ageH = (Date.now() - new Date(s.created_at).getTime()) / 3600000;
       return ageH <= 24 && s.score >= 75;
     })
     .sort((a, b) => b.score - a.score);
 
   if (freshDev.length > 0) {
-    const post = await generateDevAlert(freshDev[0]);
+    const post = await generateDevUpdate(freshDev[0]);
     if (post) return post;
   }
 
-  // 5. Fallback: daily briefing
-  return generateDailyBriefing(leaderboard);
+  // ── 8. Performance gain (max gain ≥ 50%, not yet posted) ─────────
+  const perfGains = performanceGains
+    .filter((p) => p.maxGainPct >= 50 && !alreadyPostedIds.has(`performance_gain_${p.netuid}`))
+    .sort((a, b) => b.maxGainPct - a.maxGainPct);
+
+  if (perfGains.length > 0) {
+    const post = await generatePerformanceGain(perfGains[0]);
+    if (post) return post;
+  }
+
+  // ── 7. Benchmark update (new or beating centralised) ─────────────
+  const freshBenchmarks = benchmarkUpdates
+    .filter((b) => {
+      if (alreadyPostedIds.has(`benchmark_update_${b.netuid}_${b.taskName}`)) return false;
+      const ageH = (Date.now() - new Date(b.updatedAt).getTime()) / 3600000;
+      return ageH <= 48 && ((b.delta ?? 0) > 0 || b.isNew);
+    })
+    .sort((a, b) => (b.delta ?? 0) - (a.delta ?? 0));
+
+  if (freshBenchmarks.length > 0) {
+    const post = await generateBenchmarkUpdate(freshBenchmarks[0]);
+    if (post) return post;
+  }
+
+  // ── 6. Analytics ratios top 3 ────────────────────────────────────
+  if (analyticsRatios.length >= 3 && !alreadyPostedIds.has("analytics_ratios_daily")) {
+    const post = await generateAnalyticsRatios(analyticsRatios);
+    if (post) return post;
+  }
+
+  // ── 5. X trending ────────────────────────────────────────────────
+  if (socialTrending.length > 0 && !alreadyPostedIds.has("x_trending_daily")) {
+    const post = await generateXTrending(socialTrending);
+    if (post) return post;
+  }
+
+  // Nothing qualified
+  return null;
 }
