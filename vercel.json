@@ -26,7 +26,7 @@
     },
     {
       "path": "/api/cron/twitter-bot",
-      "schedule": "0 9,16 * * *"
+      "schedule": "0 7,12,17,22 * * *"
     }
   ]
 }

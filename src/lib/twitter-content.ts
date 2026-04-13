@@ -437,7 +437,24 @@ export interface BotData {
   alreadyPostedIds: Set<string>;
 }
 
-export async function pickBestPost(data: BotData): Promise<TweetPost | null> {
+// ── Type rotation slots ───────────────────────────────────────────
+// 4 runs per day (7am, 12pm, 5pm, 10pm UTC). Each slot has 2 preferred
+// types (covering all 8 across the day) tried first, then falls back
+// to any available type so a run is never wasted.
+//
+// Slot 0 → 7am:  agap_riser,       dev_update
+// Slot 1 → 12pm: discord_alpha,    x_trending
+// Slot 2 → 5pm:  whale_flow,       performance_gain
+// Slot 3 → 10pm: analytics_ratios, benchmark_update
+
+function getSlot(utcHour: number): 0 | 1 | 2 | 3 {
+  if (utcHour < 10)  return 0;
+  if (utcHour < 15)  return 1;
+  if (utcHour < 20)  return 2;
+  return 3;
+}
+
+export async function pickBestPost(data: BotData, utcHour?: number): Promise<TweetPost | null> {
   const {
     leaderboard,
     discordAlpha,
@@ -449,93 +466,101 @@ export async function pickBestPost(data: BotData): Promise<TweetPost | null> {
     alreadyPostedIds,
   } = data;
 
-  // ── 1. aGap riser (composite_score_change ≥ 8 pts today) ─────────
-  const risers = leaderboard
-    .filter((s) => (s.composite_score_change ?? 0) >= 8 && !alreadyPostedIds.has(`agap_riser_${s.netuid}`))
-    .sort((a, b) => (b.composite_score_change ?? 0) - (a.composite_score_change ?? 0));
+  const slot = getSlot(utcHour ?? new Date().getUTCHours());
 
-  if (risers.length > 0) {
-    const post = await generateAgapRiser(risers[0]);
+  // ── Candidate builders (lazily evaluated in order) ────────────────
+
+  async function tryAgapRiser(): Promise<TweetPost | null> {
+    const risers = leaderboard
+      .filter((s) => (s.composite_score_change ?? 0) >= 8 && !alreadyPostedIds.has(`agap_riser_${s.netuid}`))
+      .sort((a, b) => (b.composite_score_change ?? 0) - (a.composite_score_change ?? 0));
+    return risers.length > 0 ? generateAgapRiser(risers[0]) : null;
+  }
+
+  async function tryDevUpdate(): Promise<TweetPost | null> {
+    const freshDev = devSignals
+      .filter((s) => {
+        if (alreadyPostedIds.has(`dev_update_${s.netuid}`)) return false;
+        const ageH = (Date.now() - new Date(s.created_at).getTime()) / 3600000;
+        return ageH <= 24 && s.score >= 75;
+      })
+      .sort((a, b) => b.score - a.score);
+    return freshDev.length > 0 ? generateDevUpdate(freshDev[0]) : null;
+  }
+
+  async function tryDiscordAlpha(): Promise<TweetPost | null> {
+    const freshDiscord = discordAlpha
+      .filter((d) => {
+        if (!d.netuid || alreadyPostedIds.has(`discord_alpha_${d.netuid}`)) return false;
+        const ageH = (Date.now() - new Date(d.scannedAt).getTime()) / 3600000;
+        return ageH <= 6 && (d.alphaScore ?? 0) >= 80;
+      })
+      .sort((a, b) => (b.alphaScore ?? 0) - (a.alphaScore ?? 0));
+    return freshDiscord.length > 0 && freshDiscord[0].netuid
+      ? generateDiscordAlpha(freshDiscord[0] as DiscordEntry & { netuid: number })
+      : null;
+  }
+
+  async function tryXTrending(): Promise<TweetPost | null> {
+    return socialTrending.length > 0 && !alreadyPostedIds.has("x_trending_daily")
+      ? generateXTrending(socialTrending)
+      : null;
+  }
+
+  async function tryWhaleFlow(): Promise<TweetPost | null> {
+    const whaleTargets = leaderboard
+      .filter((s) => {
+        if (alreadyPostedIds.has(`whale_flow_${s.netuid}`)) return false;
+        return s.whale_signal === "accumulating" || ((s.volume_surge_ratio ?? 0) >= 2.5);
+      })
+      .sort((a, b) => b.composite_score - a.composite_score);
+    return whaleTargets.length > 0 ? generateWhaleFlow(whaleTargets[0]) : null;
+  }
+
+  async function tryPerformanceGain(): Promise<TweetPost | null> {
+    const perfGains = performanceGains
+      .filter((p) => p.maxGainPct >= 50 && !alreadyPostedIds.has(`performance_gain_${p.netuid}`))
+      .sort((a, b) => b.maxGainPct - a.maxGainPct);
+    return perfGains.length > 0 ? generatePerformanceGain(perfGains[0]) : null;
+  }
+
+  async function tryAnalyticsRatios(): Promise<TweetPost | null> {
+    return analyticsRatios.length >= 3 && !alreadyPostedIds.has("analytics_ratios_daily")
+      ? generateAnalyticsRatios(analyticsRatios)
+      : null;
+  }
+
+  async function tryBenchmarkUpdate(): Promise<TweetPost | null> {
+    const freshBenchmarks = benchmarkUpdates
+      .filter((b) => {
+        if (alreadyPostedIds.has(`benchmark_update_${b.netuid}_${b.taskName}`)) return false;
+        const ageH = (Date.now() - new Date(b.updatedAt).getTime()) / 3600000;
+        return ageH <= 48 && ((b.delta ?? 0) > 0 || b.isNew);
+      })
+      .sort((a, b) => (b.delta ?? 0) - (a.delta ?? 0));
+    return freshBenchmarks.length > 0 ? generateBenchmarkUpdate(freshBenchmarks[0]) : null;
+  }
+
+  // ── Slot-based priority order ─────────────────────────────────────
+  // Preferred types for this slot come first; remaining 6 are the fallback.
+
+  type Tryer = () => Promise<TweetPost | null>;
+
+  const slotOrder: [Tryer, Tryer, ...Tryer[]][] = [
+    // Slot 0 — 7am:  agap_riser, dev_update → rest
+    [tryAgapRiser,      tryDevUpdate,      tryDiscordAlpha,   tryXTrending,      tryWhaleFlow,   tryPerformanceGain, tryAnalyticsRatios, tryBenchmarkUpdate],
+    // Slot 1 — 12pm: discord_alpha, x_trending → rest
+    [tryDiscordAlpha,   tryXTrending,      tryAgapRiser,      tryDevUpdate,      tryWhaleFlow,   tryPerformanceGain, tryAnalyticsRatios, tryBenchmarkUpdate],
+    // Slot 2 — 5pm:  whale_flow, performance_gain → rest
+    [tryWhaleFlow,      tryPerformanceGain, tryAgapRiser,     tryDevUpdate,      tryDiscordAlpha, tryXTrending,      tryAnalyticsRatios, tryBenchmarkUpdate],
+    // Slot 3 — 10pm: analytics_ratios, benchmark_update → rest
+    [tryAnalyticsRatios, tryBenchmarkUpdate, tryAgapRiser,    tryDevUpdate,      tryWhaleFlow,   tryPerformanceGain, tryDiscordAlpha,    tryXTrending],
+  ];
+
+  for (const tryer of slotOrder[slot]) {
+    const post = await tryer();
     if (post) return post;
   }
 
-  // ── 4. Discord alpha (fresh ≤ 6h, alphaScore ≥ 80) ───────────────
-  const freshDiscord = discordAlpha
-    .filter((d) => {
-      if (!d.netuid || alreadyPostedIds.has(`discord_alpha_${d.netuid}`)) return false;
-      const ageH = (Date.now() - new Date(d.scannedAt).getTime()) / 3600000;
-      return ageH <= 6 && (d.alphaScore ?? 0) >= 80;
-    })
-    .sort((a, b) => (b.alphaScore ?? 0) - (a.alphaScore ?? 0));
-
-  if (freshDiscord.length > 0 && freshDiscord[0].netuid) {
-    const post = await generateDiscordAlpha(freshDiscord[0] as DiscordEntry & { netuid: number });
-    if (post) return post;
-  }
-
-  // ── 3. Whale flow / volume surge ─────────────────────────────────
-  const whaleTargets = leaderboard
-    .filter((s) => {
-      if (alreadyPostedIds.has(`whale_flow_${s.netuid}`)) return false;
-      return s.whale_signal === "accumulating" || ((s.volume_surge_ratio ?? 0) >= 2.5);
-    })
-    .sort((a, b) => b.composite_score - a.composite_score);
-
-  if (whaleTargets.length > 0) {
-    const post = await generateWhaleFlow(whaleTargets[0]);
-    if (post) return post;
-  }
-
-  // ── 2. Dev update (score ≥ 75, within last 24h) ───────────────────
-  const freshDev = devSignals
-    .filter((s) => {
-      if (alreadyPostedIds.has(`dev_update_${s.netuid}`)) return false;
-      const ageH = (Date.now() - new Date(s.created_at).getTime()) / 3600000;
-      return ageH <= 24 && s.score >= 75;
-    })
-    .sort((a, b) => b.score - a.score);
-
-  if (freshDev.length > 0) {
-    const post = await generateDevUpdate(freshDev[0]);
-    if (post) return post;
-  }
-
-  // ── 8. Performance gain (max gain ≥ 50%, not yet posted) ─────────
-  const perfGains = performanceGains
-    .filter((p) => p.maxGainPct >= 50 && !alreadyPostedIds.has(`performance_gain_${p.netuid}`))
-    .sort((a, b) => b.maxGainPct - a.maxGainPct);
-
-  if (perfGains.length > 0) {
-    const post = await generatePerformanceGain(perfGains[0]);
-    if (post) return post;
-  }
-
-  // ── 7. Benchmark update (new or beating centralised) ─────────────
-  const freshBenchmarks = benchmarkUpdates
-    .filter((b) => {
-      if (alreadyPostedIds.has(`benchmark_update_${b.netuid}_${b.taskName}`)) return false;
-      const ageH = (Date.now() - new Date(b.updatedAt).getTime()) / 3600000;
-      return ageH <= 48 && ((b.delta ?? 0) > 0 || b.isNew);
-    })
-    .sort((a, b) => (b.delta ?? 0) - (a.delta ?? 0));
-
-  if (freshBenchmarks.length > 0) {
-    const post = await generateBenchmarkUpdate(freshBenchmarks[0]);
-    if (post) return post;
-  }
-
-  // ── 6. Analytics ratios top 3 ────────────────────────────────────
-  if (analyticsRatios.length >= 3 && !alreadyPostedIds.has("analytics_ratios_daily")) {
-    const post = await generateAnalyticsRatios(analyticsRatios);
-    if (post) return post;
-  }
-
-  // ── 5. X trending ────────────────────────────────────────────────
-  if (socialTrending.length > 0 && !alreadyPostedIds.has("x_trending_daily")) {
-    const post = await generateXTrending(socialTrending);
-    if (post) return post;
-  }
-
-  // Nothing qualified
   return null;
 }
