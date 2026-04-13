@@ -3038,7 +3038,8 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
   // ── Early snapshot save ─────────────────────────────────────────
   // Saved AFTER velo computation so agap_velo is included in the price snapshot.
   // This ensures the fallback path in cached-scan always has velo data.
-  if (process.env.BLOB_READ_WRITE_TOKEN) {
+  // SAFEGUARD: only write if we have a healthy number of subnets.
+  if (process.env.BLOB_READ_WRITE_TOKEN && leaderboard.length >= 50) {
     try {
       await put("scan-prices.json", JSON.stringify({
         leaderboard,
@@ -3050,6 +3051,8 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
       }), { access: "private", token: process.env.BLOB_READ_WRITE_TOKEN });
       console.log("[scan] Early price snapshot saved to scan-prices.json");
     } catch (e) { console.error("[scan] Failed early save:", e); }
+  } else if (leaderboard.length < 50) {
+    console.warn(`[scan] Skipping early price snapshot — only ${leaderboard.length} subnets loaded.`);
   }
 
   // Sort signals by strength desc
@@ -3222,8 +3225,19 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
   };
 
   // Cache result to Vercel Blob for instant page loads
+  // SAFEGUARD: never overwrite a good blob with a degraded result.
+  // TaoStats outages or rate-limit failures return 0 subnets — if that
+  // happened this run we skip the write so paying customers always see
+  // the last good leaderboard rather than an empty dashboard.
+  const MIN_HEALTHY_SUBNETS = 50;
+  const isHealthyScan = leaderboard.length >= MIN_HEALTHY_SUBNETS;
+
+  if (!isHealthyScan) {
+    console.warn(`[scan] DEGRADED RESULT: only ${leaderboard.length} subnets (< ${MIN_HEALTHY_SUBNETS}). Skipping blob write to preserve last good cache.`);
+  }
+
   try {
-    if (process.env.BLOB_READ_WRITE_TOKEN) {
+    if (process.env.BLOB_READ_WRITE_TOKEN && isHealthyScan) {
       await put("scan-latest.json", JSON.stringify(responseData), {
         access: "private",
         addRandomSuffix: false,

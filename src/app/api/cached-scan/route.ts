@@ -49,29 +49,38 @@ export async function GET() {
     const full = await readBlob("scan-latest.json", token).catch(() => null);
 
     if (full) {
-      // Check freshness — prefer full scan if < 4h old
-      const age = full.lastScan ? Date.now() - new Date(full.lastScan).getTime() : Infinity;
-      if (age < 4 * 60 * 60 * 1000) {
-        return NextResponse.json(applyScoreOverrides({ ...full, cached: true }));
-      }
+      const fullLeaderboardSize = Array.isArray(full.leaderboard) ? full.leaderboard.length : 0;
 
-      // Full scan is stale — try price snapshot as a supplement
-      const prices = await readBlob("scan-prices.json", token).catch(() => null);
-      if (prices && prices.lastScan) {
-        const priceAge = Date.now() - new Date(prices.lastScan).getTime();
-        if (priceAge < age) {
-          // Merge: use fresh prices/leaderboard from price snapshot, signals from full scan
-          return NextResponse.json(applyScoreOverrides({
-            ...full,
-            leaderboard: prices.leaderboard ?? full.leaderboard,
-            cached: true,
-            priceRefreshedAt: prices.lastScan,
-          }));
+      // SAFEGUARD: if the stored blob has an empty/degraded leaderboard, treat it
+      // as missing so we fall through to the price snapshot or 404 rather than
+      // serving a blank dashboard to paying customers.
+      if (fullLeaderboardSize < 50) {
+        console.warn(`[cached-scan] Stored blob has only ${fullLeaderboardSize} subnets — treating as degraded, skipping.`);
+      } else {
+        // Check freshness — prefer full scan if < 4h old
+        const age = full.lastScan ? Date.now() - new Date(full.lastScan).getTime() : Infinity;
+        if (age < 4 * 60 * 60 * 1000) {
+          return NextResponse.json(applyScoreOverrides({ ...full, cached: true }));
         }
-      }
 
-      // Fall back to stale full scan — still better than nothing
-      return NextResponse.json(applyScoreOverrides({ ...full, cached: true, stale: true }));
+        // Full scan is stale — try price snapshot as a supplement
+        const prices = await readBlob("scan-prices.json", token).catch(() => null);
+        if (prices && prices.lastScan && (Array.isArray(prices.leaderboard) ? prices.leaderboard.length : 0) >= 50) {
+          const priceAge = Date.now() - new Date(prices.lastScan).getTime();
+          if (priceAge < age) {
+            // Merge: use fresh prices/leaderboard from price snapshot, signals from full scan
+            return NextResponse.json(applyScoreOverrides({
+              ...full,
+              leaderboard: prices.leaderboard ?? full.leaderboard,
+              cached: true,
+              priceRefreshedAt: prices.lastScan,
+            }));
+          }
+        }
+
+        // Fall back to stale full scan — still better than nothing
+        return NextResponse.json(applyScoreOverrides({ ...full, cached: true, stale: true }));
+      }
     }
 
     // No full scan yet — try price-only snapshot
