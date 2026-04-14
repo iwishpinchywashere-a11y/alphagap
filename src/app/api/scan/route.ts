@@ -85,6 +85,7 @@ async function fetchTMCSubnets(): Promise<TMCSubnet[]> {
   try {
     const res = await fetch("https://api.taomarketcap.com/public/v1/subnets/table/", {
       headers: { Authorization: TMC_API_KEY },
+      signal: AbortSignal.timeout(10000),
     });
     if (!res.ok) {
       console.error(`[scan] TMC API returned ${res.status}`);
@@ -109,6 +110,7 @@ async function fetchTMCValidators(): Promise<Map<number, number>> {
   try {
     const res = await fetch("https://api.taomarketcap.com/public/v1/subnets/validators/?limit=10000", {
       headers: { Authorization: TMC_API_KEY },
+      signal: AbortSignal.timeout(10000),
     });
     if (!res.ok) return new Map();
     const validators: TMCValidator[] = await res.json();
@@ -293,7 +295,7 @@ async function getStitchCampaigns(): Promise<StitchCampaign[]> {
     const { list } = await import("@vercel/blob");
     const { blobs } = await list({ prefix: "stitch-campaigns.json", limit: 1 });
     if (!blobs?.length) return getDefaultStitchCampaigns();
-    const res = await fetch(blobs[0].downloadUrl, { cache: "no-store" });
+    const res = await fetch(blobs[0].downloadUrl, { cache: "no-store", signal: AbortSignal.timeout(8000) });
     if (!res.ok) return getDefaultStitchCampaigns();
     return await res.json();
   } catch {
@@ -351,6 +353,7 @@ export async function GET() {
       const discordBlob = await getBlob("discord-latest.json", {
         token: process.env.BLOB_READ_WRITE_TOKEN,
         access: "private",
+        abortSignal: AbortSignal.timeout(8000),
       });
       if (discordBlob?.stream) {
         const reader = discordBlob.stream.getReader();
@@ -966,7 +969,7 @@ export async function GET() {
   const BLOB_TOKEN_FOR_CACHE = process.env.BLOB_READ_WRITE_TOKEN || "";
   if (BLOB_TOKEN_FOR_CACHE) {
     try {
-      const cacheBlob = await blobGet("dev-analysis-cache.json", { token: BLOB_TOKEN_FOR_CACHE, access: "private" });
+      const cacheBlob = await blobGet("dev-analysis-cache.json", { token: BLOB_TOKEN_FOR_CACHE, access: "private", abortSignal: AbortSignal.timeout(8000) });
       if (cacheBlob?.stream) {
         const reader = cacheBlob.stream.getReader();
         const chunks: Uint8Array[] = [];
@@ -1804,7 +1807,7 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
         const sorted = blobs.sort((a, b) => a.pathname.localeCompare(b.pathname));
         const oldestBlob = sorted[0]; // oldest
 
-        const oldRes = await fetch(oldestBlob.downloadUrl);
+        const oldRes = await fetch(oldestBlob.downloadUrl, { signal: AbortSignal.timeout(8000) });
         if (oldRes.ok) {
           const oldest = await oldRes.json();
           const oldTime = new Date(oldest.timestamp).getTime();
@@ -2118,6 +2121,7 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
       const histBlob = await blobGet("emission-history.json", {
         token: process.env.BLOB_READ_WRITE_TOKEN!,
         access: "private",
+        abortSignal: AbortSignal.timeout(8000),
       });
       if (histBlob && histBlob.stream) {
         const reader = histBlob.stream.getReader();
@@ -2145,6 +2149,7 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
       const volBlob = await blobGet("volume-history.json", {
         token: process.env.BLOB_READ_WRITE_TOKEN!,
         access: "private",
+        abortSignal: AbortSignal.timeout(8000),
       });
       if (volBlob?.stream) {
         const reader = volBlob.stream.getReader();

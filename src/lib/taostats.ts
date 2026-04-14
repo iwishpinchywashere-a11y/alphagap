@@ -20,6 +20,7 @@ async function taoFetch<T>(path: string, params: Record<string, string> = {}): P
   const res = await fetch(url.toString(), {
     headers: { Authorization: API_KEY },
     next: { revalidate: 0 },
+    signal: AbortSignal.timeout(15000),
   });
 
   if (res.status === 429) {
@@ -28,6 +29,7 @@ async function taoFetch<T>(path: string, params: Record<string, string> = {}): P
     const retry = await fetch(url.toString(), {
       headers: { Authorization: API_KEY },
       next: { revalidate: 0 },
+      signal: AbortSignal.timeout(15000),
     });
     if (!retry.ok) {
       console.warn(`TaoStats ${path} still failing after retry (${retry.status})`);

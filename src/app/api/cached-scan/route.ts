@@ -26,7 +26,7 @@ function applyScoreOverrides(data: Record<string, unknown>) {
 }
 
 async function readBlob(name: string, token: string) {
-  const result = await get(name, { token, access: "private" });
+  const result = await get(name, { token, access: "private", abortSignal: AbortSignal.timeout(8000) });
   if (!result?.stream) return null;
   const reader = result.stream.getReader();
   const chunks: Uint8Array[] = [];
@@ -52,10 +52,22 @@ export async function GET() {
       const fullLeaderboardSize = Array.isArray(full.leaderboard) ? full.leaderboard.length : 0;
 
       // SAFEGUARD: if the stored blob has an empty/degraded leaderboard, treat it
-      // as missing so we fall through to the price snapshot or 404 rather than
-      // serving a blank dashboard to paying customers.
+      // as missing so we fall through to the price snapshot. Only use it as an
+      // absolute last resort if no better data is available anywhere.
       if (fullLeaderboardSize < 50) {
-        console.warn(`[cached-scan] Stored blob has only ${fullLeaderboardSize} subnets — treating as degraded, skipping.`);
+        console.warn(`[cached-scan] Stored blob has only ${fullLeaderboardSize} subnets — trying price snapshot first.`);
+        // Try price snapshot before giving up
+        const prices = await readBlob("scan-prices.json", token).catch(() => null);
+        if (prices && (Array.isArray(prices.leaderboard) ? prices.leaderboard.length : 0) >= 50) {
+          return NextResponse.json(applyScoreOverrides({ ...prices, cached: true, partial: true }));
+        }
+        // Last resort: serve the degraded full scan rather than returning 404 and
+        // forcing a client-side runScan() that may also fail (e.g. during an outage).
+        if (fullLeaderboardSize > 0) {
+          console.warn(`[cached-scan] No better data available — serving degraded blob as last resort.`);
+          return NextResponse.json(applyScoreOverrides({ ...full, cached: true, stale: true }));
+        }
+        // Nothing usable at all — fall through to 404
       } else {
         // Check freshness — prefer full scan if < 4h old
         const age = full.lastScan ? Date.now() - new Date(full.lastScan).getTime() : Infinity;
