@@ -143,27 +143,24 @@ function fmtPrice(v?: number): string {
 
 // ── AI tweet writer ───────────────────────────────────────────────
 
-const TWEET_SYSTEM = `You are @AlphaGapTAO — a sharp, plain-English signal account tracking Bittensor subnets.
+const TWEET_SYSTEM = `You are @AlphaGapTAO — a sharp, concise signal account tracking Bittensor subnets.
 
-ALWAYS use this exact format for every tweet:
+HARD LIMIT: Your entire tweet must be 260 characters or fewer. Count every character including spaces, line breaks, and emojis (emojis = 2 chars each).
 
-[Subnet Name] (SN[XX]) — [short punchy headline] 🚨
+Format (strict — fit it ALL in 260 chars):
+[Subnet] (SN[X]) — [punchy headline] [emoji]
 
-[emoji] [data point] — [plain-English explanation of what this means and why it matters]
-[emoji] [data point] — [plain-English explanation of what this means and why it matters]
-[emoji] [data point] — [plain-English explanation of what this means and why it matters]
+[1-2 key facts in plain English]
 
-AlphaGap take: [2-3 sentence plain-English interpretation — what is the overall picture, what should someone watching this subnet be thinking, is this early or late, what's the opportunity or risk]
+[1-sentence insight]
 
-For more alpha → alphagap.io
+→ alphagap.io | $TOKEN #Bittensor
 
-Voice rules:
-- Write for someone curious about crypto/AI who doesn't follow Bittensor daily
-- NEVER just list numbers — always say what they mean in plain English
-- Be specific and human. "Builders are shipping fast" not "Dev score: 85"
-- Use varied emojis that match the point (🐋 for whale, 🔥 for momentum, 📉 for price lag, 🏗️ for dev activity, 💰 for market data, ⚡ for signals, 📊 for analytics, etc.)
-- No hype words (moon, gem, LFG, DYOR, probably nothing)
-- The AlphaGap take should be the most valuable part — genuine insight, not a summary`;
+Rules:
+- Numbers always paired with plain English meaning
+- No hype words (moon, gem, LFG, DYOR)
+- Confident, specific, human
+- If you're near the limit, cut words — never exceed 260 chars`;
 
 async function writeTweet(prompt: string): Promise<string[]> {
   if (!ANTHROPIC_KEY) return [];
@@ -178,7 +175,7 @@ async function writeTweet(prompt: string): Promise<string[]> {
       },
       body: JSON.stringify({
         model: "claude-haiku-4-5-20251001",
-        max_tokens: 1200,
+        max_tokens: 400,
         system: TWEET_SYSTEM,
         messages: [{ role: "user", content: prompt }],
       }),
@@ -186,8 +183,16 @@ async function writeTweet(prompt: string): Promise<string[]> {
 
     if (!res.ok) return [];
     const data = await res.json() as { content: Array<{ text: string }> };
-    const text = data.content[0]?.text?.trim() ?? "";
-    return text.split("---NEXT---").map((t) => t.trim()).filter(Boolean);
+    const raw = data.content[0]?.text?.trim() ?? "";
+    const tweets = raw.split("---NEXT---").map((t) => t.trim()).filter(Boolean);
+
+    // Enforce 280-char limit — truncate at last whitespace before limit
+    return tweets.map((t) => {
+      if (t.length <= 280) return t;
+      const cut = t.slice(0, 277);
+      const lastSpace = cut.lastIndexOf(" ");
+      return (lastSpace > 200 ? cut.slice(0, lastSpace) : cut) + "…";
+    });
   } catch {
     return [];
   }
@@ -233,7 +238,6 @@ End bullets with "$${subnet.name.toUpperCase()} #Bittensor"`;
     type: "agap_riser",
     tweets,
     rationale: `aGap riser: ${subnet.name} +${subnet.composite_score_change?.toFixed(0)} pts (${driversLine})`,
-    screenshotPath: "/dashboard",
   };
 }
 
@@ -262,7 +266,6 @@ End with "$${signal.name.toUpperCase()} #Bittensor"`;
     type: "dev_update",
     tweets,
     rationale: `Dev update: ${signal.name} (SN${signal.netuid}) — ${signal.title}`,
-    screenshotPath: "/signals",
   };
 }
 
@@ -301,7 +304,6 @@ End with "$${subnet.name.toUpperCase()} #Bittensor"`;
     type: "whale_flow",
     tweets,
     rationale: `Whale/volume: ${subnet.name} — ${signalType}`,
-    screenshotPath: "/whales",
   };
 }
 
@@ -331,7 +333,6 @@ End with "Spotted by @AlphaGapTAO → alphagap.io/social"`;
     type: "discord_alpha",
     tweets,
     rationale: `Discord alpha: ${entry.subnetName} — ${entry.summary.slice(0, 80)}`,
-    screenshotPath: "/social",
   };
 }
 
@@ -363,7 +364,6 @@ End with "→ alphagap.io/social #Bittensor"`;
     type: "x_trending",
     tweets,
     rationale: `X trending: ${top3.map(e => e.subnetName).join(", ")}`,
-    screenshotPath: "/social",
   };
 }
 
@@ -397,7 +397,6 @@ End with "→ alphagap.io/analytics #Bittensor"`;
     type: "analytics_ratios",
     tweets,
     rationale: `Analytics top 3 by ${ratioLabel}: ${top3.map(e => e.name).join(", ")}`,
-    screenshotPath: "/analytics",
   };
 }
 
@@ -433,7 +432,6 @@ End with "$${entry.subnetName.toUpperCase()} #Bittensor"`;
     type: "benchmark_update",
     tweets,
     rationale: `Benchmark: ${entry.subnetName} scored ${entry.score.toFixed(1)} on ${entry.taskName} ${isBeating ? `(beats ${entry.centralizedName ?? "centralised"})` : "(new)"}`,
-    screenshotPath: "/benchmarks",
   };
 }
 
@@ -462,7 +460,6 @@ End with "Full track record → alphagap.io/performance"`;
     type: "performance_gain",
     tweets,
     rationale: `Performance: ${entry.name} flagged at ${fmtPrice(entry.priceAtSignal)}, max gain ${fmtPct(entry.maxGainPct)}`,
-    screenshotPath: "/performance",
   };
 }
 
