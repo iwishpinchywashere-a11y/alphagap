@@ -72,7 +72,7 @@ function Crosshair({
   PAD: { top: number; right: number; bottom: number; left: number };
   color: string; line1: string; line2: string;
 }) {
-  const TW = 130; const TH = 38;
+  const TW = 210; const TH = 66;
   const cW = W - PAD.left - PAD.right;
   // Keep tooltip inside chart horizontally
   const tx = Math.min(Math.max(cx - TW / 2, PAD.left), PAD.left + cW - TW);
@@ -87,13 +87,13 @@ function Crosshair({
       <line x1={PAD.left} y1={cy} x2={W - PAD.right} y2={cy}
         stroke="#6b7280" strokeWidth="1" strokeDasharray="4 3" />
       {/* Snap dot */}
-      <circle cx={cx} cy={cy} r="5" fill={color} stroke="#0a0a0f" strokeWidth="2" />
+      <circle cx={cx} cy={cy} r="6" fill={color} stroke="#0a0a0f" strokeWidth="2.5" />
       {/* Tooltip box */}
-      <rect x={tx} y={ty} width={TW} height={TH} rx="5"
-        fill="#111827" stroke="#374151" strokeWidth="1" />
-      <text x={tx + TW / 2} y={ty + 14} fill="white" fontSize="12"
+      <rect x={tx} y={ty} width={TW} height={TH} rx="6"
+        fill="#111827" stroke="#374151" strokeWidth="1.5" />
+      <text x={tx + TW / 2} y={ty + 24} fill="white" fontSize="22"
         textAnchor="middle" fontWeight="bold" fontFamily="monospace">{line1}</text>
-      <text x={tx + TW / 2} y={ty + 29} fill="#9ca3af" fontSize="10"
+      <text x={tx + TW / 2} y={ty + 52} fill="#9ca3af" fontSize="18"
         textAnchor="middle">{line2}</text>
     </g>
   );
@@ -154,12 +154,22 @@ function PriceChart({ data, color }: { data: PricePoint[]; color: string }) {
     setHoverIdx(Math.max(0, Math.min(data.length - 1, Math.round(raw))));
   };
 
+  const handleTouchMove = (e: React.TouchEvent<SVGSVGElement>) => {
+    e.preventDefault();
+    if (!svgRef.current || e.touches.length === 0) return;
+    const rect = svgRef.current.getBoundingClientRect();
+    const svgX = ((e.touches[0].clientX - rect.left) / rect.width) * W;
+    const raw = (svgX - PAD.left) / cW * (data.length - 1);
+    setHoverIdx(Math.max(0, Math.min(data.length - 1, Math.round(raw))));
+  };
+
   const h = hoverIdx !== null ? hoverIdx : null;
 
   return (
     <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`} className="w-full cursor-crosshair select-none"
       style={{ height: "200px" }} preserveAspectRatio="none"
-      onMouseMove={handleMouseMove} onMouseLeave={() => setHoverIdx(null)}>
+      onMouseMove={handleMouseMove} onMouseLeave={() => setHoverIdx(null)}
+      onTouchMove={handleTouchMove} onTouchEnd={() => setHoverIdx(null)}>
       <defs>
         <linearGradient id="priceGrad" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor={color} stopOpacity="0.25" />
@@ -252,12 +262,22 @@ function ScoreChart({ data, color, label, formatY = (v: number) => v.toFixed(0),
     setHoverIdx(Math.max(0, Math.min(data.length - 1, Math.round(raw))));
   };
 
+  const handleTouchMove = (e: React.TouchEvent<SVGSVGElement>) => {
+    e.preventDefault();
+    if (!svgRef.current || e.touches.length === 0) return;
+    const rect = svgRef.current.getBoundingClientRect();
+    const svgX = ((e.touches[0].clientX - rect.left) / rect.width) * W;
+    const raw = (svgX - PAD.left) / cW * (data.length - 1);
+    setHoverIdx(Math.max(0, Math.min(data.length - 1, Math.round(raw))));
+  };
+
   const h = hoverIdx;
 
   return (
     <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`} className="w-full cursor-crosshair select-none"
       style={{ height: "140px" }} preserveAspectRatio="none"
-      onMouseMove={handleMouseMove} onMouseLeave={() => setHoverIdx(null)}>
+      onMouseMove={handleMouseMove} onMouseLeave={() => setHoverIdx(null)}
+      onTouchMove={handleTouchMove} onTouchEnd={() => setHoverIdx(null)}>
       <defs>
         <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor={color} stopOpacity="0.25" />
