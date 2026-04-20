@@ -17,6 +17,19 @@ import {
 export const dynamic = "force-dynamic";
 export const maxDuration = 240; // 4 min — fits Vercel Pro limit comfortably
 
+async function readBlob<T>(name: string): Promise<T | null> {
+  try {
+    const token = process.env.BLOB_READ_WRITE_TOKEN;
+    if (!token) return null;
+    const result = await get(name, { token, access: "private" });
+    if (!result?.stream) return null;
+    const reader = result.stream.getReader();
+    const chunks: Uint8Array[] = [];
+    while (true) { const { done, value } = await reader.read(); if (done) break; chunks.push(value); }
+    return JSON.parse(Buffer.concat(chunks).toString("utf-8")) as T;
+  } catch { return null; }
+}
+
 const DISCORD_TOKEN = process.env.DISCORD_TOKEN || "";
 const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY || "";
 
@@ -173,7 +186,30 @@ export async function GET() {
       results.sort((a, b) => signalOrder[a.signal] - signalOrder[b.signal]);
     }
 
-    // 5. Save to blob
+    // 5. Re-inject any manual entries from the previous blob so they survive the scan.
+    // Manual entries (manualEntry: true) are written by hand and must not be overwritten
+    // by automated scans. We merge them back in, skipping any whose netuid was just scanned.
+    if (process.env.BLOB_READ_WRITE_TOKEN) {
+      try {
+        const prev = await readBlob<{ results: Array<Record<string, unknown>> }>("discord-latest.json");
+        if (prev?.results) {
+          const scannedNetuids = new Set(results.map(r => r.netuid));
+          const manualEntries = prev.results.filter(
+            r => r.manualEntry === true && !scannedNetuids.has(r.netuid as number)
+          );
+          if (manualEntries.length > 0) {
+            console.log(`[discord-scan] Preserving ${manualEntries.length} manual entries`);
+            results.push(...(manualEntries as unknown as DiscordAlphaResult[]));
+          }
+        }
+      } catch { /* non-critical */ }
+    }
+
+    // Sort again after re-injecting manual entries
+    const signalOrder2 = { alpha: 0, active: 1, quiet: 2, noise: 3 };
+    results.sort((a, b) => signalOrder2[a.signal] - signalOrder2[b.signal]);
+
+    // 6. Save to blob
     const output = {
       scannedAt: new Date().toISOString(),
       channelsScanned: channelsToScan.length,
