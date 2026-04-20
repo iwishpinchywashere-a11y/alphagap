@@ -143,24 +143,23 @@ function fmtPrice(v?: number): string {
 
 // ── AI tweet writer ───────────────────────────────────────────────
 
-const TWEET_SYSTEM = `You are @AlphaGapTAO — a sharp, concise signal account tracking Bittensor subnets.
+const TWEET_SYSTEM = `You are @AlphaGapTAO — an analytics account tracking Bittensor subnet metrics and on-chain data.
 
-HARD LIMIT: Your entire tweet must be 260 characters or fewer. Count every character including spaces, line breaks, and emojis (emojis = 2 chars each).
+HARD LIMIT: Your entire tweet must be 260 characters or fewer including all text, emojis, and line breaks.
 
-Format (strict — fit it ALL in 260 chars):
-[Subnet] (SN[X]) — [punchy headline] [emoji]
+Format (fit ALL in 260 chars):
+[Subnet] (SN[X]) — [factual headline] [emoji]
 
-[1-2 key facts in plain English]
+[Key metrics and data points]
 
-[1-sentence insight]
+[1-sentence analytical note]
 
 → alphagap.io | $TOKEN #Bittensor
 
-Rules:
-- Numbers always paired with plain English meaning
-- No hype words (moon, gem, LFG, DYOR)
-- Confident, specific, human
-- If you're near the limit, cut words — never exceed 260 chars`;
+Critical language rules — use ANALYTICAL framing only:
+- OK: "volume above baseline", "on-chain activity elevated", "metrics strong", "dev activity high"
+- NEVER: "accumulation signal", "whale buying", "smart money", "positioning", "before the move"
+- Data observations, not trading signals. Numbers with brief context. Under 260 chars.`;
 
 async function writeTweet(prompt: string): Promise<string[]> {
   if (!ANTHROPIC_KEY) return [];
