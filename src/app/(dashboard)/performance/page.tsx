@@ -145,32 +145,21 @@ export default function PerformancePage() {
 
         {!portfolioLoading && portfolioData && portfolioData.positions.length > 0 && (
           <>
-            {/* Summary strip — 3 cards: Deployed, Value, Max Return */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div className="bg-gray-900/70 border border-gray-800 rounded-xl p-4">
-                <div className="text-xs text-gray-500 mb-1">Cash Deployed</div>
-                <div className="text-2xl font-bold text-white">${portfolioData.summary.totalCost.toFixed(0)}</div>
-                <div className="text-xs text-gray-600 mt-0.5">{portfolioData.summary.positionCount} positions × $100</div>
-              </div>
-              <div className="bg-gray-900/70 border border-gray-800 rounded-xl p-4">
-                <div className="text-xs text-gray-500 mb-1">Portfolio Value</div>
-                <div className="text-2xl font-bold text-white">${portfolioData.summary.totalValue.toFixed(2)}</div>
-              </div>
-              <div className="bg-gray-900/70 border border-gray-800 rounded-xl p-4">
-                <div className="text-xs text-gray-500 mb-1">Max Return</div>
-                {portfolioData.summary.maxReturnUsd != null ? (
-                  <>
-                    <div className="text-2xl font-bold text-green-400">
-                      {(portfolioData.summary.maxReturnPct ?? 0) >= 0 ? "+" : ""}{(portfolioData.summary.maxReturnPct ?? 0).toFixed(1)}% <span className="text-sm font-normal">if sold at peak</span>
-                    </div>
-                    <div className="text-xs text-green-500 mt-0.5">
-                      {(portfolioData.summary.maxReturnUsd ?? 0) >= 0 ? "+" : ""}${(portfolioData.summary.maxReturnUsd ?? 0).toFixed(2)}
-                    </div>
-                  </>
-                ) : (
-                  <div className="text-2xl font-bold text-gray-600">—</div>
-                )}
-              </div>
+            {/* Summary — Max Return only */}
+            <div className="bg-gray-900/70 border border-gray-800 rounded-xl p-4">
+              <div className="text-xs text-gray-500 mb-1">Max Return</div>
+              {portfolioData.summary.maxReturnUsd != null ? (
+                <>
+                  <div className="text-2xl font-bold text-green-400">
+                    {(portfolioData.summary.maxReturnPct ?? 0) >= 0 ? "+" : ""}{(portfolioData.summary.maxReturnPct ?? 0).toFixed(1)}% <span className="text-sm font-normal">if sold at peak</span>
+                  </div>
+                  <div className="text-xs text-green-500 mt-0.5">
+                    {(portfolioData.summary.maxReturnUsd ?? 0) >= 0 ? "+" : ""}${(portfolioData.summary.maxReturnUsd ?? 0).toFixed(2)}
+                  </div>
+                </>
+              ) : (
+                <div className="text-2xl font-bold text-gray-600">—</div>
+              )}
             </div>
 
             {/* Chart */}
