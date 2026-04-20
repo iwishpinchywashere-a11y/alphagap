@@ -64,20 +64,16 @@ function fmtPct(v: number): string { return `${v >= 0 ? "+" : ""}${v.toFixed(2)}
 function pctColor(v: number): string { return v >= 0 ? "text-green-400" : "text-red-400"; }
 function scoreColor(s: number): string { return s >= 70 ? "text-green-400" : s >= 40 ? "text-yellow-400" : "text-red-400"; }
 
-// ── Shared crosshair tooltip helper ──────────────────────────────
+// ── Shared crosshair helper (SVG lines + dot only — no text) ─────
+// The tooltip text is rendered as an HTML overlay outside the SVG so it
+// isn't squished by preserveAspectRatio="none" on mobile screens.
 function Crosshair({
-  cx, cy, W, H, PAD, color, line1, line2,
+  cx, cy, W, H, PAD, color,
 }: {
   cx: number; cy: number; W: number; H: number;
   PAD: { top: number; right: number; bottom: number; left: number };
-  color: string; line1: string; line2: string;
+  color: string;
 }) {
-  const TW = 210; const TH = 66;
-  const cW = W - PAD.left - PAD.right;
-  // Keep tooltip inside chart horizontally
-  const tx = Math.min(Math.max(cx - TW / 2, PAD.left), PAD.left + cW - TW);
-  // Place above the dot; if too high, place below
-  const ty = cy - TH - 12 < PAD.top ? cy + 10 : cy - TH - 12;
   return (
     <g style={{ pointerEvents: "none" }}>
       {/* Vertical dashed line */}
@@ -87,14 +83,7 @@ function Crosshair({
       <line x1={PAD.left} y1={cy} x2={W - PAD.right} y2={cy}
         stroke="#6b7280" strokeWidth="1" strokeDasharray="4 3" />
       {/* Snap dot */}
-      <circle cx={cx} cy={cy} r="6" fill={color} stroke="#0a0a0f" strokeWidth="2.5" />
-      {/* Tooltip box */}
-      <rect x={tx} y={ty} width={TW} height={TH} rx="6"
-        fill="#111827" stroke="#374151" strokeWidth="1.5" />
-      <text x={tx + TW / 2} y={ty + 24} fill="white" fontSize="22"
-        textAnchor="middle" fontWeight="bold" fontFamily="monospace">{line1}</text>
-      <text x={tx + TW / 2} y={ty + 52} fill="#9ca3af" fontSize="18"
-        textAnchor="middle">{line2}</text>
+      <circle cx={cx} cy={cy} r="5" fill={color} stroke="#0a0a0f" strokeWidth="2" />
     </g>
   );
 }
@@ -166,43 +155,49 @@ function PriceChart({ data, color }: { data: PricePoint[]; color: string }) {
   const h = hoverIdx !== null ? hoverIdx : null;
 
   return (
-    <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`} className="w-full cursor-crosshair select-none"
-      style={{ height: "200px" }} preserveAspectRatio="none"
-      onMouseMove={handleMouseMove} onMouseLeave={() => setHoverIdx(null)}
-      onTouchMove={handleTouchMove} onTouchEnd={() => setHoverIdx(null)}>
-      <defs>
-        <linearGradient id="priceGrad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={color} stopOpacity="0.25" />
-          <stop offset="100%" stopColor={color} stopOpacity="0.01" />
-        </linearGradient>
-      </defs>
-      {yTicks.map((v, i) => (
-        <g key={i}>
-          <line x1={PAD.left} y1={yS(v).toFixed(1)} x2={PAD.left + cW} y2={yS(v).toFixed(1)} stroke="#1f2937" strokeWidth="1" />
-          <text x={PAD.left - 6} y={(yS(v) + 4).toFixed(1)} fill="#4b5563" fontSize="10" textAnchor="end">{fmtPrice(v)}</text>
-        </g>
-      ))}
-      <polygon points={area} fill="url(#priceGrad)" />
-      <polyline points={pts} fill="none" stroke={color} strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
-      {xIdxs.map((idx, i) => (
-        <text key={i} x={xS(idx).toFixed(1)} y={H - 4} fill="#4b5563" fontSize="10" textAnchor="middle">
-          {fmtAxisDate(data[idx].timestamp)}
-        </text>
-      ))}
-      {/* Resting last-point dot — hidden while hovering */}
-      {h === null && (
-        <circle cx={lastX.toFixed(1)} cy={yS(prices[prices.length - 1]).toFixed(1)} r="4" fill={color} />
-      )}
-      {/* Interactive crosshair */}
+    <div className="relative">
+      {/* HTML tooltip — outside SVG so it's never squished by preserveAspectRatio="none" */}
       {h !== null && (
-        <Crosshair
-          cx={xS(h)} cy={yS(data[h].price)}
-          W={W} H={H} PAD={PAD} color={color}
-          line1={fmtPrice(data[h].price)}
-          line2={fmtTooltipDate(data[h].timestamp)}
-        />
+        <div className="absolute inset-x-0 top-1 flex justify-center pointer-events-none z-10">
+          <div className="bg-gray-900/95 border border-gray-700 rounded-xl px-4 py-2 text-center shadow-xl">
+            <div className="text-white font-bold font-mono text-xl leading-tight">{fmtPrice(data[h].price)}</div>
+            <div className="text-gray-400 text-sm mt-0.5">{fmtTooltipDate(data[h].timestamp)}</div>
+          </div>
+        </div>
       )}
-    </svg>
+      <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`} className="w-full cursor-crosshair select-none"
+        style={{ height: "200px" }} preserveAspectRatio="none"
+        onMouseMove={handleMouseMove} onMouseLeave={() => setHoverIdx(null)}
+        onTouchMove={handleTouchMove} onTouchEnd={() => setHoverIdx(null)}>
+        <defs>
+          <linearGradient id="priceGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={color} stopOpacity="0.25" />
+            <stop offset="100%" stopColor={color} stopOpacity="0.01" />
+          </linearGradient>
+        </defs>
+        {yTicks.map((v, i) => (
+          <g key={i}>
+            <line x1={PAD.left} y1={yS(v).toFixed(1)} x2={PAD.left + cW} y2={yS(v).toFixed(1)} stroke="#1f2937" strokeWidth="1" />
+            <text x={PAD.left - 6} y={(yS(v) + 4).toFixed(1)} fill="#4b5563" fontSize="10" textAnchor="end">{fmtPrice(v)}</text>
+          </g>
+        ))}
+        <polygon points={area} fill="url(#priceGrad)" />
+        <polyline points={pts} fill="none" stroke={color} strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
+        {xIdxs.map((idx, i) => (
+          <text key={i} x={xS(idx).toFixed(1)} y={H - 4} fill="#4b5563" fontSize="10" textAnchor="middle">
+            {fmtAxisDate(data[idx].timestamp)}
+          </text>
+        ))}
+        {/* Resting last-point dot — hidden while hovering */}
+        {h === null && (
+          <circle cx={lastX.toFixed(1)} cy={yS(prices[prices.length - 1]).toFixed(1)} r="4" fill={color} />
+        )}
+        {/* Interactive crosshair (lines + dot only, no SVG text) */}
+        {h !== null && (
+          <Crosshair cx={xS(h)} cy={yS(data[h].price)} W={W} H={H} PAD={PAD} color={color} />
+        )}
+      </svg>
+    </div>
   );
 }
 
@@ -274,42 +269,49 @@ function ScoreChart({ data, color, label, formatY = (v: number) => v.toFixed(0),
   const h = hoverIdx;
 
   return (
-    <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`} className="w-full cursor-crosshair select-none"
-      style={{ height: "140px" }} preserveAspectRatio="none"
-      onMouseMove={handleMouseMove} onMouseLeave={() => setHoverIdx(null)}
-      onTouchMove={handleTouchMove} onTouchEnd={() => setHoverIdx(null)}>
-      <defs>
-        <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={color} stopOpacity="0.25" />
-          <stop offset="100%" stopColor={color} stopOpacity="0.02" />
-        </linearGradient>
-      </defs>
-      {yTicks.map((v, i) => (
-        <g key={i}>
-          <line x1={PAD.left} y1={yS(v).toFixed(1)} x2={PAD.left + cW} y2={yS(v).toFixed(1)} stroke="#1f2937" strokeWidth="1" />
-          <text x={PAD.left - 5} y={(yS(v) + 3).toFixed(1)} fill="#4b5563" fontSize="10" textAnchor="end">{formatY(v)}</text>
-        </g>
-      ))}
-      <polygon points={area} fill={`url(#${gradId})`} />
-      <polyline points={pts} fill="none" stroke={color} strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
-      {xIdxs.map((idx, i) => (
-        <text key={i} x={xS(idx).toFixed(1)} y={H - 3} fill="#4b5563" fontSize="10"
-          textAnchor={i === 0 ? "start" : i === xIdxs.length - 1 ? "end" : "middle"}>
-          {fmtX(data[idx].x)}
-        </text>
-      ))}
-      {h === null && (
-        <circle cx={xS(data.length - 1).toFixed(1)} cy={yS(values[values.length - 1]).toFixed(1)} r="3.5" fill={color} />
-      )}
+    <div className="relative">
+      {/* HTML tooltip — outside SVG so it's never squished by preserveAspectRatio="none" */}
       {h !== null && (
-        <Crosshair
-          cx={xS(h)} cy={yS(data[h].y)}
-          W={W} H={H} PAD={PAD} color={color}
-          line1={formatY(data[h].y)}
-          line2={fmtTooltipTs(data[h].x)}
-        />
+        <div className="absolute inset-x-0 top-0.5 flex justify-center pointer-events-none z-10">
+          <div className="bg-gray-900/95 border border-gray-700 rounded-xl px-3 py-1.5 text-center shadow-xl">
+            <div className="text-white font-bold font-mono text-lg leading-tight">{formatY(data[h].y)}</div>
+            <div className="text-gray-400 text-xs mt-0.5">{fmtTooltipTs(data[h].x)}</div>
+          </div>
+        </div>
       )}
-    </svg>
+      <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`} className="w-full cursor-crosshair select-none"
+        style={{ height: "140px" }} preserveAspectRatio="none"
+        onMouseMove={handleMouseMove} onMouseLeave={() => setHoverIdx(null)}
+        onTouchMove={handleTouchMove} onTouchEnd={() => setHoverIdx(null)}>
+        <defs>
+          <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={color} stopOpacity="0.25" />
+            <stop offset="100%" stopColor={color} stopOpacity="0.02" />
+          </linearGradient>
+        </defs>
+        {yTicks.map((v, i) => (
+          <g key={i}>
+            <line x1={PAD.left} y1={yS(v).toFixed(1)} x2={PAD.left + cW} y2={yS(v).toFixed(1)} stroke="#1f2937" strokeWidth="1" />
+            <text x={PAD.left - 5} y={(yS(v) + 3).toFixed(1)} fill="#4b5563" fontSize="10" textAnchor="end">{formatY(v)}</text>
+          </g>
+        ))}
+        <polygon points={area} fill={`url(#${gradId})`} />
+        <polyline points={pts} fill="none" stroke={color} strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
+        {xIdxs.map((idx, i) => (
+          <text key={i} x={xS(idx).toFixed(1)} y={H - 3} fill="#4b5563" fontSize="10"
+            textAnchor={i === 0 ? "start" : i === xIdxs.length - 1 ? "end" : "middle"}>
+            {fmtX(data[idx].x)}
+          </text>
+        ))}
+        {h === null && (
+          <circle cx={xS(data.length - 1).toFixed(1)} cy={yS(values[values.length - 1]).toFixed(1)} r="3.5" fill={color} />
+        )}
+        {/* Interactive crosshair (lines + dot only, no SVG text) */}
+        {h !== null && (
+          <Crosshair cx={xS(h)} cy={yS(data[h].y)} W={W} H={H} PAD={PAD} color={color} />
+        )}
+      </svg>
+    </div>
   );
 }
 
