@@ -369,7 +369,7 @@ export default function LeaderboardPage() {
               </div>
             )}
 
-            <div className="overflow-x-auto [overflow-y:clip] -mx-4 md:mx-0 px-4 md:px-0">
+            <div className="overflow-x-auto -mx-4 md:mx-0 px-4 md:px-0">
               <table className="w-full text-sm font-data min-w-[900px]">
                 <thead className="sticky top-0 z-20">
                   <tr className="text-[11px] text-gray-500 uppercase tracking-wider border-b border-gray-800 bg-[#0a0a0f]">
