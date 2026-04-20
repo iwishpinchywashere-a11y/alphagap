@@ -81,8 +81,8 @@ export default function PerformancePage() {
   const [portfolioData, setPortfolioData] = useState<PortfolioData | null>(null);
   const [portfolioLoading, setPortfolioLoading] = useState(true);
   const [chartView, setChartView] = useState<"current" | "max">("current");
-  type SortKey = "totalPnl" | "maxPnl" | "agap" | "bought" | "buyPrice" | "currentPrice" | "maxPrice" | "value" | "change24h";
-  const [sortKey, setSortKey] = useState<SortKey>("totalPnl");
+  type SortKey = "maxPnl" | "agap" | "bought" | "buyPrice" | "currentPrice" | "maxPrice" | "value" | "change24h";
+  const [sortKey, setSortKey] = useState<SortKey>("maxPnl");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
 
   function handleSort(key: SortKey) {
@@ -93,7 +93,6 @@ export default function PerformancePage() {
   function sortedPositions(positions: PortfolioData["positions"]) {
     return [...positions].sort((a, b) => {
       let av = 0, bv = 0;
-      if (sortKey === "totalPnl")     { av = a.totalPnlUsd;  bv = b.totalPnlUsd; }
       if (sortKey === "maxPnl")       { av = a.maxPnlUsd ?? -Infinity; bv = b.maxPnlUsd ?? -Infinity; }
       if (sortKey === "agap")         { av = a.buyAGapScore; bv = b.buyAGapScore; }
       if (sortKey === "bought")       { av = new Date(a.buyDate).getTime(); bv = new Date(b.buyDate).getTime(); }
@@ -146,8 +145,8 @@ export default function PerformancePage() {
 
         {!portfolioLoading && portfolioData && portfolioData.positions.length > 0 && (
           <>
-            {/* Summary strip — order: Deployed, Value, Total Return, Max Return */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {/* Summary strip — 3 cards: Deployed, Value, Max Return */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="bg-gray-900/70 border border-gray-800 rounded-xl p-4">
                 <div className="text-xs text-gray-500 mb-1">Cash Deployed</div>
                 <div className="text-2xl font-bold text-white">${portfolioData.summary.totalCost.toFixed(0)}</div>
@@ -156,15 +155,6 @@ export default function PerformancePage() {
               <div className="bg-gray-900/70 border border-gray-800 rounded-xl p-4">
                 <div className="text-xs text-gray-500 mb-1">Portfolio Value</div>
                 <div className="text-2xl font-bold text-white">${portfolioData.summary.totalValue.toFixed(2)}</div>
-              </div>
-              <div className="bg-gray-900/70 border border-gray-800 rounded-xl p-4">
-                <div className="text-xs text-gray-500 mb-1">Total Return</div>
-                <div className={`text-2xl font-bold ${portfolioData.summary.totalPnlPct >= 0 ? "text-yellow-400" : "text-red-400"}`}>
-                  {portfolioData.summary.totalPnlPct >= 0 ? "+" : ""}{portfolioData.summary.totalPnlPct.toFixed(1)}% <span className="text-sm font-normal">all-time</span>
-                </div>
-                <div className={`text-xs mt-0.5 ${portfolioData.summary.totalPnlUsd >= 0 ? "text-yellow-500" : "text-red-500"}`}>
-                  {portfolioData.summary.totalPnlUsd >= 0 ? "+" : ""}${portfolioData.summary.totalPnlUsd.toFixed(2)}
-                </div>
               </div>
               <div className="bg-gray-900/70 border border-gray-800 rounded-xl p-4">
                 <div className="text-xs text-gray-500 mb-1">Max Return</div>
@@ -237,10 +227,10 @@ export default function PerformancePage() {
                   <thead>
                     <tr className="text-xs text-gray-500 uppercase border-b border-gray-800/60">
                       <th className="text-left px-5 py-3">Subnet</th>
-                      {(["maxPnl","totalPnl","agap","bought","buyPrice","currentPrice","maxPrice","value","change24h"] as SortKey[]).map((key, i) => {
-                        const labels: Record<SortKey, string> = { totalPnl:"Total P&L", maxPnl:"Max P&L", agap:"aGap", bought:"Bought", buyPrice:"Buy Price", currentPrice:"Current", maxPrice:"Max Price", value:"Value", change24h:"24h P&L" };
+                      {(["maxPnl","agap","bought","buyPrice","currentPrice","maxPrice","value","change24h"] as SortKey[]).map((key, i) => {
+                        const labels: Record<SortKey, string> = { maxPnl:"Max P&L", agap:"aGap", bought:"Bought", buyPrice:"Buy Price", currentPrice:"Current", maxPrice:"Max Price", value:"Value", change24h:"24h P&L" };
                         const active = sortKey === key;
-                        const isLast = i === 8;
+                        const isLast = i === 7;
                         return (
                           <th key={key} onClick={() => handleSort(key)} className={`text-right ${isLast ? "px-5" : "px-3"} py-3 cursor-pointer select-none whitespace-nowrap hover:text-gray-300 transition-colors ${active ? "text-white" : ""}`}>
                             {labels[key]}{active ? (sortDir === "desc" ? " ↓" : " ↑") : ""}
@@ -271,14 +261,6 @@ export default function PerformancePage() {
                           )}
                         </td>
                         <td className="text-right px-3 py-3">
-                          <div className={`font-semibold ${pos.totalPnlPct >= 0 ? "text-yellow-400" : "text-red-400"}`}>
-                            {pos.totalPnlPct >= 0 ? "+" : ""}{pos.totalPnlPct.toFixed(1)}%
-                          </div>
-                          <div className={`text-xs ${pos.totalPnlUsd >= 0 ? "text-yellow-500" : "text-red-500"}`}>
-                            {pos.totalPnlUsd >= 0 ? "+" : ""}${pos.totalPnlUsd.toFixed(2)}
-                          </div>
-                        </td>
-                        <td className="text-right px-3 py-3">
                           <span className="text-green-400 font-semibold">{pos.buyAGapScore}</span>
                         </td>
                         <td className="text-right px-3 py-3 text-gray-400 text-xs whitespace-nowrap">
@@ -307,12 +289,6 @@ export default function PerformancePage() {
                   <tfoot className="border-t border-gray-700">
                     <tr className="text-sm font-semibold">
                       <td className="px-5 py-3 text-gray-400">Total</td>
-                      <td className={`text-right px-3 py-3 ${portfolioData.summary.totalPnlUsd >= 0 ? "text-yellow-400" : "text-red-400"}`}>
-                        {portfolioData.summary.totalPnlUsd >= 0 ? "+" : ""}${portfolioData.summary.totalPnlUsd.toFixed(2)}
-                        <div className="text-xs font-normal">
-                          ({portfolioData.summary.totalPnlPct >= 0 ? "+" : ""}{portfolioData.summary.totalPnlPct.toFixed(1)}%)
-                        </div>
-                      </td>
                       <td className="text-right px-3 py-3">
                         {portfolioData.summary.maxReturnUsd != null ? (
                           <span className="text-green-400">
