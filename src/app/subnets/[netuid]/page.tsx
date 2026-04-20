@@ -93,8 +93,8 @@ function PriceChart({ data, color }: { data: PricePoint[]; color: string }) {
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
 
-  const W = 900; const H = 200;
-  const PAD = { top: 8, right: 8, bottom: 24, left: 60 };
+  const W = 900; const H = 180;
+  const PAD = { top: 8, right: 4, bottom: 4, left: 4 };
   const cW = W - PAD.left - PAD.right;
   const cH = H - PAD.top - PAD.bottom;
 
@@ -116,10 +116,10 @@ function PriceChart({ data, color }: { data: PricePoint[]; color: string }) {
   const lastX = xS(data.length - 1);
   const baseY = PAD.top + cH;
   const area = `${xS(0).toFixed(1)},${baseY} ${pts} ${lastX.toFixed(1)},${baseY}`;
-  const yTicks = [0.1, 0.37, 0.63, 0.9].map((t) => yMin + (yMax - yMin) * t);
+  const yTicks = niceYTicks(yMin, yMax);
   const xIdxs = data.length <= 5
     ? data.map((_, i) => i)
-    : [0, Math.floor(data.length * 0.25), Math.floor(data.length * 0.5), Math.floor(data.length * 0.75), data.length - 1];
+    : [0, Math.floor(data.length * 0.33), Math.floor(data.length * 0.66), data.length - 1];
 
   const parseTs = (ts: string): Date => {
     if (/^\d+$/.test(ts)) { const n = parseInt(ts, 10); return new Date(n < 1e12 ? n * 1000 : n); }
@@ -156,7 +156,7 @@ function PriceChart({ data, color }: { data: PricePoint[]; color: string }) {
 
   return (
     <div className="relative">
-      {/* HTML tooltip — outside SVG so it's never squished by preserveAspectRatio="none" */}
+      {/* HTML tooltip */}
       {h !== null && (
         <div className="absolute inset-x-0 top-1 flex justify-center pointer-events-none z-10">
           <div className="bg-gray-900/95 border border-gray-700 rounded-xl px-4 py-2 text-center shadow-xl">
@@ -165,40 +165,74 @@ function PriceChart({ data, color }: { data: PricePoint[]; color: string }) {
           </div>
         </div>
       )}
-      <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`} className="w-full cursor-crosshair select-none"
-        style={{ height: "200px" }} preserveAspectRatio="none"
-        onMouseMove={handleMouseMove} onMouseLeave={() => setHoverIdx(null)}
-        onTouchMove={handleTouchMove} onTouchEnd={() => setHoverIdx(null)}>
-        <defs>
-          <linearGradient id="priceGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={color} stopOpacity="0.25" />
-            <stop offset="100%" stopColor={color} stopOpacity="0.01" />
-          </linearGradient>
-        </defs>
-        {yTicks.map((v, i) => (
-          <g key={i}>
-            <line x1={PAD.left} y1={yS(v).toFixed(1)} x2={PAD.left + cW} y2={yS(v).toFixed(1)} stroke="#1f2937" strokeWidth="1" />
-            <text x={PAD.left - 6} y={(yS(v) + 4).toFixed(1)} fill="#4b5563" fontSize="10" textAnchor="end">{fmtPrice(v)}</text>
-          </g>
-        ))}
-        <polygon points={area} fill="url(#priceGrad)" />
-        <polyline points={pts} fill="none" stroke={color} strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
-        {xIdxs.map((idx, i) => (
-          <text key={i} x={xS(idx).toFixed(1)} y={H - 4} fill="#4b5563" fontSize="10" textAnchor="middle">
-            {fmtAxisDate(data[idx].timestamp)}
-          </text>
-        ))}
-        {/* Resting last-point dot — hidden while hovering */}
-        {h === null && (
-          <circle cx={lastX.toFixed(1)} cy={yS(prices[prices.length - 1]).toFixed(1)} r="4" fill={color} />
-        )}
-        {/* Interactive crosshair (lines + dot only, no SVG text) */}
-        {h !== null && (
-          <Crosshair cx={xS(h)} cy={yS(data[h].price)} W={W} H={H} PAD={PAD} color={color} />
-        )}
-      </svg>
+
+      {/* Y labels left, chart right — HTML labels don't squish on mobile */}
+      <div className="flex items-stretch gap-1.5">
+        {/* Y-axis labels */}
+        <div className="flex flex-col justify-between py-[8px] shrink-0 w-12 text-right">
+          {[...yTicks].reverse().map((v, i) => (
+            <span key={i} className="text-[10px] leading-none text-gray-600">{fmtPrice(v)}</span>
+          ))}
+        </div>
+
+        <div className="flex-1 min-w-0">
+          <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`} className="w-full cursor-crosshair select-none"
+            style={{ height: "180px", display: "block" }} preserveAspectRatio="none"
+            onMouseMove={handleMouseMove} onMouseLeave={() => setHoverIdx(null)}
+            onTouchMove={handleTouchMove} onTouchEnd={() => setHoverIdx(null)}>
+            <defs>
+              <linearGradient id="priceGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={color} stopOpacity="0.25" />
+                <stop offset="100%" stopColor={color} stopOpacity="0.01" />
+              </linearGradient>
+            </defs>
+            {/* Grid lines only — no SVG text */}
+            {yTicks.map((v, i) => (
+              <line key={i} x1={PAD.left} y1={yS(v).toFixed(1)} x2={PAD.left + cW} y2={yS(v).toFixed(1)}
+                stroke="#1f2937" strokeWidth="1" />
+            ))}
+            <polygon points={area} fill="url(#priceGrad)" />
+            <polyline points={pts} fill="none" stroke={color} strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
+            {h === null && (
+              <circle cx={lastX.toFixed(1)} cy={yS(prices[prices.length - 1]).toFixed(1)} r="4" fill={color} />
+            )}
+            {h !== null && (
+              <Crosshair cx={xS(h)} cy={yS(data[h].price)} W={W} H={H} PAD={PAD} color={color} />
+            )}
+          </svg>
+
+          {/* X-axis labels */}
+          <div className="flex justify-between mt-0.5">
+            {xIdxs.map((idx, i) => (
+              <span key={i} className="text-[10px] leading-none text-gray-600">
+                {fmtAxisDate(data[idx].timestamp)}
+              </span>
+            ))}
+          </div>
+        </div>
+      </div>
     </div>
   );
+}
+
+// ── Compute readable Y-axis ticks ────────────────────────────────
+// Returns 3 values that fall at "nice" round numbers within the data range.
+function niceYTicks(min: number, max: number): number[] {
+  const range = max - min || 1;
+  // Pick a step that lands on round numbers
+  const roughStep = range / 4;
+  const mag = Math.pow(10, Math.floor(Math.log10(roughStep)));
+  const step = Math.ceil(roughStep / mag) * mag || 1;
+  const start = Math.ceil((min + range * 0.05) / step) * step;
+  const ticks: number[] = [];
+  for (let v = start; ticks.length < 3 && v <= max - range * 0.05; v += step) {
+    ticks.push(Math.round(v * 1000) / 1000);
+  }
+  // If we got fewer than 3 ticks, fall back to evenly-spaced percentile positions
+  if (ticks.length < 2) {
+    return [0.2, 0.5, 0.8].map((t) => Math.round((min + (max - min) * t) * 100) / 100);
+  }
+  return ticks;
 }
 
 // ── Score line chart (interactive) ───────────────────────────────
@@ -209,8 +243,13 @@ function ScoreChart({ data, color, label, formatY = (v: number) => v.toFixed(0),
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
 
-  const W = 600; const H = 140;
-  const PAD = { top: 10, right: 10, bottom: 20, left: 42 };
+  // ── Dimensions ────────────────────────────────────────────────────
+  // Axis labels are rendered as HTML overlays (not SVG text) so they scale
+  // correctly on all screen sizes — SVG text squishes on mobile with
+  // preserveAspectRatio="none". The SVG itself has no left/bottom padding;
+  // the parent container reserves space via CSS margins/padding.
+  const W = 600; const H = 120;
+  const PAD = { top: 10, right: 6, bottom: 4, left: 4 };
   const cW = W - PAD.left - PAD.right;
   const cH = H - PAD.top - PAD.bottom;
 
@@ -222,10 +261,6 @@ function ScoreChart({ data, color, label, formatY = (v: number) => v.toFixed(0),
     );
   }
 
-  // x-axis labels always show date (never time) so the axis reads left→right as a date range
-  const fmtX = (ts: string) =>
-    new Date(ts).toLocaleDateString("en-US", { month: "short", day: "numeric" });
-
   // Tooltip shows date + time for precise hover info
   const fmtTooltipTs = (ts: string) => {
     const d = new Date(ts);
@@ -236,18 +271,25 @@ function ScoreChart({ data, color, label, formatY = (v: number) => v.toFixed(0),
   const values = data.map((d) => d.y);
   const minV = Math.min(...values); const maxV = Math.max(...values);
   const range = maxV - minV || 1;
-  const yMin = minV - range * 0.15; const yMax = maxV + range * 0.15;
+  const yMin = minV - range * 0.12; const yMax = maxV + range * 0.12;
   const xS = (i: number) => PAD.left + (i / Math.max(data.length - 1, 1)) * cW;
-  // invertY: rank 1 is best so we flip the axis (low number = top of chart)
   const yS = (v: number) => invertY
     ? PAD.top + ((v - yMin) / (yMax - yMin)) * cH
     : PAD.top + cH - ((v - yMin) / (yMax - yMin)) * cH;
   const pts = data.map((d, i) => `${xS(i).toFixed(1)},${yS(d.y).toFixed(1)}`).join(" ");
   const area = `${xS(0).toFixed(1)},${PAD.top + cH} ${pts} ${xS(data.length - 1).toFixed(1)},${PAD.top + cH}`;
   const gradId = `sg-${label.replace(/[\s%]+/g, "")}`;
-  const yTicks = [0.15, 0.5, 0.85].map((t) => yMin + (yMax - yMin) * t);
-  const xIdxs = data.length <= 2 ? [0, data.length - 1]
+
+  // Y ticks: nice round values inside the data range
+  const yTicks = niceYTicks(yMin, yMax);
+
+  // X labels: pick 3 evenly-spaced indices across the data
+  const xLabelIdxs = data.length <= 2
+    ? [0, data.length - 1]
     : [0, Math.floor((data.length - 1) / 2), data.length - 1];
+
+  const fmtXLabel = (ts: string) =>
+    new Date(ts).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 
   const handleMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
     if (!svgRef.current) return;
@@ -270,7 +312,7 @@ function ScoreChart({ data, color, label, formatY = (v: number) => v.toFixed(0),
 
   return (
     <div className="relative">
-      {/* HTML tooltip — outside SVG so it's never squished by preserveAspectRatio="none" */}
+      {/* HTML tooltip */}
       {h !== null && (
         <div className="absolute inset-x-0 top-0.5 flex justify-center pointer-events-none z-10">
           <div className="bg-gray-900/95 border border-gray-700 rounded-xl px-3 py-1.5 text-center shadow-xl">
@@ -279,38 +321,53 @@ function ScoreChart({ data, color, label, formatY = (v: number) => v.toFixed(0),
           </div>
         </div>
       )}
-      <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`} className="w-full cursor-crosshair select-none"
-        style={{ height: "140px" }} preserveAspectRatio="none"
-        onMouseMove={handleMouseMove} onMouseLeave={() => setHoverIdx(null)}
-        onTouchMove={handleTouchMove} onTouchEnd={() => setHoverIdx(null)}>
-        <defs>
-          <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={color} stopOpacity="0.25" />
-            <stop offset="100%" stopColor={color} stopOpacity="0.02" />
-          </linearGradient>
-        </defs>
-        {yTicks.map((v, i) => (
-          <g key={i}>
-            <line x1={PAD.left} y1={yS(v).toFixed(1)} x2={PAD.left + cW} y2={yS(v).toFixed(1)} stroke="#1f2937" strokeWidth="1" />
-            <text x={PAD.left - 5} y={(yS(v) + 3).toFixed(1)} fill="#4b5563" fontSize="10" textAnchor="end">{formatY(v)}</text>
-          </g>
-        ))}
-        <polygon points={area} fill={`url(#${gradId})`} />
-        <polyline points={pts} fill="none" stroke={color} strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
-        {xIdxs.map((idx, i) => (
-          <text key={i} x={xS(idx).toFixed(1)} y={H - 3} fill="#4b5563" fontSize="10"
-            textAnchor={i === 0 ? "start" : i === xIdxs.length - 1 ? "end" : "middle"}>
-            {fmtX(data[idx].x)}
-          </text>
-        ))}
-        {h === null && (
-          <circle cx={xS(data.length - 1).toFixed(1)} cy={yS(values[values.length - 1]).toFixed(1)} r="3.5" fill={color} />
-        )}
-        {/* Interactive crosshair (lines + dot only, no SVG text) */}
-        {h !== null && (
-          <Crosshair cx={xS(h)} cy={yS(data[h].y)} W={W} H={H} PAD={PAD} color={color} />
-        )}
-      </svg>
+
+      {/* Chart area: Y labels left, SVG right */}
+      <div className="flex items-stretch gap-1">
+        {/* Y-axis labels — HTML so they don't squish on mobile */}
+        <div className="flex flex-col justify-between py-[10px] shrink-0 w-8 text-right">
+          {[...yTicks].reverse().map((v, i) => (
+            <span key={i} className="text-[10px] leading-none text-gray-600">{formatY(v)}</span>
+          ))}
+        </div>
+
+        {/* SVG chart — no left/bottom padding needed, labels are HTML */}
+        <div className="flex-1 min-w-0">
+          <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`} className="w-full cursor-crosshair select-none"
+            style={{ height: "120px", display: "block" }} preserveAspectRatio="none"
+            onMouseMove={handleMouseMove} onMouseLeave={() => setHoverIdx(null)}
+            onTouchMove={handleTouchMove} onTouchEnd={() => setHoverIdx(null)}>
+            <defs>
+              <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={color} stopOpacity="0.25" />
+                <stop offset="100%" stopColor={color} stopOpacity="0.02" />
+              </linearGradient>
+            </defs>
+            {/* Horizontal grid lines only — no SVG text */}
+            {yTicks.map((v, i) => (
+              <line key={i} x1={PAD.left} y1={yS(v).toFixed(1)} x2={PAD.left + cW} y2={yS(v).toFixed(1)}
+                stroke="#1f2937" strokeWidth="1" />
+            ))}
+            <polygon points={area} fill={`url(#${gradId})`} />
+            <polyline points={pts} fill="none" stroke={color} strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
+            {h === null && (
+              <circle cx={xS(data.length - 1).toFixed(1)} cy={yS(values[values.length - 1]).toFixed(1)} r="3.5" fill={color} />
+            )}
+            {h !== null && (
+              <Crosshair cx={xS(h)} cy={yS(data[h].y)} W={W} H={H} PAD={PAD} color={color} />
+            )}
+          </svg>
+
+          {/* X-axis labels — HTML so they don't squish on mobile */}
+          <div className="flex justify-between mt-0.5">
+            {xLabelIdxs.map((idx, i) => (
+              <span key={i} className="text-[10px] leading-none text-gray-600">
+                {fmtXLabel(data[idx].x)}
+              </span>
+            ))}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -437,7 +494,11 @@ export default function SubnetDetailPage({ params }: { params: Promise<{ netuid:
   const devSeries = data.scoreHistory.map((r) => ({ x: r.date, y: r.dev }));
   const evalSeries = data.scoreHistory.map((r) => ({ x: r.date, y: r.eval }));
   const socialSeries = data.scoreHistory.map((r) => ({ x: r.date, y: r.social }));
-  const emissionSeries = data.emissionHistory.map((r) => ({ x: r.timestamp, y: r.pct }));
+  // Use scoreHistory for emission so the date range matches all other charts.
+  // emissionHistory is collected separately and often only has a few days of data.
+  const emissionSeries = data.scoreHistory.length > 0
+    ? data.scoreHistory.map((r) => ({ x: r.date, y: r.emission_pct * 100 }))
+    : data.emissionHistory.map((r) => ({ x: r.timestamp, y: r.pct }));
   const rankSeries = (data.rankHistory ?? []).map((r) => ({ x: r.date, y: r.rank }));
   const currentRank = rankSeries.length > 0 ? rankSeries[rankSeries.length - 1].y : null;
 
