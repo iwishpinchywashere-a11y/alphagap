@@ -111,6 +111,14 @@ export async function GET() {
     .sort((a, b) => {
       const sr = signalRank[b.signal] - signalRank[a.signal];
       if (sr !== 0) return sr;
+      // Manual entries (marked with manualEntry flag) sort to top within their signal tier
+      const am = (a as any).manualEntry ? 1 : 0;
+      const bm = (b as any).manualEntry ? 1 : 0;
+      if (bm !== am) return bm - am;
+      // Then by alphaScore, then uniquePosters
+      const as_ = (a as any).alphaScore ?? 0;
+      const bs_ = (b as any).alphaScore ?? 0;
+      if (bs_ !== as_) return bs_ - as_;
       return b.uniquePosters - a.uniquePosters;
     })
     .slice(0, 20)
@@ -120,6 +128,10 @@ export async function GET() {
       signal: d.signal,
       summary: d.summary,
       keyInsights: d.keyInsights ?? [],
+      alphaScore: (d as any).alphaScore ?? null,
+      alphaTypes: (d as any).alphaTypes ?? [],
+      releaseHint: (d as any).releaseHint ?? false,
+      manualEntry: (d as any).manualEntry ?? false,
       messageCount: d.messageCount,
       uniquePosters: d.uniquePosters,
       scannedAt: d.scannedAt,
