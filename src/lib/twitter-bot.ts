@@ -50,11 +50,14 @@ function oauthSign(
   );
 }
 
-// ── Post a tweet ──────────────────────────────────────────────────
+// ── Post a single tweet ───────────────────────────────────────────
 
-export async function postTweet(text: string): Promise<{ id: string; url: string } | null> {
-  const apiKey     = process.env.TWITTER_API_KEY     || "";
-  const apiSecret  = process.env.TWITTER_API_SECRET  || "";
+export async function postTweet(
+  text: string,
+  mediaId?: string
+): Promise<{ id: string; url: string; error?: string } | null> {
+  const apiKey      = process.env.TWITTER_API_KEY      || "";
+  const apiSecret   = process.env.TWITTER_API_SECRET   || "";
   const accessToken  = process.env.TWITTER_ACCESS_TOKEN  || "";
   const accessSecret = process.env.TWITTER_ACCESS_SECRET || "";
 
@@ -64,7 +67,9 @@ export async function postTweet(text: string): Promise<{ id: string; url: string
   }
 
   const url = "https://api.twitter.com/2/tweets";
-  const body = JSON.stringify({ text });
+  const bodyObj: Record<string, unknown> = { text };
+  if (mediaId) bodyObj.media = { media_ids: [mediaId] };
+  const body = JSON.stringify(bodyObj);
 
   const auth = oauthSign("POST", url, {}, apiKey, apiSecret, accessToken, accessSecret);
 
@@ -80,24 +85,29 @@ export async function postTweet(text: string): Promise<{ id: string; url: string
 
     if (!res.ok) {
       const err = await res.text();
-      console.error("[twitter] Post failed:", res.status, err);
-      return null;
+      const msg = `${res.status}: ${err}`;
+      console.error("[twitter] Post failed:", msg);
+      return { id: "", url: "", error: msg };
     }
 
     const data = await res.json() as { data: { id: string } };
     const tweetId = data.data.id;
     return { id: tweetId, url: `https://x.com/AlphaGapTAO/status/${tweetId}` };
   } catch (e) {
-    console.error("[twitter] Error posting tweet:", e);
-    return null;
+    const msg = String(e);
+    console.error("[twitter] Error posting tweet:", msg);
+    return { id: "", url: "", error: msg };
   }
 }
 
 // ── Post a thread (array of tweet texts) ─────────────────────────
 
-export async function postThread(tweets: string[]): Promise<string | null> {
-  const apiKey     = process.env.TWITTER_API_KEY     || "";
-  const apiSecret  = process.env.TWITTER_API_SECRET  || "";
+export async function postThread(
+  tweets: string[],
+  mediaId?: string
+): Promise<string | null> {
+  const apiKey      = process.env.TWITTER_API_KEY      || "";
+  const apiSecret   = process.env.TWITTER_API_SECRET   || "";
   const accessToken  = process.env.TWITTER_ACCESS_TOKEN  || "";
   const accessSecret = process.env.TWITTER_ACCESS_SECRET || "";
 
@@ -106,9 +116,12 @@ export async function postThread(tweets: string[]): Promise<string | null> {
   let replyToId: string | undefined;
   let firstUrl: string | null = null;
 
-  for (const text of tweets) {
+  for (let i = 0; i < tweets.length; i++) {
+    const text = tweets[i];
     const url = "https://api.twitter.com/2/tweets";
     const bodyObj: Record<string, unknown> = { text };
+    // Attach media to the first tweet only
+    if (i === 0 && mediaId) bodyObj.media = { media_ids: [mediaId] };
     if (replyToId) bodyObj.reply = { in_reply_to_tweet_id: replyToId };
 
     const auth = oauthSign("POST", url, {}, apiKey, apiSecret, accessToken, accessSecret);
@@ -130,7 +143,7 @@ export async function postThread(tweets: string[]): Promise<string | null> {
       if (!firstUrl) firstUrl = `https://x.com/AlphaGapTAO/status/${replyToId}`;
 
       // Small delay between thread posts to avoid rate limit
-      if (tweets.indexOf(text) < tweets.length - 1) {
+      if (i < tweets.length - 1) {
         await new Promise((r) => setTimeout(r, 1500));
       }
     } catch (e) {
