@@ -71,7 +71,19 @@ export default function DashboardProvider({ children }: { children: React.ReactN
         throw new Error(`Scan failed (${res.status}): ${text}`);
       }
       const data = await res.json();
-      loadData(data);
+      const freshLeaderboard = (data.leaderboard as SubnetScore[]) || [];
+
+      if (freshLeaderboard.length < 50) {
+        // Scan returned a degraded result (data source outage / API credits exhausted).
+        // Do NOT overwrite the existing leaderboard — users should keep seeing the last
+        // good data rather than a blank table. Still surface fresh signals if available.
+        if ((data.signals as Signal[])?.length) {
+          setSignals(data.signals as Signal[]);
+        }
+        setScanError("Data sources temporarily unavailable — showing last known leaderboard.");
+      } else {
+        loadData(data);
+      }
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       setScanError(msg);
@@ -79,7 +91,7 @@ export default function DashboardProvider({ children }: { children: React.ReactN
       setScanning(false);
       setScanStep(null);
     }
-  }, [loadData]);
+  }, [loadData, setSignals]);
 
   // Current schema version — must match SCAN_SCHEMA_VERSION in scan/route.ts.
   // If the cached blob has an older version, force a background rescan immediately
