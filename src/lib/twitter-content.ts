@@ -154,7 +154,7 @@ Format (fit ALL in 260 chars):
 
 [1-sentence analytical note]
 
-→ alphagap.io | $TOKEN #Bittensor
+alphagap.io $TAO
 
 Critical language rules — use ANALYTICAL framing only:
 - OK: "volume above baseline", "on-chain activity elevated", "metrics strong", "dev activity high"
@@ -226,7 +226,7 @@ Data:
 Use the format from your system prompt. Headline = "[Subnet] (SN[X]) — aGap score surging 🚨"
 Bullet points should cover: what drove the score jump (explain each driver in plain English), what the price is doing vs the score, what the market cap context means.
 AlphaGap take: is the price lagging the building activity? Is this early? What's the key thing to watch?
-End bullets with "$${subnet.name.toUpperCase()} #Bittensor"`;
+End with "$TAO alphagap.io" on its own line at the bottom`;
 
 
 
@@ -255,7 +255,7 @@ Data:
 Use the format from your system prompt. Headline = "[Subnet] (SN[X]) — [what was shipped, very brief] 🚨"
 Bullet points should cover: what was actually built in plain English, why this capability matters or what problem it solves, what it signals about the team's execution pace.
 AlphaGap take: what does this shipping activity mean for the subnet's trajectory? Is the market likely aware yet?
-End with "$${signal.name.toUpperCase()} #Bittensor"`;
+End with "$TAO alphagap.io" on its own line at the bottom`;
 
 
   const tweets = await writeTweet(prompt);
@@ -293,7 +293,7 @@ Data:
 Use the format from your system prompt. Headline = "${subnet.name} (SN${subnet.netuid}) — accumulation signal 🚨"
 Bullet points should cover: what the whale/volume signal means in plain English (someone is quietly buying), what the price has done vs the accumulation (is price still flat = early?), what the underlying fundamentals look like (is there actual building justifying the interest?).
 AlphaGap take: what's the thesis here — why might smart money be positioning before the broader market? What's the risk?
-End with "$${subnet.name.toUpperCase()} #Bittensor"`;
+End with "$TAO alphagap.io" on its own line at the bottom`;
 
 
   const tweets = await writeTweet(prompt);
@@ -322,7 +322,7 @@ Data:
 Use the format from your system prompt. Headline = "${entry.subnetName} Discord alpha 🚨" (use 🔊 instead of 🚨 if it feels more fitting)
 Bullet points should cover: what is actually happening (explain simply), the key insight from the Discord, why the community is paying attention to this.
 AlphaGap take: why does this Discord activity matter? Is this the kind of early signal that precedes price movement? What should someone watching this subnet do with this information?
-End with "Spotted by @AlphaGapTAO → alphagap.io/social"`;
+End with "$TAO alphagap.io" on its own line at the bottom`;
 
 
   const tweets = await writeTweet(prompt);
@@ -353,7 +353,7 @@ ${lines}
 Use the format from your system prompt. Headline = "Bittensor trending on X right now 🚨"
 Bullet points: one per subnet — what the conversation is actually about and why people are talking about it (not just "X mentions").
 AlphaGap take: what does this social activity mean? Is this hype catching up to fundamentals, or is sentiment running ahead of what's actually being built? What should someone watching these subnets know?
-End with "→ alphagap.io/social #Bittensor"`;
+End with "$TAO alphagap.io" on its own line at the bottom`;
 
 
   const tweets = await writeTweet(prompt);
@@ -386,7 +386,7 @@ Data:
 Use the format from your system prompt. Headline = "Bittensor subnets punching above their weight 🚨"
 Bullet points: one per subnet — explain in plain English why this subnet leading the metric is notable. What does a high ${ratioLabel} actually mean for an investor? What does it suggest about valuation?
 AlphaGap take: what's the overall picture — are these subnets undervalued relative to what they're producing? What's the key opportunity here?
-End with "→ alphagap.io/analytics #Bittensor"`;
+End with "$TAO alphagap.io" on its own line at the bottom`;
 
 
   const tweets = await writeTweet(prompt);
@@ -421,7 +421,7 @@ ${entry.delta != null && entry.delta > 0 ? `- Margin: ahead by ${entry.delta.toF
 Use the format from your system prompt. Headline = "${entry.subnetName} vs centralised AI 🚨" (use 🏆 if clearly beating)
 Bullet points: explain what the benchmark task actually tests in plain English, what the scores mean in practical terms (not just numbers), why a decentralised network winning here is significant.
 AlphaGap take: what does this result mean for the subnet's long-term thesis? If decentralised AI is proving itself in this domain, what's the investment implication?
-End with "$${entry.subnetName.toUpperCase()} #Bittensor"`;
+End with "$TAO alphagap.io" on its own line at the bottom`;
 
 
   const tweets = await writeTweet(prompt);
@@ -449,7 +449,7 @@ Data:
 Use the format from your system prompt. Headline = "${entry.name} — AlphaGap called it early 🚨"
 Bullet points: when and why AlphaGap flagged this subnet (building quietly, price was flat), what happened to the price after the signal, what the max gain looked like for people who acted on it.
 AlphaGap take: what does this example show about the alpha gap thesis — why does tracking development activity before the market notices it tend to lead to price moves? What's the lesson for signal followers?
-End with "Full track record → alphagap.io/performance"`;
+End with "$TAO alphagap.io" on its own line at the bottom`;
 
 
   const tweets = await writeTweet(prompt);
