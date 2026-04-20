@@ -371,8 +371,8 @@ export default function LeaderboardPage() {
 
             <div className="overflow-x-auto -mx-4 md:mx-0 px-4 md:px-0">
               <table className="w-full text-sm font-data min-w-[900px]">
-                <thead>
-                  <tr className="text-[11px] text-gray-500 uppercase tracking-wider border-b border-gray-800">
+                <thead className="sticky top-0 z-20">
+                  <tr className="text-[11px] text-gray-500 uppercase tracking-wider border-b border-gray-800 bg-[#0a0a0f]">
                     <th className="text-left py-2 px-3 font-medium w-8">#</th>
                     <th className="text-left py-2 px-3 font-medium">Subnet</th>
                     {COLUMNS.map(([key, label, tooltip]) => (
