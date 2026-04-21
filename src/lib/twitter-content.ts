@@ -117,7 +117,7 @@ export interface TweetPost {
   type: PostType;
   tweets: string[];   // 1 = single tweet, 2+ = thread
   rationale: string;
-  screenshotPath?: string;   // optional alphagap.io path to screenshot
+  dedupId: string;   // stable ID for 48h dedup (e.g. "whale_flow_82")
 }
 
 // ── Helpers ───────────────────────────────────────────────────────
@@ -237,6 +237,7 @@ End with "$TAO alphagap.io" on its own line at the bottom`;
     type: "agap_riser",
     tweets,
     rationale: `aGap riser: ${subnet.name} +${subnet.composite_score_change?.toFixed(0)} pts (${driversLine})`,
+    dedupId: `agap_riser_${subnet.netuid}`,
   };
 }
 
@@ -265,6 +266,7 @@ End with "$TAO alphagap.io" on its own line at the bottom`;
     type: "dev_update",
     tweets,
     rationale: `Dev update: ${signal.name} (SN${signal.netuid}) — ${signal.title}`,
+    dedupId: `dev_update_${signal.netuid}`,
   };
 }
 
@@ -303,6 +305,7 @@ End with "$TAO alphagap.io" on its own line at the bottom`;
     type: "whale_flow",
     tweets,
     rationale: `On-chain activity: ${subnet.name} — ${signalType}`,
+    dedupId: `whale_flow_${subnet.netuid}`,
   };
 }
 
@@ -332,6 +335,7 @@ End with "$TAO alphagap.io" on its own line at the bottom`;
     type: "discord_alpha",
     tweets,
     rationale: `Discord alpha: ${entry.subnetName} — ${entry.summary.slice(0, 80)}`,
+    dedupId: `discord_alpha_${entry.netuid}`,
   };
 }
 
@@ -363,6 +367,7 @@ End with "$TAO alphagap.io" on its own line at the bottom`;
     type: "x_trending",
     tweets,
     rationale: `X trending: ${top3.map(e => e.subnetName).join(", ")}`,
+    dedupId: "x_trending_daily",
   };
 }
 
@@ -396,6 +401,7 @@ End with "$TAO alphagap.io" on its own line at the bottom`;
     type: "analytics_ratios",
     tweets,
     rationale: `Analytics top 3 by ${ratioLabel}: ${top3.map(e => e.name).join(", ")}`,
+    dedupId: "analytics_ratios_daily",
   };
 }
 
@@ -431,6 +437,7 @@ End with "$TAO alphagap.io" on its own line at the bottom`;
     type: "benchmark_update",
     tweets,
     rationale: `Benchmark: ${entry.subnetName} scored ${entry.score.toFixed(1)} on ${entry.taskName} ${isBeating ? `(beats ${entry.centralizedName ?? "centralised"})` : "(new)"}`,
+    dedupId: `benchmark_update_${entry.netuid}_${entry.taskName}`,
   };
 }
 
@@ -459,6 +466,7 @@ End with "$TAO alphagap.io" on its own line at the bottom`;
     type: "performance_gain",
     tweets,
     rationale: `Performance: ${entry.name} flagged at ${fmtPrice(entry.priceAtSignal)}, max gain ${fmtPct(entry.maxGainPct)}`,
+    dedupId: `performance_gain_${entry.netuid}`,
   };
 }
 
