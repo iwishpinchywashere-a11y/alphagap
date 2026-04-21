@@ -110,13 +110,16 @@ export default function LeaderboardPage() {
   const stickyTableRef = useRef<HTMLTableElement>(null);
   // Measured widths of each real th so the clone columns match exactly
   const [colWidths, setColWidths] = useState<number[]>([]);
+  // Left padding of the table wrapper (px-4 on mobile, 0 on desktop) — needed to align clone
+  const [wrapperPadLeft, setWrapperPadLeft] = useState(0);
 
-  // Measure real column widths and keep them up-to-date
+  // Measure real column widths and wrapper padding, keep them up-to-date
   useEffect(() => {
     const measure = () => {
-      if (!theadRef.current) return;
+      if (!theadRef.current || !tableWrapperRef.current) return;
       const ths = Array.from(theadRef.current.querySelectorAll("th"));
       setColWidths(ths.map((th) => th.getBoundingClientRect().width));
+      setWrapperPadLeft(parseFloat(window.getComputedStyle(tableWrapperRef.current).paddingLeft) || 0);
     };
     const t = setTimeout(measure, 100);
     window.addEventListener("resize", measure);
@@ -425,7 +428,7 @@ export default function LeaderboardPage() {
             {stickyVisible && colWidths.length > 0 && (
               <div
                 className="fixed top-0 z-50 bg-[#0a0a0f] border-b border-gray-800 overflow-hidden"
-                style={{ left: stickyLeft, width: stickyWidth }}
+                style={{ left: stickyLeft, width: stickyWidth, paddingLeft: wrapperPadLeft }}
               >
                 {/* table-layout:fixed + measured widths = pixel-perfect column alignment.
                     translateX mirrors horizontal scroll without needing a scrollable container. */}
