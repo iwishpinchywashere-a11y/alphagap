@@ -2572,13 +2572,18 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
 
     // Volume surge — buying pressure is real but lagging (someone already found it).
     // Reduced ceiling from 18 → 10 pts: by the time you see 10x volume, the gap is closing.
+    // Only counts when net flow is positive (more buy TAO than sell TAO). If tao_buy_volume_24_hr
+    // is high but net flow is negative, it means sell pressure is even bigger — not bullish.
     const surgeRatioForAGap = volumeSurgeMap.get(d.netuid) || 0;
+    const surgeIsNetPositive = (d.netFlow24h ?? 0) > 0;
     let volBoost = 0;
-    if (surgeRatioForAGap >= 10) volBoost = 15;
-    else if (surgeRatioForAGap >= 7)  volBoost = 12;
-    else if (surgeRatioForAGap >= 5)  volBoost = 9;
-    else if (surgeRatioForAGap >= 3.5) volBoost = 6;
-    else if (surgeRatioForAGap >= 2.5) volBoost = 3;
+    if (surgeRatioForAGap >= 2.5 && surgeIsNetPositive) {
+      if      (surgeRatioForAGap >= 10) volBoost = 15;
+      else if (surgeRatioForAGap >= 7)  volBoost = 12;
+      else if (surgeRatioForAGap >= 5)  volBoost = 9;
+      else if (surgeRatioForAGap >= 3.5) volBoost = 6;
+      else                               volBoost = 3;
+    }
 
     // ── MOMENTUM CONFIRMATION (±5 pts) ──────────────────────────────────────
     // Only rewards EARLY movement (5–10%). Large moves mean the gap is already closing —
@@ -2849,8 +2854,8 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
       fear_greed: d.fearGreedIndex !== 50 ? d.fearGreedIndex : undefined,
       category: d.category || undefined,
       sparkline_prices: d.sparklinePrices.length > 0 ? d.sparklinePrices : undefined,
-      volume_surge: surgeRatioForAGap >= 2.5 ? true : undefined,
-      volume_surge_ratio: surgeRatioForAGap >= 2.5 ? Math.round(surgeRatioForAGap * 10) / 10 : undefined,
+      volume_surge: surgeRatioForAGap >= 2.5 && surgeIsNetPositive ? true : undefined,
+      volume_surge_ratio: surgeRatioForAGap >= 2.5 && surgeIsNetPositive ? Math.round(surgeRatioForAGap * 10) / 10 : undefined,
       alpha_staked_pct: d.alphaStakedPct > 0 ? d.alphaStakedPct : undefined,
       product_score: productScore > 0 ? productScore : undefined,
       utility_estimated: utilityEstimated && productScore > 0 ? true : undefined,
