@@ -100,45 +100,38 @@ function RankCard({ entry, rank, mode }: { entry: SubnetEntry; rank: number; mod
 
       {/* Main row — tappable on mobile */}
       <div
-        className="flex items-center gap-4 p-4 md:p-5 cursor-pointer sm:cursor-default"
+        className="flex items-center gap-3 p-4 md:p-5 cursor-pointer sm:cursor-default"
         onClick={() => setExpanded(e => !e)}
       >
-        {/* Rank number */}
-        <div className="flex-shrink-0 w-8 text-center">
+        {/* Rank number — narrower on mobile */}
+        <div className="flex-shrink-0 w-6 sm:w-8 text-center">
           {medal ? (
-            <span className="text-xl leading-none">{medal}</span>
+            <span className="text-lg sm:text-xl leading-none">{medal}</span>
           ) : (
-            <span className="text-sm font-bold text-gray-500 tabular-nums">#{rank}</span>
+            <span className="text-xs sm:text-sm font-bold text-gray-500 tabular-nums">#{rank}</span>
           )}
         </div>
 
         {/* Logo */}
         <div className="flex-shrink-0">
-          <SubnetLogo netuid={entry.netuid} name={entry.name} size={48} />
+          <SubnetLogo netuid={entry.netuid} name={entry.name} size={44} />
         </div>
 
-        {/* Name + meta */}
-        <div className="flex-shrink-0 w-32 md:w-40 min-w-0">
+        {/* Name + SN tag — grows to fill available space on mobile */}
+        <div className="flex-1 min-w-0">
           <div className="font-bold text-white text-sm md:text-base leading-tight truncate">{entry.name}</div>
           <div className="flex items-center gap-1.5 mt-0.5">
-            <span className="text-[10px] text-gray-500 font-mono">SN{entry.netuid}</span>
+            <span className="text-[10px] text-gray-500 font-mono flex-shrink-0">SN{entry.netuid}</span>
             {entry.category && (
-              <span className="hidden sm:inline text-[10px] text-gray-600 bg-gray-800/80 px-1.5 py-0.5 rounded-full truncate max-w-[80px]">
+              <span className="hidden sm:inline text-[10px] text-gray-600 bg-gray-800/80 px-1.5 py-0.5 rounded-full truncate">
                 {entry.category}
               </span>
             )}
           </div>
-          {pch24 != null && (
-            <div className="mt-1 sm:hidden">
-              <span className={`text-[10px] font-semibold ${pch24 >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-                {pch24 >= 0 ? "+" : ""}{pch24.toFixed(1)}% 24h
-              </span>
-            </div>
-          )}
         </div>
 
         {/* Description — desktop only inline */}
-        <div className="flex-1 min-w-0 hidden sm:block">
+        <div className="flex-[2] min-w-0 hidden sm:block">
           <p className="text-sm text-gray-300 leading-snug line-clamp-2">{desc.blurb}</p>
           <p className="text-xs text-gray-500 mt-1 italic">{desc.analogy}</p>
         </div>
@@ -150,7 +143,7 @@ function RankCard({ entry, rank, mode }: { entry: SubnetEntry; rank: number; mod
             {mcap && <span className="text-xs text-gray-400 font-medium">{mcap}</span>}
             {pch24 != null && (
               <span className={`text-xs font-semibold ${pch24 >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-                {pch24 >= 0 ? "+" : ""}{pch24.toFixed(1)}% 24h
+                {pch24 >= 0 ? "+" : ""}{pch24.toFixed(1)}%
               </span>
             )}
           </div>
@@ -158,26 +151,32 @@ function RankCard({ entry, rank, mode }: { entry: SubnetEntry; rank: number; mod
           {/* Score ring */}
           <ScoreRing score={score} />
 
-          {/* Chevron — mobile only */}
-          <span className={`sm:hidden text-gray-500 text-xs transition-transform duration-200 ${expanded ? "rotate-180" : ""}`}>
-            ▾
+          {/* Chevron — mobile only, centered vertically */}
+          <span className={`sm:hidden text-gray-600 transition-transform duration-200 leading-none ${expanded ? "-rotate-90" : "rotate-90"}`}
+            style={{ fontSize: 10 }}>
+            ▶
           </span>
         </div>
       </div>
 
       {/* Expandable description — mobile only */}
       {expanded && (
-        <div className="sm:hidden px-5 pb-4 pt-0 border-t border-gray-800/60">
+        <div className="sm:hidden px-4 pb-4 pt-2 border-t border-gray-800/50">
           {entry.category && (
-            <span className="inline-block text-[10px] text-gray-500 bg-gray-800/80 px-2 py-0.5 rounded-full mb-2">
+            <span className="inline-block text-[10px] text-gray-500 bg-gray-800 px-2 py-0.5 rounded-full mb-3">
               {entry.category}
             </span>
           )}
-          <p className="text-sm text-gray-300 leading-relaxed">{desc.blurb}</p>
-          <p className="text-xs text-gray-500 mt-2 italic">{desc.analogy}</p>
-          {mcap && (
-            <div className="flex gap-3 mt-3">
-              <span className="text-xs text-gray-500">Market cap: <span className="text-gray-400">{mcap}</span></span>
+          <p className="text-sm text-gray-200 leading-relaxed mb-2">{desc.blurb}</p>
+          <p className="text-sm text-gray-500 italic">{desc.analogy}</p>
+          {(mcap || pch24 != null) && (
+            <div className="flex items-center gap-4 mt-3 pt-3 border-t border-gray-800/50">
+              {mcap && <span className="text-xs text-gray-500">Market cap: <span className="text-gray-300 font-medium">{mcap}</span></span>}
+              {pch24 != null && (
+                <span className={`text-xs font-semibold ${pch24 >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                  {pch24 >= 0 ? "+" : ""}{pch24.toFixed(1)}% today
+                </span>
+              )}
             </div>
           )}
         </div>
@@ -268,21 +267,21 @@ export default function PowerRankingsPage() {
       </div>
 
       {/* ── Mode tabs ─────────────────────────────────────────────── */}
-      <div className="flex items-center gap-2 mb-5">
+      <div className="flex items-center gap-2 mb-5 flex-wrap sm:flex-nowrap">
         {[
-          { key: "trading" as const, icon: "⚡", label: "Trading Score", sub: "Short-term signals & momentum" },
-          { key: "investing" as const, icon: "📈", label: "Investing Score", sub: "Long-term fundamentals" },
+          { key: "trading" as const, icon: "⚡", label: "Trading", sub: "Short-term signals" },
+          { key: "investing" as const, icon: "📈", label: "Investing", sub: "Long-term fundamentals" },
         ].map(tab => (
           <button
             key={tab.key}
             onClick={() => setMode(tab.key)}
-            className={`flex-1 sm:flex-none flex items-center gap-2 px-4 py-2.5 rounded-xl border text-left transition-all ${
+            className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border text-left transition-all ${
               mode === tab.key
                 ? "bg-indigo-600/25 border-indigo-500/50 text-white"
                 : "border-gray-700 text-gray-400 hover:border-gray-600 hover:text-gray-300"
             }`}
           >
-            <span className="text-lg leading-none">{tab.icon}</span>
+            <span className="text-base leading-none">{tab.icon}</span>
             <div>
               <div className="text-sm font-semibold leading-tight">{tab.label}</div>
               <div className="text-[10px] text-gray-500 hidden sm:block">{tab.sub}</div>
@@ -293,11 +292,10 @@ export default function PowerRankingsPage() {
         {/* Full Dashboard link */}
         <Link
           href="/dashboard"
-          className="ml-auto flex-shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl border border-gray-700 text-gray-400 hover:border-gray-600 hover:text-gray-200 transition-all text-sm font-semibold"
+          className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-gray-700 text-gray-400 hover:border-gray-600 hover:text-gray-200 transition-all text-sm font-semibold ml-auto"
         >
           <span>📊</span>
-          <span className="hidden sm:inline">Full Dashboard</span>
-          <span className="sm:hidden">Dashboard</span>
+          <span>Dashboard</span>
         </Link>
       </div>
 
