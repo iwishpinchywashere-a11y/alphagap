@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import SubnetLogo from "@/components/dashboard/SubnetLogo";
 import { getSubnetDescription } from "@/lib/subnet-plain-english";
 
@@ -214,12 +215,6 @@ export default function PowerRankingsPage() {
 
   const visible = showAll ? sorted : sorted.slice(0, 25);
 
-  const topScore = sorted[0] ? (mode === "investing" && sorted[0].invest_agap != null ? sorted[0].invest_agap : sorted[0].composite_score) : 0;
-  const eliteCount = sorted.filter(s => {
-    const sc = mode === "investing" && s.invest_agap != null ? s.invest_agap : s.composite_score;
-    return sc >= 65;
-  }).length;
-
   return (
     <main className="flex-1 overflow-auto p-4 md:p-6 max-w-5xl mx-auto">
 
@@ -230,7 +225,7 @@ export default function PowerRankingsPage() {
           <h1 className="text-2xl md:text-3xl font-black text-white tracking-tight">Bittensor Power Rankings</h1>
         </div>
         <p className="text-base text-gray-400 max-w-2xl leading-relaxed">
-          Every Bittensor subnet ranked by its <span className="text-white font-semibold">aGap score</span> — a simple 0–100 grade that shows how much real work is being done and whether the market has noticed yet.
+          Every Bittensor subnet ranked by its <span className="text-white font-semibold">aGap score</span> — a simple 0–100 grade that shows what the subnet is up to and whether the market has noticed yet.
         </p>
       </div>
 
@@ -295,13 +290,15 @@ export default function PowerRankingsPage() {
           </button>
         ))}
 
-        {/* Live count */}
-        {!loading && (
-          <div className="ml-auto text-right hidden sm:block">
-            <div className="text-white font-bold text-lg">{eliteCount}</div>
-            <div className="text-[10px] text-gray-500">Strong or better</div>
-          </div>
-        )}
+        {/* Full Dashboard link */}
+        <Link
+          href="/dashboard"
+          className="ml-auto flex-shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl border border-gray-700 text-gray-400 hover:border-gray-600 hover:text-gray-200 transition-all text-sm font-semibold"
+        >
+          <span>📊</span>
+          <span className="hidden sm:inline">Full Dashboard</span>
+          <span className="sm:hidden">Dashboard</span>
+        </Link>
       </div>
 
       {/* ── Rankings list ─────────────────────────────────────────── */}
