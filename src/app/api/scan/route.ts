@@ -2938,6 +2938,84 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
     if (deregTop3Netuids.has(entry.netuid)) entry.dereg_top3 = true;
   }
 
+  // ── Flow signal detection (blob-based, no SQLite needed) ────────
+  // Compare this scan's net_flow_24h to the previous scan-latest.json.
+  // Detects: flow turning positive (inflection), 2x+ spike, turning negative (warning).
+  if (process.env.BLOB_READ_WRITE_TOKEN) {
+    try {
+      const { get: getBlobForFlow } = await import("@vercel/blob");
+      const prevBlob = await getBlobForFlow("scan-latest.json", {
+        token: process.env.BLOB_READ_WRITE_TOKEN,
+        access: "private",
+      });
+      if (prevBlob?.stream) {
+        const reader = prevBlob.stream.getReader();
+        const chunks: Uint8Array[] = [];
+        while (true) { const { done, value } = await reader.read(); if (done) break; chunks.push(value); }
+        const prevScan = JSON.parse(Buffer.concat(chunks).toString("utf-8")) as { leaderboard?: LeaderboardEntry[] };
+        const prevFlowMap = new Map<number, number>();
+        for (const e of (prevScan.leaderboard || [])) {
+          if (e.net_flow_24h != null) prevFlowMap.set(e.netuid, e.net_flow_24h);
+        }
+
+        const today = new Date().toISOString().slice(0, 10);
+        for (const entry of leaderboard) {
+          const cur = entry.net_flow_24h;
+          const prev = prevFlowMap.get(entry.netuid);
+          if (cur == null || prev == null) continue;
+
+          // Flow turned positive (was ≤0, now >0.05 TAO to filter noise)
+          if (cur > 0.05 && prev <= 0) {
+            const mag = Math.log10(cur + 1) * 35;
+            addSignal({
+              netuid: entry.netuid,
+              subnet_name: entry.name,
+              signal_type: "flow_inflection",
+              strength: Math.min(95, Math.round(50 + mag)),
+              title: `Flow turned positive: +${cur.toFixed(2)} TAO/24h`,
+              description: `Net flow flipped from ${prev.toFixed(2)} to +${cur.toFixed(2)} TAO. Buyers now outweigh sellers — early accumulation signal.`,
+              source: "taostats",
+              signal_date: today,
+            });
+          }
+
+          // Flow spiked 2x+ (and both readings positive)
+          else if (cur > 0 && prev > 0.1 && cur > prev * 2) {
+            const ratio = cur / prev;
+            const strength = Math.min(95, Math.round(40 + Math.log2(ratio) * 22));
+            addSignal({
+              netuid: entry.netuid,
+              subnet_name: entry.name,
+              signal_type: "flow_spike",
+              strength,
+              title: `Flow spiked ${ratio.toFixed(1)}x`,
+              description: `24h net flow jumped from ${prev.toFixed(2)} to ${cur.toFixed(2)} TAO — buy pressure accelerating sharply.`,
+              source: "taostats",
+              signal_date: today,
+            });
+          }
+
+          // Flow turned negative (was ≥0, now <-0.05 TAO)
+          else if (cur < -0.05 && prev >= 0) {
+            const flipSize = Math.abs(cur - prev);
+            const strength = Math.min(60, Math.round(20 + Math.log10(flipSize + 1) * 25));
+            addSignal({
+              netuid: entry.netuid,
+              subnet_name: entry.name,
+              signal_type: "flow_warning",
+              strength,
+              title: `Flow turned negative: ${cur.toFixed(2)} TAO/24h`,
+              description: `Net flow flipped from +${prev.toFixed(2)} to ${cur.toFixed(2)} TAO. Sell pressure now exceeding buys.`,
+              source: "taostats",
+              signal_date: today,
+            });
+          }
+        }
+        console.log(`[scan] Flow signals generated from blob diff`);
+      }
+    } catch (e) { console.log("[scan] Flow signal diff skipped:", e); }
+  }
+
   // ── Persist per-subnet score history (90-day daily snapshots) ──
   // NOTE: Early price snapshot is saved AFTER this block so agap_velo is included.
   // Written once per scan. Each day's row is upserted so multiple scans
