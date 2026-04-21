@@ -269,7 +269,7 @@ export default function PowerRankingsPage() {
       </div>
 
       {/* ── Mode tabs ─────────────────────────────────────────────── */}
-      <div className="flex items-center gap-2 mb-5 flex-wrap sm:flex-nowrap">
+      <div className="flex items-center gap-2 mb-5">
         {[
           { key: "trading" as const, icon: "⚡", label: "Trading", sub: "Short-term signals" },
           { key: "investing" as const, icon: "📈", label: "Investing", sub: "Long-term fundamentals" },
@@ -277,15 +277,15 @@ export default function PowerRankingsPage() {
           <button
             key={tab.key}
             onClick={() => setMode(tab.key)}
-            className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border text-left transition-all ${
+            className={`flex-1 flex items-center gap-1.5 px-2 sm:px-3 py-2.5 rounded-xl border text-left transition-all min-w-0 ${
               mode === tab.key
                 ? "bg-indigo-600/25 border-indigo-500/50 text-white"
                 : "border-gray-700 text-gray-400 hover:border-gray-600 hover:text-gray-300"
             }`}
           >
-            <span className="text-base leading-none">{tab.icon}</span>
-            <div>
-              <div className="text-sm font-semibold leading-tight">{tab.label}</div>
+            <span className="text-base leading-none flex-shrink-0">{tab.icon}</span>
+            <div className="min-w-0">
+              <div className="text-sm font-semibold leading-tight truncate">{tab.label}</div>
               <div className="text-[10px] text-gray-500 hidden sm:block">{tab.sub}</div>
             </div>
           </button>
@@ -294,10 +294,11 @@ export default function PowerRankingsPage() {
         {/* Full Dashboard link */}
         <Link
           href="/dashboard"
-          className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-gray-700 text-gray-400 hover:border-gray-600 hover:text-gray-200 transition-all text-sm font-semibold ml-auto"
+          className="flex-shrink-0 flex items-center gap-1.5 px-2 sm:px-3 py-2.5 rounded-xl border border-gray-700 text-gray-400 hover:border-gray-600 hover:text-gray-200 transition-all text-sm font-semibold"
         >
           <span>📊</span>
-          <span>Dashboard</span>
+          <span className="hidden xs:inline sm:inline">Dashboard</span>
+          <span className="xs:hidden sm:hidden">Dash</span>
         </Link>
       </div>
 
