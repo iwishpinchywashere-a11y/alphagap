@@ -106,9 +106,11 @@ export default function LeaderboardPage() {
   const [stickyLeft, setStickyLeft] = useState(0);
   const [stickyWidth, setStickyWidth] = useState(0);
   const tableWrapperRef = useRef<HTMLDivElement>(null);
+  // Inner scroll container of the sticky clone — kept in sync with tableWrapper horizontal scroll
+  const stickyScrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const onScroll = () => {
+    const onWindowScroll = () => {
       if (!theadRef.current || !tableWrapperRef.current) return;
       const rect = theadRef.current.getBoundingClientRect();
       setStickyVisible(rect.bottom < 0);
@@ -118,8 +120,19 @@ export default function LeaderboardPage() {
         setStickyWidth(wRect.width);
       }
     };
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
+    // Sync horizontal scroll of the sticky clone with the real table wrapper
+    const onTableScroll = () => {
+      if (stickyScrollRef.current && tableWrapperRef.current) {
+        stickyScrollRef.current.scrollLeft = tableWrapperRef.current.scrollLeft;
+      }
+    };
+    window.addEventListener("scroll", onWindowScroll, { passive: true });
+    const wrapper = tableWrapperRef.current;
+    if (wrapper) wrapper.addEventListener("scroll", onTableScroll, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", onWindowScroll);
+      if (wrapper) wrapper.removeEventListener("scroll", onTableScroll);
+    };
   }, []);
 
   // Returns the aGap score for a subnet based on the active time horizon
@@ -394,29 +407,32 @@ export default function LeaderboardPage() {
             {/* Fixed sticky header clone — appears once real thead scrolls off screen */}
             {stickyVisible && (
               <div
-                className="fixed top-0 z-50 overflow-hidden bg-[#0a0a0f] border-b border-gray-800"
+                className="fixed top-0 z-50 bg-[#0a0a0f] border-b border-gray-800"
                 style={{ left: stickyLeft, width: stickyWidth }}
               >
-                <table className="w-full text-sm font-data min-w-[900px]">
-                  <thead>
-                    <tr className="text-[11px] text-gray-500 uppercase tracking-wider">
-                      <th className="text-left py-2 px-3 font-medium w-8">#</th>
-                      <th className="text-left py-2 px-3 font-medium">Subnet</th>
-                      {COLUMNS.map(([key, label]) => (
-                        <React.Fragment key={key}>
-                          <th
-                            className={`text-right py-2 px-3 font-medium cursor-pointer hover:text-gray-300 select-none ${key === "composite_score" ? (timeHorizon === "investing" ? "text-purple-400/80" : "text-green-400/80") : ""}`}
-                            onClick={() => handleSort(key)}
-                            style={key === "composite_score" ? (timeHorizon === "investing" ? { background: "rgba(168,85,247,0.06)", borderLeft: "2px solid rgba(168,85,247,0.15)" } : { background: "rgba(16,185,129,0.06)", borderLeft: "2px solid rgba(16,185,129,0.15)" }) : undefined}
-                          >
-                            {key === "composite_score" ? (timeHorizon === "investing" ? "aGap 📈" : label) : label}
-                            {sortCol === key && <span className="ml-1 text-green-400">{sortAsc ? "▲" : "▼"}</span>}
-                          </th>
-                        </React.Fragment>
-                      ))}
-                    </tr>
-                  </thead>
-                </table>
+                {/* overflow-x hidden but scrollLeft kept in sync with tableWrapper via stickyScrollRef */}
+                <div ref={stickyScrollRef} className="overflow-x-hidden" style={{ scrollbarWidth: "none" }}>
+                  <table className="w-full text-sm font-data min-w-[900px]">
+                    <thead>
+                      <tr className="text-[11px] text-gray-500 uppercase tracking-wider">
+                        <th className="text-left py-2 px-3 font-medium w-8">#</th>
+                        <th className="text-left py-2 px-3 font-medium">Subnet</th>
+                        {COLUMNS.map(([key, label]) => (
+                          <React.Fragment key={key}>
+                            <th
+                              className={`text-right py-2 px-3 font-medium cursor-pointer hover:text-gray-300 select-none ${key === "composite_score" ? (timeHorizon === "investing" ? "text-purple-400/80" : "text-green-400/80") : ""}`}
+                              onClick={() => handleSort(key)}
+                              style={key === "composite_score" ? (timeHorizon === "investing" ? { background: "rgba(168,85,247,0.06)", borderLeft: "2px solid rgba(168,85,247,0.15)" } : { background: "rgba(16,185,129,0.06)", borderLeft: "2px solid rgba(16,185,129,0.15)" }) : undefined}
+                            >
+                              {key === "composite_score" ? (timeHorizon === "investing" ? "aGap 📈" : label) : label}
+                              {sortCol === key && <span className="ml-1 text-green-400">{sortAsc ? "▲" : "▼"}</span>}
+                            </th>
+                          </React.Fragment>
+                        ))}
+                      </tr>
+                    </thead>
+                  </table>
+                </div>
               </div>
             )}
 
