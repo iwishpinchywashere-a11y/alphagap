@@ -277,22 +277,22 @@ export async function generateWhaleFlow(subnet: SubnetScore): Promise<TweetPost 
   if (!isVolumeSurge && !isWhale) return null;
 
   const signalType = isWhale && isVolumeSurge
-    ? `Whale accumulation + volume surge (${subnet.volume_surge_ratio?.toFixed(1)}× normal)`
+    ? `Large-wallet activity + volume surge (${subnet.volume_surge_ratio?.toFixed(1)}× baseline)`
     : isWhale
-    ? "Smart money accumulation detected"
-    : `Volume surge (${subnet.volume_surge_ratio?.toFixed(1)}× normal volume)`;
+    ? "Large-wallet on-chain activity elevated"
+    : `Volume surge (${subnet.volume_surge_ratio?.toFixed(1)}× baseline volume)`;
 
-  const prompt = `Write a tweet about unusual accumulation/volume activity in a Bittensor subnet.
+  const prompt = `Write a tweet about unusual on-chain volume activity detected in a Bittensor subnet.
 
 Data:
 - Subnet: ${subnet.name} (SN${subnet.netuid})
-- Signal: ${signalType}
+- What was detected: ${signalType}
 - Price 24h: ${fmtPct(subnet.price_change_24h)} | 7d: ${fmtPct(subnet.price_change_7d)} | MCap: ${fmtMcap(subnet.market_cap)}
 - aGap score: ${subnet.composite_score}/100 | Dev: ${subnet.dev_score} | Flow: ${subnet.flow_score}
 
-Use the format from your system prompt. Headline = "${subnet.name} (SN${subnet.netuid}) — accumulation signal 🚨"
-Bullet points should cover: what the whale/volume signal means in plain English (someone is quietly buying), what the price has done vs the accumulation (is price still flat = early?), what the underlying fundamentals look like (is there actual building justifying the interest?).
-AlphaGap take: what's the thesis here — why might smart money be positioning before the broader market? What's the risk?
+Use the format from your system prompt. Headline = "${subnet.name} (SN${subnet.netuid}) — on-chain activity spike 🔍"
+Bullet points should cover: what the volume/on-chain data shows in plain English, how price has moved relative to the on-chain activity, what the underlying fundamentals look like (is development activity strong?).
+AlphaGap take: what does the combination of on-chain activity and fundamentals suggest about where this subnet stands? What metrics are worth watching?
 End with "$TAO alphagap.io" on its own line at the bottom`;
 
 
@@ -302,7 +302,7 @@ End with "$TAO alphagap.io" on its own line at the bottom`;
   return {
     type: "whale_flow",
     tweets,
-    rationale: `Whale/volume: ${subnet.name} — ${signalType}`,
+    rationale: `On-chain activity: ${subnet.name} — ${signalType}`,
   };
 }
 
