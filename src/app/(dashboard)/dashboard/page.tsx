@@ -124,6 +124,9 @@ export default function LeaderboardPage() {
   }, [leaderboard.length]);
 
   useEffect(() => {
+    // Wait until leaderboard is rendered — tableWrapperRef is null when leaderboard is empty
+    if (leaderboard.length === 0) return;
+
     const onWindowScroll = () => {
       if (!theadRef.current || !tableWrapperRef.current) return;
       const rect = theadRef.current.getBoundingClientRect();
@@ -147,7 +150,7 @@ export default function LeaderboardPage() {
       window.removeEventListener("scroll", onWindowScroll);
       if (wrapper) wrapper.removeEventListener("scroll", onTableScroll);
     };
-  }, []);
+  }, [leaderboard.length]);
 
   // Returns the aGap score for a subnet based on the active time horizon
   const activeAGap = (sub: SubnetScore) =>
