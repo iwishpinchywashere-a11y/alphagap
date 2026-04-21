@@ -106,8 +106,8 @@ export default function LeaderboardPage() {
   const [stickyLeft, setStickyLeft] = useState(0);
   const [stickyWidth, setStickyWidth] = useState(0);
   const tableWrapperRef = useRef<HTMLDivElement>(null);
-  // Inner scroll container of the sticky clone — kept in sync with tableWrapper horizontal scroll
-  const stickyScrollRef = useRef<HTMLDivElement>(null);
+  // Ref to the inner table of the sticky clone — we translateX it to mirror horizontal scroll
+  const stickyTableRef = useRef<HTMLTableElement>(null);
   // Measured widths of each real th so the clone columns match exactly
   const [colWidths, setColWidths] = useState<number[]>([]);
 
@@ -118,7 +118,6 @@ export default function LeaderboardPage() {
       const ths = Array.from(theadRef.current.querySelectorAll("th"));
       setColWidths(ths.map((th) => th.getBoundingClientRect().width));
     };
-    // First measure after a tick (table has rendered)
     const t = setTimeout(measure, 100);
     window.addEventListener("resize", measure);
     return () => { clearTimeout(t); window.removeEventListener("resize", measure); };
@@ -135,10 +134,10 @@ export default function LeaderboardPage() {
         setStickyWidth(wRect.width);
       }
     };
-    // Sync horizontal scroll of the sticky clone with the real table wrapper
+    // Mirror horizontal scroll by translating the clone table — works in all mobile browsers
     const onTableScroll = () => {
-      if (stickyScrollRef.current && tableWrapperRef.current) {
-        stickyScrollRef.current.scrollLeft = tableWrapperRef.current.scrollLeft;
+      if (stickyTableRef.current && tableWrapperRef.current) {
+        stickyTableRef.current.style.transform = `translateX(-${tableWrapperRef.current.scrollLeft}px)`;
       }
     };
     window.addEventListener("scroll", onWindowScroll, { passive: true });
@@ -422,43 +421,43 @@ export default function LeaderboardPage() {
             {/* Fixed sticky header clone — appears once real thead scrolls off screen */}
             {stickyVisible && colWidths.length > 0 && (
               <div
-                className="fixed top-0 z-50 bg-[#0a0a0f] border-b border-gray-800"
+                className="fixed top-0 z-50 bg-[#0a0a0f] border-b border-gray-800 overflow-hidden"
                 style={{ left: stickyLeft, width: stickyWidth }}
               >
-                {/* overflow-x hidden; scrollLeft synced with real table via stickyScrollRef */}
-                <div ref={stickyScrollRef} style={{ overflowX: "hidden", scrollbarWidth: "none" }}>
-                  {/* table-layout:fixed + explicit per-cell widths ensures columns match real table */}
-                  <table style={{ tableLayout: "fixed", width: colWidths.reduce((a, b) => a + b, 0) }} className="text-sm font-data">
-                    <thead>
-                      <tr className="text-[11px] text-gray-500 uppercase tracking-wider">
-                        {/* #  */}
-                        <th className="text-left py-2 px-3 font-medium" style={{ width: colWidths[0] }}>#</th>
-                        {/* Subnet */}
-                        <th className="text-left py-2 px-3 font-medium" style={{ width: colWidths[1] }}>Subnet</th>
-                        {COLUMNS.map(([key, label], i) => {
-                          const w = colWidths[i + 2];
-                          const isScore = key === "composite_score";
-                          const baseStyle = isScore
-                            ? (timeHorizon === "investing"
-                                ? { background: "rgba(168,85,247,0.06)", borderLeft: "2px solid rgba(168,85,247,0.15)", width: w }
-                                : { background: "rgba(16,185,129,0.06)", borderLeft: "2px solid rgba(16,185,129,0.15)", width: w })
-                            : { width: w };
-                          return (
-                            <th
-                              key={key}
-                              className={`text-right py-2 px-3 font-medium cursor-pointer hover:text-gray-300 select-none ${isScore ? (timeHorizon === "investing" ? "text-purple-400/80" : "text-green-400/80") : ""}`}
-                              style={baseStyle}
-                              onClick={() => handleSort(key)}
-                            >
-                              {isScore ? (timeHorizon === "investing" ? "aGap 📈" : label) : label}
-                              {sortCol === key && <span className="ml-1 text-green-400">{sortAsc ? "▲" : "▼"}</span>}
-                            </th>
-                          );
-                        })}
-                      </tr>
-                    </thead>
-                  </table>
-                </div>
+                {/* table-layout:fixed + measured widths = pixel-perfect column alignment.
+                    translateX mirrors horizontal scroll without needing a scrollable container. */}
+                <table
+                  ref={stickyTableRef}
+                  style={{ tableLayout: "fixed", width: colWidths.reduce((a, b) => a + b, 0), willChange: "transform" }}
+                  className="text-sm font-data"
+                >
+                  <thead>
+                    <tr className="text-[11px] text-gray-500 uppercase tracking-wider">
+                      <th className="text-left py-2 px-3 font-medium" style={{ width: colWidths[0] }}>#</th>
+                      <th className="text-left py-2 px-3 font-medium" style={{ width: colWidths[1] }}>Subnet</th>
+                      {COLUMNS.map(([key, label], i) => {
+                        const w = colWidths[i + 2];
+                        const isScore = key === "composite_score";
+                        const baseStyle = isScore
+                          ? (timeHorizon === "investing"
+                              ? { background: "rgba(168,85,247,0.06)", borderLeft: "2px solid rgba(168,85,247,0.15)", width: w }
+                              : { background: "rgba(16,185,129,0.06)", borderLeft: "2px solid rgba(16,185,129,0.15)", width: w })
+                          : { width: w };
+                        return (
+                          <th
+                            key={key}
+                            className={`text-right py-2 px-3 font-medium cursor-pointer hover:text-gray-300 select-none ${isScore ? (timeHorizon === "investing" ? "text-purple-400/80" : "text-green-400/80") : ""}`}
+                            style={baseStyle}
+                            onClick={() => handleSort(key)}
+                          >
+                            {isScore ? (timeHorizon === "investing" ? "aGap 📈" : label) : label}
+                            {sortCol === key && <span className="ml-1 text-green-400">{sortAsc ? "▲" : "▼"}</span>}
+                          </th>
+                        );
+                      })}
+                    </tr>
+                  </thead>
+                </table>
               </div>
             )}
 
