@@ -108,6 +108,21 @@ export default function LeaderboardPage() {
   const tableWrapperRef = useRef<HTMLDivElement>(null);
   // Inner scroll container of the sticky clone — kept in sync with tableWrapper horizontal scroll
   const stickyScrollRef = useRef<HTMLDivElement>(null);
+  // Measured widths of each real th so the clone columns match exactly
+  const [colWidths, setColWidths] = useState<number[]>([]);
+
+  // Measure real column widths and keep them up-to-date
+  useEffect(() => {
+    const measure = () => {
+      if (!theadRef.current) return;
+      const ths = Array.from(theadRef.current.querySelectorAll("th"));
+      setColWidths(ths.map((th) => th.getBoundingClientRect().width));
+    };
+    // First measure after a tick (table has rendered)
+    const t = setTimeout(measure, 100);
+    window.addEventListener("resize", measure);
+    return () => { clearTimeout(t); window.removeEventListener("resize", measure); };
+  }, [leaderboard.length]);
 
   useEffect(() => {
     const onWindowScroll = () => {
@@ -405,30 +420,41 @@ export default function LeaderboardPage() {
             )}
 
             {/* Fixed sticky header clone — appears once real thead scrolls off screen */}
-            {stickyVisible && (
+            {stickyVisible && colWidths.length > 0 && (
               <div
                 className="fixed top-0 z-50 bg-[#0a0a0f] border-b border-gray-800"
                 style={{ left: stickyLeft, width: stickyWidth }}
               >
-                {/* overflow-x hidden but scrollLeft kept in sync with tableWrapper via stickyScrollRef */}
-                <div ref={stickyScrollRef} className="overflow-x-hidden" style={{ scrollbarWidth: "none" }}>
-                  <table className="w-full text-sm font-data min-w-[900px]">
+                {/* overflow-x hidden; scrollLeft synced with real table via stickyScrollRef */}
+                <div ref={stickyScrollRef} style={{ overflowX: "hidden", scrollbarWidth: "none" }}>
+                  {/* table-layout:fixed + explicit per-cell widths ensures columns match real table */}
+                  <table style={{ tableLayout: "fixed", width: colWidths.reduce((a, b) => a + b, 0) }} className="text-sm font-data">
                     <thead>
                       <tr className="text-[11px] text-gray-500 uppercase tracking-wider">
-                        <th className="text-left py-2 px-3 font-medium w-8">#</th>
-                        <th className="text-left py-2 px-3 font-medium">Subnet</th>
-                        {COLUMNS.map(([key, label]) => (
-                          <React.Fragment key={key}>
+                        {/* #  */}
+                        <th className="text-left py-2 px-3 font-medium" style={{ width: colWidths[0] }}>#</th>
+                        {/* Subnet */}
+                        <th className="text-left py-2 px-3 font-medium" style={{ width: colWidths[1] }}>Subnet</th>
+                        {COLUMNS.map(([key, label], i) => {
+                          const w = colWidths[i + 2];
+                          const isScore = key === "composite_score";
+                          const baseStyle = isScore
+                            ? (timeHorizon === "investing"
+                                ? { background: "rgba(168,85,247,0.06)", borderLeft: "2px solid rgba(168,85,247,0.15)", width: w }
+                                : { background: "rgba(16,185,129,0.06)", borderLeft: "2px solid rgba(16,185,129,0.15)", width: w })
+                            : { width: w };
+                          return (
                             <th
-                              className={`text-right py-2 px-3 font-medium cursor-pointer hover:text-gray-300 select-none ${key === "composite_score" ? (timeHorizon === "investing" ? "text-purple-400/80" : "text-green-400/80") : ""}`}
+                              key={key}
+                              className={`text-right py-2 px-3 font-medium cursor-pointer hover:text-gray-300 select-none ${isScore ? (timeHorizon === "investing" ? "text-purple-400/80" : "text-green-400/80") : ""}`}
+                              style={baseStyle}
                               onClick={() => handleSort(key)}
-                              style={key === "composite_score" ? (timeHorizon === "investing" ? { background: "rgba(168,85,247,0.06)", borderLeft: "2px solid rgba(168,85,247,0.15)" } : { background: "rgba(16,185,129,0.06)", borderLeft: "2px solid rgba(16,185,129,0.15)" }) : undefined}
                             >
-                              {key === "composite_score" ? (timeHorizon === "investing" ? "aGap 📈" : label) : label}
+                              {isScore ? (timeHorizon === "investing" ? "aGap 📈" : label) : label}
                               {sortCol === key && <span className="ml-1 text-green-400">{sortAsc ? "▲" : "▼"}</span>}
                             </th>
-                          </React.Fragment>
-                        ))}
+                          );
+                        })}
                       </tr>
                     </thead>
                   </table>
