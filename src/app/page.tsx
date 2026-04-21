@@ -413,6 +413,73 @@ export default function LandingPage() {
 
       {/* aGap section moved below "How it works" */}
 
+      {/* Testimonials */}
+      <section className="py-20 px-6 bg-white/[0.01]">
+        <div className="max-w-5xl mx-auto">
+          <h2 className="text-3xl sm:text-4xl font-bold text-center mb-3">
+            What people are saying about <span className="text-green-400">AlphaGap</span>
+          </h2>
+          <p className="text-gray-500 text-center text-sm mb-12">Real words from real subscribers. Not paid endorsements.</p>
+
+          <div className="columns-1 sm:columns-2 lg:columns-3 gap-4 space-y-4">
+            {[
+              {
+                quote: "I'm telling you guys. Personal testimony and I'm not paid for this whatsoever. I subscribed for $29/month and upgraded to premium. It paid for itself in 3–4 days with modest amounts of TAO trading subnets off signals. The AI is INSANELY fast. Highly recommend. I continue to be both impressed and addicted to subnets and what they are shipping!! 😎",
+                highlight: "paid for itself in 3–4 days",
+              },
+              {
+                quote: "It makes more sense when you subscribe. I made my $49 back day one. It's perfectly named because the alpha in this is crazy and could never be tracked by a single person. The AI has to be on overdrive!! 😎",
+                highlight: "made my $49 back day one",
+              },
+              {
+                quote: "Oro is straight up BEAST mode!! And we got the signal days ago. That one play could pay your monthly subscription with a $30 investment, because it's damn near doubled since I got in. You guys gotta shell out the money. Alpha Gap is printing.",
+                highlight: "damn near doubled",
+              },
+              {
+                quote: "Followed your call. Up 16 $TAO or so and a believer haha",
+                highlight: "Up 16 $TAO",
+              },
+              {
+                quote: "+20% since i bought the pro version of alphagap",
+                highlight: "+20%",
+              },
+              {
+                quote: "10% total portfolio up in 2 hours\nALPHAGAP IS LEGIT PRINTER",
+                highlight: "10% total portfolio up in 2 hours",
+              },
+            ].map((t, i) => (
+              <div
+                key={i}
+                className="break-inside-avoid bg-[#0d0d14] border border-white/[0.06] rounded-2xl p-5 hover:border-green-500/20 transition-colors"
+              >
+                {/* Quote mark */}
+                <div className="text-green-500/40 text-4xl font-serif leading-none mb-2">&ldquo;</div>
+                <p className="text-gray-300 text-sm leading-relaxed whitespace-pre-line">
+                  {t.quote.split(t.highlight).map((part, j, arr) => (
+                    <span key={j}>
+                      {part}
+                      {j < arr.length - 1 && (
+                        <span className="text-green-400 font-semibold">{t.highlight}</span>
+                      )}
+                    </span>
+                  ))}
+                </p>
+                <div className="mt-3 flex items-center gap-1.5">
+                  <div className="flex gap-0.5">
+                    {[...Array(5)].map((_, s) => (
+                      <svg key={s} className="w-3 h-3 text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                      </svg>
+                    ))}
+                  </div>
+                  <span className="text-xs text-gray-600">Verified subscriber</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* CTA */}
       <section className="py-24 px-6">
         <div className="max-w-3xl mx-auto text-center">
