@@ -78,6 +78,7 @@ function ScoreRing({ score }: { score: number }) {
 // ── Rank Card ─────────────────────────────────────────────────────
 
 function RankCard({ entry, rank, mode }: { entry: SubnetEntry; rank: number; mode: "trading" | "investing" }) {
+  const [expanded, setExpanded] = useState(false);
   const score = mode === "investing" && entry.invest_agap != null ? entry.invest_agap : entry.composite_score;
   const desc = getSubnetDescription(entry.netuid, entry.category);
   const medal = rankMedal(rank);
@@ -86,72 +87,100 @@ function RankCard({ entry, rank, mode }: { entry: SubnetEntry; rank: number; mod
   const tier = scoreTier(score);
 
   return (
-    <div className={`group relative flex items-center gap-4 p-4 md:p-5 bg-gray-900/70 border ${tier.border} rounded-2xl hover:bg-gray-900/90 transition-all duration-200 hover:shadow-lg`}>
+    <div className={`group relative bg-gray-900/70 border ${tier.border} rounded-2xl overflow-hidden transition-all duration-200 hover:bg-gray-900/90 hover:shadow-lg`}>
 
       {/* Subtle left accent glow */}
-      <div className={`absolute left-0 top-3 bottom-3 w-0.5 rounded-full ${
+      <div className={`absolute left-0 top-0 bottom-0 w-0.5 ${
         score >= 80 ? "bg-emerald-400/50" :
         score >= 65 ? "bg-green-400/40" :
         score >= 50 ? "bg-yellow-400/35" :
         score >= 35 ? "bg-orange-400/30" : "bg-red-400/25"
       }`} />
 
-      {/* Rank number */}
-      <div className="flex-shrink-0 w-8 text-center">
-        {medal ? (
-          <span className="text-xl leading-none">{medal}</span>
-        ) : (
-          <span className="text-sm font-bold text-gray-500 tabular-nums">#{rank}</span>
-        )}
+      {/* Main row — tappable on mobile */}
+      <div
+        className="flex items-center gap-4 p-4 md:p-5 cursor-pointer sm:cursor-default"
+        onClick={() => setExpanded(e => !e)}
+      >
+        {/* Rank number */}
+        <div className="flex-shrink-0 w-8 text-center">
+          {medal ? (
+            <span className="text-xl leading-none">{medal}</span>
+          ) : (
+            <span className="text-sm font-bold text-gray-500 tabular-nums">#{rank}</span>
+          )}
+        </div>
+
+        {/* Logo */}
+        <div className="flex-shrink-0">
+          <SubnetLogo netuid={entry.netuid} name={entry.name} size={48} />
+        </div>
+
+        {/* Name + meta */}
+        <div className="flex-shrink-0 w-32 md:w-40 min-w-0">
+          <div className="font-bold text-white text-sm md:text-base leading-tight truncate">{entry.name}</div>
+          <div className="flex items-center gap-1.5 mt-0.5">
+            <span className="text-[10px] text-gray-500 font-mono">SN{entry.netuid}</span>
+            {entry.category && (
+              <span className="hidden sm:inline text-[10px] text-gray-600 bg-gray-800/80 px-1.5 py-0.5 rounded-full truncate max-w-[80px]">
+                {entry.category}
+              </span>
+            )}
+          </div>
+          {pch24 != null && (
+            <div className="mt-1 sm:hidden">
+              <span className={`text-[10px] font-semibold ${pch24 >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                {pch24 >= 0 ? "+" : ""}{pch24.toFixed(1)}% 24h
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* Description — desktop only inline */}
+        <div className="flex-1 min-w-0 hidden sm:block">
+          <p className="text-sm text-gray-300 leading-snug line-clamp-2">{desc.blurb}</p>
+          <p className="text-xs text-gray-500 mt-1 italic">{desc.analogy}</p>
+        </div>
+
+        {/* Right side */}
+        <div className="flex items-center gap-3 flex-shrink-0">
+          {/* Mcap + 24h — desktop only */}
+          <div className="hidden lg:flex flex-col items-end gap-0.5">
+            {mcap && <span className="text-xs text-gray-400 font-medium">{mcap}</span>}
+            {pch24 != null && (
+              <span className={`text-xs font-semibold ${pch24 >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                {pch24 >= 0 ? "+" : ""}{pch24.toFixed(1)}% 24h
+              </span>
+            )}
+          </div>
+
+          {/* Score ring */}
+          <ScoreRing score={score} />
+
+          {/* Chevron — mobile only */}
+          <span className={`sm:hidden text-gray-500 text-xs transition-transform duration-200 ${expanded ? "rotate-180" : ""}`}>
+            ▾
+          </span>
+        </div>
       </div>
 
-      {/* Logo */}
-      <div className="flex-shrink-0">
-        <SubnetLogo netuid={entry.netuid} name={entry.name} size={48} />
-      </div>
-
-      {/* Name + meta (fixed width on desktop) */}
-      <div className="flex-shrink-0 w-32 md:w-40 min-w-0">
-        <div className="font-bold text-white text-sm md:text-base leading-tight truncate">{entry.name}</div>
-        <div className="flex items-center gap-1.5 mt-0.5">
-          <span className="text-[10px] text-gray-500 font-mono">SN{entry.netuid}</span>
+      {/* Expandable description — mobile only */}
+      {expanded && (
+        <div className="sm:hidden px-5 pb-4 pt-0 border-t border-gray-800/60">
           {entry.category && (
-            <span className="hidden sm:inline text-[10px] text-gray-600 bg-gray-800/80 px-1.5 py-0.5 rounded-full truncate max-w-[80px]">
+            <span className="inline-block text-[10px] text-gray-500 bg-gray-800/80 px-2 py-0.5 rounded-full mb-2">
               {entry.category}
             </span>
           )}
-        </div>
-        {/* Price change pill — mobile below name */}
-        {pch24 != null && (
-          <div className="mt-1 sm:hidden">
-            <span className={`text-[10px] font-semibold ${pch24 >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-              {pch24 >= 0 ? "+" : ""}{pch24.toFixed(1)}% 24h
-            </span>
-          </div>
-        )}
-      </div>
-
-      {/* Description — grows to fill */}
-      <div className="flex-1 min-w-0 hidden sm:block">
-        <p className="text-sm text-gray-300 leading-snug line-clamp-2">{desc.blurb}</p>
-        <p className="text-xs text-gray-500 mt-1 italic">{desc.analogy}</p>
-      </div>
-
-      {/* Right side: mcap + score */}
-      <div className="flex items-center gap-4 flex-shrink-0">
-        {/* Market cap + 24h change — desktop only */}
-        <div className="hidden lg:flex flex-col items-end gap-0.5">
-          {mcap && <span className="text-xs text-gray-400 font-medium">{mcap}</span>}
-          {pch24 != null && (
-            <span className={`text-xs font-semibold ${pch24 >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-              {pch24 >= 0 ? "+" : ""}{pch24.toFixed(1)}% 24h
-            </span>
+          <p className="text-sm text-gray-300 leading-relaxed">{desc.blurb}</p>
+          <p className="text-xs text-gray-500 mt-2 italic">{desc.analogy}</p>
+          {mcap && (
+            <div className="flex gap-3 mt-3">
+              <span className="text-xs text-gray-500">Market cap: <span className="text-gray-400">{mcap}</span></span>
+            </div>
           )}
         </div>
-
-        {/* aGap score ring */}
-        <ScoreRing score={score} />
-      </div>
+      )}
     </div>
   );
 }
