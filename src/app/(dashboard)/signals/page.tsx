@@ -48,9 +48,13 @@ export default function SignalsPage() {
       return a.netuid - b.netuid;              // final stable tiebreak
     }), [signals]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Flow/whale signals belong on /whales — exclude them here
+  const WHALES_PAGE_TYPES = new Set(["flow_inflection", "flow_spike", "flow_warning", "whale_buy", "whale_sell"]);
+
   const base = signalSort === "score" ? byScore : byDate;
   const sorted = base.filter(
-    (sig) => !q || (sig.subnet_name || "").toLowerCase().includes(q) || sig.title.toLowerCase().includes(q) || `sn${sig.netuid}`.includes(q)
+    (sig) => !WHALES_PAGE_TYPES.has(sig.signal_type) &&
+      (!q || (sig.subnet_name || "").toLowerCase().includes(q) || sig.title.toLowerCase().includes(q) || `sn${sig.netuid}`.includes(q))
   );
 
   return (
