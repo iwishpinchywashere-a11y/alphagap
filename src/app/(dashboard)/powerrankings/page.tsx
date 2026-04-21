@@ -192,6 +192,7 @@ export default function PowerRankingsPage() {
   const [loading, setLoading] = useState(true);
   const [mode, setMode] = useState<"trading" | "investing">("trading");
   const [showAll, setShowAll] = useState(false);
+  const [showExplainer, setShowExplainer] = useState(false);
 
   useEffect(() => {
     fetch("/api/cached-scan")
@@ -228,26 +229,27 @@ export default function PowerRankingsPage() {
         </p>
       </div>
 
-      {/* ── What is aGap — explainer box ─────────────────────────── */}
-      <div className="bg-gray-900/60 border border-gray-700/60 rounded-2xl p-5 mb-6">
-        <div className="flex items-start gap-3">
-          <span className="text-2xl flex-shrink-0 mt-0.5">💡</span>
-          <div>
-            <h2 className="text-white font-bold text-base mb-2">What does the aGap score actually mean?</h2>
-            <div className="grid sm:grid-cols-2 gap-4 text-sm text-gray-400 leading-relaxed">
-              <div>
-                <p>
-                  The <span className="text-white">aGap score</span> looks at four things: how much <strong className="text-gray-200">code is being shipped</strong>, how much <strong className="text-gray-200">money is flowing in</strong>, how much <strong className="text-gray-200">buzz it&apos;s getting</strong>, and whether its <strong className="text-gray-200">price is cheap relative to its activity</strong>.
-                </p>
-              </div>
-              <div>
-                <p>
-                  A score of <span className="text-emerald-400 font-semibold">80+</span> means a lot is happening but the price might not have caught up yet — that&apos;s the &quot;alpha gap.&quot; A score of <span className="text-red-400 font-semibold">30 or below</span> means quiet activity and a price that may already reflect that.
-                </p>
-              </div>
-            </div>
+      {/* ── What is aGap — collapsible explainer ────────────────── */}
+      <div className="bg-gray-900/60 border border-gray-700/60 rounded-2xl mb-6 overflow-hidden">
+        <button
+          onClick={() => setShowExplainer(s => !s)}
+          className="w-full flex items-center gap-3 px-5 py-4 text-left hover:bg-gray-800/40 transition-colors"
+        >
+          <span className="text-xl">💡</span>
+          <span className="font-bold text-white text-sm flex-1">What does the aGap score actually mean?</span>
+          <span className={`text-gray-500 transition-transform duration-200 text-xs ${showExplainer ? "rotate-180" : ""}`}>▼</span>
+        </button>
 
-            {/* Score legend */}
+        {showExplainer && (
+          <div className="px-5 pb-5 border-t border-gray-800/60">
+            <div className="grid sm:grid-cols-2 gap-4 text-sm text-gray-400 leading-relaxed mt-4">
+              <p>
+                The <span className="text-white">aGap score</span> looks at four things: how much <strong className="text-gray-200">code is being shipped</strong>, how much <strong className="text-gray-200">money is flowing in</strong>, how much <strong className="text-gray-200">buzz it&apos;s getting</strong>, and whether its <strong className="text-gray-200">price is cheap relative to its activity</strong>.
+              </p>
+              <p>
+                A score of <span className="text-emerald-400 font-semibold">80+</span> means a lot is happening but the price might not have caught up yet — that&apos;s the &quot;alpha gap.&quot; A score of <span className="text-red-400 font-semibold">30 or below</span> means quiet activity and a price that may already reflect it.
+              </p>
+            </div>
             <div className="flex flex-wrap gap-2 mt-4">
               {[
                 { range: "80–100", label: "Elite", color: "text-emerald-400 bg-emerald-500/15 border-emerald-500/40" },
@@ -263,7 +265,7 @@ export default function PowerRankingsPage() {
               ))}
             </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* ── Mode tabs ─────────────────────────────────────────────── */}
