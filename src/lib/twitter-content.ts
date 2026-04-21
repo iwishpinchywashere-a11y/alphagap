@@ -186,11 +186,27 @@ async function writeTweet(prompt: string): Promise<string[]> {
     const tweets = raw.split("---NEXT---").map((t) => t.trim()).filter(Boolean);
 
     // Enforce 280-char limit — truncate at last whitespace before limit
+    // Also guarantee $TAO is present — append if Haiku dropped it
     return tweets.map((t) => {
-      if (t.length <= 280) return t;
-      const cut = t.slice(0, 277);
-      const lastSpace = cut.lastIndexOf(" ");
-      return (lastSpace > 200 ? cut.slice(0, lastSpace) : cut) + "…";
+      let tweet = t;
+      if (tweet.length > 280) {
+        const cut = tweet.slice(0, 277);
+        const lastSpace = cut.lastIndexOf(" ");
+        tweet = (lastSpace > 200 ? cut.slice(0, lastSpace) : cut) + "…";
+      }
+      if (!tweet.includes("$TAO")) {
+        // Replace trailing alphagap.io with alphagap.io $TAO, or just append
+        if (tweet.includes("alphagap.io")) {
+          tweet = tweet.replace("alphagap.io", "alphagap.io $TAO");
+        } else {
+          tweet = tweet.trimEnd() + "\n\nalphagap.io $TAO";
+        }
+        // Re-check length after adding $TAO
+        if (tweet.length > 280) {
+          tweet = tweet.slice(0, 276) + "…";
+        }
+      }
+      return tweet;
     });
   } catch {
     return [];
