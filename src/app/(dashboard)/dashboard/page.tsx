@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, Suspense } from "react";
+import React, { useState, useEffect, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useDashboard } from "@/components/dashboard/DashboardProvider";
@@ -99,6 +99,28 @@ export default function LeaderboardPage() {
   const [timeHorizon, setTimeHorizon] = useState<"trading" | "investing">("trading");
   const [showInvestingGate, setShowInvestingGate] = useState(false);
   const isPremium = canAccessPremium(tier);
+
+  // Sticky header: show a fixed clone of the thead once the real one scrolls off screen
+  const theadRef = useRef<HTMLTableSectionElement>(null);
+  const [stickyVisible, setStickyVisible] = useState(false);
+  const [stickyLeft, setStickyLeft] = useState(0);
+  const [stickyWidth, setStickyWidth] = useState(0);
+  const tableWrapperRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const onScroll = () => {
+      if (!theadRef.current || !tableWrapperRef.current) return;
+      const rect = theadRef.current.getBoundingClientRect();
+      setStickyVisible(rect.bottom < 0);
+      if (rect.bottom < 0) {
+        const wRect = tableWrapperRef.current.getBoundingClientRect();
+        setStickyLeft(wRect.left);
+        setStickyWidth(wRect.width);
+      }
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   // Returns the aGap score for a subnet based on the active time horizon
   const activeAGap = (sub: SubnetScore) =>
@@ -369,10 +391,39 @@ export default function LeaderboardPage() {
               </div>
             )}
 
-            <div className="overflow-x-auto -mx-4 md:mx-0 px-4 md:px-0">
+            {/* Fixed sticky header clone — appears once real thead scrolls off screen */}
+            {stickyVisible && (
+              <div
+                className="fixed top-0 z-50 overflow-hidden bg-[#0a0a0f] border-b border-gray-800"
+                style={{ left: stickyLeft, width: stickyWidth }}
+              >
+                <table className="w-full text-sm font-data min-w-[900px]">
+                  <thead>
+                    <tr className="text-[11px] text-gray-500 uppercase tracking-wider">
+                      <th className="text-left py-2 px-3 font-medium w-8">#</th>
+                      <th className="text-left py-2 px-3 font-medium">Subnet</th>
+                      {COLUMNS.map(([key, label]) => (
+                        <React.Fragment key={key}>
+                          <th
+                            className={`text-right py-2 px-3 font-medium cursor-pointer hover:text-gray-300 select-none ${key === "composite_score" ? (timeHorizon === "investing" ? "text-purple-400/80" : "text-green-400/80") : ""}`}
+                            onClick={() => handleSort(key)}
+                            style={key === "composite_score" ? (timeHorizon === "investing" ? { background: "rgba(168,85,247,0.06)", borderLeft: "2px solid rgba(168,85,247,0.15)" } : { background: "rgba(16,185,129,0.06)", borderLeft: "2px solid rgba(16,185,129,0.15)" }) : undefined}
+                          >
+                            {key === "composite_score" ? (timeHorizon === "investing" ? "aGap 📈" : label) : label}
+                            {sortCol === key && <span className="ml-1 text-green-400">{sortAsc ? "▲" : "▼"}</span>}
+                          </th>
+                        </React.Fragment>
+                      ))}
+                    </tr>
+                  </thead>
+                </table>
+              </div>
+            )}
+
+            <div ref={tableWrapperRef} className="overflow-x-auto -mx-4 md:mx-0 px-4 md:px-0">
               <table className="w-full text-sm font-data min-w-[900px]">
-                <thead className="sticky top-0 z-20">
-                  <tr className="text-[11px] text-gray-500 uppercase tracking-wider border-b border-gray-800 bg-[#0a0a0f]">
+                <thead ref={theadRef}>
+                  <tr className="text-[11px] text-gray-500 uppercase tracking-wider border-b border-gray-800">
                     <th className="text-left py-2 px-3 font-medium w-8">#</th>
                     <th className="text-left py-2 px-3 font-medium">Subnet</th>
                     {COLUMNS.map(([key, label, tooltip]) => (
