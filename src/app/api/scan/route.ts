@@ -34,8 +34,16 @@ async function fetchSRSubnets(): Promise<SRSubnet[]> {
   try {
     const res = await fetch("https://subnetradar.com/api/data/subnets", {
       signal: AbortSignal.timeout(8000),
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        "Accept": "application/json, */*",
+        "Referer": "https://subnetradar.com/",
+      },
     });
-    if (!res.ok) return [];
+    if (!res.ok) {
+      console.warn(`[scan] SubnetRadar API returned ${res.status}`);
+      return [];
+    }
     const data = await res.json();
     // Normalize both camelCase and snake_case field names from the API
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -57,6 +65,11 @@ async function fetchSRWhales(): Promise<SRWhaleMove[]> {
   try {
     const res = await fetch("https://subnetradar.com/api/whales", {
       signal: AbortSignal.timeout(8000),
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        "Accept": "application/json, */*",
+        "Referer": "https://subnetradar.com/",
+      },
     });
     if (!res.ok) return [];
     const data = await res.json();
@@ -2879,9 +2892,20 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
   leaderboard.sort((a, b) => b.composite_score - a.composite_score);
 
   // ── Tag deregistration risks ─────────────────────────────────────
-  // Primary source: TaoMarketCap's deregistration_risk boolean (already fetched).
-  // Fallback: SubnetRadar healthScore (bottom-3) if TMC flags nothing.
-  // SR API has been unreliable (403s from server-side), so TMC is preferred.
+  // Source priority:
+  //   1. SubnetRadar status === "at-risk"  (what deregwatch page shows)
+  //   2. TaoMarketCap deregistration_risk boolean
+  //   3. SubnetRadar bottom-3 by healthScore (last resort)
+
+  // Tier 1: SR status field (most accurate — mirrors the deregwatch page directly)
+  const srAtRiskNetuids = new Set(
+    leaderboard
+      .map(e => srSubnetMap.get(e.netuid))
+      .filter((sr): sr is NonNullable<typeof sr> => !!sr && sr.status === "at-risk")
+      .map(sr => sr.netuid)
+  );
+
+  // Tier 2: TMC deregistration_risk flag
   const tmcDeregNetuids = new Set(
     leaderboard
       .filter(e => tmcMap.get(e.netuid)?.deregistration_risk === true)
@@ -2889,11 +2913,14 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
   );
 
   let deregTop3Netuids: Set<number>;
-  if (tmcDeregNetuids.size > 0) {
-    // TMC has data — use all flagged subnets (typically 2-5)
+  if (srAtRiskNetuids.size > 0) {
+    console.log(`[scan] Dereg watch: SR flagged ${srAtRiskNetuids.size} at-risk subnets`);
+    deregTop3Netuids = srAtRiskNetuids;
+  } else if (tmcDeregNetuids.size > 0) {
+    console.log(`[scan] Dereg watch: TMC flagged ${tmcDeregNetuids.size} at-risk subnets`);
     deregTop3Netuids = tmcDeregNetuids;
   } else {
-    // TMC unavailable — fall back to SR bottom-3 by healthScore
+    // Last resort: SR bottom-3 by healthScore (works even without status field)
     const srCandidates = leaderboard
       .map(e => {
         const sr = srSubnetMap.get(e.netuid);
@@ -2903,6 +2930,7 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
       .filter((e): e is { netuid: number; health: number } => e !== null)
       .sort((a, b) => a.health - b.health)
       .slice(0, 3);
+    console.log(`[scan] Dereg watch: falling back to SR bottom-3 healthScore`);
     deregTop3Netuids = new Set(srCandidates.map(e => e.netuid));
   }
 
