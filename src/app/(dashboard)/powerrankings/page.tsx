@@ -400,23 +400,15 @@ export default function PowerRankingsPage() {
             </button>
           </div>
 
-          {/* Dash — desktop only, same height as tabs via items-stretch */}
-          <Link
-            href="/dashboard"
-            className="hidden sm:flex flex-shrink-0 items-center gap-1.5 px-3 py-2.5 rounded-xl border border-gray-700 text-gray-400 hover:border-gray-600 hover:text-gray-200 transition-all text-sm font-semibold"
-          >
-            <span>📊</span>
-            <span>Dashboard</span>
-          </Link>
         </div>
 
-        {/* View Full Dashboard — mobile only, full width below tabs */}
+        {/* View Full Alpha Dashboard — full width below tabs on both desktop and mobile */}
         <Link
           href="/dashboard"
-          className="sm:hidden flex items-center justify-center gap-2 w-full py-2.5 rounded-xl border border-gray-700 text-gray-400 hover:border-gray-600 hover:text-gray-200 transition-all text-sm font-semibold"
+          className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl border border-gray-700 text-gray-400 hover:border-gray-600 hover:text-gray-200 transition-all text-sm font-semibold"
         >
           <span>📊</span>
-          <span>View Full Dashboard</span>
+          <span>View Full Alpha Dashboard</span>
         </Link>
       </div>
 
