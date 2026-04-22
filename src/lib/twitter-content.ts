@@ -403,11 +403,12 @@ End with "$TAO alphagap.io" on its own line at the bottom`;
   const tweets = await writeTweet(prompt);
   if (!tweets.length) return null;
 
+  const dateKey = new Date().toISOString().slice(0, 10);
   return {
     type: "x_trending",
     tweets,
     rationale: `X trending: ${top3.map(e => e.subnetName).join(", ")}`,
-    dedupId: "x_trending_daily",
+    dedupId: `x_trending_${dateKey}`,
   };
 }
 
@@ -437,11 +438,12 @@ End with "$TAO alphagap.io" on its own line at the bottom`;
   const tweets = await writeTweet(prompt);
   if (!tweets.length) return null;
 
+  const dateKey = new Date().toISOString().slice(0, 10);
   return {
     type: "analytics_ratios",
     tweets,
     rationale: `Analytics top 3 by ${ratioLabel}: ${top3.map(e => e.name).join(", ")}`,
-    dedupId: "analytics_ratios_daily",
+    dedupId: `analytics_ratios_${dateKey}`,
   };
 }
 
@@ -556,11 +558,14 @@ export async function pickBestPost(data: BotData, utcHour?: number): Promise<Twe
 
   const slot = getSlot(utcHour ?? new Date().getUTCHours());
 
+  // Date string for daily-reset dedup keys (resets at midnight UTC each day)
+  const todayUTC = new Date().toISOString().slice(0, 10); // "YYYY-MM-DD"
+
   // ── Candidate builders (lazily evaluated in order) ────────────────
 
   async function tryAgapRiser(): Promise<TweetPost | null> {
     const risers = leaderboard
-      .filter((s) => (s.composite_score_change ?? 0) >= 8 && !alreadyPostedIds.has(`agap_riser_${s.netuid}`))
+      .filter((s) => (s.composite_score_change ?? 0) >= 5 && !alreadyPostedIds.has(`agap_riser_${s.netuid}`))
       .sort((a, b) => (b.composite_score_change ?? 0) - (a.composite_score_change ?? 0));
     return risers.length > 0 ? generateAgapRiser(risers[0]) : null;
   }
@@ -570,7 +575,7 @@ export async function pickBestPost(data: BotData, utcHour?: number): Promise<Twe
       .filter((s) => {
         if (alreadyPostedIds.has(`dev_update_${s.netuid}`)) return false;
         const ageH = (Date.now() - new Date(s.created_at).getTime()) / 3600000;
-        return ageH <= 24 && s.score >= 75;
+        return ageH <= 48 && s.score >= 65;
       })
       .sort((a, b) => b.score - a.score);
     return freshDev.length > 0 ? generateDevUpdate(freshDev[0]) : null;
@@ -581,7 +586,7 @@ export async function pickBestPost(data: BotData, utcHour?: number): Promise<Twe
       .filter((d) => {
         if (!d.netuid || alreadyPostedIds.has(`discord_alpha_${d.netuid}`)) return false;
         const ageH = (Date.now() - new Date(d.scannedAt).getTime()) / 3600000;
-        return ageH <= 6 && (d.alphaScore ?? 0) >= 80;
+        return ageH <= 12 && (d.alphaScore ?? 0) >= 70;
       })
       .sort((a, b) => (b.alphaScore ?? 0) - (a.alphaScore ?? 0));
     return freshDiscord.length > 0 && freshDiscord[0].netuid
@@ -590,7 +595,8 @@ export async function pickBestPost(data: BotData, utcHour?: number): Promise<Twe
   }
 
   async function tryXTrending(): Promise<TweetPost | null> {
-    return socialTrending.length > 0 && !alreadyPostedIds.has("x_trending_daily")
+    // Resets daily — use date-based key so it can fire once per calendar day
+    return socialTrending.length > 0 && !alreadyPostedIds.has(`x_trending_${todayUTC}`)
       ? generateXTrending(socialTrending)
       : null;
   }
@@ -607,13 +613,14 @@ export async function pickBestPost(data: BotData, utcHour?: number): Promise<Twe
 
   async function tryPerformanceGain(): Promise<TweetPost | null> {
     const perfGains = performanceGains
-      .filter((p) => p.maxGainPct >= 50 && !alreadyPostedIds.has(`performance_gain_${p.netuid}`))
+      .filter((p) => p.maxGainPct >= 30 && !alreadyPostedIds.has(`performance_gain_${p.netuid}`))
       .sort((a, b) => b.maxGainPct - a.maxGainPct);
     return perfGains.length > 0 ? generatePerformanceGain(perfGains[0]) : null;
   }
 
   async function tryAnalyticsRatios(): Promise<TweetPost | null> {
-    return analyticsRatios.length >= 3 && !alreadyPostedIds.has("analytics_ratios_daily")
+    // Resets daily — use date-based key so it can fire once per calendar day
+    return analyticsRatios.length >= 3 && !alreadyPostedIds.has(`analytics_ratios_${todayUTC}`)
       ? generateAnalyticsRatios(analyticsRatios)
       : null;
   }
@@ -623,7 +630,7 @@ export async function pickBestPost(data: BotData, utcHour?: number): Promise<Twe
       .filter((b) => {
         if (alreadyPostedIds.has(`benchmark_update_${b.netuid}_${b.taskName}`)) return false;
         const ageH = (Date.now() - new Date(b.updatedAt).getTime()) / 3600000;
-        return ageH <= 48 && ((b.delta ?? 0) > 0 || b.isNew);
+        return ageH <= 72 && ((b.delta ?? 0) > 0 || b.isNew);
       })
       .sort((a, b) => (b.delta ?? 0) - (a.delta ?? 0));
     return freshBenchmarks.length > 0 ? generateBenchmarkUpdate(freshBenchmarks[0]) : null;
