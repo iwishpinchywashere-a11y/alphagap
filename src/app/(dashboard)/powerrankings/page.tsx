@@ -2,8 +2,10 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
 import SubnetLogo from "@/components/dashboard/SubnetLogo";
 import { getSubnetDescription } from "@/lib/subnet-plain-english";
+import { getTier, canAccessPro } from "@/lib/subscription";
 
 // ── Types ─────────────────────────────────────────────────────────
 
@@ -188,6 +190,10 @@ function RankCard({ entry, rank, mode }: { entry: SubnetEntry; rank: number; mod
 // ── Main Page ─────────────────────────────────────────────────────
 
 export default function PowerRankingsPage() {
+  const { data: session } = useSession();
+  const tier = getTier(session);
+  const isPro = canAccessPro(tier);
+
   const [leaderboard, setLeaderboard] = useState<SubnetEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [mode, setMode] = useState<"trading" | "investing">("trading");
@@ -324,24 +330,62 @@ export default function PowerRankingsPage() {
         <div className="text-center py-16 text-gray-500">No data available — check back soon.</div>
       ) : (
         <>
-          <div className="space-y-2.5">
-            {visible.map((entry, i) => (
-              <RankCard key={entry.netuid} entry={entry} rank={i + 1} mode={mode} />
-            ))}
-          </div>
+          {/* Free tier: show top 3 unblocked, rest blurred with floating CTA */}
+          {!isPro ? (
+            <>
+              <div className="space-y-2.5">
+                {sorted.slice(0, 3).map((entry, i) => (
+                  <RankCard key={entry.netuid} entry={entry} rank={i + 1} mode={mode} />
+                ))}
+              </div>
 
-          {/* Show more / collapse */}
-          {sorted.length > 25 && (
-            <div className="mt-4 text-center">
-              <button
-                onClick={() => setShowAll(s => !s)}
-                className="px-6 py-2.5 rounded-xl border border-gray-700 text-gray-400 text-sm font-medium hover:border-gray-600 hover:text-gray-200 transition-colors"
-              >
-                {showAll
-                  ? `Show top 25 only ↑`
-                  : `Show all ${sorted.length} subnets ↓`}
-              </button>
-            </div>
+              {sorted.length > 3 && (
+                <div className="relative mt-2.5">
+                  {/* Blurred preview of remaining cards */}
+                  <div className="space-y-2.5 pointer-events-none select-none" style={{ filter: "blur(5px)", opacity: 0.5 }}>
+                    {sorted.slice(3, 23).map((entry, i) => (
+                      <RankCard key={entry.netuid} entry={entry} rank={i + 4} mode={mode} />
+                    ))}
+                  </div>
+
+                  {/* Floating Get Access overlay */}
+                  <div className="absolute inset-0 z-10 flex flex-col items-center justify-start pt-16 bg-gradient-to-b from-transparent via-[#0a0a0f]/60 to-[#0a0a0f]/80">
+                    <div className="text-center px-6">
+                      <p className="text-sm text-gray-400 mb-3">🔒 {sorted.length - 3} subnets locked</p>
+                      <Link
+                        href="/pricing"
+                        className="inline-block px-8 py-3.5 bg-gradient-to-r from-green-500 to-emerald-600 text-black font-bold rounded-xl text-base hover:from-green-400 hover:to-emerald-500 transition-all shadow-xl shadow-green-500/30"
+                      >
+                        Get Access →
+                      </Link>
+                      <p className="text-xs text-gray-500 mt-2">Pro · $29/mo · Unlocks full rankings</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </>
+          ) : (
+            <>
+              <div className="space-y-2.5">
+                {visible.map((entry, i) => (
+                  <RankCard key={entry.netuid} entry={entry} rank={i + 1} mode={mode} />
+                ))}
+              </div>
+
+              {/* Show more / collapse */}
+              {sorted.length > 25 && (
+                <div className="mt-4 text-center">
+                  <button
+                    onClick={() => setShowAll(s => !s)}
+                    className="px-6 py-2.5 rounded-xl border border-gray-700 text-gray-400 text-sm font-medium hover:border-gray-600 hover:text-gray-200 transition-colors"
+                  >
+                    {showAll
+                      ? `Show top 25 only ↑`
+                      : `Show all ${sorted.length} subnets ↓`}
+                  </button>
+                </div>
+              )}
+            </>
           )}
         </>
       )}
