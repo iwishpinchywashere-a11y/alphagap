@@ -356,10 +356,16 @@ export default function LeaderboardPage() {
                     </button>
                     {filtersOpen && (
                       <>
-                        {/* Backdrop */}
-                        <div className="fixed inset-0 z-10" onClick={() => setFiltersOpen(false)} />
-                        {/* Dropdown — anchored to right edge so it never overflows on mobile */}
-                        <div className="absolute right-0 top-full mt-1 z-20 bg-gray-900 border border-gray-700 rounded-xl shadow-2xl p-3 w-56">
+                        {/* Backdrop — covers everything including footer */}
+                        <div className="fixed inset-0 z-30 bg-black/40" onClick={() => setFiltersOpen(false)} />
+
+                        {/* Mobile: fixed bottom sheet. Desktop: absolute dropdown. */}
+                        <div className="
+                          fixed bottom-0 left-0 right-0 z-40 rounded-t-2xl
+                          sm:absolute sm:bottom-auto sm:left-auto sm:right-0 sm:top-full sm:mt-1 sm:rounded-xl sm:w-56
+                          bg-gray-900 border border-gray-700 shadow-2xl p-3
+                          max-h-[70vh] overflow-y-auto
+                        ">
                           <div className="flex items-center justify-between mb-2 px-1">
                             <span className="text-xs text-gray-500 font-medium">Filter subnets</span>
                             {activeCount > 0 && (
