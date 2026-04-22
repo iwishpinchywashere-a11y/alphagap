@@ -82,33 +82,51 @@ function ScoreRing({ score }: { score: number }) {
 
 function LockedCard({ rank }: { rank: number }) {
   const medal = rankMedal(rank);
+  // Fake a plausible score so the ring looks real but is blurred
+  const fakeScore = 45 + ((rank * 7) % 50);
+  const fakeTier = scoreTier(fakeScore);
+  const circumference = 2 * Math.PI * 28;
+  const filled = (fakeScore / 100) * circumference;
+  const strokeColor = fakeScore >= 65 ? "#4ade80" : fakeScore >= 50 ? "#facc15" : "#fb923c";
+
   return (
     <div className="relative bg-gray-900/70 border border-gray-800 rounded-2xl overflow-hidden">
       <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-gray-700/40" />
       <div className="flex items-center gap-3 p-4 md:p-5">
-        {/* Rank */}
+        {/* Rank — visible so user sees the position */}
         <div className="flex-shrink-0 w-6 sm:w-8 text-center">
           {medal
-            ? <span className="text-lg sm:text-xl leading-none grayscale opacity-30">{medal}</span>
-            : <span className="text-xs sm:text-sm font-bold text-gray-700 tabular-nums">#{rank}</span>
+            ? <span className="text-lg sm:text-xl leading-none grayscale opacity-40">{medal}</span>
+            : <span className="text-xs sm:text-sm font-bold text-gray-600 tabular-nums">#{rank}</span>
           }
         </div>
-        {/* Logo placeholder */}
+
+        {/* Logo — fully blacked out */}
         <div className="flex-shrink-0 w-11 h-11 rounded-full bg-gray-800" />
-        {/* Name + SN placeholder */}
+
+        {/* Name + SN — fully blacked out */}
         <div className="flex-1 min-w-0 space-y-1.5">
-          <div className="h-3.5 w-28 bg-gray-800 rounded" />
-          <div className="h-2.5 w-10 bg-gray-800/60 rounded" />
+          <div className="h-3.5 w-28 bg-gray-700 rounded" />
+          <div className="h-2.5 w-10 bg-gray-700/60 rounded" />
         </div>
-        {/* Description placeholder — desktop only */}
-        <div className="flex-[2] min-w-0 hidden sm:block space-y-1.5">
-          <div className="h-3 w-full bg-gray-800 rounded" />
-          <div className="h-3 w-3/4 bg-gray-800/60 rounded" />
+
+        {/* Description text — blurred so you can tell it's real text */}
+        <div className="flex-[2] min-w-0 hidden sm:block space-y-1.5" style={{ filter: "blur(4px)" }}>
+          <p className="text-sm text-gray-300 leading-snug">Decentralized protocol for AI inference and model serving at scale</p>
+          <p className="text-xs text-gray-500 italic">Like a cloud provider where miners compete on speed and accuracy</p>
         </div>
-        {/* Score ring placeholder */}
-        <div className="flex-shrink-0 flex flex-col items-center gap-1">
-          <div className="w-16 h-16 rounded-full bg-gray-800" />
-          <div className="h-2 w-8 bg-gray-800/60 rounded" />
+
+        {/* Score ring — blurred so you can see a number but not read it */}
+        <div className="flex flex-col items-center gap-1 flex-shrink-0" style={{ filter: "blur(3px)" }}>
+          <div className="relative w-16 h-16 flex items-center justify-center">
+            <svg className="absolute inset-0 -rotate-90" width="64" height="64" viewBox="0 0 64 64">
+              <circle cx="32" cy="32" r="28" fill="none" stroke="#1f2937" strokeWidth="5" />
+              <circle cx="32" cy="32" r="28" fill="none" stroke={strokeColor} strokeWidth="5"
+                strokeDasharray={`${filled} ${circumference}`} strokeLinecap="round" />
+            </svg>
+            <span className={`relative z-10 text-lg font-black tabular-nums ${fakeTier.color}`}>{fakeScore}</span>
+          </div>
+          <span className={`text-[10px] font-bold uppercase tracking-wider ${fakeTier.color}`}>{fakeTier.label}</span>
         </div>
       </div>
     </div>
@@ -422,9 +440,9 @@ export default function PowerRankingsPage() {
                     ))}
                   </div>
 
-                  {/* Floating Get Access overlay */}
-                  <div className="absolute inset-0 z-10 flex flex-col items-center justify-start pt-16 bg-gradient-to-b from-transparent via-[#0a0a0f]/60 to-[#0a0a0f]/80">
-                    <div className="text-center px-6">
+                  {/* Floating Get Access overlay — no background so cards stay visible */}
+                  <div className="absolute inset-0 z-10 flex flex-col items-center justify-start pt-16 pointer-events-none">
+                    <div className="text-center px-6 pointer-events-auto">
                       <p className="text-sm text-gray-400 mb-3">🔒 Top 20 subnets locked</p>
                       <Link
                         href="/pricing"
