@@ -414,9 +414,9 @@ export default function PowerRankingsPage() {
 
       {/* ── Rankings list ─────────────────────────────────────────── */}
       {loading ? (
-        <div className="space-y-3">
-          {Array.from({ length: 10 }).map((_, i) => (
-            <div key={i} className="h-20 bg-gray-900/50 border border-gray-800 rounded-2xl animate-pulse" />
+        <div className="space-y-2.5">
+          {Array.from({ length: 25 }).map((_, i) => (
+            <div key={i} className="h-[88px] bg-gray-900/50 border border-gray-800 rounded-2xl animate-pulse" />
           ))}
         </div>
       ) : sorted.length === 0 ? (
