@@ -140,10 +140,10 @@ function RankCard({ entry, rank, mode }: { entry: SubnetEntry; rank: number; mod
         <div className="flex items-center gap-3 flex-shrink-0">
           {/* Mcap + 24h — desktop only */}
           <div className="hidden lg:flex flex-col items-end gap-0.5">
-            {mcap && <span className="text-xs text-gray-400 font-medium">{mcap}</span>}
+            {mcap && <span className="text-xs text-gray-400 font-medium">Market cap: <span className="text-gray-200">{mcap}</span></span>}
             {pch24 != null && (
               <span className={`text-xs font-semibold ${pch24 >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-                {pch24 >= 0 ? "+" : ""}{pch24.toFixed(1)}%
+                {pch24 >= 0 ? "+" : ""}{pch24.toFixed(1)}% today
               </span>
             )}
           </div>
