@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useSession } from "next-auth/react";
 import SubnetLogo from "@/components/dashboard/SubnetLogo";
 import { getSubnetDescription } from "@/lib/subnet-plain-english";
-import { getTier, canAccessPro } from "@/lib/subscription";
+import { getTier, canAccessPro, canAccessPremium } from "@/lib/subscription";
 
 // ── Types ─────────────────────────────────────────────────────────
 
@@ -230,12 +230,14 @@ export default function PowerRankingsPage() {
   const { data: session } = useSession();
   const tier = getTier(session);
   const isPro = canAccessPro(tier);
+  const isPremium = canAccessPremium(tier);
 
   const [leaderboard, setLeaderboard] = useState<SubnetEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [mode, setMode] = useState<"trading" | "investing">("trading");
   const [showAll, setShowAll] = useState(false);
   const [showExplainer, setShowExplainer] = useState(false);
+  const [showInvestingGate, setShowInvestingGate] = useState(false);
 
   useEffect(() => {
     fetch("/api/cached-scan")
@@ -315,26 +317,67 @@ export default function PowerRankingsPage() {
       <div className="flex flex-col gap-2 mb-5">
         {/* Trading + Investing + Dash (desktop only) — one row */}
         <div className="flex items-stretch gap-2">
-          {[
-            { key: "trading" as const, icon: "⚡", label: "Trading", sub: "Short-term signals" },
-            { key: "investing" as const, icon: "📈", label: "Investing", sub: "Long-term fundamentals" },
-          ].map(tab => (
+          {/* Trading tab */}
+          <button
+            onClick={() => { setMode("trading"); setShowInvestingGate(false); }}
+            className={`flex-1 flex items-center gap-1.5 px-2 sm:px-3 py-2.5 rounded-xl border text-left transition-all min-w-0 ${
+              mode === "trading"
+                ? "bg-indigo-600/25 border-indigo-500/50 text-white"
+                : "border-gray-700 text-gray-400 hover:border-gray-600 hover:text-gray-300"
+            }`}
+          >
+            <span className="text-base leading-none flex-shrink-0">⚡</span>
+            <div className="min-w-0">
+              <div className="text-sm font-semibold leading-tight truncate">Trading</div>
+              <div className="text-[10px] text-gray-500 hidden sm:block">Short-term signals</div>
+            </div>
+          </button>
+
+          {/* Investing tab — Premium gated */}
+          <div className="relative flex-1">
+            {showInvestingGate && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setShowInvestingGate(false)} />
+                <div
+                  className="absolute left-0 top-full mt-2 z-50 w-64 p-3.5 bg-gray-900 border border-purple-500/40 rounded-xl shadow-2xl text-xs leading-relaxed"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="font-semibold text-purple-400 mb-1.5">📈 Investing Analysis</div>
+                  <p className="text-gray-400 mb-3 leading-relaxed">Long-term aGap scoring designed for serious investors. Weights real product development, smart money positioning, and fundamental conviction — not short-term noise.</p>
+                  <p className="text-gray-600 text-[10px] mb-3">Available on Premium only.</p>
+                  <a
+                    href="/pricing"
+                    className="block w-full text-center py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-lg font-semibold transition-colors"
+                  >
+                    Upgrade to Premium →
+                  </a>
+                </div>
+              </>
+            )}
             <button
-              key={tab.key}
-              onClick={() => setMode(tab.key)}
-              className={`flex-1 flex items-center gap-1.5 px-2 sm:px-3 py-2.5 rounded-xl border text-left transition-all min-w-0 ${
-                mode === tab.key
+              onClick={() => {
+                if (!isPremium) {
+                  setShowInvestingGate(v => !v);
+                } else {
+                  setMode("investing");
+                  setShowInvestingGate(false);
+                }
+              }}
+              className={`w-full flex items-center gap-1.5 px-2 sm:px-3 py-2.5 rounded-xl border text-left transition-all min-w-0 ${
+                mode === "investing"
                   ? "bg-indigo-600/25 border-indigo-500/50 text-white"
                   : "border-gray-700 text-gray-400 hover:border-gray-600 hover:text-gray-300"
               }`}
             >
-              <span className="text-base leading-none flex-shrink-0">{tab.icon}</span>
+              <span className="text-base leading-none flex-shrink-0">📈</span>
               <div className="min-w-0">
-                <div className="text-sm font-semibold leading-tight truncate">{tab.label}</div>
-                <div className="text-[10px] text-gray-500 hidden sm:block">{tab.sub}</div>
+                <div className="text-sm font-semibold leading-tight truncate">
+                  Investing{!isPremium && <span className="ml-1 text-purple-500/70">✦</span>}
+                </div>
+                <div className="text-[10px] text-gray-500 hidden sm:block">Long-term fundamentals</div>
               </div>
             </button>
-          ))}
+          </div>
 
           {/* Dash — desktop only, same height as tabs via items-stretch */}
           <Link
