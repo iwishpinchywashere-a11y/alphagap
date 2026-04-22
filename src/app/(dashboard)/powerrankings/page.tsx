@@ -330,28 +330,22 @@ export default function PowerRankingsPage() {
         <div className="text-center py-16 text-gray-500">No data available — check back soon.</div>
       ) : (
         <>
-          {/* Free tier: show top 3 unblocked, rest blurred with floating CTA */}
+          {/* Free tier: top 20 blurred with floating CTA, ranks 21+ visible */}
           {!isPro ? (
             <>
-              <div className="space-y-2.5">
-                {sorted.slice(0, 3).map((entry, i) => (
-                  <RankCard key={entry.netuid} entry={entry} rank={i + 1} mode={mode} />
-                ))}
-              </div>
-
-              {sorted.length > 3 && (
-                <div className="relative mt-2.5">
-                  {/* Blurred preview of remaining cards */}
+              {sorted.length > 0 && (
+                <div className="relative mb-2.5">
+                  {/* Blurred top 20 */}
                   <div className="space-y-2.5 pointer-events-none select-none" style={{ filter: "blur(5px)", opacity: 0.5 }}>
-                    {sorted.slice(3, 23).map((entry, i) => (
-                      <RankCard key={entry.netuid} entry={entry} rank={i + 4} mode={mode} />
+                    {sorted.slice(0, 20).map((entry, i) => (
+                      <RankCard key={entry.netuid} entry={entry} rank={i + 1} mode={mode} />
                     ))}
                   </div>
 
                   {/* Floating Get Access overlay */}
                   <div className="absolute inset-0 z-10 flex flex-col items-center justify-start pt-16 bg-gradient-to-b from-transparent via-[#0a0a0f]/60 to-[#0a0a0f]/80">
                     <div className="text-center px-6">
-                      <p className="text-sm text-gray-400 mb-3">🔒 {sorted.length - 3} subnets locked</p>
+                      <p className="text-sm text-gray-400 mb-3">🔒 Top 20 subnets locked</p>
                       <Link
                         href="/pricing"
                         className="inline-block px-8 py-3.5 bg-gradient-to-r from-green-500 to-emerald-600 text-black font-bold rounded-xl text-base hover:from-green-400 hover:to-emerald-500 transition-all shadow-xl shadow-green-500/30"
@@ -361,6 +355,15 @@ export default function PowerRankingsPage() {
                       <p className="text-xs text-gray-500 mt-2">Pro · $29/mo · Unlocks full rankings</p>
                     </div>
                   </div>
+                </div>
+              )}
+
+              {/* Ranks 21+ are free to view */}
+              {sorted.length > 20 && (
+                <div className="space-y-2.5">
+                  {sorted.slice(20).map((entry, i) => (
+                    <RankCard key={entry.netuid} entry={entry} rank={i + 21} mode={mode} />
+                  ))}
                 </div>
               )}
             </>
