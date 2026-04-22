@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import type { PortfolioData } from "@/lib/types";
 import BlurGate from "@/components/BlurGate";
@@ -78,6 +79,7 @@ function PortfolioChart({ history, costBasis }: { history: { date: string; total
 export default function PerformancePage() {
   const { data: session } = useSession();
   const tier = getTier(session);
+  const router = useRouter();
   const [portfolioData, setPortfolioData] = useState<PortfolioData | null>(null);
   const [portfolioLoading, setPortfolioLoading] = useState(true);
   const [chartView, setChartView] = useState<"current" | "max">("current");
@@ -230,9 +232,13 @@ export default function PerformancePage() {
                   </thead>
                   <tbody className="divide-y divide-gray-800/40">
                     {sortedPositions(portfolioData.positions).map((pos) => (
-                      <tr key={pos.netuid} className="hover:bg-gray-800/30 transition-colors">
+                      <tr
+                        key={pos.netuid}
+                        className="hover:bg-gray-800/30 transition-colors cursor-pointer"
+                        onClick={() => router.push(`/subnets/${pos.netuid}`)}
+                      >
                         <td className="px-5 py-3">
-                          <div className="font-medium text-white">{pos.name}</div>
+                          <div className="font-medium text-white hover:text-green-400 transition-colors">{pos.name}</div>
                           <div className="text-xs text-gray-500">SN{pos.netuid}</div>
                         </td>
                         <td className="text-right px-3 py-3">
