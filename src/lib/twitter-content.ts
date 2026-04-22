@@ -161,6 +161,22 @@ Critical language rules — use ANALYTICAL framing only:
 - NEVER: "accumulation signal", "whale buying", "smart money", "positioning", "before the move"
 - Data observations, not trading signals. Numbers with brief context. Under 260 chars.`;
 
+// Phrases that indicate Claude refused instead of writing a tweet.
+// If detected, treat the run as "no content" and skip to the next type.
+const REFUSAL_SIGNALS = [
+  "i need to decline",
+  "i can't tweet",
+  "i'm not able to",
+  "i cannot tweet",
+  "i appreciate the detailed brief",
+  "i appreciate the brief",
+  "i can't assist",
+  "i'm unable",
+  "i must decline",
+  "this request",
+  "insider information",
+];
+
 async function writeTweet(prompt: string): Promise<string[]> {
   if (!ANTHROPIC_KEY) return [];
 
@@ -183,6 +199,14 @@ async function writeTweet(prompt: string): Promise<string[]> {
     if (!res.ok) return [];
     const data = await res.json() as { content: Array<{ text: string }> };
     const raw = data.content[0]?.text?.trim() ?? "";
+
+    // Detect refusals — return empty so the bot skips to the next post type
+    const lower = raw.toLowerCase();
+    if (REFUSAL_SIGNALS.some((s) => lower.includes(s))) {
+      console.warn("[twitter-bot] writeTweet: Claude returned a refusal, skipping this type");
+      return [];
+    }
+
     const tweets = raw.split("---NEXT---").map((t) => t.trim()).filter(Boolean);
 
     // Enforce 280-char limit — truncate at last whitespace before limit
@@ -330,17 +354,17 @@ End with "$TAO alphagap.io" on its own line at the bottom`;
 export async function generateDiscordAlpha(entry: DiscordEntry): Promise<TweetPost | null> {
   const insights = entry.keyInsights.slice(0, 3).join("\n- ");
 
-  const prompt = `Write a tweet about something being discussed in a Bittensor subnet's Discord that the broader market doesn't know yet.
+  const prompt = `Write a tweet about community discussion activity detected in a Bittensor subnet's public Discord server.
 
 Data:
 - Subnet: ${entry.subnetName}${entry.netuid ? ` (SN${entry.netuid})` : ""}
-- What's being discussed: ${entry.summary}
-- Key points: ${insights}
-- Alpha score: ${entry.alphaScore ?? "n/a"}/100
+- What the community is discussing: ${entry.summary}
+- Key discussion points: ${insights}
+- Community activity score: ${entry.alphaScore ?? "n/a"}/100
 
-Use the format from your system prompt. Headline = "${entry.subnetName} Discord alpha 🚨" (use 🔊 instead of 🚨 if it feels more fitting)
-Bullet points should cover: what is actually happening (explain simply), the key insight from the Discord, why the community is paying attention to this.
-AlphaGap take: why does this Discord activity matter? Is this the kind of early signal that precedes price movement? What should someone watching this subnet do with this information?
+Use the format from your system prompt. Headline = "${entry.subnetName} (SN${entry.netuid}) — community activity elevated 🔊"
+Bullet points should cover: what the community is actively discussing, what technical or product developments are being talked about, what the on-chain metrics look like alongside the community engagement.
+AlphaGap take: what does elevated community engagement combined with the on-chain data suggest about this subnet's current development momentum? What metrics are worth tracking?
 End with "$TAO alphagap.io" on its own line at the bottom`;
 
 
