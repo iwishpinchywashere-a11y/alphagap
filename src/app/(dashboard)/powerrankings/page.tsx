@@ -80,14 +80,17 @@ function ScoreRing({ score }: { score: number }) {
 
 // ── Locked Placeholder Card ───────────────────────────────────────
 
-function LockedCard({ rank }: { rank: number }) {
+function LockedCard({ rank, entry, mode }: { rank: number; entry: SubnetEntry; mode: "trading" | "investing" }) {
   const medal = rankMedal(rank);
-  // Fake a plausible score so the ring looks real but is blurred
-  const fakeScore = 45 + ((rank * 7) % 50);
-  const fakeTier = scoreTier(fakeScore);
+  const score = mode === "investing" && entry.invest_agap != null ? entry.invest_agap : entry.composite_score;
+  const tier = scoreTier(score);
   const circumference = 2 * Math.PI * 28;
-  const filled = (fakeScore / 100) * circumference;
-  const strokeColor = fakeScore >= 65 ? "#4ade80" : fakeScore >= 50 ? "#facc15" : "#fb923c";
+  const filled = (score / 100) * circumference;
+  const strokeColor =
+    score >= 80 ? "#34d399" :
+    score >= 65 ? "#4ade80" :
+    score >= 50 ? "#facc15" :
+    score >= 35 ? "#fb923c" : "#f87171";
 
   return (
     <div className="relative bg-gray-900/70 border border-gray-800 rounded-2xl overflow-hidden">
@@ -116,7 +119,7 @@ function LockedCard({ rank }: { rank: number }) {
           <p className="text-xs text-gray-500 italic">Like a cloud provider where miners compete on speed and accuracy</p>
         </div>
 
-        {/* Score ring — blurred so you can see a number but not read it */}
+        {/* Score ring — real score & colour, just blurred */}
         <div className="flex flex-col items-center gap-1 flex-shrink-0" style={{ filter: "blur(3px)" }}>
           <div className="relative w-16 h-16 flex items-center justify-center">
             <svg className="absolute inset-0 -rotate-90" width="64" height="64" viewBox="0 0 64 64">
@@ -124,9 +127,9 @@ function LockedCard({ rank }: { rank: number }) {
               <circle cx="32" cy="32" r="28" fill="none" stroke={strokeColor} strokeWidth="5"
                 strokeDasharray={`${filled} ${circumference}`} strokeLinecap="round" />
             </svg>
-            <span className={`relative z-10 text-lg font-black tabular-nums ${fakeTier.color}`}>{fakeScore}</span>
+            <span className={`relative z-10 text-lg font-black tabular-nums ${tier.color}`}>{score}</span>
           </div>
-          <span className={`text-[10px] font-bold uppercase tracking-wider ${fakeTier.color}`}>{fakeTier.label}</span>
+          <span className={`text-[10px] font-bold uppercase tracking-wider ${tier.color}`}>{tier.label}</span>
         </div>
       </div>
     </div>
@@ -433,10 +436,10 @@ export default function PowerRankingsPage() {
             <>
               {sorted.length > 0 && (
                 <div className="relative mb-2.5">
-                  {/* Blacked-out top 20 — no real data rendered */}
+                  {/* Locked top 20 — real score/colour, logo+name hidden */}
                   <div className="space-y-2.5 pointer-events-none select-none">
-                    {Array.from({ length: Math.min(20, sorted.length) }).map((_, i) => (
-                      <LockedCard key={i} rank={i + 1} />
+                    {sorted.slice(0, 20).map((entry, i) => (
+                      <LockedCard key={entry.netuid} rank={i + 1} entry={entry} mode={mode} />
                     ))}
                   </div>
 
