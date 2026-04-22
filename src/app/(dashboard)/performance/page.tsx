@@ -82,7 +82,7 @@ export default function PerformancePage() {
   const router = useRouter();
   const [portfolioData, setPortfolioData] = useState<PortfolioData | null>(null);
   const [portfolioLoading, setPortfolioLoading] = useState(true);
-  const [chartView, setChartView] = useState<"current" | "max">("current");
+  const [chartView] = useState<"current" | "max">("max");
   type SortKey = "maxPnl" | "agap" | "bought" | "buyPrice" | "currentPrice" | "maxPrice" | "value" | "change24h";
   const [sortKey, setSortKey] = useState<SortKey>("maxPnl");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
@@ -181,21 +181,7 @@ export default function PerformancePage() {
               return (
                 <div className="bg-gray-900/70 border border-gray-800 rounded-xl p-5">
                   <div className="flex items-center justify-between mb-4">
-                    <div className="text-xs text-gray-500 uppercase tracking-wider">Portfolio Value Over Time</div>
-                    <div className="flex rounded-lg overflow-hidden border border-gray-700 text-xs">
-                      <button
-                        onClick={() => setChartView("current")}
-                        className={`px-3 py-1.5 font-medium transition-colors ${chartView === "current" ? "bg-yellow-400/20 text-yellow-400" : "text-gray-500 hover:text-gray-300"}`}
-                      >
-                        Current Value
-                      </button>
-                      <button
-                        onClick={() => setChartView("max")}
-                        className={`px-3 py-1.5 font-medium transition-colors border-l border-gray-700 ${chartView === "max" ? "bg-green-400/20 text-green-400" : "text-gray-500 hover:text-gray-300"}`}
-                      >
-                        Max Value
-                      </button>
-                    </div>
+                    <div className="text-xs text-gray-500 uppercase tracking-wider">Portfolio Max Value Over Time</div>
                   </div>
                   <PortfolioChart history={displayHistory} costBasis={portfolioData.summary.totalCost} />
                 </div>
