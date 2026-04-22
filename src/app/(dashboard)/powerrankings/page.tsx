@@ -282,7 +282,7 @@ export default function PowerRankingsPage() {
   const visible = showAll ? sorted : sorted.slice(0, 25);
 
   return (
-    <main className="flex-1 overflow-auto p-4 md:p-6 max-w-5xl mx-auto">
+    <main className="flex-1 overflow-auto p-4 md:p-6 w-full max-w-5xl mx-auto">
 
       {/* ── Hero header ─────────────────────────────────────────── */}
       <div className="mb-8">
@@ -416,7 +416,7 @@ export default function PowerRankingsPage() {
       {loading ? (
         <div className="space-y-2.5">
           {Array.from({ length: 25 }).map((_, i) => (
-            <div key={i} className="h-[88px] bg-gray-900/50 border border-gray-800 rounded-2xl animate-pulse" />
+            <div key={i} className="w-full h-[88px] bg-gray-900/50 border border-gray-800 rounded-2xl animate-pulse" />
           ))}
         </div>
       ) : sorted.length === 0 ? (
