@@ -269,36 +269,47 @@ export default function PowerRankingsPage() {
       </div>
 
       {/* ── Mode tabs ─────────────────────────────────────────────── */}
-      <div className="flex items-center gap-2 mb-5">
-        {[
-          { key: "trading" as const, icon: "⚡", label: "Trading", sub: "Short-term signals" },
-          { key: "investing" as const, icon: "📈", label: "Investing", sub: "Long-term fundamentals" },
-        ].map(tab => (
-          <button
-            key={tab.key}
-            onClick={() => setMode(tab.key)}
-            className={`flex-1 flex items-center gap-1.5 px-2 sm:px-3 py-2.5 rounded-xl border text-left transition-all min-w-0 ${
-              mode === tab.key
-                ? "bg-indigo-600/25 border-indigo-500/50 text-white"
-                : "border-gray-700 text-gray-400 hover:border-gray-600 hover:text-gray-300"
-            }`}
-          >
-            <span className="text-base leading-none flex-shrink-0">{tab.icon}</span>
-            <div className="min-w-0">
-              <div className="text-sm font-semibold leading-tight truncate">{tab.label}</div>
-              <div className="text-[10px] text-gray-500 hidden sm:block">{tab.sub}</div>
-            </div>
-          </button>
-        ))}
+      <div className="flex flex-col gap-2 mb-5">
+        {/* Trading + Investing + Dash (desktop only) — one row */}
+        <div className="flex items-stretch gap-2">
+          {[
+            { key: "trading" as const, icon: "⚡", label: "Trading", sub: "Short-term signals" },
+            { key: "investing" as const, icon: "📈", label: "Investing", sub: "Long-term fundamentals" },
+          ].map(tab => (
+            <button
+              key={tab.key}
+              onClick={() => setMode(tab.key)}
+              className={`flex-1 flex items-center gap-1.5 px-2 sm:px-3 py-2.5 rounded-xl border text-left transition-all min-w-0 ${
+                mode === tab.key
+                  ? "bg-indigo-600/25 border-indigo-500/50 text-white"
+                  : "border-gray-700 text-gray-400 hover:border-gray-600 hover:text-gray-300"
+              }`}
+            >
+              <span className="text-base leading-none flex-shrink-0">{tab.icon}</span>
+              <div className="min-w-0">
+                <div className="text-sm font-semibold leading-tight truncate">{tab.label}</div>
+                <div className="text-[10px] text-gray-500 hidden sm:block">{tab.sub}</div>
+              </div>
+            </button>
+          ))}
 
-        {/* Full Dashboard link */}
+          {/* Dash — desktop only, same height as tabs via items-stretch */}
+          <Link
+            href="/dashboard"
+            className="hidden sm:flex flex-shrink-0 items-center gap-1.5 px-3 py-2.5 rounded-xl border border-gray-700 text-gray-400 hover:border-gray-600 hover:text-gray-200 transition-all text-sm font-semibold"
+          >
+            <span>📊</span>
+            <span>Dashboard</span>
+          </Link>
+        </div>
+
+        {/* View Full Dashboard — mobile only, full width below tabs */}
         <Link
           href="/dashboard"
-          className="flex-shrink-0 flex items-center gap-1.5 px-2 sm:px-3 py-2.5 rounded-xl border border-gray-700 text-gray-400 hover:border-gray-600 hover:text-gray-200 transition-all text-sm font-semibold"
+          className="sm:hidden flex items-center justify-center gap-2 w-full py-2.5 rounded-xl border border-gray-700 text-gray-400 hover:border-gray-600 hover:text-gray-200 transition-all text-sm font-semibold"
         >
           <span>📊</span>
-          <span className="hidden xs:inline sm:inline">Dashboard</span>
-          <span className="xs:hidden sm:hidden">Dash</span>
+          <span>View Full Dashboard</span>
         </Link>
       </div>
 
