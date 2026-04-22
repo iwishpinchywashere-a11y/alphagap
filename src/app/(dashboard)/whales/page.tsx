@@ -443,7 +443,7 @@ function WhaleCard({
         <div className="flex flex-wrap gap-3 mt-2.5 pl-11 text-xs text-gray-600">
           {ev.whaleRatio != null && (
             <span>
-              <span className="text-gray-500">Ratio </span>
+              <span className="text-gray-500">Avg tx size ratio </span>
               <span className={`font-semibold ${ev.whaleRatio >= 2 ? "text-cyan-400" : "text-red-400"}`}>
                 {ev.whaleRatio}x
               </span>
