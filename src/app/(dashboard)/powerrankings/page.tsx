@@ -78,6 +78,43 @@ function ScoreRing({ score }: { score: number }) {
   );
 }
 
+// ── Locked Placeholder Card ───────────────────────────────────────
+
+function LockedCard({ rank }: { rank: number }) {
+  const medal = rankMedal(rank);
+  return (
+    <div className="relative bg-gray-900/70 border border-gray-800 rounded-2xl overflow-hidden">
+      <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-gray-700/40" />
+      <div className="flex items-center gap-3 p-4 md:p-5">
+        {/* Rank */}
+        <div className="flex-shrink-0 w-6 sm:w-8 text-center">
+          {medal
+            ? <span className="text-lg sm:text-xl leading-none grayscale opacity-30">{medal}</span>
+            : <span className="text-xs sm:text-sm font-bold text-gray-700 tabular-nums">#{rank}</span>
+          }
+        </div>
+        {/* Logo placeholder */}
+        <div className="flex-shrink-0 w-11 h-11 rounded-full bg-gray-800" />
+        {/* Name + SN placeholder */}
+        <div className="flex-1 min-w-0 space-y-1.5">
+          <div className="h-3.5 w-28 bg-gray-800 rounded" />
+          <div className="h-2.5 w-10 bg-gray-800/60 rounded" />
+        </div>
+        {/* Description placeholder — desktop only */}
+        <div className="flex-[2] min-w-0 hidden sm:block space-y-1.5">
+          <div className="h-3 w-full bg-gray-800 rounded" />
+          <div className="h-3 w-3/4 bg-gray-800/60 rounded" />
+        </div>
+        {/* Score ring placeholder */}
+        <div className="flex-shrink-0 flex flex-col items-center gap-1">
+          <div className="w-16 h-16 rounded-full bg-gray-800" />
+          <div className="h-2 w-8 bg-gray-800/60 rounded" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Rank Card ─────────────────────────────────────────────────────
 
 function RankCard({ entry, rank, mode }: { entry: SubnetEntry; rank: number; mode: "trading" | "investing" }) {
@@ -335,10 +372,10 @@ export default function PowerRankingsPage() {
             <>
               {sorted.length > 0 && (
                 <div className="relative mb-2.5">
-                  {/* Blurred top 20 */}
-                  <div className="space-y-2.5 pointer-events-none select-none" style={{ filter: "blur(5px)", opacity: 0.5 }}>
-                    {sorted.slice(0, 20).map((entry, i) => (
-                      <RankCard key={entry.netuid} entry={entry} rank={i + 1} mode={mode} />
+                  {/* Blacked-out top 20 — no real data rendered */}
+                  <div className="space-y-2.5 pointer-events-none select-none">
+                    {Array.from({ length: Math.min(20, sorted.length) }).map((_, i) => (
+                      <LockedCard key={i} rank={i + 1} />
                     ))}
                   </div>
 
