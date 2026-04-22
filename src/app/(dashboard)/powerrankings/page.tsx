@@ -291,7 +291,7 @@ export default function PowerRankingsPage() {
           <h1 className="text-2xl md:text-3xl font-black text-white tracking-tight">Bittensor Power Rankings</h1>
         </div>
         <p className="text-base text-gray-400 max-w-2xl leading-relaxed">
-          Every Bittensor subnet ranked by its <span className="text-white font-semibold">aGap score</span> — a simple 0–100 grade that shows what the subnet is up to and whether the market has noticed yet.
+          Every Bittensor subnet ranked by its <span className="text-white font-semibold">aGap score</span> — a simple 0–100 grade that shows what the subnet is doing and whether the market has noticed yet.
         </p>
       </div>
 
