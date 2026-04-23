@@ -32,7 +32,7 @@ export function useNotifications() {
   return useContext(NotificationContext);
 }
 
-const SCORE_THRESHOLD = 5; // composite_score points to trigger notification
+const SCORE_THRESHOLD = 20; // composite_score points to trigger notification
 const BENCH_THRESHOLD = 5; // benchmark_score points to trigger notification
 
 const WHALE_TYPES = new Set([
