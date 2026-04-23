@@ -544,7 +544,7 @@ export default function LeaderboardPage() {
                           : i % 2 === 0
                           ? "border-gray-800/40 bg-gray-900/30 hover:bg-gray-800/50"
                           : "border-gray-800/40 hover:bg-gray-800/50"
-                      } ${isWatched(sub.netuid) ? "ring-2 ring-blue-400/60 bg-blue-950/40 shadow-lg shadow-blue-500/30 border-l-2 border-l-blue-400" : ""}`}
+                      }`}
                       style={isLocked ? { filter: "blur(3px)" } : undefined}
                       onClick={() => !isLocked && router.push(`/subnets/${sub.netuid}`)}
                     >
@@ -561,7 +561,7 @@ export default function LeaderboardPage() {
                           <div className="flex items-center gap-2">
                             <SubnetLogo netuid={sub.netuid} name={sub.name} size={20} />
                             <span className="text-[10px] text-gray-600 font-mono tracking-tight">SN{sub.netuid}</span>
-                            <span className="font-bold text-[15px] text-gray-100 leading-tight">{sub.name}</span>
+                            <span className={`font-bold text-[15px] leading-tight ${isWatched(sub.netuid) ? "text-blue-400" : "text-gray-100"}`}>{sub.name}</span>
                             {sub.has_campaign && <span title="Active Stitch3 marketing campaign" className="text-sm">🔥</span>}
                             {sub.dereg_top3 && <span title="Top-3 deregistration risk — one of the 3 subnets with the lowest SubnetRadar health score" className="text-sm cursor-help">⚠️</span>}
                           </div>
