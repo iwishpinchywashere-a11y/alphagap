@@ -165,7 +165,7 @@ export default function BenchmarksPage() {
       <div className="space-y-2">
         {/* First entry always visible */}
         {filtered.slice(0, 1).map((b, i) => (
-          <div key={b.subnet_id} className={`bg-gray-900/60 border rounded-xl overflow-hidden hover:border-gray-700 transition-colors ${isWatched(b.subnet_id) ? "border-blue-500/30 ring-1 ring-blue-500/40 bg-blue-950/15 shadow-sm shadow-blue-500/10" : "border-gray-800"}`}>
+          <div key={b.subnet_id} className={`bg-gray-900/60 border rounded-xl overflow-hidden hover:border-gray-700 transition-colors ${isWatched(b.subnet_id) ? "border-blue-400/70 ring-2 ring-blue-400/60 bg-blue-950/40 shadow-lg shadow-blue-500/30" : "border-gray-800"}`}>
             {/* Main row */}
             <div
               className="flex items-center gap-3 p-4 cursor-pointer"
@@ -302,7 +302,7 @@ export default function BenchmarksPage() {
           <BlurGate tier={tier} required="premium" minHeight="400px">
             <div className="space-y-2">
               {filtered.slice(1).map((b, i) => (
-                <div key={b.subnet_id} className={`bg-gray-900/60 border rounded-xl overflow-hidden hover:border-gray-700 transition-colors ${isWatched(b.subnet_id) ? "border-blue-500/30 ring-1 ring-blue-500/40 bg-blue-950/15 shadow-sm shadow-blue-500/10" : "border-gray-800"}`}>
+                <div key={b.subnet_id} className={`bg-gray-900/60 border rounded-xl overflow-hidden hover:border-gray-700 transition-colors ${isWatched(b.subnet_id) ? "border-blue-400/70 ring-2 ring-blue-400/60 bg-blue-950/40 shadow-lg shadow-blue-500/30" : "border-gray-800"}`}>
                   <div
                     className="flex items-center gap-3 p-4 cursor-pointer"
                     onClick={() => setExpandedId(expandedId === b.subnet_id ? null : b.subnet_id)}

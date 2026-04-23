@@ -149,7 +149,7 @@ function RankCard({ entry, rank, mode, watched = false }: { entry: SubnetEntry; 
   const tier = scoreTier(score);
 
   return (
-    <div className={`group relative bg-gray-900/70 border ${tier.border} rounded-2xl overflow-hidden transition-all duration-200 hover:bg-gray-900/90 hover:shadow-lg ${watched ? "ring-1 ring-blue-500/40 bg-blue-950/15 shadow-sm shadow-blue-500/10 border-blue-500/30" : ""}`}>
+    <div className={`group relative bg-gray-900/70 border ${tier.border} rounded-2xl overflow-hidden transition-all duration-200 hover:bg-gray-900/90 hover:shadow-lg ${watched ? "ring-2 ring-blue-400/60 bg-blue-950/40 shadow-lg shadow-blue-500/30 border-blue-400/70" : ""}`}>
 
       {/* Subtle left accent glow */}
       <div className={`absolute left-0 top-0 bottom-0 w-0.5 ${

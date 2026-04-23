@@ -382,7 +382,7 @@ function Top10List({
         {ranked.map((p, i) => (
           <div
             key={p.netuid}
-            className={`flex items-center gap-3 cursor-pointer hover:bg-gray-800/40 rounded-lg px-2 py-1.5 transition-colors group ${isWatched && isWatched(p.netuid) ? "bg-blue-950/15 ring-1 ring-blue-500/30" : ""}`}
+            className={`flex items-center gap-3 cursor-pointer hover:bg-gray-800/40 rounded-lg px-2 py-1.5 transition-colors group ${isWatched && isWatched(p.netuid) ? "bg-blue-950/40 ring-2 ring-blue-400/60 shadow-md shadow-blue-500/20" : ""}`}
             onClick={() => router.push(`/subnets/${p.netuid}`)}
           >
             {/* Rank */}
