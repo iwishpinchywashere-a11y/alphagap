@@ -6,6 +6,7 @@ import { useSession } from "next-auth/react";
 import SubnetLogo from "@/components/dashboard/SubnetLogo";
 import { getSubnetDescription } from "@/lib/subnet-plain-english";
 import { getTier, canAccessPro, canAccessPremium } from "@/lib/subscription";
+import { useWatchlist } from "@/components/dashboard/WatchlistProvider";
 
 // ── Types ─────────────────────────────────────────────────────────
 
@@ -138,7 +139,7 @@ function LockedCard({ rank, entry, mode }: { rank: number; entry: SubnetEntry; m
 
 // ── Rank Card ─────────────────────────────────────────────────────
 
-function RankCard({ entry, rank, mode }: { entry: SubnetEntry; rank: number; mode: "trading" | "investing" }) {
+function RankCard({ entry, rank, mode, watched = false }: { entry: SubnetEntry; rank: number; mode: "trading" | "investing"; watched?: boolean }) {
   const [expanded, setExpanded] = useState(false);
   const score = mode === "investing" && entry.invest_agap != null ? entry.invest_agap : entry.composite_score;
   const desc = getSubnetDescription(entry.netuid, entry.category);
@@ -148,7 +149,7 @@ function RankCard({ entry, rank, mode }: { entry: SubnetEntry; rank: number; mod
   const tier = scoreTier(score);
 
   return (
-    <div className={`group relative bg-gray-900/70 border ${tier.border} rounded-2xl overflow-hidden transition-all duration-200 hover:bg-gray-900/90 hover:shadow-lg`}>
+    <div className={`group relative bg-gray-900/70 border ${tier.border} rounded-2xl overflow-hidden transition-all duration-200 hover:bg-gray-900/90 hover:shadow-lg ${watched ? "ring-1 ring-blue-500/40 bg-blue-950/15 shadow-sm shadow-blue-500/10 border-blue-500/30" : ""}`}>
 
       {/* Subtle left accent glow */}
       <div className={`absolute left-0 top-0 bottom-0 w-0.5 ${
@@ -259,6 +260,8 @@ export default function PowerRankingsPage() {
   const [showAll, setShowAll] = useState(false);
   const [showExplainer, setShowExplainer] = useState(false);
   const [showInvestingGate, setShowInvestingGate] = useState(false);
+  const { isWatched, watchlist } = useWatchlist();
+  const [watchlistOnly, setWatchlistOnly] = useState(false);
 
   useEffect(() => {
     fetch("/api/cached-scan")
@@ -279,7 +282,8 @@ export default function PowerRankingsPage() {
     return sb - sa;
   });
 
-  const visible = showAll ? sorted : sorted.slice(0, 25);
+  const watchlistFiltered = watchlistOnly ? sorted.filter(e => watchlist.has(e.netuid)) : sorted;
+  const visible = showAll ? watchlistFiltered : watchlistFiltered.slice(0, 25);
 
   return (
     <main className="flex-1 overflow-auto p-4 md:p-6 w-full max-w-5xl mx-auto">
@@ -410,6 +414,21 @@ export default function PowerRankingsPage() {
           <span>📊</span>
           <span>View Full Alpha Dashboard</span>
         </Link>
+
+        {/* Watchlist filter */}
+        <button
+          onClick={() => setWatchlistOnly(v => !v)}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+            watchlistOnly
+              ? "bg-blue-600 text-white"
+              : "bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white"
+          }`}
+        >
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+          </svg>
+          My Watchlist
+        </button>
       </div>
 
       {/* ── Rankings list ─────────────────────────────────────────── */}
@@ -455,7 +474,7 @@ export default function PowerRankingsPage() {
               {sorted.length > 20 && (
                 <div className="space-y-2.5">
                   {sorted.slice(20).map((entry, i) => (
-                    <RankCard key={entry.netuid} entry={entry} rank={i + 21} mode={mode} />
+                    <RankCard key={entry.netuid} entry={entry} rank={i + 21} mode={mode} watched={isWatched(entry.netuid)} />
                   ))}
                 </div>
               )}
@@ -464,12 +483,12 @@ export default function PowerRankingsPage() {
             <>
               <div className="space-y-2.5">
                 {visible.map((entry, i) => (
-                  <RankCard key={entry.netuid} entry={entry} rank={i + 1} mode={mode} />
+                  <RankCard key={entry.netuid} entry={entry} rank={i + 1} mode={mode} watched={isWatched(entry.netuid)} />
                 ))}
               </div>
 
               {/* Show more / collapse */}
-              {sorted.length > 25 && (
+              {watchlistFiltered.length > 25 && (
                 <div className="mt-4 text-center">
                   <button
                     onClick={() => setShowAll(s => !s)}
@@ -477,7 +496,7 @@ export default function PowerRankingsPage() {
                   >
                     {showAll
                       ? `Show top 25 only ↑`
-                      : `Show all ${sorted.length} subnets ↓`}
+                      : `Show all ${watchlistFiltered.length} subnets ↓`}
                   </button>
                 </div>
               )}

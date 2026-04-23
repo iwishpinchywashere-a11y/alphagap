@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import BlurGate from "@/components/BlurGate";
 import { getTier, canAccessPro } from "@/lib/subscription";
+import { useWatchlist } from "@/components/dashboard/WatchlistProvider";
 
 interface ReportMeta {
   date: string;
@@ -66,6 +67,8 @@ export default function ReportsPage() {
   const [currentReport, setCurrentReport] = useState<ReportFull | null>(null);
   const [loadingReport, setLoadingReport] = useState(false);
   const [reportSearch, setReportSearch] = useState("");
+  const { isWatched, watchlist } = useWatchlist();
+  const [watchlistOnly, setWatchlistOnly] = useState(false);
 
   useEffect(() => {
     fetch("/api/reports")
@@ -88,6 +91,7 @@ export default function ReportsPage() {
   };
 
   const filtered = reports.filter((r) => {
+    if (watchlistOnly && !(r.netuid && watchlist.has(r.netuid))) return false;
     if (!reportSearch.trim()) return true;
     const q = reportSearch.toLowerCase();
     const dateStr = new Date(r.date + "T12:00:00").toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }).toLowerCase();
@@ -146,6 +150,19 @@ export default function ReportsPage() {
               onChange={(e) => setReportSearch(e.target.value)}
               className="bg-gray-800 border border-gray-700 text-sm rounded px-3 py-1 text-gray-300 placeholder-gray-600 w-full sm:w-44 focus:outline-none focus:border-gray-500"
             />
+            <button
+              onClick={() => setWatchlistOnly(v => !v)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                watchlistOnly
+                  ? "bg-blue-600 text-white"
+                  : "bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white"
+              }`}
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+              </svg>
+              My Watchlist
+            </button>
             <span className="text-xs text-gray-600">Auto-generated daily at 7am PT</span>
           </div>
         </div>
@@ -162,8 +179,9 @@ export default function ReportsPage() {
         {filtered.slice(0, 1).map((r) => {
           const isExpanded = currentReport?.date === r.date;
           const dateLabel = new Date(r.date + "T12:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" });
+          const isWatchedReport = r.netuid != null && isWatched(r.netuid);
           return (
-            <div key={r.date} className="bg-gray-900/50 border border-gray-800 rounded-lg overflow-hidden">
+            <div key={r.date} className={`bg-gray-900/50 border rounded-lg overflow-hidden ${isWatchedReport ? "border-blue-500/30 ring-1 ring-blue-500/40 bg-blue-950/15 shadow-sm shadow-blue-500/10" : "border-gray-800"}`}>
               <button
                 className="w-full flex items-start sm:items-center justify-between px-4 sm:px-5 py-3 hover:bg-gray-800/40 transition-colors text-left gap-2"
                 onClick={() => isExpanded ? setCurrentReport(null) : loadReport(r.date)}
@@ -203,8 +221,9 @@ export default function ReportsPage() {
               {filtered.slice(1).map((r) => {
                 const isExpanded = currentReport?.date === r.date;
                 const dateLabel = new Date(r.date + "T12:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" });
+                const isWatchedReport = r.netuid != null && isWatched(r.netuid);
                 return (
-                  <div key={r.date} className="bg-gray-900/50 border border-gray-800 rounded-lg overflow-hidden">
+                  <div key={r.date} className={`bg-gray-900/50 border rounded-lg overflow-hidden ${isWatchedReport ? "border-blue-500/30 ring-1 ring-blue-500/40 bg-blue-950/15 shadow-sm shadow-blue-500/10" : "border-gray-800"}`}>
                     <button
                       className="w-full flex items-start sm:items-center justify-between px-4 sm:px-5 py-3 hover:bg-gray-800/40 transition-colors text-left gap-2"
                       onClick={() => isExpanded ? setCurrentReport(null) : loadReport(r.date)}

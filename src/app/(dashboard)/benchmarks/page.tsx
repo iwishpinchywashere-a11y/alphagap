@@ -7,6 +7,7 @@ import SubnetLogo from "@/components/dashboard/SubnetLogo";
 import { BENCHMARK_DATA, type BenchmarkEntry } from "@/lib/benchmarks";
 import BlurGate from "@/components/BlurGate";
 import { getTier } from "@/lib/subscription";
+import { useWatchlist } from "@/components/dashboard/WatchlistProvider";
 
 interface BenchmarkAlert {
   netuid: number;
@@ -55,6 +56,8 @@ export default function BenchmarksPage() {
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [sortBy, setSortBy] = useState<"benchmark_score" | "cost_saving_pct" | "annual_revenue_usd">("benchmark_score");
   const [alerts, setAlerts] = useState<BenchmarkAlert[]>([]);
+  const { isWatched, watchlist } = useWatchlist();
+  const [watchlistOnly, setWatchlistOnly] = useState(false);
 
   useEffect(() => {
     fetch("/api/benchmarks/alerts").then(r => r.ok ? r.json() : null).then(d => {
@@ -64,6 +67,7 @@ export default function BenchmarksPage() {
 
   const filtered = [...BENCHMARK_DATA]
     .filter(b => selectedCategory === "All" || b.benchmark_category === selectedCategory)
+    .filter(b => !watchlistOnly || watchlist.has(b.subnet_id) || watchlist.has((b as BenchmarkEntry & { netuid?: number }).netuid ?? -1))
     .sort((a, b) => b[sortBy] - a[sortBy]);
 
   // Stats
@@ -121,6 +125,19 @@ export default function BenchmarksPage() {
               {cat}
             </button>
           ))}
+          <button
+            onClick={() => setWatchlistOnly(v => !v)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+              watchlistOnly
+                ? "bg-blue-600 text-white"
+                : "bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white"
+            }`}
+          >
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+            </svg>
+            My Watchlist
+          </button>
         </div>
         <div className="ml-auto flex items-center gap-2">
           <span className="text-xs text-gray-600">Sort by:</span>
@@ -148,7 +165,7 @@ export default function BenchmarksPage() {
       <div className="space-y-2">
         {/* First entry always visible */}
         {filtered.slice(0, 1).map((b, i) => (
-          <div key={b.subnet_id} className="bg-gray-900/60 border border-gray-800 rounded-xl overflow-hidden hover:border-gray-700 transition-colors">
+          <div key={b.subnet_id} className={`bg-gray-900/60 border rounded-xl overflow-hidden hover:border-gray-700 transition-colors ${isWatched(b.subnet_id) ? "border-blue-500/30 ring-1 ring-blue-500/40 bg-blue-950/15 shadow-sm shadow-blue-500/10" : "border-gray-800"}`}>
             {/* Main row */}
             <div
               className="flex items-center gap-3 p-4 cursor-pointer"
@@ -285,7 +302,7 @@ export default function BenchmarksPage() {
           <BlurGate tier={tier} required="premium" minHeight="400px">
             <div className="space-y-2">
               {filtered.slice(1).map((b, i) => (
-                <div key={b.subnet_id} className="bg-gray-900/60 border border-gray-800 rounded-xl overflow-hidden hover:border-gray-700 transition-colors">
+                <div key={b.subnet_id} className={`bg-gray-900/60 border rounded-xl overflow-hidden hover:border-gray-700 transition-colors ${isWatched(b.subnet_id) ? "border-blue-500/30 ring-1 ring-blue-500/40 bg-blue-950/15 shadow-sm shadow-blue-500/10" : "border-gray-800"}`}>
                   <div
                     className="flex items-center gap-3 p-4 cursor-pointer"
                     onClick={() => setExpandedId(expandedId === b.subnet_id ? null : b.subnet_id)}
