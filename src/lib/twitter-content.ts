@@ -148,21 +148,36 @@ const FOOTER = "\n\nalphagap.io $TAO";
 const FOOTER_LEN = FOOTER.length; // 18
 const MAX_BODY = 260 - FOOTER_LEN; // 242 chars for the actual content
 
-const TWEET_SYSTEM = `You are @AlphaGapTAO, a data account covering Bittensor subnet intelligence.
+const TWEET_SYSTEM = `You are @AlphaGapTAO, a friendly analytics account covering Bittensor subnet intelligence.
 
-Write ONE punchy tweet. Hard rules:
-1. Body must be under ${MAX_BODY} characters (the footer "\\n\\nalphagap.io $TAO" is added automatically — do NOT include it)
-2. 2 lines maximum. No bullet points. No headers. No multi-line metric blocks.
-3. Line 1: the single most interesting fact with one emoji
-4. Line 2 (optional): one short supporting number or observation
-5. Analytical facts only — no trading advice, no "buy", no "smart money"
+Write ONE tweet in this exact 3-part format:
 
-Examples of good output:
-Desearch (SN22) hit 3.5× normal volume — aGap at 82 before the move 🔍
-Price up 9.5% (24h) but fundamentals were there first.
+[emoji] [Subnet Name] (SN[X]) — [simple punchy headline]
 
-Chutes (SN64) shipped async inference this week 🛠
-Dev score 91 — highest in the top 10 right now.`;
+[1-2 sentences in plain English explaining what's happening and why it's interesting — write like you're telling a friend, not writing a report. No jargon.]
+
+[2-3 key numbers as short stats, e.g. "aGap 82 · Dev 91 · Price +9.5%"]
+
+Hard rules:
+- Total body under ${MAX_BODY} characters. The footer "alphagap.io $TAO" is added automatically — do NOT write it.
+- No bullet points. No markdown. No headers.
+- Plain English only — explain what the numbers actually mean, don't just list them.
+- No trading advice, no "buy signals", no "smart money".
+- Always use at least 2 emojis total (headline + anywhere in the body).
+
+Good example:
+🔍 Desearch (SN22) — on-chain traffic just spiked hard
+
+Volume is running 3.5× higher than normal right now. The interesting thing? Price is only up 9.5% — the chain got busy before the price moved. 📈
+
+aGap 82 · Dev 63 · Flow 77
+
+Another good example:
+🛠 Chutes (SN64) — team shipped async inference this week
+
+They quietly pushed a major update that lets the network process more jobs in parallel. Dev score hit 91 — that's the highest in the entire top 10 right now. 💪
+
+Dev 91 · aGap 78 · Price +4.2%`;
 
 // Phrases that indicate Claude refused instead of writing a tweet.
 const REFUSAL_SIGNALS = [
@@ -184,7 +199,7 @@ async function writeTweet(prompt: string): Promise<string[]> {
       },
       body: JSON.stringify({
         model: "claude-haiku-4-5-20251001",
-        max_tokens: 150,           // hard cap — prevents over-generation
+        max_tokens: 200,           // enough for 3-line format, prevents over-generation
         system: TWEET_SYSTEM,
         messages: [{ role: "user", content: prompt }],
       }),
@@ -240,7 +255,7 @@ export async function generateAgapRiser(subnet: SubnetScore): Promise<TweetPost 
 
   const prompt = `${subnet.name} (SN${subnet.netuid}) aGap score jumped ${fmtPct(subnet.composite_score_change)} to ${subnet.composite_score}/100. Drivers: ${driversLine}. Dev: ${subnet.dev_score} Flow: ${subnet.flow_score} Eval: ${subnet.eval_score}. Price 24h: ${fmtPct(subnet.price_change_24h)}. MCap: ${fmtMcap(subnet.market_cap)}.
 
-Write a punchy 2-line tweet about the score jump and what drove it. Use 🚀 emoji.`;
+Write a tweet using the format in your instructions. Explain in plain English why the score jumped and what that means. Use 🚀 as the lead emoji.`;
 
 
 
@@ -259,9 +274,9 @@ Write a punchy 2-line tweet about the score jump and what drove it. Use 🚀 emo
 // Brief summary of a high-scoring dev signal — much shorter than the full signal card.
 
 export async function generateDevUpdate(signal: DevSignal): Promise<TweetPost | null> {
-  const prompt = `${signal.name} (SN${signal.netuid}) just shipped: ${signal.title}. Dev score ${signal.score}/100.
+  const prompt = `${signal.name} (SN${signal.netuid}) just shipped: ${signal.title}. Dev score ${signal.score}/100. Detail: ${signal.description.slice(0, 120)}.
 
-Write a punchy 2-line tweet about what was shipped and why it matters. Use 🛠 emoji.`;
+Write a tweet using the format in your instructions. Explain in plain English what was built and why it's a big deal. Use 🛠 as the lead emoji.`;
 
 
   const tweets = await writeTweet(prompt);
@@ -291,7 +306,7 @@ export async function generateWhaleFlow(subnet: SubnetScore): Promise<TweetPost 
 
   const prompt = `${subnet.name} (SN${subnet.netuid}): ${signalType}. Price 24h: ${fmtPct(subnet.price_change_24h)}. aGap: ${subnet.composite_score}/100. Dev: ${subnet.dev_score} Flow: ${subnet.flow_score}.
 
-Write a punchy 2-line tweet about the on-chain activity and what the fundamentals look like. Use 🔍 emoji.`;
+Write a tweet using the format in your instructions. Explain in plain English what the volume/on-chain data means and how it compares to price. Use 🔍 as the lead emoji.`;
 
 
   const tweets = await writeTweet(prompt);
@@ -310,9 +325,9 @@ Write a punchy 2-line tweet about the on-chain activity and what the fundamental
 export async function generateDiscordAlpha(entry: DiscordEntry): Promise<TweetPost | null> {
   const insights = entry.keyInsights.slice(0, 3).join("\n- ");
 
-  const prompt = `${entry.subnetName}${entry.netuid ? ` (SN${entry.netuid})` : ""} Discord is active (score ${entry.alphaScore ?? "?"}/100). Key topics: ${insights}.
+  const prompt = `${entry.subnetName}${entry.netuid ? ` (SN${entry.netuid})` : ""} Discord is very active (score ${entry.alphaScore ?? "?"}/100). Key topics: ${insights}.
 
-Write a punchy 2-line tweet about what the community is discussing. Use 🔊 emoji.`;
+Write a tweet using the format in your instructions. Explain in plain English what the community is buzzing about and why it's interesting. Use 🔊 as the lead emoji.`;
 
 
   const tweets = await writeTweet(prompt);
@@ -338,7 +353,7 @@ export async function generateXTrending(entries: SocialTrendEntry[]): Promise<Tw
 
   const prompt = `Trending on Bittensor X right now:\n${lines}
 
-Write a punchy 2-line tweet naming the top subnets getting attention. Use 📈 emoji.`;
+Write a tweet using the format in your instructions. Name the top subnets and explain in plain English why people are talking about them. Use 📈 as the lead emoji.`;
 
 
   const tweets = await writeTweet(prompt);
@@ -366,7 +381,7 @@ export async function generateAnalyticsRatios(entries: AnalyticsEntry[]): Promis
 
   const prompt = `Top Bittensor subnets by ${ratioLabel}:\n${lines}
 
-Write a punchy 2-line tweet about which subnets are outperforming relative to their market size. Use 📊 emoji.`;
+Write a tweet using the format in your instructions. Explain in plain English what this metric means and why these subnets topping it is interesting. Use 📊 as the lead emoji.`;
 
 
   const tweets = await writeTweet(prompt);
@@ -393,7 +408,7 @@ export async function generateBenchmarkUpdate(entry: BenchmarkEntry): Promise<Tw
 
   const prompt = `${entry.subnetName} (SN${entry.netuid}) scored ${entry.score.toFixed(1)} on ${entry.taskName}${entry.centralizedScore != null ? `, beating ${compLine}` : ""}${entry.delta != null && entry.delta > 0 ? ` by ${entry.delta.toFixed(1)} pts` : ""}.
 
-Write a punchy 2-line tweet about this decentralised AI benchmark result. Use 🏆 emoji if clearly beating the competitor, otherwise ⚡.`;
+Write a tweet using the format in your instructions. Explain in plain English what this benchmark tests and why a decentralised network winning it matters. Use 🏆 as the lead emoji if clearly beating the competitor, otherwise ⚡.`;
 
 
   const tweets = await writeTweet(prompt);
@@ -411,9 +426,9 @@ Write a punchy 2-line tweet about this decentralised AI benchmark result. Use �
 // Highlights subnets where aGap ≥80 signal fired, shows buy price vs now vs max gain.
 
 export async function generatePerformanceGain(entry: PerformanceEntry): Promise<TweetPost | null> {
-  const prompt = `AlphaGap flagged ${entry.name} (SN${entry.netuid}) on ${new Date(entry.signalDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })} at ${fmtPrice(entry.priceAtSignal)}. Max gain since: ${fmtPct(entry.maxGainPct)}. Current: ${fmtPct(entry.currentGainPct)}.
+  const prompt = `AlphaGap flagged ${entry.name} (SN${entry.netuid}) on ${new Date(entry.signalDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })} at ${fmtPrice(entry.priceAtSignal)}. Max gain since signal: ${fmtPct(entry.maxGainPct)}. Still up ${fmtPct(entry.currentGainPct)} from signal price.
 
-Write a punchy 2-line tweet showing AlphaGap spotted this early. Use 🎯 emoji.`;
+Write a tweet using the format in your instructions. Tell the story simply — we spotted it early when price was flat, here's what happened next. Use 🎯 as the lead emoji.`;
 
 
   const tweets = await writeTweet(prompt);
