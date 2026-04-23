@@ -128,8 +128,8 @@ export default function WatchlistPage() {
     );
   }
 
-  // "Watching" section shows the saved watchlist (not pending)
-  const watchedSubnets = leaderboard.filter((s) => watchlist.has(s.netuid));
+  // "Watching" section reflects pending so the X button feels instant
+  const watchedSubnets = leaderboard.filter((s) => pending.has(s.netuid));
 
   const q = search.toLowerCase().trim();
   const allSubnets = useMemo(
@@ -164,7 +164,7 @@ export default function WatchlistPage() {
         {/* Current saved Watchlist */}
         <section>
           <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">
-            Currently Watching {loading ? "…" : `(${watchlist.size})`}
+            Currently Watching {loading ? "…" : `(${pending.size})`}
           </h2>
 
           {watchlist.size === 0 && !loading && (
@@ -194,6 +194,15 @@ export default function WatchlistPage() {
                     </div>
                   </div>
                   <ScoreRing score={sub.composite_score} />
+                  <button
+                    onClick={() => togglePending(sub.netuid)}
+                    title="Remove from watchlist"
+                    className="flex items-center justify-center w-6 h-6 rounded-full bg-red-500/10 border border-red-500/30 hover:bg-red-500/30 hover:border-red-400 transition-colors flex-shrink-0 ml-1"
+                  >
+                    <svg className="w-3 h-3 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
                 </div>
               ))}
             </div>
