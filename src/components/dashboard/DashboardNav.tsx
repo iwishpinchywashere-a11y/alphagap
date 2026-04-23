@@ -23,6 +23,7 @@ export default function DashboardNav() {
     { href: "/performance", label: "Performance" },
     { href: "/audits", label: "Audits (Beta)" },
     { href: "/testing", label: "Pump Lab" },
+    { href: "/watchlist", label: "My Watchlist" },
   ];
 
   const activeTab = tabs.find(t => t.href === pathname) ?? tabs[0];
@@ -75,15 +76,15 @@ export default function DashboardNav() {
                 key={tab.href}
                 href={tab.href}
                 onClick={() => { setSelectedSubnet(null); setOpen(false); }}
-                className={`flex items-center justify-between px-4 py-3 text-sm transition-colors border-b border-gray-800/50 ${
+                className={`flex items-center justify-between px-4 py-3 text-sm font-${tab.href === "/watchlist" ? "bold" : "normal"} transition-colors border-b border-gray-800/50 ${
                   isActive
-                    ? "text-green-400 bg-green-500/5"
-                    : "text-gray-400 hover:text-white hover:bg-gray-900/60"
+                    ? tab.href === "/watchlist" ? "text-blue-400 bg-blue-500/5" : "text-green-400 bg-green-500/5"
+                    : tab.href === "/watchlist" ? "text-blue-400 hover:text-blue-300 hover:bg-blue-900/20" : "text-gray-400 hover:text-white hover:bg-gray-900/60"
                 } ${i === tabs.length - 1 ? "border-b-0" : ""}`}
               >
                 <span>{tab.label}</span>
                 {isActive && (
-                  <span className="w-1.5 h-1.5 rounded-full bg-green-400 flex-shrink-0" />
+                  <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${tab.href === "/watchlist" ? "bg-blue-400" : "bg-green-400"}`} />
                 )}
               </Link>
             );
