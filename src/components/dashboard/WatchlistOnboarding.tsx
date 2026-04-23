@@ -94,12 +94,17 @@ export default function WatchlistOnboarding() {
                 {
                   icon: "🔔",
                   title: "Smart notifications",
-                  body: "Get alerted when a subnet's aGap score moves 20+ points, a new report drops, or a major KOL starts talking.",
+                  body: "Get alerted when a subnet's aGap score moves 20+ points, a new report drops, a new whale or volume flow signal appears, or major buzz on Discord or X is happening.",
                 },
                 {
                   icon: "⚡",
                   title: "Personalised signal feed",
                   body: "Signals and whale activity filtered to only the subnets on your list — less noise, more alpha.",
+                },
+                {
+                  icon: "👁️",
+                  title: "View Your Subnets",
+                  body: "Hit the \"My Watchlist\" button at the top of AlphaGap pages to narrow down the feeds to exactly what you want to see.",
                 },
                 {
                   icon: "📋",
