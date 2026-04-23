@@ -143,38 +143,32 @@ function fmtPrice(v?: number): string {
 
 // ── AI tweet writer ───────────────────────────────────────────────
 
-const TWEET_SYSTEM = `You are @AlphaGapTAO — an analytics account tracking Bittensor subnet metrics and on-chain data.
+// FOOTER always appended — count it against budget
+const FOOTER = "\n\nalphagap.io $TAO";
+const FOOTER_LEN = FOOTER.length; // 18
+const MAX_BODY = 260 - FOOTER_LEN; // 242 chars for the actual content
 
-HARD LIMIT: Your entire tweet must be 260 characters or fewer including all text, emojis, and line breaks.
+const TWEET_SYSTEM = `You are @AlphaGapTAO, a data account covering Bittensor subnet intelligence.
 
-Format (fit ALL in 260 chars):
-[Subnet] (SN[X]) — [factual headline] [emoji]
+Write ONE punchy tweet. Hard rules:
+1. Body must be under ${MAX_BODY} characters (the footer "\\n\\nalphagap.io $TAO" is added automatically — do NOT include it)
+2. 2 lines maximum. No bullet points. No headers. No multi-line metric blocks.
+3. Line 1: the single most interesting fact with one emoji
+4. Line 2 (optional): one short supporting number or observation
+5. Analytical facts only — no trading advice, no "buy", no "smart money"
 
-[Key metrics and data points]
+Examples of good output:
+Desearch (SN22) hit 3.5× normal volume — aGap at 82 before the move 🔍
+Price up 9.5% (24h) but fundamentals were there first.
 
-[1-sentence analytical note]
-
-alphagap.io $TAO
-
-Critical language rules — use ANALYTICAL framing only:
-- OK: "volume above baseline", "on-chain activity elevated", "metrics strong", "dev activity high"
-- NEVER: "accumulation signal", "whale buying", "smart money", "positioning", "before the move"
-- Data observations, not trading signals. Numbers with brief context. Under 260 chars.`;
+Chutes (SN64) shipped async inference this week 🛠
+Dev score 91 — highest in the top 10 right now.`;
 
 // Phrases that indicate Claude refused instead of writing a tweet.
-// If detected, treat the run as "no content" and skip to the next type.
 const REFUSAL_SIGNALS = [
-  "i need to decline",
-  "i can't tweet",
-  "i'm not able to",
-  "i cannot tweet",
-  "i appreciate the detailed brief",
-  "i appreciate the brief",
-  "i can't assist",
-  "i'm unable",
-  "i must decline",
-  "this request",
-  "insider information",
+  "i need to decline", "i can't tweet", "i'm not able to",
+  "i cannot tweet", "i appreciate the", "i can't assist",
+  "i'm unable", "i must decline", "insider information",
 ];
 
 async function writeTweet(prompt: string): Promise<string[]> {
@@ -190,7 +184,7 @@ async function writeTweet(prompt: string): Promise<string[]> {
       },
       body: JSON.stringify({
         model: "claude-haiku-4-5-20251001",
-        max_tokens: 400,
+        max_tokens: 150,           // hard cap — prevents over-generation
         system: TWEET_SYSTEM,
         messages: [{ role: "user", content: prompt }],
       }),
@@ -200,38 +194,28 @@ async function writeTweet(prompt: string): Promise<string[]> {
     const data = await res.json() as { content: Array<{ text: string }> };
     const raw = data.content[0]?.text?.trim() ?? "";
 
-    // Detect refusals — return empty so the bot skips to the next post type
-    const lower = raw.toLowerCase();
-    if (REFUSAL_SIGNALS.some((s) => lower.includes(s))) {
-      console.warn("[twitter-bot] writeTweet: Claude returned a refusal, skipping this type");
+    if (REFUSAL_SIGNALS.some((s) => raw.toLowerCase().includes(s))) {
+      console.warn("[twitter-bot] writeTweet: refusal detected, skipping");
       return [];
     }
 
-    const tweets = raw.split("---NEXT---").map((t) => t.trim()).filter(Boolean);
+    // Strip any footer Claude added anyway (we add it ourselves)
+    const body = raw
+      .replace(/\n*alphagap\.io.*$/i, "")
+      .replace(/\$TAO\s*$/i, "")
+      .trim();
 
-    // Enforce 280-char limit — truncate at last whitespace before limit
-    // Also guarantee $TAO is present — append if Haiku dropped it
-    return tweets.map((t) => {
-      let tweet = t;
-      if (tweet.length > 280) {
-        const cut = tweet.slice(0, 277);
-        const lastSpace = cut.lastIndexOf(" ");
-        tweet = (lastSpace > 200 ? cut.slice(0, lastSpace) : cut) + "…";
-      }
-      if (!tweet.includes("$TAO")) {
-        // Replace trailing alphagap.io with alphagap.io $TAO, or just append
-        if (tweet.includes("alphagap.io")) {
-          tweet = tweet.replace("alphagap.io", "alphagap.io $TAO");
-        } else {
-          tweet = tweet.trimEnd() + "\n\nalphagap.io $TAO";
-        }
-        // Re-check length after adding $TAO
-        if (tweet.length > 280) {
-          tweet = tweet.slice(0, 276) + "…";
-        }
-      }
-      return tweet;
-    });
+    if (!body) return [];
+
+    // Hard-truncate body if somehow still too long
+    const safeBody = body.length > MAX_BODY
+      ? body.slice(0, MAX_BODY - 1).trimEnd() + "…"
+      : body;
+
+    const tweet = safeBody + FOOTER;
+
+    console.log(`[twitter-bot] tweet length: ${tweet.length} chars`);
+    return [tweet];
   } catch {
     return [];
   }
@@ -254,19 +238,9 @@ export async function generateAgapRiser(subnet: SubnetScore): Promise<TweetPost 
 
   const driversLine = drivers.length > 0 ? drivers.join(" · ") : "multiple sub-scores improving";
 
-  const prompt = `Write a tweet about this Bittensor subnet whose intelligence score just jumped significantly.
+  const prompt = `${subnet.name} (SN${subnet.netuid}) aGap score jumped ${fmtPct(subnet.composite_score_change)} to ${subnet.composite_score}/100. Drivers: ${driversLine}. Dev: ${subnet.dev_score} Flow: ${subnet.flow_score} Eval: ${subnet.eval_score}. Price 24h: ${fmtPct(subnet.price_change_24h)}. MCap: ${fmtMcap(subnet.market_cap)}.
 
-Data:
-- Subnet: ${subnet.name} (SN${subnet.netuid})
-- aGap score: jumped ${fmtPct(subnet.composite_score_change)} to ${subnet.composite_score}/100
-- What drove it: ${driversLine}
-- Dev score: ${subnet.dev_score} | Flow: ${subnet.flow_score} | Eval: ${subnet.eval_score} | Social: ${subnet.social_score}
-- Price 24h: ${fmtPct(subnet.price_change_24h)} | MCap: ${fmtMcap(subnet.market_cap)}
-
-Use the format from your system prompt. Headline = "[Subnet] (SN[X]) — aGap score surging 🚨"
-Bullet points should cover: what drove the score jump (explain each driver in plain English), what the price is doing vs the score, what the market cap context means.
-AlphaGap take: is the price lagging the building activity? Is this early? What's the key thing to watch?
-End with "$TAO alphagap.io" on its own line at the bottom`;
+Write a punchy 2-line tweet about the score jump and what drove it. Use 🚀 emoji.`;
 
 
 
@@ -285,18 +259,9 @@ End with "$TAO alphagap.io" on its own line at the bottom`;
 // Brief summary of a high-scoring dev signal — much shorter than the full signal card.
 
 export async function generateDevUpdate(signal: DevSignal): Promise<TweetPost | null> {
-  const prompt = `Write a tweet about something a Bittensor subnet just shipped.
+  const prompt = `${signal.name} (SN${signal.netuid}) just shipped: ${signal.title}. Dev score ${signal.score}/100.
 
-Data:
-- Subnet: ${signal.name} (SN${signal.netuid})
-- What was built: ${signal.title}
-- Detail: ${signal.description}
-- Dev score: ${signal.score}/100
-
-Use the format from your system prompt. Headline = "[Subnet] (SN[X]) — [what was shipped, very brief] 🚨"
-Bullet points should cover: what was actually built in plain English, why this capability matters or what problem it solves, what it signals about the team's execution pace.
-AlphaGap take: what does this shipping activity mean for the subnet's trajectory? Is the market likely aware yet?
-End with "$TAO alphagap.io" on its own line at the bottom`;
+Write a punchy 2-line tweet about what was shipped and why it matters. Use 🛠 emoji.`;
 
 
   const tweets = await writeTweet(prompt);
@@ -324,18 +289,9 @@ export async function generateWhaleFlow(subnet: SubnetScore): Promise<TweetPost 
     ? "Large-wallet on-chain activity elevated"
     : `Volume surge (${subnet.volume_surge_ratio?.toFixed(1)}× baseline volume)`;
 
-  const prompt = `Write a tweet about unusual on-chain volume activity detected in a Bittensor subnet.
+  const prompt = `${subnet.name} (SN${subnet.netuid}): ${signalType}. Price 24h: ${fmtPct(subnet.price_change_24h)}. aGap: ${subnet.composite_score}/100. Dev: ${subnet.dev_score} Flow: ${subnet.flow_score}.
 
-Data:
-- Subnet: ${subnet.name} (SN${subnet.netuid})
-- What was detected: ${signalType}
-- Price 24h: ${fmtPct(subnet.price_change_24h)} | 7d: ${fmtPct(subnet.price_change_7d)} | MCap: ${fmtMcap(subnet.market_cap)}
-- aGap score: ${subnet.composite_score}/100 | Dev: ${subnet.dev_score} | Flow: ${subnet.flow_score}
-
-Use the format from your system prompt. Headline = "${subnet.name} (SN${subnet.netuid}) — on-chain activity spike 🔍"
-Bullet points should cover: what the volume/on-chain data shows in plain English, how price has moved relative to the on-chain activity, what the underlying fundamentals look like (is development activity strong?).
-AlphaGap take: what does the combination of on-chain activity and fundamentals suggest about where this subnet stands? What metrics are worth watching?
-End with "$TAO alphagap.io" on its own line at the bottom`;
+Write a punchy 2-line tweet about the on-chain activity and what the fundamentals look like. Use 🔍 emoji.`;
 
 
   const tweets = await writeTweet(prompt);
@@ -354,18 +310,9 @@ End with "$TAO alphagap.io" on its own line at the bottom`;
 export async function generateDiscordAlpha(entry: DiscordEntry): Promise<TweetPost | null> {
   const insights = entry.keyInsights.slice(0, 3).join("\n- ");
 
-  const prompt = `Write a tweet about community discussion activity detected in a Bittensor subnet's public Discord server.
+  const prompt = `${entry.subnetName}${entry.netuid ? ` (SN${entry.netuid})` : ""} Discord is active (score ${entry.alphaScore ?? "?"}/100). Key topics: ${insights}.
 
-Data:
-- Subnet: ${entry.subnetName}${entry.netuid ? ` (SN${entry.netuid})` : ""}
-- What the community is discussing: ${entry.summary}
-- Key discussion points: ${insights}
-- Community activity score: ${entry.alphaScore ?? "n/a"}/100
-
-Use the format from your system prompt. Headline = "${entry.subnetName} (SN${entry.netuid}) — community activity elevated 🔊"
-Bullet points should cover: what the community is actively discussing, what technical or product developments are being talked about, what the on-chain metrics look like alongside the community engagement.
-AlphaGap take: what does elevated community engagement combined with the on-chain data suggest about this subnet's current development momentum? What metrics are worth tracking?
-End with "$TAO alphagap.io" on its own line at the bottom`;
+Write a punchy 2-line tweet about what the community is discussing. Use 🔊 emoji.`;
 
 
   const tweets = await writeTweet(prompt);
@@ -389,15 +336,9 @@ export async function generateXTrending(entries: SocialTrendEntry[]): Promise<Tw
     `${i + 1}. ${e.subnetName}${e.netuid ? ` (SN${e.netuid})` : ""}${e.tweetCount ? ` — ${e.tweetCount} mentions` : ""}${e.topInsight ? ` — "${e.topInsight}"` : ""}`
   ).join("\n");
 
-  const prompt = `Write a tweet about which Bittensor subnets are trending on X right now and why it matters.
+  const prompt = `Trending on Bittensor X right now:\n${lines}
 
-Data:
-${lines}
-
-Use the format from your system prompt. Headline = "Bittensor trending on X right now 🚨"
-Bullet points: one per subnet — what the conversation is actually about and why people are talking about it (not just "X mentions").
-AlphaGap take: what does this social activity mean? Is this hype catching up to fundamentals, or is sentiment running ahead of what's actually being built? What should someone watching these subnets know?
-End with "$TAO alphagap.io" on its own line at the bottom`;
+Write a punchy 2-line tweet naming the top subnets getting attention. Use 📈 emoji.`;
 
 
   const tweets = await writeTweet(prompt);
@@ -423,16 +364,9 @@ export async function generateAnalyticsRatios(entries: AnalyticsEntry[]): Promis
     `${i + 1}. ${e.name} (SN${e.netuid}) — ratio: ${e.ratio.toFixed(2)} | aGap: ${e.composite_score}`
   ).join("\n");
 
-  const prompt = `Write a tweet about which Bittensor subnets are punching above their weight right now.
+  const prompt = `Top Bittensor subnets by ${ratioLabel}:\n${lines}
 
-Data:
-- Metric: ${ratioLabel} (measures which subnets generate the most relative to their market size)
-- Top 3: ${lines}
-
-Use the format from your system prompt. Headline = "Bittensor subnets punching above their weight 🚨"
-Bullet points: one per subnet — explain in plain English why this subnet leading the metric is notable. What does a high ${ratioLabel} actually mean for an investor? What does it suggest about valuation?
-AlphaGap take: what's the overall picture — are these subnets undervalued relative to what they're producing? What's the key opportunity here?
-End with "$TAO alphagap.io" on its own line at the bottom`;
+Write a punchy 2-line tweet about which subnets are outperforming relative to their market size. Use 📊 emoji.`;
 
 
   const tweets = await writeTweet(prompt);
@@ -457,19 +391,9 @@ export async function generateBenchmarkUpdate(entry: BenchmarkEntry): Promise<Tw
     ? `vs ${entry.centralizedName} (${entry.centralizedScore.toFixed(1)})`
     : "vs centralised baseline";
 
-  const prompt = `Write a tweet about a decentralised Bittensor subnet ${isBeating ? "beating" : "matching"} a centralised AI competitor on a benchmark.
+  const prompt = `${entry.subnetName} (SN${entry.netuid}) scored ${entry.score.toFixed(1)} on ${entry.taskName}${entry.centralizedScore != null ? `, beating ${compLine}` : ""}${entry.delta != null && entry.delta > 0 ? ` by ${entry.delta.toFixed(1)} pts` : ""}.
 
-Data:
-- Subnet: ${entry.subnetName} (SN${entry.netuid})
-- Task: ${entry.taskName}
-- Subnet score: ${entry.score.toFixed(1)}
-${entry.centralizedScore != null ? `- Competitor: ${compLine}` : ""}
-${entry.delta != null && entry.delta > 0 ? `- Margin: ahead by ${entry.delta.toFixed(1)} points` : ""}
-
-Use the format from your system prompt. Headline = "${entry.subnetName} vs centralised AI 🚨" (use 🏆 if clearly beating)
-Bullet points: explain what the benchmark task actually tests in plain English, what the scores mean in practical terms (not just numbers), why a decentralised network winning here is significant.
-AlphaGap take: what does this result mean for the subnet's long-term thesis? If decentralised AI is proving itself in this domain, what's the investment implication?
-End with "$TAO alphagap.io" on its own line at the bottom`;
+Write a punchy 2-line tweet about this decentralised AI benchmark result. Use 🏆 emoji if clearly beating the competitor, otherwise ⚡.`;
 
 
   const tweets = await writeTweet(prompt);
@@ -487,18 +411,9 @@ End with "$TAO alphagap.io" on its own line at the bottom`;
 // Highlights subnets where aGap ≥80 signal fired, shows buy price vs now vs max gain.
 
 export async function generatePerformanceGain(entry: PerformanceEntry): Promise<TweetPost | null> {
-  const prompt = `Write a tweet showing that AlphaGap called a move before the market.
+  const prompt = `AlphaGap flagged ${entry.name} (SN${entry.netuid}) on ${new Date(entry.signalDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })} at ${fmtPrice(entry.priceAtSignal)}. Max gain since: ${fmtPct(entry.maxGainPct)}. Current: ${fmtPct(entry.currentGainPct)}.
 
-Data:
-- Subnet: ${entry.name} (SN${entry.netuid})
-- When AlphaGap flagged it: ${new Date(entry.signalDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })} at ${fmtPrice(entry.priceAtSignal)}
-- Max gain from signal price: ${fmtPct(entry.maxGainPct)}
-- Current gain from signal price: ${fmtPct(entry.currentGainPct)}
-
-Use the format from your system prompt. Headline = "${entry.name} — AlphaGap called it early 🚨"
-Bullet points: when and why AlphaGap flagged this subnet (building quietly, price was flat), what happened to the price after the signal, what the max gain looked like for people who acted on it.
-AlphaGap take: what does this example show about the alpha gap thesis — why does tracking development activity before the market notices it tend to lead to price moves? What's the lesson for signal followers?
-End with "$TAO alphagap.io" on its own line at the bottom`;
+Write a punchy 2-line tweet showing AlphaGap spotted this early. Use 🎯 emoji.`;
 
 
   const tweets = await writeTweet(prompt);
