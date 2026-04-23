@@ -72,6 +72,12 @@ const STEPS = [
     arrow: true,
   },
   {
+    title: "🔖 My Watchlist",
+    body: "Pin the subnets you care about and AlphaGap builds a personalised feed around them. Watched subnets are highlighted blue across every page, and you get smart alerts when scores move 20+ points, new reports drop, whale or volume flow signals fire, or major buzz hits Discord or X. Hit 'My Watchlist' in the menu any time to add or remove subnets.",
+    target: "nav-trigger",
+    arrow: true,
+  },
+  {
     title: "You're all set 🚀",
     body: "Head to the Alpha Leaderboard and find your first opportunity. A high aGap score means the market is sleeping on something — your edge is waking up before everyone else does.",
     target: null,
