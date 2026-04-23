@@ -43,6 +43,16 @@ export function WatchlistProvider({ children }: { children: ReactNode }) {
       .finally(() => setLoading(false));
   }, [isPro]);
 
+  // Listen for save events from the watchlist page
+  useEffect(() => {
+    function onSaved(e: Event) {
+      const netuids = (e as CustomEvent<number[]>).detail;
+      if (Array.isArray(netuids)) setWatchlist(new Set(netuids));
+    }
+    window.addEventListener("watchlist-saved", onSaved);
+    return () => window.removeEventListener("watchlist-saved", onSaved);
+  }, []);
+
   const toggle = useCallback(async (netuid: number) => {
     if (!isPro) return;
     const isCurrentlyWatched = watchlist.has(netuid);

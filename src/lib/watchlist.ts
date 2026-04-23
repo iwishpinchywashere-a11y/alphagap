@@ -67,3 +67,9 @@ export async function removeFromWatchlist(email: string, netuid: number): Promis
   await writeBlob(`watchlists/${hash}.json`, { netuids, updatedAt: new Date().toISOString() });
   return netuids;
 }
+
+export async function saveWatchlist(email: string, netuids: number[]): Promise<number[]> {
+  const hash = emailHash(email);
+  await writeBlob(`watchlists/${hash}.json`, { netuids, updatedAt: new Date().toISOString() });
+  return netuids;
+}

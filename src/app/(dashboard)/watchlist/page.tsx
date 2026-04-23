@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useDashboard } from "@/components/dashboard/DashboardProvider";
@@ -36,11 +36,66 @@ export default function WatchlistPage() {
   const { data: session } = useSession();
   const router = useRouter();
   const { leaderboard, scanning } = useDashboard();
-  const { watchlist, toggle, loading } = useWatchlist();
+  const { watchlist, loading } = useWatchlist();
   const tier = getTier(session);
   const isPro = canAccessPro(tier);
 
+  // Local pending state — what the user has checked but not yet saved
+  const [pending, setPending] = useState<Set<number>>(new Set());
   const [search, setSearch] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [savedFlash, setSavedFlash] = useState(false);
+  const initialised = useRef(false);
+
+  // Initialise pending from the loaded watchlist (once)
+  useEffect(() => {
+    if (!loading && !initialised.current) {
+      initialised.current = true;
+      setPending(new Set(watchlist));
+    }
+  }, [loading, watchlist]);
+
+  const hasChanges = useMemo(() => {
+    if (pending.size !== watchlist.size) return true;
+    for (const n of pending) if (!watchlist.has(n)) return true;
+    return false;
+  }, [pending, watchlist]);
+
+  function togglePending(netuid: number) {
+    setPending((prev) => {
+      const next = new Set(prev);
+      if (next.has(netuid)) next.delete(netuid);
+      else next.add(netuid);
+      return next;
+    });
+  }
+
+  async function handleSave() {
+    setSaving(true);
+    try {
+      const res = await fetch("/api/watchlist", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ netuids: Array.from(pending) }),
+      });
+      const d = await res.json();
+      if (Array.isArray(d.netuids)) {
+        // Sync pending to what server confirmed
+        setPending(new Set(d.netuids));
+        // Update the global watchlist context
+        // We force-refresh by reloading the watchlist from the provider
+        // The provider will pick up via the next GET call; we signal it by
+        // dispatching a custom event the provider can listen to.
+        window.dispatchEvent(new CustomEvent("watchlist-saved", { detail: d.netuids }));
+      }
+      setSavedFlash(true);
+      setTimeout(() => setSavedFlash(false), 2000);
+    } catch {
+      // silent — user can try again
+    } finally {
+      setSaving(false);
+    }
+  }
 
   // Gate: must be logged in and Pro/Premium
   if (!session) {
@@ -73,7 +128,9 @@ export default function WatchlistPage() {
     );
   }
 
+  // "Watching" section shows the saved watchlist (not pending)
   const watchedSubnets = leaderboard.filter((s) => watchlist.has(s.netuid));
+
   const q = search.toLowerCase().trim();
   const allSubnets = useMemo(
     () =>
@@ -104,16 +161,16 @@ export default function WatchlistPage() {
           </p>
         </div>
 
-        {/* Current Watchlist */}
+        {/* Current saved Watchlist */}
         <section>
           <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">
-            Watching {loading ? "…" : `(${watchlist.size})`}
+            Currently Watching {loading ? "…" : `(${watchlist.size})`}
           </h2>
 
           {watchlist.size === 0 && !loading && (
             <div className="border border-gray-800 rounded-xl p-6 text-center text-gray-500">
               <div className="text-3xl mb-2">👇</div>
-              <p className="text-sm">No subnets on your watchlist yet. Add some below.</p>
+              <p className="text-sm">No subnets saved yet. Check some below and hit Save.</p>
             </div>
           )}
 
@@ -137,28 +194,34 @@ export default function WatchlistPage() {
                     </div>
                   </div>
                   <ScoreRing score={sub.composite_score} />
-                  <button
-                    onClick={() => toggle(sub.netuid)}
-                    className="ml-1 p-1.5 rounded-lg text-blue-400 hover:bg-blue-900/30 hover:text-blue-300 transition-colors"
-                    title="Remove from watchlist"
-                  >
-                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
-                    </svg>
-                  </button>
                 </div>
               ))}
             </div>
           )}
         </section>
 
-        {/* Add to Watchlist */}
+        {/* Add / Edit section */}
         <section>
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
               Add Subnets
             </h2>
-            <span className="text-xs text-gray-600">{scanning ? "Refreshing…" : `${leaderboard.length} subnets`}</span>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-gray-600">{scanning ? "Refreshing…" : `${leaderboard.length} subnets`}</span>
+              <button
+                onClick={handleSave}
+                disabled={saving || (!hasChanges && !savedFlash)}
+                className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                  savedFlash
+                    ? "bg-green-600 text-white"
+                    : hasChanges
+                    ? "bg-blue-600 hover:bg-blue-500 text-white"
+                    : "bg-gray-800 text-gray-600 cursor-default"
+                }`}
+              >
+                {saving ? "Saving…" : savedFlash ? "✓ Saved!" : "Save"}
+              </button>
+            </div>
           </div>
 
           {/* Search */}
@@ -175,24 +238,34 @@ export default function WatchlistPage() {
             />
           </div>
 
+          {/* Pending changes banner */}
+          {hasChanges && (
+            <div className="flex items-center justify-between bg-blue-950/30 border border-blue-500/30 rounded-lg px-3 py-2 mb-3 text-xs text-blue-300">
+              <span>You have unsaved changes</span>
+              <button onClick={handleSave} disabled={saving} className="font-semibold underline underline-offset-2 hover:text-white transition-colors">
+                {saving ? "Saving…" : "Save now"}
+              </button>
+            </div>
+          )}
+
           <div className="space-y-1.5 max-h-[60vh] overflow-y-auto pr-1">
             {allSubnets.map((sub) => {
-              const watched = watchlist.has(sub.netuid);
+              const checked = pending.has(sub.netuid);
               return (
                 <div
                   key={sub.netuid}
                   className={`flex items-center gap-3 rounded-xl px-4 py-3 transition-colors cursor-pointer ${
-                    watched
+                    checked
                       ? "bg-blue-950/20 border border-blue-500/30"
                       : "bg-gray-900/40 border border-gray-800/60 hover:border-gray-700 hover:bg-gray-900/70"
                   }`}
-                  onClick={() => toggle(sub.netuid)}
+                  onClick={() => togglePending(sub.netuid)}
                 >
                   {/* Checkbox */}
                   <div className={`w-5 h-5 rounded flex items-center justify-center flex-shrink-0 border-2 transition-colors ${
-                    watched ? "bg-blue-500 border-blue-500" : "border-gray-600"
+                    checked ? "bg-blue-500 border-blue-500" : "border-gray-600"
                   }`}>
-                    {watched && (
+                    {checked && (
                       <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                       </svg>
@@ -204,7 +277,7 @@ export default function WatchlistPage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-gray-500 font-mono">SN{sub.netuid}</span>
-                      <span className={`font-medium text-sm ${watched ? "text-blue-300" : "text-white"}`}>
+                      <span className={`font-medium text-sm ${checked ? "text-blue-300" : "text-white"}`}>
                         {sub.name}
                       </span>
                     </div>
