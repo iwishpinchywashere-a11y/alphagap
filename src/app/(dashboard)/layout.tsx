@@ -3,6 +3,7 @@ import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import DashboardNav from "@/components/dashboard/DashboardNav";
 import DashboardFooter from "@/components/dashboard/DashboardFooter";
 import OnboardingTour from "@/components/dashboard/OnboardingTour";
+import WatchlistOnboarding from "@/components/dashboard/WatchlistOnboarding";
 import { WatchlistProvider } from "@/components/dashboard/WatchlistProvider";
 import { NotificationProvider } from "@/components/dashboard/NotificationProvider";
 
@@ -17,6 +18,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             {children}
             <DashboardFooter />
             <OnboardingTour />
+            <WatchlistOnboarding />
           </div>
         </NotificationProvider>
       </WatchlistProvider>
