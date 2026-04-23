@@ -8,6 +8,7 @@ import SubnetDetailPanel from "@/components/dashboard/SubnetDetailPanel";
 import { signalColor, signalIcon, timeAgo, formatMcap } from "@/lib/formatters";
 import BlurGate from "@/components/BlurGate";
 import { getTier, canAccessPro } from "@/lib/subscription";
+import { useWatchlist } from "@/components/dashboard/WatchlistProvider";
 
 export default function SignalsPage() {
   const { signals, leaderboard, scanning, setSelectedSubnet } = useDashboard();
@@ -18,6 +19,8 @@ export default function SignalsPage() {
   void setSelectedSubnet;
   const [signalSort, setSignalSort] = useState<"score" | "date">("score");
   const [searchQuery, setSearchQuery] = useState("");
+  const { isWatched, watchlist } = useWatchlist();
+  const [watchlistOnly, setWatchlistOnly] = useState(false);
 
   const q = searchQuery.toLowerCase().trim();
 
@@ -54,7 +57,8 @@ export default function SignalsPage() {
   const base = signalSort === "score" ? byScore : byDate;
   const sorted = base.filter(
     (sig) => !WHALES_PAGE_TYPES.has(sig.signal_type) &&
-      (!q || (sig.subnet_name || "").toLowerCase().includes(q) || sig.title.toLowerCase().includes(q) || `sn${sig.netuid}`.includes(q))
+      (!q || (sig.subnet_name || "").toLowerCase().includes(q) || sig.title.toLowerCase().includes(q) || `sn${sig.netuid}`.includes(q)) &&
+      (!watchlistOnly || watchlist.has(sig.netuid))
   );
 
   return (
@@ -118,6 +122,19 @@ export default function SignalsPage() {
                 >
                   🕐 Latest
                 </button>
+                <button
+                  onClick={() => setWatchlistOnly(v => !v)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                    watchlistOnly
+                      ? "bg-blue-600 text-white"
+                      : "bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white"
+                  }`}
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                  </svg>
+                  My Watchlist
+                </button>
               </div>
             </div>
 
@@ -131,6 +148,7 @@ export default function SignalsPage() {
                 <React.Fragment key={`${sig.netuid}-${sig.signal_type}-${(sig.signal_date || sig.created_at || "").slice(0, 10)}`}>
                 <div
                   className={`relative bg-gray-900/50 border rounded-lg overflow-hidden transition-colors ${isLocked ? "blur-sm opacity-40 pointer-events-none select-none" : "cursor-pointer hover:border-gray-600"} ${
+                    isWatched(sig.netuid) ? "ring-1 ring-blue-500/40 bg-blue-950/15 shadow-sm shadow-blue-500/10 border-blue-500/30" :
                     sig.strength >= 80 ? "border-green-800/60 signal-hot" :
                     sig.strength >= 50 ? "border-yellow-900/40" : "border-gray-800"
                   }`}

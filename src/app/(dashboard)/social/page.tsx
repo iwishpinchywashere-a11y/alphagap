@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import BlurGate from "@/components/BlurGate";
 import { getTier } from "@/lib/subscription";
+import { useWatchlist } from "@/components/dashboard/WatchlistProvider";
 
 // ── Types ──────────────────────────────────────────────────────────
 interface HotTweet {
@@ -127,6 +128,8 @@ export default function SocialPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expandedTweet, setExpandedTweet] = useState<string | null>(null);
+  const { isWatched, watchlist } = useWatchlist();
+  const [watchlistOnly, setWatchlistOnly] = useState(false);
 
   useEffect(() => {
     fetch("/api/social")
@@ -155,8 +158,12 @@ export default function SocialPage() {
     </main>
   );
 
-  const { hotTweets, xLeaderboard, discordLeaderboard, kolRadar, lastPulse, stats } = data;
+  const { hotTweets: rawHotTweets, xLeaderboard: rawXLeaderboard, discordLeaderboard: rawDiscordLeaderboard, kolRadar, lastPulse, stats } = data;
   const pulseAge = lastPulse ? Math.floor((Date.now() - new Date(lastPulse).getTime()) / 60000) : null;
+
+  const discordLeaderboard = watchlistOnly ? rawDiscordLeaderboard.filter(d => watchlist.has(d.netuid)) : rawDiscordLeaderboard;
+  const hotTweets = watchlistOnly ? rawHotTweets.filter(t => watchlist.has(t.netuid)) : rawHotTweets;
+  const xLeaderboard = watchlistOnly ? rawXLeaderboard.filter(s => watchlist.has(s.netuid)) : rawXLeaderboard;
 
   return (
     <main className="flex-1 overflow-auto p-4 md:p-6">
@@ -171,6 +178,19 @@ export default function SocialPage() {
             </p>
           </div>
           <div className="flex items-center gap-2 text-xs">
+            <button
+              onClick={() => setWatchlistOnly(v => !v)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                watchlistOnly
+                  ? "bg-blue-600 text-white"
+                  : "bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white"
+              }`}
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+              </svg>
+              My Watchlist
+            </button>
             <span className={`px-2 py-1 rounded-full border font-medium ${pulseAge !== null && pulseAge < 15 ? "bg-green-500/10 border-green-500/30 text-green-400" : "bg-gray-800 border-gray-700 text-gray-500"}`}>
               {pulseAge !== null ? `⚡ Last pulse ${pulseAge}m ago` : "⚡ Pulse pending"}
             </span>
@@ -255,7 +275,7 @@ export default function SocialPage() {
             ) : discordLeaderboard.map((d, i) => (
               <div
                 key={d.netuid}
-                className="px-4 py-3 hover:bg-gray-800/30 transition-colors"
+                className={`px-4 py-3 hover:bg-gray-800/30 transition-colors ${isWatched(d.netuid) ? "bg-blue-950/15 ring-1 ring-blue-500/40 shadow-sm shadow-blue-500/10" : ""}`}
               >
                 <div className="flex items-start gap-3">
                   <span className="text-xs text-gray-600 w-5 text-right tabular-nums mt-0.5 shrink-0">{i + 1}</span>
@@ -419,7 +439,7 @@ export default function SocialPage() {
                     return (
                       <tr
                         key={t.tweet_id}
-                        className="border-b border-gray-800/60 hover:bg-gray-800/30 cursor-pointer transition-colors"
+                        className={`border-b border-gray-800/60 hover:bg-gray-800/30 cursor-pointer transition-colors ${isWatched(t.netuid) ? "bg-blue-950/15 ring-1 ring-blue-500/40 shadow-sm shadow-blue-500/10" : ""}`}
                         onClick={() => setExpandedTweet(isExpanded ? null : t.tweet_id)}
                       >
                         {/* Momentum Score */}
@@ -537,7 +557,7 @@ export default function SocialPage() {
             ) : xLeaderboard.map((s, i) => (
               <div
                 key={s.netuid}
-                className="px-4 py-3 flex items-center gap-3 hover:bg-gray-800/30 cursor-pointer transition-colors"
+                className={`px-4 py-3 flex items-center gap-3 hover:bg-gray-800/30 cursor-pointer transition-colors ${isWatched(s.netuid) ? "bg-blue-950/15 ring-1 ring-blue-500/40 shadow-sm shadow-blue-500/10" : ""}`}
                 onClick={() => router.push(`/subnets/${s.netuid}`)}
               >
                 <span className="text-xs text-gray-600 w-5 text-right tabular-nums">{i + 1}</span>

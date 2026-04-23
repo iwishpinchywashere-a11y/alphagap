@@ -7,6 +7,7 @@ import { useDashboard } from "@/components/dashboard/DashboardProvider";
 import type { SubnetScore } from "@/lib/types";
 import BlurGate from "@/components/BlurGate";
 import { getTier } from "@/lib/subscription";
+import { useWatchlist } from "@/components/dashboard/WatchlistProvider";
 
 // ── Formatters ────────────────────────────────────────────────────
 function fmtMcap(v: number): string {
@@ -64,6 +65,7 @@ function ScatterPlot({
   alphaX = "right", alphaY = "bottom",
   alphaLabel = "Alpha Zone 🔥",
   overLabel = "Overvalued ⚠️",
+  isWatched,
 }: {
   points: ScatterPoint[];
   title: string; subtitle: string;
@@ -74,6 +76,7 @@ function ScatterPlot({
   alphaX?: "left" | "right";
   alphaY?: "top" | "bottom";
   alphaLabel?: string; overLabel?: string;
+  isWatched?: (netuid: number) => boolean;
 }) {
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
@@ -293,19 +296,23 @@ function ScatterPlot({
         {valid.map((p, i) => {
           const px = xS(p.x); const py = yS(p.y);
           const isHovered = hoverIdx === i;
-          const col = agapColor(p.agap);
+          const watched = isWatched ? isWatched(p.netuid) : false;
+          const col = watched ? "#3b82f6" : agapColor(p.agap);
           return (
             <g key={p.netuid}>
               {isHovered && (
                 <circle cx={px} cy={py} r="10" fill={col} fillOpacity="0.2" />
+              )}
+              {watched && !isHovered && (
+                <circle cx={px} cy={py} r="7" fill="none" stroke="#3b82f6" strokeWidth="1.5" strokeOpacity="0.5" />
               )}
               <circle
                 cx={px} cy={py}
                 r={isHovered ? 6 : 4.5}
                 fill={col}
                 fillOpacity={isHovered ? 1 : 0.85}
-                stroke={isHovered ? "#fff" : "#0a0a0f"}
-                strokeWidth={isHovered ? 1.5 : 0.8}
+                stroke={isHovered ? "#fff" : watched ? "#3b82f6" : "#0a0a0f"}
+                strokeWidth={isHovered ? 1.5 : watched ? 1.5 : 0.8}
               />
             </g>
           );
@@ -342,16 +349,23 @@ function Top10List({
   points,
   scoreLabel,
   ratioLabel,
+  watchlistOnly = false,
+  isWatched,
+  watchlist,
 }: {
   points: ScatterPoint[];
   scoreLabel: string;
   ratioLabel: string;
+  watchlistOnly?: boolean;
+  isWatched?: (netuid: number) => boolean;
+  watchlist?: Set<number>;
 }) {
   const router = useRouter();
   const valid = points.filter(p => p.x > 0 && p.y > 1e6 && isFinite(p.x) && isFinite(p.y));
   const ranked = [...valid]
     .map(p => ({ ...p, ratio: p.x / Math.log10(p.y) }))
     .sort((a, b) => b.ratio - a.ratio)
+    .filter(p => !watchlistOnly || (watchlist && watchlist.has(p.netuid)))
     .slice(0, 10);
 
   if (ranked.length === 0) return null;
@@ -368,7 +382,7 @@ function Top10List({
         {ranked.map((p, i) => (
           <div
             key={p.netuid}
-            className="flex items-center gap-3 cursor-pointer hover:bg-gray-800/40 rounded-lg px-2 py-1.5 transition-colors group"
+            className={`flex items-center gap-3 cursor-pointer hover:bg-gray-800/40 rounded-lg px-2 py-1.5 transition-colors group ${isWatched && isWatched(p.netuid) ? "bg-blue-950/15 ring-1 ring-blue-500/30" : ""}`}
             onClick={() => router.push(`/subnets/${p.netuid}`)}
           >
             {/* Rank */}
@@ -427,6 +441,8 @@ export default function AnalyticsPage() {
   const { leaderboard, scanning } = useDashboard();
   const { data: session } = useSession();
   const tier = getTier(session);
+  const { isWatched, watchlist } = useWatchlist();
+  const [watchlistOnly, setWatchlistOnly] = useState(false);
 
   if (scanning && leaderboard.length === 0) {
     return (
@@ -467,12 +483,27 @@ export default function AnalyticsPage() {
       <div className="max-w-screen-xl mx-auto space-y-6">
 
         {/* Header */}
-        <div>
-          <h1 className="text-xl font-bold text-white">Analytics</h1>
-          <p className="text-sm text-gray-500 mt-1">
-            Scatter plots across all {n} subnets. <span className="text-green-400">Bottom-right quadrant</span> = the alpha zone — high activity, low valuation.
-            Click any dot to open the subnet.
-          </p>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h1 className="text-xl font-bold text-white">Analytics</h1>
+            <p className="text-sm text-gray-500 mt-1">
+              Scatter plots across all {n} subnets. <span className="text-green-400">Bottom-right quadrant</span> = the alpha zone — high activity, low valuation.
+              Click any dot to open the subnet.
+            </p>
+          </div>
+          <button
+            onClick={() => setWatchlistOnly(v => !v)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+              watchlistOnly
+                ? "bg-blue-600 text-white"
+                : "bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white"
+            }`}
+          >
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+            </svg>
+            My Watchlist
+          </button>
         </div>
 
         {/* Chart 1: aGap Score vs Market Cap — SIGNATURE */}
@@ -494,8 +525,9 @@ export default function AnalyticsPage() {
               alphaX="right" alphaY="bottom"
               alphaLabel="Alpha 🔥"
               overLabel="Priced In ⚠️"
+              isWatched={isWatched}
             />
-            <Top10List points={agapVsMcap} scoreLabel="aGap Score" ratioLabel="aGap Value per $ MCap" />
+            <Top10List points={agapVsMcap} scoreLabel="aGap Score" ratioLabel="aGap Value per $ MCap" watchlistOnly={watchlistOnly} isWatched={isWatched} watchlist={watchlist} />
           </BlurGate>
         </div>
 
@@ -515,8 +547,9 @@ export default function AnalyticsPage() {
               alphaX="right" alphaY="bottom"
               alphaLabel="High Dev, Low Cap 🔥"
               overLabel="Overhyped ⚠️"
+              isWatched={isWatched}
             />
-            <Top10List points={devVsMcap} scoreLabel="Dev Score" ratioLabel="Dev Activity per $ MCap" />
+            <Top10List points={devVsMcap} scoreLabel="Dev Score" ratioLabel="Dev Activity per $ MCap" watchlistOnly={watchlistOnly} isWatched={isWatched} watchlist={watchlist} />
           </BlurGate>
         </div>
 
@@ -535,8 +568,9 @@ export default function AnalyticsPage() {
               alphaX="right" alphaY="bottom"
               alphaLabel="Undervalued 🔥"
               overLabel="Overvalued ⚠️"
+              isWatched={isWatched}
             />
-            <Top10List points={emVsMcap} scoreLabel="Emission %" ratioLabel="Emission Yield per $ MCap" />
+            <Top10List points={emVsMcap} scoreLabel="Emission %" ratioLabel="Emission Yield per $ MCap" watchlistOnly={watchlistOnly} isWatched={isWatched} watchlist={watchlist} />
           </BlurGate>
         </div>
 
@@ -556,8 +590,9 @@ export default function AnalyticsPage() {
               alphaX="right" alphaY="bottom"
               alphaLabel="Hidden Gem 🔥"
               overLabel="Overhyped ⚠️"
+              isWatched={isWatched}
             />
-            <Top10List points={socialVsMcap} scoreLabel="Social Score" ratioLabel="Social Buzz per $ MCap" />
+            <Top10List points={socialVsMcap} scoreLabel="Social Score" ratioLabel="Social Buzz per $ MCap" watchlistOnly={watchlistOnly} isWatched={isWatched} watchlist={watchlist} />
           </BlurGate>
         </div>
 

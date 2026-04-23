@@ -9,6 +9,7 @@ import { formatNum } from "@/lib/formatters";
 import type { SubnetScore } from "@/lib/types";
 import BlurGate from "@/components/BlurGate";
 import { getTier } from "@/lib/subscription";
+import { useWatchlist } from "@/components/dashboard/WatchlistProvider";
 
 type FilterType = "all" | "accumulating" | "distributing" | "volume" | "flow";
 
@@ -60,6 +61,8 @@ export default function WhalesPage() {
   const tier = getTier(session);
   const [filter, setFilter] = useState<FilterType>("all");
   const [sortBy, setSortBy] = useState<"strength" | "flow" | "volume">("strength");
+  const { isWatched, watchlist } = useWatchlist();
+  const [watchlistOnly, setWatchlistOnly] = useState(false);
 
   const events = useMemo<WhaleEvent[]>(() => {
     const out: WhaleEvent[] = [];
@@ -233,6 +236,8 @@ export default function WhalesPage() {
     });
   }, [leaderboard, signals, taoPrice, filter, sortBy]);
 
+  const visibleEvents = watchlistOnly ? events.filter(ev => watchlist.has(ev.netuid)) : events;
+
   // Summary stats
   const stats = useMemo(() => {
     const accumCount = leaderboard.filter(s => s.whale_signal === "accumulating").length;
@@ -310,6 +315,19 @@ export default function WhalesPage() {
               {f.label}{f.count != null ? ` · ${f.count}` : ""}
             </button>
           ))}
+          <button
+            onClick={() => setWatchlistOnly(v => !v)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+              watchlistOnly
+                ? "bg-blue-600 text-white"
+                : "bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white"
+            }`}
+          >
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+            </svg>
+            My Watchlist
+          </button>
         </div>
         <div className="flex items-center gap-2">
           <span className="text-xs text-gray-600">Sort:</span>
@@ -330,7 +348,7 @@ export default function WhalesPage() {
       </div>
 
       {/* Event feed */}
-      {events.length === 0 ? (
+      {visibleEvents.length === 0 ? (
         <div className="flex flex-col items-center justify-center h-64 text-center">
           <div className="text-4xl mb-3">🌊</div>
           <p className="text-gray-500 text-sm">No whale activity detected right now.</p>
@@ -340,20 +358,22 @@ export default function WhalesPage() {
         <div className="flex flex-col gap-2">
           {/* First entry always visible */}
           <WhaleCard
-            key={`${events[0].netuid}-${events[0].type}-0`}
-            event={events[0]}
+            key={`${visibleEvents[0].netuid}-${visibleEvents[0].type}-0`}
+            event={visibleEvents[0]}
             taoPrice={taoPrice}
-            onClick={() => router.push(`/subnets/${events[0].netuid}`)}
+            watched={isWatched(visibleEvents[0].netuid)}
+            onClick={() => router.push(`/subnets/${visibleEvents[0].netuid}`)}
           />
           {/* Rest locked behind BlurGate */}
-          {events.length > 1 && (
+          {visibleEvents.length > 1 && (
             <BlurGate tier={tier} required="premium" minHeight="300px">
               <div className="flex flex-col gap-2">
-                {events.slice(1).map((ev, i) => (
+                {visibleEvents.slice(1).map((ev, i) => (
                   <WhaleCard
                     key={`${ev.netuid}-${ev.type}-${i + 1}`}
                     event={ev}
                     taoPrice={taoPrice}
+                    watched={isWatched(ev.netuid)}
                     onClick={() => router.push(`/subnets/${ev.netuid}`)}
                   />
                 ))}
@@ -369,10 +389,12 @@ export default function WhalesPage() {
 function WhaleCard({
   event: ev,
   taoPrice,
+  watched = false,
   onClick,
 }: {
   event: WhaleEvent;
   taoPrice: number | null;
+  watched?: boolean;
   onClick: () => void;
 }) {
   const isPositive = ev.type === "accumulating" || ev.type === "volume_surge" || ev.type === "flow_inflection" || ev.type === "flow_spike";
@@ -389,7 +411,7 @@ function WhaleCard({
   return (
     <div
       onClick={onClick}
-      className={`relative group cursor-pointer border ${borderColor} rounded-xl bg-gray-900/60 hover:bg-gray-900/90 transition-all px-4 py-3.5 overflow-hidden`}
+      className={`relative group cursor-pointer border ${borderColor} rounded-xl bg-gray-900/60 hover:bg-gray-900/90 transition-all px-4 py-3.5 overflow-hidden ${watched ? "ring-1 ring-blue-500/40 bg-blue-950/15 shadow-sm shadow-blue-500/10 border-blue-500/30" : ""}`}
     >
       {/* Subtle left accent */}
       <div className={`absolute left-0 top-0 bottom-0 w-0.5 rounded-l-xl ${

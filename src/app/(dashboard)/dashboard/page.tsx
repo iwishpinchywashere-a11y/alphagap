@@ -9,6 +9,7 @@ import SubnetLogo from "@/components/dashboard/SubnetLogo";
 import { scoreColor, flowColor, formatNum } from "@/lib/formatters";
 import { getTier, canAccessPro, canAccessPremium } from "@/lib/subscription";
 import type { SubnetScore } from "@/lib/types";
+import { useWatchlist } from "@/components/dashboard/WatchlistProvider";
 
 
 const COLUMNS: [keyof SubnetScore, string, string][] = [
@@ -99,6 +100,8 @@ export default function LeaderboardPage() {
   const [timeHorizon, setTimeHorizon] = useState<"trading" | "investing">("trading");
   const [showInvestingGate, setShowInvestingGate] = useState(false);
   const isPremium = canAccessPremium(tier);
+  const { isWatched, watchlist } = useWatchlist();
+  const [watchlistOnly, setWatchlistOnly] = useState(false);
 
   // Sticky header: show a fixed clone of the thead once the real one scrolls off screen
   const theadRef = useRef<HTMLTableSectionElement>(null);
@@ -178,6 +181,7 @@ export default function LeaderboardPage() {
     .filter((sub) => !filterHighConviction || (sub.emission_trend === "up" && sub.whale_signal === "accumulating" && (sub.dev_score ?? 0) >= 40))
     .filter((sub) => !filterVolumeSurge || sub.volume_surge === true)
     .filter((sub) => !filterCategory || sub.category === filterCategory)
+    .filter((sub) => !watchlistOnly || watchlist.has(sub.netuid))
     .sort((a, b) => {
       // In investing mode, sort the aGap column by invest_agap instead of composite_score
       const av = (sortCol === "composite_score" && timeHorizon === "investing")
@@ -414,6 +418,21 @@ export default function LeaderboardPage() {
                   </div>
                 );
               })()}
+
+              {/* Watchlist filter button */}
+              <button
+                onClick={() => setWatchlistOnly(v => !v)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                  watchlistOnly
+                    ? "bg-blue-600 text-white"
+                    : "bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white"
+                }`}
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                </svg>
+                My Watchlist
+              </button>
             </div>
 
             {/* Mobile-only sticky CTA — sits above the horizontally-scrolling table */}
@@ -525,7 +544,7 @@ export default function LeaderboardPage() {
                           : i % 2 === 0
                           ? "border-gray-800/40 bg-gray-900/30 hover:bg-gray-800/50"
                           : "border-gray-800/40 hover:bg-gray-800/50"
-                      }`}
+                      } ${isWatched(sub.netuid) ? "ring-1 ring-blue-500/40 bg-blue-950/15 shadow-sm shadow-blue-500/10" : ""}`}
                       style={isLocked ? { filter: "blur(3px)" } : undefined}
                       onClick={() => !isLocked && router.push(`/subnets/${sub.netuid}`)}
                     >
