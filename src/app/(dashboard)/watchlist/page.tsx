@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useDashboard } from "@/components/dashboard/DashboardProvider";
 import { useWatchlist } from "@/components/dashboard/WatchlistProvider";
 import { getTier, canAccessPro } from "@/lib/subscription";
+import SubnetLogo from "@/components/dashboard/SubnetLogo";
 import Link from "next/link";
 
 function ScoreRing({ score }: { score: number }) {
@@ -123,13 +124,7 @@ export default function WatchlistPage() {
                   key={sub.netuid}
                   className="flex items-center gap-3 bg-blue-950/20 border border-blue-500/30 rounded-xl px-4 py-3 ring-1 ring-blue-500/20 shadow-sm shadow-blue-500/10"
                 >
-                  {sub.image_url ? (
-                    <img src={sub.image_url} alt={sub.name} className="w-8 h-8 rounded-full object-cover flex-shrink-0" />
-                  ) : (
-                    <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center flex-shrink-0 text-xs font-bold text-gray-300">
-                      {sub.netuid}
-                    </div>
-                  )}
+                  <SubnetLogo netuid={sub.netuid} name={sub.name} size={32} />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-gray-500 font-mono">SN{sub.netuid}</span>
@@ -140,9 +135,6 @@ export default function WatchlistPage() {
                         {sub.name}
                       </span>
                     </div>
-                    {sub.description && (
-                      <p className="text-xs text-gray-500 truncate mt-0.5">{sub.description}</p>
-                    )}
                   </div>
                   <ScoreRing score={sub.composite_score} />
                   <button
@@ -207,13 +199,7 @@ export default function WatchlistPage() {
                     )}
                   </div>
 
-                  {sub.image_url ? (
-                    <img src={sub.image_url} alt={sub.name} className="w-7 h-7 rounded-full object-cover flex-shrink-0" />
-                  ) : (
-                    <div className="w-7 h-7 rounded-full bg-gray-700 flex items-center justify-center flex-shrink-0 text-xs font-bold text-gray-400">
-                      {sub.netuid}
-                    </div>
-                  )}
+                  <SubnetLogo netuid={sub.netuid} name={sub.name} size={28} />
 
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
