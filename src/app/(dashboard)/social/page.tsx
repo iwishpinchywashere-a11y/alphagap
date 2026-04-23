@@ -178,19 +178,6 @@ export default function SocialPage() {
             </p>
           </div>
           <div className="flex items-center gap-2 text-xs">
-            <button
-              onClick={() => setWatchlistOnly(v => !v)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                watchlistOnly
-                  ? "bg-blue-600 text-white"
-                  : "bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white"
-              }`}
-            >
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
-              </svg>
-              My Watchlist
-            </button>
             <span className={`px-2 py-1 rounded-full border font-medium ${pulseAge !== null && pulseAge < 15 ? "bg-green-500/10 border-green-500/30 text-green-400" : "bg-gray-800 border-gray-700 text-gray-500"}`}>
               {pulseAge !== null ? `⚡ Last pulse ${pulseAge}m ago` : "⚡ Pulse pending"}
             </span>
@@ -215,6 +202,19 @@ export default function SocialPage() {
               {label}
             </button>
           ))}
+          <button
+            onClick={() => setWatchlistOnly(v => !v)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border ${
+              watchlistOnly
+                ? "bg-blue-600 border-blue-500 text-white"
+                : "bg-gray-900/60 border-gray-700 text-gray-400 hover:border-gray-500 hover:text-white"
+            }`}
+          >
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+            </svg>
+            My Watchlist
+          </button>
         </div>
 
         {/* ── Stats Bar ── */}
