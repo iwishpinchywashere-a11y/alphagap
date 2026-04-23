@@ -97,8 +97,8 @@ export default function DashboardHeader() {
             <span className="text-xs text-green-400 animate-pulse hidden sm:inline">Refreshing…</span>
           )}
 
-          {/* Notification bell — only for logged-in users */}
-          {session && <NotificationBell />}
+          {/* Notification bell */}
+          <NotificationBell />
 
           {/* User avatar button */}
           <button
