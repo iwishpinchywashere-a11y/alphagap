@@ -544,7 +544,7 @@ export default function LeaderboardPage() {
                           : i % 2 === 0
                           ? "border-gray-800/40 bg-gray-900/30 hover:bg-gray-800/50"
                           : "border-gray-800/40 hover:bg-gray-800/50"
-                      } ${isWatched(sub.netuid) ? "ring-1 ring-blue-500/40 bg-blue-950/15 shadow-sm shadow-blue-500/10" : ""}`}
+                      } ${isWatched(sub.netuid) ? "ring-2 ring-blue-400/60 bg-blue-950/40 shadow-lg shadow-blue-500/30 border-l-2 border-l-blue-400" : ""}`}
                       style={isLocked ? { filter: "blur(3px)" } : undefined}
                       onClick={() => !isLocked && router.push(`/subnets/${sub.netuid}`)}
                     >

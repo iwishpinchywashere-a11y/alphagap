@@ -148,7 +148,7 @@ export default function SignalsPage() {
                 <React.Fragment key={`${sig.netuid}-${sig.signal_type}-${(sig.signal_date || sig.created_at || "").slice(0, 10)}`}>
                 <div
                   className={`relative bg-gray-900/50 border rounded-lg overflow-hidden transition-colors ${isLocked ? "blur-sm opacity-40 pointer-events-none select-none" : "cursor-pointer hover:border-gray-600"} ${
-                    isWatched(sig.netuid) ? "ring-1 ring-blue-500/40 bg-blue-950/15 shadow-sm shadow-blue-500/10 border-blue-500/30" :
+                    isWatched(sig.netuid) ? "ring-2 ring-blue-400/60 bg-blue-950/40 shadow-lg shadow-blue-500/30 border-blue-400/70" :
                     sig.strength >= 80 ? "border-green-800/60 signal-hot" :
                     sig.strength >= 50 ? "border-yellow-900/40" : "border-gray-800"
                   }`}

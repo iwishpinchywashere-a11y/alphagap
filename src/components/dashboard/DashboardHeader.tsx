@@ -4,6 +4,7 @@ import { useRef, useState, useEffect, useCallback } from "react";
 import { useSession, signOut } from "next-auth/react";
 import Link from "next/link";
 import { useDashboard } from "./DashboardProvider";
+import NotificationBell from "./NotificationBell";
 
 interface DropdownPos { top: number; right: number }
 
@@ -95,6 +96,9 @@ export default function DashboardHeader() {
           {scanning && (
             <span className="text-xs text-green-400 animate-pulse hidden sm:inline">Refreshing…</span>
           )}
+
+          {/* Notification bell — only for logged-in users */}
+          {session && <NotificationBell />}
 
           {/* User avatar button */}
           <button

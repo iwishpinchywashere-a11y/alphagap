@@ -275,7 +275,7 @@ export default function SocialPage() {
             ) : discordLeaderboard.map((d, i) => (
               <div
                 key={d.netuid}
-                className={`px-4 py-3 hover:bg-gray-800/30 transition-colors ${isWatched(d.netuid) ? "bg-blue-950/15 ring-1 ring-blue-500/40 shadow-sm shadow-blue-500/10" : ""}`}
+                className={`px-4 py-3 hover:bg-gray-800/30 transition-colors ${isWatched(d.netuid) ? "bg-blue-950/40 ring-2 ring-blue-400/60 shadow-lg shadow-blue-500/30" : ""}`}
               >
                 <div className="flex items-start gap-3">
                   <span className="text-xs text-gray-600 w-5 text-right tabular-nums mt-0.5 shrink-0">{i + 1}</span>
@@ -439,7 +439,7 @@ export default function SocialPage() {
                     return (
                       <tr
                         key={t.tweet_id}
-                        className={`border-b border-gray-800/60 hover:bg-gray-800/30 cursor-pointer transition-colors ${isWatched(t.netuid) ? "bg-blue-950/15 ring-1 ring-blue-500/40 shadow-sm shadow-blue-500/10" : ""}`}
+                        className={`border-b border-gray-800/60 hover:bg-gray-800/30 cursor-pointer transition-colors ${isWatched(t.netuid) ? "bg-blue-950/40 ring-2 ring-blue-400/60 shadow-lg shadow-blue-500/30" : ""}`}
                         onClick={() => setExpandedTweet(isExpanded ? null : t.tweet_id)}
                       >
                         {/* Momentum Score */}
@@ -557,7 +557,7 @@ export default function SocialPage() {
             ) : xLeaderboard.map((s, i) => (
               <div
                 key={s.netuid}
-                className={`px-4 py-3 flex items-center gap-3 hover:bg-gray-800/30 cursor-pointer transition-colors ${isWatched(s.netuid) ? "bg-blue-950/15 ring-1 ring-blue-500/40 shadow-sm shadow-blue-500/10" : ""}`}
+                className={`px-4 py-3 flex items-center gap-3 hover:bg-gray-800/30 cursor-pointer transition-colors ${isWatched(s.netuid) ? "bg-blue-950/40 ring-2 ring-blue-400/60 shadow-lg shadow-blue-500/30" : ""}`}
                 onClick={() => router.push(`/subnets/${s.netuid}`)}
               >
                 <span className="text-xs text-gray-600 w-5 text-right tabular-nums">{i + 1}</span>

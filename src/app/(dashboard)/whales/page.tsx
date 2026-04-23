@@ -411,7 +411,7 @@ function WhaleCard({
   return (
     <div
       onClick={onClick}
-      className={`relative group cursor-pointer border ${borderColor} rounded-xl bg-gray-900/60 hover:bg-gray-900/90 transition-all px-4 py-3.5 overflow-hidden ${watched ? "ring-1 ring-blue-500/40 bg-blue-950/15 shadow-sm shadow-blue-500/10 border-blue-500/30" : ""}`}
+      className={`relative group cursor-pointer border ${borderColor} rounded-xl bg-gray-900/60 hover:bg-gray-900/90 transition-all px-4 py-3.5 overflow-hidden ${watched ? "ring-2 ring-blue-400/60 bg-blue-950/40 shadow-lg shadow-blue-500/30 border-blue-400/70" : ""}`}
     >
       {/* Subtle left accent */}
       <div className={`absolute left-0 top-0 bottom-0 w-0.5 rounded-l-xl ${

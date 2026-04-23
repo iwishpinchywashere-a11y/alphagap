@@ -181,7 +181,7 @@ export default function ReportsPage() {
           const dateLabel = new Date(r.date + "T12:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" });
           const isWatchedReport = r.netuid != null && isWatched(r.netuid);
           return (
-            <div key={r.date} className={`bg-gray-900/50 border rounded-lg overflow-hidden ${isWatchedReport ? "border-blue-500/30 ring-1 ring-blue-500/40 bg-blue-950/15 shadow-sm shadow-blue-500/10" : "border-gray-800"}`}>
+            <div key={r.date} className={`bg-gray-900/50 border rounded-lg overflow-hidden ${isWatchedReport ? "border-blue-400/70 ring-2 ring-blue-400/60 bg-blue-950/40 shadow-lg shadow-blue-500/30" : "border-gray-800"}`}>
               <button
                 className="w-full flex items-start sm:items-center justify-between px-4 sm:px-5 py-3 hover:bg-gray-800/40 transition-colors text-left gap-2"
                 onClick={() => isExpanded ? setCurrentReport(null) : loadReport(r.date)}
@@ -223,7 +223,7 @@ export default function ReportsPage() {
                 const dateLabel = new Date(r.date + "T12:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" });
                 const isWatchedReport = r.netuid != null && isWatched(r.netuid);
                 return (
-                  <div key={r.date} className={`bg-gray-900/50 border rounded-lg overflow-hidden ${isWatchedReport ? "border-blue-500/30 ring-1 ring-blue-500/40 bg-blue-950/15 shadow-sm shadow-blue-500/10" : "border-gray-800"}`}>
+                  <div key={r.date} className={`bg-gray-900/50 border rounded-lg overflow-hidden ${isWatchedReport ? "border-blue-400/70 ring-2 ring-blue-400/60 bg-blue-950/40 shadow-lg shadow-blue-500/30" : "border-gray-800"}`}>
                     <button
                       className="w-full flex items-start sm:items-center justify-between px-4 sm:px-5 py-3 hover:bg-gray-800/40 transition-colors text-left gap-2"
                       onClick={() => isExpanded ? setCurrentReport(null) : loadReport(r.date)}
