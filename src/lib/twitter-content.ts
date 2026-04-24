@@ -164,6 +164,8 @@ Hard rules:
 - Plain English only — explain what the numbers actually mean, don't just list them.
 - No trading advice, no "buy signals", no "smart money".
 - Always use at least 2 emojis total (headline + anywhere in the body).
+- NEVER write about bugs, errors, crashes, outages, downtime, fixes, patches, or any negative technical incidents. If the data only contains negative content, write about a different positive angle entirely.
+- Always write complete sentences — never end mid-sentence or trail off. Finish your thought before the character limit.
 
 Good example:
 🔍 Desearch (SN22) — on-chain traffic just spiked hard
@@ -199,7 +201,7 @@ async function writeTweet(prompt: string): Promise<string[]> {
       },
       body: JSON.stringify({
         model: "claude-haiku-4-5-20251001",
-        max_tokens: 200,           // enough for 3-line format, prevents over-generation
+        max_tokens: 350,           // enough for full 3-line format without mid-sentence cutoff
         system: TWEET_SYSTEM,
         messages: [{ role: "user", content: prompt }],
       }),
@@ -222,10 +224,15 @@ async function writeTweet(prompt: string): Promise<string[]> {
 
     if (!body) return [];
 
-    // Hard-truncate body if somehow still too long
-    const safeBody = body.length > MAX_BODY
-      ? body.slice(0, MAX_BODY - 1).trimEnd() + "…"
-      : body;
+    // Safety truncation: if body is still too long, trim at the last sentence boundary.
+    // Never add "…" mid-sentence — drop the incomplete sentence entirely instead.
+    let safeBody = body;
+    if (body.length > MAX_BODY) {
+      const trimmed = body.slice(0, MAX_BODY).trimEnd();
+      // Find the last sentence-ending punctuation so we don't cut mid-sentence
+      const lastEnd = Math.max(trimmed.lastIndexOf(". "), trimmed.lastIndexOf("! "), trimmed.lastIndexOf("? "), trimmed.lastIndexOf(".\n"), trimmed.lastIndexOf("!\n"), trimmed.lastIndexOf("?\n"));
+      safeBody = lastEnd > MAX_BODY / 2 ? trimmed.slice(0, lastEnd + 1).trimEnd() : trimmed;
+    }
 
     const tweet = safeBody + FOOTER;
 
@@ -342,8 +349,34 @@ ${angle}`;
 
 // ── 4. Discord Alpha (/social) ────────────────────────────────────
 
+// Keywords that indicate negative content we should never tweet about
+const NEGATIVE_KEYWORDS = [
+  "bug", "bugs", "error", "errors", "crash", "crashes", "outage", "down", "downtime",
+  "broken", "fix", "fixes", "fixed", "fixing", "patch", "patches", "issue", "issues",
+  "problem", "problems", "failure", "failed", "fail", "incident", "exploit", "vulnerability",
+  "hack", "hacked", "scam", "rug", "rugpull", "negative", "concern", "warning",
+];
+
+function isNegativeInsight(text: string): boolean {
+  const lower = text.toLowerCase();
+  return NEGATIVE_KEYWORDS.some(kw => {
+    // Match whole-word only so "fixed" doesn't flag "prefix"
+    const re = new RegExp(`\\b${kw}\\b`);
+    return re.test(lower);
+  });
+}
+
 export async function generateDiscordAlpha(entry: DiscordEntry): Promise<TweetPost | null> {
-  const insights = entry.keyInsights.slice(0, 3).join("\n- ");
+  // Filter out any insights that mention bugs, errors, or other negative content
+  const positiveInsights = entry.keyInsights.filter(i => !isNegativeInsight(i));
+
+  // Need at least 1 positive insight to write about — skip entirely if all are negative
+  if (positiveInsights.length === 0) {
+    console.log(`[twitter-bot] generateDiscordAlpha: skipping ${entry.subnetName} — all insights are negative`);
+    return null;
+  }
+
+  const insights = positiveInsights.slice(0, 3).join("\n- ");
 
   const prompt = `${entry.subnetName}${entry.netuid ? ` (SN${entry.netuid})` : ""} Discord is very active (score ${entry.alphaScore ?? "?"}/100). Key topics: ${insights}.
 
