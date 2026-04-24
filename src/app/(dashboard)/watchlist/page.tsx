@@ -45,12 +45,21 @@ export default function WatchlistPage() {
   const [search, setSearch] = useState("");
   const [saving, setSaving] = useState(false);
   const [savedFlash, setSavedFlash] = useState(false);
+  // Track whether we've received the first server load and whether user has touched anything
   const initialised = useRef(false);
+  const userEdited = useRef(false);
 
-  // Initialise pending from the loaded watchlist (once)
+  // Sync pending from server watchlist:
+  //  - always on first load
+  //  - on subsequent refreshes (visibility change / cross-device) only if user hasn't made local edits
   useEffect(() => {
-    if (!loading && !initialised.current) {
+    if (loading) return;
+    if (!initialised.current) {
       initialised.current = true;
+      userEdited.current = false;
+      setPending(new Set(watchlist));
+    } else if (!userEdited.current) {
+      // Server-side refresh (e.g. visibility change refetch) — safe to update
       setPending(new Set(watchlist));
     }
   }, [loading, watchlist]);
@@ -61,7 +70,21 @@ export default function WatchlistPage() {
     return false;
   }, [pending, watchlist]);
 
+  const q = search.toLowerCase().trim();
+  const allSubnets = useMemo(
+    () =>
+      leaderboard.filter(
+        (s) =>
+          !q ||
+          s.name.toLowerCase().includes(q) ||
+          `sn${s.netuid}`.includes(q) ||
+          `${s.netuid}`.includes(q)
+      ),
+    [leaderboard, q]
+  );
+
   function togglePending(netuid: number) {
+    userEdited.current = true;
     setPending((prev) => {
       const next = new Set(prev);
       if (next.has(netuid)) next.delete(netuid);
@@ -80,12 +103,10 @@ export default function WatchlistPage() {
       });
       const d = await res.json();
       if (Array.isArray(d.netuids)) {
-        // Sync pending to what server confirmed
+        // Sync pending to what server confirmed, clear dirty flag
+        userEdited.current = false;
         setPending(new Set(d.netuids));
-        // Update the global watchlist context
-        // We force-refresh by reloading the watchlist from the provider
-        // The provider will pick up via the next GET call; we signal it by
-        // dispatching a custom event the provider can listen to.
+        // Signal the global WatchlistProvider to update its copy
         window.dispatchEvent(new CustomEvent("watchlist-saved", { detail: d.netuids }));
       }
       setSavedFlash(true);
@@ -130,19 +151,6 @@ export default function WatchlistPage() {
 
   // "Watching" section reflects pending so the X button feels instant
   const watchedSubnets = leaderboard.filter((s) => pending.has(s.netuid));
-
-  const q = search.toLowerCase().trim();
-  const allSubnets = useMemo(
-    () =>
-      leaderboard.filter(
-        (s) =>
-          !q ||
-          s.name.toLowerCase().includes(q) ||
-          `sn${s.netuid}`.includes(q) ||
-          `${s.netuid}`.includes(q)
-      ),
-    [leaderboard, q]
-  );
 
   return (
     <main className="flex-1 overflow-auto p-4 md:p-6">

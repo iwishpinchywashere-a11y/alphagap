@@ -30,6 +30,16 @@ export function WatchlistProvider({ children }: { children: ReactNode }) {
   const [watchlist, setWatchlist] = useState<Set<number>>(new Set());
   const [loading, setLoading] = useState(false);
 
+  const fetchWatchlist = useCallback(() => {
+    if (!isPro) return;
+    fetch("/api/watchlist")
+      .then((r) => r.json())
+      .then((d) => {
+        if (Array.isArray(d.netuids)) setWatchlist(new Set(d.netuids));
+      })
+      .catch(() => {});
+  }, [isPro]);
+
   // Fetch watchlist on mount if user is pro/premium
   useEffect(() => {
     if (!isPro) return;
@@ -42,6 +52,15 @@ export function WatchlistProvider({ children }: { children: ReactNode }) {
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [isPro]);
+
+  // Re-fetch whenever the tab becomes visible — picks up changes made on other devices
+  useEffect(() => {
+    function onVisibilityChange() {
+      if (document.visibilityState === "visible") fetchWatchlist();
+    }
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", onVisibilityChange);
+  }, [fetchWatchlist]);
 
   // Listen for save events from the watchlist page
   useEffect(() => {
