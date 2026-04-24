@@ -26,6 +26,7 @@ interface DiscordEntry {
   alphaScore: number;
   alphaTypes?: string[];
   summary: string; keyInsights: string[];
+  alphaTake?: string;
   messageCount: number; uniquePosters: number; scannedAt: string; lastActivityAt?: string;
   composite_score: number | null; social_score: number | null;
   releaseHint?: boolean;
@@ -259,6 +260,12 @@ export default function SocialPage() {
                         ))}
                       </ul>
                     )}
+                    {d.alphaTake && (
+                      <div className="mt-2 flex items-start gap-1.5 bg-gray-800/50 rounded-lg px-3 py-2">
+                        <span className="text-yellow-400 text-xs font-bold shrink-0 mt-0.5">AlphaGap Take:</span>
+                        <p className="text-xs text-gray-300 leading-relaxed">{d.alphaTake}</p>
+                      </div>
+                    )}
                   </div>
                   <div className="text-right shrink-0 min-w-[48px]">
                     <div className={`text-lg font-bold tabular-nums leading-none ${(d.alphaScore ?? 0) >= 70 ? "text-green-400" : (d.alphaScore ?? 0) >= 45 ? "text-yellow-400" : "text-orange-400"}`}>{d.alphaScore ?? "—"}</div>
@@ -325,6 +332,12 @@ export default function SocialPage() {
                           </li>
                         ))}
                       </ul>
+                    )}
+                    {d.alphaTake && (
+                      <div className="mt-2 flex items-start gap-1.5 bg-gray-800/50 rounded-lg px-3 py-2">
+                        <span className="text-yellow-400 text-xs font-bold shrink-0 mt-0.5">AlphaGap Take:</span>
+                        <p className="text-xs text-gray-300 leading-relaxed">{d.alphaTake}</p>
+                      </div>
                     )}
                   </div>
 

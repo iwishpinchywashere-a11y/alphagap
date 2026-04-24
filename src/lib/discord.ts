@@ -41,6 +41,7 @@ export interface DiscordAlphaResult {
   alphaTypes?: string[];   // e.g. ["partnership", "feature", "launch"]
   summary: string;
   keyInsights: string[];
+  alphaTake?: string;  // plain-English investor take: actionable or noise?
   messageCount: number;
   uniquePosters: number;
   scannedAt: string;

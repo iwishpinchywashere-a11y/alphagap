@@ -356,7 +356,8 @@ Respond with a JSON array — one object per channel IN THE SAME ORDER:
     "summary": "One punchy, specific sentence. Name the actual feature/partner/activity — not 'community discussing updates' but 'Team announcing integration with Targon (SN4) for compute routing, going live next week'.",
     "keyInsights": [
       { "text": "Specific insight here — name features, people, dates, partner names", "type": "partnership" }
-    ]
+    ],
+    "alphaTake": "1-2 plain English sentences written for a non-technical investor. Say clearly whether this is actionable or just noise. Example for alpha: 'The team is about to launch a major integration — this could move the price before the rest of the market notices. Worth acting on.' Example for active: 'The community is healthy and the devs are shipping, but nothing market-moving just yet. Keep it on your radar.' Example for quiet/noise: 'Just routine chatter — nothing to act on here.'"
   }
 ]
 
@@ -401,6 +402,7 @@ Rules:
       releaseHint?: boolean;
       summary: string;
       keyInsights: Array<{ text: string; type: string } | string>;
+      alphaTake?: string;
     }> = JSON.parse(jsonText);
 
     return channels.map((ch, idx) => {
@@ -439,6 +441,7 @@ Rules:
         releaseHint: ai.releaseHint === true,
         summary: ai.summary,
         keyInsights,
+        alphaTake: ai.alphaTake || undefined,
         messageCount: ch.messages.length,
         uniquePosters,
         scannedAt: new Date().toISOString(),
