@@ -469,10 +469,13 @@ export async function GET() {
   // Subnets where the on-chain identity registry has no entry or the wrong repo.
   // Values here take precedence over what taostats returns.
   const GITHUB_REPO_OVERRIDES: Record<number, string> = {
-    70:  "https://github.com/RendixNetwork/nexisgen",   // NexisGen — missing from registry
-    87:  "https://github.com/luminar-network/luminar-sn", // Luminar Network — missing from registry
-    99:  "https://github.com/RendixNetwork/leoma",       // Leoma — missing from registry
-    105: "https://github.com/Beam-Network/beam",         // Beam — registry had org-page URL, not repo
+    36:  "https://github.com/autoppia/autoppia_web_agents_subnet", // Autoppia Web Agents — missing from registry
+    42:  "https://github.com/masa-finance/masa-bittensor",          // Masa real-time social data — missing from registry
+    70:  "https://github.com/RendixNetwork/nexisgen",              // NexisGen — missing from registry
+    82:  "https://github.com/SN-Hermes/hermes-subnet",             // Hermes (SubQuery) — missing from registry
+    87:  "https://github.com/luminar-network/luminar-sn",          // Luminar Network — missing from registry
+    99:  "https://github.com/RendixNetwork/leoma",                 // Leoma — missing from registry
+    105: "https://github.com/Beam-Network/beam",                   // Beam — registry had org-page URL, not repo
   };
 
   // Verified X/Twitter handle overrides — sourced from @PinchyAlpha/following list (Apr 2026).
