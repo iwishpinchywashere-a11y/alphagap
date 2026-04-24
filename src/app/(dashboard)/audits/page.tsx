@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
@@ -76,7 +77,54 @@ function CellVal({
   return <span className={`tabular-nums font-medium ${cls}`}>{value}</span>;
 }
 
-// ── Column header with click-toggleable tooltip ───────────────────
+// ── Info tooltip — portal-based so it escapes overflow clipping ────
+function InfoTip({ text }: { text: string }) {
+  const [open, setOpen] = useState(false);
+  const [pos, setPos]   = useState({ top: 0, left: 0 });
+  const btnRef = useRef<HTMLButtonElement>(null);
+
+  function toggle(e: React.MouseEvent) {
+    e.stopPropagation();
+    if (btnRef.current) {
+      const r = btnRef.current.getBoundingClientRect();
+      setPos({ top: r.bottom + 6, left: Math.max(8, r.right - 224) });
+    }
+    setOpen(v => !v);
+  }
+
+  useEffect(() => {
+    if (!open) return;
+    function close(e: MouseEvent) {
+      if (!btnRef.current?.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [open]);
+
+  return (
+    <>
+      <button
+        ref={btnRef}
+        type="button"
+        onClick={toggle}
+        className={`text-[12px] leading-none transition-colors ${open ? "text-white" : "text-gray-500 hover:text-gray-300"}`}
+      >
+        ⓘ
+      </button>
+      {open && typeof document !== "undefined" && createPortal(
+        <div
+          style={{ position: "fixed", top: pos.top, left: pos.left, zIndex: 9999, width: 224 }}
+          className="bg-gray-950 border border-gray-600 rounded-lg px-3 py-2.5 text-[12px] text-gray-200 leading-relaxed shadow-2xl"
+        >
+          {text}
+        </div>,
+        document.body
+      )}
+    </>
+  );
+}
+
+// ── Column header ─────────────────────────────────────────────────
 function ColHeader({ label, sub, tooltip, onClick, sorted }: {
   label: string;
   sub?: string;
@@ -84,30 +132,13 @@ function ColHeader({ label, sub, tooltip, onClick, sorted }: {
   onClick?: () => void;
   sorted?: boolean;
 }) {
-  const [tipOpen, setTipOpen] = useState(false);
-
   return (
     <th
       className={`px-2.5 py-2 text-right whitespace-nowrap cursor-pointer select-none ${sorted ? "text-green-400" : "text-gray-500 hover:text-gray-300"} transition-colors`}
       onClick={onClick}
     >
       <div className="flex items-center justify-end gap-1">
-        {tooltip && (
-          <div
-            className="relative"
-            onClick={e => { e.stopPropagation(); setTipOpen(v => !v); }}
-            onMouseEnter={() => setTipOpen(true)}
-            onMouseLeave={() => setTipOpen(false)}
-          >
-            <span className={`text-[11px] cursor-pointer leading-none select-none transition-colors ${tipOpen ? "text-white" : "text-gray-500 hover:text-gray-200"}`}>ⓘ</span>
-            {tipOpen && (
-              <div className="absolute bottom-full right-0 mb-2 w-56 bg-gray-950 border border-gray-600 rounded-lg px-3 py-2.5 text-[11px] text-gray-200 leading-relaxed z-[100] shadow-2xl text-left normal-case tracking-normal font-normal whitespace-normal">
-                {tooltip}
-                <div className="absolute top-full right-3 w-0 h-0 border-l-[5px] border-r-[5px] border-t-[5px] border-l-transparent border-r-transparent border-t-gray-600" />
-              </div>
-            )}
-          </div>
-        )}
+        {tooltip && <InfoTip text={tooltip} />}
         <div className="text-[10px] font-semibold uppercase tracking-wide">{label}</div>
       </div>
       {sub && <div className="text-[9px] font-normal text-gray-600 text-right">{sub}</div>}
