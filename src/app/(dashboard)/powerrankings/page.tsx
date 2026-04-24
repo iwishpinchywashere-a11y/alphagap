@@ -464,7 +464,7 @@ export default function PowerRankingsPage() {
                       >
                         Get Access →
                       </Link>
-                      <p className="text-xs text-gray-500 mt-2">Pro · $29/mo · Unlocks full rankings</p>
+                      <p className="text-xs text-gray-500 mt-2">Pro · $29/mo · Scroll down to view free analysis</p>
                     </div>
                   </div>
                 </div>
