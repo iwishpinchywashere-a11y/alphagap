@@ -8,6 +8,7 @@ import Link from "next/link";
 import SubnetLogo from "@/components/dashboard/SubnetLogo";
 import { getTier } from "@/lib/subscription";
 import { useWatchlist } from "@/components/dashboard/WatchlistProvider";
+import { useDashboard } from "@/components/dashboard/DashboardProvider";
 import type { SubnetAudit } from "@/app/api/cron/audit-scan/route";
 
 // ── Formatters ────────────────────────────────────────────────────
@@ -187,19 +188,21 @@ function ExpandedDetail({ audit }: { audit: SubnetAudit }) {
 
 // ── Sort key type ─────────────────────────────────────────────────
 type SortKey =
-  | "score" | "nakamoto" | "hhi" | "top10" | "burn"
-  | "holders" | "chainBuy" | "netFlow" | "emission"
-  | "ema" | "taoPool" | "staleVal" | "ziMiners" | "gini";
+  | "score" | "agap" | "nakamoto" | "hhi" | "top10" | "burn"
+  | "holders" | "chainBuy" | "netFlow"
+  | "taoPool" | "staleVal" | "ziMiners" | "gini";
 
 const SORT_DEFAULTS: Record<SortKey, "asc" | "desc"> = {
-  score: "desc", nakamoto: "desc", hhi: "asc", top10: "asc", burn: "asc",
-  holders: "desc", chainBuy: "desc", netFlow: "desc", emission: "desc",
-  ema: "desc", taoPool: "desc", staleVal: "asc", ziMiners: "asc", gini: "asc",
+  score: "desc", agap: "desc", nakamoto: "desc", hhi: "asc", top10: "asc", burn: "asc",
+  holders: "desc", chainBuy: "desc", netFlow: "desc",
+  taoPool: "desc", staleVal: "asc", ziMiners: "asc", gini: "asc",
 };
 
-function sortValue(a: SubnetAudit, key: SortKey): number {
+// sortValue needs the agap map passed in
+function sortValue(a: SubnetAudit, key: SortKey, agapMap: Map<number, number>): number {
   switch (key) {
     case "score":    return a.operationalScore;
+    case "agap":     return agapMap.get(a.netuid) ?? -1;
     case "nakamoto": return a.nakamotoCoefficient;
     case "hhi":      return a.hhiNormalized;
     case "top10":    return a.top10Share;
@@ -207,8 +210,6 @@ function sortValue(a: SubnetAudit, key: SortKey): number {
     case "holders":  return a.holdersCount ?? -1;
     case "chainBuy": return a.emissionChainBuysPct ?? -1;
     case "netFlow":  return (a.inflow ?? 0) - (a.outflow ?? 0);
-    case "emission": return a.emissionPercent ?? -1;
-    case "ema":      return a.emissionEmaPct ?? -1;
     case "taoPool":  return a.taoInPool ?? -1;
     case "staleVal": return a.staleValidatorPct;
     case "ziMiners": return a.zeroIncentiveMinerPct;
@@ -224,6 +225,13 @@ export default function AuditsPage() {
   const isPremium = tier === "premium";
   const router = useRouter();
   const { isWatched, watchlist } = useWatchlist();
+  const { leaderboard } = useDashboard();
+
+  // Build netuid → aGap composite_score lookup
+  const agapMap = useMemo(
+    () => new Map(leaderboard.map(s => [s.netuid, s.composite_score])),
+    [leaderboard]
+  );
 
   const [subnets, setSubnets]     = useState<SubnetAudit[]>([]);
   const [updatedAt, setUpdatedAt] = useState<string | null>(null);
@@ -267,11 +275,11 @@ export default function AuditsPage() {
       return true;
     });
     list = [...list].sort((a, b) => {
-      const diff = sortValue(a, sortKey) - sortValue(b, sortKey);
+      const diff = sortValue(a, sortKey, agapMap) - sortValue(b, sortKey, agapMap);
       return sortDir === "desc" ? -diff : diff;
     });
     return list;
-  }, [subnets, search, watchlistOnly, watchlist, sortKey, sortDir]);
+  }, [subnets, search, watchlistOnly, watchlist, sortKey, sortDir, agapMap]);
 
   const fmtTime = (iso: string) => {
     try { return new Date(iso).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", hour12: true }); }
@@ -323,10 +331,15 @@ export default function AuditsPage() {
                   <th className="px-3 py-2.5 text-left w-8 text-[10px] text-gray-600 uppercase tracking-wide">#</th>
                   <th className="px-3 py-2.5 text-left text-[10px] text-gray-600 uppercase tracking-wide min-w-[160px]">Subnet</th>
 
-                  {/* Score */}
-                  <ColHeader label="Score" sub="0-100"
-                    tooltip="Overall audit score (0–100) combining decentralisation, miner economics, validator health, liquidity, and adoption. Higher is better."
+                  {/* Audit Score */}
+                  <ColHeader label="Audit Score" sub="0-100"
+                    tooltip="Operational health score (0–100) built from on-chain metagraph data and TaoSwap metrics: decentralisation, miner burn economics, validator freshness, liquidity, and adoption. Higher is better."
                     onClick={() => handleSort("score")} sorted={sortKey === "score"} />
+
+                  {/* aGap Score */}
+                  <ColHeader label="aGap Score" sub="composite"
+                    tooltip="AlphaGap's composite intelligence score combining developer activity (GitHub commits, model releases), on-chain fundamentals, and market signals. This is our overall subnet quality rating."
+                    onClick={() => handleSort("agap")} sorted={sortKey === "agap"} />
 
                   {/* Decentralisation */}
                   <ColHeader label="Nakamoto" sub="higher=safer"
@@ -346,13 +359,6 @@ export default function AuditsPage() {
                   <ColHeader label="Chain Buy%" sub="emiss recycled"
                     tooltip="Percentage of emissions that are recycled back into buying the subnet's own token on-chain. This creates organic buy pressure. Higher is generally better for token holders."
                     onClick={() => handleSort("chainBuy")} sorted={sortKey === "chainBuy"} />
-                  <ColHeader label="Emission%" sub="of network"
-                    tooltip="This subnet's current share of total Bittensor network emissions. Reflects how much TAO is flowing into this subnet relative to all others."
-                    onClick={() => handleSort("emission")} sorted={sortKey === "emission"} />
-                  <ColHeader label="EMA%" sub="7d taoflow"
-                    tooltip="7-day exponential moving average of this subnet's TaoFlow emission share. Smooths out short-term spikes to show the underlying trend in emissions allocation."
-                    onClick={() => handleSort("ema")} sorted={sortKey === "ema"} />
-
                   {/* Capital */}
                   <ColHeader label="TAO Pool" sub="liquidity"
                     tooltip="Total TAO locked in this subnet's liquidity pool. More liquidity means tighter spreads, less price impact when buying or selling, and generally more market confidence."
@@ -419,11 +425,24 @@ export default function AuditsPage() {
                         </div>
                       </td>
 
-                      {/* Score */}
+                      {/* Audit Score */}
                       <td className="px-2.5 py-3 text-right">
                         <div className="flex justify-end">
                           <ScoreBadge score={audit.operationalScore} />
                         </div>
+                      </td>
+
+                      {/* aGap Score */}
+                      <td className="px-2.5 py-3 text-right">
+                        {(() => {
+                          const agap = agapMap.get(audit.netuid);
+                          if (agap == null) return <span className="text-gray-600">—</span>;
+                          return (
+                            <span className={`tabular-nums font-semibold text-sm ${agap >= 75 ? "text-emerald-400" : agap >= 50 ? "text-yellow-400" : "text-gray-400"}`}>
+                              {Math.round(agap)}
+                            </span>
+                          );
+                        })()}
                       </td>
 
                       {/* Nakamoto */}
@@ -474,20 +493,6 @@ export default function AuditsPage() {
                           dir="high_good"
                           thresholds={[1, 8]}
                         />
-                      </td>
-
-                      {/* Emission % */}
-                      <td className="px-2.5 py-3 text-right">
-                        <span className="text-gray-300 tabular-nums text-xs">
-                          {pct(audit.emissionPercent, 2)}
-                        </span>
-                      </td>
-
-                      {/* EMA % */}
-                      <td className="px-2.5 py-3 text-right">
-                        <span className="text-gray-300 tabular-nums text-xs">
-                          {pct(audit.emissionEmaPct, 2)}
-                        </span>
                       </td>
 
                       {/* TAO Pool */}
@@ -558,7 +563,7 @@ export default function AuditsPage() {
                     {/* Expanded detail row */}
                     {expanded && (
                       <tr key={`${audit.netuid}-detail`}>
-                        <td colSpan={18} className="p-0">
+                        <td colSpan={17} className="p-0">
                           <ExpandedDetail audit={audit} />
                         </td>
                       </tr>
