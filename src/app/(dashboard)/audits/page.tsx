@@ -27,12 +27,13 @@ const SEVERITY_COLOR: Record<string, string> = {
   info:     "text-gray-400 bg-gray-800/50 border-gray-700/30",
 };
 const FLAG_ICON: Record<string, string> = {
-  burn_code:      "🔥",
-  stale_weights:  "⏱",
-  collusion_risk: "⚠",
-  low_activity:   "📉",
-  no_validators:  "🚫",
-  healthy:        "✓",
+  burn_code:           "🔥",
+  stale_weights:       "⏱",
+  collusion_risk:      "⚠",
+  low_activity:        "📉",
+  no_validators:       "🚫",
+  high_emission_burn:  "♻️",
+  healthy:             "✓",
 };
 
 function ScoreBar({ value, grade }: { value: number; grade: string }) {
@@ -96,7 +97,16 @@ function AuditCard({ audit }: { audit: SubnetAudit }) {
         }`}>{audit.operationalScore}</span>
 
         {/* Flag summary */}
-        <div className="shrink-0 flex gap-1">
+        <div className="shrink-0 flex gap-1 flex-wrap justify-end">
+          {(audit.burnedEmissionPct ?? 0) > 0 && (
+            <span className={`text-[10px] rounded px-1.5 py-0.5 border ${
+              (audit.burnedEmissionPct ?? 0) >= 80 ? "bg-red-500/15 text-red-400 border-red-500/20" :
+              (audit.burnedEmissionPct ?? 0) >= 40 ? "bg-yellow-500/10 text-yellow-400 border-yellow-500/20" :
+              "bg-gray-800 text-gray-500 border-gray-700"
+            }`}>
+              ♻️ {audit.burnedEmissionPct}%
+            </span>
+          )}
           {critFlags.length > 0 && (
             <span className="text-[10px] bg-red-500/15 text-red-400 border border-red-500/20 rounded px-1.5 py-0.5">
               {critFlags.length} critical
@@ -122,7 +132,12 @@ function AuditCard({ audit }: { audit: SubnetAudit }) {
       {expanded && (
         <div className="px-4 pb-4 pt-1 border-t border-gray-800/50 space-y-4">
           {/* Metric pills */}
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+            <MetricPill
+              label="Emission Burned"
+              value={`${audit.burnedEmissionPct ?? 0}%`}
+              warn={(audit.burnedEmissionPct ?? 0) >= 40}
+            />
             <MetricPill
               label="Stale Validators"
               value={`${audit.staleValidatorPct}%`}
@@ -219,6 +234,36 @@ function AuditCard({ audit }: { audit: SubnetAudit }) {
             </div>
           </div>
 
+          {/* Emission burn rate visual */}
+          <div className="bg-gray-900/60 border border-gray-800 rounded-lg p-3">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs text-gray-500 uppercase tracking-wide">Emission Burn Rate</span>
+              <span className={`text-xs font-mono ${
+                (audit.burnedEmissionPct ?? 0) >= 80 ? "text-red-400" :
+                (audit.burnedEmissionPct ?? 0) >= 40 ? "text-yellow-400" :
+                (audit.burnedEmissionPct ?? 0) >= 20 ? "text-orange-400" :
+                "text-emerald-400"
+              }`}>
+                {audit.burnedEmissionPct ?? 0}% burned
+              </span>
+            </div>
+            <div className="relative h-2 bg-gray-800 rounded-full overflow-hidden">
+              <div
+                className={`absolute inset-y-0 left-0 rounded-full transition-all ${
+                  (audit.burnedEmissionPct ?? 0) >= 80 ? "bg-red-500" :
+                  (audit.burnedEmissionPct ?? 0) >= 40 ? "bg-yellow-400" :
+                  (audit.burnedEmissionPct ?? 0) >= 20 ? "bg-orange-400" :
+                  "bg-emerald-500"
+                }`}
+                style={{ width: `${audit.burnedEmissionPct ?? 0}%` }}
+              />
+            </div>
+            <div className="flex justify-between mt-1.5">
+              <span className="text-[10px] text-gray-600">0% = fully sustainable (miners keep all rewards)</span>
+              <span className="text-[10px] text-gray-600">100% = all rewards burned</span>
+            </div>
+          </div>
+
           {/* Trust concentration visual */}
           <div className="bg-gray-900/60 border border-gray-800 rounded-lg p-3">
             <div className="flex items-center justify-between mb-2">
@@ -271,7 +316,7 @@ function AuditCard({ audit }: { audit: SubnetAudit }) {
 }
 
 // ── Main Page ──────────────────────────────────────────────────────
-type SortKey = "score_desc" | "score_asc" | "grade" | "stale" | "burn" | "collusion";
+type SortKey = "score_desc" | "score_asc" | "grade" | "stale" | "burn" | "collusion" | "emission_burn";
 
 export default function AuditsPage() {
   const { data: session } = useSession();
@@ -324,6 +369,8 @@ export default function AuditsPage() {
       list.sort((a, b) => b.zeroIncentiveMinerPct - a.zeroIncentiveMinerPct);
     } else if (sortKey === "collusion") {
       list.sort((a, b) => b.trustGini - a.trustGini);
+    } else if (sortKey === "emission_burn") {
+      list.sort((a, b) => (b.burnedEmissionPct ?? 0) - (a.burnedEmissionPct ?? 0));
     }
 
     return list;
@@ -376,12 +423,13 @@ export default function AuditsPage() {
         <span className="text-xs text-gray-600">Sort by:</span>
         {(
           [
-            { key: "score_desc", label: "Score (high→low)" },
-            { key: "score_asc",  label: "Score (low→high)" },
-            { key: "grade",      label: "Grade" },
-            { key: "stale",      label: "Stale Validators" },
-            { key: "burn",       label: "Burn Code" },
-            { key: "collusion",  label: "Collusion Risk" },
+            { key: "score_desc",    label: "Score (high→low)" },
+            { key: "score_asc",     label: "Score (low→high)" },
+            { key: "grade",         label: "Grade" },
+            { key: "emission_burn", label: "♻️ Emission Burn" },
+            { key: "stale",         label: "Stale Validators" },
+            { key: "burn",          label: "Burn Code" },
+            { key: "collusion",     label: "Collusion Risk" },
           ] as { key: SortKey; label: string }[]
         ).map(({ key, label }) => (
           <button
@@ -400,10 +448,11 @@ export default function AuditsPage() {
         <span className="text-xs text-gray-600 ml-2">Filter:</span>
         {(
           [
-            { key: "all",           label: "All" },
-            { key: "burn_code",     label: "🔥 Burn Code" },
-            { key: "stale_weights", label: "⏱ Stale Weights" },
-            { key: "collusion_risk",label: "⚠ Collusion" },
+            { key: "all",                label: "All" },
+            { key: "high_emission_burn", label: "♻️ High Burn" },
+            { key: "burn_code",          label: "🔥 Burn Code" },
+            { key: "stale_weights",      label: "⏱ Stale Weights" },
+            { key: "collusion_risk",     label: "⚠ Collusion" },
           ] as { key: string; label: string }[]
         ).map(({ key, label }) => (
           <button
@@ -451,6 +500,7 @@ export default function AuditsPage() {
           <h1 className="text-lg font-semibold text-white">Subnet Audits</h1>
           <p className="text-xs text-gray-500 mt-0.5 max-w-xl">
             Operational health analysis —
+            <span className="text-gray-400"> ♻️ emission burn rate</span>,
             <span className="text-gray-400"> ⏱ weight staleness</span>,
             <span className="text-gray-400"> 🔥 burn code detection</span>,
             <span className="text-gray-400"> ⚠ collusion risk</span>

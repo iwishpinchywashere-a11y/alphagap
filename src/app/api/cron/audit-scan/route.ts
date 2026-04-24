@@ -7,6 +7,7 @@
  *   - Weight staleness: are validators actually updating weights?
  *   - Burn code detection: miners registered but never queried (incentive ≈ 0)
  *   - Collusion risk: trust Gini coefficient across validators
+ *   - Emission burn rate: % of miner alpha emissions being burned (high = unsustainable)
  *
  * Saves results to audit-data.json (read by /api/scan and /api/audits).
  * Also saves weekly snapshots for the formal audit history.
@@ -14,14 +15,14 @@
 
 import { NextResponse } from "next/server";
 import { put, get as blobGet } from "@vercel/blob";
-import { getSubnetIdentities, getMetagraph } from "@/lib/taostats";
+import { getSubnetIdentities, getMetagraph, getSubnetEmissions, getBurnedAlpha } from "@/lib/taostats";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
 // ── Types ──────────────────────────────────────────────────────────
 export interface AuditFlag {
-  type: "burn_code" | "stale_weights" | "collusion_risk" | "low_activity" | "no_validators" | "healthy";
+  type: "burn_code" | "stale_weights" | "collusion_risk" | "low_activity" | "no_validators" | "high_emission_burn" | "healthy";
   severity: "critical" | "warning" | "info";
   message: string;
 }
@@ -49,6 +50,9 @@ export interface SubnetAudit {
   // Collusion risk
   trustGini: number;            // 0-1, higher = more concentrated
   top3ValidatorTrustShare: number; // % of total trust held by top 3 validators
+
+  // Emission burn rate
+  burnedEmissionPct: number;    // % of miner alpha emissions being burned (0 = sustainable, 100 = all burned)
 
   // Flags
   flags: AuditFlag[];
@@ -91,8 +95,16 @@ function computeAudit(
   netuid: number,
   name: string,
   neurons: Awaited<ReturnType<typeof getMetagraph>>,
+  burnedAlphaRao: number,   // raw burned_alpha in rao
+  alphaRewardsRao: number,  // raw alpha_rewards in rao
 ): SubnetAudit {
   const now = new Date().toISOString();
+
+  // Emission burn rate: % of miner emissions that are being burned
+  // 0% = fully sustainable, 100% = all miner rewards burned immediately
+  const burnedEmissionPct = alphaRewardsRao > 0
+    ? Math.min(100, Math.round((burnedAlphaRao / alphaRewardsRao) * 100))
+    : 0;
 
   if (!neurons || neurons.length === 0) {
     return {
@@ -100,6 +112,7 @@ function computeAudit(
       validatorCount: 0, staleValidatorCount: 0, staleValidatorPct: 0, maxWeightLagBlocks: 0,
       minerCount: 0, zeroIncentiveMinerCount: 0, zeroIncentiveMinerPct: 0, activeMinerPct: 0,
       trustGini: 0, top3ValidatorTrustShare: 0,
+      burnedEmissionPct,
       flags: [{ type: "no_validators", severity: "warning", message: "No neuron data available" }],
       updatedAt: now,
     };
@@ -181,6 +194,13 @@ function computeAudit(
   if (validators.length < 3) score -= 10;
   else if (validators.length >= 16) score += 5;
 
+  // Emission burn rate — high burn is unsustainable
+  if (burnedEmissionPct >= 80) score -= 20;
+  else if (burnedEmissionPct >= 60) score -= 12;
+  else if (burnedEmissionPct >= 40) score -= 6;
+  else if (burnedEmissionPct >= 20) score -= 3;
+  else if (burnedEmissionPct === 0 && alphaRewardsRao > 0) score += 5; // zero burn bonus
+
   score = Math.max(0, Math.min(100, Math.round(score)));
 
   // ── Build flags ───────────────────────────────────────────────────
@@ -207,6 +227,14 @@ function computeAudit(
       type: "collusion_risk",
       severity: trustGiniVal >= 0.9 ? "critical" : "warning",
       message: `Trust highly concentrated (Gini=${trustGiniVal.toFixed(2)}, top-3 hold ${top3ValidatorTrustShare}% of trust) — possible validator collusion`,
+    });
+  }
+
+  if (burnedEmissionPct >= 60) {
+    flags.push({
+      type: "high_emission_burn",
+      severity: burnedEmissionPct >= 80 ? "critical" : "warning",
+      message: `${burnedEmissionPct}% of miner emissions are being burned — ${burnedEmissionPct >= 80 ? "critically unsustainable, miners are net losers" : "high burn rate reduces miner sustainability"}`,
     });
   }
 
@@ -244,6 +272,7 @@ function computeAudit(
     zeroIncentiveMinerCount, zeroIncentiveMinerPct, activeMinerPct,
     trustGini: Math.round(trustGiniVal * 100) / 100,
     top3ValidatorTrustShare,
+    burnedEmissionPct,
     flags,
     updatedAt: now,
   };
@@ -285,12 +314,27 @@ export async function GET(req: Request) {
   // Subnets permanently excluded from audits (Root network is not a real task subnet)
   const AUDIT_EXCLUDED_NETUIDS = new Set([0]);
 
-  // Load subnet identities
-  const allIdentities = await getSubnetIdentities().catch(() => []);
+  // Load subnet identities + emission burn data in parallel
+  const [allIdentities, emissionData, burnedAlphaData] = await Promise.all([
+    getSubnetIdentities().catch(() => []),
+    getSubnetEmissions().catch(() => []),
+    getBurnedAlpha().catch(() => []),
+  ]);
+
   if (allIdentities.length === 0) {
     return NextResponse.json({ error: "No subnet identities" }, { status: 500 });
   }
   const identities = allIdentities.filter(id => !AUDIT_EXCLUDED_NETUIDS.has(id.netuid));
+
+  // Build lookup maps for emission burn rate
+  const alphaRewardsMap = new Map<number, number>();
+  for (const e of emissionData) {
+    alphaRewardsMap.set(e.netuid, parseFloat(e.alpha_rewards || "0"));
+  }
+  const burnedAlphaMap = new Map<number, number>();
+  for (const b of burnedAlphaData) {
+    burnedAlphaMap.set(b.netuid, parseFloat(b.burned_alpha || "0"));
+  }
 
   // Fetch metagraph in parallel batches of 8 to avoid rate limiting
   const BATCH_SIZE = 8;
@@ -310,7 +354,9 @@ export async function GET(req: Request) {
     for (const r of batchResults) {
       if (r.status !== "fulfilled") { errors++; continue; }
       const { id, neurons } = r.value;
-      results[id.netuid] = computeAudit(id.netuid, id.subnet_name || `SN${id.netuid}`, neurons);
+      const burnedAlphaRao = burnedAlphaMap.get(id.netuid) ?? 0;
+      const alphaRewardsRao = alphaRewardsMap.get(id.netuid) ?? 0;
+      results[id.netuid] = computeAudit(id.netuid, id.subnet_name || `SN${id.netuid}`, neurons, burnedAlphaRao, alphaRewardsRao);
       scanned++;
     }
 
