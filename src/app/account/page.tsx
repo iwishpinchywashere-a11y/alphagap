@@ -6,7 +6,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 
 export default function AccountPage() {
-  const { data: session, status } = useSession();
+  const { data: session, status, update } = useSession();
   const router = useRouter();
     const [portalLoading, setPortalLoading] = useState(false);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
@@ -121,6 +121,8 @@ export default function AccountPage() {
         setLanguage(lang);
         setLangSaved(true);
         setTimeout(() => setLangSaved(false), 2500);
+        // Refresh the JWT so the new language is reflected in the session immediately
+        await update();
       }
     } finally {
       setLangSaving(false);
