@@ -22,7 +22,7 @@
     },
     {
       "path": "/api/cron/audit-scan",
-      "schedule": "0 */6 * * *"
+      "schedule": "0 * * * *"
     },
     {
       "path": "/api/cron/twitter-bot",
