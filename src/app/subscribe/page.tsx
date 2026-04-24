@@ -403,10 +403,10 @@ function SubscribeContent() {
                 ))}
               </ul>
               <a
-                href="/dashboard"
+                href="/powerrankings"
                 className="w-full text-center py-3 border border-gray-700 text-gray-400 hover:border-gray-600 hover:text-gray-200 rounded-xl text-sm font-medium transition-colors"
               >
-                Go to Dashboard →
+                Start For Free →
               </a>
             </div>
 
