@@ -292,22 +292,41 @@ Write a tweet using the format in your instructions. Explain in plain English wh
 
 // ── 3. Whale Flow / Volume Surge (/whales) ────────────────────────
 
-export async function generateWhaleFlow(subnet: SubnetScore): Promise<TweetPost | null> {
+export async function generateWhaleFlow(subnet: SubnetScore, todayUTC?: string): Promise<TweetPost | null> {
   const isVolumeSurge = subnet.volume_surge && (subnet.volume_surge_ratio ?? 0) >= 2;
   const isWhale = subnet.whale_signal === "accumulating";
 
   if (!isVolumeSurge && !isWhale) return null;
 
-  const signalType = isWhale && isVolumeSurge
-    ? `Large-wallet activity + volume surge (${subnet.volume_surge_ratio?.toFixed(1)}× baseline)`
-    : isWhale
-    ? "Large-wallet on-chain activity elevated"
-    : `Volume surge (${subnet.volume_surge_ratio?.toFixed(1)}× baseline volume)`;
+  // Rotate the angle so posts don't all sound the same
+  const angleOptions = isWhale && isVolumeSurge ? [
+    `Write a tweet that focuses on the combination of smart-money accumulation AND a volume surge (${subnet.volume_surge_ratio?.toFixed(1)}× normal). Explain what it means when both happen together. Use 🐋 as the lead emoji.`,
+    `Write a tweet about the unusual on-chain pattern: large wallets buying AND volume spiking ${subnet.volume_surge_ratio?.toFixed(1)}× at the same time. What does this divergence signal? Use 📊 as the lead emoji.`,
+  ] : isWhale ? [
+    `Write a tweet about large-wallet accumulation on this subnet — what it typically signals ahead of a move. Use 🐋 as the lead emoji.`,
+    `Write a tweet focused on smart-money positioning: wallets are staking/buying while most retail hasn't noticed. Use 🔍 as the lead emoji.`,
+    `Write a tweet about the on-chain story here — large wallets accumulating while price action looks quiet. Use 👀 as the lead emoji.`,
+  ] : [
+    `Write a tweet about the volume surge (${subnet.volume_surge_ratio?.toFixed(1)}× baseline). Focus on what unusual volume says about near-term momentum. Use 📈 as the lead emoji.`,
+    `Write a tweet that explains what it means when buy volume spikes ${subnet.volume_surge_ratio?.toFixed(1)}× above normal for a Bittensor subnet. Use ⚡ as the lead emoji.`,
+  ];
 
-  const prompt = `${subnet.name} (SN${subnet.netuid}): ${signalType}. Price 24h: ${fmtPct(subnet.price_change_24h)}. aGap: ${subnet.composite_score}/100. Dev: ${subnet.dev_score} Flow: ${subnet.flow_score}.
+  // Pick a pseudo-random angle based on the netuid so the same subnet gets variety over time
+  const angle = angleOptions[subnet.netuid % angleOptions.length];
 
-Write a tweet using the format in your instructions. Explain in plain English what the volume/on-chain data means and how it compares to price. Use 🔍 as the lead emoji.`;
+  const contextLines = [
+    `aGap score: ${subnet.composite_score}/100`,
+    `Dev: ${subnet.dev_score}`,
+    `Flow: ${subnet.flow_score}`,
+    subnet.price_change_24h != null ? `Price 24h: ${fmtPct(subnet.price_change_24h)}` : null,
+    subnet.price_change_7d  != null ? `Price 7d: ${fmtPct(subnet.price_change_7d)}`  : null,
+    subnet.emission_pct     != null ? `Emission: ${(subnet.emission_pct * 100).toFixed(2)}%` : null,
+    subnet.market_cap       != null ? `MCap: ${fmtMcap(subnet.market_cap)}` : null,
+  ].filter(Boolean).join(" · ");
 
+  const prompt = `${subnet.name} (SN${subnet.netuid}) — ${contextLines}.
+
+${angle}`;
 
   const tweets = await writeTweet(prompt);
   if (!tweets.length) return null;
@@ -315,8 +334,9 @@ Write a tweet using the format in your instructions. Explain in plain English wh
   return {
     type: "whale_flow",
     tweets,
-    rationale: `On-chain activity: ${subnet.name} — ${signalType}`,
-    dedupId: `whale_flow_${subnet.netuid}`,
+    rationale: `On-chain activity: ${subnet.name} — ${isWhale ? "whale accumulation" : "volume surge"}`,
+    // Daily dedup key — one whale post per calendar day regardless of subnet
+    dedupId: `whale_flow_day_${todayUTC ?? new Date().toISOString().slice(0, 10)}`,
   };
 }
 
@@ -532,13 +552,17 @@ export async function pickBestPost(data: BotData, utcHour?: number): Promise<Twe
   }
 
   async function tryWhaleFlow(): Promise<TweetPost | null> {
+    // One whale post per calendar day max — prevents whale from dominating the feed.
+    // Per-netuid dedup is still applied inside so we pick the best candidate for today.
+    if (alreadyPostedIds.has(`whale_flow_day_${todayUTC}`)) return null;
     const whaleTargets = leaderboard
       .filter((s) => {
-        if (alreadyPostedIds.has(`whale_flow_${s.netuid}`)) return false;
+        // Also skip if we already posted this exact subnet as a whale within 48h
+        if (alreadyPostedIds.has(`whale_flow_subnet_${s.netuid}`)) return false;
         return s.whale_signal === "accumulating" || ((s.volume_surge_ratio ?? 0) >= 2.5);
       })
       .sort((a, b) => b.composite_score - a.composite_score);
-    return whaleTargets.length > 0 ? generateWhaleFlow(whaleTargets[0]) : null;
+    return whaleTargets.length > 0 ? generateWhaleFlow(whaleTargets[0], todayUTC) : null;
   }
 
   async function tryPerformanceGain(): Promise<TweetPost | null> {
@@ -571,15 +595,26 @@ export async function pickBestPost(data: BotData, utcHour?: number): Promise<Twe
 
   type Tryer = () => Promise<TweetPost | null>;
 
+  // ── Slot-based priority order ─────────────────────────────────────
+  // whale_flow is limited to 1 post per day (daily dedup key) and demoted
+  // to last-resort fallback across all slots to prevent feed domination.
+  // Each slot leads with 2 substantive types, then tries the remaining
+  // time-limited/data-dependent types before falling back to whale.
+  //
+  // Slot 0 → 7am:  agap_riser,       dev_update
+  // Slot 1 → 12pm: discord_alpha,    x_trending
+  // Slot 2 → 5pm:  analytics_ratios, performance_gain
+  // Slot 3 → 10pm: benchmark_update, agap_riser
+
   const slotOrder: [Tryer, Tryer, ...Tryer[]][] = [
-    // Slot 0 — 7am:  agap_riser, dev_update → rest
-    [tryAgapRiser,      tryDevUpdate,      tryDiscordAlpha,   tryXTrending,      tryWhaleFlow,   tryPerformanceGain, tryAnalyticsRatios, tryBenchmarkUpdate],
-    // Slot 1 — 12pm: discord_alpha, x_trending → rest
-    [tryDiscordAlpha,   tryXTrending,      tryAgapRiser,      tryDevUpdate,      tryWhaleFlow,   tryPerformanceGain, tryAnalyticsRatios, tryBenchmarkUpdate],
-    // Slot 2 — 5pm:  whale_flow, performance_gain → rest
-    [tryWhaleFlow,      tryPerformanceGain, tryAgapRiser,     tryDevUpdate,      tryDiscordAlpha, tryXTrending,      tryAnalyticsRatios, tryBenchmarkUpdate],
-    // Slot 3 — 10pm: analytics_ratios, benchmark_update → rest
-    [tryAnalyticsRatios, tryBenchmarkUpdate, tryAgapRiser,    tryDevUpdate,      tryWhaleFlow,   tryPerformanceGain, tryDiscordAlpha,    tryXTrending],
+    // Slot 0 — 7am:  agap_riser first, then substantive types, whale as last resort
+    [tryAgapRiser,       tryDevUpdate,       tryDiscordAlpha,    tryXTrending,       tryAnalyticsRatios, tryBenchmarkUpdate, tryPerformanceGain, tryWhaleFlow],
+    // Slot 1 — 12pm: social/community types first, whale as last resort
+    [tryDiscordAlpha,    tryXTrending,       tryAgapRiser,       tryDevUpdate,       tryAnalyticsRatios, tryBenchmarkUpdate, tryPerformanceGain, tryWhaleFlow],
+    // Slot 2 — 5pm:  data/analytics types first, whale as last resort
+    [tryAnalyticsRatios, tryPerformanceGain, tryAgapRiser,       tryDevUpdate,       tryDiscordAlpha,    tryXTrending,       tryBenchmarkUpdate, tryWhaleFlow],
+    // Slot 3 — 10pm: benchmark/riser types first, whale as last resort
+    [tryBenchmarkUpdate, tryAgapRiser,       tryDevUpdate,       tryPerformanceGain, tryDiscordAlpha,    tryXTrending,       tryAnalyticsRatios, tryWhaleFlow],
   ];
 
   for (const tryer of slotOrder[slot]) {

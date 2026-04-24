@@ -96,6 +96,18 @@ export async function GET(req: NextRequest) {
     loadPostedLog(),
   ]);
 
+  // ── Minimum 60-minute cooldown between posts ─────────────────────
+  // Prevents Vercel cron retries (on failure) and any other close-together
+  // invocations from posting 2-3 times within a few minutes.
+  const lastPost = postedLog.posted[postedLog.posted.length - 1];
+  if (lastPost) {
+    const minutesSinceLast = (Date.now() - new Date(lastPost.postedAt).getTime()) / 60000;
+    if (minutesSinceLast < 60) {
+      console.log(`[twitter-bot] Last post was ${minutesSinceLast.toFixed(0)}m ago — skipping (cooldown)`);
+      return NextResponse.json({ ok: true, posted: false, reason: `cooldown (${minutesSinceLast.toFixed(0)}m since last post)` });
+    }
+  }
+
   // Build dedup set (48h window)
   const cutoff = Date.now() - 48 * 3600000;
   const alreadyPostedIds = new Set(
