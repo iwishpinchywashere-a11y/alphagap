@@ -14,12 +14,13 @@ import { useWatchlist } from "@/components/dashboard/WatchlistProvider";
 
 const COLUMNS: [keyof SubnetScore, string, string][] = [
   ["composite_score", "aGap", "AlphaGap Score (0-100). Our composite intelligence score. Identifies subnets where fundamentals significantly exceed current market valuation — the higher the score, the larger the opportunity gap our models have detected."],
-  ["agap_velo", "Velo ⚡", "aGap Velocity (0–100). Measures the speed and significance of a subnet's score movement. Weights both how fast the score is changing and how meaningful that level is — a move from 50→80 scores far higher than 1→20. 80–100 = explosive upward momentum. Below 30 = declining."],
+  ["agap_velo", "Velo", "aGap Velocity (0–100). Measures the speed and significance of a subnet's score movement. Weights both how fast the score is changing and how meaningful that level is — a move from 50→80 scores far higher than 1→20. 80–100 = explosive upward momentum. Below 30 = declining."],
   ["flow_score", "Flow", "Momentum Score (0-100). Tracks price action across multiple timeframes, whale and smart money movements, and unusual volume surges. High flow = strong market momentum and accumulation signals."],
   ["dev_score", "Dev", "Development Score (0-100). Measures the quality and velocity of real engineering work happening inside the subnet. Built on proprietary analysis of actual development activity."],
   ["eval_score", "eVal", "Emissions-to-Valuation Score (0-100). Measures how much the Bittensor network is paying out to this subnet relative to what the market has priced in. High eVal = strong network conviction, undervalued by the market."],
   ["product_score", "Prod", "Product & Utility Score (0-100). Assesses real-world deployments and evidence of actual usage. Formally benchmarked subnets (highest confidence) are marked without a tilde. Estimated scores are shown as ~N. This column is the core early alpha detector: subnets building real product the market hasn't priced in."],
   ["social_score", "Social", "Social Velocity Score (0-100). Measures community awareness and KOL engagement across the Bittensor ecosystem."],
+  ["audit_score", "Audit", "Operational Health Score (0–100). Measures decentralisation, validator health, token distribution, and network security. Acts as a risk filter on the trading aGap score (low scores apply a penalty) and as a full positive component in the investing score. ≥70 = healthy (green), 50–69 = moderate (yellow), 30–49 = elevated risk (orange), <30 = high risk (red)."],
   ["emission_pct", "Em %", "Emission share — percentage of total Bittensor network emissions currently allocated to this subnet."],
   ["emission_change_pct", "Em Δ", "Recent change in emission allocation. Green = the network is voting more resources toward this subnet. Red = allocation is declining."],
   ["alpha_price", "Price", "Current alpha token price in USD."],
@@ -29,7 +30,6 @@ const COLUMNS: [keyof SubnetScore, string, string][] = [
   ["price_change_7d", "7d %", "Price change over the last 7 days."],
   ["price_change_30d", "30d %", "Price change over the last 30 days."],
   ["net_flow_24h", "24h Net", "Net USD flow in the last 24 hours. Positive = net buying pressure. A key early signal for institutional or whale accumulation."],
-  ["audit_score", "Audit", "Operational Health Score (0–100). Measures decentralisation, validator health, token distribution, and network security. Acts as a risk filter on the trading aGap score (low scores apply a penalty) and as a full positive component in the investing score. ≥70 = healthy (green), 50–69 = moderate (yellow), 30–49 = elevated risk (orange), <30 = high risk (red)."],
 ];
 
 // Separate component for useSearchParams (requires Suspense boundary).
@@ -591,6 +591,16 @@ export default function LeaderboardPage() {
                         {sub.product_score != null ? sub.product_score : "\u2014"}
                       </td>
                       <td className={`py-2 px-3 text-right font-semibold tabular-nums ${scoreColor(sub.social_score || 0)}`}>{sub.social_score || 0}</td>
+                      <td className="py-2 px-3 text-right">
+                        {sub.audit_score != null
+                          ? <span className={`px-1.5 py-0.5 rounded text-xs font-semibold ${
+                              sub.audit_score >= 70 ? "bg-green-500/20 text-green-400"
+                              : sub.audit_score >= 50 ? "bg-yellow-500/20 text-yellow-400"
+                              : sub.audit_score >= 30 ? "bg-orange-500/20 text-orange-400"
+                              : "bg-red-500/20 text-red-400"
+                            }`}>{sub.audit_score}</span>
+                          : <span className="text-gray-700">—</span>}
+                      </td>
                       <td className="py-2 px-3 text-right text-gray-400 tabular-nums">
                         {sub.emission_pct != null && sub.emission_pct > 0 ? `${(sub.emission_pct * 100).toFixed(1)}%` : "\u2014"}
                       </td>
@@ -628,21 +638,11 @@ export default function LeaderboardPage() {
                           ? `${sub.net_flow_24h > 0 ? "+" : ""}${formatNum(sub.net_flow_24h)} τ`
                           : "\u2014"}
                       </td>
-                      <td className="py-2 px-3 text-right">
-                        {sub.audit_score != null
-                          ? <span className={`px-1.5 py-0.5 rounded text-xs font-semibold ${
-                              sub.audit_score >= 70 ? "bg-green-500/20 text-green-400"
-                              : sub.audit_score >= 50 ? "bg-yellow-500/20 text-yellow-400"
-                              : sub.audit_score >= 30 ? "bg-orange-500/20 text-orange-400"
-                              : "bg-red-500/20 text-red-400"
-                            }`}>{sub.audit_score}</span>
-                          : <span className="text-gray-700">—</span>}
-                      </td>
                     </tr>
                     {/* CTA injected in the middle of the locked section — desktop only */}
                     {!isPro && i === 9 && (
                       <tr className="hidden md:table-row">
-                        <td colSpan={19} className="py-5 text-center bg-[#0a0a0f]/60">
+                        <td colSpan={20} className="py-5 text-center bg-[#0a0a0f]/60">
                           <div className="inline-flex flex-col items-center gap-2">
                             <p className="text-xs text-white font-bold">Top 20 Subnets are hidden on the free plan</p>
                             <a href="/pricing" className="font-sans px-8 py-3.5 bg-gradient-to-r from-green-500 to-emerald-600 text-black font-bold rounded-xl text-base hover:from-green-400 hover:to-emerald-500 transition-all shadow-xl shadow-green-500/30">
