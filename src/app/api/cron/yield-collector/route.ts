@@ -134,20 +134,16 @@ export async function GET(req: NextRequest) {
   let collected = 0, failed = 0;
 
   // Rate limit: 60 req/min = 1 req/sec.
-  // Batch of 4 with 4s gap = 4 req per ~4s = 60/min exactly. Safe.
-  // 129 subnets → 33 batches × ~5s = ~165s total, well within maxDuration 300.
-  const BATCH_SIZE = 4;
-  const BATCH_DELAY_MS = 4000;
-  for (let i = 0; i < activeNetuids.length; i += BATCH_SIZE) {
-    const batch = activeNetuids.slice(i, i + BATCH_SIZE);
-    const batchResults = await Promise.all(batch.map(n => fetchSubnetYield(n)));
-    for (let j = 0; j < batch.length; j++) {
-      const r = batchResults[j];
-      if (r) { results[String(batch[j])] = r; collected++; }
-      else { failed++; console.log(`[yield-collector] No data for netuid ${batch[j]}`); }
-    }
-    if (i + BATCH_SIZE < activeNetuids.length) {
-      await new Promise(r => setTimeout(r, BATCH_DELAY_MS));
+  // Sequential with 1.1s gap = ~55 req/min — safe buffer under the limit.
+  // 129 subnets × 1.1s = ~142s total, well within maxDuration 300.
+  for (let i = 0; i < activeNetuids.length; i++) {
+    const netuid = activeNetuids[i];
+    const r = await fetchSubnetYield(netuid);
+    if (r) { results[String(netuid)] = r; collected++; }
+    else { failed++; console.log(`[yield-collector] No data for netuid ${netuid}`); }
+    // 1.1s gap between every request — stays safely under 60 req/min
+    if (i < activeNetuids.length - 1) {
+      await new Promise(r => setTimeout(r, 1100));
     }
   }
 
