@@ -3,8 +3,8 @@
 import { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
+import Link from "next/link";
 import SubnetLogo from "@/components/dashboard/SubnetLogo";
-import BlurGate from "@/components/BlurGate";
 import { getTier } from "@/lib/subscription";
 import { useWatchlist } from "@/components/dashboard/WatchlistProvider";
 import type { SubnetAudit } from "@/app/api/cron/audit-scan/route";
@@ -178,8 +178,9 @@ function sortValue(a: SubnetAudit, key: SortKey): number {
 
 // ── Main page ─────────────────────────────────────────────────────
 export default function AuditsPage() {
-  const { data: session } = useSession();
+  const { data: session, status: sessionStatus } = useSession();
   const tier = getTier(session);
+  const isPremium = tier === "premium";
   const router = useRouter();
   const { isWatched, watchlist } = useWatchlist();
 
@@ -193,7 +194,10 @@ export default function AuditsPage() {
   const [sortKey, setSortKey]     = useState<SortKey>("score");
   const [sortDir, setSortDir]     = useState<"asc" | "desc">("desc");
 
+  // Only fetch data once we know the user is premium
   useEffect(() => {
+    if (sessionStatus === "loading") return;
+    if (!isPremium) { setLoading(false); return; }
     fetch("/api/audits")
       .then(r => r.json())
       .then(data => {
@@ -203,7 +207,7 @@ export default function AuditsPage() {
       })
       .catch(e => setError(String(e)))
       .finally(() => setLoading(false));
-  }, []);
+  }, [sessionStatus, isPremium]);
 
   function handleSort(key: SortKey) {
     if (sortKey === key) {
@@ -537,6 +541,54 @@ export default function AuditsPage() {
     </div>
   );
 
+  // Session still loading — show nothing to avoid flash
+  if (sessionStatus === "loading") {
+    return (
+      <main className="flex-1 flex items-center justify-center">
+        <div className="text-gray-600 text-sm">Loading…</div>
+      </main>
+    );
+  }
+
+  // Hard gate — not signed in
+  if (!session) {
+    return (
+      <main className="flex-1 flex items-center justify-center p-6">
+        <div className="text-center max-w-md">
+          <div className="text-5xl mb-4">🔒</div>
+          <h2 className="text-xl font-bold mb-2">Sign In Required</h2>
+          <p className="text-gray-400 mb-6">Sign in to access Subnet Audits.</p>
+          <Link href="/auth/signin" className="px-6 py-3 bg-green-600 hover:bg-green-500 text-black font-bold rounded-xl transition-colors">
+            Sign In
+          </Link>
+        </div>
+      </main>
+    );
+  }
+
+  // Hard gate — signed in but not premium
+  if (!isPremium) {
+    return (
+      <main className="flex-1 flex items-center justify-center p-6">
+        <div className="text-center max-w-lg">
+          <div className="text-5xl mb-4">📊</div>
+          <h2 className="text-2xl font-bold mb-3">Subnet Audits</h2>
+          <p className="text-gray-400 mb-2 leading-relaxed">
+            Deep operational intelligence across every active subnet — decentralisation scores, miner burn economics, validator health, liquidity, and adoption metrics in one sortable table.
+          </p>
+          <p className="text-gray-500 text-sm mb-8">Available on the Premium plan.</p>
+          <Link
+            href="/subscribe"
+            className="inline-block px-8 py-3.5 bg-gradient-to-r from-green-500 to-emerald-600 text-black font-bold rounded-xl text-base hover:from-green-400 hover:to-emerald-500 transition-all shadow-xl shadow-green-500/30"
+          >
+            Upgrade to Premium →
+          </Link>
+          <p className="text-xs text-gray-600 mt-3">Premium · $49/mo · Includes all Pro features</p>
+        </div>
+      </main>
+    );
+  }
+
   return (
     <main className="flex-1 overflow-auto p-4 md:p-6">
       <div className="max-w-screen-2xl mx-auto space-y-5">
@@ -557,9 +609,7 @@ export default function AuditsPage() {
           )}
         </div>
 
-        <BlurGate tier={tier} required="premium" label="Unlock Subnet Audits →" minHeight="400px">
-          {pageContent}
-        </BlurGate>
+        {pageContent}
 
       </div>
     </main>

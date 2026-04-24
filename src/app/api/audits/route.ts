@@ -7,6 +7,9 @@
 
 import { NextResponse } from "next/server";
 import { get as blobGet, list } from "@vercel/blob";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/lib/auth";
+import { getTier } from "@/lib/subscription";
 import type { AuditData, SubnetAudit } from "@/app/api/cron/audit-scan/route";
 
 export const dynamic = "force-dynamic";
@@ -29,6 +32,16 @@ async function readBlob<T>(name: string, token: string): Promise<T | null> {
 }
 
 export async function GET(req: Request) {
+  // Require Premium tier
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.email) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  const tier = getTier(session);
+  if (tier !== "premium") {
+    return NextResponse.json({ error: "Premium subscription required" }, { status: 403 });
+  }
+
   const token = process.env.BLOB_READ_WRITE_TOKEN || "";
   if (!token) return NextResponse.json({ error: "No blob token" }, { status: 500 });
 
