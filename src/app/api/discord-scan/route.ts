@@ -372,7 +372,7 @@ Respond with a JSON array — one object per channel IN THE SAME ORDER:
     "keyInsights": [
       { "text": "Specific insight here — name features, people, dates, partner names", "type": "partnership" }
     ],
-    "alphaTake": "1-2 plain English sentences written for a non-technical investor. Say clearly whether this is actionable or just noise. Example for alpha: 'The team is about to launch a major integration — this could move the price before the rest of the market notices. Worth acting on.' Example for active: 'The community is healthy and the devs are shipping, but nothing market-moving just yet. Keep it on your radar.' Example for quiet/noise: 'Just routine chatter — nothing to act on here.'"
+    "alphaTake": "REQUIRED — always include this field for every entry. 1-2 plain English sentences for a non-technical investor. Be direct: say exactly what this means and whether it's worth acting on. Tailor to the signal level: Alpha → 'The team just [specific action] — this is the kind of early signal that moves before the market catches up. Worth watching closely.' Active → 'The [subnet name] community is actively building — nothing price-moving yet but the dev momentum is real. Keep it on your radar.' Quiet/noise → 'Nothing meaningful happening here right now. Move on.' Never leave this blank — every entry needs an AlphaGap Take."
   }
 ]
 
@@ -383,6 +383,7 @@ Rules:
 - Summary must be SPECIFIC — mention actual topics, features, people, partner names, or events.
 - keyInsights: 0 for quiet/noise, 1-3 for active, 1-5 for alpha. Name actual companies, projects, features.
 - alphaScore reflects BOTH quality AND quantity. A channel where the founder announces a partnership = 90+.
+- alphaTake is MANDATORY — every single entry must have a non-empty alphaTake string. No exceptions.
 - Respond with ONLY the JSON array, no other text.`;
 
   try {
@@ -456,7 +457,7 @@ Rules:
         releaseHint: ai.releaseHint === true,
         summary: ai.summary,
         keyInsights,
-        alphaTake: ai.alphaTake || undefined,
+        alphaTake: ai.alphaTake || defaultAlphaTake(ai.signal, ai.alphaScore),
         messageCount: ch.messages.length,
         uniquePosters,
         scannedAt: new Date().toISOString(),
@@ -590,6 +591,20 @@ Respond with ONLY the JSON object, no other text.`;
     console.error("[discord-scan] Founder analysis error:", e);
     return null;
   }
+}
+
+// Fallback AlphaGap Take when the AI doesn't return one
+function defaultAlphaTake(signal: string, alphaScore?: number): string {
+  if (signal === "alpha" && (alphaScore ?? 0) >= 80) {
+    return "Strong alpha signal — something significant is happening here. Worth digging into before the wider market notices.";
+  }
+  if (signal === "alpha") {
+    return "Real alpha is surfacing in this channel — the community is discussing something that could matter. Keep this subnet on your radar.";
+  }
+  if (signal === "active") {
+    return "Active community with builders engaging — no single big catalyst yet, but the momentum is real. Worth monitoring.";
+  }
+  return "Nothing actionable here right now. Move on.";
 }
 
 function fallbackResult(ch: {
