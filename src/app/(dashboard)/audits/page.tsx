@@ -62,11 +62,12 @@ function CellVal({
   let cls = "text-emerald-400";
 
   if (dir === "high_good") {
-    if      (raw <= crit)  cls = "text-red-400";
-    else if (raw <= warn)  cls = "text-yellow-400";
+    // higher is better: below warn = red, warn–crit = yellow, above crit = green
+    if      (raw < warn)   cls = "text-red-400";
+    else if (raw < crit)   cls = "text-yellow-400";
     else                   cls = "text-emerald-400";
   } else {
-    // low_good — lower is better
+    // low_good — lower is better: above crit = red, warn–crit = yellow, below warn = green
     if      (raw >= crit)  cls = "text-red-400";
     else if (raw >= warn)  cls = "text-yellow-400";
     else                   cls = "text-emerald-400";
@@ -75,7 +76,7 @@ function CellVal({
   return <span className={`tabular-nums font-medium ${cls}`}>{value}</span>;
 }
 
-// ── Column header with optional tooltip ──────────────────────────
+// ── Column header with click-toggleable tooltip ───────────────────
 function ColHeader({ label, sub, tooltip, onClick, sorted }: {
   label: string;
   sub?: string;
@@ -83,24 +84,33 @@ function ColHeader({ label, sub, tooltip, onClick, sorted }: {
   onClick?: () => void;
   sorted?: boolean;
 }) {
+  const [tipOpen, setTipOpen] = useState(false);
+
   return (
     <th
-      className={`px-2.5 py-2 text-right whitespace-nowrap cursor-pointer select-none group/col ${sorted ? "text-green-400" : "text-gray-500 hover:text-gray-300"} transition-colors`}
+      className={`px-2.5 py-2 text-right whitespace-nowrap cursor-pointer select-none ${sorted ? "text-green-400" : "text-gray-500 hover:text-gray-300"} transition-colors`}
       onClick={onClick}
     >
       <div className="flex items-center justify-end gap-1">
         {tooltip && (
-          <div className="relative group/tip" onClick={e => e.stopPropagation()}>
-            <span className="text-[11px] text-gray-500 hover:text-gray-200 cursor-help leading-none select-none">ⓘ</span>
-            <div className="absolute bottom-full right-0 mb-2 w-52 bg-gray-950 border border-gray-700 rounded-lg px-3 py-2.5 text-[11px] text-gray-300 leading-relaxed z-50 opacity-0 group-hover/tip:opacity-100 pointer-events-none transition-opacity shadow-2xl text-left normal-case tracking-normal font-normal whitespace-normal">
-              {tooltip}
-              <div className="absolute top-full right-3 w-0 h-0 border-l-[5px] border-r-[5px] border-t-[5px] border-l-transparent border-r-transparent border-t-gray-700" />
-            </div>
+          <div
+            className="relative"
+            onClick={e => { e.stopPropagation(); setTipOpen(v => !v); }}
+            onMouseEnter={() => setTipOpen(true)}
+            onMouseLeave={() => setTipOpen(false)}
+          >
+            <span className={`text-[11px] cursor-pointer leading-none select-none transition-colors ${tipOpen ? "text-white" : "text-gray-500 hover:text-gray-200"}`}>ⓘ</span>
+            {tipOpen && (
+              <div className="absolute bottom-full right-0 mb-2 w-56 bg-gray-950 border border-gray-600 rounded-lg px-3 py-2.5 text-[11px] text-gray-200 leading-relaxed z-[100] shadow-2xl text-left normal-case tracking-normal font-normal whitespace-normal">
+                {tooltip}
+                <div className="absolute top-full right-3 w-0 h-0 border-l-[5px] border-r-[5px] border-t-[5px] border-l-transparent border-r-transparent border-t-gray-600" />
+              </div>
+            )}
           </div>
         )}
         <div className="text-[10px] font-semibold uppercase tracking-wide">{label}</div>
       </div>
-      {sub && <div className="text-[9px] font-normal text-gray-600 group-hover/col:text-gray-500 text-right">{sub}</div>}
+      {sub && <div className="text-[9px] font-normal text-gray-600 text-right">{sub}</div>}
     </th>
   );
 }
@@ -431,7 +441,7 @@ export default function AuditsPage() {
                           value={pct(audit.emissionChainBuysPct, 1)}
                           raw={audit.emissionChainBuysPct ?? 0}
                           dir="high_good"
-                          thresholds={[10, 30]}
+                          thresholds={[1, 8]}
                         />
                       </td>
 

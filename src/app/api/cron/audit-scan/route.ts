@@ -179,14 +179,16 @@ function computeAudit(
   const activeMinerPct = miners.length > 0
     ? Math.round((activeMiners.length / miners.length) * 100) : 0;
 
-  // ── Trust concentration ───────────────────────────────────────────
-  const validatorTrusts      = validators.map(v => parseFloat(v.trust || "0"));
-  const trustGiniVal         = gini(validatorTrusts);
-  const totalTrust           = validatorTrusts.reduce((s, t) => s + t, 0);
-  const sortedTrusts         = [...validatorTrusts].sort((a, b) => b - a);
-  const top3Trust            = sortedTrusts.slice(0, 3).reduce((s, t) => s + t, 0);
-  const top3ValidatorTrustShare = totalTrust > 0
-    ? Math.round((top3Trust / totalTrust) * 100) : 0;
+  // ── Validator concentration (dividends) ───────────────────────────
+  // Use dividends (what validators earn) rather than trust (set by miners
+  // scoring validators — often 0 for all validators, making gini meaningless).
+  const validatorDividends    = validators.map(v => parseFloat(v.dividends || "0"));
+  const trustGiniVal          = gini(validatorDividends);
+  const totalDividends        = validatorDividends.reduce((s, t) => s + t, 0);
+  const sortedDividends       = [...validatorDividends].sort((a, b) => b - a);
+  const top3Dividends         = sortedDividends.slice(0, 3).reduce((s, t) => s + t, 0);
+  const top3ValidatorTrustShare = totalDividends > 0
+    ? Math.round((top3Dividends / totalDividends) * 100) : 0;
 
   // ── Composite score ───────────────────────────────────────────────
   // Base: 80. Penalties and bonuses from all data sources.
