@@ -57,8 +57,8 @@ function CellVal({
   dir?: Dir;
   thresholds?: [number, number]; // [warn, critical]
 }) {
-  if (value === "—") return <span className="text-gray-600">—</span>;
-  if (raw == null || dir === "neutral") return <span className="text-gray-300 tabular-nums">{value}</span>;
+  if (value === "—") return <span className="text-gray-600 text-sm">—</span>;
+  if (raw == null || dir === "neutral") return <span className="text-gray-300 tabular-nums text-sm">{value}</span>;
 
   const [warn, crit] = thresholds ?? [50, 80];
   let cls = "text-emerald-400";
@@ -75,7 +75,7 @@ function CellVal({
     else                   cls = "text-emerald-400";
   }
 
-  return <span className={`tabular-nums font-medium ${cls}`}>{value}</span>;
+  return <span className={`tabular-nums font-medium text-sm ${cls}`}>{value}</span>;
 }
 
 // ── Info tooltip — portal-based so it escapes overflow clipping ────
@@ -140,9 +140,9 @@ function ColHeader({ label, sub, tooltip, onClick, sorted }: {
     >
       <div className="flex items-center justify-end gap-1">
         {tooltip && <InfoTip text={tooltip} />}
-        <div className="text-[10px] font-semibold uppercase tracking-wide">{label}</div>
+        <div className="text-xs font-semibold uppercase tracking-wide">{label}</div>
       </div>
-      {sub && <div className="text-[9px] font-normal text-gray-600 text-right">{sub}</div>}
+      {sub && <div className="text-[10px] font-normal text-gray-600 text-right">{sub}</div>}
     </th>
   );
 }
@@ -323,12 +323,12 @@ export default function AuditsPage() {
       ) : (
         <div className="bg-gray-900/60 border border-gray-800 rounded-xl overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-sm min-w-[1200px]">
+            <table className="w-full text-sm min-w-[1300px]">
               <thead>
                 <tr className="border-b border-gray-800 bg-gray-950/40">
                   {/* Fixed left: rank + subnet */}
-                  <th className="px-3 py-2.5 text-left w-8 text-[10px] text-gray-600 uppercase tracking-wide">#</th>
-                  <th className="px-3 py-2.5 text-left text-[10px] text-gray-600 uppercase tracking-wide min-w-[160px]">Subnet</th>
+                  <th className="px-3 py-2.5 text-left w-8 text-xs text-gray-600 uppercase tracking-wide">#</th>
+                  <th className="px-3 py-2.5 text-left text-xs text-gray-600 uppercase tracking-wide min-w-[160px]">Subnet</th>
 
                   {/* Audit Score */}
                   <ColHeader label="Audit Score" sub="0-100"
@@ -398,7 +398,7 @@ export default function AuditsPage() {
                       }`}
                     >
                       {/* Rank */}
-                      <td className="px-3 py-3 text-gray-600 text-xs tabular-nums text-center">{i + 1}</td>
+                      <td className="px-3 py-3 text-gray-600 text-sm tabular-nums text-center">{i + 1}</td>
 
                       {/* Subnet name */}
                       <td className="px-3 py-3">
@@ -411,7 +411,7 @@ export default function AuditsPage() {
                             >
                               {audit.name}
                             </button>
-                            <span className="text-[10px] text-gray-600 font-mono">SN{audit.netuid}</span>
+                            <span className="text-xs text-gray-600 font-mono">SN{audit.netuid}</span>
                           </div>
                           {watched && <span className="text-blue-400 text-xs">●</span>}
                         </div>
@@ -499,7 +499,7 @@ export default function AuditsPage() {
 
                       {/* TAO Pool */}
                       <td className="px-2.5 py-3 text-right">
-                        <span className="text-gray-300 tabular-nums text-xs">{fmtTao(audit.taoInPool)}</span>
+                        <span className="text-gray-300 tabular-nums text-sm">{fmtTao(audit.taoInPool)}</span>
                       </td>
 
                       {/* Stale validators % */}
