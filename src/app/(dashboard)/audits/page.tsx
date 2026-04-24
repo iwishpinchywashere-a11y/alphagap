@@ -91,7 +91,7 @@ function ColHeader({ label, sub, tooltip, onClick, sorted }: {
       <div className="flex items-center justify-end gap-1">
         {tooltip && (
           <div className="relative group/tip" onClick={e => e.stopPropagation()}>
-            <span className="text-[10px] text-gray-700 hover:text-gray-400 cursor-help leading-none select-none">ⓘ</span>
+            <span className="text-[11px] text-gray-500 hover:text-gray-200 cursor-help leading-none select-none">ⓘ</span>
             <div className="absolute bottom-full right-0 mb-2 w-52 bg-gray-950 border border-gray-700 rounded-lg px-3 py-2.5 text-[11px] text-gray-300 leading-relaxed z-50 opacity-0 group-hover/tip:opacity-100 pointer-events-none transition-opacity shadow-2xl text-left normal-case tracking-normal font-normal whitespace-normal">
               {tooltip}
               <div className="absolute top-full right-3 w-0 h-0 border-l-[5px] border-r-[5px] border-t-[5px] border-l-transparent border-r-transparent border-t-gray-700" />
@@ -241,14 +241,7 @@ export default function AuditsPage() {
     <div className="space-y-4">
 
       {/* Search + watchlist */}
-      <div className="flex items-center gap-2">
-        <input
-          type="text"
-          placeholder="Search subnets…"
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          className="flex-1 bg-gray-800/60 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:border-green-600 focus:ring-1 focus:ring-green-600/30"
-        />
+      <div className="flex items-center gap-2 flex-wrap">
         <button
           onClick={() => setWatchlistOnly(v => !v)}
           className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium border flex-shrink-0 transition-colors ${
@@ -260,6 +253,13 @@ export default function AuditsPage() {
           </svg>
           My Watchlist
         </button>
+        <input
+          type="text"
+          placeholder="Search subnets…"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          className="w-48 md:w-56 bg-gray-800/60 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:border-green-600 focus:ring-1 focus:ring-green-600/30"
+        />
         <span className="text-xs text-gray-600 flex-shrink-0">{filtered.length} subnets</span>
       </div>
 
