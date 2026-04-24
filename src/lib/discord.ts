@@ -41,7 +41,8 @@ export interface DiscordAlphaResult {
   alphaTypes?: string[];   // e.g. ["partnership", "feature", "launch"]
   summary: string;
   keyInsights: string[];
-  alphaTake?: string;  // plain-English investor take: actionable or noise?
+  alphaTake?: string;      // plain-English investor take: actionable or noise?
+  founderPost?: boolean;   // true when entry is from the Bittensor founder (Const)
   messageCount: number;
   uniquePosters: number;
   scannedAt: string;

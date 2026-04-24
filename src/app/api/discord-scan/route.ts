@@ -33,6 +33,14 @@ async function readBlob<T>(name: string): Promise<T | null> {
 const DISCORD_TOKEN = process.env.DISCORD_TOKEN || "";
 const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY || "";
 
+// ── Bittensor Founder tracking ────────────────────────────────────────────────
+// Const's known Discord usernames (case-insensitive, add more if display name changes)
+const FOUNDER_USERNAMES = new Set(["consttt", "constt", "const"]);
+// Discord user IDs never change — add Const's once confirmed from a live message
+const FOUNDER_USER_IDS = new Set<string>([
+  // "123456789012345678",  // populate from a message log once confirmed
+]);
+
 // Prioritise channels we can map to a netuid — cap at 120 to maximise coverage
 const MAX_CHANNELS = 120;
 // Messages per channel — more context = better AI analysis
@@ -139,6 +147,13 @@ export async function GET() {
       const batch = activeChannels.slice(i, i + BATCH_SIZE);
       const batchResults = await analyzeBatch(batch);
       results.push(...batchResults);
+    }
+
+    // ── Founder post detection ─────────────────────────────────────────────────
+    const founderResult = await analyzeFounderPosts(channelScans);
+    if (founderResult) {
+      results.unshift(founderResult); // pin to top
+      console.log(`[discord-scan] Founder post detected — alphaScore ${founderResult.alphaScore}`);
     }
 
     // Add quiet channels (no messages) as "quiet" without AI analysis
@@ -402,7 +417,7 @@ Rules:
       releaseHint?: boolean;
       summary: string;
       keyInsights: Array<{ text: string; type: string } | string>;
-      alphaTake?: string;
+      alphaTake?: string;   // plain-English investor take
     }> = JSON.parse(jsonText);
 
     return channels.map((ch, idx) => {
@@ -451,6 +466,129 @@ Rules:
   } catch (e) {
     console.error("[discord-scan] AI analysis error:", e);
     return channels.map(ch => fallbackResult(ch));
+  }
+}
+
+// ── Founder Post Analysis ─────────────────────────────────────────────────────
+
+async function analyzeFounderPosts(
+  channelScans: Array<{
+    channelId: string;
+    channelName: string;
+    netuid: number | null;
+    messages: DiscordMessage[];
+  }>
+): Promise<DiscordAlphaResult | null> {
+  // Collect all messages from Const across every channel we scanned
+  const found: Array<{ channelName: string; netuid: number | null; msg: DiscordMessage }> = [];
+
+  for (const scan of channelScans) {
+    for (const msg of scan.messages) {
+      if (msg.author.bot) continue;
+      const uname = msg.author.username.toLowerCase();
+      const isFounder = FOUNDER_USERNAMES.has(uname) || FOUNDER_USER_IDS.has(msg.author.id);
+      if (isFounder && msg.content.trim().length > 15) {
+        found.push({ channelName: scan.channelName, netuid: scan.netuid, msg });
+      }
+    }
+  }
+
+  if (found.length === 0) {
+    console.log("[discord-scan] No founder posts found in last 24h");
+    return null;
+  }
+
+  console.log(`[discord-scan] Found ${found.length} founder message(s) across ${new Set(found.map(f => f.channelName)).size} channel(s)`);
+
+  if (!ANTHROPIC_KEY) return null;
+
+  const messageTexts = found
+    .map(f => `[#${f.channelName}] @${f.msg.author.username}: "${f.msg.content.slice(0, 500)}"`)
+    .join("\n");
+
+  const prompt = `You are an analyst for Bittensor subnet investors. The following are Discord messages posted by Const — the founder of Bittensor — in the last 24 hours across various subnet channels.
+
+${messageTexts}
+
+Determine if any messages are SIGNIFICANT (not just greetings, "lol", one-word replies, or generic support).
+If significant messages exist, summarize what he said and what it means for investors.
+
+Respond with JSON only:
+{
+  "significant": true or false,
+  "alphaScore": 0-100,
+  "summary": "One specific sentence — what did he actually say or announce?",
+  "keyInsights": ["Direct quote or close paraphrase of key insight 1", "insight 2"],
+  "alphaTake": "1-2 plain English sentences: what does the founder's message mean for investors? Is this actionable or just context?",
+  "channels": ["#channel-name-1", "#channel-name-2"]
+}
+
+If no messages are significant (greetings, reactions, trivial chat), set "significant": false.
+Respond with ONLY the JSON object, no other text.`;
+
+  try {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": ANTHROPIC_KEY,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 500,
+        messages: [{ role: "user", content: prompt }],
+      }),
+    });
+
+    if (!res.ok) return null;
+
+    const data = await res.json();
+    const text = data.content?.[0]?.text || "{}";
+    const jsonText = text.replace(/^```json?\n?/, "").replace(/\n?```$/, "").trim();
+
+    const ai: {
+      significant: boolean;
+      alphaScore?: number;
+      summary?: string;
+      keyInsights?: string[];
+      alphaTake?: string;
+      channels?: string[];
+    } = JSON.parse(jsonText);
+
+    if (!ai.significant) {
+      console.log("[discord-scan] Founder posts not significant — skipping");
+      return null;
+    }
+
+    // Use the first channel's netuid as a representative (or null if cross-channel)
+    const netuids = [...new Set(found.map(f => f.netuid).filter(n => n !== null))];
+    const netuid = netuids.length === 1 ? netuids[0] : null;
+    const channelLabel = (ai.channels ?? found.map(f => `#${f.channelName}`)).slice(0, 3).join(", ");
+
+    return {
+      channelId: "founder-const",
+      channelName: "founder-const",
+      netuid,
+      subnetName: `Const · Bittensor Founder`,
+      signal: "alpha",
+      alphaScore: Math.min(100, ai.alphaScore ?? 85),
+      alphaTypes: ["founder"],
+      releaseHint: (ai.alphaScore ?? 0) >= 80,
+      summary: ai.summary || "The Bittensor founder posted in Discord.",
+      keyInsights: ai.keyInsights ?? [],
+      alphaTake: ai.alphaTake,
+      founderPost: true,
+      messageCount: found.length,
+      uniquePosters: 1,
+      scannedAt: new Date().toISOString(),
+      lastActivityAt: found.at(-1)?.msg.timestamp,
+      // Store channel context in a reusable field
+      ...(channelLabel ? { channelContext: channelLabel } : {}),
+    } as DiscordAlphaResult & { channelContext?: string };
+  } catch (e) {
+    console.error("[discord-scan] Founder analysis error:", e);
+    return null;
   }
 }
 

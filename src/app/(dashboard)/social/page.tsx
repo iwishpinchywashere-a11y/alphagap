@@ -27,6 +27,8 @@ interface DiscordEntry {
   alphaTypes?: string[];
   summary: string; keyInsights: string[];
   alphaTake?: string;
+  founderPost?: boolean;
+  channelContext?: string;
   messageCount: number; uniquePosters: number; scannedAt: string; lastActivityAt?: string;
   composite_score: number | null; social_score: number | null;
   releaseHint?: boolean;
@@ -162,7 +164,11 @@ export default function SocialPage() {
   const { hotTweets: rawHotTweets, xLeaderboard: rawXLeaderboard, discordLeaderboard: rawDiscordLeaderboard, kolRadar, lastPulse, stats } = data;
   const pulseAge = lastPulse ? Math.floor((Date.now() - new Date(lastPulse).getTime()) / 60000) : null;
 
-  const discordLeaderboard = watchlistOnly ? rawDiscordLeaderboard.filter(d => watchlist.has(d.netuid)) : rawDiscordLeaderboard;
+  // Keep founder entries in the full list (for the pinned card), but exclude from regular leaderboard rows
+  const discordLeaderboard = (watchlistOnly
+    ? rawDiscordLeaderboard.filter(d => watchlist.has(d.netuid))
+    : rawDiscordLeaderboard
+  ).filter(d => !d.founderPost);
   const hotTweets = watchlistOnly ? rawHotTweets.filter(t => watchlist.has(t.netuid)) : rawHotTweets;
   const xLeaderboard = watchlistOnly ? rawXLeaderboard.filter(s => watchlist.has(s.netuid)) : rawXLeaderboard;
 
@@ -227,6 +233,52 @@ export default function SocialPage() {
           <StatCard label="Discord Alpha" value={stats.discordAlphaCount} sub="channels signalling" />
           <StatCard label="Discord Active" value={stats.discordActiveCount} sub="channels engaged" />
         </div>
+
+        {/* ── Founder Signal (pinned above Discord Alpha) ── */}
+        {(() => {
+          const founderEntry = rawDiscordLeaderboard.find(d => d.founderPost);
+          if (!founderEntry) return null;
+          return (
+            <div className="bg-amber-950/20 border border-amber-500/40 rounded-xl overflow-hidden ring-1 ring-amber-500/20 shadow-lg shadow-amber-500/10">
+              <div className="px-5 py-3 border-b border-amber-500/20 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-base">👑</span>
+                  <div>
+                    <h2 className="font-bold text-amber-300 text-sm">Const · Bittensor Founder</h2>
+                    <p className="text-xs text-amber-500/70 mt-0.5">
+                      {founderEntry.channelContext ? `Posted in ${founderEntry.channelContext}` : "Posted in Discord"} · {timeAgo(founderEntry.lastActivityAt ?? founderEntry.scannedAt)}
+                    </p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className={`text-lg font-bold tabular-nums leading-none ${(founderEntry.alphaScore ?? 0) >= 70 ? "text-green-400" : "text-yellow-400"}`}>{founderEntry.alphaScore ?? "—"}</div>
+                  <div className="text-[10px] text-gray-600 mt-0.5">alpha</div>
+                </div>
+              </div>
+              <div className="px-5 py-4">
+                {founderEntry.summary && (
+                  <p className="text-sm text-gray-100 leading-relaxed mb-2">{founderEntry.summary}</p>
+                )}
+                {founderEntry.keyInsights && founderEntry.keyInsights.length > 0 && (
+                  <ul className="space-y-1 mb-2">
+                    {founderEntry.keyInsights.map((insight, ii) => (
+                      <li key={ii} className="flex items-start gap-1.5 text-sm text-gray-300 leading-relaxed">
+                        <span className="text-amber-400 mt-0.5 shrink-0">›</span>
+                        <span>{insight}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {founderEntry.alphaTake && (
+                  <div className="flex items-start gap-1.5 bg-amber-950/30 border border-amber-500/20 rounded-lg px-3 py-2">
+                    <span className="text-amber-400 text-xs font-bold shrink-0 mt-0.5">AlphaGap Take:</span>
+                    <p className="text-xs text-gray-300 leading-relaxed">{founderEntry.alphaTake}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })()}
 
         {/* ── Discord Alpha ── */}
         <div id="discord" className="bg-gray-900/60 border border-gray-800 rounded-xl overflow-hidden">
