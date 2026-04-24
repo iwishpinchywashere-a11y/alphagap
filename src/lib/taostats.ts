@@ -216,14 +216,15 @@ export interface MetagraphNeuron {
   hotkey: { ss58: string };
   coldkey: { ss58: string };
   stake: string;
-  trust: string;
+  trust: string;           // score miners receive from validators (0 for validators)
+  validator_trust: string; // score validators receive based on weight consensus alignment
   consensus: string;
   incentive: string;
   dividends: string;
   emission: string;
   active: boolean;
   validator_permit: boolean;
-  last_update: number;
+  updated: number;         // blocks since this neuron last set weights
 }
 
 export async function getMetagraph(netuid: number): Promise<MetagraphNeuron[]> {

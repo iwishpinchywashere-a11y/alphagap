@@ -154,17 +154,15 @@ function computeAudit(
   const miners     = neurons.filter(n => !n.validator_permit);
 
   // ── Weight staleness ─────────────────────────────────────────────
-  const STALE_THRESHOLD = 7200; // blocks ≈ 24h
+  // `updated` = blocks since this validator last set weights (direct, not relative)
+  // 7200 blocks ≈ 24h at ~12s/block
+  const STALE_THRESHOLD = 7200;
   let staleValidatorCount = 0;
   let maxWeightLagBlocks  = 0;
-  if (validators.length > 0) {
-    const updateBlocks = validators.map(v => v.last_update || 0);
-    const maxBlock = Math.max(...updateBlocks);
-    for (const blk of updateBlocks) {
-      const lag = maxBlock - blk;
-      if (lag > maxWeightLagBlocks) maxWeightLagBlocks = lag;
-      if (lag > STALE_THRESHOLD) staleValidatorCount++;
-    }
+  for (const v of validators) {
+    const lag = v.updated ?? 0;
+    if (lag > maxWeightLagBlocks) maxWeightLagBlocks = lag;
+    if (lag > STALE_THRESHOLD) staleValidatorCount++;
   }
   const staleValidatorPct = validators.length > 0
     ? Math.round((staleValidatorCount / validators.length) * 100) : 0;
