@@ -30,16 +30,25 @@ const BLOB_TOKEN = process.env.BLOB_READ_WRITE_TOKEN || "";
 const TAOSTATS_KEY = process.env.TAOSTATS_API_KEY || "";
 const BASE_URL = "https://api.taostats.io/api";
 
-// Active mainnet subnets to collect (extend as new ones register)
-const ACTIVE_NETUIDS = [
-  1,2,3,4,5,6,7,8,9,10,
-  11,12,13,14,15,16,17,18,19,20,
-  21,22,23,24,25,26,27,28,29,30,
-  31,32,33,34,35,36,37,38,39,40,
-  41,42,43,44,45,46,47,48,49,50,
-  51,52,53,54,55,56,57,58,59,60,
-  61,62,63,64,65,66,67,68,69,70,
-];
+// Dynamically read active netuids from the latest scan blob so we always
+// cover every registered subnet without maintaining a hardcoded list.
+// Falls back to a wide static range if the blob isn't available yet.
+async function getActiveNetuids(): Promise<number[]> {
+  try {
+    const b = await blobGet("scan-latest.json", { token: BLOB_TOKEN, access: "private" });
+    if (!b?.stream) throw new Error("no stream");
+    const reader = b.stream.getReader();
+    const chunks: Uint8Array[] = [];
+    while (true) { const { done, value } = await reader.read(); if (done) break; chunks.push(value); }
+    const scan = JSON.parse(Buffer.concat(chunks).toString("utf-8")) as { leaderboard?: { netuid: number }[] };
+    const ids = (scan.leaderboard ?? []).map(e => e.netuid).filter(n => typeof n === "number" && n > 0);
+    if (ids.length > 0) return ids;
+  } catch {
+    // fall through to static fallback
+  }
+  // Static fallback: covers all subnets up to 130
+  return Array.from({ length: 130 }, (_, i) => i + 1);
+}
 
 interface ValidatorYield {
   stake: number;
@@ -114,14 +123,15 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "TAOSTATS_API_KEY not configured" }, { status: 500 });
   }
 
-  console.log("[yield-collector] Starting yield collection...");
+  const activeNetuids = await getActiveNetuids();
+  console.log(`[yield-collector] Starting yield collection for ${activeNetuids.length} subnets...`);
   const results: Record<string, SubnetYield> = {};
   let collected = 0, failed = 0;
 
   // Fetch in batches of 5 with 1.2s delay between batches to stay under rate limit
   const BATCH_SIZE = 5;
-  for (let i = 0; i < ACTIVE_NETUIDS.length; i += BATCH_SIZE) {
-    const batch = ACTIVE_NETUIDS.slice(i, i + BATCH_SIZE);
+  for (let i = 0; i < activeNetuids.length; i += BATCH_SIZE) {
+    const batch = activeNetuids.slice(i, i + BATCH_SIZE);
     const batchResults = await Promise.all(batch.map(n => fetchSubnetYield(n)));
     for (let j = 0; j < batch.length; j++) {
       const r = batchResults[j];
@@ -129,7 +139,7 @@ export async function GET(req: NextRequest) {
       else { failed++; }
     }
     // Brief pause between batches (skip after last batch)
-    if (i + BATCH_SIZE < ACTIVE_NETUIDS.length) {
+    if (i + BATCH_SIZE < activeNetuids.length) {
       await new Promise(r => setTimeout(r, 1200));
     }
   }
