@@ -97,4 +97,5 @@ export interface SubnetScore {
   momentum_boost?: number;       // MOMENTUM pillar score (signed, ±15 max)
   agap_velo?: number;            // aGap Velocity score 0-100
   invest_agap?: number;          // Investing (long-term) aGap score 0-100
+  audit_score?: number;          // Operational health / decentralisation score 0-100
 }

@@ -29,7 +29,7 @@ const COLUMNS: [keyof SubnetScore, string, string][] = [
   ["price_change_7d", "7d %", "Price change over the last 7 days."],
   ["price_change_30d", "30d %", "Price change over the last 30 days."],
   ["net_flow_24h", "24h Net", "Net USD flow in the last 24 hours. Positive = net buying pressure. A key early signal for institutional or whale accumulation."],
-  ["signal_count", "Signals", "Number of intelligence signals detected for this subnet in the current scan window."],
+  ["audit_score", "Audit", "Operational Health Score (0–100). Measures decentralisation, validator health, token distribution, and network security. Acts as a risk filter on the trading aGap score (low scores apply a penalty) and as a full positive component in the investing score. ≥70 = healthy (green), 50–69 = moderate (yellow), 30–49 = elevated risk (orange), <30 = high risk (red)."],
 ];
 
 // Separate component for useSearchParams (requires Suspense boundary).
@@ -629,8 +629,13 @@ export default function LeaderboardPage() {
                           : "\u2014"}
                       </td>
                       <td className="py-2 px-3 text-right">
-                        {sub.signal_count > 0
-                          ? <span className="bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded text-xs font-semibold">{sub.signal_count}</span>
+                        {sub.audit_score != null
+                          ? <span className={`px-1.5 py-0.5 rounded text-xs font-semibold ${
+                              sub.audit_score >= 70 ? "bg-green-500/20 text-green-400"
+                              : sub.audit_score >= 50 ? "bg-yellow-500/20 text-yellow-400"
+                              : sub.audit_score >= 30 ? "bg-orange-500/20 text-orange-400"
+                              : "bg-red-500/20 text-red-400"
+                            }`}>{sub.audit_score}</span>
                           : <span className="text-gray-700">—</span>}
                       </td>
                     </tr>

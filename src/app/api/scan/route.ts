@@ -2146,6 +2146,37 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
     }
   }
 
+  // ── Load audit scores (used for trading penalty + investing pillar) ────────
+  // audit-data.json is written hourly by /api/cron/audit-scan.
+  // On first run or if the blob is missing we simply get no penalties/boosts.
+  const auditScoreMap = new Map<number, number>();
+  if (process.env.BLOB_READ_WRITE_TOKEN) {
+    try {
+      const { get: getAuditBlob } = await import("@vercel/blob");
+      const auditBlob = await getAuditBlob("audit-data.json", {
+        token: process.env.BLOB_READ_WRITE_TOKEN,
+        access: "private",
+        abortSignal: AbortSignal.timeout(8000),
+      });
+      if (auditBlob?.stream) {
+        const reader = auditBlob.stream.getReader();
+        const chunks: Uint8Array[] = [];
+        while (true) { const { done, value } = await reader.read(); if (done) break; chunks.push(value); }
+        const auditData = JSON.parse(Buffer.concat(chunks).toString("utf-8")) as {
+          subnets: Record<string, { operationalScore: number }>;
+        };
+        for (const [netuidStr, entry] of Object.entries(auditData.subnets ?? {})) {
+          if (typeof entry?.operationalScore === "number") {
+            auditScoreMap.set(Number(netuidStr), entry.operationalScore);
+          }
+        }
+        console.log(`[scan] Loaded audit scores for ${auditScoreMap.size} subnets`);
+      }
+    } catch {
+      console.log("[scan] No audit-data.json yet — skipping audit integration");
+    }
+  }
+
   function smoothAGap(netuid: number, rawScore: number): number {
     const entry = agapHistory[netuid];
     const prev = entry && typeof entry === "object" && "ema" in entry ? (entry as AGapHistoryEntry) : null;
@@ -2733,7 +2764,21 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
       : (sustainedDecline || postPumpFade) ? 72
       : 100;
     const clampedRaw = Math.max(1, Math.min(sustainedDeclineCap, Math.round(rawAGap)));
-    const aGap = smoothAGap(d.netuid, clampedRaw);
+
+    // ── Audit health penalty (trading aGap — asymmetric risk filter only) ─────
+    // High audit = no boost (structural health isn't a trading signal).
+    // Low audit = penalty (centralized/unhealthy subnet = elevated risk).
+    const auditScore = auditScoreMap.get(d.netuid) ?? null;
+    const auditPenalty = auditScore == null ? 0
+      : auditScore < 30 ? -12
+      : auditScore < 50 ?  -7
+      : auditScore < 70 ?  -3
+      : 0;
+    const clampedWithAudit = auditPenalty !== 0
+      ? Math.max(1, Math.min(sustainedDeclineCap, clampedRaw + auditPenalty))
+      : clampedRaw;
+
+    const aGap = smoothAGap(d.netuid, clampedWithAudit);
 
     // ── INVESTING aGap (PILLAR-CAPPED + REVENUE-ANCHORED formula, v18) ──────────
     // Monthly horizon. Tighter pillar caps + revenue floors to prevent on-chain
@@ -2824,6 +2869,17 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
     if      (pillarDev >= 14 && pillarProduct >= 20) investSynergy = 4;
     else if (pillarDev >=  8 && pillarProduct >= 14) investSynergy = 2;
 
+    // ── PILLAR 5: HEALTH (max 10, min −5) ────────────────────────────────────
+    // Long-term investors care far more about decentralisation than traders.
+    // Good health → additive bonus. Very centralised → structural risk penalty.
+    // null data (new/unscanned subnet) → small neutral contribution.
+    const pillarHealth = auditScore == null ? 3   // unknown → neutral
+      : auditScore >= 80 ? 10
+      : auditScore >= 65 ?  7
+      : auditScore >= 50 ?  4
+      : auditScore >= 30 ?  1
+      : -5; // highly centralised = long-term structural risk
+
     // ── PENALTIES (reduced severity — on-chain noise shouldn't bury real products) ──
     const emissionPenalty      = Math.round(Math.min(0, emissionBoost) * 0.45);
     const networkHealthPenalty = Math.round(Math.min(0, investNetworkHealth) * 0.5);
@@ -2833,7 +2889,7 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
     const rawInvestAGap = pillarDev + pillarProduct + pillarNetwork + pillarMoney
                         + revTractionBonus + marketValidationBonus + investSynergy
                         + emissionPenalty + networkHealthPenalty + whalePenalty
-                        + viability + investDeregPenalty;
+                        + viability + investDeregPenalty + pillarHealth;
 
     const clampedInvestAGap = Math.max(1, Math.min(100, Math.round(rawInvestAGap)));
 
@@ -2907,6 +2963,7 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
       annual_revenue_usd: BENCHMARK_MAP.get(d.netuid)?.annual_revenue_usd,
       momentum_boost: momentumBoost !== 0 ? momentumBoost : undefined,
       invest_agap: investAGap,
+      audit_score: auditScore ?? undefined,
     });
   }
 
