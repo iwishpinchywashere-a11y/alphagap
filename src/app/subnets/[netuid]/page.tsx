@@ -32,6 +32,7 @@ interface SubnetData {
   marketStats: MarketStats | null;
   signals: Signal[];
   metagraph: { validators: number; miners: number; totalNeurons: number };
+  flowHistory: { x: string; y: number }[];
   lastScan: string | null;
 }
 
@@ -372,6 +373,191 @@ function ScoreChart({ data, color, label, formatY = (v: number) => v.toFixed(0),
   );
 }
 
+// ── TAO Flow EMA Chart ────────────────────────────────────────────
+// Full-width interactive chart with timeframe selector.
+// Positive flow (inflow) = green, negative (outflow) = red.
+// Data comes from TaoMarketCap subnet_ema_tao_flow, sampled every 10 min.
+type FlowTf = "1D" | "7D" | "1M" | "3M";
+function TaoFlowChart({ allData }: { allData: { x: string; y: number }[] }) {
+  const [tf, setTf] = useState<FlowTf>("7D");
+  const [hoverIdx, setHoverIdx] = useState<number | null>(null);
+  const svgRef = useRef<SVGSVGElement>(null);
+
+  const cutoffMs: Record<FlowTf, number> = {
+    "1D": 1 * 86400000,
+    "7D": 7 * 86400000,
+    "1M": 30 * 86400000,
+    "3M": 90 * 86400000,
+  };
+
+  const data = useMemo(() => {
+    const since = Date.now() - cutoffMs[tf];
+    const filtered = allData.filter(d => new Date(d.x).getTime() >= since);
+    // Downsample for longer ranges to keep SVG fast
+    if (filtered.length <= 200) return filtered;
+    const step = Math.ceil(filtered.length / 200);
+    return filtered.filter((_, i) => i % step === 0 || i === filtered.length - 1);
+  }, [allData, tf]);
+
+  // Colour: green if latest value is positive, red if negative
+  const latest = data.length > 0 ? data[data.length - 1].y : 0;
+  const color = latest >= 0 ? "#4ade80" : "#f87171";
+
+  const W = 600; const H = 200;
+  const PAD = { top: 16, right: 6, bottom: 4, left: 4 };
+  const cW = W - PAD.left - PAD.right;
+  const cH = H - PAD.top - PAD.bottom;
+
+  const fmtFlow = (v: number) => {
+    const abs = Math.abs(v);
+    const sign = v >= 0 ? "+" : "−";
+    if (abs >= 1000) return `${sign}${(abs / 1000).toFixed(1)}K τ`;
+    if (abs >= 1) return `${sign}${abs.toFixed(1)} τ`;
+    return `${sign}${abs.toFixed(3)} τ`;
+  };
+
+  const fmtDate = (ts: string) => {
+    const d = new Date(ts);
+    if (tf === "1D") return d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
+    return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  };
+
+  const handleMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
+    if (!svgRef.current || data.length < 2) return;
+    const rect = svgRef.current.getBoundingClientRect();
+    const svgX = ((e.clientX - rect.left) / rect.width) * W;
+    const raw = (svgX - PAD.left) / cW * (data.length - 1);
+    setHoverIdx(Math.max(0, Math.min(data.length - 1, Math.round(raw))));
+  };
+
+  if (allData.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 gap-2 text-center">
+        <div className="text-gray-600 text-sm">TAO Flow EMA data collection in progress</div>
+        <div className="text-gray-700 text-xs">Chart populates automatically every 10 minutes</div>
+      </div>
+    );
+  }
+
+  if (data.length < 2) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 gap-2 text-center">
+        <div className="text-gray-600 text-sm">Not enough data for this timeframe yet</div>
+        <div className="text-gray-700 text-xs">Try a shorter range or check back later</div>
+      </div>
+    );
+  }
+
+  const values = data.map(d => d.y);
+  const minV = Math.min(...values); const maxV = Math.max(...values);
+  // Ensure zero is always visible — expand range to include 0
+  const yMin = Math.min(minV, 0) - Math.abs(maxV - minV) * 0.08;
+  const yMax = Math.max(maxV, 0) + Math.abs(maxV - minV) * 0.08;
+  const range = yMax - yMin || 1;
+
+  const xS = (i: number) => PAD.left + (i / Math.max(data.length - 1, 1)) * cW;
+  const yS = (v: number) => PAD.top + cH - ((v - yMin) / range) * cH;
+  const zeroY = yS(0).toFixed(1); // pixel position of the zero line
+
+  const pts = data.map((d, i) => `${xS(i).toFixed(1)},${yS(d.y).toFixed(1)}`).join(" ");
+  const area = `${xS(0).toFixed(1)},${zeroY} ${pts} ${xS(data.length - 1).toFixed(1)},${zeroY}`;
+
+  const yTicks = niceYTicks(yMin, yMax);
+  const xIdxs = data.length <= 2 ? [0, data.length - 1]
+    : [0, Math.floor((data.length - 1) / 2), data.length - 1];
+
+  const h = hoverIdx;
+
+  return (
+    <div className="space-y-3">
+      {/* Timeframe buttons */}
+      <div className="flex items-center gap-1.5">
+        {(["1D", "7D", "1M", "3M"] as FlowTf[]).map(t => (
+          <button key={t} onClick={() => { setTf(t); setHoverIdx(null); }}
+            className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${
+              tf === t ? "bg-gray-700 text-white" : "text-gray-500 hover:text-gray-300"
+            }`}>
+            {t}
+          </button>
+        ))}
+        <span className="ml-auto text-xs text-gray-600">{data.length} data points</span>
+      </div>
+
+      {/* Chart */}
+      <div className="relative">
+        {/* Hover tooltip */}
+        {h !== null && (
+          <div className="absolute inset-x-0 top-0.5 flex justify-center pointer-events-none z-10">
+            <div className="bg-gray-900/95 border border-gray-700 rounded-xl px-4 py-2 text-center shadow-xl">
+              <div className={`font-bold font-mono text-xl leading-tight ${data[h].y >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                {fmtFlow(data[h].y)}
+              </div>
+              <div className="text-gray-400 text-xs mt-0.5">{fmtDate(data[h].x)}</div>
+            </div>
+          </div>
+        )}
+
+        <div className="flex items-stretch gap-1.5">
+          {/* Y-axis labels */}
+          <div className="flex flex-col justify-between py-[16px] shrink-0 w-14 text-right">
+            {[...yTicks].reverse().map((v, i) => (
+              <span key={i} className={`text-[10px] leading-none ${v >= 0 ? "text-gray-600" : "text-red-800"}`}>
+                {fmtFlow(v)}
+              </span>
+            ))}
+          </div>
+
+          <div className="flex-1 min-w-0">
+            <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`} className="w-full cursor-crosshair select-none"
+              style={{ height: "200px", display: "block" }} preserveAspectRatio="none"
+              onMouseMove={handleMouseMove} onMouseLeave={() => setHoverIdx(null)}
+              onTouchMove={(e) => {
+                e.preventDefault();
+                if (!svgRef.current || e.touches.length === 0) return;
+                const rect = svgRef.current.getBoundingClientRect();
+                const svgX = ((e.touches[0].clientX - rect.left) / rect.width) * W;
+                setHoverIdx(Math.max(0, Math.min(data.length - 1, Math.round((svgX - PAD.left) / cW * (data.length - 1)))));
+              }}
+              onTouchEnd={() => setHoverIdx(null)}>
+              <defs>
+                <linearGradient id="flowGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={color} stopOpacity="0.30" />
+                  <stop offset="100%" stopColor={color} stopOpacity="0.02" />
+                </linearGradient>
+              </defs>
+              {/* Grid lines */}
+              {yTicks.map((v, i) => (
+                <line key={i} x1={PAD.left} y1={yS(v).toFixed(1)} x2={PAD.left + cW} y2={yS(v).toFixed(1)}
+                  stroke="#1f2937" strokeWidth="1" />
+              ))}
+              {/* Zero baseline — always visible */}
+              <line x1={PAD.left} y1={zeroY} x2={PAD.left + cW} y2={zeroY}
+                stroke="#374151" strokeWidth="1.5" strokeDasharray="4 3" />
+              <polygon points={area} fill={`url(#flowGrad)`} />
+              <polyline points={pts} fill="none" stroke={color} strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
+              {h === null && (
+                <circle cx={xS(data.length - 1).toFixed(1)} cy={yS(latest).toFixed(1)} r="4" fill={color} />
+              )}
+              {h !== null && <Crosshair cx={xS(h)} cy={yS(data[h].y)} W={W} H={H} PAD={PAD} color={color} />}
+            </svg>
+
+            {/* X-axis labels */}
+            <div className="flex justify-between mt-0.5">
+              {xIdxs.map((idx, i) => (
+                <span key={i} className="text-[10px] leading-none text-gray-600">{fmtDate(data[idx].x)}</span>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <p className="text-[11px] text-gray-700 leading-relaxed">
+        TAO Flow EMA measures net TAO moving into or out of this subnet&apos;s liquidity pool (7-day exponential moving average, sourced from TaoMarketCap). Sustained positive flow → emission share rising. Sustained negative flow → emission share falling. This is a leading indicator of where emissions are heading next.
+      </p>
+    </div>
+  );
+}
+
 // ── Stat row item ─────────────────────────────────────────────────
 function StatItem({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
@@ -694,6 +880,15 @@ export default function SubnetDetailPage({ params }: { params: Promise<{ netuid:
                   />
                 </div>
               </div>
+            </div>
+
+            {/* ── TAO Flow EMA Chart ──────────────────────────────── */}
+            <div className="bg-gray-900/60 border border-gray-800 rounded-xl p-4">
+              <div className="flex items-center gap-2 mb-4">
+                <h2 className="text-sm font-semibold text-gray-300 uppercase tracking-wider">TAO Flow EMA</h2>
+                <span className="text-xs text-gray-600">emission trajectory indicator</span>
+              </div>
+              <TaoFlowChart allData={data.flowHistory ?? []} />
             </div>
 
             {/* Description */}

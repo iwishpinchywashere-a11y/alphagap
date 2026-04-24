@@ -44,13 +44,14 @@ export async function GET(
   // This guarantees 1M and 3M charts have data on first load with no lag.
   // The /prices?period=365 endpoint handles 1Y lazy-load on the client.
   const [
-    scanLatest, scoreHistoryAll, emissionHistory, signalsHistory,
+    scanLatest, scoreHistoryAll, emissionHistory, signalsHistory, flowHistoryAll,
     identities, taoPrice, poolDetail, priceHistory92, metagraph,
   ] = await Promise.all([
     readBlob<Record<string, unknown>>("scan-latest.json", token),
     readBlob<Record<string, Record<string, { agap: number; flow: number; dev: number; eval: number; social: number; price: number; mcap: number; emission_pct: number }>>>("subnet-scores-history.json", token),
     readBlob<Record<string, Array<{ pct: number; timestamp: string }>>>("emission-history.json", token),
     readBlob<Array<{ netuid: number; strength: number; signal_type: string; title: string; description: string; source: string; source_url?: string; signal_date?: string; created_at: string; subnet_name?: string }>>("signals-history.json", token),
+    readBlob<Record<string, Record<string, number>>>("flow-history.json", token),
     getSubnetIdentities().catch(() => []),
     getTaoPrice().catch(() => 0),
     getSubnetPoolDetail(netuid).catch(() => null),
@@ -101,6 +102,17 @@ export async function GET(
     .filter((s) => s.netuid === netuid)
     .sort((a, b) => new Date(b.signal_date || b.created_at).getTime() - new Date(a.signal_date || a.created_at).getTime())
     .slice(0, 20);
+
+  // ── TAO Flow EMA history (from TaoMarketCap, per-scan snapshots) ──
+  // flowHistoryAll is { [isoTs]: { [netuid]: taoFlowInTao } }
+  // Extract this subnet's series, sorted chronologically.
+  const flowHistory: { x: string; y: number }[] = [];
+  if (flowHistoryAll) {
+    for (const ts of Object.keys(flowHistoryAll).sort()) {
+      const val = flowHistoryAll[ts][String(netuid)];
+      if (val != null) flowHistory.push({ x: ts, y: val });
+    }
+  }
 
   // ── Price history (92d daily, chronological, always present) ─────
   const priceHistory = priceHistory92
@@ -163,6 +175,7 @@ export async function GET(
     marketStats,
     signals: subnetSignals,
     metagraph: { validators, miners, totalNeurons: metagraph.length },
+    flowHistory,
     lastScan: scanLatest?.lastScan || null,
   });
 }

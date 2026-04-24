@@ -92,6 +92,8 @@ interface TMCSubnet {
   miners_tao_per_day: number;
   circulating_supply: number;
   neuron_regs_burned_24h: number;
+  subnet_ema_tao_flow: number | null; // EMA of net TAO flow (rao); positive=inflow, negative=outflow
+  tao_liquidity: number | null;       // TAO in the liquidity pool (rao)
 }
 async function fetchTMCSubnets(): Promise<TMCSubnet[]> {
   if (!TMC_API_KEY) return [];
@@ -3186,6 +3188,39 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
       await put("subnet-scores-history.json", JSON.stringify(scoreHistory), { access: "private", addRandomSuffix: false, allowOverwrite: true, token: process.env.BLOB_READ_WRITE_TOKEN });
       console.log(`[scan] Subnet score history: ${Object.keys(scoreHistory).length} snapshots stored`);
     } catch (e) { console.error("[scan] Subnet history save failed:", e); }
+
+    // ── Persist TAO flow EMA history (from TaoMarketCap subnet_ema_tao_flow) ──
+    // Stored as { [isoTimestamp]: { [netuid]: taoFlowEmaInTao } }
+    // Trimmed to 90 days. Used to chart emission trajectory on subnet detail page.
+    try {
+      const { get: getBlob3 } = await import("@vercel/blob");
+      const RAO_DIVISOR = 1e9;
+      let flowHistory: Record<string, Record<string, number>> = {};
+      try {
+        const blob = await getBlob3("flow-history.json", { token: process.env.BLOB_READ_WRITE_TOKEN, access: "private" });
+        if (blob?.stream) {
+          const reader = blob.stream.getReader();
+          const chunks: Uint8Array[] = [];
+          while (true) { const { done, value } = await reader.read(); if (done) break; chunks.push(value); }
+          flowHistory = JSON.parse(Buffer.concat(chunks).toString("utf-8"));
+        }
+      } catch { /* start fresh */ }
+
+      const flowScanTs = new Date().toISOString();
+      flowHistory[flowScanTs] = {};
+      for (const [netuid, tmc] of tmcMap) {
+        if (tmc.subnet_ema_tao_flow != null) {
+          flowHistory[flowScanTs][String(netuid)] = Math.round((tmc.subnet_ema_tao_flow / RAO_DIVISOR) * 1000) / 1000;
+        }
+      }
+
+      // Trim to last 90 days
+      const flowCutoff = new Date(Date.now() - 90 * 86400000).toISOString();
+      for (const d of Object.keys(flowHistory)) { if (d < flowCutoff) delete flowHistory[d]; }
+
+      await put("flow-history.json", JSON.stringify(flowHistory), { access: "private", addRandomSuffix: false, allowOverwrite: true, token: process.env.BLOB_READ_WRITE_TOKEN });
+      console.log(`[scan] Flow history: ${Object.keys(flowHistory).length} snapshots stored`);
+    } catch (e) { console.error("[scan] Flow history save failed:", e); }
   }
 
   // ── Early snapshot save ─────────────────────────────────────────
