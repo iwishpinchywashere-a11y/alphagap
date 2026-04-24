@@ -144,7 +144,7 @@ export async function GET(req: NextRequest) {
     for (let j = 0; j < batch.length; j++) {
       const r = batchResults[j];
       if (r) { results[String(batch[j])] = r; collected++; }
-      else { failed++; }
+      else { failed++; console.log(`[yield-collector] No data for netuid ${batch[j]}`); }
     }
     if (i + BATCH_SIZE < activeNetuids.length) {
       await new Promise(r => setTimeout(r, BATCH_DELAY_MS));
