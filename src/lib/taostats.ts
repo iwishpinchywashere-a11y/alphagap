@@ -228,7 +228,8 @@ export interface MetagraphNeuron {
 }
 
 export async function getMetagraph(netuid: number): Promise<MetagraphNeuron[]> {
-  return taoFetch<MetagraphNeuron>("/metagraph/latest/v1", { netuid: String(netuid), limit: "200" });
+  // Bittensor subnets can have up to 256 neurons — use limit=500 to capture all in one page
+  return taoFetch<MetagraphNeuron>("/metagraph/latest/v1", { netuid: String(netuid), limit: "500" });
 }
 
 // ── Neuron Registrations ────────────────────────────────────────
