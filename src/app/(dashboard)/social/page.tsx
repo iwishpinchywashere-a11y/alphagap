@@ -244,7 +244,12 @@ export default function SocialPage() {
                 <div className="flex items-center gap-2">
                   <span className="text-base">👑</span>
                   <div>
-                    <h2 className="font-bold text-amber-300 text-sm">Const · Bittensor Founder</h2>
+                    <div className="flex items-center gap-2">
+                      <h2 className="font-bold text-amber-300 text-sm">Const · Bittensor Founder</h2>
+                      {founderEntry.netuid != null && founderEntry.netuid > 0 && (
+                        <span className="text-xs text-amber-500/70 bg-amber-900/30 border border-amber-500/30 px-1.5 py-0.5 rounded font-mono leading-none">SN{founderEntry.netuid}</span>
+                      )}
+                    </div>
                     <p className="text-xs text-amber-500/70 mt-0.5">
                       {founderEntry.channelContext ? `Posted in ${founderEntry.channelContext}` : "Posted in Discord"} · {timeAgo(founderEntry.lastActivityAt ?? founderEntry.scannedAt)}
                     </p>
