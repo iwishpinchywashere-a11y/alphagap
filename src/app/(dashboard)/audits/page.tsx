@@ -190,12 +190,12 @@ function ExpandedDetail({ audit }: { audit: SubnetAudit }) {
 type SortKey =
   | "score" | "agap" | "nakamoto" | "hhi" | "top10" | "burn"
   | "holders" | "chainBuy"
-  | "taoPool" | "staleVal" | "ziMiners" | "gini";
+  | "taoPool" | "staleVal" | "ziMiners";
 
 const SORT_DEFAULTS: Record<SortKey, "asc" | "desc"> = {
   score: "desc", agap: "desc", nakamoto: "desc", hhi: "asc", top10: "asc", burn: "asc",
   holders: "desc", chainBuy: "desc",
-  taoPool: "desc", staleVal: "asc", ziMiners: "asc", gini: "asc",
+  taoPool: "desc", staleVal: "asc", ziMiners: "asc",
 };
 
 // sortValue needs the agap map passed in
@@ -213,7 +213,6 @@ function sortValue(a: SubnetAudit, key: SortKey, agapMap: Map<number, number>): 
     case "taoPool":  return a.taoInPool ?? -1;
     case "staleVal": return a.staleValidatorPct;
     case "ziMiners": return a.zeroIncentiveMinerPct;
-    case "gini":     return a.trustGini;
     default:         return 0;
   }
 }
@@ -375,9 +374,6 @@ export default function AuditsPage() {
                   <ColHeader label="ZI Miners%" sub="zero incentive"
                     tooltip="Percentage of registered miners currently receiving zero incentive. High values mean many registered miners aren't contributing useful work, wasting network slots."
                     onClick={() => handleSort("ziMiners")} sorted={sortKey === "ziMiners"} />
-                  <ColHeader label="Gini" sub="trust conc."
-                    tooltip="Gini coefficient measuring inequality in validator trust scores. 0 = all validators trusted equally. 1 = one validator holds all trust. Lower is more decentralised and healthy."
-                    onClick={() => handleSort("gini")} sorted={sortKey === "gini"} />
 
                 </tr>
               </thead>
@@ -519,16 +515,6 @@ export default function AuditsPage() {
                           raw={audit.zeroIncentiveMinerPct}
                           dir="low_good"
                           thresholds={[40, 80]}
-                        />
-                      </td>
-
-                      {/* Trust Gini */}
-                      <td className="px-2.5 py-3 text-right">
-                        <CellVal
-                          value={audit.trustGini.toFixed(2)}
-                          raw={audit.trustGini}
-                          dir="low_good"
-                          thresholds={[0.5, 0.75]}
                         />
                       </td>
 

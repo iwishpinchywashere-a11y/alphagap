@@ -199,6 +199,18 @@ function scoreChainBuy(pct: number | null): number {
   return 10;
 }
 
+function scoreTaoPool(tao: number | null): number {
+  // Higher liquidity = better; null → neutral
+  if (tao === null)    return 50;
+  if (tao >= 100_000)  return 100;
+  if (tao >= 50_000)   return 88;
+  if (tao >= 20_000)   return 75;
+  if (tao >= 5_000)    return 60;
+  if (tao >= 1_000)    return 45;
+  if (tao >= 200)      return 28;
+  return 10;
+}
+
 function computeAudit(
   netuid: number,
   name: string,
@@ -275,31 +287,34 @@ function computeAudit(
   // Components are only included when their data source is available —
   // missing data never hard-zeros the score.
   //
-  // Weights (design intent):
-  //   Nakamoto   28  — most important security / decentralisation signal
-  //   Miner burn 22  — directly affects miner sustainability
-  //   HHI        14  — stake concentration
-  //   Top-10     13  — token distribution
-  //   Stale val  15  — validator operational health (metagraph only)
-  //   Holders     4  — adoption proxy
-  //   Chain buy   4  — organic demand signal
+  // Weights (design intent, sum to 100):
+  //   Nakamoto   20  — security foundation
+  //   Miner burn 20  — ecosystem sustainability
+  //   HHI        15  — stake concentration
+  //   Top-10     15  — token distribution
+  //   Chain buy  10  — organic demand signal
+  //   Holders     8  — adoption proxy
+  //   TAO Pool    7  — liquidity depth
+  //   Stale val   5  — validator operational health (metagraph only)
   //
-  // ZI Miners deliberately excluded — 80–98% is normal in Bittensor
-  // (registered miners waiting for slots) and is a noisy non-signal.
+  // Gini and ZI Miners excluded from scoring:
+  //   ZI Miners — 80–98% is normal in Bittensor (slot-holders), very noisy
+  //   Gini      — redundant with Nakamoto/HHI; kept as display column only
 
   const components: { score: number; weight: number }[] = [];
 
   if (ts !== null) {
-    components.push({ score: scoreNakamoto(nakamotoCoefficient), weight: 28 });
-    components.push({ score: scoreBurn(burnedEmissionPct),        weight: 22 });
-    components.push({ score: scoreHHI(hhiNormalized),             weight: 14 });
-    components.push({ score: scoreTop10(top10Share),              weight: 13 });
-    components.push({ score: scoreHolders(holdersCount),          weight:  4 });
-    components.push({ score: scoreChainBuy(emissionChainBuysPct), weight:  4 });
+    components.push({ score: scoreNakamoto(nakamotoCoefficient), weight: 20 });
+    components.push({ score: scoreBurn(burnedEmissionPct),        weight: 20 });
+    components.push({ score: scoreHHI(hhiNormalized),             weight: 15 });
+    components.push({ score: scoreTop10(top10Share),              weight: 15 });
+    components.push({ score: scoreChainBuy(emissionChainBuysPct), weight: 10 });
+    components.push({ score: scoreHolders(holdersCount),          weight:  8 });
+    components.push({ score: scoreTaoPool(taoInPool),             weight:  7 });
   }
 
   if (hasNeuronData) {
-    components.push({ score: scoreStaleVal(staleValidatorPct, validators.length), weight: 15 });
+    components.push({ score: scoreStaleVal(staleValidatorPct, validators.length), weight: 5 });
   }
 
   let score: number;
