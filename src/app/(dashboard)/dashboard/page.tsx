@@ -593,15 +593,14 @@ export default function LeaderboardPage() {
                         {sub.product_score != null ? sub.product_score : "\u2014"}
                       </td>
                       <td className={`py-2 px-3 text-right font-semibold tabular-nums ${scoreColor(sub.social_score || 0)}`}>{sub.social_score || 0}</td>
-                      <td className="py-2 px-3 text-right">
-                        {sub.audit_score != null
-                          ? <span className={`px-1.5 py-0.5 rounded text-xs font-semibold ${
-                              sub.audit_score >= 70 ? "bg-green-500/20 text-green-400"
-                              : sub.audit_score >= 50 ? "bg-yellow-500/20 text-yellow-400"
-                              : sub.audit_score >= 30 ? "bg-orange-500/20 text-orange-400"
-                              : "bg-red-500/20 text-red-400"
-                            }`}>{sub.audit_score}</span>
-                          : <span className="text-gray-700">—</span>}
+                      <td className={`py-2 px-3 text-right font-semibold tabular-nums ${
+                        sub.audit_score == null ? "text-gray-700"
+                        : sub.audit_score >= 70 ? "text-green-400"
+                        : sub.audit_score >= 50 ? "text-yellow-400"
+                        : sub.audit_score >= 30 ? "text-orange-400"
+                        : "text-red-400"
+                      }`}>
+                        {sub.audit_score ?? "—"}
                       </td>
                       <td className="py-2 px-3 text-right text-gray-400 tabular-nums">
                         {sub.emission_pct != null && sub.emission_pct > 0 ? `${(sub.emission_pct * 100).toFixed(1)}%` : "\u2014"}
