@@ -18,10 +18,10 @@ export default function DashboardNav() {
     { href: "/reports", label: "Reports" },
     { href: "/whales", label: "Whales" },
     { href: "/social", label: "Social" },
+    { href: "/audits", label: "Audits" },
     { href: "/analytics", label: "Analytics" },
     { href: "/benchmarks", label: "Benchmarks" },
     { href: "/performance", label: "Performance" },
-    { href: "/audits", label: "Audits (Beta)" },
     { href: "/testing", label: "Pump Lab" },
     { href: "/watchlist", label: "My Watchlist" },
   ];
