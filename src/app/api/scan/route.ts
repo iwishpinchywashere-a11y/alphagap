@@ -3347,6 +3347,36 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
     mergedMap.set(key, s);
   }
 
+  // ── Evict contradictory flow signals ──────────────────────────────────────
+  // flow_inflection (positive flip) and flow_warning (negative flip) are mutually
+  // exclusive states — a subnet can't be flowing positive AND negative at the same
+  // time. If both exist for the same netuid+day, keep only the most recently
+  // generated one (the current scan's signal always has the newest created_at).
+  {
+    const FLOW_OPPOSITES: Record<string, string> = {
+      flow_inflection: "flow_warning",
+      flow_warning:    "flow_inflection",
+    };
+    const flowByNetuiDay = new Map<string, ScanSignal[]>();
+    for (const sig of mergedMap.values()) {
+      if (!(sig.signal_type in FLOW_OPPOSITES)) continue;
+      const day = (sig.signal_date || sig.created_at).slice(0, 10);
+      const gk = `${sig.netuid}:${day}`;
+      if (!flowByNetuiDay.has(gk)) flowByNetuiDay.set(gk, []);
+      flowByNetuiDay.get(gk)!.push(sig);
+    }
+    for (const group of flowByNetuiDay.values()) {
+      if (group.length < 2) continue;
+      // Keep the signal with the newest created_at; evict the rest
+      group.sort((a, b) => b.created_at.localeCompare(a.created_at));
+      for (let i = 1; i < group.length; i++) {
+        const day = (group[i].signal_date || group[i].created_at).slice(0, 10);
+        mergedMap.delete(`${group[i].netuid}:${group[i].signal_type}:${day}`);
+        console.log(`[scan] Evicted contradictory ${group[i].signal_type} for SN${group[i].netuid} ${day} (superseded by ${group[0].signal_type})`);
+      }
+    }
+  }
+
   const mergedSignals = [...mergedMap.values()].sort((a, b) => {
     // Sort by signal_date DESC (most recent first), then strength DESC
     const dateDiff = new Date(b.signal_date || b.created_at).getTime() - new Date(a.signal_date || a.created_at).getTime();
