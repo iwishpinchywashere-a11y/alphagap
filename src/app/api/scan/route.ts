@@ -290,6 +290,9 @@ interface LeaderboardEntry {
   agap_velo?: number;            // aGap Velocity score 0-100
   invest_agap?: number;          // Investing (long-term) aGap score 0-100
   audit_score?: number;          // Operational health / decentralisation score 0-100
+  apy_7d?: number;               // Stake-weighted avg 7-day APY across top validators (0–1 scale)
+  apy_1h?: number;               // 1-hour APY (annualised) — for divergence detection
+  apy_30d?: number;              // 30-day APY (annualised) — baseline for divergence
 }
 
 // ── Stitch3 campaign data (cached in Vercel Blob) ────────────────
@@ -2178,6 +2181,36 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
     }
   }
 
+  // ── Load yield data (display-only, no score impact) ───────────────────────
+  // yield-latest.json is written every 2 hours by /api/cron/yield-collector.
+  const yieldMap = new Map<number, { apy_7d: number; apy_1h: number; apy_30d: number }>();
+  if (process.env.BLOB_READ_WRITE_TOKEN) {
+    try {
+      const { get: getYieldBlob } = await import("@vercel/blob");
+      const yieldBlob = await getYieldBlob("yield-latest.json", {
+        token: process.env.BLOB_READ_WRITE_TOKEN,
+        access: "private",
+        abortSignal: AbortSignal.timeout(6000),
+      });
+      if (yieldBlob?.stream) {
+        const reader = yieldBlob.stream.getReader();
+        const chunks: Uint8Array[] = [];
+        while (true) { const { done, value } = await reader.read(); if (done) break; chunks.push(value); }
+        const yieldData = JSON.parse(Buffer.concat(chunks).toString("utf-8")) as {
+          subnets: Record<string, { apy_7d: number; apy_1h: number; apy_30d: number }>;
+        };
+        for (const [netuidStr, entry] of Object.entries(yieldData.subnets ?? {})) {
+          if (typeof entry?.apy_7d === "number") {
+            yieldMap.set(Number(netuidStr), entry);
+          }
+        }
+        console.log(`[scan] Loaded yield data for ${yieldMap.size} subnets`);
+      }
+    } catch {
+      console.log("[scan] No yield-latest.json yet — skipping yield integration");
+    }
+  }
+
   function smoothAGap(netuid: number, rawScore: number): number {
     const entry = agapHistory[netuid];
     const prev = entry && typeof entry === "object" && "ema" in entry ? (entry as AGapHistoryEntry) : null;
@@ -2965,6 +2998,9 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
       momentum_boost: momentumBoost !== 0 ? momentumBoost : undefined,
       invest_agap: investAGap,
       audit_score: auditScore ?? undefined,
+      apy_7d:  yieldMap.get(d.netuid)?.apy_7d,
+      apy_1h:  yieldMap.get(d.netuid)?.apy_1h,
+      apy_30d: yieldMap.get(d.netuid)?.apy_30d,
     });
   }
 

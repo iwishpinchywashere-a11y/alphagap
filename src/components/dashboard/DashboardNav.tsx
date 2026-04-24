@@ -16,7 +16,7 @@ export default function DashboardNav() {
     { href: "/powerrankings", label: "Power Rankings" },
     { href: "/signals", label: "Signals" },
     { href: "/reports", label: "Reports" },
-    { href: "/whales", label: "Whales" },
+    { href: "/flow", label: "Flow" },
     { href: "/social", label: "Social" },
     { href: "/audits", label: "Audits" },
     { href: "/analytics", label: "Analytics" },

@@ -25,6 +25,7 @@ const COLUMNS: [keyof SubnetScore, string, string, string?][] = [
   ["audit_score",     "Aud",     "Operational Health Score (0–100). Measures decentralisation, validator health, token distribution, and network security. Acts as a risk filter on the trading aGap score (low scores apply a penalty) and as a full positive component in the investing score. ≥70 = healthy (green), 50–69 = moderate (yellow), 30–49 = elevated risk (orange), <30 = high risk (red).", "Audit / Health"],
   ["emission_pct",    "Em %",    "Emission share — percentage of total Bittensor network emissions currently allocated to this subnet.", "Emission %"],
   ["emission_change_pct", "Em Δ","Recent change in emission allocation. Green = the network is voting more resources toward this subnet. Red = allocation is declining.", "Emission Change"],
+  ["apy_7d",          "APY",    "7-day staking yield (annualised). Stake-weighted average APY across active validators on this subnet. Measures what stakers are actually earning right now, extrapolated to a full year.", "Staking APY (7d)"],
   ["alpha_price",     "Price",   "Current alpha token price in USD."],
   ["market_cap",      "MCap",    "Total market capitalization in USD.", "Market Cap"],
   ["price_change_1h", "1h %",    "Price change in the last 1 hour.", "1h Price Change"],
@@ -614,6 +615,14 @@ export default function LeaderboardPage() {
                           ? `${sub.emission_change_pct > 0 ? "+" : ""}${sub.emission_change_pct.toFixed(1)}%`
                           : "\u2014"}
                       </td>
+                      <td className={`py-2 px-3 text-right font-semibold tabular-nums ${
+                        sub.apy_7d == null ? "text-gray-600" :
+                        sub.apy_7d >= 0.50 ? "text-green-400" :
+                        sub.apy_7d >= 0.35 ? "text-yellow-400" :
+                        sub.apy_7d >= 0.20 ? "text-orange-400" : "text-gray-500"
+                      }`}>
+                        {sub.apy_7d != null ? `${(sub.apy_7d * 100).toFixed(0)}%` : "\u2014"}
+                      </td>
                       <td className="py-2 px-3 text-right text-gray-300 tabular-nums font-medium">
                         {sub.alpha_price != null ? `$${formatNum(sub.alpha_price, 2)}` : "\u2014"}
                       </td>
@@ -643,7 +652,7 @@ export default function LeaderboardPage() {
                     {/* CTA injected in the middle of the locked section — desktop only */}
                     {!isPro && i === 9 && (
                       <tr className="hidden md:table-row">
-                        <td colSpan={20} className="py-5 text-center bg-[#0a0a0f]/60">
+                        <td colSpan={21} className="py-5 text-center bg-[#0a0a0f]/60">
                           <div className="inline-flex flex-col items-center gap-2">
                             <p className="text-xs text-white font-bold">Top 20 Subnets are hidden on the free plan</p>
                             <a href="/pricing" className="font-sans px-8 py-3.5 bg-gradient-to-r from-green-500 to-emerald-600 text-black font-bold rounded-xl text-base hover:from-green-400 hover:to-emerald-500 transition-all shadow-xl shadow-green-500/30">

@@ -98,4 +98,7 @@ export interface SubnetScore {
   agap_velo?: number;            // aGap Velocity score 0-100
   invest_agap?: number;          // Investing (long-term) aGap score 0-100
   audit_score?: number;          // Operational health / decentralisation score 0-100
+  apy_7d?: number;               // Average 7-day staking APY across top validators (0–1 decimal, e.g. 0.51 = 51%)
+  apy_1h?: number;               // Average 1-hour APY (annualised) — used for divergence detection
+  apy_30d?: number;              // Average 30-day APY (annualised) — baseline for divergence
 }

@@ -50,6 +50,8 @@ export default function DashboardProvider({ children }: { children: React.ReactN
   // Audit scores fetched once on mount — merged into leaderboard immediately
   // so the Audit column populates without waiting for the next full scan.
   const auditScoresRef = useRef<Record<string, number>>({});
+  // Yield scores fetched once on mount — merged into leaderboard for APY column.
+  const yieldScoresRef = useRef<Record<string, { apy_7d: number; apy_1h: number; apy_30d: number }>>({});
 
   const mergeAuditScores = useCallback((entries: SubnetScore[]): SubnetScore[] => {
     const scores = auditScoresRef.current;
@@ -58,6 +60,21 @@ export default function DashboardProvider({ children }: { children: React.ReactN
       ...e,
       audit_score: e.audit_score ?? scores[String(e.netuid)],
     }));
+  }, []);
+
+  const mergeYieldScores = useCallback((entries: SubnetScore[]): SubnetScore[] => {
+    const scores = yieldScoresRef.current;
+    if (Object.keys(scores).length === 0) return entries;
+    return entries.map(e => {
+      const y = scores[String(e.netuid)];
+      if (!y) return e;
+      return {
+        ...e,
+        apy_7d:  e.apy_7d  ?? y.apy_7d,
+        apy_1h:  e.apy_1h  ?? y.apy_1h,
+        apy_30d: e.apy_30d ?? y.apy_30d,
+      };
+    });
   }, []);
 
   // Translate signal text (title + description) via the /api/translate endpoint.
@@ -88,7 +105,7 @@ export default function DashboardProvider({ children }: { children: React.ReactN
 
   const loadData = useCallback((data: Record<string, unknown>) => {
     const rawLeaderboard = (data.leaderboard as SubnetScore[]) || [];
-    setLeaderboard(mergeAuditScores(rawLeaderboard));
+    setLeaderboard(mergeYieldScores(mergeAuditScores(rawLeaderboard)));
     const rawSignals = (data.signals as Signal[]) || [];
     // Translate signals asynchronously if user has a non-English preference.
     // We set English first immediately so the UI isn't blank, then replace once translated.
@@ -110,7 +127,7 @@ export default function DashboardProvider({ children }: { children: React.ReactN
     setScanResult(
       `${counts.subnets || 0} subnets, ${counts.signals || 0} signals${duration ? ` in ${duration}` : ""}${cached}`
     );
-  }, [mergeAuditScores, userLanguage, translateSignals]);
+  }, [mergeAuditScores, mergeYieldScores, userLanguage, translateSignals]);
 
   const runScan = useCallback(async () => {
     setScanning(true);
@@ -185,6 +202,29 @@ export default function DashboardProvider({ children }: { children: React.ReactN
           ...e,
           audit_score: e.audit_score ?? data.scores[String(e.netuid)],
         })));
+      })
+      .catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Fetch yield scores once on mount and merge into leaderboard for APY column.
+  // yield-latest.json is updated every 2h by /api/cron/yield-collector.
+  useEffect(() => {
+    fetch("/api/yield-scores")
+      .then(r => r.ok ? r.json() : null)
+      .then((data: { scores: Record<string, { apy_7d: number; apy_1h: number; apy_30d: number }> } | null) => {
+        if (!data?.scores || Object.keys(data.scores).length === 0) return;
+        yieldScoresRef.current = data.scores;
+        setLeaderboard(prev => prev.map(e => {
+          const y = data.scores[String(e.netuid)];
+          if (!y) return e;
+          return {
+            ...e,
+            apy_7d:  e.apy_7d  ?? y.apy_7d,
+            apy_1h:  e.apy_1h  ?? y.apy_1h,
+            apy_30d: e.apy_30d ?? y.apy_30d,
+          };
+        }));
       })
       .catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
