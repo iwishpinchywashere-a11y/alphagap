@@ -114,6 +114,91 @@ function auditGrade(score: number, flags: AuditFlag[]): "A" | "B" | "C" | "D" | 
   return "F";
 }
 
+// ── Component scoring functions (each returns 0–100) ─────────────────
+// These replace the old "start at 80, stack penalties" approach.
+// Each metric is scored independently, then combined by weight.
+
+function scoreNakamoto(n: number): number {
+  if (n >= 20) return 100;
+  if (n >= 15) return 90;
+  if (n >= 10) return 78;
+  if (n >= 7)  return 65;
+  if (n >= 5)  return 52;
+  if (n >= 4)  return 38;
+  if (n >= 3)  return 25;
+  if (n >= 2)  return 12;
+  return 0;
+}
+
+function scoreBurn(pct: number | null): number {
+  // Lower burn = better; null = unknown → neutral
+  if (pct === null) return 50;
+  if (pct <= 0)     return 100;
+  if (pct <= 5)     return 92;
+  if (pct <= 15)    return 80;
+  if (pct <= 30)    return 65;
+  if (pct <= 50)    return 45;
+  if (pct <= 70)    return 22;
+  if (pct <= 85)    return 8;
+  return 0;
+}
+
+function scoreHHI(h: number): number {
+  // Lower HHI = better
+  if (h <= 0.05) return 100;
+  if (h <= 0.10) return 88;
+  if (h <= 0.20) return 72;
+  if (h <= 0.35) return 55;
+  if (h <= 0.50) return 35;
+  if (h <= 0.65) return 18;
+  return 5;
+}
+
+function scoreTop10(share: number): number {
+  // Lower share = better (0–1 scale)
+  if (share <= 0.30) return 100;
+  if (share <= 0.45) return 82;
+  if (share <= 0.60) return 62;
+  if (share <= 0.75) return 42;
+  if (share <= 0.85) return 22;
+  return 8;
+}
+
+function scoreStaleVal(pct: number, valCount: number): number {
+  // Lower staleness = better; no validators → neutral
+  if (valCount === 0) return 50;
+  if (pct === 0)      return 100;
+  if (pct <= 10)      return 88;
+  if (pct <= 25)      return 70;
+  if (pct <= 50)      return 45;
+  if (pct <= 75)      return 20;
+  return 5;
+}
+
+function scoreHolders(count: number | null): number {
+  // Higher = better; null → neutral
+  if (count === null)  return 50;
+  if (count >= 10000)  return 100;
+  if (count >= 5000)   return 85;
+  if (count >= 2000)   return 70;
+  if (count >= 1000)   return 55;
+  if (count >= 500)    return 40;
+  if (count >= 100)    return 25;
+  return 10;
+}
+
+function scoreChainBuy(pct: number | null): number {
+  // Higher = better; null → neutral
+  if (pct === null)  return 50;
+  if (pct >= 50)     return 100;
+  if (pct >= 25)     return 85;
+  if (pct >= 10)     return 68;
+  if (pct >= 5)      return 52;
+  if (pct >= 2)      return 38;
+  if (pct >= 0.5)    return 25;
+  return 10;
+}
+
 function computeAudit(
   netuid: number,
   name: string,
@@ -123,167 +208,133 @@ function computeAudit(
   const now = new Date().toISOString();
 
   // ── Pull TaoSwap fields ──────────────────────────────────────────
-  const nakamotoCoefficient = ts?.nakamoto_coefficient ?? 0;
-  const hhiNormalized       = ts?.hhi_normalized ?? 0;
-  const top10Share          = ts?.top10_share ?? 0;           // 0-1
-  const burnedEmissionPct   = ts?.emission_miner_burn ?? 0;   // already 0-100
-  const emissionPercent     = ts?.emission_percent ?? null;
-  const emissionEmaPct      = ts?.emission_ema_percent ?? null;
+  const nakamotoCoefficient  = ts?.nakamoto_coefficient ?? 0;
+  const hhiNormalized        = ts?.hhi_normalized ?? 0;
+  const top10Share           = ts?.top10_share ?? 0;            // 0–1
+  const burnedEmissionPct    = ts?.emission_miner_burn ?? null; // null = unknown
+  const emissionPercent      = ts?.emission_percent ?? null;
+  const emissionEmaPct       = ts?.emission_ema_percent ?? null;
   const emissionChainBuysPct = ts?.emission_chain_buys_percent ?? null;
-  const taoInPool           = ts?.root_in_pool ?? null;
-  const inflow              = ts?.inflow ?? null;
-  const outflow             = ts?.outflow ?? null;
-  const holdersCount        = ts?.holders_count ?? null;
+  const taoInPool            = ts?.root_in_pool ?? null;
+  const inflow               = ts?.inflow ?? null;
+  const outflow              = ts?.outflow ?? null;
+  const holdersCount         = ts?.holders_count ?? null;
 
-  // Empty neuron data guard
-  if (!neurons || neurons.length === 0) {
-    return {
-      netuid, name, grade: "F", operationalScore: 0,
-      validatorCount: 0, staleValidatorCount: 0, staleValidatorPct: 0, maxWeightLagBlocks: 0,
-      minerCount: 0, zeroIncentiveMinerCount: 0, zeroIncentiveMinerPct: 0, activeMinerPct: 0,
-      trustGini: 0, top3ValidatorTrustShare: 0,
-      nakamotoCoefficient, hhiNormalized, top10Share,
-      burnedEmissionPct, emissionPercent, emissionEmaPct, emissionChainBuysPct,
-      taoInPool, inflow, outflow, holdersCount,
-      flags: [{ type: "no_validators", severity: "warning", message: "No neuron data available" }],
-      updatedAt: now,
-    };
+  const hasNeuronData = neurons && neurons.length > 0;
+
+  // ── Metagraph computations (only when we have neuron data) ────────
+  let validators: typeof neurons = [];
+  let miners:     typeof neurons = [];
+  let staleValidatorCount   = 0;
+  let maxWeightLagBlocks    = 0;
+  let staleValidatorPct     = 0;
+  let zeroIncentiveMinerCount = 0;
+  let zeroIncentiveMinerPct   = 0;
+  let activeMinerPct          = 0;
+  let trustGiniVal            = 0;
+  let top3ValidatorTrustShare = 0;
+
+  if (hasNeuronData) {
+    validators = neurons.filter(n => n.validator_permit);
+    miners     = neurons.filter(n => !n.validator_permit);
+
+    // Weight staleness — `updated` = blocks since last weight set; 7200 ≈ 24h
+    const STALE_THRESHOLD = 7200;
+    for (const v of validators) {
+      const lag = v.updated ?? 0;
+      if (lag > maxWeightLagBlocks) maxWeightLagBlocks = lag;
+      if (lag > STALE_THRESHOLD) staleValidatorCount++;
+    }
+    staleValidatorPct = validators.length > 0
+      ? Math.round((staleValidatorCount / validators.length) * 100) : 0;
+
+    // Zero-incentive miners (displayed as a column, NOT used in scoring —
+    // 80–98% ZI miners is normal in Bittensor and not a reliable quality signal)
+    const INCENTIVE_THRESHOLD = 0.001;
+    const activeMiners        = miners.filter(n => n.active);
+    const zeroIncentiveMiners = miners.filter(n => parseFloat(n.incentive || "0") < INCENTIVE_THRESHOLD);
+    zeroIncentiveMinerCount   = zeroIncentiveMiners.length;
+    zeroIncentiveMinerPct     = miners.length > 0
+      ? Math.round((zeroIncentiveMinerCount / miners.length) * 100) : 0;
+    activeMinerPct = miners.length > 0
+      ? Math.round((activeMiners.length / miners.length) * 100) : 0;
+
+    // Validator concentration via dividend Gini
+    const validatorDividends    = validators.map(v => parseFloat(v.dividends || "0"));
+    trustGiniVal                = gini(validatorDividends);
+    const totalDividends        = validatorDividends.reduce((s, t) => s + t, 0);
+    const sortedDividends       = [...validatorDividends].sort((a, b) => b - a);
+    const top3Dividends         = sortedDividends.slice(0, 3).reduce((s, t) => s + t, 0);
+    top3ValidatorTrustShare     = totalDividends > 0
+      ? Math.round((top3Dividends / totalDividends) * 100) : 0;
   }
 
-  const validators = neurons.filter(n => n.validator_permit);
-  const miners     = neurons.filter(n => !n.validator_permit);
+  // ── Weighted composite score ──────────────────────────────────────
+  //
+  // Each component is scored 0–100 independently, then combined by weight.
+  // Components are only included when their data source is available —
+  // missing data never hard-zeros the score.
+  //
+  // Weights (design intent):
+  //   Nakamoto   28  — most important security / decentralisation signal
+  //   Miner burn 22  — directly affects miner sustainability
+  //   HHI        14  — stake concentration
+  //   Top-10     13  — token distribution
+  //   Stale val  15  — validator operational health (metagraph only)
+  //   Holders     4  — adoption proxy
+  //   Chain buy   4  — organic demand signal
+  //
+  // ZI Miners deliberately excluded — 80–98% is normal in Bittensor
+  // (registered miners waiting for slots) and is a noisy non-signal.
 
-  // ── Weight staleness ─────────────────────────────────────────────
-  // `updated` = blocks since this validator last set weights (direct, not relative)
-  // 7200 blocks ≈ 24h at ~12s/block
-  const STALE_THRESHOLD = 7200;
-  let staleValidatorCount = 0;
-  let maxWeightLagBlocks  = 0;
-  for (const v of validators) {
-    const lag = v.updated ?? 0;
-    if (lag > maxWeightLagBlocks) maxWeightLagBlocks = lag;
-    if (lag > STALE_THRESHOLD) staleValidatorCount++;
-  }
-  const staleValidatorPct = validators.length > 0
-    ? Math.round((staleValidatorCount / validators.length) * 100) : 0;
+  const components: { score: number; weight: number }[] = [];
 
-  // ── Zero-incentive miners ─────────────────────────────────────────
-  const INCENTIVE_THRESHOLD = 0.001;
-  const activeMiners        = miners.filter(n => n.active);
-  const zeroIncentiveMiners = miners.filter(n => parseFloat(n.incentive || "0") < INCENTIVE_THRESHOLD);
-  const zeroIncentiveMinerCount = zeroIncentiveMiners.length;
-  const zeroIncentiveMinerPct   = miners.length > 0
-    ? Math.round((zeroIncentiveMinerCount / miners.length) * 100) : 0;
-  const activeMinerPct = miners.length > 0
-    ? Math.round((activeMiners.length / miners.length) * 100) : 0;
-
-  // ── Validator concentration (dividends) ───────────────────────────
-  // Use dividends (what validators earn) rather than trust (set by miners
-  // scoring validators — often 0 for all validators, making gini meaningless).
-  const validatorDividends    = validators.map(v => parseFloat(v.dividends || "0"));
-  const trustGiniVal          = gini(validatorDividends);
-  const totalDividends        = validatorDividends.reduce((s, t) => s + t, 0);
-  const sortedDividends       = [...validatorDividends].sort((a, b) => b - a);
-  const top3Dividends         = sortedDividends.slice(0, 3).reduce((s, t) => s + t, 0);
-  const top3ValidatorTrustShare = totalDividends > 0
-    ? Math.round((top3Dividends / totalDividends) * 100) : 0;
-
-  // ── Composite score ───────────────────────────────────────────────
-  // Base: 80. Penalties and bonuses from all data sources.
-  let score = 80;
-
-  // Validator staleness
-  if      (staleValidatorPct >= 90) score -= 30;
-  else if (staleValidatorPct >= 70) score -= 22;
-  else if (staleValidatorPct >= 50) score -= 14;
-  else if (staleValidatorPct >= 25) score -= 7;
-  else if (staleValidatorPct <=  5 && validators.length >= 5) score += 8;
-
-  // Zero-incentive miners (burn code proxy)
-  if      (zeroIncentiveMinerPct >= 90) score -= 25;
-  else if (zeroIncentiveMinerPct >= 70) score -= 18;
-  else if (zeroIncentiveMinerPct >= 50) score -= 10;
-  else if (zeroIncentiveMinerPct >= 30) score -= 5;
-  else if (zeroIncentiveMinerPct <= 10 && miners.length >= 5) score += 5;
-
-  // Trust Gini (collusion)
-  if      (trustGiniVal >= 0.9)                           score -= 20;
-  else if (trustGiniVal >= 0.75)                          score -= 12;
-  else if (trustGiniVal >= 0.6)                           score -= 6;
-  else if (trustGiniVal <= 0.35 && validators.length >= 8) score += 5;
-
-  // Validator count
-  if      (validators.length <  3) score -= 10;
-  else if (validators.length >= 16) score += 5;
-
-  // Emission burn rate (from TaoSwap — primary source)
-  if      (burnedEmissionPct >= 80) score -= 22;
-  else if (burnedEmissionPct >= 60) score -= 14;
-  else if (burnedEmissionPct >= 40) score -= 7;
-  else if (burnedEmissionPct >= 20) score -= 3;
-  else if (burnedEmissionPct ===  0 && ts !== null) score += 5;
-
-  // Nakamoto coefficient (TaoSwap)
-  if      (nakamotoCoefficient >= 20) score += 10;
-  else if (nakamotoCoefficient >= 15) score += 7;
-  else if (nakamotoCoefficient >= 10) score += 4;
-  else if (nakamotoCoefficient >=  5) score += 0;
-  else if (nakamotoCoefficient ===  4) score -= 5;
-  else if (nakamotoCoefficient ===  3) score -= 10;
-  else if (nakamotoCoefficient ===  2) score -= 15;
-  else if (nakamotoCoefficient <=  1 && ts !== null) score -= 20;
-
-  // HHI (TaoSwap)
-  if      (hhiNormalized <= 0.05) score += 5;
-  else if (hhiNormalized <= 0.15) score += 2;
-  else if (hhiNormalized >  0.60) score -= 12;
-  else if (hhiNormalized >  0.40) score -= 5;
-
-  // Top-10 share (TaoSwap, 0-1)
-  if      (top10Share <= 0.40) score += 5;
-  else if (top10Share >  0.85) score -= 10;
-  else if (top10Share >  0.70) score -= 5;
-
-  // Holders count (TaoSwap)
-  if (holdersCount !== null) {
-    if      (holdersCount >= 10000) score += 5;
-    else if (holdersCount >=  5000) score += 3;
-    else if (holdersCount >=  1000) score += 1;
-    else if (holdersCount <    100) score -= 3;
+  if (ts !== null) {
+    components.push({ score: scoreNakamoto(nakamotoCoefficient), weight: 28 });
+    components.push({ score: scoreBurn(burnedEmissionPct),        weight: 22 });
+    components.push({ score: scoreHHI(hhiNormalized),             weight: 14 });
+    components.push({ score: scoreTop10(top10Share),              weight: 13 });
+    components.push({ score: scoreHolders(holdersCount),          weight:  4 });
+    components.push({ score: scoreChainBuy(emissionChainBuysPct), weight:  4 });
   }
 
-  // Chain buy % — emissions being recycled into buying (bullish)
-  if (emissionChainBuysPct !== null) {
-    if      (emissionChainBuysPct >= 50) score += 5;
-    else if (emissionChainBuysPct >= 20) score += 2;
+  if (hasNeuronData) {
+    components.push({ score: scoreStaleVal(staleValidatorPct, validators.length), weight: 15 });
   }
 
-  score = Math.max(0, Math.min(100, Math.round(score)));
+  let score: number;
+  if (components.length === 0) {
+    score = 0; // No data at all — truly unknown
+  } else {
+    const totalWeight = components.reduce((s, c) => s + c.weight, 0);
+    const weightedSum = components.reduce((s, c) => s + c.score * c.weight, 0);
+    score = Math.round(weightedSum / totalWeight);
+  }
 
   // ── Flags ─────────────────────────────────────────────────────────
   const flags: AuditFlag[] = [];
 
-  if (zeroIncentiveMinerPct >= 80) {
-    flags.push({ type: "burn_code", severity: "critical",
-      message: `${zeroIncentiveMinerPct}% of miners earning zero emissions — possible burn code` });
+  if (!hasNeuronData) {
+    flags.push({ type: "no_validators", severity: "warning", message: "No metagraph data — scored on market metrics only" });
   }
 
-  if (staleValidatorPct >= 60) {
+  if (hasNeuronData && staleValidatorPct >= 60) {
     flags.push({ type: "stale_weights",
       severity: staleValidatorPct >= 80 ? "critical" : "warning",
       message: `${staleValidatorPct}% of validators have stale weights (max lag ~${Math.round(maxWeightLagBlocks / 300)}h)` });
   }
 
-  if (trustGiniVal >= 0.75) {
+  if (hasNeuronData && trustGiniVal >= 0.75) {
     flags.push({ type: "collusion_risk",
       severity: trustGiniVal >= 0.9 ? "critical" : "warning",
-      message: `High trust concentration (Gini ${trustGiniVal.toFixed(2)}, top-3 hold ${top3ValidatorTrustShare}% of trust)` });
+      message: `High dividend concentration (Gini ${trustGiniVal.toFixed(2)}, top-3 validators hold ${top3ValidatorTrustShare}% of rewards)` });
   }
 
-  if (burnedEmissionPct >= 60) {
+  const burnPct = burnedEmissionPct ?? 0;
+  if (burnPct >= 60) {
     flags.push({ type: "high_emission_burn",
-      severity: burnedEmissionPct >= 80 ? "critical" : "warning",
-      message: `${burnedEmissionPct.toFixed(1)}% of miner emissions burned — ${burnedEmissionPct >= 80 ? "miners are net losers" : "reduces miner sustainability"}` });
+      severity: burnPct >= 80 ? "critical" : "warning",
+      message: `${burnPct.toFixed(1)}% of miner emissions burned — ${burnPct >= 80 ? "miners are net losers" : "reduces miner sustainability"}` });
   }
 
   if (nakamotoCoefficient > 0 && nakamotoCoefficient <= 2) {
@@ -300,12 +351,12 @@ function computeAudit(
       message: `High HHI concentration (${hhiNormalized.toFixed(3)}) — stake distribution is very uneven` });
   }
 
-  if (activeMinerPct < 20 && miners.length >= 10) {
+  if (hasNeuronData && activeMinerPct < 20 && miners.length >= 10) {
     flags.push({ type: "low_activity", severity: "warning",
       message: `Only ${activeMinerPct}% of miners active — network underutilised` });
   }
 
-  if (validators.length < 3) {
+  if (hasNeuronData && validators.length < 3) {
     flags.push({ type: "no_validators", severity: "warning",
       message: `Only ${validators.length} validator(s) — insufficient decentralisation` });
   }
@@ -327,7 +378,7 @@ function computeAudit(
     top3ValidatorTrustShare,
     nakamotoCoefficient, hhiNormalized,
     top10Share: Math.round(top10Share * 1000) / 1000,
-    burnedEmissionPct: Math.round(burnedEmissionPct * 10) / 10,
+    burnedEmissionPct: Math.round((burnedEmissionPct ?? 0) * 10) / 10,
     emissionPercent, emissionEmaPct, emissionChainBuysPct,
     taoInPool, inflow, outflow, holdersCount,
     flags,
