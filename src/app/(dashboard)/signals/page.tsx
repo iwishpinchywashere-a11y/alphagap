@@ -17,7 +17,7 @@ export default function SignalsPage() {
   const tier = getTier(session);
   const isPro = canAccessPro(tier);
   void setSelectedSubnet;
-  const [signalSort, setSignalSort] = useState<"score" | "date">("score");
+  const [signalSort, setSignalSort] = useState<"score" | "date">("date");
   const [searchQuery, setSearchQuery] = useState("");
   const { isWatched, watchlist } = useWatchlist();
   const [watchlistOnly, setWatchlistOnly] = useState(false);
@@ -115,18 +115,18 @@ export default function SignalsPage() {
               {/* Sort + filter tabs */}
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => isPro && setSignalSort("score")}
-                  title={!isPro ? "Upgrade to Pro to sort" : undefined}
-                  className={`px-3 py-1.5 text-xs rounded-full transition-colors whitespace-nowrap ${signalSort === "score" && isPro ? "bg-green-600 text-white" : "bg-gray-800 text-gray-400"} ${isPro ? "hover:bg-gray-700 cursor-pointer" : "opacity-50 cursor-not-allowed"}`}
-                >
-                  🏆 Top Score
-                </button>
-                <button
                   onClick={() => isPro && setSignalSort("date")}
                   title={!isPro ? "Upgrade to Pro to sort" : undefined}
                   className={`px-3 py-1.5 text-xs rounded-full transition-colors whitespace-nowrap ${signalSort === "date" && isPro ? "bg-green-600 text-white" : "bg-gray-800 text-gray-400"} ${isPro ? "hover:bg-gray-700 cursor-pointer" : "opacity-50 cursor-not-allowed"}`}
                 >
                   🕐 Latest
+                </button>
+                <button
+                  onClick={() => isPro && setSignalSort("score")}
+                  title={!isPro ? "Upgrade to Pro to sort" : undefined}
+                  className={`px-3 py-1.5 text-xs rounded-full transition-colors whitespace-nowrap ${signalSort === "score" && isPro ? "bg-green-600 text-white" : "bg-gray-800 text-gray-400"} ${isPro ? "hover:bg-gray-700 cursor-pointer" : "opacity-50 cursor-not-allowed"}`}
+                >
+                  🏆 Top Score
                 </button>
                 <button
                   onClick={() => setWatchlistOnly(v => !v)}
