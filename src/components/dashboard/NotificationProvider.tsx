@@ -271,8 +271,18 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const clearAll = useCallback(async () => {
+    // Await the DELETE before updating UI — fire-and-forget was causing notifications
+    // to reappear on refresh if the request hadn't landed before the page reloaded.
+    try {
+      const res = await fetch("/api/notifications", { method: "DELETE" });
+      if (!res.ok) return; // Don't clear UI if server rejected the request
+    } catch {
+      return; // Network error — leave UI unchanged so user knows it didn't work
+    }
     setNotifications([]);
-    fetch("/api/notifications", { method: "DELETE" }).catch(() => {});
+    // Reset the scan guard so the background effect doesn't immediately re-add
+    // notifications for the scan that was just cleared.
+    lastCheckedScan.current = null;
   }, []);
 
   return (
