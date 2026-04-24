@@ -999,8 +999,10 @@ export async function GET() {
   async function analyzeDevActivity(ctx: DevContext): Promise<{ description: string; score: number; headline: string | null }> {
     if (!ANTHROPIC_KEY) return { description: buildFallbackDescription(ctx), score: fallbackScore(ctx), headline: null };
 
-    // Cache check — skip Claude if the commit set hasn't changed
-    const cacheKey = ctx.commits[0] ?? `release:${ctx.release?.tag ?? "none"}`;
+    // Cache check — skip Claude if the commit set hasn't changed.
+    // Version suffix forces re-score when the scoring prompt changes.
+    const PROMPT_VERSION = "v3"; // bump this when scoring calibration changes
+    const cacheKey = `${ctx.commits[0] ?? `release:${ctx.release?.tag ?? "none"}`}:${PROMPT_VERSION}`;
     const cached = devAnalysisCache[ctx.act.netuid];
     if (cached && cached.cacheKey === cacheKey) {
       return { description: cached.description, score: cached.score, headline: cached.headline };
@@ -1059,35 +1061,38 @@ HEADLINE: [8 words max. What they actually built/shipped. Concrete, specific, no
 [Your boldest, most direct investment call. Is the market sleeping on this? Is this priced in or not? Be opinionated.]
 
 HOW TO SCORE — the score is INVESTMENT SIGNAL STRENGTH: (dev quality) × (market opportunity).
-Use the FULL range 1–100. Be aggressive — a great signal deserves 80, 85, 90. A bad signal deserves 10.
+Use the FULL range 1–100. Scores below 50 should be rare. Scores of 80–95 should be COMMON for real substantive work.
+
+‼️ CRITICAL CALIBRATION PROBLEM TO AVOID: Previous scoring has clustered EVERYTHING between 55–76. This is WRONG and makes the leaderboard useless. If you are about to assign 55–70 to something real, reconsider — you are probably under-scoring.
 
 DEV QUALITY tiers:
-- Noise (1–15): version bumps, dep updates, CI fixes, README edits, typos, linting
-- Routine (16–30): small bug fixes, minor config changes, test additions, solo-contributor chores
-- Incremental (31–50): small features, refactors with purpose, moderate PRs, consistent team activity
-- Meaningful (51–65): real new capability, new API endpoint, protocol improvement, multi-contributor sprint
-- Significant (66–82): major feature launch, new model shipped, protocol upgrade, public release, important bugfix
-- Extraordinary (83–100): paradigm shift, breakthrough capability, first-ever feature in category, massive release
+- Noise (1–20): version bumps, dep updates, CI fixes, README edits, typos, linting
+- Routine (21–40): small bug fixes, minor config changes, test additions, solo-contributor chores
+- Incremental (41–60): small features, refactors with purpose, moderate PRs, consistent team activity
+- Meaningful (61–75): real new capability, new API endpoint, protocol improvement, multi-contributor sprint
+- Significant (76–88): major feature launch, new model shipped, protocol upgrade, public release, important fix that unblocks users
+- Extraordinary (89–100): paradigm shift, breakthrough capability, first-ever feature in category, massive release
 
 MARKET OPPORTUNITY — adjust UP or DOWN based on context:
-- Small mcap ($1M–$10M) building hard, token flat/down → undervaluation signal, +10 to +20
-- Medium mcap ($10M–$50M) meaningful dev, token flat → worth noting, +5 to +10
-- Large mcap ($50M+) routine commits → likely priced in already, −5 to −15
-- Token down 10%+ while team ships hard → market sleeping on this, +10 to +15
+- Small mcap ($1M–$10M) building hard, token flat/down → severely undervalued, +15 to +25
+- Medium mcap ($10M–$50M) meaningful dev, token flat → undervalued, +8 to +15
+- Large mcap ($50M+) routine commits → likely priced in, −5 to −15
+- Token down 10%+ while team ships hard → market sleeping on this, +10 to +20
 - Token up 20%+ today → already reflected in price, −5 to −10
-- 3+ unique contributors in one day → team is serious, +5
+- 3+ unique contributors in one day → team is serious, +8
+- Subnet is severely underpriced relative to output → this is the whole point of AlphaGap, +10 to +20
 
-CALIBRATION EXAMPLES (use these as anchors — don't be afraid to match them):
-- Bumped 3 npm deps + CI fix at $80M mcap: 8
-- Fixed a race condition bug, one contributor at $5M mcap: 22
-- Added unit tests + refactored auth module, token flat at $12M: 38
-- Shipped new inference endpoint + 3 PRs merged at $8M, token down 5%: 62
-- Shipped new API endpoint + improved accuracy, $5M mcap, token flat: 72
-- Released new validator protocol with 3+ contributors at $15M, token flat: 80
-- Launched v2.0 with new architecture + public release, $20M mcap, token down 12%: 90
-- First-ever real-time video generation model on Bittensor, $3M mcap, completely undiscovered: 97
+CALIBRATION EXAMPLES — these are your anchors, match them aggressively:
+- Bumped npm deps + CI fix at $80M mcap: 8
+- Fixed a bug, solo contributor at $5M mcap: 25
+- Added tests + refactored module, token flat at $12M: 42
+- Shipped 3 merged PRs + small new feature, $8M, token down 5%: 68
+- Real new API endpoint, improved accuracy, $5M mcap, token flat: 80
+- Major new model shipped + 3 contributors, $10M mcap, token down 8%: 87
+- Released v2.0 new architecture, public launch, $20M mcap, token down 12%: 93
+- First-ever real-time video model on Bittensor, $3M mcap, undiscovered: 98
 
-BE DECISIVE. If it's a real feature shipped by a real team, score it 70+. If it's a major release or capability leap, score it 80+. Don't self-censor. The leaderboard is useless if every signal clusters between 55–70.
+RULE: Any real feature shipped by a real team → minimum 75. A public release or major model → minimum 82. Something severely underpriced with strong dev → minimum 85. The score of 76 should feel like a FLOOR for good work, not a ceiling.
 
 Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete sentence.`;
 
@@ -1864,8 +1869,13 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
 
   // ── Build Discord signal map for social scoring ─────────────────
   // netuid → { signal, messageCount, uniquePosters, scannedAt, releaseHint }
+  // Founder posts (founderPost: true) are processed last so their alphaScore
+  // can only boost — never reduce — what the regular channel scan found.
   const discordMap = new Map<number, { signal: string; alphaScore?: number; messageCount: number; uniquePosters: number; scannedAt: string; releaseHint?: boolean }>();
-  for (const disc of discordResults) {
+  const regularResults = discordResults.filter(d => !(d as Record<string, unknown>).founderPost);
+  const founderResults = discordResults.filter(d => (d as Record<string, unknown>).founderPost);
+
+  for (const disc of regularResults) {
     if (disc.netuid && disc.netuid > 0) {
       discordMap.set(disc.netuid, {
         signal: disc.signal,
@@ -1874,6 +1884,30 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
         uniquePosters: disc.uniquePosters,
         scannedAt: disc.scannedAt || new Date().toISOString(),
         releaseHint: disc.releaseHint === true,
+      });
+    }
+  }
+
+  // Merge founder posts: boost the alphaScore for matching subnets, or create a new entry.
+  // The founder's take always promotes to "alpha" signal and upgrades releaseHint if set.
+  for (const founder of founderResults) {
+    if (!founder.netuid || founder.netuid <= 0) continue;
+    const founderAlpha = (founder as Record<string, unknown>).alphaScore as number | undefined;
+    const existing = discordMap.get(founder.netuid);
+    if (existing) {
+      existing.signal = "alpha"; // founder post always promotes to alpha
+      if (founderAlpha != null && (existing.alphaScore == null || founderAlpha > existing.alphaScore)) {
+        existing.alphaScore = founderAlpha;
+      }
+      if (founder.releaseHint) existing.releaseHint = true;
+    } else {
+      discordMap.set(founder.netuid, {
+        signal: "alpha",
+        alphaScore: founderAlpha,
+        messageCount: founder.messageCount,
+        uniquePosters: 1,
+        scannedAt: founder.scannedAt || new Date().toISOString(),
+        releaseHint: founder.releaseHint === true,
       });
     }
   }
