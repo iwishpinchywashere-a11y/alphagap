@@ -48,7 +48,7 @@ export default function LandingPage() {
             </Link>
           ) : (
             <Link
-              href="/pricing"
+              href="/subscribe"
               className="px-5 py-2.5 bg-gradient-to-r from-green-500 to-emerald-600 text-black font-semibold rounded-lg hover:from-green-400 hover:to-emerald-500 transition-all shadow-lg shadow-green-500/20 text-sm"
             >
               Get Access →
