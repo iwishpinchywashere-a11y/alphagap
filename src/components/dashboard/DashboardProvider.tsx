@@ -1,7 +1,6 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
-import { useSession } from "next-auth/react";
 import type { Signal, SubnetScore } from "@/lib/types";
 
 interface DashboardContextValue {
@@ -30,10 +29,6 @@ export function useDashboard(): DashboardContextValue {
 }
 
 export default function DashboardProvider({ children }: { children: React.ReactNode }) {
-  const { data: session } = useSession();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const userLanguage: string = (session?.user as any)?.language ?? "en";
-
   const [signals, setSignals] = useState<Signal[]>([]);
   const [leaderboard, setLeaderboard] = useState<SubnetScore[]>([]);
   const [taoPrice, setTaoPrice] = useState<number | null>(null);
@@ -77,44 +72,10 @@ export default function DashboardProvider({ children }: { children: React.ReactN
     });
   }, []);
 
-  // Translate signal text (title + description) via the /api/translate endpoint.
-  // Only called when userLanguage is "fr" or "es". Results are blob-cached server-side
-  // so repeated calls for the same text are essentially free.
-  const translateSignals = useCallback(async (sigs: Signal[], lang: string): Promise<Signal[]> => {
-    if (lang === "en" || sigs.length === 0) return sigs;
-    try {
-      // Interleave titles and descriptions so one round-trip translates both fields.
-      // Even indices = title, odd indices = description.
-      const texts = sigs.flatMap(s => [s.title, s.description || ""]);
-      const res = await fetch("/api/translate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ texts, lang }),
-      });
-      if (!res.ok) return sigs;
-      const { translated } = await res.json() as { translated: string[] };
-      return sigs.map((s, i) => ({
-        ...s,
-        title: translated[i * 2] || s.title,
-        description: translated[i * 2 + 1] || s.description,
-      }));
-    } catch {
-      return sigs; // fall back to English on any error
-    }
-  }, []);
-
   const loadData = useCallback((data: Record<string, unknown>) => {
     const rawLeaderboard = (data.leaderboard as SubnetScore[]) || [];
     setLeaderboard(mergeYieldScores(mergeAuditScores(rawLeaderboard)));
-    const rawSignals = (data.signals as Signal[]) || [];
-    // Translate signals asynchronously if user has a non-English preference.
-    // We set English first immediately so the UI isn't blank, then replace once translated.
-    setSignals(rawSignals);
-    if (userLanguage && userLanguage !== "en") {
-      translateSignals(rawSignals, userLanguage).then(translated => {
-        setSignals(translated);
-      });
-    }
+    setSignals((data.signals as Signal[]) || []);
     setTaoPrice((data.taoPrice as number) || null);
 
     const lastScanTime = data.lastScan
@@ -127,7 +88,7 @@ export default function DashboardProvider({ children }: { children: React.ReactN
     setScanResult(
       `${counts.subnets || 0} subnets, ${counts.signals || 0} signals${duration ? ` in ${duration}` : ""}${cached}`
     );
-  }, [mergeAuditScores, mergeYieldScores, userLanguage, translateSignals]);
+  }, [mergeAuditScores, mergeYieldScores]);
 
   const runScan = useCallback(async () => {
     setScanning(true);
