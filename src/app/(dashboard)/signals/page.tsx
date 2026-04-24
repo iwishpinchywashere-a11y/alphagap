@@ -94,24 +94,26 @@ export default function SignalsPage() {
           <div className="space-y-4">
             {/* Header */}
             <div className="space-y-3 mb-4">
-              {/* Title row */}
+              {/* Title + description */}
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <h2 className="text-lg font-bold">Intelligence Feed</h2>
-                  <p className="hidden sm:block text-sm text-gray-500 mt-0.5">AI-scored developer activity across every active subnet — commits, model releases, and protocol upgrades ranked by signal strength.</p>
+                  <p className="text-sm text-gray-500 mt-0.5">AI-scored developer activity across every active subnet — commits, model releases, and protocol upgrades ranked by signal strength.</p>
                 </div>
                 <span className="text-xs text-gray-500 whitespace-nowrap mt-1">{signals.length} signals</span>
               </div>
 
-              {/* Search + sort controls */}
-              <div className="flex items-center gap-2 flex-wrap">
-                <input
-                  type="text"
-                  placeholder="Search signals..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="flex-1 min-w-0 bg-gray-800/60 border border-gray-700 rounded-lg px-3 py-1.5 text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:border-green-600 focus:ring-1 focus:ring-green-600/30"
-                />
+              {/* Search bar — full width */}
+              <input
+                type="text"
+                placeholder="Search signals..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full bg-gray-800/60 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:border-green-600 focus:ring-1 focus:ring-green-600/30"
+              />
+
+              {/* Sort + filter tabs */}
+              <div className="flex items-center gap-2">
                 <button
                   onClick={() => isPro && setSignalSort("score")}
                   title={!isPro ? "Upgrade to Pro to sort" : undefined}
