@@ -30,24 +30,29 @@ const BLOB_TOKEN = process.env.BLOB_READ_WRITE_TOKEN || "";
 const TAOSTATS_KEY = process.env.TAOSTATS_API_KEY || "";
 const BASE_URL = "https://api.taostats.io/api";
 
-// Dynamically read active netuids from the latest scan blob so we always
-// cover every registered subnet without maintaining a hardcoded list.
-// Falls back to a wide static range if the blob isn't available yet.
+// Fetch the full list of registered netuids from the TaoStats subnet API.
+// This is the authoritative source — always current as new subnets register.
+// Falls back to a static 0-130 range if the API call fails.
 async function getActiveNetuids(): Promise<number[]> {
   try {
-    const b = await blobGet("scan-latest.json", { token: BLOB_TOKEN, access: "private" });
-    if (!b?.stream) throw new Error("no stream");
-    const reader = b.stream.getReader();
-    const chunks: Uint8Array[] = [];
-    while (true) { const { done, value } = await reader.read(); if (done) break; chunks.push(value); }
-    const scan = JSON.parse(Buffer.concat(chunks).toString("utf-8")) as { leaderboard?: { netuid: number }[] };
-    const ids = (scan.leaderboard ?? []).map(e => e.netuid).filter(n => typeof n === "number" && n > 0);
-    if (ids.length > 0) return ids;
-  } catch {
-    // fall through to static fallback
+    const res = await fetch(`${BASE_URL}/subnet/latest/v1?limit=200`, {
+      headers: { Authorization: TAOSTATS_KEY },
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!res.ok) throw new Error(`subnet list ${res.status}`);
+    const json = await res.json() as { data?: { netuid: number }[] };
+    const ids = (json.data ?? [])
+      .map(s => s.netuid)
+      .filter(n => typeof n === "number" && n >= 0);
+    if (ids.length > 0) {
+      console.log(`[yield-collector] Found ${ids.length} registered subnets (max netuid ${Math.max(...ids)})`);
+      return ids;
+    }
+  } catch (e) {
+    console.warn("[yield-collector] Could not fetch subnet list, using static fallback:", e);
   }
-  // Static fallback: covers all subnets up to 130
-  return Array.from({ length: 130 }, (_, i) => i + 1);
+  // Static fallback: 0-130
+  return Array.from({ length: 131 }, (_, i) => i);
 }
 
 interface ValidatorYield {
