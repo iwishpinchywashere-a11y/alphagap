@@ -42,11 +42,25 @@ export default function DashboardProvider({ children }: { children: React.ReactN
 
   const hasAutoScanned = useRef(false);
   const analyzingRef = useRef(new Set<number>());
+  // Audit scores fetched once on mount — merged into leaderboard immediately
+  // so the Audit column populates without waiting for the next full scan.
+  const auditScoresRef = useRef<Record<string, number>>({});
+
+  const mergeAuditScores = useCallback((entries: SubnetScore[]): SubnetScore[] => {
+    const scores = auditScoresRef.current;
+    if (Object.keys(scores).length === 0) return entries;
+    return entries.map(e => ({
+      ...e,
+      audit_score: e.audit_score ?? scores[String(e.netuid)],
+    }));
+  }, []);
 
   const loadData = useCallback((data: Record<string, unknown>) => {
-    setLeaderboard((data.leaderboard as SubnetScore[]) || []);
+    const rawLeaderboard = (data.leaderboard as SubnetScore[]) || [];
+    setLeaderboard(mergeAuditScores(rawLeaderboard));
     setSignals((data.signals as Signal[]) || []);
     setTaoPrice((data.taoPrice as number) || null);
+
     const lastScanTime = data.lastScan
       ? new Date(data.lastScan as string).toLocaleTimeString()
       : new Date().toLocaleTimeString();
@@ -57,7 +71,7 @@ export default function DashboardProvider({ children }: { children: React.ReactN
     setScanResult(
       `${counts.subnets || 0} subnets, ${counts.signals || 0} signals${duration ? ` in ${duration}` : ""}${cached}`
     );
-  }, []);
+  }, [mergeAuditScores]);
 
   const runScan = useCallback(async () => {
     setScanning(true);
@@ -118,6 +132,24 @@ export default function DashboardProvider({ children }: { children: React.ReactN
       .catch(() => runScan());
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loadData, runScan]);
+
+  // Fetch audit scores once on mount and merge into whatever leaderboard is current.
+  // This runs independently of the scan so the Audit column is always populated
+  // immediately from the hourly audit-data.json blob — no scan required.
+  useEffect(() => {
+    fetch("/api/audit-scores")
+      .then(r => r.ok ? r.json() : null)
+      .then((data: { scores: Record<string, number> } | null) => {
+        if (!data?.scores || Object.keys(data.scores).length === 0) return;
+        auditScoresRef.current = data.scores;
+        setLeaderboard(prev => prev.map(e => ({
+          ...e,
+          audit_score: e.audit_score ?? data.scores[String(e.netuid)],
+        })));
+      })
+      .catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Close info popup on any click outside
   useEffect(() => {
