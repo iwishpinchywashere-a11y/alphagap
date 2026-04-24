@@ -92,39 +92,43 @@ export default function SignalsPage() {
 
         {signals.length > 0 && (
           <div className="space-y-4">
-            <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-              <div className="flex items-center gap-3">
+            {/* Header */}
+            <div className="space-y-3 mb-4">
+              {/* Title row */}
+              <div className="flex items-start justify-between gap-3">
                 <div>
                   <h2 className="text-lg font-bold">Intelligence Feed</h2>
-                  <p className="text-sm text-gray-500 mt-0.5">AI-scored developer activity across every active subnet — commits, model releases, and protocol upgrades ranked by signal strength. We analyze every update before the market reacts.</p>
+                  <p className="hidden sm:block text-sm text-gray-500 mt-0.5">AI-scored developer activity across every active subnet — commits, model releases, and protocol upgrades ranked by signal strength.</p>
                 </div>
+                <span className="text-xs text-gray-500 whitespace-nowrap mt-1">{signals.length} signals</span>
+              </div>
+
+              {/* Search + sort controls */}
+              <div className="flex items-center gap-2 flex-wrap">
                 <input
                   type="text"
                   placeholder="Search signals..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="bg-gray-800/60 border border-gray-700 rounded-lg px-3 py-1.5 text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:border-green-600 focus:ring-1 focus:ring-green-600/30 w-48"
+                  className="flex-1 min-w-0 bg-gray-800/60 border border-gray-700 rounded-lg px-3 py-1.5 text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:border-green-600 focus:ring-1 focus:ring-green-600/30"
                 />
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-gray-500 mr-2">{signals.length} signals</span>
                 <button
                   onClick={() => isPro && setSignalSort("score")}
                   title={!isPro ? "Upgrade to Pro to sort" : undefined}
-                  className={`px-3 py-1 text-xs rounded-full transition-colors ${signalSort === "score" && isPro ? "bg-green-600 text-white" : "bg-gray-800 text-gray-400"} ${isPro ? "hover:bg-gray-700 cursor-pointer" : "opacity-50 cursor-not-allowed"}`}
+                  className={`px-3 py-1.5 text-xs rounded-full transition-colors whitespace-nowrap ${signalSort === "score" && isPro ? "bg-green-600 text-white" : "bg-gray-800 text-gray-400"} ${isPro ? "hover:bg-gray-700 cursor-pointer" : "opacity-50 cursor-not-allowed"}`}
                 >
                   🏆 Top Score
                 </button>
                 <button
                   onClick={() => isPro && setSignalSort("date")}
                   title={!isPro ? "Upgrade to Pro to sort" : undefined}
-                  className={`px-3 py-1 text-xs rounded-full transition-colors ${signalSort === "date" && isPro ? "bg-green-600 text-white" : "bg-gray-800 text-gray-400"} ${isPro ? "hover:bg-gray-700 cursor-pointer" : "opacity-50 cursor-not-allowed"}`}
+                  className={`px-3 py-1.5 text-xs rounded-full transition-colors whitespace-nowrap ${signalSort === "date" && isPro ? "bg-green-600 text-white" : "bg-gray-800 text-gray-400"} ${isPro ? "hover:bg-gray-700 cursor-pointer" : "opacity-50 cursor-not-allowed"}`}
                 >
                   🕐 Latest
                 </button>
                 <button
                   onClick={() => setWatchlistOnly(v => !v)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors whitespace-nowrap ${
                     watchlistOnly
                       ? "bg-blue-600 text-white"
                       : "bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white"
