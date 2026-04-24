@@ -239,7 +239,6 @@ export default function AuditsPage() {
   const [error, setError]         = useState<string | null>(null);
   const [search, setSearch]       = useState("");
   const [watchlistOnly, setWatchlistOnly] = useState(false);
-  const [expandedRow, setExpandedRow]     = useState<number | null>(null);
   const [sortKey, setSortKey]     = useState<SortKey>("score");
   const [sortDir, setSortDir]     = useState<"asc" | "desc">("desc");
 
@@ -383,22 +382,18 @@ export default function AuditsPage() {
                     tooltip="Gini coefficient measuring inequality in validator trust scores. 0 = all validators trusted equally. 1 = one validator holds all trust. Lower is more decentralised and healthy."
                     onClick={() => handleSort("gini")} sorted={sortKey === "gini"} />
 
-                  {/* Expand */}
-                  <th className="px-2 py-2.5 w-8" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-800/50">
                 {filtered.map((audit, i) => {
                   const watched  = isWatched(audit.netuid);
-                  const expanded = expandedRow === audit.netuid;
                   const netFlow  = (audit.inflow ?? 0) - (audit.outflow ?? 0);
                   const critFlags = audit.flags.filter(f => f.severity === "critical");
 
                   return (
-                    <>
                     <tr
                       key={audit.netuid}
-                      onClick={() => setExpandedRow(expanded ? null : audit.netuid)}
+                      onClick={() => router.push(`/subnets/${audit.netuid}`)}
                       className={`cursor-pointer transition-colors ${
                         watched ? "bg-blue-950/30 hover:bg-blue-950/50" :
                         critFlags.length > 0 ? "bg-red-950/10 hover:bg-red-950/20" :
@@ -549,26 +544,7 @@ export default function AuditsPage() {
                         />
                       </td>
 
-                      {/* Expand chevron */}
-                      <td className="px-2 py-3 text-center">
-                        <svg
-                          className={`w-3.5 h-3.5 text-gray-600 mx-auto transition-transform duration-200 ${expanded ? "rotate-180" : ""}`}
-                          fill="none" stroke="currentColor" viewBox="0 0 24 24"
-                        >
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                        </svg>
-                      </td>
                     </tr>
-
-                    {/* Expanded detail row */}
-                    {expanded && (
-                      <tr key={`${audit.netuid}-detail`}>
-                        <td colSpan={17} className="p-0">
-                          <ExpandedDetail audit={audit} />
-                        </td>
-                      </tr>
-                    )}
-                    </>
                   );
                 })}
               </tbody>
@@ -582,7 +558,7 @@ export default function AuditsPage() {
         <span className="flex items-center gap-1"><span className="inline-block w-2 h-2 rounded-full bg-emerald-400" /> Good</span>
         <span className="flex items-center gap-1"><span className="inline-block w-2 h-2 rounded-full bg-yellow-400" /> Caution</span>
         <span className="flex items-center gap-1"><span className="inline-block w-2 h-2 rounded-full bg-red-400" /> Risk</span>
-        <span className="ml-2">Click any column header to sort · Click a row to expand flags</span>
+        <span className="ml-2">Click any column header to sort · Click a row to view subnet</span>
       </div>
     </div>
   );
