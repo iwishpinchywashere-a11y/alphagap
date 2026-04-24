@@ -189,12 +189,12 @@ function ExpandedDetail({ audit }: { audit: SubnetAudit }) {
 // ── Sort key type ─────────────────────────────────────────────────
 type SortKey =
   | "score" | "agap" | "nakamoto" | "hhi" | "top10" | "burn"
-  | "holders" | "chainBuy" | "netFlow"
+  | "holders" | "chainBuy"
   | "taoPool" | "staleVal" | "ziMiners" | "gini";
 
 const SORT_DEFAULTS: Record<SortKey, "asc" | "desc"> = {
   score: "desc", agap: "desc", nakamoto: "desc", hhi: "asc", top10: "asc", burn: "asc",
-  holders: "desc", chainBuy: "desc", netFlow: "desc",
+  holders: "desc", chainBuy: "desc",
   taoPool: "desc", staleVal: "asc", ziMiners: "asc", gini: "asc",
 };
 
@@ -209,7 +209,7 @@ function sortValue(a: SubnetAudit, key: SortKey, agapMap: Map<number, number>): 
     case "burn":     return a.burnedEmissionPct;
     case "holders":  return a.holdersCount ?? -1;
     case "chainBuy": return a.emissionChainBuysPct ?? -1;
-    case "netFlow":  return (a.inflow ?? 0) - (a.outflow ?? 0);
+
     case "taoPool":  return a.taoInPool ?? -1;
     case "staleVal": return a.staleValidatorPct;
     case "ziMiners": return a.zeroIncentiveMinerPct;
@@ -362,10 +362,6 @@ export default function AuditsPage() {
                   <ColHeader label="TAO Pool" sub="liquidity"
                     tooltip="Total TAO locked in this subnet's liquidity pool. More liquidity means tighter spreads, less price impact when buying or selling, and generally more market confidence."
                     onClick={() => handleSort("taoPool")} sorted={sortKey === "taoPool"} />
-                  <ColHeader label="Net Flow" sub="in − out"
-                    tooltip="Net TAO capital movement (inflow minus outflow) over the recent period. Green = more TAO entering the subnet than leaving. Red = capital is exiting."
-                    onClick={() => handleSort("netFlow")} sorted={sortKey === "netFlow"} />
-
                   {/* Adoption */}
                   <ColHeader label="Holders" sub="unique addrs"
                     tooltip="Number of unique wallet addresses holding this subnet's alpha token. A rough proxy for community size and real-world adoption."
@@ -387,7 +383,7 @@ export default function AuditsPage() {
               <tbody className="divide-y divide-gray-800/50">
                 {filtered.map((audit, i) => {
                   const watched  = isWatched(audit.netuid);
-                  const netFlow  = (audit.inflow ?? 0) - (audit.outflow ?? 0);
+
                   const critFlags = audit.flags.filter(f => f.severity === "critical");
 
                   return (
@@ -495,14 +491,7 @@ export default function AuditsPage() {
                         <span className="text-gray-300 tabular-nums text-xs">{fmtTao(audit.taoInPool)}</span>
                       </td>
 
-                      {/* Net flow */}
-                      <td className="px-2.5 py-3 text-right">
-                        {(audit.inflow != null || audit.outflow != null) ? (
-                          <span className={`tabular-nums text-xs font-medium ${netFlow > 0 ? "text-emerald-400" : netFlow < 0 ? "text-red-400" : "text-gray-500"}`}>
-                            {netFlow >= 0 ? "+" : ""}{fmtTao(netFlow)}
-                          </span>
-                        ) : <span className="text-gray-600">—</span>}
-                      </td>
+
 
                       {/* Holders */}
                       <td className="px-2.5 py-3 text-right">
