@@ -58,6 +58,7 @@ export const authOptions: NextAuthOptions = {
           token.subscriptionStatus = fresh.subscriptionStatus;
           token.subscriptionTier = fresh.subscriptionTier ?? null;
           token.isAdmin = (fresh.isAdmin ?? false) || emailIsAdmin(token.email as string);
+          token.language = fresh.language ?? "en";
         }
       }
       // Always ensure ADMIN_EMAILS users get isAdmin=true even without refresh
@@ -76,6 +77,8 @@ export const authOptions: NextAuthOptions = {
         (session.user as any).isAdmin = token.isAdmin ?? false;
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (session.user as any).id = token.sub;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (session.user as any).language = (token.language as string) ?? "en";
       }
       return session;
     },

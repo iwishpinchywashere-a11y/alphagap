@@ -18,6 +18,7 @@ export interface User {
   subscriptionTier?: "pro" | "premium";
   createdAt: string;
   emailVerified?: boolean;
+  language?: "en" | "fr" | "es"; // UI/content language preference (default: "en")
 }
 
 function emailHash(email: string): string {

@@ -2,7 +2,7 @@
 
 import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 
 export default function AccountPage() {
@@ -12,6 +12,9 @@ export default function AccountPage() {
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [resetLoading, setResetLoading] = useState(false);
   const [resetSent, setResetSent] = useState(false);
+  const [language, setLanguage] = useState<"en" | "fr" | "es">("en");
+  const [langSaving, setLangSaving] = useState(false);
+  const [langSaved, setLangSaved] = useState(false);
 
   if (status === "loading") {
     return (
@@ -28,6 +31,12 @@ export default function AccountPage() {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const user = session?.user as any;
+
+  // Seed language from session once loaded
+  useEffect(() => {
+    if (user?.language) setLanguage(user.language as "en" | "fr" | "es");
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.language]);
   const subscriptionStatus = user?.subscriptionStatus ?? "none";
   const subscriptionTier: "pro" | "premium" | null = user?.subscriptionTier ?? null;
   const isActive = subscriptionStatus === "active" || subscriptionStatus === "trialing";
@@ -96,6 +105,25 @@ export default function AccountPage() {
       if (data.url) window.location.href = data.url;
     } finally {
       setCheckoutLoading(false);
+    }
+  }
+
+  async function saveLanguage(lang: "en" | "fr" | "es") {
+    setLangSaving(true);
+    setLangSaved(false);
+    try {
+      const res = await fetch("/api/user/language", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ language: lang }),
+      });
+      if (res.ok) {
+        setLanguage(lang);
+        setLangSaved(true);
+        setTimeout(() => setLangSaved(false), 2500);
+      }
+    } finally {
+      setLangSaving(false);
     }
   }
 
@@ -271,6 +299,33 @@ export default function AccountPage() {
                 {resetLoading ? "Sending…" : "Send Password Reset Email"}
               </button>
             </>
+          )}
+        </div>
+
+        {/* Language */}
+        <div className="bg-gray-900/60 border border-gray-800 rounded-2xl p-6 mb-4">
+          <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-1">Language</h2>
+          <p className="text-xs text-gray-600 mb-4">
+            Signal descriptions, whale analysis, and other AI-generated content will be translated to your chosen language. Subnet names always stay in English.
+          </p>
+          <div className="flex gap-2">
+            {(["en", "fr", "es"] as const).map((lang) => (
+              <button
+                key={lang}
+                onClick={() => saveLanguage(lang)}
+                disabled={langSaving}
+                className={`flex-1 py-2.5 rounded-lg text-sm font-medium border transition-all disabled:opacity-50 ${
+                  language === lang
+                    ? "bg-green-500/20 border-green-500/40 text-green-400"
+                    : "bg-gray-800 border-gray-700 text-gray-400 hover:bg-gray-700 hover:text-gray-200"
+                }`}
+              >
+                {lang === "en" ? "🇬🇧 English" : lang === "fr" ? "🇫🇷 Français" : "🇪🇸 Español"}
+              </button>
+            ))}
+          </div>
+          {langSaved && (
+            <p className="text-xs text-green-400 mt-2 text-center">Language preference saved ✓</p>
           )}
         </div>
 
