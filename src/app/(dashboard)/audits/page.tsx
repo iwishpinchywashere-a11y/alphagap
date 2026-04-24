@@ -75,15 +75,32 @@ function CellVal({
   return <span className={`tabular-nums font-medium ${cls}`}>{value}</span>;
 }
 
-// ── Column header ─────────────────────────────────────────────────
-function ColHeader({ label, sub, onClick, sorted }: { label: string; sub?: string; onClick?: () => void; sorted?: boolean }) {
+// ── Column header with optional tooltip ──────────────────────────
+function ColHeader({ label, sub, tooltip, onClick, sorted }: {
+  label: string;
+  sub?: string;
+  tooltip?: string;
+  onClick?: () => void;
+  sorted?: boolean;
+}) {
   return (
     <th
-      className={`px-2.5 py-2 text-right whitespace-nowrap cursor-pointer select-none group ${sorted ? "text-green-400" : "text-gray-500 hover:text-gray-300"} transition-colors`}
+      className={`px-2.5 py-2 text-right whitespace-nowrap cursor-pointer select-none group/col ${sorted ? "text-green-400" : "text-gray-500 hover:text-gray-300"} transition-colors`}
       onClick={onClick}
     >
-      <div className="text-[10px] font-semibold uppercase tracking-wide">{label}</div>
-      {sub && <div className="text-[9px] font-normal text-gray-600 group-hover:text-gray-500">{sub}</div>}
+      <div className="flex items-center justify-end gap-1">
+        {tooltip && (
+          <div className="relative group/tip" onClick={e => e.stopPropagation()}>
+            <span className="text-[10px] text-gray-700 hover:text-gray-400 cursor-help leading-none select-none">ⓘ</span>
+            <div className="absolute bottom-full right-0 mb-2 w-52 bg-gray-950 border border-gray-700 rounded-lg px-3 py-2.5 text-[11px] text-gray-300 leading-relaxed z-50 opacity-0 group-hover/tip:opacity-100 pointer-events-none transition-opacity shadow-2xl text-left normal-case tracking-normal font-normal whitespace-normal">
+              {tooltip}
+              <div className="absolute top-full right-3 w-0 h-0 border-l-[5px] border-r-[5px] border-t-[5px] border-l-transparent border-r-transparent border-t-gray-700" />
+            </div>
+          </div>
+        )}
+        <div className="text-[10px] font-semibold uppercase tracking-wide">{label}</div>
+      </div>
+      {sub && <div className="text-[9px] font-normal text-gray-600 group-hover/col:text-gray-500 text-right">{sub}</div>}
     </th>
   );
 }
@@ -211,12 +228,6 @@ export default function AuditsPage() {
     return list;
   }, [subnets, search, watchlistOnly, watchlist, sortKey, sortDir]);
 
-  // Summary stats
-  const avgScore    = subnets.length ? Math.round(subnets.reduce((s, a) => s + a.operationalScore, 0) / subnets.length) : 0;
-  const critCount   = subnets.filter(s => s.flags.some(f => f.severity === "critical")).length;
-  const avgNakamoto = subnets.length ? Math.round(subnets.reduce((s, a) => s + a.nakamotoCoefficient, 0) / subnets.length) : 0;
-  const zeroBurnCount = subnets.filter(s => s.burnedEmissionPct === 0).length;
-
   const fmtTime = (iso: string) => {
     try { return new Date(iso).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", hour12: true }); }
     catch { return iso; }
@@ -224,24 +235,6 @@ export default function AuditsPage() {
 
   const pageContent = (
     <div className="space-y-4">
-
-      {/* Stats strip */}
-      {subnets.length > 0 && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          {[
-            { label: "Subnets Audited",    value: `${subnets.length}`,    sub: "all active subnets" },
-            { label: "Avg Audit Score",    value: `${avgScore}/100`,      sub: "ecosystem health" },
-            { label: "Avg Nakamoto",       value: `${avgNakamoto}`,       sub: "decentralisation" },
-            { label: "Zero Emission Burn", value: `${zeroBurnCount}`,     sub: "fully sustainable subnets" },
-          ].map(({ label, value, sub }) => (
-            <div key={label} className="bg-gray-900/60 border border-gray-800 rounded-xl p-4">
-              <div className="text-xs text-gray-500 mb-1">{label}</div>
-              <div className="text-xl font-bold text-white">{value}</div>
-              <div className="text-[10px] text-gray-600 mt-0.5">{sub}</div>
-            </div>
-          ))}
-        </div>
-      )}
 
       {/* Search + watchlist */}
       <div className="flex items-center gap-2">
@@ -286,30 +279,58 @@ export default function AuditsPage() {
                   <th className="px-3 py-2.5 text-left text-[10px] text-gray-600 uppercase tracking-wide min-w-[160px]">Subnet</th>
 
                   {/* Score */}
-                  <ColHeader label="Score" sub="0-100" onClick={() => handleSort("score")} sorted={sortKey === "score"} />
+                  <ColHeader label="Score" sub="0-100"
+                    tooltip="Overall audit score (0–100) combining decentralisation, miner economics, validator health, liquidity, and adoption. Higher is better."
+                    onClick={() => handleSort("score")} sorted={sortKey === "score"} />
 
                   {/* Decentralisation */}
-                  <ColHeader label="Nakamoto" sub="higher=safer" onClick={() => handleSort("nakamoto")} sorted={sortKey === "nakamoto"} />
-                  <ColHeader label="HHI" sub="lower=better" onClick={() => handleSort("hhi")} sorted={sortKey === "hhi"} />
-                  <ColHeader label="Top 10%" sub="supply held" onClick={() => handleSort("top10")} sorted={sortKey === "top10"} />
+                  <ColHeader label="Nakamoto" sub="higher=safer"
+                    tooltip="Minimum number of validators needed to collude and control 51% of the network. Higher means more decentralised and harder to attack. Anything below 3 is a critical risk."
+                    onClick={() => handleSort("nakamoto")} sorted={sortKey === "nakamoto"} />
+                  <ColHeader label="HHI" sub="lower=better"
+                    tooltip="Herfindahl-Hirschman Index — measures stake concentration. 0 = perfectly competitive, 1 = complete monopoly. Below 0.20 is healthy; above 0.50 is a red flag."
+                    onClick={() => handleSort("hhi")} sorted={sortKey === "hhi"} />
+                  <ColHeader label="Top 10%" sub="supply held"
+                    tooltip="Percentage of the total alpha token supply held by the top 10 wallet addresses. Lower means ownership is more distributed across the community."
+                    onClick={() => handleSort("top10")} sorted={sortKey === "top10"} />
 
                   {/* Emission economics */}
-                  <ColHeader label="Miner Burn" sub="% emiss burned" onClick={() => handleSort("burn")} sorted={sortKey === "burn"} />
-                  <ColHeader label="Chain Buy%" sub="emiss recycled" onClick={() => handleSort("chainBuy")} sorted={sortKey === "chainBuy"} />
-                  <ColHeader label="Emission%" sub="of network" onClick={() => handleSort("emission")} sorted={sortKey === "emission"} />
-                  <ColHeader label="EMA%" sub="7d taoflow" onClick={() => handleSort("ema")} sorted={sortKey === "ema"} />
+                  <ColHeader label="Miner Burn" sub="% emiss burned"
+                    tooltip="Percentage of miner emissions that are burned instead of paid out. Very high burn (80%+) means miners are net losers and may leave. 0% is ideal — miners keep all rewards."
+                    onClick={() => handleSort("burn")} sorted={sortKey === "burn"} />
+                  <ColHeader label="Chain Buy%" sub="emiss recycled"
+                    tooltip="Percentage of emissions that are recycled back into buying the subnet's own token on-chain. This creates organic buy pressure. Higher is generally better for token holders."
+                    onClick={() => handleSort("chainBuy")} sorted={sortKey === "chainBuy"} />
+                  <ColHeader label="Emission%" sub="of network"
+                    tooltip="This subnet's current share of total Bittensor network emissions. Reflects how much TAO is flowing into this subnet relative to all others."
+                    onClick={() => handleSort("emission")} sorted={sortKey === "emission"} />
+                  <ColHeader label="EMA%" sub="7d taoflow"
+                    tooltip="7-day exponential moving average of this subnet's TaoFlow emission share. Smooths out short-term spikes to show the underlying trend in emissions allocation."
+                    onClick={() => handleSort("ema")} sorted={sortKey === "ema"} />
 
                   {/* Capital */}
-                  <ColHeader label="TAO Pool" sub="liquidity" onClick={() => handleSort("taoPool")} sorted={sortKey === "taoPool"} />
-                  <ColHeader label="Net Flow" sub="in − out" onClick={() => handleSort("netFlow")} sorted={sortKey === "netFlow"} />
+                  <ColHeader label="TAO Pool" sub="liquidity"
+                    tooltip="Total TAO locked in this subnet's liquidity pool. More liquidity means tighter spreads, less price impact when buying or selling, and generally more market confidence."
+                    onClick={() => handleSort("taoPool")} sorted={sortKey === "taoPool"} />
+                  <ColHeader label="Net Flow" sub="in − out"
+                    tooltip="Net TAO capital movement (inflow minus outflow) over the recent period. Green = more TAO entering the subnet than leaving. Red = capital is exiting."
+                    onClick={() => handleSort("netFlow")} sorted={sortKey === "netFlow"} />
 
                   {/* Adoption */}
-                  <ColHeader label="Holders" sub="unique addrs" onClick={() => handleSort("holders")} sorted={sortKey === "holders"} />
+                  <ColHeader label="Holders" sub="unique addrs"
+                    tooltip="Number of unique wallet addresses holding this subnet's alpha token. A rough proxy for community size and real-world adoption."
+                    onClick={() => handleSort("holders")} sorted={sortKey === "holders"} />
 
                   {/* Metagraph health */}
-                  <ColHeader label="Stale Val%" sub=">24h behind" onClick={() => handleSort("staleVal")} sorted={sortKey === "staleVal"} />
-                  <ColHeader label="ZI Miners%" sub="zero incentive" onClick={() => handleSort("ziMiners")} sorted={sortKey === "ziMiners"} />
-                  <ColHeader label="Gini" sub="trust conc." onClick={() => handleSort("gini")} sorted={sortKey === "gini"} />
+                  <ColHeader label="Stale Val%" sub=">24h behind"
+                    tooltip="Percentage of validators whose on-chain weights are more than 24 hours old. High staleness means validators aren't actively scoring miners — a sign of neglect or automation failure."
+                    onClick={() => handleSort("staleVal")} sorted={sortKey === "staleVal"} />
+                  <ColHeader label="ZI Miners%" sub="zero incentive"
+                    tooltip="Percentage of registered miners currently receiving zero incentive. High values mean many registered miners aren't contributing useful work, wasting network slots."
+                    onClick={() => handleSort("ziMiners")} sorted={sortKey === "ziMiners"} />
+                  <ColHeader label="Gini" sub="trust conc."
+                    tooltip="Gini coefficient measuring inequality in validator trust scores. 0 = all validators trusted equally. 1 = one validator holds all trust. Lower is more decentralised and healthy."
+                    onClick={() => handleSort("gini")} sorted={sortKey === "gini"} />
 
                   {/* Expand */}
                   <th className="px-2 py-2.5 w-8" />
