@@ -55,17 +55,22 @@ export interface TaoSwapSubnet {
 
 export async function getTaoSwapSubnets(): Promise<TaoSwapSubnet[]> {
   try {
-    const res = await fetch(`${TAOSWAP_BASE}/subnets?limit=300`, {
+    // Note: trailing slash required — /subnets (no slash) returns a 301 redirect
+    const res = await fetch(`${TAOSWAP_BASE}/subnets/?limit=300`, {
       headers: { "User-Agent": "AlphaGap/1.0" },
       next: { revalidate: 0 },
       signal: AbortSignal.timeout(25000),
     });
     if (!res.ok) {
-      console.warn(`[taoswap] /subnets returned ${res.status}`);
+      console.warn(`[taoswap] /subnets/ returned ${res.status}`);
       return [];
     }
     const data = await res.json();
-    return Array.isArray(data) ? data : [];
+    // API returns paginated format: { results: [...], count: N, next: ..., previous: ... }
+    if (Array.isArray(data)) return data;
+    if (data && Array.isArray(data.results)) return data.results as TaoSwapSubnet[];
+    console.warn("[taoswap] unexpected response shape:", Object.keys(data || {}));
+    return [];
   } catch (e) {
     console.warn("[taoswap] fetch failed:", e);
     return [];

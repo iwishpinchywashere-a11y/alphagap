@@ -7,7 +7,7 @@
 
 import { NextResponse } from "next/server";
 import { get as blobGet, list } from "@vercel/blob";
-import { getServerSession } from "next-auth/next";
+import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { getTier } from "@/lib/subscription";
 import type { AuditData, SubnetAudit } from "@/app/api/cron/audit-scan/route";
