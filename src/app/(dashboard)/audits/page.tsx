@@ -9,6 +9,7 @@ import SubnetLogo from "@/components/dashboard/SubnetLogo";
 import { getTier } from "@/lib/subscription";
 import { useWatchlist } from "@/components/dashboard/WatchlistProvider";
 import { useDashboard } from "@/components/dashboard/DashboardProvider";
+import { formatNum } from "@/lib/formatters";
 import type { SubnetAudit } from "@/app/api/cron/audit-scan/route";
 
 // ── Formatters ────────────────────────────────────────────────────
@@ -198,12 +199,12 @@ const SORT_DEFAULTS: Record<SortKey, "asc" | "desc"> = {
   taoPool: "desc", staleVal: "asc", ziMiners: "asc",
 };
 
-// sortValue needs the agap map passed in
-function sortValue(a: SubnetAudit, key: SortKey, agapMap: Map<number, number>): number {
+// sortValue needs the agap + marketCap maps passed in
+function sortValue(a: SubnetAudit, key: SortKey, agapMap: Map<number, number>, mcapMap: Map<number, number | undefined>): number {
   switch (key) {
-    case "score":    return a.operationalScore;
+    case "score":     return a.operationalScore;
     case "agap":      return agapMap.get(a.netuid) ?? -1;
-    case "marketCap": return a.marketCap ?? -1;
+    case "marketCap": return mcapMap.get(a.netuid) ?? -1;
     case "nakamoto": return a.nakamotoCoefficient;
     case "hhi":      return a.hhiNormalized;
     case "top10":    return a.top10Share;
@@ -230,6 +231,12 @@ export default function AuditsPage() {
   // Build netuid → aGap composite_score lookup
   const agapMap = useMemo(
     () => new Map(leaderboard.map(s => [s.netuid, s.composite_score])),
+    [leaderboard]
+  );
+
+  // Build netuid → market cap (USD) from leaderboard — same source as main dashboard
+  const marketCapUsdMap = useMemo(
+    () => new Map(leaderboard.map(s => [s.netuid, s.market_cap as number | undefined])),
     [leaderboard]
   );
 
@@ -274,7 +281,7 @@ export default function AuditsPage() {
       return true;
     });
     list = [...list].sort((a, b) => {
-      const diff = sortValue(a, sortKey, agapMap) - sortValue(b, sortKey, agapMap);
+      const diff = sortValue(a, sortKey, agapMap, marketCapUsdMap) - sortValue(b, sortKey, agapMap, marketCapUsdMap);
       return sortDir === "desc" ? -diff : diff;
     });
     return list;
@@ -341,8 +348,8 @@ export default function AuditsPage() {
                     onClick={() => handleSort("agap")} sorted={sortKey === "agap"} />
 
                   {/* Market Cap */}
-                  <ColHeader label="Mkt Cap" sub="in TAO"
-                    tooltip="Total market capitalisation of this subnet's alpha token, denominated in TAO. Calculated as token price × circulating supply."
+                  <ColHeader label="Mkt Cap" sub="USD"
+                    tooltip="Total market capitalisation of this subnet's alpha token in USD. Calculated as token price × circulating supply."
                     onClick={() => handleSort("marketCap")} sorted={sortKey === "marketCap"} />
 
                   {/* Holders */}
@@ -432,7 +439,7 @@ export default function AuditsPage() {
                           const agap = agapMap.get(audit.netuid);
                           if (agap == null) return <span className="text-gray-600">—</span>;
                           return (
-                            <span className={`tabular-nums font-semibold text-sm ${agap >= 75 ? "text-emerald-400" : agap >= 50 ? "text-yellow-400" : "text-gray-400"}`}>
+                            <span className={`tabular-nums font-semibold text-sm ${agap >= 70 ? "text-emerald-400" : agap >= 40 ? "text-yellow-400" : "text-red-400"}`}>
                               {Math.round(agap)}
                             </span>
                           );
@@ -441,7 +448,11 @@ export default function AuditsPage() {
 
                       {/* Market Cap */}
                       <td className="px-2.5 py-3 text-right">
-                        <span className="text-gray-300 tabular-nums text-sm">{fmtTao(audit.marketCap)}</span>
+                        {(() => {
+                          const mcap = marketCapUsdMap.get(audit.netuid);
+                          if (mcap == null) return <span className="text-gray-600 text-sm">—</span>;
+                          return <span className="text-gray-300 tabular-nums text-sm">${formatNum(mcap)}</span>;
+                        })()}
                       </td>
 
                       {/* Holders */}
