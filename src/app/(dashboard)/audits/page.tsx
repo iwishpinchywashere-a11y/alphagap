@@ -340,6 +340,11 @@ export default function AuditsPage() {
                     tooltip="AlphaGap's composite intelligence score combining developer activity (GitHub commits, model releases), on-chain fundamentals, and market signals. This is our overall subnet quality rating."
                     onClick={() => handleSort("agap")} sorted={sortKey === "agap"} />
 
+                  {/* Holders */}
+                  <ColHeader label="Holders" sub="unique addrs"
+                    tooltip="Number of unique wallet addresses holding this subnet's alpha token. A rough proxy for community size and real-world adoption."
+                    onClick={() => handleSort("holders")} sorted={sortKey === "holders"} />
+
                   {/* Decentralisation */}
                   <ColHeader label="Nakamoto" sub="higher=safer"
                     tooltip="Minimum number of validators needed to collude and control 51% of the network. Higher means more decentralised and harder to attack. Anything below 3 is a critical risk."
@@ -362,10 +367,6 @@ export default function AuditsPage() {
                   <ColHeader label="TAO Pool" sub="liquidity"
                     tooltip="Total TAO locked in this subnet's liquidity pool. More liquidity means tighter spreads, less price impact when buying or selling, and generally more market confidence."
                     onClick={() => handleSort("taoPool")} sorted={sortKey === "taoPool"} />
-                  {/* Adoption */}
-                  <ColHeader label="Holders" sub="unique addrs"
-                    tooltip="Number of unique wallet addresses holding this subnet's alpha token. A rough proxy for community size and real-world adoption."
-                    onClick={() => handleSort("holders")} sorted={sortKey === "holders"} />
 
                   {/* Metagraph health */}
                   <ColHeader label="Stale Val%" sub=">24h behind"
@@ -436,6 +437,16 @@ export default function AuditsPage() {
                         })()}
                       </td>
 
+                      {/* Holders */}
+                      <td className="px-2.5 py-3 text-right">
+                        <CellVal
+                          value={fmtK(audit.holdersCount)}
+                          raw={audit.holdersCount}
+                          dir="high_good"
+                          thresholds={[500, 2000]}
+                        />
+                      </td>
+
                       {/* Nakamoto */}
                       <td className="px-2.5 py-3 text-right">
                         <CellVal
@@ -489,18 +500,6 @@ export default function AuditsPage() {
                       {/* TAO Pool */}
                       <td className="px-2.5 py-3 text-right">
                         <span className="text-gray-300 tabular-nums text-xs">{fmtTao(audit.taoInPool)}</span>
-                      </td>
-
-
-
-                      {/* Holders */}
-                      <td className="px-2.5 py-3 text-right">
-                        <CellVal
-                          value={fmtK(audit.holdersCount)}
-                          raw={audit.holdersCount}
-                          dir="high_good"
-                          thresholds={[500, 2000]}
-                        />
                       </td>
 
                       {/* Stale validators % */}
