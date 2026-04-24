@@ -619,12 +619,6 @@ export default function AuditsPage() {
               Composite operational health across every active subnet — decentralisation, miner economics, validator freshness, liquidity and adoption. Click any column to sort.
             </p>
           </div>
-          {updatedAt && (
-            <div className="shrink-0 text-right">
-              <div className="text-[10px] text-gray-600 uppercase tracking-wider">Last updated</div>
-              <div className="text-xs text-gray-400 mt-0.5">{fmtTime(updatedAt)}</div>
-            </div>
-          )}
         </div>
 
         {pageContent}
