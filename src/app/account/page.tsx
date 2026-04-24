@@ -8,13 +8,28 @@ import Link from "next/link";
 export default function AccountPage() {
   const { data: session, status, update } = useSession();
   const router = useRouter();
-    const [portalLoading, setPortalLoading] = useState(false);
+
+  // All hooks must be declared before any early returns (Rules of Hooks)
+  const [portalLoading, setPortalLoading] = useState(false);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [resetLoading, setResetLoading] = useState(false);
   const [resetSent, setResetSent] = useState(false);
   const [language, setLanguage] = useState<"en" | "fr" | "es">("en");
   const [langSaving, setLangSaving] = useState(false);
   const [langSaved, setLangSaved] = useState(false);
+  const [portalError, setPortalError] = useState("");
+  const [cancelConfirm, setCancelConfirm] = useState(false);
+  const [cancelLoading, setCancelLoading] = useState(false);
+  const [cancelDate, setCancelDate] = useState<string | null>(null);
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const user = session?.user as any;
+
+  // Seed language from session once loaded
+  useEffect(() => {
+    if (user?.language) setLanguage(user.language as "en" | "fr" | "es");
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.language]);
 
   if (status === "loading") {
     return (
@@ -29,23 +44,11 @@ export default function AccountPage() {
     return null;
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const user = session?.user as any;
-
-  // Seed language from session once loaded
-  useEffect(() => {
-    if (user?.language) setLanguage(user.language as "en" | "fr" | "es");
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.language]);
   const subscriptionStatus = user?.subscriptionStatus ?? "none";
   const subscriptionTier: "pro" | "premium" | null = user?.subscriptionTier ?? null;
   const isActive = subscriptionStatus === "active" || subscriptionStatus === "trialing";
   const isPremium = isActive && subscriptionTier === "premium";
   const isPro = isActive && !isPremium; // treat null/undefined tier as pro (default active tier)
-  const [portalError, setPortalError] = useState("");
-  const [cancelConfirm, setCancelConfirm] = useState(false);
-  const [cancelLoading, setCancelLoading] = useState(false);
-  const [cancelDate, setCancelDate] = useState<string | null>(null);
 
   async function cancelSubscription() {
     setCancelLoading(true);
