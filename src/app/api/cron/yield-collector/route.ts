@@ -70,7 +70,7 @@ interface SubnetYield {
   validators: number;
 }
 
-async function fetchSubnetYield(netuid: number, retries = 1): Promise<SubnetYield | null> {
+async function fetchSubnetYield(netuid: number, retries = 2): Promise<SubnetYield | null> {
   const url = `${BASE_URL}/dtao/validator/yield/latest/v1?netuid=${netuid}&limit=100`;
   try {
     const res = await fetch(url, {
@@ -79,7 +79,7 @@ async function fetchSubnetYield(netuid: number, retries = 1): Promise<SubnetYiel
     });
     if (res.status === 429) {
       if (retries > 0) {
-        await new Promise(r => setTimeout(r, 6000));
+        await new Promise(r => setTimeout(r, 8000));
         return fetchSubnetYield(netuid, retries - 1);
       }
       return null;
@@ -133,8 +133,11 @@ export async function GET(req: NextRequest) {
   const results: Record<string, SubnetYield> = {};
   let collected = 0, failed = 0;
 
-  // Fetch in batches of 5 with 1.2s delay between batches to stay under rate limit
-  const BATCH_SIZE = 5;
+  // Rate limit: 60 req/min = 1 req/sec.
+  // Batch of 4 with 4s gap = 4 req per ~4s = 60/min exactly. Safe.
+  // 129 subnets → 33 batches × ~5s = ~165s total, well within maxDuration 300.
+  const BATCH_SIZE = 4;
+  const BATCH_DELAY_MS = 4000;
   for (let i = 0; i < activeNetuids.length; i += BATCH_SIZE) {
     const batch = activeNetuids.slice(i, i + BATCH_SIZE);
     const batchResults = await Promise.all(batch.map(n => fetchSubnetYield(n)));
@@ -143,9 +146,8 @@ export async function GET(req: NextRequest) {
       if (r) { results[String(batch[j])] = r; collected++; }
       else { failed++; }
     }
-    // Brief pause between batches (skip after last batch)
     if (i + BATCH_SIZE < activeNetuids.length) {
-      await new Promise(r => setTimeout(r, 1200));
+      await new Promise(r => setTimeout(r, BATCH_DELAY_MS));
     }
   }
 
