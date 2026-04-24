@@ -188,12 +188,12 @@ function ExpandedDetail({ audit }: { audit: SubnetAudit }) {
 
 // ── Sort key type ─────────────────────────────────────────────────
 type SortKey =
-  | "score" | "agap" | "nakamoto" | "hhi" | "top10" | "burn"
+  | "score" | "agap" | "marketCap" | "nakamoto" | "hhi" | "top10" | "burn"
   | "holders" | "chainBuy"
   | "taoPool" | "staleVal" | "ziMiners";
 
 const SORT_DEFAULTS: Record<SortKey, "asc" | "desc"> = {
-  score: "desc", agap: "desc", nakamoto: "desc", hhi: "asc", top10: "asc", burn: "asc",
+  score: "desc", agap: "desc", marketCap: "desc", nakamoto: "desc", hhi: "asc", top10: "asc", burn: "asc",
   holders: "desc", chainBuy: "desc",
   taoPool: "desc", staleVal: "asc", ziMiners: "asc",
 };
@@ -202,7 +202,8 @@ const SORT_DEFAULTS: Record<SortKey, "asc" | "desc"> = {
 function sortValue(a: SubnetAudit, key: SortKey, agapMap: Map<number, number>): number {
   switch (key) {
     case "score":    return a.operationalScore;
-    case "agap":     return agapMap.get(a.netuid) ?? -1;
+    case "agap":      return agapMap.get(a.netuid) ?? -1;
+    case "marketCap": return a.marketCap ?? -1;
     case "nakamoto": return a.nakamotoCoefficient;
     case "hhi":      return a.hhiNormalized;
     case "top10":    return a.top10Share;
@@ -339,6 +340,11 @@ export default function AuditsPage() {
                     tooltip="AlphaGap's composite intelligence score combining developer activity (GitHub commits, model releases), on-chain fundamentals, and market signals. This is our overall subnet quality rating."
                     onClick={() => handleSort("agap")} sorted={sortKey === "agap"} />
 
+                  {/* Market Cap */}
+                  <ColHeader label="Mkt Cap" sub="in TAO"
+                    tooltip="Total market capitalisation of this subnet's alpha token, denominated in TAO. Calculated as token price × circulating supply."
+                    onClick={() => handleSort("marketCap")} sorted={sortKey === "marketCap"} />
+
                   {/* Holders */}
                   <ColHeader label="Holders" sub="unique addrs"
                     tooltip="Number of unique wallet addresses holding this subnet's alpha token. A rough proxy for community size and real-world adoption."
@@ -431,6 +437,11 @@ export default function AuditsPage() {
                             </span>
                           );
                         })()}
+                      </td>
+
+                      {/* Market Cap */}
+                      <td className="px-2.5 py-3 text-right">
+                        <span className="text-gray-300 tabular-nums text-sm">{fmtTao(audit.marketCap)}</span>
                       </td>
 
                       {/* Holders */}

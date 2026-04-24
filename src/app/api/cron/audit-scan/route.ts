@@ -75,6 +75,7 @@ export interface SubnetAudit {
   emissionChainBuysPct: number | null; // % of emissions recycled into buying token
 
   // ── TaoSwap: capital & adoption ──────────────────────────────────
+  marketCap: number | null;            // market cap in TAO
   taoInPool: number | null;            // TAO in liquidity pool
   inflow: number | null;               // TAO flowing in
   outflow: number | null;              // TAO flowing out
@@ -227,6 +228,7 @@ function computeAudit(
   const emissionPercent      = ts?.emission_percent ?? null;
   const emissionEmaPct       = ts?.emission_ema_percent ?? null;
   const emissionChainBuysPct = ts?.emission_chain_buys_percent ?? null;
+  const marketCap            = ts?.market_cap ?? null;
   const taoInPool            = ts?.root_in_pool ?? null;
   const inflow               = ts?.inflow ?? null;
   const outflow              = ts?.outflow ?? null;
@@ -395,7 +397,7 @@ function computeAudit(
     top10Share: Math.round(top10Share * 1000) / 1000,
     burnedEmissionPct: Math.round((burnedEmissionPct ?? 0) * 10) / 10,
     emissionPercent, emissionEmaPct, emissionChainBuysPct,
-    taoInPool, inflow, outflow, holdersCount,
+    marketCap, taoInPool, inflow, outflow, holdersCount,
     flags,
     updatedAt: now,
   };
