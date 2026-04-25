@@ -107,7 +107,7 @@ export async function GET() {
   // ── Discord Leaderboard — top 20 by signal quality ──────────────────
   const signalRank = { alpha: 3, active: 2, quiet: 1, noise: 0 } as const;
   const discordLeaderboard = discordData
-    .filter(d => d.netuid !== null && (d.signal === "alpha" || d.signal === "active"))
+    .filter(d => (d.netuid !== null || (d as any).founderPost) && (d.signal === "alpha" || d.signal === "active"))
     .sort((a, b) => {
       const sr = signalRank[b.signal] - signalRank[a.signal];
       if (sr !== 0) return sr;
@@ -128,9 +128,12 @@ export async function GET() {
       signal: d.signal,
       summary: d.summary,
       keyInsights: d.keyInsights ?? [],
+      alphaTake: (d as any).alphaTake ?? null,
       alphaScore: (d as any).alphaScore ?? null,
       alphaTypes: (d as any).alphaTypes ?? [],
       releaseHint: (d as any).releaseHint ?? false,
+      founderPost: (d as any).founderPost ?? false,
+      channelContext: (d as any).channelContext ?? null,
       manualEntry: (d as any).manualEntry ?? false,
       messageCount: d.messageCount,
       uniquePosters: d.uniquePosters,
