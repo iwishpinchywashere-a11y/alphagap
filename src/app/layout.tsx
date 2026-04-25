@@ -15,6 +15,8 @@ const jetbrains = JetBrains_Mono({
   subsets: ["latin"],
 });
 
+const SITE_URL = "https://www.alphagap.io";
+
 export const metadata: Metadata = {
   title: "AlphaGap | Bittensor Subnet Intelligence",
   description: "Find the alpha gap before everyone else. Our AI scans thousands of data points across the Bittensor ecosystem to surface undervalued subnets before the market catches on.",
@@ -28,7 +30,24 @@ export const metadata: Metadata = {
   openGraph: {
     title: "AlphaGap | Bittensor Subnet Intelligence",
     description: "Find the alpha gap before everyone else. Our AI scans thousands of data points across the Bittensor ecosystem to surface undervalued subnets before the market catches on.",
-    images: [{ url: "/alphagap_logo_dark.svg" }],
+    url: SITE_URL,
+    siteName: "AlphaGap",
+    images: [
+      {
+        url: `${SITE_URL}/api/og`,
+        width: 1200,
+        height: 630,
+        alt: "AlphaGap — Bittensor Subnet Intelligence",
+      },
+    ],
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "AlphaGap | Bittensor Subnet Intelligence",
+    description: "Find the alpha gap before everyone else. Our AI scans thousands of data points across the Bittensor ecosystem to surface undervalued subnets before the market catches on.",
+    images: [`${SITE_URL}/api/og`],
+    site: "@AlphaGapTAO",
   },
 };
 
