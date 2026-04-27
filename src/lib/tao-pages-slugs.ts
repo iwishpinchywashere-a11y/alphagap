@@ -205,7 +205,7 @@ export const EXPLICIT_SLUGS: Record<number, string> = {
 
 // ── Filtered names that should not appear as TAO pages ────────────
 
-const EXCLUDED_NAMES = new Set(["Unknown", "Pending", "Reserved", "for sale (burn to uid1)", "Root"]);
+const EXCLUDED_NAMES = new Set(["Unknown", "Pending", "Reserved", "for sale (burn to uid1)", "Root", "τemplar", "grail", "basilica"]);
 
 // ── Static fallback list (used when DB is unavailable at build time) ──
 
@@ -218,7 +218,7 @@ const STATIC_SUBNET_LIST: Array<{ netuid: number; name: string }> = [
   { netuid: 0,   name: "Root" },
   { netuid: 1,   name: "Apex" },
   { netuid: 2,   name: "DSperse" },
-  { netuid: 3,   name: "τemplar" },
+  // { netuid: 3, name: "τemplar" }, // subnet deregistered
   { netuid: 4,   name: "Targon" },
   { netuid: 5,   name: "Hone" },
   { netuid: 6,   name: "Numinous" },
@@ -252,7 +252,7 @@ const STATIC_SUBNET_LIST: Array<{ netuid: number; name: string }> = [
   { netuid: 36,  name: "Web Agents - Autoppia" },
   { netuid: 37,  name: "Aurelius" },
   { netuid: 38,  name: "colosseum" },
-  { netuid: 39,  name: "basilica" },
+  // { netuid: 39, name: "basilica" }, // subnet deregistered
   { netuid: 40,  name: "Chunking" },
   { netuid: 41,  name: "Almanac" },
   { netuid: 43,  name: "Graphite" },
@@ -292,7 +292,7 @@ const STATIC_SUBNET_LIST: Array<{ netuid: number; name: string }> = [
   { netuid: 78,  name: "Loosh" },
   { netuid: 79,  name: "MVTRX" },
   { netuid: 80,  name: "dogelayer" },
-  { netuid: 81,  name: "grail" },
+  // { netuid: 81, name: "grail" }, // subnet deregistered
   { netuid: 82,  name: "Hermes" },
   { netuid: 83,  name: "CliqueAI" },
   { netuid: 84,  name: "ChipForge (Tatsu)" },

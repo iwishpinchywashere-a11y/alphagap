@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import type { SubnetType } from "@/lib/tao-pages-data";
+import { subnetAvatarColor } from "@/lib/subnet-logos";
 
 export interface SubnetRow {
   netuid: number;
@@ -124,17 +125,17 @@ export default function TaoPagesClient({ subnets }: { subnets: SubnetRow[] }) {
 
               {/* Icon + name */}
               <div className="flex items-start gap-3 mb-4">
-                <div className={`w-11 h-11 rounded-xl bg-white/5 flex items-center justify-center text-xl shrink-0 group-hover:scale-110 transition-transform duration-200${logoUrl ? " overflow-hidden" : ""}`}>
+                <div className={`w-11 h-11 rounded-full flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform duration-200 overflow-hidden ${logoUrl ? "bg-white/5" : subnetAvatarColor(s.netuid)}`}>
                   {logoUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
                       src={logoUrl}
                       alt={s.name}
-                      className="w-full h-full object-contain rounded-xl"
+                      className="w-full h-full object-contain"
                     />
                   ) : (
-                    <span className="text-lg font-bold text-white/70">
-                      {s.name.slice(0, 2).toUpperCase()}
+                    <span className="text-base font-bold text-white/90">
+                      {s.name.replace(/[^a-zA-Z0-9]/g, "")[0]?.toUpperCase() ?? String(s.netuid)}
                     </span>
                   )}
                 </div>

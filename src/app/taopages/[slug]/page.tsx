@@ -5,7 +5,7 @@ import { getTaoPageBySlug } from "@/lib/tao-pages-data";
 import { getAllSubnetRows, findBySlug, getSubnetDbInfo } from "@/lib/tao-pages-slugs";
 import { computeLeaderboard } from "@/lib/signals";
 import { getSubnetDescription } from "@/lib/subnet-plain-english";
-import { SUBNET_LOGOS } from "@/lib/subnet-logos";
+import { SUBNET_LOGOS, subnetAvatarColor } from "@/lib/subnet-logos";
 
 export const revalidate = 3600;
 
@@ -380,12 +380,12 @@ function RelatedSubnets({
                 href={`/taopages/${s.slug}`}
                 className={`group bg-[#0d0d14] border border-white/[0.06] hover:${tc.border} rounded-xl p-4 text-center transition-all hover:scale-[1.03]`}
               >
-                <div className={`w-10 h-10 mx-auto rounded-xl ${tc.iconBg} flex items-center justify-center text-xl mb-2 group-hover:scale-110 transition-transform overflow-hidden`}>
+                <div className={`w-10 h-10 mx-auto rounded-full flex items-center justify-center mb-2 group-hover:scale-110 transition-transform overflow-hidden ${logoUrl ? "bg-white/5" : subnetAvatarColor(s.netuid)}`}>
                   {logoUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={logoUrl} alt={s.name} className="w-full h-full object-contain rounded-xl" />
+                    <img src={logoUrl} alt={s.name} className="w-full h-full object-contain" />
                   ) : (
-                    <span>{icon}</span>
+                    <span className="text-sm font-bold text-white/90">{s.name.replace(/[^a-zA-Z0-9]/g, "")[0]?.toUpperCase() ?? String(s.netuid)}</span>
                   )}
                 </div>
                 <div className="text-sm font-semibold text-white group-hover:text-green-300 transition-colors">{s.name}</div>
@@ -740,12 +740,12 @@ export default async function TaoPageDetail({ params }: { params: Promise<{ slug
                     href={`/taopages/${s.slug}`}
                     className={`group bg-[#0d0d14] border border-white/[0.06] hover:border-opacity-50 ${rc.border} rounded-xl p-4 text-center transition-all hover:scale-[1.03]`}
                   >
-                    <div className={`w-10 h-10 mx-auto rounded-xl ${rc.iconBg} flex items-center justify-center text-xl mb-2 group-hover:scale-110 transition-transform overflow-hidden`}>
+                    <div className={`w-10 h-10 mx-auto rounded-full flex items-center justify-center mb-2 group-hover:scale-110 transition-transform overflow-hidden ${rLogoUrl ? "bg-white/5" : subnetAvatarColor(s.netuid)}`}>
                       {rLogoUrl ? (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={rLogoUrl} alt={s.name} className="w-full h-full object-contain rounded-xl" />
+                        <img src={rLogoUrl} alt={s.name} className="w-full h-full object-contain" />
                       ) : (
-                        <span>{rIcon}</span>
+                        <span className="text-sm font-bold text-white/90">{s.name.replace(/[^a-zA-Z0-9]/g, "")[0]?.toUpperCase() ?? String(s.netuid)}</span>
                       )}
                     </div>
                     <div className="text-sm font-semibold text-white group-hover:text-green-300 transition-colors">{s.name}</div>
@@ -804,12 +804,16 @@ export default async function TaoPageDetail({ params }: { params: Promise<{ slug
           {/* Headline */}
           <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-8">
             <div className="max-w-2xl">
-              {logoUrl && (
-                <div className="w-16 h-16 rounded-2xl bg-white/5 flex items-center justify-center overflow-hidden shrink-0 mb-5">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={logoUrl} alt={name} className="w-full h-full object-contain rounded-2xl" />
-                </div>
-              )}
+              <div className={`w-16 h-16 rounded-full flex items-center justify-center overflow-hidden shrink-0 mb-5 ${logoUrl ? "bg-white/5" : subnetAvatarColor(netuid)}`}>
+                {logoUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={logoUrl} alt={name} className="w-full h-full object-contain" />
+                ) : (
+                  <span className="text-2xl font-bold text-white/90">
+                    {name.replace(/[^a-zA-Z0-9]/g, "")[0]?.toUpperCase() ?? String(netuid)}
+                  </span>
+                )}
+              </div>
               <h1 className="text-5xl sm:text-6xl md:text-7xl font-bold tracking-tight leading-[1.05] mb-5">
                 {name}
                 <br />
