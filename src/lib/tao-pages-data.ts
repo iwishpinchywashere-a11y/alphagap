@@ -4,11 +4,23 @@
  * anyone — zero crypto or AI knowledge required.
  */
 
+export type SubnetType =
+  | "Inference"
+  | "Training"
+  | "Compute"
+  | "Storage"
+  | "Finance"
+  | "Science"
+  | "Creative"
+  | "Tools";
+
 export interface TaoPageSubnet {
   netuid: number;
   slug: string;
   name: string;
   category: string;
+  /** Broad Bittensor subnet type used for index filtering */
+  subnetType: SubnetType;
   tagline: string;
   /** Mainstream product/company this is most like */
   mainstream: string;
@@ -28,6 +40,7 @@ export const TAO_PAGES_SUBNETS: TaoPageSubnet[] = [
     slug: "chutes",
     name: "Chutes",
     category: "AI Infrastructure",
+    subnetType: "Inference",
     tagline: "Serverless AI compute at the speed of thought",
     mainstream: "Vercel (for AI apps) or AWS Lambda",
     problem:
@@ -49,6 +62,7 @@ export const TAO_PAGES_SUBNETS: TaoPageSubnet[] = [
     slug: "targon",
     name: "Targon",
     category: "Privacy AI",
+    subnetType: "Inference",
     tagline: "Run AI so private even the server can't read your data",
     mainstream: "OpenAI API (but with cryptographic privacy guarantees)",
     problem:
@@ -69,6 +83,7 @@ export const TAO_PAGES_SUBNETS: TaoPageSubnet[] = [
     slug: "affine",
     name: "Affine",
     category: "AI Model Evaluation",
+    subnetType: "Tools",
     tagline: "Independent panels of evaluators that AI companies can't influence",
     mainstream: "Consumer Reports or NIST AI benchmarks",
     problem:
@@ -89,6 +104,7 @@ export const TAO_PAGES_SUBNETS: TaoPageSubnet[] = [
     slug: "lium",
     name: "Lium",
     category: "GPU Compute",
+    subnetType: "Compute",
     tagline: "AI-grade GPUs at 90% off — no waiting list, no enterprise contract",
     mainstream: "RunPod or Vast.ai",
     problem:
@@ -109,6 +125,7 @@ export const TAO_PAGES_SUBNETS: TaoPageSubnet[] = [
     slug: "vanta",
     name: "Vanta",
     category: "Prop Trading",
+    subnetType: "Finance",
     tagline: "Prove your edge, get funded, keep every dollar of profit",
     mainstream: "Topstep or FTMO (prop trading firms)",
     problem:
@@ -129,6 +146,7 @@ export const TAO_PAGES_SUBNETS: TaoPageSubnet[] = [
     slug: "ridges",
     name: "Ridges",
     category: "AI Dev Tools",
+    subnetType: "Tools",
     tagline: "AI agents that actually close GitHub issues — not just autocomplete",
     mainstream: "GitHub Copilot or Devin (Cognition AI)",
     problem:
@@ -150,6 +168,7 @@ export const TAO_PAGES_SUBNETS: TaoPageSubnet[] = [
     slug: "score",
     name: "Score",
     category: "Computer Vision",
+    subnetType: "Tools",
     tagline: "Full match analytics in 2 minutes for $10 — for any team in the world",
     mainstream: "Second Spectrum or Hawk-Eye (pro sports tracking)",
     problem:
@@ -170,6 +189,7 @@ export const TAO_PAGES_SUBNETS: TaoPageSubnet[] = [
     slug: "iota",
     name: "Iota",
     category: "AI Model Training",
+    subnetType: "Training",
     tagline: "Train frontier AI models from your laptop — no PhD required",
     mainstream: "SETI@home or Folding@home (but building AI instead of searching for aliens)",
     problem:
@@ -191,6 +211,7 @@ export const TAO_PAGES_SUBNETS: TaoPageSubnet[] = [
     slug: "hippius",
     name: "Hippius",
     category: "Decentralized Cloud",
+    subnetType: "Storage",
     tagline: "60% cheaper than Amazon S3 — with a public receipt for every file",
     mainstream: "Amazon S3 or Dropbox",
     problem:
@@ -211,6 +232,7 @@ export const TAO_PAGES_SUBNETS: TaoPageSubnet[] = [
     slug: "gradients",
     name: "Gradients",
     category: "AutoML",
+    subnetType: "Training",
     tagline: "Fine-tune AI models for $5/hr — life sciences teams already use it",
     mainstream: "AWS SageMaker or DataRobot",
     problem:
@@ -231,6 +253,7 @@ export const TAO_PAGES_SUBNETS: TaoPageSubnet[] = [
     slug: "nova",
     name: "Nova",
     category: "Drug Discovery AI",
+    subnetType: "Science",
     tagline: "Scanning 65 billion molecules to find the next medicine",
     mainstream: "Schrödinger or Insilico Medicine (computational drug discovery)",
     problem:
@@ -252,6 +275,7 @@ export const TAO_PAGES_SUBNETS: TaoPageSubnet[] = [
     slug: "404gen",
     name: "404 Gen",
     category: "3D Generative AI",
+    subnetType: "Creative",
     tagline: "Type a description. Get a 3D model. Print it or build with it.",
     mainstream: "Meshy AI or Luma AI (3D generation tools)",
     problem:
