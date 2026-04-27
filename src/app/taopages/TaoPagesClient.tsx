@@ -98,53 +98,69 @@ export default function TaoPagesClient({ subnets }: { subnets: SubnetRow[] }) {
         ))}
       </div>
 
-      {/* ── Directory list ───────────────────────────────────────── */}
-      <div className="divide-y divide-white/[0.05]">
-        {filtered.map((s) => (
-          <Link
-            key={s.netuid}
-            href={`/taopages/${s.slug}`}
-            className="group flex items-start gap-4 py-4 px-2 -mx-2 rounded-lg hover:bg-white/[0.03] transition-colors"
-          >
-            {/* Rank */}
-            <span className="shrink-0 w-7 text-right text-xs font-mono text-gray-700 mt-1">
-              {s.rank}
-            </span>
+      {/* ── Grid ────────────────────────────────────────────────── */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {filtered.map((s) => {
+          const colors = TYPE_COLORS[s.subnetType];
+          const icon = TYPE_ICONS[s.subnetType];
+          return (
+            <Link
+              key={s.netuid}
+              href={`/taopages/${s.slug}`}
+              className="group relative bg-[#0d0d14] border border-white/[0.06] hover:border-white/[0.14] rounded-2xl p-6 transition-all duration-200 hover:scale-[1.02] hover:shadow-lg hover:shadow-black/40 flex flex-col"
+            >
+              {/* Rank */}
+              <span className="absolute top-4 right-4 text-[10px] font-mono text-gray-700">
+                #{s.rank}
+              </span>
 
-            {/* Type icon */}
-            <span className="shrink-0 text-xl mt-0.5">{TYPE_ICONS[s.subnetType]}</span>
-
-            {/* Main content */}
-            <div className="flex-1 min-w-0">
-              <div className="flex flex-wrap items-center gap-2 mb-1">
-                <span className="font-semibold text-white group-hover:text-emerald-300 transition-colors text-sm sm:text-base">
-                  {s.name}
-                </span>
-                <span className="text-[10px] font-mono text-gray-600 bg-white/5 px-1.5 py-0.5 rounded">
-                  SN{s.netuid}
-                </span>
-                <span className={`hidden sm:inline-block text-[10px] font-medium px-2 py-0.5 rounded-full border ${TYPE_COLORS[s.subnetType]}`}>
-                  {s.subnetType}
-                </span>
+              {/* Icon + name */}
+              <div className="flex items-start gap-3 mb-4">
+                <div className="w-11 h-11 rounded-xl bg-white/5 flex items-center justify-center text-xl shrink-0 group-hover:scale-110 transition-transform duration-200">
+                  {icon}
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <h2 className="text-sm font-bold text-white group-hover:text-emerald-300 transition-colors leading-tight">
+                      {s.name}
+                    </h2>
+                    <span className="text-[10px] font-mono text-gray-600 bg-white/5 px-1.5 py-0.5 rounded shrink-0">
+                      SN{s.netuid}
+                    </span>
+                  </div>
+                  <span className={`inline-block text-[10px] font-medium px-2 py-0.5 rounded-full border ${colors}`}>
+                    {s.subnetType}
+                  </span>
+                </div>
               </div>
-              <p className="text-xs sm:text-sm text-gray-400 leading-relaxed line-clamp-1 sm:line-clamp-none">
+
+              {/* Blurb */}
+              <p className="text-xs text-gray-400 leading-relaxed line-clamp-2 mb-3 flex-1">
                 {s.blurb}
               </p>
-              <p className="hidden sm:block text-xs text-gray-600 mt-0.5 italic">
-                {s.analogy}
-              </p>
-            </div>
 
-            {/* Market cap */}
-            <div className="shrink-0 text-right hidden sm:block">
-              <div className="text-sm font-semibold text-white">{fmtMcap(s.market_cap)}</div>
-              <div className="text-[10px] text-gray-600">mcap</div>
-            </div>
+              {/* Analogy */}
+              <div className="bg-white/[0.03] rounded-lg px-3 py-2 mb-4">
+                <p className="text-[11px] text-gray-500 leading-snug">
+                  <span className="text-gray-700">Like: </span>{s.analogy}
+                </p>
+              </div>
 
-            {/* Arrow */}
-            <span className="shrink-0 text-gray-700 group-hover:text-emerald-500 transition-colors text-sm mt-1">→</span>
-          </Link>
-        ))}
+              {/* Footer */}
+              <div className="flex items-center justify-between">
+                {s.market_cap > 0 ? (
+                  <div>
+                    <span className="text-sm font-semibold text-white">{fmtMcap(s.market_cap)}</span>
+                    <span className="text-[10px] text-gray-600 ml-1">mcap</span>
+                  </div>
+                ) : <div />}
+                <span className="text-[11px] text-gray-600 group-hover:text-emerald-500 transition-colors font-medium">
+                  Read more →
+                </span>
+              </div>
+            </Link>
+          );
+        })}
       </div>
 
       {filtered.length === 0 && (
