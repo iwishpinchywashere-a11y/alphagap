@@ -280,8 +280,10 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       return; // Network error — leave UI unchanged so user knows it didn't work
     }
     setNotifications([]);
-    // Reset the scan guard so the background effect doesn't immediately re-add
-    // notifications for the scan that was just cleared.
+    // Reset snapshot ref so the next background check establishes a fresh baseline
+    // from current scores/signals rather than comparing against stale pre-clear data.
+    // Without this, old score deltas or unseen signals would re-trigger immediately.
+    snapshotRef.current = null;
     lastCheckedScan.current = null;
   }, []);
 

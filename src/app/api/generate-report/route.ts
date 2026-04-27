@@ -179,7 +179,8 @@ async function generateReport(forceNetuid?: number) {
       61: "_redteam_", 62: "ridges_ai", 64: "chutes_ai", 65: "TPN_Labs",
       66: "alpha_core_ai", 68: "metanova_labs", 71: "LeadpoetAI", 74: "gittensor_io",
       75: "hippius_subnet", 81: "grail_ai", 85: "vidaio_", 88: "Investing88ai",
-      91: "bitstarterAI", 93: "Bitcast_network", 97: "DistStateAndMe",
+      91: "bitstarterAI", 93: "Bitcast_network",
+      // SN97 (Distil): no verified official handle — do NOT add unverified accounts
       121: "sundaebar_ai", 122: "Bitrecs", 124: "SwarmSubnet",
     };
 
@@ -207,6 +208,7 @@ Write a comprehensive, magazine-quality intelligence report on this subnet. Be s
 3. For price, market cap, volume — use ONLY the exact figures provided.
 4. If a data field shows "?" it means unknown — say "data unavailable" or omit that claim entirely.
 5. Never extrapolate trends or compound statistics not explicitly in the data.
+6. NEVER identify any individual as a founder, CEO, core team member, or key figure unless that claim is explicitly stated in the subnet's official description field above. A Twitter handle or GitHub username does NOT imply someone is a founder — do not make that inference. If no team/founder information is in the description, omit it entirely.
 
 ═══════════════════════════════════════
 SUBNET DATA (USE ONLY THESE NUMBERS)

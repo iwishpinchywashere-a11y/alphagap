@@ -55,12 +55,15 @@ export async function PATCH(req: NextRequest) {
   return NextResponse.json({ ok: true });
 }
 
-// DELETE — clear all notifications
+// DELETE — clear all notifications and reset the snapshot baseline.
+// Resetting the snapshot means the next check will establish a fresh baseline
+// from current scores/signals — preventing old data from re-triggering alerts.
 export async function DELETE() {
   const auth = await requirePro();
   if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });
   const store = await getNotificationStore(auth.email);
   store.notifications = [];
+  store.snapshot = null;
   await saveNotificationStore(auth.email, store);
   return NextResponse.json({ ok: true });
 }

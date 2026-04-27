@@ -275,9 +275,9 @@ export default function SocialPage() {
                   </ul>
                 )}
                 {founderEntry.alphaTake && (
-                  <div className="flex items-start gap-1.5 bg-amber-950/30 border border-amber-500/20 rounded-lg px-3 py-2">
-                    <span className="text-amber-400 text-xs font-bold shrink-0 mt-0.5">AlphaGap Take:</span>
-                    <p className="text-xs text-gray-300 leading-relaxed">{founderEntry.alphaTake}</p>
+                  <div className="border-l-2 border-amber-500/60 bg-amber-500/5 rounded-r-lg px-3 py-2.5">
+                    <p className="text-[10px] font-bold text-amber-400 uppercase tracking-widest mb-1">AlphaGap Take</p>
+                    <p className="text-xs text-gray-200 leading-relaxed">{founderEntry.alphaTake}</p>
                   </div>
                 )}
               </div>
@@ -318,9 +318,9 @@ export default function SocialPage() {
                       </ul>
                     )}
                     {d.alphaTake && (
-                      <div className="mt-2 flex items-start gap-1.5 bg-gray-800/50 rounded-lg px-3 py-2">
-                        <span className="text-yellow-400 text-xs font-bold shrink-0 mt-0.5">AlphaGap Take:</span>
-                        <p className="text-xs text-gray-300 leading-relaxed">{d.alphaTake}</p>
+                      <div className="mt-2 border-l-2 border-yellow-500/50 bg-yellow-500/5 rounded-r-lg px-3 py-2.5">
+                        <p className="text-[10px] font-bold text-yellow-400 uppercase tracking-widest mb-1">AlphaGap Take</p>
+                        <p className="text-xs text-gray-200 leading-relaxed">{d.alphaTake}</p>
                       </div>
                     )}
                   </div>
@@ -391,9 +391,9 @@ export default function SocialPage() {
                       </ul>
                     )}
                     {d.alphaTake && (
-                      <div className="mt-2 flex items-start gap-1.5 bg-gray-800/50 rounded-lg px-3 py-2">
-                        <span className="text-yellow-400 text-xs font-bold shrink-0 mt-0.5">AlphaGap Take:</span>
-                        <p className="text-xs text-gray-300 leading-relaxed">{d.alphaTake}</p>
+                      <div className="mt-2 border-l-2 border-yellow-500/50 bg-yellow-500/5 rounded-r-lg px-3 py-2.5">
+                        <p className="text-[10px] font-bold text-yellow-400 uppercase tracking-widest mb-1">AlphaGap Take</p>
+                        <p className="text-xs text-gray-200 leading-relaxed">{d.alphaTake}</p>
                       </div>
                     )}
                   </div>
