@@ -205,7 +205,137 @@ export const EXPLICIT_SLUGS: Record<number, string> = {
 
 // ── Filtered names that should not appear as TAO pages ────────────
 
-const EXCLUDED_NAMES = new Set(["Unknown", "Pending", "Reserved"]);
+const EXCLUDED_NAMES = new Set(["Unknown", "Pending", "Reserved", "for sale (burn to uid1)"]);
+
+// ── Static fallback list (used when DB is unavailable at build time) ──
+
+/**
+ * Hardcoded snapshot of all subnets — used as a fallback in generateStaticParams
+ * when the SQLite database cannot be reached (e.g. during Vercel build).
+ * Keep this in sync with the production DB whenever new subnets are registered.
+ */
+const STATIC_SUBNET_LIST: Array<{ netuid: number; name: string }> = [
+  { netuid: 0,   name: "Root" },
+  { netuid: 1,   name: "Apex" },
+  { netuid: 2,   name: "DSperse" },
+  { netuid: 3,   name: "τemplar" },
+  { netuid: 4,   name: "Targon" },
+  { netuid: 5,   name: "Hone" },
+  { netuid: 6,   name: "Numinous" },
+  { netuid: 7,   name: "Allways" },
+  { netuid: 8,   name: "Vanta" },
+  { netuid: 9,   name: "iota" },
+  { netuid: 10,  name: "Swap" },
+  { netuid: 11,  name: "TrajectoryRL" },
+  { netuid: 12,  name: "Compute Horde" },
+  { netuid: 13,  name: "Data Universe" },
+  { netuid: 14,  name: "TAOHash" },
+  { netuid: 15,  name: "ORO" },
+  { netuid: 16,  name: "BitAds" },
+  { netuid: 17,  name: "404—GEN" },
+  { netuid: 18,  name: "Zeus" },
+  { netuid: 19,  name: "blockmachine" },
+  { netuid: 20,  name: "GroundLayer" },
+  { netuid: 21,  name: "AdTAO" },
+  { netuid: 22,  name: "Desearch" },
+  { netuid: 23,  name: "Trishool" },
+  { netuid: 24,  name: "Quasar" },
+  { netuid: 25,  name: "Mainframe" },
+  { netuid: 26,  name: "Kinitro" },
+  { netuid: 27,  name: "Nodexo" },
+  { netuid: 29,  name: "Coldint" },
+  { netuid: 31,  name: "Halftime" },
+  { netuid: 32,  name: "ItsAI" },
+  { netuid: 33,  name: "ReadyAI" },
+  { netuid: 34,  name: "BitMind" },
+  { netuid: 35,  name: "Cartha" },
+  { netuid: 36,  name: "Web Agents - Autoppia" },
+  { netuid: 37,  name: "Aurelius" },
+  { netuid: 38,  name: "colosseum" },
+  { netuid: 39,  name: "basilica" },
+  { netuid: 40,  name: "Chunking" },
+  { netuid: 41,  name: "Almanac" },
+  { netuid: 43,  name: "Graphite" },
+  { netuid: 44,  name: "Score" },
+  { netuid: 45,  name: "Talisman AI" },
+  { netuid: 46,  name: "RESI" },
+  { netuid: 47,  name: "EvolAI" },
+  { netuid: 48,  name: "Quantum Compute" },
+  { netuid: 49,  name: "Nepher Robotics" },
+  { netuid: 50,  name: "Synth" },
+  { netuid: 51,  name: "lium.io" },
+  { netuid: 52,  name: "Dojo" },
+  { netuid: 53,  name: "EfficientFrontier" },
+  { netuid: 54,  name: "Yanez MIID" },
+  { netuid: 55,  name: "NIOME" },
+  { netuid: 56,  name: "Gradients" },
+  { netuid: 57,  name: "Sparket.AI" },
+  { netuid: 58,  name: "Handshake" },
+  { netuid: 59,  name: "Babelbit" },
+  { netuid: 60,  name: "Bitsec.ai" },
+  { netuid: 61,  name: "RedTeam" },
+  { netuid: 62,  name: "Ridges" },
+  { netuid: 63,  name: "Quantum Innovate" },
+  { netuid: 64,  name: "Chutes" },
+  { netuid: 65,  name: "TAO Private Network" },
+  { netuid: 66,  name: "AlphaCore" },
+  { netuid: 67,  name: "Harnyx" },
+  { netuid: 68,  name: "NOVA" },
+  { netuid: 70,  name: "NexisGen" },
+  { netuid: 71,  name: "Leadpoet" },
+  { netuid: 72,  name: "StreetVision by NATIX" },
+  { netuid: 73,  name: "MetaHash" },
+  { netuid: 74,  name: "Gittensor" },
+  { netuid: 75,  name: "Hippius" },
+  { netuid: 76,  name: "Byzantium" },
+  { netuid: 77,  name: "Liquidity" },
+  { netuid: 78,  name: "Loosh" },
+  { netuid: 79,  name: "MVTRX" },
+  { netuid: 80,  name: "dogelayer" },
+  { netuid: 81,  name: "grail" },
+  { netuid: 82,  name: "Hermes" },
+  { netuid: 83,  name: "CliqueAI" },
+  { netuid: 84,  name: "ChipForge (Tatsu)" },
+  { netuid: 85,  name: "Vidaio" },
+  { netuid: 86,  name: "⚒" },
+  { netuid: 87,  name: "Luminar Network" },
+  { netuid: 88,  name: "Investing" },
+  { netuid: 89,  name: "InfiniteHash" },
+  { netuid: 91,  name: "Bitstarter #1" },
+  { netuid: 92,  name: "TensorClaw" },
+  { netuid: 93,  name: "Bitcast" },
+  { netuid: 94,  name: "Bitsota" },
+  { netuid: 96,  name: "X" },
+  { netuid: 97,  name: "Constantinople" },
+  { netuid: 98,  name: "ForeverMoney" },
+  { netuid: 99,  name: "Leoma" },
+  { netuid: 100, name: "Plaτform" },
+  { netuid: 102, name: "ConnitoAI" },
+  { netuid: 103, name: "Djinn" },
+  { netuid: 105, name: "Beam" },
+  { netuid: 106, name: "VoidAI" },
+  { netuid: 107, name: "Minos" },
+  { netuid: 108, name: "TalkHead" },
+  { netuid: 110, name: "Rich Kids of TAO" },
+  { netuid: 111, name: "oneoneone" },
+  { netuid: 112, name: "minotaur" },
+  { netuid: 113, name: "TensorUSD" },
+  { netuid: 114, name: "SOMA" },
+  { netuid: 115, name: "HashiChain" },
+  { netuid: 116, name: "TaoLend" },
+  { netuid: 117, name: "BrainPlay" },
+  { netuid: 118, name: "HODL ETF" },
+  { netuid: 119, name: "Satori" },
+  { netuid: 120, name: "Affine" },
+  { netuid: 121, name: "sundae_bar" },
+  { netuid: 122, name: "Bitrecs" },
+  { netuid: 123, name: "MANTIS" },
+  { netuid: 124, name: "Swarm" },
+  { netuid: 125, name: "8 Ball" },
+  { netuid: 126, name: "Poker44" },
+  { netuid: 127, name: "Astrid" },
+  { netuid: 128, name: "ByteLeap" },
+];
 
 // ── getAllSubnetRows ───────────────────────────────────────────────
 
@@ -218,22 +348,33 @@ export interface SubnetRow {
 
 /**
  * Queries the DB and returns all valid subnets as typed rows.
+ * Falls back to STATIC_SUBNET_LIST if the DB is unavailable (e.g. at build time).
  * Filters out null/Unknown/Pending/Reserved names.
  * Synchronous (better-sqlite3).
  */
 export function getAllSubnetRows(): SubnetRow[] {
-  const db = getDb();
+  let rawRows: Array<{ netuid: number; name: string }> = [];
 
-  const rows = db
-    .prepare(
-      `SELECT netuid, name FROM subnets
-       WHERE name IS NOT NULL
-       AND name NOT IN ('Unknown', 'Pending', 'Reserved')
-       ORDER BY netuid ASC`
-    )
-    .all() as Array<{ netuid: number; name: string }>;
+  try {
+    const db = getDb();
+    rawRows = db
+      .prepare(
+        `SELECT netuid, name FROM subnets
+         WHERE name IS NOT NULL
+         AND name NOT IN ('Unknown', 'Pending', 'Reserved')
+         ORDER BY netuid ASC`
+      )
+      .all() as Array<{ netuid: number; name: string }>;
+  } catch {
+    // DB unavailable (e.g. during Vercel build) — fall back to static snapshot
+  }
 
-  return rows.map((row) => {
+  // If DB returned no rows (empty DB on Vercel at build time), use the static snapshot
+  if (rawRows.length === 0) {
+    rawRows = STATIC_SUBNET_LIST;
+  }
+
+  return rawRows.map((row) => {
     const slug =
       EXPLICIT_SLUGS[row.netuid] ??
       slugify(row.name, row.netuid);
