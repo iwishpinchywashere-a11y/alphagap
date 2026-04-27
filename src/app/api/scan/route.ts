@@ -154,7 +154,7 @@ const RAO = 1e9;
 // ── Desearch social cache — avoid calling Desearch on every 10-min scan ──
 // Social data is cached for 55 minutes; only the first scan each hour pays API credits.
 // social-pulse cron (every hour) handles deeper KOL timeline fetching independently.
-const SOCIAL_CACHE_TTL_MS = 2 * 60 * 60 * 1000; // 2 hours
+const SOCIAL_CACHE_TTL_MS = 3 * 60 * 60 * 1000; // 3 hours
 let _socialCache: { data: Map<number, { mentions: number; engagement: number }>; ts: number } | null = null;
 
 // ── Desearch fetch (inline, no DB dependency) ─────────────────────
@@ -898,7 +898,7 @@ export async function GET() {
     // Save to in-memory cache so the next 5 scans (within 55 min) skip Desearch entirely
     if (socialMap.size > 0) {
       _socialCache = { data: new Map(socialMap), ts: Date.now() };
-      console.log(`[scan] Social data cached (${socialMap.size} subnets). Next Desearch fetch in ~55min.`);
+      console.log(`[scan] Social data cached (${socialMap.size} subnets). Next Desearch fetch in ~3h.`);
     }
   }
 
