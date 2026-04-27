@@ -67,16 +67,54 @@ function fmtMcap(v: number): string {
 
 export default function TaoPagesClient({ subnets }: { subnets: SubnetRow[] }) {
   const [active, setActive] = useState<SubnetType | null>(null);
+  const [query, setQuery] = useState("");
 
-  const filtered = active ? subnets.filter((s) => s.subnetType === active) : subnets;
+  const filtered = subnets.filter((s) => {
+    const matchesType = active ? s.subnetType === active : true;
+    const q = query.trim().toLowerCase();
+    const matchesQuery = q
+      ? s.name.toLowerCase().includes(q) || s.blurb.toLowerCase().includes(q)
+      : true;
+    return matchesType && matchesQuery;
+  });
 
-  // Counts per type for badges
+  // Counts per type for badges (against query-filtered list)
+  const queryFiltered = query.trim()
+    ? subnets.filter((s) => {
+        const q = query.trim().toLowerCase();
+        return s.name.toLowerCase().includes(q) || s.blurb.toLowerCase().includes(q);
+      })
+    : subnets;
   const counts = Object.fromEntries(
-    ALL_TYPES.map((t) => [t, subnets.filter((s) => s.subnetType === t).length])
+    ALL_TYPES.map((t) => [t, queryFiltered.filter((s) => s.subnetType === t).length])
   ) as Record<SubnetType, number>;
 
   return (
     <div>
+      {/* ── Search bar ──────────────────────────────────────────── */}
+      <div className="relative mb-5">
+        <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-600 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
+        </svg>
+        <input
+          type="text"
+          placeholder="Search subnets by name or description…"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          className="w-full bg-white/[0.04] border border-white/[0.08] hover:border-white/[0.14] focus:border-green-500/40 focus:outline-none rounded-xl pl-10 pr-10 py-3 text-sm text-white placeholder-gray-600 transition-colors"
+        />
+        {query && (
+          <button
+            onClick={() => setQuery("")}
+            className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-600 hover:text-gray-300 transition-colors"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        )}
+      </div>
+
       {/* ── Filter bar ──────────────────────────────────────────── */}
       <div className="flex flex-wrap items-center gap-2 mb-8">
         <button
@@ -189,7 +227,9 @@ export default function TaoPagesClient({ subnets }: { subnets: SubnetRow[] }) {
       </div>
 
       {filtered.length === 0 && (
-        <p className="text-center text-gray-600 py-12 text-sm">No subnets in this category yet.</p>
+        <p className="text-center text-gray-600 py-12 text-sm">
+          {query ? `No subnets match "${query}"` : "No subnets in this category yet."}
+        </p>
       )}
     </div>
   );
