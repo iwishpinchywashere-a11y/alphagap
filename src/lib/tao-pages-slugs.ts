@@ -205,7 +205,7 @@ export const EXPLICIT_SLUGS: Record<number, string> = {
 
 // ── Filtered names that should not appear as TAO pages ────────────
 
-const EXCLUDED_NAMES = new Set(["Unknown", "Pending", "Reserved", "for sale (burn to uid1)"]);
+const EXCLUDED_NAMES = new Set(["Unknown", "Pending", "Reserved", "for sale (burn to uid1)", "Root"]);
 
 // ── Static fallback list (used when DB is unavailable at build time) ──
 
