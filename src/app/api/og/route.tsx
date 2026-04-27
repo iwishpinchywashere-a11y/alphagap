@@ -4,17 +4,13 @@
  * Generates the Open Graph preview image for link shares on X, LinkedIn, etc.
  * Returns a 1200×630 PNG — the standard og:image size for large card previews.
  *
- * Uses next/og (ImageResponse) which ships with Next.js — no extra packages needed.
+ * The AlphaGap logo is inlined as JSX SVG paths so Satori renders it correctly.
+ * (Satori cannot decode base64/data-URI SVGs embedded in <img> tags.)
  */
 
 import { ImageResponse } from "next/og";
 
 export const runtime = "edge";
-
-// Real AlphaGap logo (alphagap_logo.svg) embedded as a base64 data URI.
-// The SVG contains the proper A-shaped icon with gradients + the italic bold wordmark.
-const LOGO_DATA_URI =
-  "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTYwMCIgaGVpZ2h0PSI1MDAiIHZpZXdCb3g9IjAgMCAxNjAwIDUwMCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8ZGVmcz4KICAgIDxsaW5lYXJHcmFkaWVudCBpZD0iZ3JlZW5HcmFkIiB4MT0iMTIwIiB5MT0iMjYwIiB4Mj0iNDIwIiB5Mj0iODAiIGdyYWRpZW50VW5pdHM9InVzZXJTcGFjZU9uVXNlIj4KICAgICAgPHN0b3Agb2Zmc2V0PSIwJSIgc3RvcC1jb2xvcj0iIzA1OTY2OSIvPgogICAgICA8c3RvcCBvZmZzZXQ9IjU1JSIgc3RvcC1jb2xvcj0iIzIyYzU1ZSIvPgogICAgICA8c3RvcCBvZmZzZXQ9IjEwMCUiIHN0b3AtY29sb3I9IiM0YWRlODAiLz4KICAgIDwvbGluZWFyR3JhZGllbnQ+CiAgICA8bGluZWFyR3JhZGllbnQgaWQ9InNpbHZlckdyYWQiIHgxPSIxMTAiIHkxPSIyODAiIHgyPSIzMDAiIHkyPSI3MCIgZ3JhZGllbnRVbml0cz0idXNlclNwYWNlT25Vc2UiPgogICAgICA8c3RvcCBvZmZzZXQ9IjAlIiBzdG9wLWNvbG9yPSIjRDZEOURFIi8+CiAgICAgIDxzdG9wIG9mZnNldD0iMTAwJSIgc3RvcC1jb2xvcj0iI0ZGRkZGRiIvPgogICAgPC9saW5lYXJHcmFkaWVudD4KICAgIDxmaWx0ZXIgaWQ9InNvZnRTaGFkb3ciIHg9Ii0yMCUiIHk9Ii0yMCUiIHdpZHRoPSIxNDAlIiBoZWlnaHQ9IjE0MCUiPgogICAgICA8ZmVEcm9wU2hhZG93IGR4PSIwIiBkeT0iNiIgc3RkRGV2aWF0aW9uPSIxMCIgZmxvb2QtY29sb3I9IiMwMDAwMDAiIGZsb29kLW9wYWNpdHk9IjAuMTgiLz4KICAgIDwvZmlsdGVyPgogIDwvZGVmcz4KCiAgPCEtLSBTeW1ib2wgLS0+CiAgPGcgZmlsdGVyPSJ1cmwoI3NvZnRTaGFkb3cpIj4KICAgIDwhLS0gQSBib2R5IC0tPgogICAgPHBhdGggZD0iTTEwNSAzNjAgTDI0OCA4MiBRMjU4IDY4IDI3NCA4MyBMMzc4IDE5NSBRMzg4IDIwNiAzNzYgMjE0IEwzMzggMjQwIFEzMjggMjQ3IDMyMCAyMzYgTDI2NCAxNjUgTDE0OSAzNjAgWiIKICAgICAgICAgIGZpbGw9InVybCgjc2lsdmVyR3JhZCkiIHN0cm9rZT0iIzExMTExMSIgc3Ryb2tlLXdpZHRoPSIxMCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgogICAgPCEtLSByaWdodCBsZWcgYWNjZW50IC0tPgogICAgPHBhdGggZD0iTTMxMiAyODUgTDQwNCAzNjUgUTQxNSAzNzUgNDA2IDM4NiBRMzk4IDM5NSAzODIgMzkwIEwyOTggMzYwIFoiCiAgICAgICAgICBmaWxsPSJ1cmwoI2dyZWVuR3JhZCkiIHN0cm9rZT0iIzExMTExMSIgc3Ryb2tlLXdpZHRoPSIxMCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgogICAgPCEtLSBhcnJvdy9ncm93dGggc3dvb3NoIC0tPgogICAgPHBhdGggZD0iTTEwNSAzNjAgCiAgICAgICAgICAgICBDMTcwIDMzOCwgMjM1IDMwMCwgMjk0IDI0NQogICAgICAgICAgICAgQzMzOCAyMDUsIDM2NSAxNzMsIDM5MyAxMzYKICAgICAgICAgICAgIEwzNzUgMTM2CiAgICAgICAgICAgICBRMzY1IDEzNiAzNjAgMTI3CiAgICAgICAgICAgICBRMzU2IDExOCAzNjIgMTEwCiAgICAgICAgICAgICBMNDQ1IDcyCiAgICAgICAgICAgICBRNDU0IDY4IDQ2MSA3MgogICAgICAgICAgICAgUTQ2OSA3NyA0NjYgODcKICAgICAgICAgICAgIEw0MzggMTcyCiAgICAgICAgICAgICBRNDM0IDE4MiA0MjUgMTg0CiAgICAgICAgICAgICBRNDE1IDE4NiA0MDggMTc4CiAgICAgICAgICAgICBMNDA0IDE3MwogICAgICAgICAgICAgQzM2NCAyMjMsIDMyOCAyNjEsIDI4NiAyOTQKICAgICAgICAgICAgIEMyMzEgMzM4LCAxNzQgMzY2LCAxMTEgMzc5CiAgICAgICAgICAgICBROTUgMzgyIDkxIDM3MwogICAgICAgICAgICAgUTg3IDM2NCAxMDUgMzYwIFoiCiAgICAgICAgICBmaWxsPSJ1cmwoI2dyZWVuR3JhZCkiIHN0cm9rZT0iIzExMTExMSIgc3Ryb2tlLXdpZHRoPSIxMCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgogIDwvZz4KCiAgPCEtLSBXb3JkbWFyayAtLT4KICA8ZyBhcmlhLWxhYmVsPSJBbHBoYUdhcCI+CiAgICA8dGV4dCB4PSI1MDUiIHk9IjI5MiIKICAgICAgICAgIGZvbnQtZmFtaWx5PSJJbnRlciwgUG9wcGlucywgQXZlbmlyIE5leHQsIFNlZ29lIFVJLCBBcmlhbCwgc2Fucy1zZXJpZiIKICAgICAgICAgIGZvbnQtc2l6ZT0iMTgwIgogICAgICAgICAgZm9udC1zdHlsZT0iaXRhbGljIgogICAgICAgICAgZm9udC13ZWlnaHQ9IjgwMCIKICAgICAgICAgIGxldHRlci1zcGFjaW5nPSItNSIKICAgICAgICAgIHN0cm9rZT0iIzExMTExMSIKICAgICAgICAgIHN0cm9rZS13aWR0aD0iMTQiCiAgICAgICAgICBwYWludC1vcmRlcj0ic3Ryb2tlIGZpbGwiCiAgICAgICAgICBmaWxsPSJ1cmwoI2dyZWVuR3JhZCkiPkFscGhhR2FwPC90ZXh0PgogIDwvZz4KPC9zdmc+Cg==";
 
 export async function GET() {
   return new ImageResponse(
@@ -33,7 +29,7 @@ export async function GET() {
           overflow: "hidden",
         }}
       >
-        {/* Subtle green glow */}
+        {/* Subtle green radial glow */}
         <div
           style={{
             position: "absolute",
@@ -54,15 +50,61 @@ export async function GET() {
         <div style={{ position: "absolute", bottom: 0, right: 0, width: "3px", height: "120px", background: "linear-gradient(to top, #10b981, transparent)" }} />
         <div style={{ position: "absolute", bottom: 0, right: 0, width: "120px", height: "3px", background: "linear-gradient(to left, #10b981, transparent)" }} />
 
-        {/* Real AlphaGap logo — icon + wordmark */}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={LOGO_DATA_URI}
-          width={900}
-          height={281}
-          alt="AlphaGap"
-          style={{ marginBottom: "28px" }}
-        />
+        {/* ── AlphaGap logo: icon + wordmark inlined as SVG JSX ── */}
+        <div style={{ display: "flex", alignItems: "center", gap: "32px", marginBottom: "28px" }}>
+
+          {/* Icon — the A-shaped arrow mark */}
+          <svg
+            width="110"
+            height="110"
+            viewBox="0 80 480 320"
+            fill="none"
+          >
+            {/* A body — silver/white */}
+            <path
+              d="M105 360 L248 82 Q258 68 274 83 L378 195 Q388 206 376 214 L338 240 Q328 247 320 236 L264 165 L149 360 Z"
+              fill="#e5e7eb"
+            />
+            {/* Right leg accent — green */}
+            <path
+              d="M312 285 L404 365 Q415 375 406 386 Q398 395 382 390 L298 360 Z"
+              fill="#22c55e"
+            />
+            {/* Growth swoosh — green */}
+            <path
+              d="M105 360 C170 338, 235 300, 294 245 C338 205, 365 173, 393 136 L375 136 Q365 136 360 127 Q356 118 362 110 L445 72 Q454 68 461 72 Q469 77 466 87 L438 172 Q434 182 425 184 Q415 186 408 178 L404 173 C364 223, 328 261, 286 294 C231 338, 174 366, 111 379 Q95 382 91 373 Q87 364 105 360 Z"
+              fill="#22c55e"
+            />
+          </svg>
+
+          {/* Wordmark — "Alpha" white, "Gap" green */}
+          <div style={{ display: "flex", alignItems: "baseline" }}>
+            <span
+              style={{
+                fontSize: "96px",
+                fontWeight: "800",
+                fontStyle: "italic",
+                color: "#ffffff",
+                letterSpacing: "-3px",
+                lineHeight: 1,
+              }}
+            >
+              Alpha
+            </span>
+            <span
+              style={{
+                fontSize: "96px",
+                fontWeight: "800",
+                fontStyle: "italic",
+                color: "#22c55e",
+                letterSpacing: "-3px",
+                lineHeight: 1,
+              }}
+            >
+              Gap
+            </span>
+          </div>
+        </div>
 
         {/* Tagline */}
         <div
@@ -70,9 +112,9 @@ export async function GET() {
             fontSize: "22px",
             color: "#6b7280",
             fontWeight: "400",
-            letterSpacing: "2px",
+            letterSpacing: "3px",
             textTransform: "uppercase",
-            marginBottom: "40px",
+            marginBottom: "44px",
           }}
         >
           Bittensor Subnet Intelligence
