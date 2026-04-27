@@ -15,6 +15,7 @@ export interface SubnetRow {
   market_cap: number;
   composite_score: number;
   rank: number;
+  logoUrl?: string;
 }
 
 const ALL_TYPES: SubnetType[] = [
@@ -22,6 +23,8 @@ const ALL_TYPES: SubnetType[] = [
   "Training",
   "Compute",
   "Storage",
+  "Agents",
+  "Data",
   "Finance",
   "Science",
   "Creative",
@@ -30,13 +33,15 @@ const ALL_TYPES: SubnetType[] = [
 
 const TYPE_ICONS: Record<SubnetType, string> = {
   Inference: "⚡",
-  Training: "🧠",
-  Compute: "🖥",
-  Storage: "☁️",
-  Finance: "📈",
-  Science: "🔬",
-  Creative: "🎨",
-  Tools: "🔧",
+  Training:  "🧠",
+  Compute:   "🖥",
+  Storage:   "☁️",
+  Agents:    "🤖",
+  Data:      "📊",
+  Finance:   "📈",
+  Science:   "🔬",
+  Creative:  "🎨",
+  Tools:     "🔧",
 };
 
 const TYPE_COLORS: Record<SubnetType, string> = {
@@ -44,6 +49,8 @@ const TYPE_COLORS: Record<SubnetType, string> = {
   Training:  "bg-indigo-500/15 text-indigo-300 border-indigo-500/25",
   Compute:   "bg-orange-500/15 text-orange-300 border-orange-500/25",
   Storage:   "bg-teal-500/15 text-teal-300 border-teal-500/25",
+  Agents:    "bg-lime-500/15 text-lime-300 border-lime-500/25",
+  Data:      "bg-sky-500/15 text-sky-300 border-sky-500/25",
   Finance:   "bg-yellow-500/15 text-yellow-300 border-yellow-500/25",
   Science:   "bg-rose-500/15 text-rose-300 border-rose-500/25",
   Creative:  "bg-violet-500/15 text-violet-300 border-violet-500/25",
@@ -103,6 +110,7 @@ export default function TaoPagesClient({ subnets }: { subnets: SubnetRow[] }) {
         {filtered.map((s) => {
           const colors = TYPE_COLORS[s.subnetType];
           const icon = TYPE_ICONS[s.subnetType];
+          const logoUrl = s.logoUrl;
           return (
             <Link
               key={s.netuid}
@@ -116,8 +124,19 @@ export default function TaoPagesClient({ subnets }: { subnets: SubnetRow[] }) {
 
               {/* Icon + name */}
               <div className="flex items-start gap-3 mb-4">
-                <div className="w-11 h-11 rounded-xl bg-white/5 flex items-center justify-center text-xl shrink-0 group-hover:scale-110 transition-transform duration-200">
-                  {icon}
+                <div className={`w-11 h-11 rounded-xl bg-white/5 flex items-center justify-center text-xl shrink-0 group-hover:scale-110 transition-transform duration-200${logoUrl ? " overflow-hidden" : ""}`}>
+                  {logoUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={logoUrl}
+                      alt={s.name}
+                      className="w-full h-full object-contain rounded-xl"
+                    />
+                  ) : (
+                    <span className="text-lg font-bold text-white/70">
+                      {s.name.slice(0, 2).toUpperCase()}
+                    </span>
+                  )}
                 </div>
                 <div>
                   <div className="flex items-center gap-2 mb-1">
@@ -153,7 +172,12 @@ export default function TaoPagesClient({ subnets }: { subnets: SubnetRow[] }) {
                     <span className="text-sm font-semibold text-white">{fmtMcap(s.market_cap)}</span>
                     <span className="text-[10px] text-gray-600 ml-1">mcap</span>
                   </div>
-                ) : <div />}
+                ) : (
+                  <div className="flex items-center gap-1">
+                    <span className="text-[10px] text-gray-700">{icon}</span>
+                    <span className="text-[10px] text-gray-700">{s.subnetType}</span>
+                  </div>
+                )}
                 <span className="text-[11px] text-gray-600 group-hover:text-emerald-500 transition-colors font-medium">
                   Read more →
                 </span>

@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { TAO_PAGES_SUBNETS } from "@/lib/tao-pages-data";
+import { getAllSubnetRows } from "@/lib/tao-pages-slugs";
 import { computeLeaderboard } from "@/lib/signals";
 import { getSubnetDescription } from "@/lib/subnet-plain-english";
+import { SUBNET_LOGOS } from "@/lib/subnet-logos";
 import TaoPagesClient from "./TaoPagesClient";
 
 export const revalidate = 3600;
@@ -10,10 +11,10 @@ export const revalidate = 3600;
 export const metadata: Metadata = {
   title: "TAO Pages — The Bittensor Subnet Directory | AlphaGap",
   description:
-    "Plain-English explanations for every major Bittensor subnet. What each subnet does, the problem it solves, and how it compares to mainstream products — no jargon required.",
+    "Plain-English explanations for every Bittensor subnet. What each subnet does, the problem it solves, and how it compares to mainstream products — no jargon required.",
   openGraph: {
     title: "TAO Pages — The Bittensor Subnet Directory",
-    description: "Plain-English explanations for every major Bittensor subnet. No jargon. No crypto experience required.",
+    description: "Plain-English explanations for every Bittensor subnet. No jargon. No crypto experience required.",
     url: "https://www.alphagap.io/taopages",
     siteName: "AlphaGap",
     images: [{ url: "https://www.alphagap.io/api/og", width: 1200, height: 630 }],
@@ -31,22 +32,25 @@ export default function TaoPagesIndex() {
   const leaderboard = computeLeaderboard();
   const scoreMap = new Map(leaderboard.map((s) => [s.netuid, s]));
 
-  // Sort by market cap, attach live data and blurbs
-  const subnets = TAO_PAGES_SUBNETS
+  const allRows = getAllSubnetRows();
+
+  // Build subnet cards: merge DB rows with live scores, blurbs, and logos
+  const subnets = allRows
     .map((s) => {
       const live = scoreMap.get(s.netuid);
-      const desc = getSubnetDescription(s.netuid);
+      const desc = getSubnetDescription(s.netuid, s.subnetType);
       return {
         netuid: s.netuid,
         slug: s.slug,
         name: s.name,
-        category: s.category,
+        category: s.subnetType,
         subnetType: s.subnetType,
         blurb: desc.blurb,
         analogy: desc.analogy,
         market_cap: live?.market_cap ?? 0,
         composite_score: live?.composite_score ?? 0,
         rank: 0,
+        logoUrl: SUBNET_LOGOS[s.netuid] ?? undefined,
       };
     })
     .sort((a, b) => b.market_cap - a.market_cap)
@@ -56,7 +60,7 @@ export default function TaoPagesIndex() {
     <div className="min-h-screen bg-[#0a0a0f] text-white">
       {/* ── Nav ─────────────────────────────────────────────────── */}
       <nav className="sticky top-0 z-50 backdrop-blur-xl bg-[#0a0a0f]/90 border-b border-white/5">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Link href="https://www.alphagap.io">
               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -74,7 +78,7 @@ export default function TaoPagesIndex() {
         </div>
       </nav>
 
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 py-12">
+      <main className="max-w-6xl mx-auto px-4 sm:px-6 py-12">
         {/* ── Header ──────────────────────────────────────────────── */}
         <div className="mb-10">
           <div className="flex items-center gap-2 mb-3">
@@ -86,7 +90,7 @@ export default function TaoPagesIndex() {
           </div>
           <p className="text-gray-400 text-sm sm:text-base leading-relaxed max-w-2xl">
             The yellow pages for the Bittensor network. Plain-English explanations for every
-            major subnet — what it does, the problem it solves, and what mainstream product
+            subnet — what it does, the problem it solves, and what mainstream product
             it most resembles. No jargon required.
           </p>
         </div>
@@ -97,7 +101,7 @@ export default function TaoPagesIndex() {
 
       {/* ── Footer ───────────────────────────────────────────────── */}
       <footer className="border-t border-white/5 py-8 mt-8">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-3">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="flex items-center gap-2 text-gray-600 text-xs">
             <div className="w-4 h-4 rounded bg-gradient-to-br from-green-400 to-emerald-600 flex items-center justify-center text-[8px] font-bold text-black">α</div>
             TAO Pages by <a href="https://www.alphagap.io" className="hover:text-gray-400 transition-colors ml-1">AlphaGap</a>

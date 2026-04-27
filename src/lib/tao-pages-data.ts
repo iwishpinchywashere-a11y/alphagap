@@ -9,6 +9,8 @@ export type SubnetType =
   | "Training"
   | "Compute"
   | "Storage"
+  | "Agents"
+  | "Data"
   | "Finance"
   | "Science"
   | "Creative"
