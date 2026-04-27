@@ -804,20 +804,19 @@ export default async function TaoPageDetail({ params }: { params: Promise<{ slug
           {/* Headline */}
           <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-8">
             <div className="max-w-2xl">
-              <div className="flex items-center gap-4 mb-5">
-                {logoUrl && (
-                  <div className="w-16 h-16 rounded-2xl bg-white/5 flex items-center justify-center overflow-hidden shrink-0">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={logoUrl} alt={name} className="w-full h-full object-contain rounded-2xl" />
-                  </div>
-                )}
-                <h1 className="text-5xl sm:text-6xl md:text-7xl font-bold tracking-tight leading-[1.05]">
-                  {name}
-                </h1>
-              </div>
-              <p className="text-lg text-gray-400 leading-relaxed max-w-xl">
-                {tagline}
-              </p>
+              {logoUrl && (
+                <div className="w-16 h-16 rounded-2xl bg-white/5 flex items-center justify-center overflow-hidden shrink-0 mb-5">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={logoUrl} alt={name} className="w-full h-full object-contain rounded-2xl" />
+                </div>
+              )}
+              <h1 className="text-5xl sm:text-6xl md:text-7xl font-bold tracking-tight leading-[1.05] mb-5">
+                {name}
+                <br />
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-emerald-300 text-4xl sm:text-5xl md:text-6xl">
+                  {tagline}
+                </span>
+              </h1>
             </div>
 
             <MetricsCard
