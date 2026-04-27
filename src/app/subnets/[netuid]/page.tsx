@@ -65,6 +65,22 @@ function fmtPct(v: number): string { return `${v >= 0 ? "+" : ""}${v.toFixed(2)}
 function pctColor(v: number): string { return v >= 0 ? "text-green-400" : "text-red-400"; }
 function scoreColor(s: number): string { return s >= 70 ? "text-green-400" : s >= 40 ? "text-yellow-400" : "text-red-400"; }
 
+// ── TAO Pages slug helper (mirrors tao-pages-slugs.ts logic) ─────
+const TAOPAGES_EXPLICIT_SLUGS: Record<number, string> = {
+  64: "chutes", 4: "targon", 120: "affine", 51: "lium", 8: "vanta",
+  62: "ridges", 44: "score", 9: "iota", 75: "hippius", 56: "gradients",
+  68: "nova", 17: "404gen", 104: "sn104", 86: "sn86", 100: "platform",
+};
+function taoPageSlug(netuid: number, name: string): string {
+  if (TAOPAGES_EXPLICIT_SLUGS[netuid]) return TAOPAGES_EXPLICIT_SLUGS[netuid];
+  return name
+    .toLowerCase()
+    .replace(/[τΤ]/g, "t")
+    .replace(/[^\x00-\x7F]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "") || `sn${netuid}`;
+}
+
 // ── Shared crosshair helper (SVG lines + dot only — no text) ─────
 // The tooltip text is rendered as an HTML overlay outside the SVG so it
 // isn't squished by preserveAspectRatio="none" on mobile screens.
@@ -973,6 +989,20 @@ export default function SubnetDetailPage({ params }: { params: Promise<{ netuid:
                 </div>
               </div>
             )}
+
+            {/* TAO Pages link */}
+            <Link
+              href={`/taopages/${taoPageSlug(data.netuid, data.name)}`}
+              className="flex items-center justify-between bg-gray-900/60 border border-emerald-500/20 hover:border-emerald-500/40 rounded-xl p-3 transition-colors group"
+            >
+              <div>
+                <div className="text-[10px] font-semibold text-emerald-600 uppercase tracking-wider mb-0.5">TAO Pages</div>
+                <div className="text-xs text-gray-400 group-hover:text-white transition-colors">Plain-English explainer for {data.name}</div>
+              </div>
+              <svg className="w-4 h-4 text-emerald-600 group-hover:text-emerald-400 transition-colors shrink-0 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+              </svg>
+            </Link>
 
             {/* Network */}
             <div className="bg-gray-900/60 border border-gray-800 rounded-xl p-3">
