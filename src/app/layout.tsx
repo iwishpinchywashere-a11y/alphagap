@@ -34,7 +34,7 @@ export const metadata: Metadata = {
     siteName: "AlphaGap",
     images: [
       {
-        url: `${SITE_URL}/api/og`,
+        url: `${SITE_URL}/og-image.png`,
         width: 1200,
         height: 630,
         alt: "AlphaGap — Bittensor Subnet Intelligence",
@@ -46,7 +46,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "AlphaGap | Bittensor Subnet Intelligence",
     description: "Find the alpha gap before everyone else. Our AI scans thousands of data points across the Bittensor ecosystem to surface undervalued subnets before the market catches on.",
-    images: [`${SITE_URL}/api/og`],
+    images: [`${SITE_URL}/og-image.png`],
     site: "@AlphaGapTAO",
   },
 };
