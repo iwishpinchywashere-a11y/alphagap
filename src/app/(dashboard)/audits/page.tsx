@@ -400,6 +400,11 @@ export default function AuditsPage() {
                   <ColHeader label="Chain Buy%" sub="emiss recycled"
                     tooltip="Percentage of emissions that are recycled back into buying the subnet's own token on-chain. This creates organic buy pressure. Higher is generally better for token holders."
                     onClick={() => handleSort("chainBuy")} sorted={sortKey === "chainBuy"} />
+                  {/* Code Volume */}
+                  <ColHeader label="Code Vol" sub="30d lines"
+                    tooltip="Lines of code (additions + deletions) pushed to this subnet's GitHub repository in the past 30 days. A rough measure of development velocity. Applies a small ±4 pt adjustment to the Audit Score: inactive repos (0 lines) receive −3, very active repos (20K+) receive +4."
+                    onClick={() => handleSort("loc30d")} sorted={sortKey === "loc30d"} />
+
                   {/* Capital */}
                   <ColHeader label="TAO Pool" sub="liquidity"
                     tooltip="Total TAO locked in this subnet's liquidity pool. More liquidity means tighter spreads, less price impact when buying or selling, and generally more market confidence."
@@ -412,11 +417,6 @@ export default function AuditsPage() {
                   <ColHeader label="ZI Miners%" sub="zero incentive"
                     tooltip="Percentage of registered miners currently receiving zero incentive. High values mean many registered miners aren't contributing useful work, wasting network slots."
                     onClick={() => handleSort("ziMiners")} sorted={sortKey === "ziMiners"} />
-
-                  {/* Code Volume */}
-                  <ColHeader label="Code Vol" sub="30d lines"
-                    tooltip="Lines of code (additions + deletions) pushed to this subnet's GitHub repository in the past 30 days. A rough measure of development velocity. Applies a small ±4 pt adjustment to the Audit Score: inactive repos (0 lines) receive −3, very active repos (20K+) receive +4."
-                    onClick={() => handleSort("loc30d")} sorted={sortKey === "loc30d"} />
 
                 </tr>
               </thead>
@@ -545,6 +545,25 @@ export default function AuditsPage() {
                         />
                       </td>
 
+                      {/* Code Volume 30d */}
+                      <td className="px-2.5 py-3 text-right">
+                        {(() => {
+                          const loc = loc30dMap.get(audit.netuid);
+                          if (loc === undefined) return <span className="text-gray-600 text-sm">—</span>;
+                          const adj = locAuditAdj(loc);
+                          const color =
+                            adj >= 3  ? "text-emerald-400" :
+                            adj >= 1  ? "text-teal-400" :
+                            adj === 0 ? "text-gray-400" :
+                            "text-red-400";
+                          return (
+                            <span className={`tabular-nums font-medium text-sm ${color}`}>
+                              {fmtLoc(loc)}
+                            </span>
+                          );
+                        })()}
+                      </td>
+
                       {/* TAO Pool */}
                       <td className="px-2.5 py-3 text-right">
                         <span className="text-gray-300 tabular-nums text-sm">{fmtTao(audit.taoInPool)}</span>
@@ -568,25 +587,6 @@ export default function AuditsPage() {
                           dir="low_good"
                           thresholds={[40, 80]}
                         />
-                      </td>
-
-                      {/* Code Volume 30d */}
-                      <td className="px-2.5 py-3 text-right">
-                        {(() => {
-                          const loc = loc30dMap.get(audit.netuid);
-                          if (loc === undefined) return <span className="text-gray-600 text-sm">—</span>;
-                          const adj = locAuditAdj(loc);
-                          const color =
-                            adj >= 3  ? "text-emerald-400" :
-                            adj >= 1  ? "text-teal-400" :
-                            adj === 0 ? "text-gray-400" :
-                            "text-red-400";
-                          return (
-                            <span className={`tabular-nums font-medium text-sm ${color}`}>
-                              {fmtLoc(loc)}
-                            </span>
-                          );
-                        })()}
                       </td>
 
                     </tr>
