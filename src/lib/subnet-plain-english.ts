@@ -6,28 +6,28 @@
  */
 export const SUBNET_PLAIN_ENGLISH: Record<number, { blurb: string; analogy: string }> = {
   1: {
-    blurb: "Computers compete to answer your questions and write text — the best answer wins a reward.",
-    analogy: "Like ChatGPT, but no single company controls it.",
+    blurb: "Miners submit algorithms that compete on real AI benchmarks in rotating tournaments — best result wins TAO.",
+    analogy: "Like Kaggle, but with crypto prizes and the competitions never stop.",
   },
   2: {
-    blurb: "Creates a tamper-proof receipt proving an AI actually ran and gave a real answer.",
-    analogy: "Like a notary stamp for AI — proof the answer is real.",
+    blurb: "Generates cryptographic proofs that an AI actually ran correctly — 160 million proofs issued and counting.",
+    analogy: "Like a bank receipt that's mathematically impossible to forge — proof the AI ran what it claimed.",
   },
   3: {
-    blurb: "Computers worldwide pool their power to train one giant AI model together.",
-    analogy: "Like a charity fundraiser, but everyone donates computing power instead of money.",
+    blurb: "The world's largest decentralized AI training network — completed a 7.2B parameter model on 70+ independent machines.",
+    analogy: "Like a barn raising — thousands of people worldwide each contribute a few hours, and together build something massive.",
   },
   4: {
-    blurb: "Runs AI so private even the server can't read your questions. Powers 4M users, $10M+ revenue.",
-    analogy: "Like a locked safe that can still do work inside — nobody can peek.",
+    blurb: "Runs AI inside hardware-sealed enclaves — $70M+ in NVIDIA hardware, $10.5M Series A, ~$100K/month real revenue.",
+    analogy: "Like a locked safe that can still process requests inside — even the server operator can't see your data.",
   },
   5: {
     blurb: "Reads crypto news and market data 24/7 and turns it into signals for AI trading tools.",
     analogy: "Like a news desk that never sleeps and only covers crypto.",
   },
   6: {
-    blurb: "Combines hundreds of AI prediction models into one super-forecast — used by hedge funds.",
-    analogy: "Like asking 500 experts their opinion and combining the best parts into one answer.",
+    blurb: "A swarm of competing AI agents produce calibrated forecasts on geopolitical and financial events.",
+    analogy: "Like a prediction market where the traders are AI agents that never sleep.",
   },
   7: {
     blurb: "Pays people to host the infrastructure that all other Bittensor subnets run on.",
@@ -42,15 +42,15 @@ export const SUBNET_PLAIN_ENGLISH: Record<number, { blurb: string; analogy: stri
     analogy: "Like SETI@home — donate your spare computing time to build AI instead of hunting aliens.",
   },
   10: {
-    blurb: "Lets Ethereum and Solana users swap into Bittensor tokens without needing to understand how it works.",
-    analogy: "Like an airport currency exchange — swap without knowing how international banking works.",
+    blurb: "The native DEX for Bittensor subnet tokens — cross-chain bridge from Ethereum Base and Solana, fee buybacks built in.",
+    analogy: "Like Uniswap, but purpose-built for trading Bittensor's subnet tokens.",
   },
   11: {
-    blurb: "Runs the AI image generation behind Dippy, an AI companion app with 8.6 million users.",
-    analogy: "Like the engine room of a popular app, spread across thousands of computers.",
+    blurb: "An on-chain tournament where miners write AI agent instructions — the cheapest submission that works wins.",
+    analogy: "Like a contract bidding process — whoever delivers results at the lowest cost gets paid.",
   },
   13: {
-    blurb: "Scrapes Twitter, Reddit, and YouTube 24/7 — 55B+ rows collected for AI companies to train on.",
+    blurb: "Scrapes Twitter/X and Reddit 24/7 — 17 billion+ items collected, the largest open social media dataset in existence.",
     analogy: "Like a library that pays people to collect every social media post ever made.",
   },
   14: {
@@ -58,8 +58,8 @@ export const SUBNET_PLAIN_ENGLISH: Record<number, { blurb: string; analogy: stri
     analogy: "Like a community gold mine — everyone digs together and the profits go back into the town.",
   },
   15: {
-    blurb: "AI shopping assistants compete on real tasks — finding products, comparing prices, making decisions.",
-    analogy: "Like a mystery shopper competition where every contestant is an AI.",
+    blurb: "Ask any DeFi question in plain English — every answer is signed on-chain so you can verify it yourself.",
+    analogy: "Like a Bloomberg Terminal analyst who answers in plain language and signs every answer.",
   },
   16: {
     blurb: "An ad network that only pays out when a purchase is confirmed — never for clicks alone.",
@@ -70,40 +70,40 @@ export const SUBNET_PLAIN_ENGLISH: Record<number, { blurb: string; analogy: stri
     analogy: "Like Midjourney but for 3D objects — type what you want, get a printable model.",
   },
   18: {
-    blurb: "AI models compete to predict hourly weather anywhere on Earth — 40% more accurate than commercial APIs.",
-    analogy: "Like a forecasting competition where the winner gets paid and everyone gets better weather.",
+    blurb: "A competitive decentralized climate forecasting network — miners predict weather, validators score accuracy on-chain.",
+    analogy: "Like a forecasting competition where the winner gets paid and everyone gets better weather data.",
   },
   19: {
-    blurb: "Generate text and images using powerful AI models — live app, no subscription needed.",
-    analogy: "Like a decentralized OpenAI — send a message, get a response, for free.",
+    blurb: "The #1 ranked inference subnet on Bittensor — fast LLM and image generation, one of OpenRouter's top providers.",
+    analogy: "Like a decentralized OpenAI — send a request, get a response, at a fraction of the cost.",
   },
   20: {
-    blurb: "Runs MSPTech, an AI that automates IT support tickets, plus a $130K benchmark competition.",
-    analogy: "Like an IT helpdesk run entirely by AI — tickets sorted before a human sees them.",
+    blurb: "Miners compete on real AI benchmarks like SWE-Bench — actual crypto bounties paid for winning results.",
+    analogy: "Like a Kaggle competition where prizes are paid in crypto and the contests never stop running.",
   },
   21: {
-    blurb: "AI helpers compete to diagnose and fix broken Google ad campaigns.",
-    analogy: "Like a mechanic competition, but the contestants are fixing ad campaigns instead of engines.",
+    blurb: "Building the world's largest open AGI dataset — 1M+ hours of video, 30M+ clips across 50+ real-world scenarios.",
+    analogy: "Like a global data collection drive where every contributor earns a share of the reward.",
   },
   22: {
-    blurb: "An AI search engine giving direct answers — independently tested to beat OpenAI, Google, and Perplexity.",
-    analogy: "Like Google, but it reads the page for you and just tells you the answer.",
+    blurb: "An AI search engine returning verified results from X, Reddit, Arxiv, Wikipedia, and the web — no filter bubbles.",
+    analogy: "Like Google, but it reads every source and tells you the answer — with citations you can check.",
   },
   23: {
-    blurb: "Pays real people to post accurate, well-sourced replies on Twitter/X to fight misinformation.",
-    analogy: "Like paying people to fact-check the internet — good replies earn money.",
+    blurb: "Scores online content on factuality, depth, and tone using 400K+ Sybil-resistant accounts — a quality signal for the internet.",
+    analogy: "Like a restaurant health inspector — independent, rigorous, and impossible to bribe.",
   },
   24: {
-    blurb: "AI models compete to read and remember entire books at once — no forgetting what was said earlier.",
-    analogy: "Like giving an AI a photographic memory instead of a notepad with a few pages.",
+    blurb: "Collecting 1M+ hours of video and 30M+ clips to train AGI — released Quasar-3B, a long-context AI model.",
+    analogy: "Like a global museum that pays people to donate exhibits — the collection keeps growing.",
   },
   25: {
-    blurb: "Runs drug discovery and protein folding calculations for biotech researchers — cheap and accessible.",
-    analogy: "Like renting a pharmaceutical supercomputer by the minute, for any lab.",
+    blurb: "Decentralized compute for drug discovery — protein folding, molecular dynamics, and docking for any research team.",
+    analogy: "Like renting pharmaceutical-grade supercomputer time by the minute — for any lab, anywhere.",
   },
   26: {
-    blurb: "Stores files split across many independent computers — no single server to hack or control.",
-    analogy: "Like hiding puzzle pieces in different houses — nobody can read your files, but you always can.",
+    blurb: "The first decentralized robotics AI competition — miners submit robot policies that compete in simulated environments.",
+    analogy: "Like a robot Olympics where anyone can enter, and the winners advance the science.",
   },
   27: {
     blurb: "GPU owners rent their hardware to people who need computing power — blockchain handles payment.",
@@ -114,32 +114,36 @@ export const SUBNET_PLAIN_ENGLISH: Record<number, { blurb: string; analogy: stri
     analogy: "Like a Wall Street data feed built by competing AI predictors instead of one company.",
   },
   29: {
-    blurb: "Competing researchers find safety problems in AI models before they're deployed.",
-    analogy: "Like a bug bounty program for AI safety — find the flaw, prove it, get paid.",
+    blurb: "Miners compete to find adversarial flaws in AI agents before they're deployed — the first on-chain AI safety network.",
+    analogy: "Like a bug bounty program for AI — find the unsafe behavior, prove it, earn TAO.",
   },
   31: {
     blurb: "Runs competitions to find the most efficient AI model designs — beat Google's own benchmark.",
     analogy: "Like a Formula 1 design competition, but for AI brains instead of race cars.",
   },
   32: {
-    blurb: "Detects whether text was written by a human or an AI — ranked #1 globally, beating GPTZero.",
-    analogy: "Like Turnitin for the AI era — schools and publishers use it to check authorship.",
+    blurb: "Detects AI-generated text with 98.3% accuracy — ranked #1 on MGTD and RAID, beats GPTZero globally.",
+    analogy: "Like Turnitin for the AI era — schools and publishers use it to catch AI-written work.",
+  },
+  33: {
+    blurb: "Converts raw documents into structured AI-ready data — 660x cheaper than Mechanical Turk, used by Ipsos.",
+    analogy: "Like a filing clerk that's 660x cheaper and never makes errors — turns any document into usable data.",
   },
   35: {
-    blurb: "Pools shared money and automatically spreads it across trading markets to keep trades flowing.",
-    analogy: "Like a neighborhood fund where everyone chips in and a smart system puts it to work.",
+    blurb: "An AI reasoning competition focused on hard math and logic — miners scored on reasoning steps, not just answers.",
+    analogy: "Like a math olympiad where showing your work matters as much as getting the right answer.",
   },
   36: {
     blurb: "AI agents browse websites and complete tasks — filling forms, extracting data, clicking through flows.",
     analogy: "Like a virtual assistant that uses a browser the exact same way you do.",
   },
   37: {
-    blurb: "AI models compete to prove they're better — stress-tested for mistakes, winners published on HuggingFace.",
-    analogy: "Like a quality control lab for AI — nothing ships until it passes the test.",
+    blurb: "Runs simultaneous fine-tuning competitions for chatbots, coding, and reasoning — winners published on HuggingFace.",
+    analogy: "Like a bake-off where multiple categories run at once — the best recipe in each wins.",
   },
   38: {
-    blurb: "Thousands of computers work together to train one large AI model, each handling a small piece.",
-    analogy: "Like a barn raising — everyone contributes and together they build something none could alone.",
+    blurb: "Trains LLMs by distributing gradient computations — 40% more energy-efficient than traditional clusters.",
+    analogy: "Like a barn raising — thousands of computers each do a small piece, and together they build a full AI model.",
   },
   39: {
     blurb: "Was a verified GPU rental marketplace — the founding company (Covenant AI) left Bittensor in April 2026.",
@@ -150,8 +154,8 @@ export const SUBNET_PLAIN_ENGLISH: Record<number, { blurb: string; analogy: stri
     analogy: "Like deciding how to slice a textbook — the cut affects how well the student understands it.",
   },
   41: {
-    blurb: "An AI sports prediction system that bets automatically on Polymarket — $17K profit in one month.",
-    analogy: "Like a sports analyst robot that places its own bets and shows you the receipts.",
+    blurb: "AI models compete to predict NFL, NBA, MLB, and soccer outcomes — integrated with Polymarket for real-world utility.",
+    analogy: "Like a sports analytics competition where every contestant is an AI and the leaderboard is public.",
   },
   43: {
     blurb: "Solves complex routing problems and builds a copy-trading tool to follow the best crypto traders.",
@@ -182,39 +186,39 @@ export const SUBNET_PLAIN_ENGLISH: Record<number, { blurb: string; analogy: stri
     analogy: "Like a flight simulator tournament — the best virtual pilot becomes a real autopilot.",
   },
   50: {
-    blurb: "Predicts prices for Bitcoin, gold, and stocks — live on Polymarket, 110% return in an early test.",
-    analogy: "Like a financial forecaster that shows its work and lets anyone check the track record.",
+    blurb: "Generates 1,000 simulated price paths per asset — full probability distributions for BTC, ETH, gold, and stocks.",
+    analogy: "Like a financial weather forecast — not just 'it might rain' but a full probability distribution for every outcome.",
   },
   51: {
     blurb: "Rent powerful AI-grade GPUs for 90% less than RunPod or Vast.ai — and actually faster.",
     analogy: "Like renting a high-end camera locally instead of from the big brand — same quality, fraction of the price.",
   },
   52: {
-    blurb: "Labels and organizes raw data for AI training — a cheaper, decentralized alternative to Scale AI.",
-    analogy: "Like workers sorting mail — tedious but essential, and AI can't learn without it.",
+    blurb: "Collects human preference data to align AI models — RLHF at scale, backed by CZ's BNB Chain fund.",
+    analogy: "Like a massive focus group for AI — real human feedback that makes AI safer and more useful.",
   },
   54: {
-    blurb: "Creates fake identities and biometric data so banks can test whether their fraud detection actually works.",
-    analogy: "Like hiring actors to attempt a heist so you can test your bank's security first.",
+    blurb: "Generates adversarial synthetic identities and biometrics to stress-test KYC and fraud detection systems.",
+    analogy: "Like hiring professional thieves to test your vault — find the weakness before real criminals do.",
   },
   55: {
-    blurb: "Predicts Bitcoin's price every 5 minutes, one hour ahead — using professional Coin Metrics data.",
-    analogy: "Like a short-range weather forecast — not perfect, but consistently better than guessing.",
+    blurb: "Creates synthetic DNA that is statistically indistinguishable from real genomes — won MIT prize, has paying clients.",
+    analogy: "Like a photocopier for DNA — the copies are so good that AI can train on them instead of real patient data.",
   },
   56: {
     blurb: "Fine-tunes AI models for $5/hr instead of $30–60/hr on AWS — life sciences companies already use it.",
     analogy: "Like renting a professional kitchen during off-hours — same equipment, 10% of the price.",
   },
   57: {
-    blurb: "Combines location, weather, and sensor data — AI models compete to make the best predictions.",
-    analogy: "Like a weather station network crossed with a competition — whoever predicts best wins.",
+    blurb: "10-day global weather forecasts powered by Microsoft Aurora — geospatial AI for climate, agriculture, and disaster response.",
+    analogy: "Like Weather.com, but run by thousands of competing AI models instead of one company.",
   },
   58: {
-    blurb: "A marketplace where AI agents hire other AI services and pay per use — as little as $0.0001, no fees.",
+    blurb: "AI agents can pay each other $0.0001 per transaction — 200x smaller than Stripe's minimum, zero gas after setup.",
     analogy: "Like a vending machine for AI services — the agent inserts a tiny coin, gets the result, moves on.",
   },
   59: {
-    blurb: "Translates speech in real time — so fast the translation starts before you finish talking.",
+    blurb: "Speech-to-speech translation that starts before you finish the sentence — predictive AI cuts the lag.",
     analogy: "Like a live interpreter who's already speaking your words before you've finished.",
   },
   61: {
@@ -238,12 +242,12 @@ export const SUBNET_PLAIN_ENGLISH: Record<number, { blurb: string; analogy: stri
     analogy: "Like NordVPN, but the servers are run by thousands of individuals instead of one company.",
   },
   66: {
-    blurb: "AI assistants compete to manage cloud servers from plain English instructions — most accurate wins.",
-    analogy: "Like a hiring competition for robot IT managers — same job list, best result gets hired.",
+    blurb: "AI coding agents duel each other patching real open-source repositories — only the agent that fixes the code wins.",
+    analogy: "Like a coding competition where the prize goes to whoever actually fixes the most bugs.",
   },
   67: {
-    blurb: "Borrow money against your Bittensor tokens without selling them — long-only, no shorting subnets.",
-    analogy: "Like a home equity loan for your crypto — borrow without giving it up.",
+    blurb: "Take leveraged long positions on Bittensor subnet tokens using TAO as collateral — the first DeFi protocol for dTAO.",
+    analogy: "Like a margin account for Bittensor — borrow against your TAO to amplify your bet on a specific subnet.",
   },
   68: {
     blurb: "Scans 65 billion drug molecules to find lab-worthy candidates — 79% more accurate than older methods.",
@@ -302,8 +306,8 @@ export const SUBNET_PLAIN_ENGLISH: Record<number, { blurb: string; analogy: stri
     analogy: "Like a distributed brain for puzzles that regular computers take too long to crack.",
   },
   84: {
-    blurb: "AI competition to design computer chips — winners get open-sourced and can be physically fabricated.",
-    analogy: "Like a chip design competition where the best blueprint gets turned into real hardware.",
+    blurb: "Competitive AI chip design — Verilog submissions auto-evaluated by EDA tools, moving toward real Google silicon tape-out.",
+    analogy: "Like a chip design contest where the winner's blueprint actually gets manufactured into a real chip.",
   },
   85: {
     blurb: "Upscales and restores old or blurry video — beats Topaz on quality while shrinking file size 95%.",
@@ -326,8 +330,8 @@ export const SUBNET_PLAIN_ENGLISH: Record<number, { blurb: string; analogy: stri
     analogy: "Like a money printing machine that donates everything it prints to one cause — forever.",
   },
   91: {
-    blurb: "Blocks cyberattacks at the network level — a decentralized alternative to Cloudflare.",
-    analogy: "Like a neighborhood watch for the internet — thousands of independent lookouts instead of one company.",
+    blurb: "The first crowdfunding and accelerator for Bittensor subnet startups — raise from the TAO community via smart contracts.",
+    analogy: "Like Kickstarter for Bittensor projects — community funds the idea, smart contracts hold the money safely.",
   },
   92: {
     blurb: "AI that writes full game storylines — characters, dialogue, and plot arcs — via API.",
