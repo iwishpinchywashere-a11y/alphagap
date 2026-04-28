@@ -41,11 +41,9 @@ export function slugify(name: string, netuid?: number): string {
  */
 export const SUBNET_TYPES: Record<number, SubnetType> = {
   // Inference — running AI on demand
-  1:   "Inference",
   4:   "Inference",
   19:  "Inference",
   22:  "Inference",
-  24:  "Inference",
   59:  "Inference",
   64:  "Inference",
   114: "Inference",
@@ -53,7 +51,9 @@ export const SUBNET_TYPES: Record<number, SubnetType> = {
   // Training — building/fine-tuning models
   3:   "Training",
   9:   "Training",
+  21:  "Training",  // OMEGA Any-to-Any
   31:  "Training",
+  37:  "Training",  // Macrocosmos Fine-tuning (was Tools)
   38:  "Training",
   56:  "Training",
   80:  "Training",
@@ -72,27 +72,26 @@ export const SUBNET_TYPES: Record<number, SubnetType> = {
   128: "Compute",
 
   // Storage — file/data storage
-  26:  "Storage",
   40:  "Storage",
   75:  "Storage",
 
   // Finance — trading, DeFi, financial
-  6:   "Finance",
   8:   "Finance",
   10:  "Finance",
   14:  "Finance",
-  35:  "Finance",
-  41:  "Finance",
+  15:  "Finance",  // BitQuant (was Agents)
+  41:  "Finance",  // Sportstensor (keeps Finance)
   43:  "Finance",
   48:  "Finance",
   50:  "Finance",
-  55:  "Finance",
+  58:  "Finance",  // Handshake (micropayments, was Agents)
   67:  "Finance",
   73:  "Finance",
   77:  "Finance",
   79:  "Finance",
   88:  "Finance",
   89:  "Finance",
+  91:  "Finance",  // Bitstarter (was Tools)
   103: "Finance",
   110: "Finance",
   112: "Finance",
@@ -105,10 +104,11 @@ export const SUBNET_TYPES: Record<number, SubnetType> = {
   // Data — data collection/labeling/intelligence
   13:  "Data",
   23:  "Data",
+  24:  "Data",  // OMEGA Labs (was Inference)
+  33:  "Data",  // ReadyAI annotation (was Tools)
   46:  "Data",
   52:  "Data",
   54:  "Data",
-  57:  "Data",
   71:  "Data",
   72:  "Data",
   82:  "Data",
@@ -118,7 +118,10 @@ export const SUBNET_TYPES: Record<number, SubnetType> = {
   // Science — research, biotech, scientific
   18:  "Science",
   25:  "Science",
+  26:  "Science",  // Kinitro robotics (was Storage)
   49:  "Science",
+  55:  "Science",  // NIOME genomics (was Finance)
+  57:  "Science",  // GAIA geospatial (was Data)
   63:  "Science",
   68:  "Science",
   83:  "Science",
@@ -127,7 +130,6 @@ export const SUBNET_TYPES: Record<number, SubnetType> = {
   124: "Science",
 
   // Creative — generative media, creative AI
-  11:  "Creative",
   17:  "Creative",
   85:  "Creative",
   92:  "Creative",
@@ -139,12 +141,9 @@ export const SUBNET_TYPES: Record<number, SubnetType> = {
 
   // Agents — autonomous AI agents
   5:   "Agents",
-  15:  "Agents",
-  20:  "Agents",
-  21:  "Agents",
+  6:   "Agents",   // Numinous forecasting agents (was Finance)
   36:  "Agents",
   45:  "Agents",
-  58:  "Agents",
   62:  "Agents",
   66:  "Agents",
   78:  "Agents",
@@ -154,13 +153,15 @@ export const SUBNET_TYPES: Record<number, SubnetType> = {
   121: "Agents",
 
   // Tools — everything else
+  1:   "Tools",   // Apex competition platform (was Inference)
   2:   "Tools",
+  11:  "Tools",   // TrajectoryRL prompt opt (was Creative)
   16:  "Tools",
+  20:  "Tools",   // Bounty Hunter (was Agents)
   29:  "Tools",
   32:  "Tools",
-  33:  "Tools",
   34:  "Tools",
-  37:  "Tools",
+  35:  "Tools",   // Cartha math AI (was Finance)
   44:  "Tools",
   47:  "Tools",
   53:  "Tools",
@@ -169,7 +170,6 @@ export const SUBNET_TYPES: Record<number, SubnetType> = {
   70:  "Tools",
   74:  "Tools",
   76:  "Tools",
-  91:  "Tools",
   96:  "Tools",
   102: "Tools",
   106: "Tools",
@@ -187,6 +187,7 @@ export const SUBNET_TYPES: Record<number, SubnetType> = {
  * These take precedence over the auto-generated slugify() result.
  */
 export const EXPLICIT_SLUGS: Record<number, string> = {
+  // Featured subnets
   64:  "chutes",
   4:   "targon",
   120: "affine",
@@ -201,6 +202,22 @@ export const EXPLICIT_SLUGS: Record<number, string> = {
   17:  "404gen",
   // Special case: "for sale (burn to uid1)"
   104: "sn104",
+  // Rebranded / renamed subnets (slug overrides so URLs update to current identity)
+  10:  "taofi",       // was "swap"
+  15:  "bitquant",    // was "oro"
+  19:  "nineteen",    // was "blockmachine"
+  20:  "bounty-hunter", // was "groundlayer"
+  21:  "omega-any-to-any", // was "adtao"
+  23:  "nuance",      // was "trishool"
+  24:  "omega-labs",  // was "quasar"
+  29:  "ai-assess",   // was "coldint"
+  37:  "fine-tuning", // was "aurelius"
+  38:  "dstrbtd",     // was "colosseum"
+  41:  "sportstensor", // was "almanac"
+  57:  "gaia",        // was "sparket-ai"
+  66:  "tau",         // was "alphacore"
+  67:  "tenex",       // was "harnyx"
+  32:  "itsai",       // "It's AI" → slugify gives "it-s-ai", need override
 };
 
 // ── Filtered names that should not appear as TAO pages ────────────
@@ -225,36 +242,36 @@ const STATIC_SUBNET_LIST: Array<{ netuid: number; name: string }> = [
   { netuid: 7,   name: "Allways" },
   { netuid: 8,   name: "Vanta" },
   { netuid: 9,   name: "iota" },
-  { netuid: 10,  name: "Swap" },
+  { netuid: 10,  name: "TaoFi" },
   { netuid: 11,  name: "TrajectoryRL" },
   { netuid: 12,  name: "Compute Horde" },
   { netuid: 13,  name: "Data Universe" },
   { netuid: 14,  name: "TAOHash" },
-  { netuid: 15,  name: "ORO" },
+  { netuid: 15,  name: "BitQuant" },
   { netuid: 16,  name: "BitAds" },
   { netuid: 17,  name: "404—GEN" },
   { netuid: 18,  name: "Zeus" },
-  { netuid: 19,  name: "blockmachine" },
-  { netuid: 20,  name: "GroundLayer" },
-  { netuid: 21,  name: "AdTAO" },
+  { netuid: 19,  name: "Nineteen" },
+  { netuid: 20,  name: "Bounty Hunter" },
+  { netuid: 21,  name: "OMEGA Any-to-Any" },
   { netuid: 22,  name: "Desearch" },
-  { netuid: 23,  name: "Trishool" },
-  { netuid: 24,  name: "Quasar" },
+  { netuid: 23,  name: "Nuance" },
+  { netuid: 24,  name: "OMEGA Labs" },
   { netuid: 25,  name: "Mainframe" },
   { netuid: 26,  name: "Kinitro" },
   { netuid: 27,  name: "Nodexo" },
-  { netuid: 29,  name: "Coldint" },
+  { netuid: 29,  name: "AI-ASSeSS" },
   { netuid: 31,  name: "Halftime" },
-  { netuid: 32,  name: "ItsAI" },
+  { netuid: 32,  name: "It's AI" },
   { netuid: 33,  name: "ReadyAI" },
   { netuid: 34,  name: "BitMind" },
   { netuid: 35,  name: "Cartha" },
   { netuid: 36,  name: "Web Agents - Autoppia" },
-  { netuid: 37,  name: "Aurelius" },
-  { netuid: 38,  name: "colosseum" },
+  { netuid: 37,  name: "Macrocosmos Fine-tuning" },
+  { netuid: 38,  name: "DSTRBTD" },
   // { netuid: 39, name: "basilica" }, // subnet deregistered
   { netuid: 40,  name: "Chunking" },
-  { netuid: 41,  name: "Almanac" },
+  { netuid: 41,  name: "Sportstensor" },
   { netuid: 43,  name: "Graphite" },
   { netuid: 44,  name: "Score" },
   { netuid: 45,  name: "Talisman AI" },
@@ -269,7 +286,7 @@ const STATIC_SUBNET_LIST: Array<{ netuid: number; name: string }> = [
   { netuid: 54,  name: "Yanez MIID" },
   { netuid: 55,  name: "NIOME" },
   { netuid: 56,  name: "Gradients" },
-  { netuid: 57,  name: "Sparket.AI" },
+  { netuid: 57,  name: "GAIA" },
   { netuid: 58,  name: "Handshake" },
   { netuid: 59,  name: "Babelbit" },
   { netuid: 60,  name: "Bitsec.ai" },
@@ -278,8 +295,8 @@ const STATIC_SUBNET_LIST: Array<{ netuid: number; name: string }> = [
   { netuid: 63,  name: "Quantum Innovate" },
   { netuid: 64,  name: "Chutes" },
   { netuid: 65,  name: "TAO Private Network" },
-  { netuid: 66,  name: "AlphaCore" },
-  { netuid: 67,  name: "Harnyx" },
+  { netuid: 66,  name: "Tau" },
+  { netuid: 67,  name: "Tenex" },
   { netuid: 68,  name: "NOVA" },
   { netuid: 70,  name: "NexisGen" },
   { netuid: 71,  name: "Leadpoet" },
