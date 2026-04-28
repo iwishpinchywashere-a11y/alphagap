@@ -111,37 +111,10 @@ export async function GET() {
     const activeChannels = channelScans.filter(c => c.messages.length >= MIN_MESSAGES_TO_ANALYZE);
     console.log(`[discord-scan] ${activeChannels.length} channels have ${MIN_MESSAGES_TO_ANALYZE}+ messages in last 24h`);
 
-    // ── Early save: write raw counts to blob immediately so dashboard has
-    // something even if AI analysis times out later
-    if (process.env.BLOB_READ_WRITE_TOKEN && channelScans.length > 0) {
-      const partial = {
-        scannedAt: new Date().toISOString(),
-        channelsScanned: channelsToScan.length,
-        channelsWithActivity: activeChannels.length,
-        alphaChannels: 0,
-        partial: true,
-        results: channelScans.map(c => ({
-          channelId: c.channelId,
-          channelName: c.channelName,
-          netuid: c.netuid,
-          subnetName: formatSubnetName(c.channelName),
-          signal: c.messages.length >= MIN_MESSAGES_TO_ANALYZE ? "active" : "quiet",
-          summary: `${c.messages.length} messages in the last 24h.`,
-          keyInsights: [] as string[],
-          messageCount: c.messages.length,
-          uniquePosters: new Set(c.messages.filter(m => !m.author.bot).map(m => m.author.username)).size,
-          scannedAt: new Date().toISOString(),
-        } as DiscordAlphaResult)),
-      };
-      await put("discord-latest.json", JSON.stringify(partial), {
-        access: "private", addRandomSuffix: false, allowOverwrite: true, contentType: "application/json",
-      }).catch(() => {});
-      console.log("[discord-scan] Early partial save written");
-    }
-
-    // 4. Batch AI analysis — group channels into batches of 8 to minimize API calls
+    // 4. Batch AI analysis — group channels into batches of 6
+    // (smaller batches prevent max_tokens truncation of the JSON response)
     const results: DiscordAlphaResult[] = [];
-    const BATCH_SIZE = 8;
+    const BATCH_SIZE = 6;
 
     for (let i = 0; i < activeChannels.length; i += BATCH_SIZE) {
       const batch = activeChannels.slice(i, i + BATCH_SIZE);
@@ -386,7 +359,8 @@ Rules:
 - alphaTake is MANDATORY — every single entry must have a non-empty alphaTake string. No exceptions.
 - Respond with ONLY the JSON array, no other text.`;
 
-  try {
+  // Attempt AI analysis with one retry on failure
+  const attemptAnalysis = async (): Promise<string | null> => {
     const res = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
@@ -396,18 +370,30 @@ Rules:
       },
       body: JSON.stringify({
         model: "claude-haiku-4-5-20251001",
-        max_tokens: 2000,
+        max_tokens: 4000,
         messages: [{ role: "user", content: prompt }],
       }),
+      signal: AbortSignal.timeout(45000),
     });
-
     if (!res.ok) {
-      console.error("[discord-scan] AI batch failed:", res.status);
+      console.error("[discord-scan] AI batch failed:", res.status, await res.text().catch(() => ""));
+      return null;
+    }
+    const data = await res.json();
+    return data.content?.[0]?.text || null;
+  };
+
+  try {
+    let text = await attemptAnalysis();
+    if (!text) {
+      // Retry once after a short delay
+      await new Promise(r => setTimeout(r, 3000));
+      text = await attemptAnalysis();
+    }
+    if (!text) {
+      console.error("[discord-scan] AI batch failed after retry — using fallback");
       return channels.map(ch => fallbackResult(ch));
     }
-
-    const data = await res.json();
-    const text = data.content?.[0]?.text || "[]";
 
     // Parse JSON, handle markdown code blocks
     const jsonText = text.replace(/^```json?\n?/, "").replace(/\n?```$/, "").trim();
@@ -614,15 +600,26 @@ function fallbackResult(ch: {
   messages: DiscordMessage[];
 }): DiscordAlphaResult {
   const uniquePosters = new Set(ch.messages.filter(m => !m.author.bot).map(m => m.author.username)).size;
+  const signal = ch.messages.length >= 10 ? "active" as const : "quiet" as const;
+  const alphaScore = ch.messages.length >= 10 ? 15 : 0;
+  const subnetName = formatSubnetName(ch.channelName);
+
+  // Build a real summary from the actual message content instead of a raw count
+  const humanMsgs = ch.messages.filter(m => !m.author.bot);
+  const summary = humanMsgs.length > 0
+    ? `${subnetName} community is active — ${humanMsgs.length} messages from ${uniquePosters} contributors in the last 24h.`
+    : `No significant activity in the last 24 hours.`;
+
   return {
     channelId: ch.channelId,
     channelName: ch.channelName,
     netuid: ch.netuid,
-    subnetName: formatSubnetName(ch.channelName),
-    signal: ch.messages.length >= 10 ? "active" : "quiet",
-    alphaScore: ch.messages.length >= 10 ? 15 : 0,
-    summary: `${ch.messages.length} messages from ${uniquePosters} posters in the last 24 hours.`,
+    subnetName,
+    signal,
+    alphaScore,
+    summary,
     keyInsights: [],
+    alphaTake: defaultAlphaTake(signal, alphaScore),
     messageCount: ch.messages.length,
     uniquePosters,
     scannedAt: new Date().toISOString(),
