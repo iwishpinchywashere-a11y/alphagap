@@ -33,6 +33,13 @@ function fmtTao(v: number | null | undefined): string {
   if (Math.abs(v) >= 1_000)     return `${(v / 1_000).toFixed(1)}K τ`;
   return `${v.toFixed(2)} τ`;
 }
+function fmtLoc(v: number | undefined): string {
+  if (v === undefined) return "—";
+  if (v === 0)         return "0";
+  if (v >= 1_000_000)  return `${(v / 1_000_000).toFixed(1)}M`;
+  if (v >= 1_000)      return `${(v / 1_000).toFixed(0)}K`;
+  return String(v);
+}
 
 // ── Score badge ───────────────────────────────────────────────────
 function ScoreBadge({ score }: { score: number }) {
@@ -191,18 +198,29 @@ function ExpandedDetail({ audit }: { audit: SubnetAudit }) {
 type SortKey =
   | "score" | "agap" | "marketCap" | "nakamoto" | "hhi" | "top10" | "burn"
   | "holders" | "chainBuy"
-  | "taoPool" | "staleVal" | "ziMiners";
+  | "taoPool" | "staleVal" | "ziMiners" | "loc30d";
 
 const SORT_DEFAULTS: Record<SortKey, "asc" | "desc"> = {
   score: "desc", agap: "desc", marketCap: "desc", nakamoto: "desc", hhi: "asc", top10: "asc", burn: "asc",
   holders: "desc", chainBuy: "desc",
-  taoPool: "desc", staleVal: "asc", ziMiners: "asc",
+  taoPool: "desc", staleVal: "asc", ziMiners: "asc", loc30d: "desc",
 };
 
-// sortValue needs the agap + marketCap maps passed in
-function sortValue(a: SubnetAudit, key: SortKey, agapMap: Map<number, number>, mcapMap: Map<number, number | undefined>): number {
+// Small LOC-based adjustment to audit score (+4 to −3)
+function locAuditAdj(loc30d: number | undefined): number {
+  if (loc30d === undefined) return 0;
+  if (loc30d >= 20_000) return 4;
+  if (loc30d >=  5_000) return 3;
+  if (loc30d >=  1_000) return 2;
+  if (loc30d >=    100) return 1;
+  if (loc30d === 0)     return -3; // no code activity in 30d
+  return 0;
+}
+
+// sortValue needs the agap + marketCap + loc30d maps passed in
+function sortValue(a: SubnetAudit, key: SortKey, agapMap: Map<number, number>, mcapMap: Map<number, number | undefined>, loc30dMap: Map<number, number | undefined>): number {
   switch (key) {
-    case "score":     return a.operationalScore;
+    case "score":     return a.operationalScore + locAuditAdj(loc30dMap.get(a.netuid));
     case "agap":      return agapMap.get(a.netuid) ?? -1;
     case "marketCap": return mcapMap.get(a.netuid) ?? -1;
     case "nakamoto": return a.nakamotoCoefficient;
@@ -215,6 +233,7 @@ function sortValue(a: SubnetAudit, key: SortKey, agapMap: Map<number, number>, m
     case "taoPool":  return a.taoInPool ?? -1;
     case "staleVal": return a.staleValidatorPct;
     case "ziMiners": return a.zeroIncentiveMinerPct;
+    case "loc30d":   return loc30dMap.get(a.netuid) ?? -1;
     default:         return 0;
   }
 }
@@ -237,6 +256,12 @@ export default function AuditsPage() {
   // Build netuid → market cap (USD) from leaderboard — same source as main dashboard
   const marketCapUsdMap = useMemo(
     () => new Map(leaderboard.map(s => [s.netuid, s.market_cap as number | undefined])),
+    [leaderboard]
+  );
+
+  // Build netuid → loc_30d from leaderboard (lines of code added+deleted in past 30 days)
+  const loc30dMap = useMemo(
+    () => new Map(leaderboard.map(s => [s.netuid, (s as { loc_30d?: number }).loc_30d])),
     [leaderboard]
   );
 
@@ -281,11 +306,11 @@ export default function AuditsPage() {
       return true;
     });
     list = [...list].sort((a, b) => {
-      const diff = sortValue(a, sortKey, agapMap, marketCapUsdMap) - sortValue(b, sortKey, agapMap, marketCapUsdMap);
+      const diff = sortValue(a, sortKey, agapMap, marketCapUsdMap, loc30dMap) - sortValue(b, sortKey, agapMap, marketCapUsdMap, loc30dMap);
       return sortDir === "desc" ? -diff : diff;
     });
     return list;
-  }, [subnets, search, watchlistOnly, watchlist, sortKey, sortDir, agapMap]);
+  }, [subnets, search, watchlistOnly, watchlist, sortKey, sortDir, agapMap, loc30dMap]);
 
   const fmtTime = (iso: string) => {
     try { return new Date(iso).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", hour12: true }); }
@@ -330,7 +355,7 @@ export default function AuditsPage() {
       ) : (
         <div className="bg-gray-900/60 border border-gray-800 rounded-xl overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-sm min-w-[1300px]">
+            <table className="w-full text-sm min-w-[1440px]">
               <thead>
                 <tr className="border-b border-gray-800 bg-gray-950/40">
                   {/* Fixed left: rank + subnet */}
@@ -339,7 +364,7 @@ export default function AuditsPage() {
 
                   {/* Audit Score */}
                   <ColHeader label="Audit Score" sub="0-100"
-                    tooltip="Operational health score (0–100) built from on-chain metagraph data and TaoSwap metrics: decentralisation, miner burn economics, validator freshness, liquidity, and adoption. Higher is better."
+                    tooltip="Operational health score (0–100) built from on-chain metagraph data and TaoSwap metrics: decentralisation, miner burn economics, validator freshness, liquidity, and adoption. Includes a small ±4 pt adjustment for 30-day code volume. Higher is better."
                     onClick={() => handleSort("score")} sorted={sortKey === "score"} />
 
                   {/* aGap Score */}
@@ -388,6 +413,11 @@ export default function AuditsPage() {
                     tooltip="Percentage of registered miners currently receiving zero incentive. High values mean many registered miners aren't contributing useful work, wasting network slots."
                     onClick={() => handleSort("ziMiners")} sorted={sortKey === "ziMiners"} />
 
+                  {/* Code Volume */}
+                  <ColHeader label="Code Vol" sub="30d lines"
+                    tooltip="Lines of code (additions + deletions) pushed to this subnet's GitHub repository in the past 30 days. A rough measure of development velocity. Applies a small ±4 pt adjustment to the Audit Score: inactive repos (0 lines) receive −3, very active repos (20K+) receive +4."
+                    onClick={() => handleSort("loc30d")} sorted={sortKey === "loc30d"} />
+
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-800/50">
@@ -426,10 +456,10 @@ export default function AuditsPage() {
                         </div>
                       </td>
 
-                      {/* Audit Score */}
+                      {/* Audit Score (includes small LOC adjustment) */}
                       <td className="px-2.5 py-3 text-right">
                         <div className="flex justify-end">
-                          <ScoreBadge score={audit.operationalScore} />
+                          <ScoreBadge score={Math.max(0, Math.min(100, audit.operationalScore + locAuditAdj(loc30dMap.get(audit.netuid))))} />
                         </div>
                       </td>
 
@@ -538,6 +568,25 @@ export default function AuditsPage() {
                           dir="low_good"
                           thresholds={[40, 80]}
                         />
+                      </td>
+
+                      {/* Code Volume 30d */}
+                      <td className="px-2.5 py-3 text-right">
+                        {(() => {
+                          const loc = loc30dMap.get(audit.netuid);
+                          if (loc === undefined) return <span className="text-gray-600 text-sm">—</span>;
+                          const adj = locAuditAdj(loc);
+                          const color =
+                            adj >= 3  ? "text-emerald-400" :
+                            adj >= 1  ? "text-teal-400" :
+                            adj === 0 ? "text-gray-400" :
+                            "text-red-400";
+                          return (
+                            <span className={`tabular-nums font-medium text-sm ${color}`}>
+                              {fmtLoc(loc)}
+                            </span>
+                          );
+                        })()}
                       </td>
 
                     </tr>

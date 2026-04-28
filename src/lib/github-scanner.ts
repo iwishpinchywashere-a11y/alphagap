@@ -31,6 +31,9 @@ export interface GitHubScanResult {
   // Repo metadata
   stars?: number;
   pushedAt?: string;
+  // 30-day lines of code (additions + deletions) from GitHub's weekly stats
+  // Undefined = GitHub returned 202 Computing (will populate next scan)
+  loc_30d?: number;
 }
 
 // ── Parse GitHub repo URL ─────────────────────────────────────────
@@ -77,8 +80,8 @@ export async function scanAllSubnetGitHub(
 
     await Promise.all(batch.map(async ({ netuid, owner, repo, repoUrl }) => {
       try {
-        // Parallel: commits since 24h + releases (to check for new releases)
-        const [commitsRes, releasesRes] = await Promise.allSettled([
+        // Parallel: commits since 24h + releases + 30d LOC stats
+        const [commitsRes, releasesRes, codeFreqRes] = await Promise.allSettled([
           fetch(
             `https://api.github.com/repos/${owner}/${repo}/commits?since=${since}&per_page=50`,
             { headers: ghHeaders(), signal: AbortSignal.timeout(10000) }
@@ -86,6 +89,10 @@ export async function scanAllSubnetGitHub(
           fetch(
             `https://api.github.com/repos/${owner}/${repo}/releases?per_page=3`,
             { headers: ghHeaders(), signal: AbortSignal.timeout(8000) }
+          ),
+          fetch(
+            `https://api.github.com/repos/${owner}/${repo}/stats/code_frequency`,
+            { headers: ghHeaders(), signal: AbortSignal.timeout(12000) }
           ),
         ]);
 
@@ -137,6 +144,32 @@ export async function scanAllSubnetGitHub(
           }
         }
 
+        // ── Process 30d LOC (code_frequency) ───────────────────────
+        // GitHub returns [[weekTimestamp, additions, deletions], ...] for the repo's lifetime.
+        // Sum the last 4 complete weeks (+ partial current week) = ~30 days.
+        // 202 "Computing" = GitHub is building the stat — skip, will populate next scan.
+        let loc_30d: number | undefined;
+        if (codeFreqRes.status === "fulfilled" && codeFreqRes.value.status === 200) {
+          try {
+            const freqData = await codeFreqRes.value.json();
+            if (Array.isArray(freqData) && freqData.length > 0) {
+              // Take last 5 buckets (covers ~35 days to ensure 30d window)
+              const recentWeeks = freqData.slice(-5);
+              const thirtyDaysAgoMs = Date.now() - 30 * 24 * 60 * 60 * 1000;
+              let total = 0;
+              for (const [weekTs, additions, deletions] of recentWeeks) {
+                if (weekTs * 1000 >= thirtyDaysAgoMs) {
+                  total += Math.abs(additions) + Math.abs(deletions);
+                }
+              }
+              loc_30d = total;
+            }
+          } catch {
+            // JSON parse error — leave undefined
+          }
+        }
+        // 202 = GitHub computing stats in background; undefined means "not yet available"
+
         results.set(netuid, {
           netuid,
           owner,
@@ -150,6 +183,7 @@ export async function scanAllSubnetGitHub(
           releaseName,
           releaseBody,
           releaseDate,
+          loc_30d,
         });
 
         if (commits24h > 0 || hasNewRelease) {

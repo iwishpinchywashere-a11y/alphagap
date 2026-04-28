@@ -293,6 +293,7 @@ interface LeaderboardEntry {
   apy_7d?: number;               // Stake-weighted avg 7-day APY across top validators (0–1 scale)
   apy_1h?: number;               // 1-hour APY (annualised) — for divergence detection
   apy_30d?: number;              // 30-day APY (annualised) — baseline for divergence
+  loc_30d?: number;              // Lines of code (additions+deletions) in last 30 days
 }
 
 // ── Stitch3 campaign data (cached in Vercel Blob) ────────────────
@@ -1575,6 +1576,20 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
       const hoursSinceRelease = (Date.now() - new Date(ghScan.releaseDate).getTime()) / 3600000;
       if (hoursSinceRelease < 6) score = Math.min(100, score + 5);
       else if (hoursSinceRelease < 12) score = Math.min(100, score + 3);
+    }
+
+    // ── LOC 30d bonus/penalty ─────────────────────────────────────
+    // Rewards sustained code volume; penalises repos with zero activity for 30d.
+    // Max impact: +8 (very active) / −5 (dead repo). Kept small — quality > quantity.
+    const loc30d = ghScan?.loc_30d;
+    if (loc30d !== undefined) {
+      if      (loc30d >= 50_000) score = Math.min(100, score + 8);
+      else if (loc30d >= 20_000) score = Math.min(100, score + 6);
+      else if (loc30d >= 10_000) score = Math.min(100, score + 4);
+      else if (loc30d >=  5_000) score = Math.min(100, score + 3);
+      else if (loc30d >=  1_000) score = Math.min(100, score + 2);
+      else if (loc30d >=    100) score = Math.min(100, score + 1);
+      else if (loc30d === 0 && commits30d === 0) score = Math.max(0, score - 5); // no activity in 30d
     }
 
     return Math.round(score);
@@ -3001,6 +3016,7 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
       apy_7d:  yieldMap.get(d.netuid)?.apy_7d,
       apy_1h:  yieldMap.get(d.netuid)?.apy_1h,
       apy_30d: yieldMap.get(d.netuid)?.apy_30d,
+      loc_30d: githubScanMap.get(d.netuid)?.loc_30d,
     });
   }
 
