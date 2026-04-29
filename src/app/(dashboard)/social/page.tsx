@@ -133,6 +133,8 @@ export default function SocialPage() {
   const [expandedTweet, setExpandedTweet] = useState<string | null>(null);
   const { isWatched, watchlist } = useWatchlist();
   const [watchlistOnly, setWatchlistOnly] = useState(false);
+  const [discordSort, setDiscordSort] = useState<"score" | "latest">("score");
+  const [tweetsSort, setTweetsSort] = useState<"score" | "latest">("score");
 
   useEffect(() => {
     fetch("/api/social")
@@ -168,8 +170,16 @@ export default function SocialPage() {
   const discordLeaderboard = (watchlistOnly
     ? rawDiscordLeaderboard.filter(d => watchlist.has(d.netuid))
     : rawDiscordLeaderboard
-  ).filter(d => !d.founderPost);
-  const hotTweets = watchlistOnly ? rawHotTweets.filter(t => watchlist.has(t.netuid)) : rawHotTweets;
+  ).filter(d => !d.founderPost).slice().sort((a, b) =>
+    discordSort === "latest"
+      ? new Date(b.lastActivityAt ?? b.scannedAt).getTime() - new Date(a.lastActivityAt ?? a.scannedAt).getTime()
+      : (b.alphaScore ?? 0) - (a.alphaScore ?? 0)
+  );
+  const hotTweets = (watchlistOnly ? rawHotTweets.filter(t => watchlist.has(t.netuid)) : rawHotTweets).slice().sort((a, b) =>
+    tweetsSort === "latest"
+      ? new Date(b.detected_at).getTime() - new Date(a.detected_at).getTime()
+      : (b.momentum_score ?? b.heat_score) - (a.momentum_score ?? a.heat_score)
+  );
   const xLeaderboard = watchlistOnly ? rawXLeaderboard.filter(s => watchlist.has(s.netuid)) : rawXLeaderboard;
 
   return (
@@ -287,9 +297,25 @@ export default function SocialPage() {
 
         {/* ── Discord Alpha ── */}
         <div id="discord" className="bg-gray-900/60 border border-gray-800 rounded-xl overflow-hidden">
-          <div className="px-5 py-4 border-b border-gray-800">
-            <h2 className="font-bold text-white">💬 Discord Alpha</h2>
-            <p className="text-xs text-gray-500 mt-0.5">AI scans every channel — scores quality + quantity of alpha signals</p>
+          <div className="px-5 py-4 border-b border-gray-800 flex items-center justify-between gap-3">
+            <div>
+              <h2 className="font-bold text-white">💬 Discord Alpha</h2>
+              <p className="text-xs text-gray-500 mt-0.5">AI scans every channel — scores quality + quantity of alpha signals</p>
+            </div>
+            <div className="flex items-center gap-1 bg-gray-800/80 rounded-lg p-0.5 shrink-0">
+              <button
+                onClick={() => setDiscordSort("score")}
+                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${discordSort === "score" ? "bg-gray-700 text-white" : "text-gray-500 hover:text-gray-300"}`}
+              >
+                Top Score
+              </button>
+              <button
+                onClick={() => setDiscordSort("latest")}
+                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${discordSort === "latest" ? "bg-gray-700 text-white" : "text-gray-500 hover:text-gray-300"}`}
+              >
+                Latest
+              </button>
+            </div>
           </div>
           {/* Sneak peek: top 1 entry visible to all tiers */}
           {discordLeaderboard.length > 0 && tier !== "premium" && (() => { const d = discordLeaderboard[0]; return (
@@ -424,12 +450,28 @@ export default function SocialPage() {
 
         {/* ── Hot KOL Tweets ── */}
         <div id="hot-tweets" className="bg-gray-900/60 border border-gray-800 rounded-xl overflow-hidden">
-          <div className="px-5 py-4 border-b border-gray-800 flex items-center justify-between">
+          <div className="px-5 py-4 border-b border-gray-800 flex items-center justify-between gap-3">
             <div>
               <h2 className="font-bold text-white">🔥 Viral KOL Tweets</h2>
-              <p className="text-xs text-gray-500 mt-0.5">Tier 1 &amp; 2 KOL posts mentioning Bittensor subnets — sorted by heat score</p>
+              <p className="text-xs text-gray-500 mt-0.5">Tier 1 &amp; 2 KOL posts mentioning Bittensor subnets</p>
             </div>
-            <span className="text-xs text-gray-600">{hotTweets.length} events</span>
+            <div className="flex items-center gap-3 shrink-0">
+              <span className="text-xs text-gray-600">{hotTweets.length} events</span>
+              <div className="flex items-center gap-1 bg-gray-800/80 rounded-lg p-0.5">
+                <button
+                  onClick={() => setTweetsSort("score")}
+                  className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${tweetsSort === "score" ? "bg-gray-700 text-white" : "text-gray-500 hover:text-gray-300"}`}
+                >
+                  Top Score
+                </button>
+                <button
+                  onClick={() => setTweetsSort("latest")}
+                  className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${tweetsSort === "latest" ? "bg-gray-700 text-white" : "text-gray-500 hover:text-gray-300"}`}
+                >
+                  Latest
+                </button>
+              </div>
+            </div>
           </div>
 
           {/* Sneak peek: top 1 tweet visible to all tiers */}
