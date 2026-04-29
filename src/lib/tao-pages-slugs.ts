@@ -111,7 +111,7 @@ export const SUBNET_TYPES: Record<number, SubnetType> = {
   54:  "Data",
   71:  "Data",
   72:  "Data",
-  82:  "Data",
+  // 82 (Hermes) — deregistered
   87:  "Data",
   119: "Data",
 
@@ -146,9 +146,9 @@ export const SUBNET_TYPES: Record<number, SubnetType> = {
   45:  "Agents",
   62:  "Agents",
   66:  "Agents",
-  78:  "Agents",
+  // 78 (Loosh) — deregistered
   86:  "Agents",
-  100: "Agents",
+  // 100 (Plaτform) — deregistered
   115: "Agents",
   121: "Agents",
 
@@ -306,11 +306,11 @@ const STATIC_SUBNET_LIST: Array<{ netuid: number; name: string }> = [
   { netuid: 75,  name: "Hippius" },
   { netuid: 76,  name: "Byzantium" },
   { netuid: 77,  name: "Liquidity" },
-  { netuid: 78,  name: "Loosh" },
+  // { netuid: 78, name: "Loosh" }, // deregistered
   { netuid: 79,  name: "MVTRX" },
   { netuid: 80,  name: "dogelayer" },
   // { netuid: 81, name: "grail" }, // subnet deregistered
-  { netuid: 82,  name: "Hermes" },
+  // { netuid: 82, name: "Hermes" }, // deregistered
   { netuid: 83,  name: "CliqueAI" },
   { netuid: 84,  name: "ChipForge (Tatsu)" },
   { netuid: 85,  name: "Vidaio" },
@@ -326,7 +326,7 @@ const STATIC_SUBNET_LIST: Array<{ netuid: number; name: string }> = [
   { netuid: 97,  name: "Constantinople" },
   { netuid: 98,  name: "ForeverMoney" },
   { netuid: 99,  name: "Leoma" },
-  { netuid: 100, name: "Plaτform" },
+  // { netuid: 100, name: "Plaτform" }, // deregistered
   { netuid: 102, name: "ConnitoAI" },
   { netuid: 103, name: "Djinn" },
   { netuid: 105, name: "Beam" },
