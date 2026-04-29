@@ -1657,27 +1657,7 @@ export const TAO_PAGES_SUBNETS: TaoPageSubnet[] = [
   ],
 },
 
-{
-  netuid: 78,
-  slug: "loosh",
-  name: "Loosh",
-  category: "AI Agents",
-  subnetType: "Agents",
-  tagline: "Agents that feel the pulse of your digital world",
-  mainstream: "Zapier AI or n8n",
-  problem:
-    "Event-driven automation systems are rigid — they respond to predefined triggers but miss contextual signals that a human would notice. When something unusual but important happens outside a defined rule, automated systems simply ignore it.",
-  differentiator:
-    "Loosh deploys contextually aware agents that monitor your digital environment holistically, identifying and responding to important signals whether or not they match a predefined trigger. Miners are rewarded for agents that catch high-value events that rule-based systems would miss.",
-  keywords: [
-    "contextual AI agents",
-    "event-driven AI automation",
-    "Bittensor agent subnet",
-    "Loosh Bittensor",
-    "intelligent monitoring agents",
-    "autonomous event detection",
-  ],
-},
+// SN78 (Loosh) — deregistered
 
 {
   netuid: 79,
@@ -1745,27 +1725,7 @@ export const TAO_PAGES_SUBNETS: TaoPageSubnet[] = [
   ],
 },
 
-{
-  netuid: 82,
-  slug: "hermes",
-  name: "Hermes",
-  category: "Decentralized Data",
-  subnetType: "Data",
-  tagline: "Deliver data as fast as the messenger god",
-  mainstream: "Confluent (Kafka) or AWS Kinesis",
-  problem:
-    "Real-time data streaming infrastructure is complex and expensive, requiring specialized engineering knowledge to operate at scale. Companies pay tens of thousands of dollars monthly for managed streaming services that create data lock-in.",
-  differentiator:
-    "Hermes provides decentralized real-time data streaming across the Bittensor network, with miners acting as relay nodes that are paid for throughput and reliability. Users get Kafka-scale data infrastructure without the vendor lock-in or the six-figure annual contract.",
-  keywords: [
-    "decentralized data streaming",
-    "real-time data pipeline",
-    "Bittensor data subnet",
-    "Hermes Bittensor",
-    "Kafka alternative blockchain",
-    "streaming data network",
-  ],
-},
+// SN82 (Hermes) — deregistered
 
 {
   netuid: 83,
@@ -2097,27 +2057,7 @@ export const TAO_PAGES_SUBNETS: TaoPageSubnet[] = [
   ],
 },
 
-{
-  netuid: 100,
-  slug: "platform",
-  name: "Plaτform",
-  category: "AI Research Platform",
-  subnetType: "Tools",
-  tagline: "Multi-challenge AI research platform using Intel TDX confidential computing",
-  mainstream: "Azure Confidential Computing or AWS Nitro Enclaves",
-  problem:
-    "Running sensitive AI research workloads across multiple parallel challenges requires both privacy guarantees and trustless orchestration — a combination that neither centralized cloud nor existing decentralized platforms offered.",
-  differentiator:
-    "Plaτform was designed as a multi-challenge orchestration layer for parallel AI research tasks using Intel TDX confidential computing, ensuring sensitive workloads could run across untrusted nodes. Note: Plaτform became the first subnet to be deregistered under Bittensor's 4-month subnet pruning mechanism in late 2025, and the slot may have been reissued.",
-  keywords: [
-    "confidential computing AI",
-    "Intel TDX",
-    "multi-challenge orchestration",
-    "Bittensor subnet",
-    "Platform Bittensor",
-    "AI research platform",
-  ],
-},
+// SN100 (Plaτform) — first subnet deregistered under Bittensor's 4-month pruning mechanism (late 2025)
 
 {
   netuid: 102,

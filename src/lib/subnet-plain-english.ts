@@ -301,10 +301,7 @@ export const SUBNET_PLAIN_ENGLISH: Record<number, { blurb: string; analogy: stri
     blurb: "Token holders vote on which trading pairs deserve the most liquidity — providers get rewarded.",
     analogy: "Like a community deciding which products deserve shelf space, and paying suppliers who stock them.",
   },
-  78: {
-    blurb: "Contextually-aware agents that detect important events rule-based systems miss — responds to signals outside predefined triggers.",
-    analogy: "Like a security guard who notices something is wrong even when no alarm has gone off.",
-  },
+  // 78 (Loosh) — deregistered
   79: {
     blurb: "Routes value transfers cross-chain at optimal fees and settlement speed — miners compete for the best path.",
     analogy: "Like a flight booking site that checks every airline at once — but for moving money between blockchains.",
@@ -317,10 +314,7 @@ export const SUBNET_PLAIN_ENGLISH: Record<number, { blurb: string; analogy: stri
     blurb: "Implements frontier-lab training efficiency techniques — gradient checkpointing, mixed precision, pipeline parallelism — as a turnkey service.",
     analogy: "Like hiring the best F1 pit crew for your AI training run — the same techniques the big labs use, packaged for anyone.",
   },
-  82: {
-    blurb: "Decentralized real-time data streaming — Kafka-scale infrastructure without the vendor lock-in or six-figure contract.",
-    analogy: "Like a postal service that delivers millions of messages per second, with no single company owning the trucks.",
-  },
+  // 82 (Hermes) — deregistered
   83: {
     blurb: "Distributes large-scale graph analysis across miners — social networks, drug interactions, and supply chains at supercomputer scale.",
     analogy: "Like a distributed brain for network puzzles — regular computers take too long, this one never does.",
@@ -385,10 +379,7 @@ export const SUBNET_PLAIN_ENGLISH: Record<number, { blurb: string; analogy: stri
     blurb: "Trains specialized creative AI models that understand aesthetic style, visual hierarchy, and brand coherence.",
     analogy: "Like the difference between a printer and an art director — one copies, the other understands.",
   },
-  100: {
-    blurb: "Multi-challenge AI research platform using Intel TDX confidential computing — first subnet deregistered under Bittensor's pruning mechanism.",
-    analogy: "Like a research lab that ran secure experiments — but was eventually shut down when the lease expired.",
-  },
+  // 100 (Plaτform) — deregistered (first subnet pruned, late 2025)
   103: {
     blurb: "AI personal financial management — specific, actionable recommendations tailored to your situation and risk tolerance.",
     analogy: "Like a financial advisor who actually reads your bank statements and tells you exactly what to do.",
