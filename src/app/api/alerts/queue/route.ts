@@ -71,6 +71,16 @@ export async function GET(req: NextRequest) {
       const conn = await readPrivateBlob<TelegramConnection>(`telegram-settings/${hash}.json`);
       if (!conn?.chatId || !conn?.settings?.enabled) continue;
 
+      // ── Optimistic claim: mark as sent NOW before returning ────────
+      // This prevents any concurrent or retry poll from returning the
+      // same alerts. The bot's ack POST is a no-op (already marked sent)
+      // which is fine. If the bot crashes before sending, the alert is
+      // lost for that cycle — but this is far better than duplicates.
+      queue.alerts = queue.alerts.map(a =>
+        unsent.some(u => u.id === a.id) ? { ...a, sent: true } : a
+      );
+      await saveAlertQueue(hash, queue);
+
       items.push({ hash, chatId: conn.chatId, alerts: unsent });
     }
 
