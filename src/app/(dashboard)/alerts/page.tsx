@@ -111,7 +111,8 @@ export default function AlertsPage() {
       setConnUsername(data.username);
       setConnFirstName(data.firstName);
       setConnectedAt(data.connectedAt);
-      setSettings(data.settings ?? defaultSettings());
+      // Merge with defaults so any new fields missing from stored settings get safe values
+      setSettings({ ...defaultSettings(), ...(data.settings ?? {}) });
       setCode(null);
     }
   }, []);
@@ -135,7 +136,7 @@ export default function AlertsPage() {
         setConnUsername(data.username);
         setConnFirstName(data.firstName);
         setConnectedAt(data.connectedAt);
-        setSettings(data.settings ?? defaultSettings());
+        setSettings({ ...defaultSettings(), ...(data.settings ?? {}) });
         setCode(null);
         clearInterval(interval);
       }
