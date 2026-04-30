@@ -972,7 +972,7 @@ export interface ProductMilestone {
   confidence: "high" | "medium" | "low";
 }
 
-// Last updated: 2026-04-07
+// Last updated: 2026-04-30
 // Research sources: subnetalpha.ai, X, PRNewswire, Forbes, Unsupervised Capital, direct team announcements, wearescore.com, leadpoet.com, vidaio.io, bitcast.network, metanova-labs.ai, github.com/mobiusfund
 export const PRODUCT_MILESTONES: ProductMilestone[] = [
   // ── REVENUE-GENERATING ──────────────────────────────────────────
@@ -1345,6 +1345,17 @@ export const PRODUCT_MILESTONES: ProductMilestone[] = [
     source_url: "https://gen42.ai/",
     estimated_arr_usd: 30000,
     confidence: "low",
+  },
+  {
+    netuid: 122,
+    subnet_name: "Bitrecs",
+    stage: "revenue",
+    milestone_date: "2025-05-01",
+    title: "Bitrecs AI product recommendations — live on Shopify App Store with paid plans and merchant installs",
+    description: "Bitrecs (SN122) is an AI-powered product recommendation widget for Shopify and WooCommerce that uses Bittensor's consensus engine to query dozens of AI models (ChatGPT, Claude, Grok) in parallel and surface personalized upsell/cross-sell suggestions in real time. Live on the Shopify App Store with 5.0 star rating (7 reviews). Paid subscription plans live: Growth $14.99/mo, Pro $49/mo, Enterprise $199/mo. One verified merchant (Permanent Vacation, Canada) cited a 15% AOV lift after 8 months. WooCommerce widget also available. REST API and MCP server in development for headless/agentic commerce. Competing in the $3B+ ecommerce personalization market against Nosto, Rebuy, and LimeSpot.",
+    source_url: "https://www.bitrecs.ai/",
+    estimated_arr_usd: 20000,
+    confidence: "medium",
   },
 
   // ── PARTNERSHIP / INVESTMENT ─────────────────────────────────────────
