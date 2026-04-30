@@ -164,6 +164,19 @@ export async function GET(req: NextRequest) {
     readBlob<DiscordLatest>("discord-latest.json"),
   ]);
 
+  // ── 3-minute cooldown ─────────────────────────────────────────────────────
+  // The scanner is triggered by both the 5-min cron AND fire-and-forget calls
+  // from /api/scan, social-pulse, and discord-scan. Multiple invocations can
+  // overlap. The enqueueAlert dedup (15-min window) is the primary guard, but
+  // this cooldown avoids redundant full runs entirely.
+  if (prevState?.lastRunAt) {
+    const secondsSinceLast = (Date.now() - new Date(prevState.lastRunAt).getTime()) / 1000;
+    if (secondsSinceLast < 180) {
+      console.log(`[alert-scanner] Last run was ${secondsSinceLast.toFixed(0)}s ago — skipping (cooldown)`);
+      return NextResponse.json({ ok: true, skipped: `cooldown (${secondsSinceLast.toFixed(0)}s since last run)` });
+    }
+  }
+
   if (!scan?.leaderboard?.length) {
     console.log("[alert-scanner] No scan data available, skipping.");
     return NextResponse.json({ ok: true, skipped: "no scan data" });
@@ -177,6 +190,13 @@ export async function GET(req: NextRequest) {
   const processedSignalIds = new Set<number>(prevState?.processedSignalIds ?? []);
   const processedTweetIds = new Set<string>(prevState?.processedTweetIds ?? []);
   const processedDiscordKeys = new Set<string>(prevState?.processedDiscordKeys ?? []);
+
+  // Claim the run immediately — write lastRunAt NOW so any concurrent instance
+  // that reads the state after this point will see the cooldown and bail out.
+  await writeBlob("alert-scanner-state.json", {
+    ...(prevState ?? { subnets: {}, processedSignalIds: [], processedTweetIds: [], processedDiscordKeys: [] }),
+    lastRunAt: new Date().toISOString(),
+  });
 
   // List all connected users
   let cursor: string | undefined;

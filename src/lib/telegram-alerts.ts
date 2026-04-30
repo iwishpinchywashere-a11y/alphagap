@@ -177,6 +177,21 @@ export async function enqueueAlert(emailOrHash: string, alert: Omit<PendingAlert
   // Accept either email or pre-computed hash
   const hash = emailOrHash.includes("@") ? emailHash(emailOrHash) : emailOrHash;
   const queue = await getAlertQueue(hash);
+
+  // ── Dedup: skip if same type+netuid was queued in the last 15 minutes ──
+  // The alert-scanner can run concurrently (cron + fire-and-forget triggers
+  // from scan/social-pulse/discord-scan). Two instances can read the same
+  // old state and both detect the same threshold crossing. This dedup is
+  // the last line of defence regardless of how many scanner instances fire.
+  const dedupeWindow = new Date(Date.now() - 15 * 60_000).toISOString();
+  const isDuplicate = queue.alerts.some(
+    a =>
+      a.type === alert.type &&
+      a.netuid === alert.netuid &&
+      a.createdAt > dedupeWindow
+  );
+  if (isDuplicate) return;
+
   const newAlert: PendingAlert = {
     ...alert,
     id: crypto.randomUUID(),
