@@ -64,11 +64,10 @@ function defaultSettings(): AlertSettings {
     scoreChange: { enabled: true, threshold: 10 },
     emissionChange: { enabled: true, threshold: 25 },
     newSignal: { enabled: true },
-    socialSpike: { enabled: false },
-    auditUpdate: { enabled: false },
+    whaleActivity: { enabled: false },
+    discordEntry: { enabled: false },
+    goingViralX: { enabled: false },
     priceMove: { enabled: false, threshold: 10 },
-    githubActivity: { enabled: false },
-    benchmarkUpdate: { enabled: false },
   };
 }
 
@@ -433,7 +432,7 @@ export default function AlertsPage() {
 
                 <AlertRow
                   icon="📊"
-                  label="aGap Score change"
+                  label="aGap score change"
                   description="Fire when a subnet's aGap score moves by at least"
                   enabled={settings.scoreChange.enabled}
                   threshold={settings.scoreChange.threshold}
@@ -444,7 +443,7 @@ export default function AlertsPage() {
 
                 <AlertRow
                   icon="⚡"
-                  label="Emission change"
+                  label="Emissions change"
                   description="Fire when a subnet's emission % changes by at least"
                   enabled={settings.emissionChange.enabled}
                   threshold={settings.emissionChange.threshold}
@@ -455,51 +454,43 @@ export default function AlertsPage() {
                 <AlertRow
                   icon="🔮"
                   label="New signal"
-                  description="Fire when a new alpha signal is generated for a subnet"
+                  description="Fire when a new alpha signal is posted on the signals page"
                   enabled={settings.newSignal.enabled}
                   onToggle={v => updateAlert("newSignal", { enabled: v })}
                 />
 
                 <AlertRow
-                  icon="💬"
-                  label="Social buzz spike"
-                  description="Fire when Discord or Twitter activity spikes significantly"
-                  enabled={settings.socialSpike.enabled}
-                  onToggle={v => updateAlert("socialSpike", { enabled: v })}
+                  icon="🐋"
+                  label="Whale activity / volume spike"
+                  description="Fire when a large trade or unusual volume spike is detected on the flow page"
+                  enabled={settings.whaleActivity.enabled}
+                  onToggle={v => updateAlert("whaleActivity", { enabled: v })}
                 />
 
                 <AlertRow
-                  icon="🔬"
-                  label="Audit update"
-                  description="Fire when an audit score or code volume changes"
-                  enabled={settings.auditUpdate.enabled}
-                  onToggle={v => updateAlert("auditUpdate", { enabled: v })}
+                  icon="💬"
+                  label="Discord entry"
+                  description="Fire when a notable new Discord post appears on the social page"
+                  enabled={settings.discordEntry.enabled}
+                  onToggle={v => updateAlert("discordEntry", { enabled: v })}
+                />
+
+                <AlertRow
+                  icon="𝕏"
+                  label="Going viral on X"
+                  description="Fire when a subnet post is trending or going viral on X"
+                  enabled={settings.goingViralX.enabled}
+                  onToggle={v => updateAlert("goingViralX", { enabled: v })}
                 />
 
                 <AlertRow
                   icon="💰"
-                  label="Price move"
+                  label="Price movement"
                   description="Fire when the subnet token price moves by at least"
                   enabled={settings.priceMove.enabled}
                   threshold={settings.priceMove.threshold}
                   onToggle={v => updateAlert("priceMove", { enabled: v })}
                   onThreshold={v => updateAlert("priceMove", { threshold: v })}
-                />
-
-                <AlertRow
-                  icon="💻"
-                  label="GitHub activity"
-                  description="Fire when new commits or a release is detected"
-                  enabled={settings.githubActivity.enabled}
-                  onToggle={v => updateAlert("githubActivity", { enabled: v })}
-                />
-
-                <AlertRow
-                  icon="🏆"
-                  label="Benchmark result"
-                  description="Fire when a new benchmark result is available"
-                  enabled={settings.benchmarkUpdate.enabled}
-                  onToggle={v => updateAlert("benchmarkUpdate", { enabled: v })}
                 />
 
               </div>

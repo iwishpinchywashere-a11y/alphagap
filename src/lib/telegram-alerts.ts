@@ -21,12 +21,11 @@ export interface AlertSettings {
   subnets: SubnetScope;
   scoreChange: AlertType;     // aGap score moves by threshold pts
   emissionChange: AlertType;  // emission % changes by threshold
-  newSignal: AlertType;       // new signal generated
-  socialSpike: AlertType;     // social buzz spike
-  auditUpdate: AlertType;     // audit score or code vol changes
-  priceMove: AlertType;       // TAO price % move
-  githubActivity: AlertType;  // new commits / release
-  benchmarkUpdate: AlertType; // benchmark result
+  newSignal: AlertType;       // new signal generated (/signals)
+  whaleActivity: AlertType;   // whale trade or volume spike (/flow)
+  discordEntry: AlertType;    // new Discord entry on social page
+  goingViralX: AlertType;     // going viral on X (social page)
+  priceMove: AlertType;       // token price % move
 }
 
 export interface TelegramConnection {
@@ -66,11 +65,10 @@ export function defaultAlertSettings(): AlertSettings {
     scoreChange: { enabled: true, threshold: 10 },
     emissionChange: { enabled: true, threshold: 25 },
     newSignal: { enabled: true },
-    socialSpike: { enabled: false },
-    auditUpdate: { enabled: false },
+    whaleActivity: { enabled: false },
+    discordEntry: { enabled: false },
+    goingViralX: { enabled: false },
     priceMove: { enabled: false, threshold: 10 },
-    githubActivity: { enabled: false },
-    benchmarkUpdate: { enabled: false },
   };
 }
 
