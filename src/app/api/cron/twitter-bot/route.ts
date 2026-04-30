@@ -60,6 +60,33 @@ async function savePostedLog(log: PostedLog): Promise<void> {
   });
 }
 
+// ── Slot-based idempotency lock ───────────────────────────────────
+// Prevents Vercel cron retries (and simultaneous invocations) from
+// double-posting. Written to blob BEFORE the tweet is sent; keyed on
+// the current UTC hour so it resets naturally each slot.
+
+interface PostLock {
+  slotKey: string;   // e.g. "2026-04-30T07"
+  lockedAt: string;  // ISO timestamp
+}
+
+/** Current UTC-hour slot key, e.g. "2026-04-30T07" */
+function currentSlotKey(): string {
+  return new Date().toISOString().slice(0, 13); // "YYYY-MM-DDTHH"
+}
+
+async function readLock(): Promise<PostLock | null> {
+  return readBlob<PostLock>("twitter-post-lock.json");
+}
+
+async function writeLock(slotKey: string): Promise<void> {
+  await blobPut(
+    "twitter-post-lock.json",
+    JSON.stringify({ slotKey, lockedAt: new Date().toISOString() } satisfies PostLock),
+    { access: "private", addRandomSuffix: false, allowOverwrite: true, contentType: "application/json", token: BLOB_TOKEN }
+  );
+}
+
 // ── Main handler ──────────────────────────────────────────────────
 
 export async function GET(req: NextRequest) {
@@ -75,7 +102,20 @@ export async function GET(req: NextRequest) {
 
   console.log("[twitter-bot] Starting bot run...");
 
-  // Load all data blobs in parallel
+  // ── Slot-based idempotency check ──────────────────────────────────
+  // Each cron slot (7am / 12pm / 5pm / 10pm UTC) gets a unique key.
+  // If a lock already exists for this slot, a concurrent or retry
+  // invocation bails out immediately — preventing double-posts.
+  const slotKey = currentSlotKey();
+  const [lock, postedLog] = await Promise.all([readLock(), loadPostedLog()]);
+
+  if (lock?.slotKey === slotKey) {
+    const minutesSinceLock = (Date.now() - new Date(lock.lockedAt).getTime()) / 60000;
+    console.log(`[twitter-bot] Lock exists for slot ${slotKey} (${minutesSinceLock.toFixed(0)}m ago) — skipping`);
+    return NextResponse.json({ ok: true, posted: false, reason: `locked (slot ${slotKey}, ${minutesSinceLock.toFixed(0)}m ago)` });
+  }
+
+  // Load the rest of the data blobs
   const [
     scanRaw,
     discordRaw,
@@ -84,7 +124,6 @@ export async function GET(req: NextRequest) {
     analyticsRaw,
     benchmarksRaw,
     performanceRaw,
-    postedLog,
   ] = await Promise.all([
     readBlob<{ leaderboard: unknown[] }>("scan-latest.json"),
     readBlob<{ results: unknown[] }>("discord-latest.json"),
@@ -93,16 +132,14 @@ export async function GET(req: NextRequest) {
     readBlob<{ ratios: unknown[] }>("analytics-latest.json"),
     readBlob<{ benchmarks: unknown[] }>("benchmarks-latest.json"),
     readBlob<{ gains: unknown[] }>("performance-latest.json"),
-    loadPostedLog(),
   ]);
 
-  // ── Minimum 60-minute cooldown between posts ─────────────────────
-  // Prevents Vercel cron retries (on failure) and any other close-together
-  // invocations from posting 2-3 times within a few minutes.
+  // ── 3-hour cooldown (belt-and-suspenders) ────────────────────────
+  // Slots are ≥5h apart, so 3h = safe guard without blocking valid posts.
   const lastPost = postedLog.posted[postedLog.posted.length - 1];
   if (lastPost) {
     const minutesSinceLast = (Date.now() - new Date(lastPost.postedAt).getTime()) / 60000;
-    if (minutesSinceLast < 60) {
+    if (minutesSinceLast < 180) {
       console.log(`[twitter-bot] Last post was ${minutesSinceLast.toFixed(0)}m ago — skipping (cooldown)`);
       return NextResponse.json({ ok: true, posted: false, reason: `cooldown (${minutesSinceLast.toFixed(0)}m since last post)` });
     }
@@ -136,6 +173,10 @@ export async function GET(req: NextRequest) {
   }
 
   console.log(`[twitter-bot] Posting type=${post.type}: ${post.rationale}`);
+
+  // Write slot lock BEFORE posting — any concurrent/retry invocation
+  // that reaches this point will now see the lock and exit cleanly.
+  await writeLock(slotKey);
 
   // Post the tweet(s)
   let tweetUrl: string | null = null;
