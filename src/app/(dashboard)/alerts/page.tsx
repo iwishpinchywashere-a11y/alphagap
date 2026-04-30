@@ -60,7 +60,7 @@ function ThresholdInput({
 function defaultSettings(): AlertSettings {
   return {
     enabled: true,
-    subnets: "all",
+    subnets: "watchlist",
     scoreChange: { enabled: true, threshold: 10 },
     emissionChange: { enabled: true, threshold: 25 },
     newSignal: { enabled: true },
@@ -399,31 +399,6 @@ export default function AlertsPage() {
                   onChange={v => setSettings(s => ({ ...s, enabled: v }))}
                 />
               </div>
-            </section>
-
-            {/* Subnet scope */}
-            <section className="bg-[#0f1117] border border-gray-800 rounded-xl p-6 mb-6">
-              <h2 className="text-lg font-semibold text-white mb-4">Which subnets?</h2>
-              <div className="flex gap-3 flex-wrap">
-                {(["all", "watchlist"] as const).map(opt => (
-                  <button
-                    key={opt}
-                    onClick={() => setSettings(s => ({ ...s, subnets: opt }))}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${
-                      settings.subnets === opt
-                        ? "bg-green-500/20 border-green-500/50 text-green-400"
-                        : "bg-transparent border-gray-700 text-gray-400 hover:border-gray-600"
-                    }`}
-                  >
-                    {opt === "all" ? "All subnets" : "My watchlist"}
-                  </button>
-                ))}
-              </div>
-              {settings.subnets === "watchlist" && (
-                <p className="text-gray-600 text-xs mt-3">
-                  Alerts will only fire for subnets in your watchlist.
-                </p>
-              )}
             </section>
 
             {/* Alert types */}

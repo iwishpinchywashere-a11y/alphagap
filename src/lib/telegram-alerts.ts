@@ -61,7 +61,7 @@ export interface TelegramCode {
 export function defaultAlertSettings(): AlertSettings {
   return {
     enabled: true,
-    subnets: "all",
+    subnets: "watchlist",
     scoreChange: { enabled: true, threshold: 10 },
     emissionChange: { enabled: true, threshold: 25 },
     newSignal: { enabled: true },
