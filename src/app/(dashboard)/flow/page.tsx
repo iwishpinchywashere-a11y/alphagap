@@ -89,7 +89,7 @@ export default function FlowPage() {
   const { isWatched, watchlist } = useWatchlist();
   const [watchlistOnly, setWatchlistOnly] = useState(false);
 
-  // ── Historical flow events (persisted 48h rolling window) ─────
+  // ── Historical flow events (persisted 72h rolling window) ─────
   const [historicalEvents, setHistoricalEvents] = useState<PersistedFlowEvent[]>([]);
 
   useEffect(() => {
@@ -379,7 +379,7 @@ export default function FlowPage() {
             <span className="text-xs text-gray-500 animate-pulse">refreshing…</span>
           )}
         </div>
-        <p className="text-sm text-gray-500">Whale movements, smart money flows, unusual volume, and staking yield anomalies — live and from the last 48 hours.</p>
+        <p className="text-sm text-gray-500">Whale movements, smart money flows, unusual volume, and staking yield anomalies — live and from the last 72 hours.</p>
       </div>
 
       {/* Stats strip */}

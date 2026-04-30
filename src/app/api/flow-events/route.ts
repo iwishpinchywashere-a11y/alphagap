@@ -1,7 +1,7 @@
 /**
  * GET /api/flow-events
  *
- * Returns the persisted 48-hour rolling window of flow events
+ * Returns the persisted 72-hour rolling window of flow events
  * (whale buys/sells, volume surges, yield spikes/dips).
  * Written by /api/cron/flow-snapshot after each scan.
  */
@@ -38,8 +38,8 @@ export async function GET() {
       Buffer.concat(chunks).toString("utf-8")
     ) as FlowEventsStore;
 
-    // Only return events within the last 48 hours
-    const cutoff = new Date(Date.now() - 48 * 3600_000).toISOString().slice(0, 10);
+    // Only return events within the last 72 hours
+    const cutoff = new Date(Date.now() - 72 * 3600_000).toISOString().slice(0, 10);
     const events = (store.events ?? []).filter((e) => e.dayKey >= cutoff);
 
     return NextResponse.json(

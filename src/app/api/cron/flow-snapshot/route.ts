@@ -3,7 +3,7 @@
  *
  * Triggered fire-and-forget from /api/scan after each successful scan.
  * Reads scan-latest.json, derives whale / volume / yield flow events,
- * merges them into flow-events.json with a 48-hour rolling window, then
+ * merges them into flow-events.json with a 72-hour rolling window, then
  * saves the result.
  *
  * Dedup key: netuid:type:dayKey  (e.g. "12:accumulating:2026-04-30")
@@ -100,7 +100,7 @@ export interface PersistedFlowEvent {
   apy_7d?: number;
   apy_1h?: number;
   apy_30d?: number;
-  /** "2026-04-30" — used for dedup & 48h pruning */
+  /** "2026-04-30" — used for dedup & 72h pruning */
   dayKey: string;
   /** ISO timestamp of when this event was first detected / last refreshed */
   detectedAt: string;
@@ -317,8 +317,8 @@ export async function GET(req: NextRequest) {
     detectedAt
   );
 
-  // Load existing stored events, prune anything older than 48 hours
-  const cutoff = new Date(Date.now() - 48 * 3600_000).toISOString().slice(0, 10);
+  // Load existing stored events, prune anything older than 72 hours
+  const cutoff = new Date(Date.now() - 72 * 3600_000).toISOString().slice(0, 10);
   const storedEvents: PersistedFlowEvent[] = (store?.events ?? []).filter(
     (e) => e.dayKey >= cutoff
   );
