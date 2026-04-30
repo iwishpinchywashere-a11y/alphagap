@@ -520,7 +520,7 @@ function AlertRow({
   return (
     <div className={`flex items-start justify-between gap-4 pb-5 border-b border-gray-800/60 last:border-0 last:pb-0 ${!enabled ? "opacity-50" : ""}`}>
       <div className="flex items-start gap-3 flex-1">
-        <span className="text-xl flex-shrink-0 mt-0.5">{icon}</span>
+        <span className="w-7 h-7 flex-shrink-0 flex items-center justify-center text-xl leading-none">{icon}</span>
         <div>
           <p className="text-sm font-medium text-white">{label}</p>
           <p className="text-xs text-gray-500 mt-0.5 flex items-center gap-1 flex-wrap">
