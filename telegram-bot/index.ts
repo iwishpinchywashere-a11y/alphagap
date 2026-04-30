@@ -141,6 +141,29 @@ interface QueueItem {
 
 let isPolling = false;
 
+// ── In-memory dedup ───────────────────────────────────────────────────────────
+// The alert-scanner can fire multiple times in quick succession (5-min cron +
+// fire-and-forget from scan/social/discord). Blob storage has no atomic ops,
+// so concurrent scanner instances can race past all server-side guards and
+// enqueue the same alert 2-3 times. This in-memory map is the guaranteed
+// last line of defence — the bot is a single process, no race conditions.
+//
+// Key: "{chatId}:{type}:{netuid}"  →  timestamp of last send
+const recentlySent = new Map<string, number>();
+const DEDUP_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
+
+function dedupeKey(chatId: string, alert: PendingAlert): string {
+  return `${chatId}:${alert.type}:${alert.netuid ?? ""}`;
+}
+
+// Prune entries older than the window to keep the map small
+function pruneDedupeCache(): void {
+  const cutoff = Date.now() - DEDUP_WINDOW_MS;
+  for (const [key, ts] of recentlySent) {
+    if (ts < cutoff) recentlySent.delete(key);
+  }
+}
+
 async function pollQueue(): Promise<void> {
   // Prevent concurrent runs — if the previous poll is still awaiting blob
   // writes or Telegram sends, skip this tick rather than double-delivering.
@@ -166,11 +189,23 @@ async function pollQueue(): Promise<void> {
     if (!items?.length) return;
 
     const acks: { hash: string; id: string }[] = [];
+    pruneDedupeCache();
 
     for (const item of items) {
       for (const alert of item.alerts) {
+        const dk = dedupeKey(item.chatId, alert);
+        const lastSentAt = recentlySent.get(dk);
+        if (lastSentAt && Date.now() - lastSentAt < DEDUP_WINDOW_MS) {
+          // Duplicate — already sent this alert type+subnet recently.
+          // Still ack it so it clears the queue.
+          console.log(`⏭️  Dedup: skipping ${alert.type} for SN${alert.netuid} (sent ${Math.round((Date.now() - lastSentAt) / 1000)}s ago)`);
+          acks.push({ hash: item.hash, id: alert.id });
+          continue;
+        }
+
         try {
           await bot.sendMessage(item.chatId, alert.message, { parse_mode: "Markdown" });
+          recentlySent.set(dk, Date.now());
           acks.push({ hash: item.hash, id: alert.id });
           // Small delay to stay under Telegram rate limit (30 msg/s)
           await sleep(50);
