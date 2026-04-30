@@ -18,7 +18,7 @@ import {
 } from "@/lib/telegram-alerts";
 
 function authOk(req: NextRequest): boolean {
-  const secret = process.env.BOT_API_SECRET;
+  const secret = (process.env.BOT_API_SECRET || "").trim();
   if (!secret) return false;
   const auth = req.headers.get("authorization") || "";
   return auth === `Bearer ${secret}`;
