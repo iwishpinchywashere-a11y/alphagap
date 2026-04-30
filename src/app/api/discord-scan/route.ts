@@ -214,6 +214,18 @@ export async function GET() {
         contentType: "application/json",
       });
       console.log("[discord-scan] Saved discord-latest.json to blob");
+
+      // Trigger alert scanner if there are high-quality alpha entries
+      if (results.some(r => r.alphaScore >= 70)) {
+        const base = process.env.VERCEL_URL
+          ? `https://${process.env.VERCEL_URL}`
+          : process.env.NEXTAUTH_URL || "http://localhost:3000";
+        fetch(`${base}/api/cron/alert-scanner`, {
+          headers: { Authorization: `Bearer ${process.env.CRON_SECRET || ""}` },
+          signal: AbortSignal.timeout(90_000),
+        }).then(r => console.log(`[discord-scan] Alert scanner triggered: ${r.status}`))
+          .catch(e => console.warn("[discord-scan] Alert scanner trigger failed:", e));
+      }
     }
 
     return NextResponse.json({

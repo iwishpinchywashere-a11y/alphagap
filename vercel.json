@@ -14,7 +14,7 @@
     },
     {
       "path": "/api/cron/alert-scanner",
-      "schedule": "5-55/10 * * * *"
+      "schedule": "*/5 * * * *"
     },
     {
       "path": "/api/generate-report",

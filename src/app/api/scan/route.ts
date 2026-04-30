@@ -3690,5 +3690,19 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
     }
   }
 
+  // ── Trigger alert scanner immediately (fire-and-forget) ─────────
+  // Ensures Telegram alerts go out within ~30s of new scan data,
+  // rather than waiting for the next standalone cron window.
+  if (isHealthyScan && process.env.BLOB_READ_WRITE_TOKEN) {
+    const base = process.env.VERCEL_URL
+      ? `https://${process.env.VERCEL_URL}`
+      : process.env.NEXTAUTH_URL || "http://localhost:3000";
+    fetch(`${base}/api/cron/alert-scanner`, {
+      headers: { Authorization: `Bearer ${process.env.CRON_SECRET || ""}` },
+      signal: AbortSignal.timeout(90_000),
+    }).then(r => console.log(`[scan] Alert scanner triggered: ${r.status}`))
+      .catch(e => console.warn("[scan] Alert scanner trigger failed:", e));
+  }
+
   return NextResponse.json(responseData);
 }
