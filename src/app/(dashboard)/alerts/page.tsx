@@ -1,5 +1,6 @@
 "use client";
 
+import React from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useState, useEffect, useCallback } from "react";
@@ -28,6 +29,53 @@ function Toggle({
         }`}
       />
     </button>
+  );
+}
+
+function CopyBlock({
+  label,
+  value,
+  displayValue,
+  compact = false,
+}: {
+  label?: string;
+  value: string;
+  displayValue?: React.ReactNode;
+  compact?: boolean;
+}) {
+  const [copied, setCopied] = useState(false);
+  function copy() {
+    navigator.clipboard.writeText(value).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }
+  if (compact) {
+    return (
+      <button
+        onClick={copy}
+        className="flex items-center gap-1.5 bg-[#1a1f2e] border border-gray-700 hover:border-green-500/50 px-2.5 py-1 rounded text-sm font-mono text-green-400 transition-colors"
+      >
+        <span className="tracking-widest">{value}</span>
+        <span className="text-gray-500 text-xs">{copied ? "✓" : "copy"}</span>
+      </button>
+    );
+  }
+  return (
+    <div className="bg-[#0a0a0f] border border-green-500/30 rounded-lg p-4">
+      {label && <p className="text-xs text-gray-500 mb-2">{label}</p>}
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-xl font-mono font-semibold">
+          {displayValue ?? <span className="text-green-400 tracking-widest">{value}</span>}
+        </p>
+        <button
+          onClick={copy}
+          className="flex-shrink-0 px-3 py-1.5 bg-green-500/10 hover:bg-green-500/20 border border-green-500/30 text-green-400 text-xs font-medium rounded-lg transition-colors"
+        >
+          {copied ? "✓ Copied" : "Copy"}
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -352,32 +400,26 @@ export default function AlertsPage() {
                     </li>
                     <li className="flex items-start gap-3">
                       <span className="flex-shrink-0 w-6 h-6 rounded-full bg-green-500/20 border border-green-500/40 text-green-400 text-xs flex items-center justify-center font-bold">2</span>
-                      <span className="text-gray-300 pt-0.5">
-                        Send the message:{" "}
-                        <code className="bg-[#1a1f2e] text-green-400 px-2 py-0.5 rounded text-sm font-mono">
-                          /start {code}
-                        </code>
-                      </span>
-                    </li>
-                    <li className="flex items-start gap-3">
-                      <span className="flex-shrink-0 w-6 h-6 rounded-full bg-green-500/20 border border-green-500/40 text-green-400 text-xs flex items-center justify-center font-bold">3</span>
-                      <span className="text-gray-300 pt-0.5">This page will update automatically once connected</span>
+                      <span className="text-gray-300 pt-0.5">Copy and send this message:</span>
                     </li>
                   </ol>
 
-                  {/* Code display */}
-                  <div className="bg-[#0a0a0f] border border-green-500/30 rounded-lg p-4 flex items-center justify-between">
-                    <div>
-                      <p className="text-xs text-gray-500 mb-1">Your connect code</p>
-                      <p className="text-3xl font-mono font-bold tracking-[0.25em] text-green-400">{code}</p>
-                    </div>
-                    <div className="text-right">
-                      <div className="flex items-center gap-1.5 text-gray-500 text-xs mb-2">
-                        <span className="inline-block w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
-                        Waiting for Telegram…
-                      </div>
-                      <p className="text-xs text-gray-600">Expires in 10 minutes</p>
-                    </div>
+                  {/* /start CODE — primary copy target */}
+                  <CopyBlock
+                    label="Message to send"
+                    value={`/start ${code}`}
+                    displayValue={<><span className="text-gray-400">/start </span><span className="text-green-400 font-bold tracking-widest">{code}</span></>}
+                  />
+
+                  {/* Code only */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-gray-600">Just the code:</span>
+                    <CopyBlock value={code} compact />
+                  </div>
+
+                  <div className="flex items-center gap-1.5 text-gray-500 text-xs">
+                    <span className="inline-block w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
+                    Waiting for Telegram… · Expires in 10 minutes
                   </div>
 
                   <button

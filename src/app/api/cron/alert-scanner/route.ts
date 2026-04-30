@@ -1,18 +1,21 @@
 /**
  * GET /api/cron/alert-scanner
  *
- * Runs every 10 minutes. Compares the latest scan data against the previous
- * run's snapshot and enqueues Telegram alerts for users whose watchlist
- * subnets have crossed their configured thresholds.
+ * Runs every 5 minutes (also triggered directly from /api/scan,
+ * social-pulse, and discord-scan for near-real-time delivery).
  *
- * Alert types handled:
+ * Compares latest scan data against the previous snapshot and
+ * enqueues Telegram alerts for users whose watchlist subnets
+ * have crossed their configured thresholds.
+ *
+ * Alert types:
  *   scoreChange    — aGap composite score moved by >= threshold pts
  *   emissionChange — emission % moved by >= threshold %
  *   priceMove      — 24h price change >= threshold %
- *   whaleActivity  — whale signal appeared (accumulating / distributing)
- *   newSignal      — new alpha signal generated for a subnet
- *   goingViralX    — new high-heat KOL tweet (heat_score >= 70) on social-hot
- *   discordEntry   — new high-quality Discord entry (alphaScore >= 70) on discord-latest
+ *   whaleActivity  — whale signal appeared / changed
+ *   newSignal      — new alpha signal generated
+ *   goingViralX    — new high-heat KOL tweet (heat_score >= 70)
+ *   discordEntry   — new high-quality Discord entry (alphaScore >= 70)
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -20,7 +23,6 @@ import { list as blobList, get as blobGet, put as blobPut } from "@vercel/blob";
 import {
   enqueueAlert,
   getTelegramConnectionByHash,
-  type AlertSettings,
 } from "@/lib/telegram-alerts";
 
 export const dynamic = "force-dynamic";
@@ -131,18 +133,20 @@ interface SubnetState {
 
 interface ScannerState {
   lastRunAt: string;
-  subnets: Record<string, SubnetState>;    // keyed by netuid string
-  processedSignalIds: number[];            // signal IDs already alerted
-  processedTweetIds: string[];             // tweet_ids already alerted
-  processedDiscordKeys: string[];          // "netuid:scannedAt" already alerted
+  subnets: Record<string, SubnetState>;
+  processedSignalIds: number[];
+  processedTweetIds: string[];
+  processedDiscordKeys: string[];
 }
 
-// ── Subnet name helper ────────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function subnetLabel(entry: ScanEntry): string {
   const name = entry.subnet_name || entry.name;
   return name ? `${name} (SN${entry.netuid})` : `SN${entry.netuid}`;
 }
+
+const BASE_URL = "https://alphagap.io";
 
 // ── Main handler ──────────────────────────────────────────────────────────────
 
@@ -153,7 +157,6 @@ export async function GET(req: NextRequest) {
 
   const t0 = Date.now();
 
-  // 1. Load all data sources in parallel
   const [scan, prevState, socialHot, discordLatest] = await Promise.all([
     readBlob<ScanLatest>("scan-latest.json"),
     readBlob<ScannerState>("alert-scanner-state.json"),
@@ -166,7 +169,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: true, skipped: "no scan data" });
   }
 
-  // Build lookup maps
   const scanByNetuid = new Map<number, ScanEntry>(
     scan.leaderboard.map(e => [e.netuid, e])
   );
@@ -176,10 +178,9 @@ export async function GET(req: NextRequest) {
   const processedTweetIds = new Set<string>(prevState?.processedTweetIds ?? []);
   const processedDiscordKeys = new Set<string>(prevState?.processedDiscordKeys ?? []);
 
-  // 2. List all Telegram-connected users
+  // List all connected users
   let cursor: string | undefined;
   const connectedHashes: string[] = [];
-
   do {
     const page = await blobList({
       prefix: "telegram-settings/",
@@ -187,15 +188,12 @@ export async function GET(req: NextRequest) {
       access: "private",
       cursor,
     } as Parameters<typeof blobList>[0]);
-
     for (const blob of page.blobs) {
-      const hash = blob.pathname.replace("telegram-settings/", "").replace(".json", "");
-      connectedHashes.push(hash);
+      connectedHashes.push(blob.pathname.replace("telegram-settings/", "").replace(".json", ""));
     }
     cursor = page.cursor;
   } while (cursor);
 
-  // 3. For each user, check their watchlist and enqueue triggered alerts
   let totalAlerts = 0;
 
   for (const hash of connectedHashes) {
@@ -204,20 +202,20 @@ export async function GET(req: NextRequest) {
 
     const settings = conn.settings;
 
-    // Load watchlist
     const watchlistData = await readBlob<{ netuids: number[] }>(`watchlists/${hash}.json`);
     const watchlist = watchlistData?.netuids ?? [];
     if (!watchlist.length) continue;
 
-    // Check each watched subnet against each alert type
+    // ── Per-subnet alerts ────────────────────────────────────────────
     for (const netuid of watchlist) {
       const current = scanByNetuid.get(netuid);
       if (!current) continue;
 
       const prev = prevSubnets[String(netuid)];
       const label = subnetLabel(current);
+      const subnetUrl = `${BASE_URL}/subnet/${netuid}`;
 
-      // ── aGap score change ────────────────────────────────────────
+      // aGap score change
       if (settings.scoreChange?.enabled && prev) {
         const threshold = settings.scoreChange.threshold ?? 10;
         const delta = current.composite_score - prev.score;
@@ -228,34 +226,46 @@ export async function GET(req: NextRequest) {
             type: "scoreChange",
             netuid,
             subnetName: label,
-            message: `${dir} *aGap Score Alert — ${label}*\n\nScore moved ${sign}${delta.toFixed(1)} pts → now *${current.composite_score.toFixed(1)}*`,
+            message:
+              `${dir} *aGap Score Alert*\n` +
+              `*${label}*\n\n` +
+              `Score moved ${sign}${delta.toFixed(1)} pts and is now *${current.composite_score.toFixed(1)}/100*\.\n\n` +
+              `The aGap score combines on\\-chain flow, dev activity, social signals, emissions, and market momentum\\.\n\n` +
+              `[View subnet →](${subnetUrl})`,
           });
           totalAlerts++;
         }
       }
 
-      // ── Emission change ──────────────────────────────────────────
+      // Emission change
       if (settings.emissionChange?.enabled && prev && current.emission_pct != null) {
         const threshold = settings.emissionChange.threshold ?? 25;
         const delta = current.emission_pct - prev.emission;
         if (Math.abs(delta) >= threshold) {
           const dir = delta > 0 ? "⬆️" : "⬇️";
           const sign = delta > 0 ? "+" : "";
+          const context = delta > 0
+            ? "Higher emissions mean more TAO is being distributed to this subnet's miners and validators\\."
+            : "Lower emissions mean this subnet is receiving a smaller share of total TAO output\\.";
           await enqueueAlert(hash, {
             type: "emissionChange",
             netuid,
             subnetName: label,
-            message: `⚡ *Emission Alert — ${label}*\n\nEmissions ${dir} ${sign}${delta.toFixed(2)}% → now *${current.emission_pct.toFixed(2)}%*`,
+            message:
+              `⚡ *Emissions Alert*\n` +
+              `*${label}*\n\n` +
+              `Emissions moved ${dir} ${sign}${delta.toFixed(2)}% and are now *${current.emission_pct.toFixed(2)}%* of total TAO output\\.\n\n` +
+              `${context}\n\n` +
+              `[View subnet →](${subnetUrl})`,
           });
           totalAlerts++;
         }
       }
 
-      // ── Price movement ───────────────────────────────────────────
+      // Price movement
       if (settings.priceMove?.enabled && current.price_change_24h != null) {
         const threshold = settings.priceMove.threshold ?? 10;
         if (Math.abs(current.price_change_24h) >= threshold) {
-          // Only alert if this is a new price event (price changed since last run)
           const prevPrice = prev?.price ?? 0;
           const currentPrice = current.alpha_price ?? 0;
           const priceChanged = Math.abs(currentPrice - prevPrice) / Math.max(prevPrice, 0.000001) > 0.01;
@@ -266,31 +276,43 @@ export async function GET(req: NextRequest) {
               type: "priceMove",
               netuid,
               subnetName: label,
-              message: `💰 *Price Alert — ${label}*\n\n24h price change: *${sign}${current.price_change_24h.toFixed(1)}%*${currentPrice ? `\nCurrent price: $${currentPrice.toFixed(4)}` : ""}`,
+              message:
+                `💰 *Price Alert*\n` +
+                `*${label}*\n\n` +
+                `The alpha token price moved *${sign}${current.price_change_24h.toFixed(1)}%* in the last 24 hours\\.` +
+                `${currentPrice ? `\nCurrent price: $${currentPrice.toFixed(4)}` : ""}\n\n` +
+                `[View on flow page →](${BASE_URL}/flow)`,
             });
             totalAlerts++;
           }
         }
       }
 
-      // ── Whale activity ───────────────────────────────────────────
+      // Whale activity
       if (settings.whaleActivity?.enabled && current.whale_signal) {
         const prevWhale = prev?.whaleSignal ?? null;
         if (current.whale_signal !== prevWhale) {
           const emoji = current.whale_signal === "accumulating" ? "🐋" : "🔴";
-          const action = current.whale_signal === "accumulating" ? "Whales accumulating" : "Whales distributing";
+          const action = current.whale_signal === "accumulating"
+            ? "accumulating — large wallets are staking into this subnet"
+            : "distributing — large wallets are unstaking from this subnet";
           await enqueueAlert(hash, {
             type: "whaleActivity",
             netuid,
             subnetName: label,
-            message: `${emoji} *Whale Activity — ${label}*\n\n${action} detected on the flow page`,
+            message:
+              `${emoji} *Whale Activity Alert*\n` +
+              `*${label}*\n\n` +
+              `Whales are ${action}\\.\n\n` +
+              `This is based on large TAO flow movements detected in the last 24h\\.\n\n` +
+              `[View on flow page →](${BASE_URL}/flow)`,
           });
           totalAlerts++;
         }
       }
     }
 
-    // ── New signals ────────────────────────────────────────────────
+    // ── New signals ──────────────────────────────────────────────────
     if (settings.newSignal?.enabled && scan.signals?.length) {
       const watchlistSet = new Set(watchlist);
       for (const signal of scan.signals) {
@@ -300,19 +322,25 @@ export async function GET(req: NextRequest) {
 
         const entry = scanByNetuid.get(signal.netuid);
         const label = entry ? subnetLabel(entry) : `SN${signal.netuid}`;
-        const strengthLabel = signal.strength >= 80 ? "🔥 Strong" : signal.strength >= 60 ? "✅ Medium" : "📌 Weak";
+        const strengthLabel = signal.strength >= 80 ? "🔥 Strong signal" : signal.strength >= 60 ? "✅ Medium signal" : "📌 Weak signal";
 
         await enqueueAlert(hash, {
           type: "newSignal",
           netuid: signal.netuid,
           subnetName: label,
-          message: `🔮 *New Signal — ${label}*\n\n*${signal.title}*\n${strengthLabel} (${signal.strength}/100)\n\nView at alphagap.io/signals`,
+          message:
+            `🔮 *New Alpha Signal*\n` +
+            `*${label}*\n\n` +
+            `*${signal.title}*\n` +
+            `${strengthLabel} \\(${signal.strength}/100\\)\n\n` +
+            `AlphaGap detected this signal from on\\-chain activity, dev commits, and market data\\.\n\n` +
+            `[View all signals →](${BASE_URL}/signals)`,
         });
         totalAlerts++;
       }
     }
 
-    // ── Going viral on X ───────────────────────────────────────────
+    // ── Going viral on X ─────────────────────────────────────────────
     if (settings.goingViralX?.enabled && socialHot?.events?.length) {
       const watchlistSet = new Set(watchlist);
       for (const event of socialHot.events) {
@@ -327,13 +355,19 @@ export async function GET(req: NextRequest) {
           type: "goingViralX",
           netuid: event.netuid,
           subnetName: label,
-          message: `𝕏 *Going Viral — ${label}*\n\n@${event.kol_handle} posted about this subnet\nHeat score: *${event.heat_score}/100*\n\n[View tweet](${event.tweet_url})`,
+          message:
+            `𝕏 *Going Viral on X*\n` +
+            `*${label}*\n\n` +
+            `@${event.kol_handle} posted about this subnet and it's picking up traction\\.\n` +
+            `Heat score: *${event.heat_score}/100*\n\n` +
+            `[View tweet →](${event.tweet_url})\n` +
+            `[See all social activity →](${BASE_URL}/social)`,
         });
         totalAlerts++;
       }
     }
 
-    // ── Discord entry ──────────────────────────────────────────────
+    // ── Discord entry ────────────────────────────────────────────────
     if (settings.discordEntry?.enabled && discordLatest?.results?.length) {
       const watchlistSet = new Set(watchlist);
       for (const entry of discordLatest.results) {
@@ -349,14 +383,19 @@ export async function GET(req: NextRequest) {
           type: "discordEntry",
           netuid: entry.netuid,
           subnetName: label,
-          message: `💬 *Discord Activity — ${label}*\n\n${entry.summary}\n\nAlpha score: *${entry.alphaScore}/100*\nView at alphagap.io/social`,
+          message:
+            `💬 *Discord Activity Alert*\n` +
+            `*${label}*\n\n` +
+            `${entry.summary}\n\n` +
+            `Alpha score: *${entry.alphaScore}/100* — meaningful alpha discussion is happening in this subnet's Discord right now\\.\n\n` +
+            `[View on social page →](${BASE_URL}/social)`,
         });
         totalAlerts++;
       }
     }
   }
 
-  // 4. Mark newly processed IDs (collect after processing all users so we don't double-alert)
+  // Mark processed IDs after all users handled (prevents double-alerting in the same run)
   for (const signal of scan.signals ?? []) {
     if (signal.id) processedSignalIds.add(signal.id);
   }
@@ -369,7 +408,7 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  // 5. Save new state snapshot
+  // Save state snapshot (bounded to last 5000 IDs each)
   const newSubnets: Record<string, SubnetState> = {};
   for (const entry of scan.leaderboard) {
     newSubnets[String(entry.netuid)] = {
@@ -380,19 +419,16 @@ export async function GET(req: NextRequest) {
     };
   }
 
-  // Keep processed ID lists bounded (last 5000)
-  const newState: ScannerState = {
+  await writeBlob("alert-scanner-state.json", {
     lastRunAt: new Date().toISOString(),
     subnets: newSubnets,
     processedSignalIds: [...processedSignalIds].slice(-5000),
     processedTweetIds: [...processedTweetIds].slice(-5000),
     processedDiscordKeys: [...processedDiscordKeys].slice(-5000),
-  };
-
-  await writeBlob("alert-scanner-state.json", newState);
+  } satisfies ScannerState);
 
   const duration = Date.now() - t0;
-  console.log(`[alert-scanner] Done in ${duration}ms. ${connectedHashes.length} users checked, ${totalAlerts} alerts enqueued.`);
+  console.log(`[alert-scanner] Done in ${duration}ms. ${connectedHashes.length} users, ${totalAlerts} alerts enqueued.`);
 
   return NextResponse.json({
     ok: true,
