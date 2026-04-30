@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useDashboard } from "@/components/dashboard/DashboardProvider";
@@ -10,6 +10,7 @@ import type { SubnetScore } from "@/lib/types";
 import BlurGate from "@/components/BlurGate";
 import { getTier } from "@/lib/subscription";
 import { useWatchlist } from "@/components/dashboard/WatchlistProvider";
+import type { PersistedFlowEvent } from "@/app/api/cron/flow-snapshot/route";
 
 type FilterType = "all" | "accumulating" | "distributing" | "volume" | "flow" | "yield";
 
@@ -48,21 +49,34 @@ interface FlowEvent {
   apy_7d?: number;
   apy_1h?: number;
   apy_30d?: number;
+  /** true = from blob history (not current scan), used for "Yesterday" label */
+  isHistorical?: boolean;
 }
 
 function formatFlowDate(iso: string): string {
   const d = new Date(iso);
+  const today = new Date();
+  const yesterday = new Date(today);
+  yesterday.setDate(today.getDate() - 1);
+  const isToday =
+    d.getFullYear() === today.getFullYear() &&
+    d.getMonth() === today.getMonth() &&
+    d.getDate() === today.getDate();
+  const isYesterday =
+    d.getFullYear() === yesterday.getFullYear() &&
+    d.getMonth() === yesterday.getMonth() &&
+    d.getDate() === yesterday.getDate();
+  if (isToday) return "Today";
+  if (isYesterday) return "Yesterday";
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
 const TODAY_ISO = new Date().toISOString();
+const TODAY_KEY = TODAY_ISO.slice(0, 10);
 
 // Yield divergence thresholds
-// Spike: 1H APY is >25% above 30d baseline (e.g. 30d=40%, 1H≥50%)
-// Dip:   1H APY is >25% below 30d baseline (e.g. 30d=40%, 1H≤30%)
 const YIELD_SPIKE_THRESHOLD = 1.25;
 const YIELD_DIP_THRESHOLD   = 0.75;
-// Minimum 30d APY to consider (filter out near-zero subnets)
 const MIN_30D_APY = 0.10;
 
 export default function FlowPage() {
@@ -75,11 +89,24 @@ export default function FlowPage() {
   const { isWatched, watchlist } = useWatchlist();
   const [watchlistOnly, setWatchlistOnly] = useState(false);
 
-  const events = useMemo<FlowEvent[]>(() => {
+  // ── Historical flow events (persisted 48h rolling window) ─────
+  const [historicalEvents, setHistoricalEvents] = useState<PersistedFlowEvent[]>([]);
+
+  useEffect(() => {
+    fetch("/api/flow-events")
+      .then(r => r.json())
+      .then((data: { events: PersistedFlowEvent[] }) => {
+        if (Array.isArray(data.events)) setHistoricalEvents(data.events);
+      })
+      .catch(() => {/* non-critical */});
+  }, []);
+
+  // ── Build live events from current scan ───────────────────────
+  const liveEvents = useMemo<FlowEvent[]>(() => {
     const out: FlowEvent[] = [];
 
     for (const sub of leaderboard) {
-      // ── Whale accumulation ───────────────────────────────────────
+      // ── Whale accumulation ─────────────────────────────────
       if (sub.whale_signal === "accumulating" && sub.whale_ratio != null) {
         const flowUsd = sub.net_flow_24h != null && taoPrice != null
           ? sub.net_flow_24h * taoPrice : null;
@@ -103,7 +130,7 @@ export default function FlowPage() {
         });
       }
 
-      // ── Whale distribution ───────────────────────────────────────
+      // ── Whale distribution ─────────────────────────────────
       if (sub.whale_signal === "distributing" && sub.whale_ratio != null) {
         const flowUsd = sub.net_flow_24h != null && taoPrice != null
           ? sub.net_flow_24h * taoPrice : null;
@@ -127,7 +154,7 @@ export default function FlowPage() {
         });
       }
 
-      // ── Volume surge ─────────────────────────────────────────────
+      // ── Volume surge ───────────────────────────────────────
       if (sub.volume_surge && sub.volume_surge_ratio != null) {
         const buyVolUsd = sub.net_flow_24h != null && taoPrice != null && sub.net_flow_24h > 0
           ? sub.net_flow_24h * taoPrice : null;
@@ -156,7 +183,7 @@ export default function FlowPage() {
         });
       }
 
-      // ── Yield divergence signals ─────────────────────────────────
+      // ── Yield divergence ───────────────────────────────────
       if (
         sub.apy_1h != null && sub.apy_30d != null &&
         sub.apy_30d >= MIN_30D_APY
@@ -166,7 +193,6 @@ export default function FlowPage() {
         const apy30dPct = (sub.apy_30d * 100).toFixed(0);
 
         if (ratio >= YIELD_SPIKE_THRESHOLD) {
-          // 1H yield well above 30d baseline — something changed (emissions, validator drop-off, stake exit)
           const pctAbove = Math.round((ratio - 1) * 100);
           const strength = Math.min(90, 50 + (ratio - 1.25) * 120);
           out.push({
@@ -186,7 +212,6 @@ export default function FlowPage() {
             apy_30d: sub.apy_30d,
           });
         } else if (ratio <= YIELD_DIP_THRESHOLD) {
-          // 1H yield well below 30d baseline — yield compression, large stake inflow
           const pctBelow = Math.round((1 - ratio) * 100);
           const strength = Math.min(75, 40 + (1 - ratio - 0.25) * 80);
           out.push({
@@ -209,7 +234,7 @@ export default function FlowPage() {
       }
     }
 
-    // ── Flow signals from the signals feed ───────────────────────
+    // ── Flow signals from the signals feed ──────────────────
     const flowTypes = ["flow_inflection", "flow_spike", "flow_warning", "whale_sell"];
     for (const sig of signals) {
       if (!flowTypes.includes(sig.signal_type)) continue;
@@ -260,20 +285,58 @@ export default function FlowPage() {
       }
     }
 
-    // ── Apply filter ─────────────────────────────────────────────
-    const filtered = filter === "all" ? out :
-      filter === "accumulating"  ? out.filter(e => e.type === "accumulating" || e.type === "flow_inflection" || e.type === "flow_spike") :
-      filter === "distributing"  ? out.filter(e => e.type === "distributing" || e.type === "flow_warning") :
-      filter === "volume"        ? out.filter(e => e.type === "volume_surge") :
-      filter === "yield"         ? out.filter(e => e.type === "yield_spike" || e.type === "yield_dip") :
-      out.filter(e => e.type === "flow_inflection" || e.type === "flow_spike" || e.type === "flow_warning");
+    return out;
+  }, [leaderboard, signals, taoPrice]);
+
+  // ── Merge live + historical, then filter + sort ───────────────
+  const events = useMemo<FlowEvent[]>(() => {
+    // Build set of "live" keys so we don't double-show with history
+    const liveKeys = new Set(liveEvents.map(e => `${e.netuid}:${e.type}`));
+
+    // Convert persisted events that are NOT already shown live
+    const historicalAsFlowEvents: FlowEvent[] = historicalEvents
+      .filter(h => {
+        // Skip if the live scan already shows this subnet+type today
+        if (liveKeys.has(`${h.netuid}:${h.type}`)) return false;
+        return true;
+      })
+      .map(h => ({
+        netuid: h.netuid,
+        name: h.name,
+        type: h.type as FlowEvent["type"],
+        strength: h.strength,
+        headline: h.headline,
+        detail: h.detail,
+        badge: h.badge,
+        badgeColor: h.badgeColor,
+        netFlow: h.netFlow,
+        whaleRatio: h.whaleRatio,
+        volumeRatio: h.volumeRatio,
+        price: h.price,
+        change24h: h.change24h,
+        apy_7d: h.apy_7d,
+        apy_1h: h.apy_1h,
+        apy_30d: h.apy_30d,
+        signalDate: h.detectedAt,
+        isHistorical: true,
+      }));
+
+    const all = [...liveEvents, ...historicalAsFlowEvents];
+
+    // ── Apply filter ─────────────────────────────────────────
+    const filtered = filter === "all" ? all :
+      filter === "accumulating"  ? all.filter(e => e.type === "accumulating" || e.type === "flow_inflection" || e.type === "flow_spike") :
+      filter === "distributing"  ? all.filter(e => e.type === "distributing" || e.type === "flow_warning") :
+      filter === "volume"        ? all.filter(e => e.type === "volume_surge") :
+      filter === "yield"         ? all.filter(e => e.type === "yield_spike" || e.type === "yield_dip") :
+      all.filter(e => e.type === "flow_inflection" || e.type === "flow_spike" || e.type === "flow_warning");
 
     return filtered.sort((a, b) => {
       if (sortBy === "strength") return b.strength - a.strength;
       if (sortBy === "flow") return Math.abs(b.netFlow ?? 0) - Math.abs(a.netFlow ?? 0);
       return (b.volumeRatio ?? 0) - (a.volumeRatio ?? 0);
     });
-  }, [leaderboard, signals, taoPrice, filter, sortBy]);
+  }, [liveEvents, historicalEvents, filter, sortBy]);
 
   const visibleEvents = watchlistOnly ? events.filter(ev => watchlist.has(ev.netuid)) : events;
 
@@ -316,7 +379,7 @@ export default function FlowPage() {
             <span className="text-xs text-gray-500 animate-pulse">refreshing…</span>
           )}
         </div>
-        <p className="text-sm text-gray-500">Real-time whale movements, smart money flows, unusual volume, and staking yield anomalies across all Bittensor subnets.</p>
+        <p className="text-sm text-gray-500">Whale movements, smart money flows, unusual volume, and staking yield anomalies — live and from the last 48 hours.</p>
       </div>
 
       {/* Stats strip */}
@@ -481,7 +544,9 @@ function FlowCard({
               {ev.badge}
             </span>
             {ev.signalDate && (
-              <span className="text-[10px] text-gray-600 ml-1">{formatFlowDate(ev.signalDate)}</span>
+              <span className={`text-[10px] ml-1 ${ev.isHistorical ? "text-gray-600" : "text-gray-500"}`}>
+                {formatFlowDate(ev.signalDate)}
+              </span>
             )}
           </div>
           <p className="text-sm text-gray-200 font-medium leading-snug mb-1">{ev.headline}</p>
