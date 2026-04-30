@@ -146,7 +146,7 @@ function subnetLabel(entry: ScanEntry): string {
   return name ? `${name} (SN${entry.netuid})` : `SN${entry.netuid}`;
 }
 
-const BASE_URL = "https://alphagap.io";
+const BASE_URL = "https://www.alphagap.io";
 
 // ── Main handler ──────────────────────────────────────────────────────────────
 
@@ -233,7 +233,7 @@ export async function GET(req: NextRequest) {
 
       const prev = prevSubnets[String(netuid)];
       const label = subnetLabel(current);
-      const subnetUrl = `${BASE_URL}/subnet/${netuid}`;
+      const subnetUrl = `${BASE_URL}/subnets/${netuid}`;
 
       // aGap score change
       if (settings.scoreChange?.enabled && prev) {
