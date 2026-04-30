@@ -587,17 +587,7 @@ export async function GET(req: Request) {
   const duration = Date.now() - startTime;
   console.log(`[social-pulse] Done in ${duration}ms. ${newEvents.length} new events, ${updated.events.length} total, ${kols.length} KOLs checked.`);
 
-  // Trigger alert scanner if there are new high-heat events
-  if (newEvents.some(e => e.heat_score >= 70) && process.env.BLOB_READ_WRITE_TOKEN) {
-    const base = process.env.VERCEL_URL
-      ? `https://${process.env.VERCEL_URL}`
-      : process.env.NEXTAUTH_URL || "http://localhost:3000";
-    fetch(`${base}/api/cron/alert-scanner`, {
-      headers: { Authorization: `Bearer ${process.env.CRON_SECRET || ""}` },
-      signal: AbortSignal.timeout(90_000),
-    }).then(r => console.log(`[social-pulse] Alert scanner triggered: ${r.status}`))
-      .catch(e => console.warn("[social-pulse] Alert scanner trigger failed:", e));
-  }
+  // Alert scanner is NOT triggered here — it runs on its own 5-min cron only.
 
   return NextResponse.json({
     ok: true,

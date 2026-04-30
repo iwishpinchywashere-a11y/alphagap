@@ -3690,22 +3690,16 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
     }
   }
 
-  // ── Trigger alert scanner immediately (fire-and-forget) ─────────
-  // Ensures Telegram alerts go out within ~30s of new scan data,
-  // rather than waiting for the next standalone cron window.
+  // ── Flow snapshot (fire-and-forget) ──────────────────────────────
+  // Persists whale/volume/yield signals so the flow page can show
+  // today's AND yesterday's events, even after conditions change.
+  // NOTE: alert-scanner is intentionally NOT triggered here — it runs
+  // exclusively on its own 5-min cron to prevent concurrent executions
+  // that cause duplicate Telegram alerts.
   if (isHealthyScan && process.env.BLOB_READ_WRITE_TOKEN) {
     const base = process.env.VERCEL_URL
       ? `https://${process.env.VERCEL_URL}`
       : process.env.NEXTAUTH_URL || "http://localhost:3000";
-    fetch(`${base}/api/cron/alert-scanner`, {
-      headers: { Authorization: `Bearer ${process.env.CRON_SECRET || ""}` },
-      signal: AbortSignal.timeout(90_000),
-    }).then(r => console.log(`[scan] Alert scanner triggered: ${r.status}`))
-      .catch(e => console.warn("[scan] Alert scanner trigger failed:", e));
-
-    // ── Snapshot flow events for 48h persistence (fire-and-forget) ──
-    // Persists whale/volume/yield signals so the flow page can show
-    // today's AND yesterday's events, even after conditions change.
     fetch(`${base}/api/cron/flow-snapshot`, {
       headers: { Authorization: `Bearer ${process.env.CRON_SECRET || ""}` },
       signal: AbortSignal.timeout(30_000),
