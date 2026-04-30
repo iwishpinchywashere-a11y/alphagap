@@ -331,12 +331,12 @@ export default function AlertsPage() {
                       <span className="text-gray-300 pt-0.5">
                         Open Telegram and search for{" "}
                         <a
-                          href="https://t.me/AlphaGapBot"
+                          href="https://t.me/alphagapalertsbot"
                           target="_blank"
                           rel="noopener noreferrer"
                           className="text-green-400 hover:text-green-300 underline"
                         >
-                          @AlphaGapBot
+                          @alphagapalertsbot
                         </a>
                       </span>
                     </li>

@@ -41,7 +41,7 @@ bot.onText(/\/start(?:\s+([A-Z0-9]{6}))?/i, async (msg, match) => {
         "To connect your account:\n" +
         "1\\. Go to alphagap\\.io/alerts\n" +
         "2\\. Click *Get connect code*\n" +
-        "3\\. Send `/start YOUR_CODE` here\n\n" +
+        "3\\. Send `/start YOUR_CODE` to @alphagapalertsbot\n\n" +
         "You'll start receiving real\\-time Bittensor subnet alerts\\. 🚀",
       { parse_mode: "MarkdownV2" }
     );
