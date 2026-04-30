@@ -259,13 +259,23 @@ export default function AlertsPage() {
       <div className="max-w-2xl mx-auto px-4 py-10">
 
         {/* Header */}
-        <div className="mb-10">
+        <div className="mb-6">
           <div className="flex items-center gap-3 mb-2">
             <span className="text-3xl">📡</span>
             <h1 className="text-3xl font-bold text-white">Telegram Alerts</h1>
           </div>
           <p className="text-gray-400 text-sm ml-12">
             Get real-time notifications in Telegram when your subnets hit your thresholds.
+          </p>
+        </div>
+
+        {/* Watchlist explainer */}
+        <div className="flex items-start gap-3 bg-green-500/5 border border-green-500/20 rounded-xl px-4 py-3 mb-8">
+          <span className="text-lg flex-shrink-0 mt-0.5">👁</span>
+          <p className="text-sm text-gray-300 leading-relaxed">
+            Alerts fire only for subnets on{" "}
+            <a href="/watchlist" className="text-green-400 hover:text-green-300 underline underline-offset-2">your watchlist</a>.
+            {" "}Add subnets there to start receiving alerts for them.
           </p>
         </div>
 
