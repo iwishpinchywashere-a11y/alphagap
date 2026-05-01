@@ -176,39 +176,44 @@ export async function saveAlertQueue(emailHash_: string, queue: AlertQueue): Pro
 export async function enqueueAlert(emailOrHash: string, alert: Omit<PendingAlert, "id" | "sent" | "createdAt">): Promise<void> {
   // Accept either email or pre-computed hash
   const hash = emailOrHash.includes("@") ? emailHash(emailOrHash) : emailOrHash;
+
+  // ── Deterministic alert ID ────────────────────────────────────────────────
+  // ID is a hash of (userHash + alertType + netuid + 1-hour time bucket).
+  // This makes enqueuing fully idempotent: no matter how many concurrent
+  // scanner runs fire for the same alert, they all produce the SAME id.
+  // With Vercel Blob's last-write-wins semantics, all concurrent writes just
+  // overwrite each other with identical content — one entry, sent once.
+  // Random UUIDs were the root cause of duplicates: different IDs meant the
+  // queue treated each concurrent write as a new, distinct alert.
+  const hourBucket = Math.floor(Date.now() / (60 * 60_000));
+  const alertId = crypto
+    .createHash("sha256")
+    .update(`${hash}:${alert.type}:${alert.netuid ?? "global"}:${hourBucket}`)
+    .digest("hex")
+    .slice(0, 32);
+
   const queue = await getAlertQueue(hash);
 
-  // ── Dedup: skip if ANY alert for the same subnet was queued in the last 15 min ──
-  // Using subnet-level dedup (not per-type) prevents rapid-fire multi-type
-  // alerts (e.g. priceMove + scoreChange firing simultaneously for SN8) from
-  // appearing as duplicates to the user. Only ONE notification per subnet per
-  // user within the 15-minute window is queued.
-  const dedupeWindow = new Date(Date.now() - 15 * 60_000).toISOString();
-  const isDuplicate = queue.alerts.some(
-    a =>
-      a.netuid === alert.netuid &&
-      a.createdAt > dedupeWindow
-  );
-  if (isDuplicate) return;
+  // If this exact alert ID already exists (sent or unsent), it's already
+  // handled — skip. This is the primary dedup guard.
+  if (queue.alerts.some(a => a.id === alertId)) return;
 
   const newAlert: PendingAlert = {
     ...alert,
-    id: crypto.randomUUID(),
+    id: alertId,
     createdAt: new Date().toISOString(),
     sent: false,
   };
 
-  // Retain sent alerts within the dedup window so their history is preserved.
-  // Previously we filtered out ALL sent alerts here, which wiped dedup history
-  // for other subnets — allowing them to re-fire immediately. Now we only
-  // remove sent alerts that are older than the dedup window (15 min).
-  const dedupeWindowMs = 15 * 60_000;
+  // Keep sent alerts from the last hour as dedup history (prevents the same
+  // alert re-firing if state is corrupted and the hour bucket rolls over).
+  const oneHourMs = 60 * 60_000;
   const now = Date.now();
   queue.alerts = [
     newAlert,
     ...queue.alerts.filter(a => {
-      if (!a.sent) return true;  // always keep unsent alerts
-      return now - new Date(a.createdAt).getTime() < dedupeWindowMs;  // keep recent sent as dedup history
+      if (!a.sent) return true; // always keep unsent
+      return now - new Date(a.createdAt).getTime() < oneHourMs;
     }),
   ].slice(0, 100);
   await saveAlertQueue(hash, queue);

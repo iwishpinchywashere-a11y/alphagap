@@ -282,9 +282,18 @@ function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-// Start polling immediately, then every 30s
-pollQueue();
-setInterval(pollQueue, 30_000);
+// ── Startup delay ─────────────────────────────────────────────────────────────
+// During Railway rolling deploys, the old and new bot overlap for up to 60s.
+// The old bot gets a 409 Conflict from Telegram and blocks its own queue polls.
+// But both instances can still race to poll the queue in the first few seconds
+// before the 409 arrives. Waiting 75s before the first poll guarantees the old
+// instance is fully dead before we touch the queue.
+console.log("⏳ Waiting 75s before first queue poll (deployment overlap guard)...");
+setTimeout(() => {
+  console.log("✅ Startup delay complete — beginning queue polling.");
+  pollQueue();
+  setInterval(pollQueue, 30_000);
+}, 75_000);
 
 // ─── Graceful shutdown ────────────────────────────────────────────────────────
 
