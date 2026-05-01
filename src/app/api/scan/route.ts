@@ -3705,6 +3705,12 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
       signal: AbortSignal.timeout(30_000),
     }).then(r => console.log(`[scan] Flow snapshot triggered: ${r.status}`))
       .catch(e => console.warn("[scan] Flow snapshot trigger failed:", e));
+
+    fetch(`${base}/api/cron/whale-tracker`, {
+      headers: { Authorization: `Bearer ${process.env.CRON_SECRET || ""}` },
+      signal: AbortSignal.timeout(30_000),
+    }).then(r => console.log(`[scan] Whale tracker triggered: ${r.status}`))
+      .catch(e => console.warn("[scan] Whale tracker trigger failed:", e));
   }
 
   return NextResponse.json(responseData);
