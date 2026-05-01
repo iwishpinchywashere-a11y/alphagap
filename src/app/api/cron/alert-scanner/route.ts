@@ -382,6 +382,9 @@ export async function GET(req: NextRequest) {
       }
 
       // Price movement
+      // Cooldown rules:
+      //   Normal move (>= threshold but < 2× threshold): 24-hour cooldown (once per day max)
+      //   Huge move   (>= 2× threshold, e.g. 20%+ when threshold=10%): 4-hour cooldown
       if (settings.priceMove?.enabled && current.price_change_24h != null) {
         const threshold = settings.priceMove.threshold ?? 10;
         if (Math.abs(current.price_change_24h) >= threshold) {
@@ -389,8 +392,20 @@ export async function GET(req: NextRequest) {
           const currentPrice = current.alpha_price ?? 0;
           const priceChanged = Math.abs(currentPrice - prevPrice) / Math.max(prevPrice, 0.000001) > 0.01;
           if (priceChanged) {
-            if (onCooldown(lastAlertedAt, hash, "priceMove", netuid)) {
-              console.log(`[alert-scanner] priceMove SN${netuid} → ${hash.slice(0, 8)} suppressed (cooldown)`);
+            const pmKey = `${hash}:priceMove:${netuid}`;
+            const pmLastSent = lastAlertedAt[pmKey];
+            const pmElapsed = pmLastSent ? Date.now() - new Date(pmLastSent).getTime() : Infinity;
+            const isHugeMove = Math.abs(current.price_change_24h) >= threshold * 2;
+            const pmCooldownMs = isHugeMove
+              ? 4 * 60 * 60_000   // 4 hours for huge moves (2× threshold)
+              : 24 * 60 * 60_000; // 24 hours for normal moves (once per day)
+
+            if (pmElapsed < pmCooldownMs) {
+              console.log(
+                `[alert-scanner] priceMove SN${netuid} → ${hash.slice(0, 8)} suppressed ` +
+                `(${isHugeMove ? "huge-move 4h" : "normal 24h"} cooldown, ` +
+                `${(pmElapsed / 3_600_000).toFixed(1)}h elapsed)`
+              );
             } else {
               const dir = current.price_change_24h > 0 ? "📈" : "📉";
               const sign = current.price_change_24h > 0 ? "+" : "";
