@@ -17,6 +17,7 @@
  */
 
 import TelegramBot from "node-telegram-bot-api";
+import * as fs from "fs";
 
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const ALPHAGAP_API_URL = (process.env.ALPHAGAP_API_URL || "https://www.alphagap.io").replace(/\/$/, "");
@@ -163,26 +164,60 @@ interface QueueItem {
 
 let isPolling = false;
 
-// ── In-memory dedup ───────────────────────────────────────────────────────────
-// The alert-scanner can fire multiple times in quick succession (5-min cron +
-// fire-and-forget from scan/social/discord). Blob storage has no atomic ops,
-// so concurrent scanner instances can race past all server-side guards and
-// enqueue the same alert 2-3 times. This in-memory map is the guaranteed
-// last line of defence — the bot is a single process, no race conditions.
+// ── Persistent dedup cache ────────────────────────────────────────────────────
+// The dedup map survives bot restarts by persisting to disk.
+// This is the last line of defence against any duplicates that slip through
+// the server-side guards (scanner cooldown + enqueueAlert time-based dedup).
 //
-// Key: "{chatId}:{type}:{netuid}"  →  timestamp of last send
-const recentlySent = new Map<string, number>();
-const DEDUP_WINDOW_MS = 60 * 60 * 1000; // 60 minutes — matches scanner's lastAlertedAt cooldown
+// Two independent dedup keys per alert:
+//   1. subnet key  — "subnet:{chatId}:{netuid}"    (one alert per subnet per 60 min)
+//   2. message key — "msg:{chatId}:{msgPrefix}"    (exact-message dedup, catches edge
+//                                                   cases where netuid is wrong/missing)
+//
+// Both checks must be clear for an alert to be sent. If EITHER matches, it's a dup.
 
-// Subnet-level dedup: regardless of alert type, only ONE notification per
-// subnet per user within the dedup window. This prevents rapid-fire alerts
-// (e.g. priceMove + scoreChange firing simultaneously for the same subnet)
-// from looking like duplicates to the user.
-function dedupeKey(chatId: string, alert: PendingAlert): string {
-  return `${chatId}:${alert.netuid ?? "global"}`;
+const DEDUP_WINDOW_MS = 60 * 60 * 1000; // 60 minutes
+const DEDUP_FILE = "/tmp/alphagap-dedup.json";
+
+function loadDedupeCache(): Map<string, number> {
+  try {
+    const raw = fs.readFileSync(DEDUP_FILE, "utf-8");
+    const data = JSON.parse(raw) as Record<string, number>;
+    const map = new Map<string, number>();
+    const cutoff = Date.now() - DEDUP_WINDOW_MS;
+    for (const [k, v] of Object.entries(data)) {
+      if (v > cutoff) map.set(k, v); // discard expired entries
+    }
+    console.log(`📂 Loaded ${map.size} dedup entries from disk (${DEDUP_FILE})`);
+    return map;
+  } catch {
+    console.log("📂 No dedup cache on disk — starting fresh");
+    return new Map();
+  }
 }
 
-// Prune entries older than the window to keep the map small
+function saveDedupeCache(): void {
+  try {
+    const obj: Record<string, number> = {};
+    for (const [k, v] of recentlySent) obj[k] = v;
+    fs.writeFileSync(DEDUP_FILE, JSON.stringify(obj));
+  } catch (e) {
+    console.warn("⚠️  Failed to persist dedup cache to disk:", e);
+  }
+}
+
+const recentlySent = loadDedupeCache();
+
+// Build both dedup keys for an alert. An alert is suppressed if ANY key is hot.
+function dedupeKeys(chatId: string, alert: PendingAlert): { subnetKey: string; msgKey: string } {
+  const subnetKey = `subnet:${chatId}:${alert.netuid ?? "global"}`;
+  // Use first 120 chars of message as key — identical messages for the same chat
+  // are always duplicates regardless of alert type / netuid field correctness.
+  const msgKey = `msg:${chatId}:${alert.message.slice(0, 120)}`;
+  return { subnetKey, msgKey };
+}
+
+// Prune expired entries from the map (and immediately save to disk)
 function pruneDedupeCache(): void {
   const cutoff = Date.now() - DEDUP_WINDOW_MS;
   for (const [key, ts] of recentlySent) {
@@ -220,25 +255,50 @@ async function pollQueue(): Promise<void> {
     if (!items?.length) return;
 
     const acks: { hash: string; id: string }[] = [];
+    let realSends = 0;
+    let dedupSkips = 0;
     pruneDedupeCache();
 
     for (const item of items) {
       for (const alert of item.alerts) {
-        const dk = dedupeKey(item.chatId, alert);
-        const lastSentAt = recentlySent.get(dk);
-        if (lastSentAt && Date.now() - lastSentAt < DEDUP_WINDOW_MS) {
-          // Duplicate — already sent this alert type+subnet recently.
-          // Still ack it so it clears the queue.
-          console.log(`⏭️  Dedup (subnet): skipping ${alert.type} for SN${alert.netuid} to ${item.chatId} — subnet already notified ${Math.round((Date.now() - lastSentAt) / 1000)}s ago`);
+        const { subnetKey, msgKey } = dedupeKeys(item.chatId, alert);
+        const now = Date.now();
+
+        const subnetLastSent = recentlySent.get(subnetKey);
+        const msgLastSent = recentlySent.get(msgKey);
+
+        if (subnetLastSent && now - subnetLastSent < DEDUP_WINDOW_MS) {
+          console.log(
+            `⏭️  Dedup(subnet): skip ${alert.type} SN${alert.netuid} id=${alert.id} chat=${item.chatId} — ` +
+            `subnet notified ${Math.round((now - subnetLastSent) / 1000)}s ago`
+          );
           acks.push({ hash: item.hash, id: alert.id });
+          dedupSkips++;
+          continue;
+        }
+
+        if (msgLastSent && now - msgLastSent < DEDUP_WINDOW_MS) {
+          console.log(
+            `⏭️  Dedup(msg): skip ${alert.type} SN${alert.netuid} id=${alert.id} chat=${item.chatId} — ` +
+            `identical message sent ${Math.round((now - msgLastSent) / 1000)}s ago`
+          );
+          acks.push({ hash: item.hash, id: alert.id });
+          dedupSkips++;
           continue;
         }
 
         try {
-          console.log(`📤 Sending ${alert.type} for SN${alert.netuid} to chat ${item.chatId}`);
+          console.log(
+            `📤 Sending ${alert.type} SN${alert.netuid} id=${alert.id} chat=${item.chatId} ` +
+            `msg="${alert.message.slice(0, 60).replace(/\n/g, " ")}"`
+          );
           await bot.sendMessage(item.chatId, alert.message, { parse_mode: "Markdown" });
-          recentlySent.set(dk, Date.now());
+          const ts = Date.now();
+          recentlySent.set(subnetKey, ts);
+          recentlySent.set(msgKey, ts);
+          saveDedupeCache(); // persist immediately after each real send
           acks.push({ hash: item.hash, id: alert.id });
+          realSends++;
           // Small delay to stay under Telegram rate limit (30 msg/s)
           await sleep(50);
         } catch (err: unknown) {
@@ -269,7 +329,7 @@ async function pollQueue(): Promise<void> {
         },
         body: JSON.stringify({ acks }),
       });
-      console.log(`✉️  Sent ${acks.length} alert(s)`);
+      console.log(`✉️  Poll complete — sent=${realSends} deduped=${dedupSkips} acked=${acks.length}`);
     }
   } catch (err) {
     console.error("Queue poll error:", err);
