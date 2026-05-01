@@ -1,8 +1,7 @@
 /**
  * GET /api/cron/alert-scanner
  *
- * Runs every 5 minutes (also triggered directly from /api/scan,
- * social-pulse, and discord-scan for near-real-time delivery).
+ * Runs every 5 minutes via cron.
  *
  * Compares latest scan data against the previous snapshot and
  * enqueues Telegram alerts for users whose watchlist subnets
@@ -10,12 +9,26 @@
  *
  * Alert types:
  *   scoreChange    — aGap composite score moved by >= threshold pts
- *   emissionChange — emission % moved by >= threshold %
+ *   emissionChange — emission % changed by >= threshold %
  *   priceMove      — 24h price change >= threshold %
  *   whaleActivity  — whale signal appeared / changed
  *   newSignal      — new alpha signal generated
  *   goingViralX    — new high-heat KOL tweet (heat_score >= 70)
  *   discordEntry   — new high-quality Discord entry (alphaScore >= 70)
+ *
+ * ── Dedup architecture ────────────────────────────────────────────────────────
+ * Metric-based alerts (scoreChange, emissionChange, priceMove, whaleActivity)
+ * use a per-user per-subnet per-type 60-minute cooldown stored in scanner state
+ * (lastAlertedAt). This is the authoritative dedup — it lives in the scanner
+ * itself, is written in a SINGLE state write at the end, and is checked BEFORE
+ * any enqueueAlert call. enqueueAlert has its own 15-min subnet-level dedup as
+ * a secondary safety net, and the bot has an in-memory 15-min dedup as tertiary.
+ *
+ * Event-based alerts (newSignal, goingViralX, discordEntry) use processedIds
+ * sets — these are one-fire-per-event and don't need the cooldown approach.
+ *
+ * State is written ONCE — at the end, after all alerts are processed. There is
+ * no early partial write, which was the root cause of state corruption.
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -137,7 +150,22 @@ interface ScannerState {
   processedSignalIds: number[];
   processedTweetIds: string[];
   processedDiscordKeys: string[];
+  /**
+   * Per-user per-subnet per-type cooldown for metric-based alerts.
+   * Key: "{userHash}:{alertType}:{netuid}"  →  ISO timestamp of last send.
+   * Alerts are suppressed for 60 minutes after each send.
+   * Bounded to 2000 entries (pruned by age on each write).
+   */
+  lastAlertedAt: Record<string, string>;
 }
+
+// ── Constants ─────────────────────────────────────────────────────────────────
+
+/** 60-minute hard cooldown per user per subnet per alert type */
+const ALERT_COOLDOWN_MS = 60 * 60_000;
+
+/** Global scanner run cooldown — skip if last run was < 3 minutes ago */
+const RUN_COOLDOWN_SECONDS = 180;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -147,6 +175,48 @@ function subnetLabel(entry: ScanEntry): string {
 }
 
 const BASE_URL = "https://www.alphagap.io";
+
+/**
+ * Check whether an alert for this user/type/netuid is within the cooldown window.
+ * Returns true if the alert should be SUPPRESSED (sent too recently).
+ */
+function onCooldown(
+  lastAlertedAt: Record<string, string>,
+  userHash: string,
+  alertType: string,
+  netuid: number
+): boolean {
+  const key = `${userHash}:${alertType}:${netuid}`;
+  const lastSent = lastAlertedAt[key];
+  if (!lastSent) return false;
+  return Date.now() - new Date(lastSent).getTime() < ALERT_COOLDOWN_MS;
+}
+
+/**
+ * Record that an alert was sent. Mutates the map in place.
+ */
+function recordAlert(
+  lastAlertedAt: Record<string, string>,
+  userHash: string,
+  alertType: string,
+  netuid: number
+): void {
+  const key = `${userHash}:${alertType}:${netuid}`;
+  lastAlertedAt[key] = new Date().toISOString();
+}
+
+/**
+ * Prune lastAlertedAt entries older than the cooldown window (+ buffer) to
+ * keep the blob from growing unboundedly. Keeps at most 2000 entries.
+ */
+function pruneLastAlertedAt(lastAlertedAt: Record<string, string>): Record<string, string> {
+  const cutoff = Date.now() - ALERT_COOLDOWN_MS * 2; // keep 2× window as buffer
+  const entries = Object.entries(lastAlertedAt)
+    .filter(([, ts]) => new Date(ts).getTime() > cutoff)
+    .sort(([, a], [, b]) => new Date(b).getTime() - new Date(a).getTime())
+    .slice(0, 2000);
+  return Object.fromEntries(entries);
+}
 
 // ── Main handler ──────────────────────────────────────────────────────────────
 
@@ -164,14 +234,13 @@ export async function GET(req: NextRequest) {
     readBlob<DiscordLatest>("discord-latest.json"),
   ]);
 
-  // ── 3-minute cooldown ─────────────────────────────────────────────────────
-  // The scanner is triggered by both the 5-min cron AND fire-and-forget calls
-  // from /api/scan, social-pulse, and discord-scan. Multiple invocations can
-  // overlap. The enqueueAlert dedup (15-min window) is the primary guard, but
-  // this cooldown avoids redundant full runs entirely.
+  // ── Global run cooldown ───────────────────────────────────────────────────
+  // Prevents redundant full runs from concurrent triggers.
+  // NOTE: We do NOT write an early partial state here — that was the bug.
+  // The 60-min per-alert cooldown in lastAlertedAt is the real dedup guard.
   if (prevState?.lastRunAt) {
     const secondsSinceLast = (Date.now() - new Date(prevState.lastRunAt).getTime()) / 1000;
-    if (secondsSinceLast < 180) {
+    if (secondsSinceLast < RUN_COOLDOWN_SECONDS) {
       console.log(`[alert-scanner] Last run was ${secondsSinceLast.toFixed(0)}s ago — skipping (cooldown)`);
       return NextResponse.json({ ok: true, skipped: `cooldown (${secondsSinceLast.toFixed(0)}s since last run)` });
     }
@@ -186,17 +255,14 @@ export async function GET(req: NextRequest) {
     scan.leaderboard.map(e => [e.netuid, e])
   );
 
+  // Previous state — read once, never written early
   const prevSubnets: Record<string, SubnetState> = prevState?.subnets ?? {};
   const processedSignalIds = new Set<number>(prevState?.processedSignalIds ?? []);
   const processedTweetIds = new Set<string>(prevState?.processedTweetIds ?? []);
   const processedDiscordKeys = new Set<string>(prevState?.processedDiscordKeys ?? []);
 
-  // Claim the run immediately — write lastRunAt NOW so any concurrent instance
-  // that reads the state after this point will see the cooldown and bail out.
-  await writeBlob("alert-scanner-state.json", {
-    ...(prevState ?? { subnets: {}, processedSignalIds: [], processedTweetIds: [], processedDiscordKeys: [] }),
-    lastRunAt: new Date().toISOString(),
-  });
+  // lastAlertedAt starts from previous state; we mutate this map as alerts fire
+  const lastAlertedAt: Record<string, string> = { ...(prevState?.lastAlertedAt ?? {}) };
 
   // List all connected users
   let cursor: string | undefined;
@@ -226,7 +292,7 @@ export async function GET(req: NextRequest) {
     const watchlist = watchlistData?.netuids ?? [];
     if (!watchlist.length) continue;
 
-    // ── Per-subnet alerts ────────────────────────────────────────────
+    // ── Per-subnet metric alerts ──────────────────────────────────────
     for (const netuid of watchlist) {
       const current = scanByNetuid.get(netuid);
       if (!current) continue;
@@ -240,20 +306,25 @@ export async function GET(req: NextRequest) {
         const threshold = settings.scoreChange.threshold ?? 10;
         const delta = current.composite_score - prev.score;
         if (Math.abs(delta) >= threshold) {
-          const dir = delta > 0 ? "📈" : "📉";
-          const sign = delta > 0 ? "+" : "";
-          await enqueueAlert(hash, {
-            type: "scoreChange",
-            netuid,
-            subnetName: label,
-            message:
-              `${dir} *aGap Score Alert*\n` +
-              `*${label}*\n\n` +
-              `Score moved ${sign}${delta.toFixed(1)} pts and is now *${current.composite_score.toFixed(1)}/100*.\n\n` +
-              `The aGap score combines on-chain flow, dev activity, social signals, emissions, and market momentum.\n\n` +
-              `[View subnet →](${subnetUrl})`,
-          });
-          totalAlerts++;
+          if (onCooldown(lastAlertedAt, hash, "scoreChange", netuid)) {
+            console.log(`[alert-scanner] scoreChange SN${netuid} → ${hash.slice(0, 8)} suppressed (cooldown)`);
+          } else {
+            const dir = delta > 0 ? "📈" : "📉";
+            const sign = delta > 0 ? "+" : "";
+            await enqueueAlert(hash, {
+              type: "scoreChange",
+              netuid,
+              subnetName: label,
+              message:
+                `${dir} *aGap Score Alert*\n` +
+                `*${label}*\n\n` +
+                `Score moved ${sign}${delta.toFixed(1)} pts and is now *${current.composite_score.toFixed(1)}/100*.\n\n` +
+                `The aGap score combines on-chain flow, dev activity, social signals, emissions, and market momentum.\n\n` +
+                `[View subnet →](${subnetUrl})`,
+            });
+            recordAlert(lastAlertedAt, hash, "scoreChange", netuid);
+            totalAlerts++;
+          }
         }
       }
 
@@ -262,23 +333,28 @@ export async function GET(req: NextRequest) {
         const threshold = settings.emissionChange.threshold ?? 25;
         const delta = current.emission_pct - prev.emission;
         if (Math.abs(delta) >= threshold) {
-          const dir = delta > 0 ? "⬆️" : "⬇️";
-          const sign = delta > 0 ? "+" : "";
-          const context = delta > 0
-            ? "Higher emissions mean more TAO is being distributed to this subnet's miners and validators."
-            : "Lower emissions mean this subnet is receiving a smaller share of total TAO output.";
-          await enqueueAlert(hash, {
-            type: "emissionChange",
-            netuid,
-            subnetName: label,
-            message:
-              `⚡ *Emissions Alert*\n` +
-              `*${label}*\n\n` +
-              `Emissions moved ${dir} ${sign}${delta.toFixed(2)}% and are now *${current.emission_pct.toFixed(2)}%* of total TAO output.\n\n` +
-              `${context}\n\n` +
-              `[View subnet →](${subnetUrl})`,
-          });
-          totalAlerts++;
+          if (onCooldown(lastAlertedAt, hash, "emissionChange", netuid)) {
+            console.log(`[alert-scanner] emissionChange SN${netuid} → ${hash.slice(0, 8)} suppressed (cooldown)`);
+          } else {
+            const dir = delta > 0 ? "⬆️" : "⬇️";
+            const sign = delta > 0 ? "+" : "";
+            const context = delta > 0
+              ? "Higher emissions mean more TAO is being distributed to this subnet's miners and validators."
+              : "Lower emissions mean this subnet is receiving a smaller share of total TAO output.";
+            await enqueueAlert(hash, {
+              type: "emissionChange",
+              netuid,
+              subnetName: label,
+              message:
+                `⚡ *Emissions Alert*\n` +
+                `*${label}*\n\n` +
+                `Emissions moved ${dir} ${sign}${delta.toFixed(2)}% and are now *${current.emission_pct.toFixed(2)}%* of total TAO output.\n\n` +
+                `${context}\n\n` +
+                `[View subnet →](${subnetUrl})`,
+            });
+            recordAlert(lastAlertedAt, hash, "emissionChange", netuid);
+            totalAlerts++;
+          }
         }
       }
 
@@ -290,20 +366,25 @@ export async function GET(req: NextRequest) {
           const currentPrice = current.alpha_price ?? 0;
           const priceChanged = Math.abs(currentPrice - prevPrice) / Math.max(prevPrice, 0.000001) > 0.01;
           if (priceChanged) {
-            const dir = current.price_change_24h > 0 ? "📈" : "📉";
-            const sign = current.price_change_24h > 0 ? "+" : "";
-            await enqueueAlert(hash, {
-              type: "priceMove",
-              netuid,
-              subnetName: label,
-              message:
-                `💰 *Price Alert*\n` +
-                `*${label}*\n\n` +
-                `The alpha token price moved *${sign}${current.price_change_24h.toFixed(1)}%* in the last 24 hours.` +
-                `${currentPrice ? `\nCurrent price: $${currentPrice.toFixed(4)}` : ""}\n\n` +
-                `[View on flow page →](${BASE_URL}/flow)`,
-            });
-            totalAlerts++;
+            if (onCooldown(lastAlertedAt, hash, "priceMove", netuid)) {
+              console.log(`[alert-scanner] priceMove SN${netuid} → ${hash.slice(0, 8)} suppressed (cooldown)`);
+            } else {
+              const dir = current.price_change_24h > 0 ? "📈" : "📉";
+              const sign = current.price_change_24h > 0 ? "+" : "";
+              await enqueueAlert(hash, {
+                type: "priceMove",
+                netuid,
+                subnetName: label,
+                message:
+                  `💰 *Price Alert*\n` +
+                  `*${label}*\n\n` +
+                  `The alpha token price moved *${sign}${current.price_change_24h.toFixed(1)}%* in the last 24 hours.` +
+                  `${currentPrice ? `\nCurrent price: $${currentPrice.toFixed(4)}` : ""}\n\n` +
+                  `[View on flow page →](${BASE_URL}/flow)`,
+              });
+              recordAlert(lastAlertedAt, hash, "priceMove", netuid);
+              totalAlerts++;
+            }
           }
         }
       }
@@ -312,27 +393,32 @@ export async function GET(req: NextRequest) {
       if (settings.whaleActivity?.enabled && current.whale_signal) {
         const prevWhale = prev?.whaleSignal ?? null;
         if (current.whale_signal !== prevWhale) {
-          const emoji = current.whale_signal === "accumulating" ? "🐋" : "🔴";
-          const action = current.whale_signal === "accumulating"
-            ? "accumulating — large wallets are staking into this subnet"
-            : "distributing — large wallets are unstaking from this subnet";
-          await enqueueAlert(hash, {
-            type: "whaleActivity",
-            netuid,
-            subnetName: label,
-            message:
-              `${emoji} *Whale Activity Alert*\n` +
-              `*${label}*\n\n` +
-              `Whales are ${action}.\n\n` +
-              `This is based on large TAO flow movements detected in the last 24h.\n\n` +
-              `[View on flow page →](${BASE_URL}/flow)`,
-          });
-          totalAlerts++;
+          if (onCooldown(lastAlertedAt, hash, "whaleActivity", netuid)) {
+            console.log(`[alert-scanner] whaleActivity SN${netuid} → ${hash.slice(0, 8)} suppressed (cooldown)`);
+          } else {
+            const emoji = current.whale_signal === "accumulating" ? "🐋" : "🔴";
+            const action = current.whale_signal === "accumulating"
+              ? "accumulating — large wallets are staking into this subnet"
+              : "distributing — large wallets are unstaking from this subnet";
+            await enqueueAlert(hash, {
+              type: "whaleActivity",
+              netuid,
+              subnetName: label,
+              message:
+                `${emoji} *Whale Activity Alert*\n` +
+                `*${label}*\n\n` +
+                `Whales are ${action}.\n\n` +
+                `This is based on large TAO flow movements detected in the last 24h.\n\n` +
+                `[View on flow page →](${BASE_URL}/flow)`,
+            });
+            recordAlert(lastAlertedAt, hash, "whaleActivity", netuid);
+            totalAlerts++;
+          }
         }
       }
     }
 
-    // ── New signals ──────────────────────────────────────────────────
+    // ── New signals (event-based — processedIds dedup) ────────────────
     if (settings.newSignal?.enabled && scan.signals?.length) {
       const watchlistSet = new Set(watchlist);
       for (const signal of scan.signals) {
@@ -360,7 +446,7 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // ── Going viral on X ─────────────────────────────────────────────
+    // ── Going viral on X (event-based — processedIds dedup) ──────────
     if (settings.goingViralX?.enabled && socialHot?.events?.length) {
       const watchlistSet = new Set(watchlist);
       for (const event of socialHot.events) {
@@ -387,7 +473,7 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // ── Discord entry ────────────────────────────────────────────────
+    // ── Discord entry (event-based — processedIds dedup) ─────────────
     if (settings.discordEntry?.enabled && discordLatest?.results?.length) {
       const watchlistSet = new Set(watchlist);
       for (const entry of discordLatest.results) {
@@ -415,7 +501,7 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  // Mark processed IDs after all users handled (prevents double-alerting in the same run)
+  // Mark processed event IDs after all users handled
   for (const signal of scan.signals ?? []) {
     if (signal.id) processedSignalIds.add(signal.id);
   }
@@ -428,7 +514,7 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  // Save state snapshot (bounded to last 5000 IDs each)
+  // Build new subnet snapshot
   const newSubnets: Record<string, SubnetState> = {};
   for (const entry of scan.leaderboard) {
     newSubnets[String(entry.netuid)] = {
@@ -439,12 +525,17 @@ export async function GET(req: NextRequest) {
     };
   }
 
+  // ── Single state write — happens ONCE, at the end, after all alerts fired ──
+  // This is critical: writing state before processing (the old pattern) caused
+  // stale prevWhale/prevScore values to persist when the handler timed out,
+  // leading to the same alert firing on every subsequent run.
   await writeBlob("alert-scanner-state.json", {
     lastRunAt: new Date().toISOString(),
     subnets: newSubnets,
     processedSignalIds: [...processedSignalIds].slice(-5000),
     processedTweetIds: [...processedTweetIds].slice(-5000),
     processedDiscordKeys: [...processedDiscordKeys].slice(-5000),
+    lastAlertedAt: pruneLastAlertedAt(lastAlertedAt),
   } satisfies ScannerState);
 
   const duration = Date.now() - t0;
