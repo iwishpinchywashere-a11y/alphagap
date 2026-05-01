@@ -197,7 +197,19 @@ export async function enqueueAlert(emailOrHash: string, alert: Omit<PendingAlert
     createdAt: new Date().toISOString(),
     sent: false,
   };
-  // Keep at most 100 pending alerts per user
-  queue.alerts = [newAlert, ...queue.alerts.filter(a => !a.sent)].slice(0, 100);
+
+  // Retain sent alerts within the dedup window so their history is preserved.
+  // Previously we filtered out ALL sent alerts here, which wiped dedup history
+  // for other subnets — allowing them to re-fire immediately. Now we only
+  // remove sent alerts that are older than the dedup window (15 min).
+  const dedupeWindowMs = 15 * 60_000;
+  const now = Date.now();
+  queue.alerts = [
+    newAlert,
+    ...queue.alerts.filter(a => {
+      if (!a.sent) return true;  // always keep unsent alerts
+      return now - new Date(a.createdAt).getTime() < dedupeWindowMs;  // keep recent sent as dedup history
+    }),
+  ].slice(0, 100);
   await saveAlertQueue(hash, queue);
 }

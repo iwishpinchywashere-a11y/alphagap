@@ -249,8 +249,8 @@ export async function GET(req: NextRequest) {
             message:
               `${dir} *aGap Score Alert*\n` +
               `*${label}*\n\n` +
-              `Score moved ${sign}${delta.toFixed(1)} pts and is now *${current.composite_score.toFixed(1)}/100*\.\n\n` +
-              `The aGap score combines on\\-chain flow, dev activity, social signals, emissions, and market momentum\\.\n\n` +
+              `Score moved ${sign}${delta.toFixed(1)} pts and is now *${current.composite_score.toFixed(1)}/100*.\n\n` +
+              `The aGap score combines on-chain flow, dev activity, social signals, emissions, and market momentum.\n\n` +
               `[View subnet →](${subnetUrl})`,
           });
           totalAlerts++;
@@ -265,8 +265,8 @@ export async function GET(req: NextRequest) {
           const dir = delta > 0 ? "⬆️" : "⬇️";
           const sign = delta > 0 ? "+" : "";
           const context = delta > 0
-            ? "Higher emissions mean more TAO is being distributed to this subnet's miners and validators\\."
-            : "Lower emissions mean this subnet is receiving a smaller share of total TAO output\\.";
+            ? "Higher emissions mean more TAO is being distributed to this subnet's miners and validators."
+            : "Lower emissions mean this subnet is receiving a smaller share of total TAO output.";
           await enqueueAlert(hash, {
             type: "emissionChange",
             netuid,
@@ -274,7 +274,7 @@ export async function GET(req: NextRequest) {
             message:
               `⚡ *Emissions Alert*\n` +
               `*${label}*\n\n` +
-              `Emissions moved ${dir} ${sign}${delta.toFixed(2)}% and are now *${current.emission_pct.toFixed(2)}%* of total TAO output\\.\n\n` +
+              `Emissions moved ${dir} ${sign}${delta.toFixed(2)}% and are now *${current.emission_pct.toFixed(2)}%* of total TAO output.\n\n` +
               `${context}\n\n` +
               `[View subnet →](${subnetUrl})`,
           });
@@ -299,7 +299,7 @@ export async function GET(req: NextRequest) {
               message:
                 `💰 *Price Alert*\n` +
                 `*${label}*\n\n` +
-                `The alpha token price moved *${sign}${current.price_change_24h.toFixed(1)}%* in the last 24 hours\\.` +
+                `The alpha token price moved *${sign}${current.price_change_24h.toFixed(1)}%* in the last 24 hours.` +
                 `${currentPrice ? `\nCurrent price: $${currentPrice.toFixed(4)}` : ""}\n\n` +
                 `[View on flow page →](${BASE_URL}/flow)`,
             });
@@ -323,8 +323,8 @@ export async function GET(req: NextRequest) {
             message:
               `${emoji} *Whale Activity Alert*\n` +
               `*${label}*\n\n` +
-              `Whales are ${action}\\.\n\n` +
-              `This is based on large TAO flow movements detected in the last 24h\\.\n\n` +
+              `Whales are ${action}.\n\n` +
+              `This is based on large TAO flow movements detected in the last 24h.\n\n` +
               `[View on flow page →](${BASE_URL}/flow)`,
           });
           totalAlerts++;
@@ -352,8 +352,8 @@ export async function GET(req: NextRequest) {
             `🔮 *New Alpha Signal*\n` +
             `*${label}*\n\n` +
             `*${signal.title}*\n` +
-            `${strengthLabel} \\(${signal.strength}/100\\)\n\n` +
-            `AlphaGap detected this signal from on\\-chain activity, dev commits, and market data\\.\n\n` +
+            `${strengthLabel} (${signal.strength}/100)\n\n` +
+            `AlphaGap detected this signal from on-chain activity, dev commits, and market data.\n\n` +
             `[View all signals →](${BASE_URL}/signals)`,
         });
         totalAlerts++;
@@ -378,7 +378,7 @@ export async function GET(req: NextRequest) {
           message:
             `𝕏 *Going Viral on X*\n` +
             `*${label}*\n\n` +
-            `@${event.kol_handle} posted about this subnet and it's picking up traction\\.\n` +
+            `@${event.kol_handle} posted about this subnet and it's picking up traction.\n` +
             `Heat score: *${event.heat_score}/100*\n\n` +
             `[View tweet →](${event.tweet_url})\n` +
             `[See all social activity →](${BASE_URL}/social)`,
@@ -407,7 +407,7 @@ export async function GET(req: NextRequest) {
             `💬 *Discord Activity Alert*\n` +
             `*${label}*\n\n` +
             `${entry.summary}\n\n` +
-            `Alpha score: *${entry.alphaScore}/100* — meaningful alpha discussion is happening in this subnet's Discord right now\\.\n\n` +
+            `Alpha score: *${entry.alphaScore}/100* — meaningful alpha discussion is happening in this subnet's Discord right now.\n\n` +
             `[View on social page →](${BASE_URL}/social)`,
         });
         totalAlerts++;

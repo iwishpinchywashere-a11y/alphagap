@@ -35,6 +35,28 @@ const bot = new TelegramBot(TELEGRAM_BOT_TOKEN, { polling: true });
 
 console.log("🤖 AlphaGap Telegram bot started");
 
+// ── Deployment-overlap guard ───────────────────────────────────────────────────
+// During Railway rolling deploys, the old and new bot overlap for a few seconds.
+// When the new bot starts polling Telegram, it gets a 409 Conflict error because
+// the old bot is still active. During this window, BOTH bots poll the alert
+// queue and can send the same alert twice. Fix: when we see a 409, block all
+// queue polling for 60 seconds so the old bot fully shuts down before we start.
+let deployOverlapBlocked = false;
+
+bot.on("polling_error", (error: Error & { code?: string }) => {
+  if (error?.message?.includes("409 Conflict")) {
+    if (!deployOverlapBlocked) {
+      console.warn("⚠️  409 Conflict — old bot still running. Blocking queue polls for 60s.");
+      deployOverlapBlocked = true;
+      setTimeout(() => {
+        deployOverlapBlocked = false;
+        console.log("✅ Deployment overlap window closed — resuming queue polling.");
+        pollQueue();
+      }, 60_000);
+    }
+  }
+});
+
 // ─── /start CODE ──────────────────────────────────────────────────────────────
 
 bot.onText(/\/start(?:\s+([A-Z0-9]{6}))?/i, async (msg, match) => {
@@ -173,6 +195,11 @@ async function pollQueue(): Promise<void> {
   // writes or Telegram sends, skip this tick rather than double-delivering.
   if (isPolling) {
     console.log("⏭️  Skipping poll — previous run still in progress");
+    return;
+  }
+  // Block during deployment overlap window (after 409 Conflict from Telegram)
+  if (deployOverlapBlocked) {
+    console.log("⏭️  Skipping poll — waiting for old bot instance to stop (deployment overlap)");
     return;
   }
   isPolling = true;
