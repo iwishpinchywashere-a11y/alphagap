@@ -172,7 +172,7 @@ let isPolling = false;
 //
 // Key: "{chatId}:{type}:{netuid}"  →  timestamp of last send
 const recentlySent = new Map<string, number>();
-const DEDUP_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
+const DEDUP_WINDOW_MS = 60 * 60 * 1000; // 60 minutes — matches scanner's lastAlertedAt cooldown
 
 // Subnet-level dedup: regardless of alert type, only ONE notification per
 // subnet per user within the dedup window. This prevents rapid-fire alerts
