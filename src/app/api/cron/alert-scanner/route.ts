@@ -159,12 +159,21 @@ interface ScannerState {
   lastAlertedAt: Record<string, string>;
 }
 
+/**
+ * Separate lock blob — written immediately at the START of each run.
+ * Stored in a different file from ScannerState so claiming the run
+ * never corrupts the main state (which is only written at the end).
+ */
+interface ScannerLock {
+  lockedAt: string;
+}
+
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 /** 60-minute hard cooldown per user per subnet per alert type */
 const ALERT_COOLDOWN_MS = 60 * 60_000;
 
-/** Global scanner run cooldown — skip if last run was < 3 minutes ago */
+/** Minimum seconds between scanner runs — enforced by the lock blob */
 const RUN_COOLDOWN_SECONDS = 180;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -227,24 +236,38 @@ export async function GET(req: NextRequest) {
 
   const t0 = Date.now();
 
-  const [scan, prevState, socialHot, discordLatest] = await Promise.all([
-    readBlob<ScanLatest>("scan-latest.json"),
+  // ── Run lock (separate blob, written immediately) ─────────────────────────
+  // We read and write a dedicated lock blob BEFORE reading main state.
+  // This is the mutex that prevents concurrent scanner runs from racing past
+  // the cooldown check. The lock blob is small (just a timestamp) and is
+  // written before we do any meaningful work. The main state blob is NEVER
+  // written early — only once, at the end, after all alerts are processed.
+  //
+  // Without this: two concurrent invocations both read prevState.lastRunAt,
+  // both see "5 minutes have passed", both proceed, and both send the same
+  // alerts. The lock blob is the atomic claim that prevents this.
+  const [lock, prevState, scan, socialHot, discordLatest] = await Promise.all([
+    readBlob<ScannerLock>("alert-scanner-lock.json"),
     readBlob<ScannerState>("alert-scanner-state.json"),
+    readBlob<ScanLatest>("scan-latest.json"),
     readBlob<SocialHot>("social-hot.json"),
     readBlob<DiscordLatest>("discord-latest.json"),
   ]);
 
-  // ── Global run cooldown ───────────────────────────────────────────────────
-  // Prevents redundant full runs from concurrent triggers.
-  // NOTE: We do NOT write an early partial state here — that was the bug.
-  // The 60-min per-alert cooldown in lastAlertedAt is the real dedup guard.
-  if (prevState?.lastRunAt) {
-    const secondsSinceLast = (Date.now() - new Date(prevState.lastRunAt).getTime()) / 1000;
+  // ── Global run cooldown (enforced by lock blob) ───────────────────────────
+  if (lock?.lockedAt) {
+    const secondsSinceLast = (Date.now() - new Date(lock.lockedAt).getTime()) / 1000;
     if (secondsSinceLast < RUN_COOLDOWN_SECONDS) {
       console.log(`[alert-scanner] Last run was ${secondsSinceLast.toFixed(0)}s ago — skipping (cooldown)`);
       return NextResponse.json({ ok: true, skipped: `cooldown (${secondsSinceLast.toFixed(0)}s since last run)` });
     }
   }
+
+  // Claim the run — write the lock NOW (before any alert processing).
+  // Any concurrent invocation that reads this lock after this write will see
+  // a fresh timestamp and bail out. This blob contains NO state data, so
+  // writing it here cannot corrupt the main ScannerState.
+  await writeBlob("alert-scanner-lock.json", { lockedAt: new Date().toISOString() } satisfies ScannerLock);
 
   if (!scan?.leaderboard?.length) {
     console.log("[alert-scanner] No scan data available, skipping.");
