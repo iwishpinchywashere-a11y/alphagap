@@ -15,6 +15,7 @@ function SignUpForm() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState("");
+  const [turnstileError, setTurnstileError] = useState(false);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -150,13 +151,20 @@ function SignUpForm() {
 
           {/* Cloudflare Turnstile — only renders when NEXT_PUBLIC_TURNSTILE_SITE_KEY is set */}
           {TURNSTILE_SITE_KEY && (
-            <div className="flex justify-center">
+            <div className="flex flex-col items-center gap-2">
               <Turnstile
                 siteKey={TURNSTILE_SITE_KEY}
-                onSuccess={setTurnstileToken}
+                onSuccess={(token) => { setTurnstileToken(token); setTurnstileError(false); }}
                 onExpire={() => setTurnstileToken("")}
+                onError={() => { setTurnstileToken(""); setTurnstileError(true); }}
                 options={{ theme: "dark", size: "normal" }}
               />
+              {turnstileError && (
+                <p className="text-xs text-amber-400 text-center leading-relaxed">
+                  CAPTCHA check failed — this can happen with VPNs or certain browsers.
+                  Try disabling your VPN, refreshing the page, or using a different browser.
+                </p>
+              )}
             </div>
           )}
 
