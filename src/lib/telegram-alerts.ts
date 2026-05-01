@@ -178,15 +178,14 @@ export async function enqueueAlert(emailOrHash: string, alert: Omit<PendingAlert
   const hash = emailOrHash.includes("@") ? emailHash(emailOrHash) : emailOrHash;
   const queue = await getAlertQueue(hash);
 
-  // ── Dedup: skip if same type+netuid was queued in the last 15 minutes ──
-  // The alert-scanner can run concurrently (cron + fire-and-forget triggers
-  // from scan/social-pulse/discord-scan). Two instances can read the same
-  // old state and both detect the same threshold crossing. This dedup is
-  // the last line of defence regardless of how many scanner instances fire.
+  // ── Dedup: skip if ANY alert for the same subnet was queued in the last 15 min ──
+  // Using subnet-level dedup (not per-type) prevents rapid-fire multi-type
+  // alerts (e.g. priceMove + scoreChange firing simultaneously for SN8) from
+  // appearing as duplicates to the user. Only ONE notification per subnet per
+  // user within the 15-minute window is queued.
   const dedupeWindow = new Date(Date.now() - 15 * 60_000).toISOString();
   const isDuplicate = queue.alerts.some(
     a =>
-      a.type === alert.type &&
       a.netuid === alert.netuid &&
       a.createdAt > dedupeWindow
   );

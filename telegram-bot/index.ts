@@ -152,8 +152,12 @@ let isPolling = false;
 const recentlySent = new Map<string, number>();
 const DEDUP_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
 
+// Subnet-level dedup: regardless of alert type, only ONE notification per
+// subnet per user within the dedup window. This prevents rapid-fire alerts
+// (e.g. priceMove + scoreChange firing simultaneously for the same subnet)
+// from looking like duplicates to the user.
 function dedupeKey(chatId: string, alert: PendingAlert): string {
-  return `${chatId}:${alert.type}:${alert.netuid ?? ""}`;
+  return `${chatId}:${alert.netuid ?? "global"}`;
 }
 
 // Prune entries older than the window to keep the map small
@@ -198,12 +202,13 @@ async function pollQueue(): Promise<void> {
         if (lastSentAt && Date.now() - lastSentAt < DEDUP_WINDOW_MS) {
           // Duplicate — already sent this alert type+subnet recently.
           // Still ack it so it clears the queue.
-          console.log(`⏭️  Dedup: skipping ${alert.type} for SN${alert.netuid} (sent ${Math.round((Date.now() - lastSentAt) / 1000)}s ago)`);
+          console.log(`⏭️  Dedup (subnet): skipping ${alert.type} for SN${alert.netuid} to ${item.chatId} — subnet already notified ${Math.round((Date.now() - lastSentAt) / 1000)}s ago`);
           acks.push({ hash: item.hash, id: alert.id });
           continue;
         }
 
         try {
+          console.log(`📤 Sending ${alert.type} for SN${alert.netuid} to chat ${item.chatId}`);
           await bot.sendMessage(item.chatId, alert.message, { parse_mode: "Markdown" });
           recentlySent.set(dk, Date.now());
           acks.push({ hash: item.hash, id: alert.id });
