@@ -35,10 +35,13 @@ const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY || "";
 
 // ── Bittensor Founder tracking ────────────────────────────────────────────────
 // Const's known Discord usernames (case-insensitive, add more if display name changes)
-const FOUNDER_USERNAMES = new Set(["consttt", "constt", "const"]);
-// Discord user IDs never change — add Const's once confirmed from a live message
+// Match on username (account handle) AND global_name (display name).
+// Const's display name is "const [τ, τ]" — username may differ; we catch both.
+// Any account whose username OR display name starts with "const" is treated as the founder.
+const FOUNDER_USERNAMES = new Set(["consttt", "constt", "const", "const.tt"]);
+// Discord user IDs never change — more reliable than name matching
 const FOUNDER_USER_IDS = new Set<string>([
-  // "123456789012345678",  // populate from a message log once confirmed
+  "229609371013029888", // const [τ, τ] — confirmed from live Bittensor Discord messages
 ]);
 
 // Prioritise channels we can map to a netuid — cap at 120 to maximise coverage
@@ -49,6 +52,9 @@ const MESSAGES_PER_CHANNEL = 100;
 const MIN_MESSAGES_TO_ANALYZE = 1;
 // Delay between channel fetches (ms)
 const RATE_LIMIT_DELAY = 80;
+// Founder post lookback window — longer than the regular 24h scan so we don't miss posts
+// when the cron hiccups or Const posts outside the normal scan window
+const FOUNDER_LOOKBACK_HOURS = 72;
 // Minimum entries to surface on the social page — if below this, relax signal thresholds
 const MIN_ENTRIES_TARGET = 10;
 
@@ -74,9 +80,11 @@ export async function GET() {
     });
 
     const channelsToScan = sorted.slice(0, MAX_CHANNELS);
-    // 24h window — gives every channel a full day to accumulate messages.
-    // The cron runs every 3h so results refresh frequently with fresh data.
-    const afterSnowflake = getHoursAgoSnowflake(24);
+    // Fetch 72h of messages — the full window needed for founder post detection.
+    // Regular AI analysis uses only the 24h subset; founder scan uses all 72h.
+    // This catches Const's posts even if the cron missed a run or two.
+    const afterSnowflake72h = getHoursAgoSnowflake(FOUNDER_LOOKBACK_HOURS);
+    const cutoff24h = Date.now() - 24 * 60 * 60 * 1000;
 
     // 2. Fetch messages from each channel
     const channelScans: Array<{
@@ -90,7 +98,7 @@ export async function GET() {
       try {
         const messages = await fetchChannelMessages(DISCORD_TOKEN, channel.id, {
           limit: MESSAGES_PER_CHANNEL,
-          after: afterSnowflake,
+          after: afterSnowflake72h,
         });
 
         channelScans.push({
@@ -107,8 +115,14 @@ export async function GET() {
       }
     }
 
+    // For AI analysis, only use messages from the last 24h (keeps results fresh)
+    const channelScans24h = channelScans.map(c => ({
+      ...c,
+      messages: c.messages.filter(m => new Date(m.timestamp).getTime() >= cutoff24h),
+    }));
+
     // 3. Filter to channels with enough activity
-    const activeChannels = channelScans.filter(c => c.messages.length >= MIN_MESSAGES_TO_ANALYZE);
+    const activeChannels = channelScans24h.filter(c => c.messages.length >= MIN_MESSAGES_TO_ANALYZE);
     console.log(`[discord-scan] ${activeChannels.length} channels have ${MIN_MESSAGES_TO_ANALYZE}+ messages in last 24h`);
 
     // 4. Batch AI analysis — group channels into batches of 6
@@ -122,7 +136,8 @@ export async function GET() {
       results.push(...batchResults);
     }
 
-    // ── Founder post detection ─────────────────────────────────────────────────
+    // ── Founder post detection (full 72h window) ───────────────────────────────
+    // Pass the full 72h channelScans so we catch posts from up to 3 days ago.
     const founderResult = await analyzeFounderPosts(channelScans);
     if (founderResult) {
       results.unshift(founderResult); // pin to top
@@ -130,7 +145,7 @@ export async function GET() {
     }
 
     // Add quiet channels (no messages) as "quiet" without AI analysis
-    for (const scan of channelScans) {
+    for (const scan of channelScans24h) {
       if (scan.messages.length < MIN_MESSAGES_TO_ANALYZE) {
         results.push({
           channelId: scan.channelId,
@@ -475,7 +490,14 @@ async function analyzeFounderPosts(
     for (const msg of scan.messages) {
       if (msg.author.bot) continue;
       const uname = msg.author.username.toLowerCase();
-      const isFounder = FOUNDER_USERNAMES.has(uname) || FOUNDER_USER_IDS.has(msg.author.id);
+      const displayName = (msg.author.global_name ?? "").toLowerCase();
+      // Match on: known usernames, known user ID, or any account whose
+      // username/display-name starts with "const" (catches "const [τ, τ]" variants)
+      const isFounder =
+        FOUNDER_USERNAMES.has(uname) ||
+        FOUNDER_USER_IDS.has(msg.author.id) ||
+        uname.startsWith("const") ||
+        displayName.startsWith("const");
       if (isFounder && msg.content.trim().length > 15) {
         found.push({ channelName: scan.channelName, netuid: scan.netuid, msg });
       }
@@ -483,7 +505,7 @@ async function analyzeFounderPosts(
   }
 
   if (found.length === 0) {
-    console.log("[discord-scan] No founder posts found in last 24h");
+    console.log("[discord-scan] No founder posts found in last 72h");
     return null;
   }
 
