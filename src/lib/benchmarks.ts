@@ -3,6 +3,11 @@
 // Source: AlphaGap Benchmark Integration (April 3, 2026)
 // Data from: taoflute.com, taostats.io, subnetalpha.ai, subnet documentation
 
+export interface BenchmarkDashboard {
+  url: string;
+  label: string;   // short display label e.g. "Stats Dashboard", "Tokenomics"
+}
+
 export interface BenchmarkEntry {
   subnet_id: number;
   subnet_name: string;
@@ -16,6 +21,7 @@ export interface BenchmarkEntry {
   annual_revenue_usd: number;    // 0 if pre-revenue
   last_updated: string;
   sources: string[];
+  dashboards?: BenchmarkDashboard[];   // official live stats/analytics pages
 }
 
 export const BENCHMARK_DATA: BenchmarkEntry[] = [
@@ -34,6 +40,10 @@ export const BENCHMARK_DATA: BenchmarkEntry[] = [
     sources: [
       "https://subnetalpha.ai/subnet/chutes/",
       "https://www.ainvest.com/news/decentralized-ai-rising-cost-efficiency-network-growth-bittensor-subnet-62-2509/",
+    ],
+    dashboards: [
+      { url: "https://chutes.ai/app/research", label: "Network Stats" },
+      { url: "https://chutes.ai/app/research/utilization", label: "Utilization" },
     ],
   },
   {
@@ -66,6 +76,9 @@ export const BENCHMARK_DATA: BenchmarkEntry[] = [
     last_updated: "2026-04-03",
     sources: [
       "https://www.youtube.com/watch?v=2Nl7STjDs54",
+    ],
+    dashboards: [
+      { url: "https://stats.targon.com/", label: "Live Stats" },
     ],
   },
   {
@@ -115,6 +128,9 @@ export const BENCHMARK_DATA: BenchmarkEntry[] = [
     last_updated: "2026-04-03",
     sources: [
       "https://simplytao.ai/blog/your-simple-guide-to-hippius-sn75",
+    ],
+    dashboards: [
+      { url: "https://hipstats.com/", label: "Network Stats" },
     ],
   },
   {
@@ -239,6 +255,10 @@ export const BENCHMARK_DATA: BenchmarkEntry[] = [
       "https://subnetalpha.ai/subnet/bitcast/",
       "https://github.com/bitcast-network/bitcast",
     ],
+    dashboards: [
+      { url: "https://stats.bitcast.network/", label: "Creator Stats" },
+      { url: "https://dashboard.bitcast.network/", label: "Campaign Dashboard" },
+    ],
   },
   {
     subnet_id: 44,
@@ -293,6 +313,9 @@ export const BENCHMARK_DATA: BenchmarkEntry[] = [
       "https://www.natix.network/",
       "https://thedefiant.io/news/press-releases/natix-launches-decentralized-ai-subnet-on-bittensor-to-advance-autonomous-driving-and-physical-ai",
     ],
+    dashboards: [
+      { url: "https://coverage.natix.network/", label: "Coverage Map" },
+    ],
   },
   // ── APRIL 2026 RESEARCH SWEEP — 43 NEW ENTRIES ───────────────────
   {
@@ -336,6 +359,9 @@ export const BENCHMARK_DATA: BenchmarkEntry[] = [
     annual_revenue_usd: 100000,
     last_updated: "2026-04-07",
     sources: ["https://macrocosmos.ai/"],
+    dashboards: [
+      { url: "https://sn13-dashboard.api.macrocosmos.ai/", label: "Data Universe" },
+    ],
   },
   {
     subnet_id: 6,
@@ -532,6 +558,9 @@ export const BENCHMARK_DATA: BenchmarkEntry[] = [
     annual_revenue_usd: 0,
     last_updated: "2026-04-07",
     sources: ["https://www.loosh.ai/"],
+    dashboards: [
+      { url: "https://subnet.loosh.ai/", label: "Miner Stats" },
+    ],
   },
   {
     subnet_id: 36,
@@ -574,6 +603,9 @@ export const BENCHMARK_DATA: BenchmarkEntry[] = [
     annual_revenue_usd: 0,
     last_updated: "2026-04-07",
     sources: ["https://iota.macrocosmos.ai/"],
+    dashboards: [
+      { url: "https://iota.macrocosmos.ai/", label: "Live Dashboard" },
+    ],
   },
   {
     subnet_id: 1,
@@ -588,6 +620,9 @@ export const BENCHMARK_DATA: BenchmarkEntry[] = [
     annual_revenue_usd: 0,
     last_updated: "2026-04-07",
     sources: ["https://macrocosmos.ai/"],
+    dashboards: [
+      { url: "https://apex.macrocosmos.ai/", label: "Miner Leaderboard" },
+    ],
   },
   {
     subnet_id: 31,
@@ -940,6 +975,128 @@ export const BENCHMARK_DATA: BenchmarkEntry[] = [
     sources: [
       "https://x.com/affine_io/status/2041999022110490923",
       "https://subnetalpha.ai/subnet/affine/",
+    ],
+  },
+  // ── NEW ENTRIES — Subnets with first-party live dashboards ──────────────
+  {
+    subnet_id: 3,
+    subnet_name: "Templar",
+    benchmark_score: 82,
+    benchmark_category: "AI Training",
+    vs_provider: "Meta / EleutherAI / Mistral distributed training",
+    cost_saving_pct: 90,
+    perf_delta: "72B model training live — distributed across global miners",
+    benchmark_summary: "Templar (SN3) is a decentralized large-language-model training subnet — miners contribute compute to train a 72B parameter model collaboratively, with live loss curves and step-based training metrics tracked on the public dashboard. One of the most active training subnets on Bittensor with real-time miner incentive scoring. Dashboard shows model size, training step, loss function, throughput, and miner leaderboard.",
+    active_users: "Distributed miners globally",
+    annual_revenue_usd: 0,
+    last_updated: "2026-05-04",
+    sources: ["https://www.tplr.ai/"],
+    dashboards: [
+      { url: "https://www.tplr.ai/dashboard", label: "Training Dashboard" },
+    ],
+  },
+  {
+    subnet_id: 8,
+    subnet_name: "Taoshi PTN",
+    benchmark_score: 84,
+    benchmark_category: "Finance & Trading",
+    vs_provider: "Two Sigma / Renaissance Technologies / Numerai",
+    cost_saving_pct: 80,
+    perf_delta: "Decentralized quant fund — miners compete on risk-adjusted trading returns",
+    benchmark_summary: "Taoshi's Proprietary Trading Network (SN8) aggregates competing AI trading strategies from miners into a decentralized hedge fund layer. Miners submit positions across crypto, forex, and equities — validators score on risk-adjusted returns. Dashboard tracks individual miner portfolio performance, drawdown, and live trade signals. Tokenomics dashboard at tokenomics.taoshi.io tracks registrations, collateral, and burn mechanics.",
+    active_users: "Institutional traders + miners",
+    annual_revenue_usd: 500000,
+    last_updated: "2026-05-04",
+    sources: ["https://taoshi.io/"],
+    dashboards: [
+      { url: "https://dashboard.taoshi.io/", label: "Trading Dashboard" },
+      { url: "https://tokenomics.taoshi.io/", label: "Tokenomics" },
+    ],
+  },
+  {
+    subnet_id: 12,
+    subnet_name: "ComputeHorde",
+    benchmark_score: 74,
+    benchmark_category: "AI Compute",
+    vs_provider: "CoreWeave / Lambda Labs / Vast.ai",
+    cost_saving_pct: 70,
+    perf_delta: "Decentralized GPU compute with on-chain job verification",
+    benchmark_summary: "ComputeHorde (SN12) is a decentralized compute network where miners run GPU workloads submitted by validators, who verify results using organic job requests. Jobs include LLM inference, image generation, and custom ML tasks. Metagraph and community contributions are tracked live via a Grafana dashboard at grafana.bittensor.church. Strong active community with transparent on-chain metrics.",
+    active_users: "GPU compute users",
+    annual_revenue_usd: 0,
+    last_updated: "2026-05-04",
+    sources: ["https://github.com/backend-developers-ltd/ComputeHorde"],
+    dashboards: [
+      { url: "https://grafana.bittensor.church/d/subnet/metagraph-subnet?var-subnet=12", label: "Grafana Dashboard" },
+    ],
+  },
+  {
+    subnet_id: 27,
+    subnet_name: "Neural Internet",
+    benchmark_score: 77,
+    benchmark_category: "AI Compute",
+    vs_provider: "CoreWeave / Vast.ai / RunPod",
+    cost_saving_pct: 80,
+    perf_delta: "H100/A100 GPUs from $0.37/hr — first revenue-generating Bittensor subnet",
+    benchmark_summary: "Neural Internet (SN27) is a decentralized GPU compute marketplace — the first revenue-generating subnet on Bittensor. Miners provide NVIDIA H100, A100, and L40S GPUs available for instant deployment at competitive rates starting at $0.37/hr. Live stats dashboard shows GPU availability, pricing, and deployment metrics in real time. Also integrated with WandB for raw training metrics.",
+    active_users: "AI compute users",
+    annual_revenue_usd: 200000,
+    last_updated: "2026-05-04",
+    sources: ["https://www.neuralinternet.ai/"],
+    dashboards: [
+      { url: "https://compute.neuralinternet.ai/", label: "GPU Marketplace" },
+    ],
+  },
+  {
+    subnet_id: 34,
+    subnet_name: "BitMind",
+    benchmark_score: 80,
+    benchmark_category: "Security & Trust",
+    vs_provider: "Hive Moderation / AWS Rekognition / Google SafeSearch",
+    cost_saving_pct: 75,
+    perf_delta: "Decentralized deepfake detection — distributed AI content authentication",
+    benchmark_summary: "BitMind (SN34) is a decentralized AI content detection network specializing in deepfake identification. Miners run competing AI models that detect AI-generated images and video; validators challenge miners with new synthetic media. Dashboard tracks model accuracy scores, detection rates, and miner performance in a competitive leaderboard. Addresses the growing $4B+ AI content detection market as deepfake proliferation accelerates.",
+    active_users: "Enterprise content platforms",
+    annual_revenue_usd: 0,
+    last_updated: "2026-05-04",
+    sources: ["https://bitmind.ai/"],
+    dashboards: [
+      { url: "https://app.bitmind.ai/dashboard", label: "Detection Dashboard" },
+    ],
+  },
+  {
+    subnet_id: 46,
+    subnet_name: "RESI Labs",
+    benchmark_score: 78,
+    benchmark_category: "Data & Intelligence",
+    vs_provider: "Zillow Zestimate / CoreLogic / ATTOM Data",
+    cost_saving_pct: 85,
+    perf_delta: "Real estate AI — transparent model vs actual sales, winner-takes-all miners",
+    benchmark_summary: "RESI Labs (SN46) is a decentralized real estate super-intelligence subnet. Miners train valuation models scored against actual closed sales in real time. The public dashboard is notably transparent — it shows exactly which model is generating property valuations, model performance vs. real sales data, field-level confidence scores, and winner-takes-all miner rankings. Portal provides API access and usage stats for enterprise integrations.",
+    active_users: "Real estate professionals + API",
+    annual_revenue_usd: 0,
+    last_updated: "2026-05-04",
+    sources: ["https://www.resilabs.ai/"],
+    dashboards: [
+      { url: "https://dashboard.resilabs.ai/", label: "Model Dashboard" },
+      { url: "https://portal.resilabs.ai/", label: "Developer Portal" },
+    ],
+  },
+  {
+    subnet_id: 82,
+    subnet_name: "Hermes (SubQuery)",
+    benchmark_score: 68,
+    benchmark_category: "Data & Intelligence",
+    vs_provider: "The Graph / Dune Analytics / Moralis",
+    cost_saving_pct: 70,
+    perf_delta: "AI-powered natural language blockchain queries — decentralized GraphQL",
+    benchmark_summary: "Hermes (SN82) by SubQuery is a decentralized blockchain data intelligence network. Miners process natural language queries and return structured blockchain data via an AI-powered GraphQL interface. The live portal at ask.hermes-subnet.ai lets anyone query complex on-chain data in plain English without writing code. SubQuery is an established Web3 infrastructure company (indexed $2B+ in protocol revenue on Polkadot).",
+    active_users: "Web3 developers + analysts",
+    annual_revenue_usd: 0,
+    last_updated: "2026-05-04",
+    sources: ["https://subquery.network/"],
+    dashboards: [
+      { url: "https://ask.hermes-subnet.ai/", label: "Query Portal" },
     ],
   },
 ];

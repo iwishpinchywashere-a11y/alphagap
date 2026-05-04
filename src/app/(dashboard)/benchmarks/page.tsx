@@ -261,6 +261,25 @@ export default function BenchmarksPage() {
                         <div className="text-sm text-gray-400">{b.last_updated}</div>
                       </div>
                     </div>
+                    {b.dashboards && b.dashboards.length > 0 && (
+                      <div>
+                        <div className="text-[10px] text-gray-500 uppercase tracking-wider font-medium mb-1.5">Live Dashboards</div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {b.dashboards.map((d, di) => (
+                            <a
+                              key={di}
+                              href={d.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={e => e.stopPropagation()}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-[11px] font-medium text-emerald-400 hover:bg-emerald-500/20 hover:border-emerald-500/50 transition-colors"
+                            >
+                              📊 {d.label} ↗
+                            </a>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                     <div>
                       <div className="text-[10px] text-gray-500 uppercase tracking-wider font-medium mb-1">Sources</div>
                       <div className="flex flex-wrap gap-1.5">
@@ -380,6 +399,25 @@ export default function BenchmarksPage() {
                               <div className="text-sm text-gray-400">{b.last_updated}</div>
                             </div>
                           </div>
+                          {b.dashboards && b.dashboards.length > 0 && (
+                            <div>
+                              <div className="text-[10px] text-gray-500 uppercase tracking-wider font-medium mb-1.5">Live Dashboards</div>
+                              <div className="flex flex-wrap gap-1.5">
+                                {b.dashboards.map((d, di) => (
+                                  <a
+                                    key={di}
+                                    href={d.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    onClick={e => e.stopPropagation()}
+                                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-[11px] font-medium text-emerald-400 hover:bg-emerald-500/20 hover:border-emerald-500/50 transition-colors"
+                                  >
+                                    📊 {d.label} ↗
+                                  </a>
+                                ))}
+                              </div>
+                            </div>
+                          )}
                           <div>
                             <div className="text-[10px] text-gray-500 uppercase tracking-wider font-medium mb-1">Sources</div>
                             <div className="flex flex-wrap gap-1.5">
