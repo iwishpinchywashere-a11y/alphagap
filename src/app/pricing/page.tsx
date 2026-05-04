@@ -29,6 +29,7 @@ const PLANS = [
     highlight: true,
     features: [
       "Everything in Pro",
+      "📡 Telegram Alerts — 7 customisable alert types, straight to your phone",
       "Investing Analysis — long-term aGap scoring designed for serious investors",
       "Whale & smart money tracking",
       "Twitter/X social momentum feed",
@@ -149,6 +150,48 @@ export default function PricingPage() {
               </button>
             </div>
           ))}
+        </div>
+
+        {/* Telegram Alerts — Premium feature callout */}
+        <div className="mb-8 bg-gradient-to-b from-blue-950/30 to-gray-900/30 border border-blue-500/20 rounded-2xl p-6 relative overflow-hidden">
+          {/* Subtle glow */}
+          <div className="absolute -top-16 right-0 w-64 h-64 bg-blue-500/[0.06] rounded-full blur-[80px] pointer-events-none" />
+
+          <div className="relative">
+            <div className="flex items-center gap-2 mb-4">
+              <span className="text-2xl">📡</span>
+              <div>
+                <h3 className="text-base font-bold text-white">Telegram Alerts <span className="ml-1 text-xs bg-blue-500/20 border border-blue-500/30 text-blue-400 px-2 py-0.5 rounded-full font-semibold uppercase tracking-wider">Premium</span></h3>
+                <p className="text-xs text-gray-500">Real-time alerts. Straight to your phone.</p>
+              </div>
+            </div>
+
+            <p className="text-sm text-gray-400 leading-relaxed mb-5">
+              Stop refreshing dashboards. AlphaGap monitors every subnet on your watchlist 24/7 and pings you the moment something worth acting on happens — whale accumulation, dev spike, Discord alpha, viral post, or price move.
+            </p>
+
+            <div className="grid grid-cols-2 gap-2 mb-5">
+              {[
+                { icon: "📊", label: "aGap Score Change" },
+                { icon: "⚡", label: "Emissions Change" },
+                { icon: "🔮", label: "Development Updates" },
+                { icon: "🐋", label: "Whale / Volume Surge" },
+                { icon: "💬", label: "Discord Alpha" },
+                { icon: "𝕏", label: "Going Viral on X" },
+                { icon: "💰", label: "Price Movement" },
+              ].map(a => (
+                <div key={a.label} className="flex items-center gap-2 text-xs text-gray-400">
+                  <span className="text-base leading-none flex-shrink-0">{a.icon}</span>
+                  <span>{a.label}</span>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex items-center gap-2 bg-green-500/5 border border-green-500/15 rounded-xl px-4 py-2.5">
+              <span className="text-base">⚙️</span>
+              <p className="text-xs text-gray-400 leading-snug">Every alert is fully customisable — set score thresholds, pick which subnets, pause anytime.</p>
+            </div>
+          </div>
         </div>
 
         {/* Learn more */}

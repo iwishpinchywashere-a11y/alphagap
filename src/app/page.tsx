@@ -413,6 +413,161 @@ export default function LandingPage() {
 
       {/* aGap section moved below "How it works" */}
 
+      {/* Telegram Alerts — Premium feature showcase */}
+      <section className="py-24 px-6 relative overflow-hidden">
+        {/* Background accent */}
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-blue-950/10 to-transparent pointer-events-none" />
+        <div className="absolute top-1/2 left-1/4 -translate-y-1/2 w-[500px] h-[500px] bg-blue-500/[0.04] rounded-full blur-[100px] pointer-events-none" />
+
+        <div className="relative max-w-5xl mx-auto">
+          {/* Section header */}
+          <div className="text-center mb-14">
+            <div className="inline-flex items-center gap-2 bg-blue-500/10 border border-blue-500/20 rounded-full px-4 py-1.5 mb-5">
+              <span className="text-blue-400 text-xs font-bold uppercase tracking-widest">Premium</span>
+            </div>
+            <h2 className="text-3xl sm:text-4xl font-bold mb-4">
+              Don&apos;t watch the screen.<br />
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-300">Let the screen watch for you.</span>
+            </h2>
+            <p className="text-gray-400 text-lg max-w-2xl mx-auto leading-relaxed">
+              AlphaGap Premium connects directly to your Telegram. The moment something worth acting on happens — price move, dev spike, whale accumulation, viral post — you get a ping. No dashboards. No FOMO.
+            </p>
+          </div>
+
+          {/* Main layout: mock alert feed left + alert types right */}
+          <div className="grid lg:grid-cols-2 gap-10 items-start">
+
+            {/* Left: Telegram message mockups */}
+            <div className="relative">
+              {/* Phone chrome */}
+              <div className="bg-[#0d0d14] border border-white/10 rounded-2xl p-4 shadow-2xl">
+                {/* Chat header */}
+                <div className="flex items-center gap-3 mb-4 pb-3 border-b border-white/5">
+                  <div className="w-9 h-9 rounded-full bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center text-black font-bold text-sm flex-shrink-0">α</div>
+                  <div>
+                    <div className="text-white text-sm font-semibold">AlphaGap Alerts Bot</div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-green-400"></span>
+                      <span className="text-gray-500 text-xs">online</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Messages */}
+                <div className="space-y-3 text-sm">
+                  {/* Whale alert */}
+                  <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl px-3.5 py-3">
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <span className="text-base">🐋</span>
+                      <span className="font-semibold text-blue-300">Whale Activity — SN19 Nineteen</span>
+                    </div>
+                    <p className="text-gray-300 text-xs leading-relaxed">Unusual volume surge detected. Buy/sell ratio 3.1× above 7-day avg. Large wallets accumulating.</p>
+                    <p className="text-gray-600 text-xs mt-1.5">just now</p>
+                  </div>
+
+                  {/* Dev signal */}
+                  <div className="bg-green-500/10 border border-green-500/20 rounded-xl px-3.5 py-3">
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <span className="text-base">🔮</span>
+                      <span className="font-semibold text-green-300">Development Update — SN64 Chutes</span>
+                    </div>
+                    <p className="text-gray-300 text-xs leading-relaxed">4 commits · 3 contributors · New inference API deployed. Signal strength: <span className="text-green-400 font-semibold">82/100</span></p>
+                    <p className="text-gray-600 text-xs mt-1.5">2 min ago</p>
+                  </div>
+
+                  {/* Discord alpha */}
+                  <div className="bg-indigo-500/10 border border-indigo-500/20 rounded-xl px-3.5 py-3">
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <span className="text-base">💬</span>
+                      <span className="font-semibold text-indigo-300">Discord Alpha — SN9 Pretraining</span>
+                    </div>
+                    <p className="text-gray-300 text-xs leading-relaxed">High-signal post detected in main channel. Team announcement: testnet v2 launching this week.</p>
+                    <p className="text-gray-600 text-xs mt-1.5">14 min ago</p>
+                  </div>
+
+                  {/* Emission alert */}
+                  <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-xl px-3.5 py-3">
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <span className="text-base">⚡</span>
+                      <span className="font-semibold text-yellow-300">Emission Spike — SN8 Proprioception</span>
+                    </div>
+                    <p className="text-gray-300 text-xs leading-relaxed">Emission share ↑ 31% in last scan cycle. Network weight rotating in. aGap: <span className="text-yellow-400 font-semibold">+12 pts</span></p>
+                    <p className="text-gray-600 text-xs mt-1.5">1 hr ago</p>
+                  </div>
+
+                  {/* Viral X */}
+                  <div className="bg-gray-400/10 border border-gray-400/20 rounded-xl px-3.5 py-3">
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <span className="text-base leading-none font-bold text-gray-300">𝕏</span>
+                      <span className="font-semibold text-gray-300">Going Viral — SN11 Transcription</span>
+                    </div>
+                    <p className="text-gray-300 text-xs leading-relaxed">Post gaining rapid traction. 1.2K engagements in 2 hours. KOL thread breaking. Heat score: <span className="text-gray-300 font-semibold">78</span></p>
+                    <p className="text-gray-600 text-xs mt-1.5">2 hr ago</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Floating badge */}
+              <div className="absolute -bottom-3 -right-3 bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl px-3 py-1.5 shadow-lg shadow-green-500/30">
+                <span className="text-black text-xs font-bold">Premium only</span>
+              </div>
+            </div>
+
+            {/* Right: Alert types + steps */}
+            <div className="space-y-5">
+
+              {/* 7 alert types */}
+              <div>
+                <p className="text-xs text-gray-500 uppercase tracking-widest font-semibold mb-4">7 customisable alert types</p>
+                <div className="space-y-3">
+                  {[
+                    { icon: "📊", label: "aGap Score Change", desc: "Catches momentum shifts the moment they happen" },
+                    { icon: "⚡", label: "Emissions Change", desc: "Be first when validators rotate weight to a subnet" },
+                    { icon: "🔮", label: "Development Updates", desc: "GitHub spikes & HuggingFace releases — filtered by signal strength" },
+                    { icon: "🐋", label: "Whale Activity / Volume Surge", desc: "Large wallet moves & unusual volume detected from on-chain flow" },
+                    { icon: "💬", label: "Discord Alpha", desc: "High-signal posts across all Bittensor subnet servers" },
+                    { icon: "𝕏", label: "Going Viral on X", desc: "KOL posts catching fire — before the crowd piles in" },
+                    { icon: "💰", label: "Price Movement", desc: "Your threshold, your subnets — once per 24h to avoid spam" },
+                  ].map(a => (
+                    <div key={a.label} className="flex items-start gap-3 p-3 rounded-xl bg-white/[0.02] border border-white/[0.05] hover:border-white/[0.10] transition-colors">
+                      <span className="text-xl flex-shrink-0 leading-none mt-0.5">{a.icon}</span>
+                      <div>
+                        <p className="text-sm font-medium text-white">{a.label}</p>
+                        <p className="text-xs text-gray-500 leading-relaxed">{a.desc}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* How to get it */}
+              <div className="bg-white/[0.02] border border-white/[0.06] rounded-xl p-5 mt-2">
+                <p className="text-xs text-gray-500 uppercase tracking-widest font-semibold mb-4">Get set up in 60 seconds</p>
+                <div className="space-y-2.5">
+                  {[
+                    "Upgrade to Premium ($49/mo)",
+                    "Connect your Telegram in one tap",
+                    "Pick exactly which alerts you want",
+                    "Done — alerts arrive instantly",
+                  ].map((step, i) => (
+                    <div key={i} className="flex items-center gap-3">
+                      <span className="w-6 h-6 rounded-full bg-green-500/15 border border-green-500/30 text-green-400 text-xs font-bold flex items-center justify-center flex-shrink-0">{i + 1}</span>
+                      <span className="text-sm text-gray-300">{step}</span>
+                    </div>
+                  ))}
+                </div>
+                <Link
+                  href="/pricing"
+                  className="mt-5 w-full inline-flex items-center justify-center gap-2 px-5 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-black font-bold rounded-xl hover:from-green-400 hover:to-emerald-500 transition-all shadow-lg shadow-green-500/20 text-sm"
+                >
+                  Unlock Telegram Alerts →
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Testimonials */}
       <section className="py-20 px-6 bg-white/[0.01]">
         <div className="max-w-5xl mx-auto">
