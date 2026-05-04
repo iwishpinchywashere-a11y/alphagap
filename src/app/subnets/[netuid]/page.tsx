@@ -3,6 +3,7 @@
 import { use, useEffect, useRef, useState, useMemo } from "react";
 import Link from "next/link";
 import SocialLinks from "@/components/dashboard/SocialLinks";
+import { useWatchlist } from "@/components/dashboard/WatchlistProvider";
 
 // ── Types ─────────────────────────────────────────────────────────
 interface ScoreRow { date: string; agap: number; flow: number; dev: number; eval: number; social: number; price: number; mcap: number; emission_pct: number }
@@ -594,6 +595,7 @@ export default function SubnetDetailPage({ params }: { params: Promise<{ netuid:
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [timeframe, setTimeframe] = useState<Timeframe>("1M");
+  const { toggle: toggleWatchlist, isWatched } = useWatchlist();
 
   // 1Y price history lazy-loads only when the user picks 1Y
   const [yearHistory, setYearHistory] = useState<PricePoint[]>([]);
@@ -735,7 +737,20 @@ export default function SubnetDetailPage({ params }: { params: Promise<{ netuid:
                   <span key={tag} className="text-xs bg-gray-800/60 rounded px-2 py-0.5 text-gray-600">{tag}</span>
                 ))}
               </div>
-              <h1 className="text-2xl font-bold text-white">{data.name}</h1>
+              <div className="flex items-center gap-3 mt-1">
+                <h1 className="text-2xl font-bold text-white">{data.name}</h1>
+                <button
+                  onClick={() => toggleWatchlist(data.netuid)}
+                  className={`flex items-center gap-1.5 text-xs font-medium rounded-full px-3 py-1 border transition-colors ${
+                    isWatched(data.netuid)
+                      ? "bg-green-500/10 border-green-500/40 text-green-400 hover:bg-red-500/10 hover:border-red-500/40 hover:text-red-400"
+                      : "bg-gray-800/60 border-gray-700 text-gray-400 hover:bg-green-500/10 hover:border-green-500/40 hover:text-green-400"
+                  }`}
+                  title={isWatched(data.netuid) ? "Remove from watchlist" : "Add to watchlist"}
+                >
+                  {isWatched(data.netuid) ? "★ Watching" : "☆ Watchlist"}
+                </button>
+              </div>
 
               {/* Links */}
               <div className="flex flex-wrap items-center gap-4 mt-3">
