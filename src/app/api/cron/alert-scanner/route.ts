@@ -91,6 +91,7 @@ interface ScanEntry {
   alpha_price?: number;
   price_change_24h?: number;
   whale_signal?: "accumulating" | "distributing" | null;
+  whale_ratio?: number; // avg buy size / avg sell size — higher = stronger signal
 }
 
 interface ScanLatest {
@@ -452,13 +453,14 @@ export async function GET(req: NextRequest) {
         }
       }
 
-      // Whale activity — only fire for significant subnets (emission >= 0.5%)
-      // to filter out whale signals on tiny/irrelevant subnets.
+      // Whale activity — only fire for strong signals (whale_ratio >= 3).
+      // whale_ratio is avg buy size / avg sell size; 3× means buys are 3x
+      // larger than sells (or vice versa), filtering out weak/noisy signals.
+      const whaleRatio = current.whale_ratio ?? 0;
       if (
         settings.whaleActivity?.enabled &&
         current.whale_signal &&
-        current.emission_pct != null &&
-        current.emission_pct >= 0.5
+        whaleRatio >= 3
       ) {
         const prevWhale = prev?.whaleSignal ?? null;
         if (current.whale_signal !== prevWhale) {
