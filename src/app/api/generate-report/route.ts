@@ -75,7 +75,7 @@ async function generateReport(forceNetuid?: number) {
         .toISOString().slice(0, 10); // YYYY-MM-DD
       const recentNetuids = new Set<number>();
       try {
-        const { blobs } = await list({ prefix: "reports/", limit: 30 });
+        const { blobs } = await list({ prefix: "reports/", token: process.env.BLOB_READ_WRITE_TOKEN!, limit: 30 });
         for (const b of blobs) {
           // Extract date from pathname like "reports/2026-04-09.json"
           const dateMatch = b.pathname.match(/reports\/(\d{4}-\d{2}-\d{2})\.json/);
@@ -300,7 +300,7 @@ Write the report using EXACTLY this structure. Each section should be substantiv
         "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
-        model: "claude-sonnet-4-5",
+        model: "claude-sonnet-4-6",
         max_tokens: 4000,
         messages: [{ role: "user", content: safePrompt }],
       }),
@@ -373,19 +373,12 @@ Write the report using EXACTLY this structure. Each section should be substantiv
 
     try {
       if (process.env.BLOB_READ_WRITE_TOKEN) {
-        // Delete existing report for today first (Blob doesn't overwrite)
-        try {
-          const { blobs } = await list({ prefix: `reports/${today}`, limit: 5 });
-          for (const b of blobs) {
-            await del(b.url);
-            console.log(`[report] Deleted old blob: ${b.pathname}`);
-          }
-        } catch { /* no existing blob */ }
-
         await put(`reports/${today}.json`, JSON.stringify(report), {
           access: "private",
           addRandomSuffix: false,
+          allowOverwrite: true,
           contentType: "application/json",
+          token: process.env.BLOB_READ_WRITE_TOKEN!,
         });
         console.log(`[report] Saved to Blob: reports/${today}.json`);
       }

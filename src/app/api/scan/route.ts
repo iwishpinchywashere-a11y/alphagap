@@ -1071,38 +1071,39 @@ HEADLINE: [8 words max. What they actually built/shipped. Concrete, specific, no
 [Your boldest, most direct investment call. Is the market sleeping on this? Is this priced in or not? Be opinionated.]
 
 HOW TO SCORE — the score is INVESTMENT SIGNAL STRENGTH: (dev quality) × (market opportunity).
-Use the FULL range 1–100. Scores below 50 should be rare. Scores of 80–95 should be COMMON for real substantive work.
+Use the FULL range 1–100. Most real-world dev activity lands between 25–65. Scores of 70+ should be RESERVED for genuinely notable work. Scores of 80+ should be rare and stand out.
 
-‼️ CRITICAL CALIBRATION PROBLEM TO AVOID: Previous scoring has clustered EVERYTHING between 55–76. This is WRONG and makes the leaderboard useless. If you are about to assign 55–70 to something real, reconsider — you are probably under-scoring.
+‼️ CRITICAL CALIBRATION PROBLEM TO AVOID: Do NOT inflate scores. Routine commits, bug fixes, and incremental updates are NOT high-signal investment events even at small market caps. A score of 70+ means a user should seriously consider acting on this — set that bar accordingly.
 
 DEV QUALITY tiers:
 - Noise (1–20): version bumps, dep updates, CI fixes, README edits, typos, linting
 - Routine (21–40): small bug fixes, minor config changes, test additions, solo-contributor chores
 - Incremental (41–60): small features, refactors with purpose, moderate PRs, consistent team activity
-- Meaningful (61–75): real new capability, new API endpoint, protocol improvement, multi-contributor sprint
-- Significant (76–88): major feature launch, new model shipped, protocol upgrade, public release, important fix that unblocks users
-- Extraordinary (89–100): paradigm shift, breakthrough capability, first-ever feature in category, massive release
+- Meaningful (61–72): real new capability, new API endpoint, protocol improvement, multi-contributor sprint with tangible output
+- Significant (73–85): major feature launch, new model shipped, protocol upgrade, public release, important fix that unblocks users — must have clear external impact
+- Extraordinary (86–100): paradigm shift, breakthrough capability, first-ever feature in category, massive release — genuinely rare
 
 MARKET OPPORTUNITY — adjust UP or DOWN based on context:
-- Small mcap ($1M–$10M) building hard, token flat/down → severely undervalued, +15 to +25
-- Medium mcap ($10M–$50M) meaningful dev, token flat → undervalued, +8 to +15
+- Small mcap ($1M–$10M) building hard, token flat/down → undervalued, +5 to +12
+- Medium mcap ($10M–$50M) meaningful dev, token flat → undervalued, +3 to +8
 - Large mcap ($50M+) routine commits → likely priced in, −5 to −15
-- Token down 10%+ while team ships hard → market sleeping on this, +10 to +20
+- Token down 10%+ while team ships hard → market sleeping on this, +5 to +12
 - Token up 20%+ today → already reflected in price, −5 to −10
-- 3+ unique contributors in one day → team is serious, +8
-- Subnet is severely underpriced relative to output → this is the whole point of AlphaGap, +10 to +20
+- 3+ unique contributors in one day → team is serious, +4
+- Subnet severely underpriced relative to output → this is the whole point of AlphaGap, +5 to +12
 
-CALIBRATION EXAMPLES — these are your anchors, match them aggressively:
+CALIBRATION EXAMPLES — match these precisely:
 - Bumped npm deps + CI fix at $80M mcap: 8
-- Fixed a bug, solo contributor at $5M mcap: 25
-- Added tests + refactored module, token flat at $12M: 42
-- Shipped 3 merged PRs + small new feature, $8M, token down 5%: 68
-- Real new API endpoint, improved accuracy, $5M mcap, token flat: 80
-- Major new model shipped + 3 contributors, $10M mcap, token down 8%: 87
-- Released v2.0 new architecture, public launch, $20M mcap, token down 12%: 93
-- First-ever real-time video model on Bittensor, $3M mcap, undiscovered: 98
+- Fixed a bug, solo contributor at $5M mcap: 22
+- Added tests + refactored module, token flat at $12M: 38
+- Shipped 3 merged PRs improving performance, $8M mcap, token down 5%: 55
+- Real new API endpoint, improved accuracy, $5M mcap, token flat: 65
+- Shipped new model + 3 contributors, $10M mcap, token down 8%: 75
+- Major protocol upgrade + public launch, $8M mcap, token flat: 82
+- Released v2.0 new architecture, first public testnet launch, $20M mcap: 89
+- First-ever real-time video model on Bittensor, $3M mcap, undiscovered: 96
 
-RULE: Any real feature shipped by a real team → minimum 75. A public release or major model → minimum 82. Something severely underpriced with strong dev → minimum 85. The score of 76 should feel like a FLOOR for good work, not a ceiling.
+RULE: Scores of 70+ require clear external impact — a user could act on this TODAY. Scores of 80+ require a major public-facing milestone. Scores of 90+ are reserved for genuine breakthroughs. When in doubt, score lower — false positives erode trust far more than missed signals.
 
 Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete sentence.`;
 

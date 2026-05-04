@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
     }
 
     // List all reports, fetching each to include subnet meta
-    const { blobs } = await list({ prefix: "reports/", limit: 30 });
+    const { blobs } = await list({ prefix: "reports/", token: process.env.BLOB_READ_WRITE_TOKEN!, limit: 60 });
     const dated = blobs
       .map(b => {
         const dateMatch = b.pathname.match(/reports\/(\d{4}-\d{2}-\d{2})\.json/);
