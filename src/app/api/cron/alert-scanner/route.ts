@@ -153,10 +153,15 @@ interface ScannerState {
   /**
    * Per-user per-subnet per-type cooldown for metric-based alerts.
    * Key: "{userHash}:{alertType}:{netuid}"  →  ISO timestamp of last send.
-   * Alerts are suppressed for 60 minutes after each send.
-   * Bounded to 2000 entries (pruned by age on each write).
    */
   lastAlertedAt: Record<string, string>;
+  /**
+   * The price_change_24h value at the time of the last priceMove alert.
+   * Key: "{userHash}:{netuid}"  →  price_change_24h % when we last alerted.
+   * Used to prevent re-alerting when the 24h metric barely shifted
+   * (e.g. +15% alert → +16% an hour later should NOT fire again).
+   */
+  lastAlertPriceChange: Record<string, number>;
 }
 
 /**
@@ -286,6 +291,8 @@ export async function GET(req: NextRequest) {
 
   // lastAlertedAt starts from previous state; we mutate this map as alerts fire
   const lastAlertedAt: Record<string, string> = { ...(prevState?.lastAlertedAt ?? {}) };
+  // lastAlertPriceChange: tracks the price_change_24h value at last priceMove alert
+  const lastAlertPriceChange: Record<string, number> = { ...(prevState?.lastAlertPriceChange ?? {}) };
 
   // List all connected users
   let cursor: string | undefined;
@@ -382,11 +389,18 @@ export async function GET(req: NextRequest) {
       }
 
       // Price movement
-      // Cooldown rules:
-      //   Normal move (>= threshold but < 2× threshold): 24-hour cooldown (once per day max)
-      //   Huge move   (>= 2× threshold, e.g. 20%+ when threshold=10%): 4-hour cooldown
+      // Two independent guards must BOTH pass before alerting:
+      //
+      // 1. Time cooldown:
+      //    Normal move (>= threshold, < 2× threshold): 24h cooldown (once per day)
+      //    Huge move   (>= 2× threshold, e.g. 20%+ at default 10%): 4h cooldown
+      //
+      // 2. Value delta guard: the price_change_24h metric must have shifted by
+      //    at least MIN_PRICE_CHANGE_DELTA pts since the last alert. This stops
+      //    "still up 16% in 24h" re-alerts when the metric barely moved.
       if (settings.priceMove?.enabled && current.price_change_24h != null) {
         const threshold = settings.priceMove.threshold ?? 10;
+        const MIN_PRICE_CHANGE_DELTA = 5; // require ≥5 pt shift since last alert
         if (Math.abs(current.price_change_24h) >= threshold) {
           const prevPrice = prev?.price ?? 0;
           const currentPrice = current.alpha_price ?? 0;
@@ -397,14 +411,24 @@ export async function GET(req: NextRequest) {
             const pmElapsed = pmLastSent ? Date.now() - new Date(pmLastSent).getTime() : Infinity;
             const isHugeMove = Math.abs(current.price_change_24h) >= threshold * 2;
             const pmCooldownMs = isHugeMove
-              ? 4 * 60 * 60_000   // 4 hours for huge moves (2× threshold)
-              : 24 * 60 * 60_000; // 24 hours for normal moves (once per day)
+              ? 4 * 60 * 60_000   // 4 hours for huge moves
+              : 24 * 60 * 60_000; // 24 hours for normal moves
+
+            // Value delta guard: how much has price_change_24h shifted since last alert?
+            const pcKey = `${hash}:${netuid}`;
+            const lastPc = lastAlertPriceChange[pcKey];
+            const pcDelta = lastPc != null ? Math.abs(current.price_change_24h - lastPc) : Infinity;
 
             if (pmElapsed < pmCooldownMs) {
               console.log(
                 `[alert-scanner] priceMove SN${netuid} → ${hash.slice(0, 8)} suppressed ` +
                 `(${isHugeMove ? "huge-move 4h" : "normal 24h"} cooldown, ` +
                 `${(pmElapsed / 3_600_000).toFixed(1)}h elapsed)`
+              );
+            } else if (pcDelta < MIN_PRICE_CHANGE_DELTA) {
+              console.log(
+                `[alert-scanner] priceMove SN${netuid} → ${hash.slice(0, 8)} suppressed ` +
+                `(24h metric barely shifted: was ${lastPc?.toFixed(1)}% now ${current.price_change_24h.toFixed(1)}%, delta ${pcDelta.toFixed(1)}pt < ${MIN_PRICE_CHANGE_DELTA}pt required)`
               );
             } else {
               const dir = current.price_change_24h > 0 ? "📈" : "📉";
@@ -418,17 +442,24 @@ export async function GET(req: NextRequest) {
                   `*${label}*\n\n` +
                   `The alpha token price moved *${sign}${current.price_change_24h.toFixed(1)}%* in the last 24 hours.` +
                   `${currentPrice ? `\nCurrent price: $${currentPrice.toFixed(4)}` : ""}\n\n` +
-                  `[View on flow page →](${BASE_URL}/flow)`,
+                  `[View subnet →](${subnetUrl})`,
               });
               recordAlert(lastAlertedAt, hash, "priceMove", netuid);
+              lastAlertPriceChange[pcKey] = current.price_change_24h;
               totalAlerts++;
             }
           }
         }
       }
 
-      // Whale activity
-      if (settings.whaleActivity?.enabled && current.whale_signal) {
+      // Whale activity — only fire for significant subnets (emission >= 0.5%)
+      // to filter out whale signals on tiny/irrelevant subnets.
+      if (
+        settings.whaleActivity?.enabled &&
+        current.whale_signal &&
+        current.emission_pct != null &&
+        current.emission_pct >= 0.5
+      ) {
         const prevWhale = prev?.whaleSignal ?? null;
         if (current.whale_signal !== prevWhale) {
           if (onCooldown(lastAlertedAt, hash, "whaleActivity", netuid)) {
@@ -574,6 +605,7 @@ export async function GET(req: NextRequest) {
     processedTweetIds: [...processedTweetIds].slice(-5000),
     processedDiscordKeys: [...processedDiscordKeys].slice(-5000),
     lastAlertedAt: pruneLastAlertedAt(lastAlertedAt),
+    lastAlertPriceChange,
   } satisfies ScannerState);
 
   const duration = Date.now() - t0;

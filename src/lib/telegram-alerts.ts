@@ -182,25 +182,31 @@ export async function enqueueAlert(emailOrHash: string, alert: Omit<PendingAlert
 
   const queue = await getAlertQueue(hash);
 
-  // ── Time-based dedup (PRIMARY guard) ─────────────────────────────────────
-  // Before generating any ID, check whether an alert of this exact type +
-  // netuid was already enqueued (sent or unsent) within the last 60 minutes.
-  // This is immune to hourBucket rollover, stale blob reads, and concurrent
-  // scanner runs — as long as the blob read returns data ≤ 60 min old
-  // (which Vercel Blob's eventual consistency guarantees in practice).
-  const recentDuplicate = queue.alerts.find(
-    a =>
-      a.type === alert.type &&
-      a.netuid === alert.netuid &&
-      now - new Date(a.createdAt).getTime() < DEDUP_WINDOW_MS
-  );
-  if (recentDuplicate) {
-    console.log(
-      `[enqueueAlert] Skipping duplicate ${alert.type} netuid=${alert.netuid ?? "global"} — ` +
-      `already queued ${Math.round((now - new Date(recentDuplicate.createdAt).getTime()) / 1000)}s ago ` +
-      `(id=${recentDuplicate.id}, sent=${recentDuplicate.sent})`
+  // ── Time-based dedup (PRIMARY guard — metric-based alerts only) ──────────
+  // Metric-based alerts (priceMove, scoreChange, emissionChange, whaleActivity)
+  // represent a continuously-measured value. If two scanner runs fire within
+  // 60 minutes, the second is always a duplicate of the first.
+  //
+  // Event-based alerts (newSignal, goingViralX, discordEntry) are unique
+  // per-event and use processedIds sets in the scanner for dedup. Applying
+  // a time window here would block a second distinct signal for the same
+  // subnet that appears within the same hour.
+  const METRIC_BASED_TYPES = ["priceMove", "scoreChange", "emissionChange", "whaleActivity"];
+  if (METRIC_BASED_TYPES.includes(alert.type)) {
+    const recentDuplicate = queue.alerts.find(
+      a =>
+        a.type === alert.type &&
+        a.netuid === alert.netuid &&
+        now - new Date(a.createdAt).getTime() < DEDUP_WINDOW_MS
     );
-    return;
+    if (recentDuplicate) {
+      console.log(
+        `[enqueueAlert] Skipping duplicate ${alert.type} netuid=${alert.netuid ?? "global"} — ` +
+        `already queued ${Math.round((now - new Date(recentDuplicate.createdAt).getTime()) / 1000)}s ago ` +
+        `(id=${recentDuplicate.id}, sent=${recentDuplicate.sent})`
+      );
+      return;
+    }
   }
 
   // ── Deterministic alert ID (SECONDARY guard) ──────────────────────────────
