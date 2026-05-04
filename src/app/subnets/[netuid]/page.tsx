@@ -598,27 +598,37 @@ export default function SubnetDetailPage({ params }: { params: Promise<{ netuid:
   // ── Watchlist (self-contained — subnet page is outside the dashboard layout) ──
   const [watchlist, setWatchlist] = useState<Set<number>>(new Set());
   const [watchlistBusy, setWatchlistBusy] = useState(false);
+  const [watchlistError, setWatchlistError] = useState<string | null>(null);
   useEffect(() => {
     fetch("/api/watchlist").then(r => r.ok ? r.json() : null).then(d => {
-      if (d?.netuids) setWatchlist(new Set(d.netuids));
+      if (Array.isArray(d?.netuids)) setWatchlist(new Set(d.netuids.map(Number)));
     }).catch(() => {});
   }, []);
   const isWatched = useCallback((id: number) => watchlist.has(id), [watchlist]);
   const toggleWatchlist = useCallback(async (id: number) => {
     if (watchlistBusy) return;
     setWatchlistBusy(true);
+    setWatchlistError(null);
     const watching = watchlist.has(id);
     // Optimistic update
     setWatchlist(prev => { const next = new Set(prev); watching ? next.delete(id) : next.add(id); return next; });
     try {
       const r = watching
         ? await fetch(`/api/watchlist?netuid=${id}`, { method: "DELETE" })
-        : await fetch("/api/watchlist", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ netuid: id }) });
+        : await fetch("/api/watchlist", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ netuid: Number(id) }) });
+      if (!r.ok) {
+        // Revert optimistic update — save failed
+        setWatchlist(prev => { const next = new Set(prev); watching ? next.add(id) : next.delete(id); return next; });
+        const err = await r.json().catch(() => ({}));
+        setWatchlistError(err?.error || `Error ${r.status}`);
+        return;
+      }
       const d = await r.json();
-      if (d?.netuids) setWatchlist(new Set(d.netuids));
+      if (Array.isArray(d?.netuids)) setWatchlist(new Set(d.netuids.map(Number)));
     } catch {
-      // Revert on error
+      // Revert on network error
       setWatchlist(prev => { const next = new Set(prev); watching ? next.add(id) : next.delete(id); return next; });
+      setWatchlistError("Network error — try again");
     } finally {
       setWatchlistBusy(false);
     }
@@ -764,19 +774,23 @@ export default function SubnetDetailPage({ params }: { params: Promise<{ netuid:
                   <span key={tag} className="text-xs bg-gray-800/60 rounded px-2 py-0.5 text-gray-600">{tag}</span>
                 ))}
               </div>
-              <div className="flex items-center gap-3 mt-1">
+              <div className="flex items-center gap-3 mt-1 flex-wrap">
                 <h1 className="text-2xl font-bold text-white">{data.name}</h1>
                 <button
                   onClick={() => toggleWatchlist(data.netuid)}
-                  className={`flex items-center gap-1.5 text-xs font-medium rounded-full px-3 py-1 border transition-colors ${
+                  disabled={watchlistBusy}
+                  className={`flex items-center gap-1.5 text-xs font-medium rounded-full px-3 py-1 border transition-colors disabled:opacity-50 ${
                     isWatched(data.netuid)
                       ? "bg-green-500/10 border-green-500/40 text-green-400 hover:bg-red-500/10 hover:border-red-500/40 hover:text-red-400"
                       : "bg-gray-800/60 border-gray-700 text-gray-400 hover:bg-green-500/10 hover:border-green-500/40 hover:text-green-400"
                   }`}
                   title={isWatched(data.netuid) ? "Remove from watchlist" : "Add to watchlist"}
                 >
-                  {isWatched(data.netuid) ? "★ Watching" : "☆ Watchlist"}
+                  {watchlistBusy ? "…" : isWatched(data.netuid) ? "★ Watching" : "☆ Watchlist"}
                 </button>
+                {watchlistError && (
+                  <span className="text-xs text-red-400">{watchlistError}</span>
+                )}
               </div>
 
               {/* Links */}
