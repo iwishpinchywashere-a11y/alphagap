@@ -501,11 +501,15 @@ export async function GET(req: NextRequest) {
     // on the /flow page and are covered by the whaleActivity alert above.
     if (settings.newSignal?.enabled && scan.signals?.length) {
       const watchlistSet = new Set(watchlist);
+      const newSignalMinScore = settings.newSignal.minScore ?? 0;
       for (const signal of scan.signals) {
         if (!watchlistSet.has(signal.netuid)) continue;
 
         // Skip flow signals — those belong to the /flow page, not /signals
         if (signal.signal_type?.startsWith("flow_")) continue;
+
+        // Apply user's minimum score threshold
+        if (newSignalMinScore > 0 && signal.strength < newSignalMinScore) continue;
 
         // Skip signals that already existed in the previous run.
         // If created_at or lastRunAt is absent, allow through (first run / legacy data).
@@ -537,9 +541,10 @@ export async function GET(req: NextRequest) {
     // ── Going viral on X (event-based — processedIds dedup) ──────────
     if (settings.goingViralX?.enabled && socialHot?.events?.length) {
       const watchlistSet = new Set(watchlist);
+      const goingViralMinScore = Math.max(40, settings.goingViralX.minScore ?? 0);
       for (const event of socialHot.events) {
         if (!watchlistSet.has(event.netuid)) continue;
-        if (event.heat_score < 40) continue;
+        if (event.heat_score < goingViralMinScore) continue;
         if (processedTweetIds.has(event.tweet_id)) continue;
 
         const entry = scanByNetuid.get(event.netuid);
@@ -564,9 +569,10 @@ export async function GET(req: NextRequest) {
     // ── Discord entry (event-based — processedIds dedup) ─────────────
     if (settings.discordEntry?.enabled && discordLatest?.results?.length) {
       const watchlistSet = new Set(watchlist);
+      const discordMinScore = Math.max(70, settings.discordEntry.minScore ?? 0);
       for (const entry of discordLatest.results) {
         if (entry.netuid == null || !watchlistSet.has(entry.netuid)) continue;
-        if (entry.alphaScore < 70) continue;
+        if (entry.alphaScore < discordMinScore) continue;
         const key = `${entry.netuid}:${entry.scannedAt}`;
         if (processedDiscordKeys.has(key)) continue;
 

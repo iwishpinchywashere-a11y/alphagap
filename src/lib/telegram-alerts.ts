@@ -14,6 +14,7 @@ export type SubnetScope = "all" | "watchlist" | number[];
 export interface AlertType {
   enabled: boolean;
   threshold?: number; // e.g. % change required to fire
+  minScore?: number;  // minimum signal/alpha/heat score to trigger (0 = all)
 }
 
 export interface AlertSettings {

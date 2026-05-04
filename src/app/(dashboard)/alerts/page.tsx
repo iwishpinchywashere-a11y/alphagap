@@ -223,8 +223,8 @@ export default function AlertsPage() {
       },
       {
         icon: "🔮",
-        label: "New Alpha Signal",
-        description: "Fires every time a new signal appears on the Signals page — GitHub dev spikes, HuggingFace model updates, and more. Never miss a catalyst.",
+        label: "Development Updates",
+        description: "Fires every time a GitHub commit spike or HuggingFace model update is detected for subnets on your watchlist. Set a minimum score threshold so you only see the most significant updates.",
       },
       {
         icon: "🐋",
@@ -581,10 +581,12 @@ export default function AlertsPage() {
 
                 <AlertRow
                   icon="🔮"
-                  label="New signal"
-                  description="Fire when a new alpha signal is posted on the signals page"
+                  label="Development Updates"
+                  description="Fire when a new GitHub commit spike or HuggingFace model update is detected for a subnet on your watchlist"
                   enabled={settings.newSignal.enabled}
+                  minScore={settings.newSignal.minScore ?? 0}
                   onToggle={v => updateAlert("newSignal", { enabled: v })}
+                  onMinScore={v => updateAlert("newSignal", { minScore: v })}
                 />
 
                 <AlertRow
@@ -600,7 +602,9 @@ export default function AlertsPage() {
                   label="Discord entry"
                   description="Fire when a notable new Discord post appears on the social page"
                   enabled={settings.discordEntry.enabled}
+                  minScore={settings.discordEntry.minScore ?? 0}
                   onToggle={v => updateAlert("discordEntry", { enabled: v })}
+                  onMinScore={v => updateAlert("discordEntry", { minScore: v })}
                 />
 
                 <AlertRow
@@ -608,7 +612,9 @@ export default function AlertsPage() {
                   label="Going viral on X"
                   description="Fire when a subnet post is trending or going viral on X"
                   enabled={settings.goingViralX.enabled}
+                  minScore={settings.goingViralX.minScore ?? 0}
                   onToggle={v => updateAlert("goingViralX", { enabled: v })}
+                  onMinScore={v => updateAlert("goingViralX", { minScore: v })}
                 />
 
                 <AlertRow
@@ -657,8 +663,10 @@ function AlertRow({
   enabled,
   threshold,
   thresholdSuffix = "%",
+  minScore,
   onToggle,
   onThreshold,
+  onMinScore,
 }: {
   icon: string;
   label: string;
@@ -666,8 +674,10 @@ function AlertRow({
   enabled: boolean;
   threshold?: number;
   thresholdSuffix?: string;
+  minScore?: number;
   onToggle: (v: boolean) => void;
   onThreshold?: (v: number) => void;
+  onMinScore?: (v: number) => void;
 }) {
   return (
     <div className={`flex items-start justify-between gap-4 pb-5 border-b border-gray-800/60 last:border-0 last:pb-0 ${!enabled ? "opacity-50" : ""}`}>
@@ -685,6 +695,17 @@ function AlertRow({
               />
             )}
           </p>
+          {minScore !== undefined && onMinScore && enabled && (
+            <p className="text-xs text-gray-600 mt-1.5 flex items-center gap-1.5 flex-wrap">
+              <span>Min score:</span>
+              <ThresholdInput
+                value={minScore}
+                onChange={onMinScore}
+                suffix="/100"
+              />
+              <span className="text-gray-700">(0 = all)</span>
+            </p>
+          )}
         </div>
       </div>
       <Toggle enabled={enabled} onChange={onToggle} />
