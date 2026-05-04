@@ -979,23 +979,6 @@ export const BENCHMARK_DATA: BenchmarkEntry[] = [
   },
   // ── NEW ENTRIES — Subnets with first-party live dashboards ──────────────
   {
-    subnet_id: 3,
-    subnet_name: "Templar",
-    benchmark_score: 82,
-    benchmark_category: "AI Training",
-    vs_provider: "Meta / EleutherAI / Mistral distributed training",
-    cost_saving_pct: 90,
-    perf_delta: "72B model training live — distributed across global miners",
-    benchmark_summary: "Templar (SN3) is a decentralized large-language-model training subnet — miners contribute compute to train a 72B parameter model collaboratively, with live loss curves and step-based training metrics tracked on the public dashboard. One of the most active training subnets on Bittensor with real-time miner incentive scoring. Dashboard shows model size, training step, loss function, throughput, and miner leaderboard.",
-    active_users: "Distributed miners globally",
-    annual_revenue_usd: 0,
-    last_updated: "2026-05-04",
-    sources: ["https://www.tplr.ai/"],
-    dashboards: [
-      { url: "https://www.tplr.ai/dashboard", label: "Training Dashboard" },
-    ],
-  },
-  {
     subnet_id: 8,
     subnet_name: "Taoshi PTN",
     benchmark_score: 84,
