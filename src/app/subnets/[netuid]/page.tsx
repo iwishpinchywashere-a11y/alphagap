@@ -65,6 +65,26 @@ function fmtPct(v: number): string { return `${v >= 0 ? "+" : ""}${v.toFixed(2)}
 function pctColor(v: number): string { return v >= 0 ? "text-green-400" : "text-red-400"; }
 function scoreColor(s: number): string { return s >= 70 ? "text-green-400" : s >= 40 ? "text-yellow-400" : "text-red-400"; }
 
+// ── Subnet live dashboards ────────────────────────────────────────
+const SUBNET_DASHBOARDS: Record<number, { label: string; url: string }[]> = {
+  1:  [{ label: "Dashboard", url: "https://apex.macrocosmos.ai/" }],
+  3:  [{ label: "Dashboard", url: "https://www.tplr.ai/dashboard" }],
+  4:  [{ label: "Live Stats", url: "https://stats.targon.com/" }],
+  8:  [{ label: "Trading Dashboard", url: "https://dashboard.taoshi.io/" }, { label: "Tokenomics", url: "https://tokenomics.taoshi.io/" }],
+  9:  [{ label: "Dashboard", url: "https://iota.macrocosmos.ai/" }],
+  12: [{ label: "Grafana", url: "https://grafana.bittensor.church/d/subnet/metagraph-subnet?var-subnet=12" }],
+  13: [{ label: "Data Dashboard", url: "https://sn13-dashboard.api.macrocosmos.ai/" }],
+  27: [{ label: "GPU Marketplace", url: "https://compute.neuralinternet.ai/" }],
+  34: [{ label: "Dashboard", url: "https://app.bitmind.ai/dashboard" }],
+  46: [{ label: "Model Dashboard", url: "https://dashboard.resilabs.ai/" }, { label: "Portal", url: "https://portal.resilabs.ai/" }],
+  64: [{ label: "Network Stats", url: "https://chutes.ai/app/research" }, { label: "Utilization", url: "https://chutes.ai/app/research/utilization" }],
+  72: [{ label: "Coverage Map", url: "https://coverage.natix.network/" }],
+  75: [{ label: "Network Stats", url: "https://hipstats.com/" }],
+  78: [{ label: "Miner Stats", url: "https://subnet.loosh.ai/" }],
+  82: [{ label: "Query Portal", url: "https://ask.hermes-subnet.ai/" }],
+  93: [{ label: "Creator Stats", url: "https://stats.bitcast.network/" }, { label: "Campaign Dashboard", url: "https://dashboard.bitcast.network/" }],
+};
+
 // ── TAO Pages slug helper (mirrors tao-pages-slugs.ts logic) ─────
 const TAOPAGES_EXPLICIT_SLUGS: Record<number, string> = {
   64: "chutes", 4: "targon", 120: "affine", 51: "lium", 8: "vanta",
@@ -794,7 +814,7 @@ export default function SubnetDetailPage({ params }: { params: Promise<{ netuid:
               </div>
 
               {/* Links */}
-              <div className="flex flex-wrap items-center gap-4 mt-3">
+              <div className="flex flex-wrap items-center gap-2 mt-3">
                 {data.identity?.website && (
                   <a href={data.identity.website} target="_blank" rel="noopener noreferrer"
                     className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-white border border-gray-700 rounded-full px-3 py-1 transition-colors">
@@ -810,7 +830,7 @@ export default function SubnetDetailPage({ params }: { params: Promise<{ netuid:
                 {data.identity?.twitter && (
                   <a href={`https://x.com/${data.identity.twitter.replace("@", "")}`} target="_blank" rel="noopener noreferrer"
                     className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-white border border-gray-700 rounded-full px-3 py-1 transition-colors">
-                    𝕏 Twitter
+                    𝕏 X
                   </a>
                 )}
                 {data.identity?.discord && (
@@ -819,6 +839,12 @@ export default function SubnetDetailPage({ params }: { params: Promise<{ netuid:
                     Discord
                   </a>
                 )}
+                {(SUBNET_DASHBOARDS[data.netuid] ?? []).map((d, i) => (
+                  <a key={i} href={d.url} target="_blank" rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 text-xs text-emerald-400 hover:text-emerald-300 border border-emerald-500/40 bg-emerald-500/10 hover:bg-emerald-500/20 rounded-full px-3 py-1 transition-colors">
+                    📊 {d.label}
+                  </a>
+                ))}
               </div>
             </div>
 
