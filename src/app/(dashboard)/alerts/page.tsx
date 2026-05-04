@@ -83,19 +83,36 @@ function ThresholdInput({
   value,
   onChange,
   suffix = "%",
+  min = 1,
 }: {
   value: number;
   onChange: (v: number) => void;
   suffix?: string;
+  min?: number;
 }) {
+  const [draft, setDraft] = useState(String(value));
+
+  // Keep draft in sync if parent updates the value externally
+  useEffect(() => { setDraft(String(value)); }, [value]);
+
   return (
     <div className="flex items-center gap-1">
       <input
         type="number"
-        min={1}
+        min={min}
         max={100}
-        value={value}
-        onChange={e => onChange(Math.max(1, Math.min(100, parseInt(e.target.value) || 1)))}
+        value={draft}
+        onChange={e => {
+          setDraft(e.target.value);
+          const n = parseInt(e.target.value);
+          if (!isNaN(n)) onChange(Math.max(min, Math.min(100, n)));
+        }}
+        onBlur={() => {
+          const n = parseInt(draft);
+          const clamped = isNaN(n) ? min : Math.max(min, Math.min(100, n));
+          setDraft(String(clamped));
+          onChange(clamped);
+        }}
         className="w-14 px-2 py-1 bg-[#0f1117] border border-gray-700 rounded text-sm text-green-400 text-center focus:outline-none focus:border-green-500"
       />
       <span className="text-gray-500 text-sm">{suffix}</span>
@@ -702,6 +719,7 @@ function AlertRow({
                 value={minScore}
                 onChange={onMinScore}
                 suffix="/100"
+                min={0}
               />
               <span className="text-gray-700">(0 = all)</span>
             </p>
