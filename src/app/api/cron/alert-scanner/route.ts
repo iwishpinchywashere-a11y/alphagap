@@ -11,7 +11,7 @@
  *   scoreChange    — aGap composite score moved by >= threshold pts
  *   emissionChange — emission % changed by >= threshold %
  *   priceMove      — 24h price change >= threshold %
- *   whaleActivity  — whale signal appeared / changed
+ *   whaleActivity  — whale signal appeared / changed OR unusual volume surge
  *   newSignal      — new alpha signal generated
  *   goingViralX    — new high-heat KOL tweet (heat_score >= 40)
  *   discordEntry   — new high-quality Discord entry (alphaScore >= 70)
@@ -24,8 +24,8 @@
  * any enqueueAlert call. enqueueAlert has its own 15-min subnet-level dedup as
  * a secondary safety net, and the bot has an in-memory 15-min dedup as tertiary.
  *
- * Event-based alerts (newSignal, goingViralX, discordEntry) use processedIds
- * sets — these are one-fire-per-event and don't need the cooldown approach.
+ * Event-based alerts (newSignal, goingViralX, discordEntry, volumeSurge) use
+ * processedIds sets — these are one-fire-per-event and don't need the cooldown.
  *
  * State is written ONCE — at the end, after all alerts are processed. There is
  * no early partial write, which was the root cause of state corruption.
@@ -138,6 +138,24 @@ interface DiscordLatest {
   scannedAt?: string;
 }
 
+interface FlowEvent {
+  netuid: number;
+  name: string;
+  type: "accumulating" | "distributing" | "volume_surge" | "yield_spike" | "yield_dip";
+  strength: number;
+  headline: string;
+  detail: string;
+  volumeRatio?: number;
+  /** "2026-04-30" — calendar-day dedup key */
+  dayKey: string;
+  detectedAt: string;
+}
+
+interface FlowEventsStore {
+  events: FlowEvent[];
+  updatedAt?: string;
+}
+
 interface SubnetState {
   score: number;
   emission: number;
@@ -151,6 +169,8 @@ interface ScannerState {
   processedSignalIds: number[];
   processedTweetIds: string[];
   processedDiscordKeys: string[];
+  /** Dedup keys for volume surge alerts: "{netuid}:volume_surge:{dayKey}" */
+  processedVolumeKeys: string[];
   /**
    * Per-user per-subnet per-type cooldown for metric-based alerts.
    * Key: "{userHash}:{alertType}:{netuid}"  →  ISO timestamp of last send.
@@ -252,12 +272,13 @@ export async function GET(req: NextRequest) {
   // Without this: two concurrent invocations both read prevState.lastRunAt,
   // both see "5 minutes have passed", both proceed, and both send the same
   // alerts. The lock blob is the atomic claim that prevents this.
-  const [lock, prevState, scan, socialHot, discordLatest] = await Promise.all([
+  const [lock, prevState, scan, socialHot, discordLatest, flowEvents] = await Promise.all([
     readBlob<ScannerLock>("alert-scanner-lock.json"),
     readBlob<ScannerState>("alert-scanner-state.json"),
     readBlob<ScanLatest>("scan-latest.json"),
     readBlob<SocialHot>("social-hot.json"),
     readBlob<DiscordLatest>("discord-latest.json"),
+    readBlob<FlowEventsStore>("flow-events.json"),
   ]);
 
   // ── Global run cooldown (enforced by lock blob) ───────────────────────────
@@ -289,6 +310,7 @@ export async function GET(req: NextRequest) {
   const processedSignalIds = new Set<number>(prevState?.processedSignalIds ?? []);
   const processedTweetIds = new Set<string>(prevState?.processedTweetIds ?? []);
   const processedDiscordKeys = new Set<string>(prevState?.processedDiscordKeys ?? []);
+  const processedVolumeKeys = new Set<string>(prevState?.processedVolumeKeys ?? []);
 
   // lastAlertedAt starts from previous state; we mutate this map as alerts fire
   const lastAlertedAt: Record<string, string> = { ...(prevState?.lastAlertedAt ?? {}) };
@@ -489,6 +511,41 @@ export async function GET(req: NextRequest) {
       }
     }
 
+    // ── Volume surge (event-based — processedVolumeKeys dedup) ──────
+    // Reads from flow-events.json (written by flow-snapshot cron).
+    // Fires once per netuid per calendar day (dayKey dedup).
+    // Uses the same whaleActivity toggle — it's the "unusual volume spike" half
+    // of the "Whale activity / volume spike" alert description.
+    if (settings.whaleActivity?.enabled && flowEvents?.events?.length) {
+      const watchlistSet = new Set(watchlist);
+      for (const event of flowEvents.events) {
+        if (event.type !== "volume_surge") continue;
+        if (!watchlistSet.has(event.netuid)) continue;
+        const volKey = `${event.netuid}:volume_surge:${event.dayKey}`;
+        if (processedVolumeKeys.has(volKey)) continue;
+        if (onCooldown(lastAlertedAt, hash, "whaleActivity", event.netuid)) {
+          console.log(`[alert-scanner] volumeSurge SN${event.netuid} → ${hash.slice(0, 8)} suppressed (cooldown)`);
+          continue;
+        }
+
+        const r = event.volumeRatio ?? "?";
+        await enqueueAlert(hash, {
+          type: "whaleActivity",
+          netuid: event.netuid,
+          subnetName: event.name,
+          message:
+            `🤑 *Unusual Volume Spike*\n` +
+            `*${event.name}*\n\n` +
+            `${event.headline}\n` +
+            `${event.detail}\n\n` +
+            `Strength: *${event.strength}/100* · ${r}x rolling avg volume\n\n` +
+            `[View on flow page →](${BASE_URL}/flow)`,
+        });
+        recordAlert(lastAlertedAt, hash, "whaleActivity", event.netuid);
+        totalAlerts++;
+      }
+    }
+
     // ── New signals (time-based dedup via created_at vs lastRunAt) ───
     // NOTE: Signal IDs auto-increment from 1 on EVERY scan run and cannot
     // be used for dedup — every ID immediately collides with the previous
@@ -607,6 +664,11 @@ export async function GET(req: NextRequest) {
       processedDiscordKeys.add(`${entry.netuid}:${entry.scannedAt}`);
     }
   }
+  for (const event of flowEvents?.events ?? []) {
+    if (event.type === "volume_surge") {
+      processedVolumeKeys.add(`${event.netuid}:volume_surge:${event.dayKey}`);
+    }
+  }
 
   // Build new subnet snapshot
   const newSubnets: Record<string, SubnetState> = {};
@@ -629,6 +691,7 @@ export async function GET(req: NextRequest) {
     processedSignalIds: [...processedSignalIds].slice(-5000),
     processedTweetIds: [...processedTweetIds].slice(-5000),
     processedDiscordKeys: [...processedDiscordKeys].slice(-5000),
+    processedVolumeKeys: [...processedVolumeKeys].slice(-5000),
     lastAlertedAt: pruneLastAlertedAt(lastAlertedAt),
     lastAlertPriceChange,
   } satisfies ScannerState);
