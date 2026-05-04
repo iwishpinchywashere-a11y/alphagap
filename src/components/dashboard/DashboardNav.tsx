@@ -14,6 +14,7 @@ export default function DashboardNav() {
   const tabs = [
     { href: "/dashboard", label: "Alpha Leaderboard" },
     { href: "/powerrankings", label: "Power Rankings" },
+    { href: "/alerts", label: "Alerts" },
     { href: "/signals", label: "Signals" },
     { href: "/reports", label: "Reports" },
     { href: "/flow", label: "Flow" },
@@ -23,7 +24,6 @@ export default function DashboardNav() {
     { href: "/benchmarks", label: "Benchmarks" },
     { href: "/performance", label: "Performance" },
     { href: "/testing", label: "Pump Lab" },
-    { href: "/alerts", label: "Alerts" },
     { href: "/taopages", label: "TAO Pages" },
     { href: "/watchlist", label: "My Watchlist" },
   ];
