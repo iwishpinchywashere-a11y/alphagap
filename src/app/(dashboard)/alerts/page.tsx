@@ -207,24 +207,124 @@ export default function AlertsPage() {
     return null;
   }
 
-  // ── Premium gate ───────────────────────────────────────────────────────────
+  // ── Premium gate — full feature showcase ──────────────────────────────────
 
   if (!isPremium) {
+    const alertFeatures = [
+      {
+        icon: "📊",
+        label: "aGap Score Change",
+        description: "Get notified the moment a subnet's composite aGap score moves by your threshold — catch momentum shifts before the market reacts.",
+      },
+      {
+        icon: "⚡",
+        label: "Emissions Change",
+        description: "Instant alert when a subnet's emission % allocation shifts significantly. Be first to know when validators rotate weight.",
+      },
+      {
+        icon: "🔮",
+        label: "New Alpha Signal",
+        description: "Fires every time a new signal appears on the Signals page — GitHub dev spikes, HuggingFace model updates, and more. Never miss a catalyst.",
+      },
+      {
+        icon: "🐋",
+        label: "Whale Activity",
+        description: "Large wallets accumulating or distributing on your subnets trigger an immediate alert. See the flow page data before it's priced in.",
+      },
+      {
+        icon: "💬",
+        label: "Discord Alpha",
+        description: "AlphaGap scans every Bittensor subnet Discord in real time. When high-quality alpha is posted, you get it straight to Telegram.",
+      },
+      {
+        icon: "𝕏",
+        label: "Going Viral on X",
+        description: "Top KOLs in the Bittensor ecosystem are tracked 24/7. When a subnet post catches fire, you'll know within minutes.",
+      },
+      {
+        icon: "💰",
+        label: "Price Movement",
+        description: "Set your own % threshold. Only fires once per 24h per subnet, with a smart delta guard so you won't get spammed by small fluctuations.",
+      },
+    ];
+
     return (
-      <div className="min-h-screen bg-[#0a0a0f] text-gray-100 flex flex-col items-center justify-center px-4">
-        <div className="max-w-md w-full text-center">
-          <div className="text-5xl mb-6">🔒</div>
-          <h1 className="text-2xl font-bold text-white mb-3">Premium Required</h1>
-          <p className="text-gray-400 mb-8">
-            Telegram alerts are a <span className="text-green-400 font-semibold">Premium</span> feature.
-            Upgrade to get real-time alerts directly in your Telegram when subnets hit your thresholds.
-          </p>
-          <a
-            href="/pricing"
-            className="inline-block px-8 py-3 bg-green-500 hover:bg-green-400 text-black font-bold rounded-lg transition-colors"
-          >
-            Upgrade to Premium
-          </a>
+      <div className="min-h-screen bg-[#0a0a0f] text-gray-100">
+        <div className="max-w-2xl mx-auto px-4 py-12">
+
+          {/* Hero */}
+          <div className="text-center mb-12">
+            <div className="text-6xl mb-5">📡</div>
+            <h1 className="text-4xl font-bold text-white mb-4 leading-tight">
+              Real-Time Bittensor Alerts<br />
+              <span className="text-green-400">Straight to Your Telegram</span>
+            </h1>
+            <p className="text-gray-400 text-lg leading-relaxed max-w-xl mx-auto">
+              Stop refreshing dashboards. AlphaGap monitors every subnet on your watchlist around the clock and pings you the moment something worth acting on happens.
+            </p>
+          </div>
+
+          {/* How it works */}
+          <div className="bg-[#0f1117] border border-gray-800 rounded-xl p-6 mb-8">
+            <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-5">How it works</h2>
+            <div className="flex items-center gap-3 flex-wrap">
+              {[
+                { step: "1", text: "Upgrade to Premium" },
+                { step: "2", text: "Connect your Telegram in one tap" },
+                { step: "3", text: "Pick which alerts you want" },
+                { step: "4", text: "Alerts arrive instantly in Telegram" },
+              ].map((s, i, arr) => (
+                <React.Fragment key={s.step}>
+                  <div className="flex items-center gap-2">
+                    <span className="w-7 h-7 rounded-full bg-green-500/20 border border-green-500/40 text-green-400 text-xs font-bold flex items-center justify-center flex-shrink-0">
+                      {s.step}
+                    </span>
+                    <span className="text-sm text-gray-300">{s.text}</span>
+                  </div>
+                  {i < arr.length - 1 && <span className="text-gray-700 text-lg">→</span>}
+                </React.Fragment>
+              ))}
+            </div>
+          </div>
+
+          {/* Alert types */}
+          <div className="bg-[#0f1117] border border-gray-800 rounded-xl p-6 mb-8">
+            <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-6">7 alert types, all customisable</h2>
+            <div className="space-y-5">
+              {alertFeatures.map(f => (
+                <div key={f.label} className="flex items-start gap-4 pb-5 border-b border-gray-800/60 last:border-0 last:pb-0">
+                  <span className="text-2xl w-8 flex-shrink-0 leading-none pt-0.5">{f.icon}</span>
+                  <div>
+                    <p className="text-sm font-semibold text-white mb-1">{f.label}</p>
+                    <p className="text-xs text-gray-500 leading-relaxed">{f.description}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Watchlist callout */}
+          <div className="flex items-start gap-3 bg-green-500/5 border border-green-500/20 rounded-xl px-5 py-4 mb-10">
+            <span className="text-xl flex-shrink-0 mt-0.5">🎯</span>
+            <div>
+              <p className="text-sm font-semibold text-white mb-1">Only the subnets you care about</p>
+              <p className="text-xs text-gray-400 leading-relaxed">
+                Every alert is scoped to your personal watchlist — no noise from subnets you don't follow. Add or remove subnets from your watchlist anytime and alerts update instantly.
+              </p>
+            </div>
+          </div>
+
+          {/* CTA */}
+          <div className="text-center">
+            <a
+              href="/pricing"
+              className="inline-block px-10 py-4 bg-green-500 hover:bg-green-400 text-black font-bold text-lg rounded-xl transition-colors shadow-lg shadow-green-500/20"
+            >
+              Upgrade to Premium
+            </a>
+            <p className="text-gray-600 text-xs mt-4">Premium plan · $49/mo · Cancel anytime</p>
+          </div>
+
         </div>
       </div>
     );
