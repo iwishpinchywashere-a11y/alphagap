@@ -28,8 +28,9 @@ export interface GitHubScanResult {
   releaseName?: string;
   releaseBody?: string;
   releaseDate?: string;
-  // Repo metadata
+  // Repo metadata (from GET /repos/{owner}/{repo})
   stars?: number;
+  forks?: number;
   pushedAt?: string;
   // 30-day lines of code (additions + deletions) from GitHub's weekly stats
   // Undefined = GitHub returned 202 Computing (will populate next scan)
@@ -80,8 +81,8 @@ export async function scanAllSubnetGitHub(
 
     await Promise.all(batch.map(async ({ netuid, owner, repo, repoUrl }) => {
       try {
-        // Parallel: commits since 24h + releases + 30d LOC stats
-        const [commitsRes, releasesRes, codeFreqRes] = await Promise.allSettled([
+        // Parallel: commits since 24h + releases + 30d LOC stats + repo metadata (stars/forks)
+        const [commitsRes, releasesRes, codeFreqRes, repoMetaRes] = await Promise.allSettled([
           fetch(
             `https://api.github.com/repos/${owner}/${repo}/commits?since=${since}&per_page=50`,
             { headers: ghHeaders(), signal: AbortSignal.timeout(10000) }
@@ -93,6 +94,10 @@ export async function scanAllSubnetGitHub(
           fetch(
             `https://api.github.com/repos/${owner}/${repo}/stats/code_frequency`,
             { headers: ghHeaders(), signal: AbortSignal.timeout(12000) }
+          ),
+          fetch(
+            `https://api.github.com/repos/${owner}/${repo}`,
+            { headers: ghHeaders(), signal: AbortSignal.timeout(8000) }
           ),
         ]);
 
@@ -170,6 +175,17 @@ export async function scanAllSubnetGitHub(
         }
         // 202 = GitHub computing stats in background; undefined means "not yet available"
 
+        // ── Process repo metadata (stars, forks) ────────────────────
+        let stars: number | undefined;
+        let forks: number | undefined;
+        if (repoMetaRes.status === "fulfilled" && repoMetaRes.value.ok) {
+          try {
+            const meta = await repoMetaRes.value.json();
+            if (typeof meta?.stargazers_count === "number") stars = meta.stargazers_count;
+            if (typeof meta?.forks_count === "number") forks = meta.forks_count;
+          } catch { /* ignore parse error */ }
+        }
+
         results.set(netuid, {
           netuid,
           owner,
@@ -183,6 +199,8 @@ export async function scanAllSubnetGitHub(
           releaseName,
           releaseBody,
           releaseDate,
+          stars,
+          forks,
           loc_30d,
         });
 

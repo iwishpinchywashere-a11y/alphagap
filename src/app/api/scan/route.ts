@@ -2131,8 +2131,15 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
   // scores from crashing overnight when one data point changes.
   // Bump this when leaderboard formula changes — forces EMA history reset so old
   // baselines don't drag new scores down for hours after a formula update.
-  const AGAP_HISTORY_VERSION = 9;
-  type AGapHistoryEntry = { ema: number; lastUpdated: string };
+  const AGAP_HISTORY_VERSION = 9; // bump only when EMA itself needs resetting
+  type AGapHistoryEntry = {
+    ema: number;
+    lastUpdated: string;
+    /** Whale ratio readings over last 8 scans (0 = no signal). Short key to keep blob small. */
+    wrh?: number[];
+    /** Star count readings: [{s: starCount, ts: isoTimestamp}, …] last 14 entries */
+    sh?: Array<{ s: number; ts: string }>;
+  };
   type AGapHistory = Record<number, AGapHistoryEntry> & { __version?: number };
   let agapHistory: AGapHistory = {};
   if (process.env.BLOB_READ_WRITE_TOKEN) {
@@ -2689,6 +2696,35 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
       }
     }
 
+    // ── WHALE RATIO VELOCITY (±8 pts) ───────────────────────────────────────────
+    // Snapshot whale ratio tells us the LEVEL. Velocity tells us the TREND.
+    // A ratio climbing from 0.9 → 1.2 → 1.5 → 2.0 over 4 runs is a stronger
+    // leading signal than a ratio sitting at 2.0 for weeks (already priced in).
+    // Deteriorating trend: discount the existing whaleBoost so stale signals don't over-score.
+    const histEntryForVelocity = agapHistory[d.netuid] as AGapHistoryEntry | undefined;
+    const prevRatioHistory: number[] = histEntryForVelocity?.wrh ?? [];
+    const ratioSnapshot = whaleRatio ?? 0; // 0 = no accumulation signal this run
+    let whaleVelocityBonus = 0;
+    if (prevRatioHistory.length >= 3) {
+      const recent = [...prevRatioHistory.slice(-4), ratioSnapshot];
+      let improvements = 0, deteriorations = 0;
+      for (let ri = 1; ri < recent.length; ri++) {
+        if (recent[ri] > recent[ri - 1] + 0.08) improvements++;
+        else if (recent[ri] < recent[ri - 1] - 0.08) deteriorations++;
+      }
+      if (improvements >= 3 && ratioSnapshot >= 1.2) {
+        // Strong uptrend building — larger bonus if ratio is already meaningful
+        whaleVelocityBonus = ratioSnapshot >= 1.8 ? 8 : 5;
+      } else if (improvements >= 2 && ratioSnapshot >= 1.0) {
+        whaleVelocityBonus = 3; // mild uptrend forming
+      } else if (deteriorations >= 3 && whaleBoost > 0) {
+        // Consistently declining ratio — the accumulation thesis is weakening
+        whaleBoost = Math.round(whaleBoost * 0.55);
+      }
+    }
+    // Save snapshot for next run (persisted to agapHistory at end of loop)
+    const newRatioHistory = [...prevRatioHistory.slice(-7), ratioSnapshot];
+
     // Volume surge — buying pressure is real but lagging (someone already found it).
     // Reduced ceiling from 18 → 10 pts: by the time you see 10x volume, the gap is closing.
     // Only counts when net flow is positive (more buy TAO than sell TAO). If tao_buy_volume_24_hr
@@ -2702,6 +2738,25 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
       else if (surgeRatioForAGap >= 5)  volBoost = 9;
       else if (surgeRatioForAGap >= 3.5) volBoost = 6;
       else                               volBoost = 3;
+    }
+
+    // ── THIN POOL PRESSURE (0-6 pts, minor) ────────────────────────────────────
+    // When daily trading volume is a meaningful fraction of total pool TAO, each
+    // incremental buy order moves price significantly. Only adds a small bonus —
+    // this sets up the explosive move, not the move itself.
+    // Requires: volume surge already detected (real buying), net positive flow.
+    let thinPoolBonus = 0;
+    if (poolForWhale && surgeRatioForAGap >= 2.5 && surgeIsNetPositive) {
+      const poolDepthTao = parseFloat(String(poolForWhale.total_tao || "0")) / RAO;
+      const buyVolTao = parseFloat(String(poolForWhale.tao_buy_volume_24_hr || "0")) / RAO;
+      const sellVolTao = parseFloat(String(poolForWhale.tao_sell_volume_24_hr || "0")) / RAO;
+      const totalVolTao = buyVolTao + sellVolTao;
+      if (poolDepthTao > 0 && totalVolTao > 0) {
+        const pressureRatio = totalVolTao / poolDepthTao;
+        if      (pressureRatio >= 0.6) thinPoolBonus = 6;
+        else if (pressureRatio >= 0.3) thinPoolBonus = 4;
+        else if (pressureRatio >= 0.15) thinPoolBonus = 2;
+      }
     }
 
     // ── MOMENTUM CONFIRMATION (±5 pts) ──────────────────────────────────────
@@ -2798,7 +2853,53 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
     else if (productScore >= 70 && pch7d  <= -10) productVsPriceBonus = Math.round(4 * awarenessRevScale);
     else if (productScore >= 50 && pch30d <= -25) productVsPriceBonus = Math.round(3 * awarenessRevScale);
 
-    const rawAGap = buildingPts + consistentBuilderBonus + devSpikeBonus + priceLag + floorReversalBonus + socialMomentum + evalBoost + evalVsPriceBonus + viability + campaignBoost + whaleBoost + emissionBoost + volBoost + stakingBoost + rootPropBonus + productAGapPts + productAwarenessGap + productVsPriceBonus + momentumBoost + gapClosurePenalty;
+    // ── GITHUB STAR VELOCITY (0-8 pts) ──────────────────────────────────────────
+    // External developer discovery: other people starring / forking the repo precedes
+    // KOL attention by days. If a repo grows 30%+ in stars over 7 days, the broader
+    // dev community has found it — this is a leading signal distinct from commits.
+    // Uses starsHistory stored in agapHistory to compute week-over-week growth.
+    const ghScanForStars = githubScanMap.get(d.netuid);
+    const prevStarsHistory = (agapHistory[d.netuid] as AGapHistoryEntry | undefined)?.sh ?? [];
+    let starVelocityBonus = 0;
+    const nowStarTs = new Date().toISOString();
+    let newStarsHistory = prevStarsHistory;
+    if (ghScanForStars?.stars != null) {
+      const currentStars = ghScanForStars.stars;
+      // Find a reading from ~7 days ago (within 10d window)
+      const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+      const tenDaysAgo   = Date.now() - 10 * 24 * 60 * 60 * 1000;
+      const oldReading = prevStarsHistory.slice().reverse().find(r => {
+        const rTs = new Date(r.ts).getTime();
+        return rTs <= sevenDaysAgo && rTs >= tenDaysAgo;
+      });
+      if (oldReading && oldReading.s > 0) {
+        const starDelta = currentStars - oldReading.s;
+        const velocity  = starDelta / Math.max(oldReading.s, 10); // fraction growth
+        if      (velocity >= 0.40 || starDelta >= 100) starVelocityBonus = 8; // explosive discovery
+        else if (velocity >= 0.25 || starDelta >= 50)  starVelocityBonus = 6;
+        else if (velocity >= 0.15 || starDelta >= 25)  starVelocityBonus = 4;
+        else if (velocity >= 0.05 || starDelta >= 10)  starVelocityBonus = 2;
+      }
+      // Append current reading; keep last 14 entries (~2 weeks)
+      newStarsHistory = [...prevStarsHistory, { s: currentStars, ts: nowStarTs }].slice(-14);
+    }
+
+    // ── SIGNAL CONFLUENCE BONUS (0-15 pts) ──────────────────────────────────────
+    // The "Templar pattern": when multiple independent leading signals all fire in the
+    // SAME scan, the probability of an imminent price move is multiplicably higher.
+    // One signal = noise. Three signals aligning at once = genuine catalyst convergence.
+    const confluenceSignals = [
+      devSpikeBonus > 0,           // fresh GitHub activity today
+      whaleBoost > 7,              // meaningful whale accumulation (ratio >= 2.0+)
+      socialMomentum >= 8,         // social score >= 40 (real KOL cluster, not noise)
+      emissionBoost >= 7,          // emissions rising >= 20% week-over-week
+    ].filter(Boolean).length;
+    let confluenceBonus = 0;
+    if      (confluenceSignals >= 4) confluenceBonus = 15; // all 4 firing — rare and powerful
+    else if (confluenceSignals >= 3) confluenceBonus = 8;  // 3/4 — Templar pattern
+    else if (confluenceSignals >= 2) confluenceBonus = 2;  // 2 signals — early setup forming
+
+    const rawAGap = buildingPts + consistentBuilderBonus + devSpikeBonus + priceLag + floorReversalBonus + socialMomentum + evalBoost + evalVsPriceBonus + viability + campaignBoost + whaleBoost + whaleVelocityBonus + emissionBoost + volBoost + thinPoolBonus + stakingBoost + rootPropBonus + productAGapPts + productAwarenessGap + productVsPriceBonus + momentumBoost + gapClosurePenalty + starVelocityBonus + confluenceBonus;
 
     // SUSTAINED DECLINE CEILING — hard cap on the final score for chronic bleeders.
     // Reducing individual components (priceLag, evalVsPriceBonus) wasn't enough because
@@ -2965,8 +3066,13 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
 
     const investAGap = Math.max(investRevFloor, clampedInvestAGap);
 
-    // Update history for next scan
-    agapHistory[d.netuid] = { ema: aGap, lastUpdated: new Date().toISOString() };
+    // Update history for next scan (EMA + whale ratio velocity + star history)
+    agapHistory[d.netuid] = {
+      ema: aGap,
+      lastUpdated: new Date().toISOString(),
+      wrh: newRatioHistory,
+      sh: newStarsHistory,
+    };
 
     leaderboard.push({
       netuid: d.netuid,
