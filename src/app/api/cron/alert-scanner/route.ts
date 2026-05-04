@@ -13,7 +13,7 @@
  *   priceMove      — 24h price change >= threshold %
  *   whaleActivity  — whale signal appeared / changed
  *   newSignal      — new alpha signal generated
- *   goingViralX    — new high-heat KOL tweet (heat_score >= 70)
+ *   goingViralX    — new high-heat KOL tweet (heat_score >= 40)
  *   discordEntry   — new high-quality Discord entry (alphaScore >= 70)
  *
  * ── Dedup architecture ────────────────────────────────────────────────────────
@@ -539,7 +539,7 @@ export async function GET(req: NextRequest) {
       const watchlistSet = new Set(watchlist);
       for (const event of socialHot.events) {
         if (!watchlistSet.has(event.netuid)) continue;
-        if (event.heat_score < 70) continue;
+        if (event.heat_score < 40) continue;
         if (processedTweetIds.has(event.tweet_id)) continue;
 
         const entry = scanByNetuid.get(event.netuid);
@@ -594,7 +594,7 @@ export async function GET(req: NextRequest) {
   // auto-increment from 1 on every run and cannot be used for dedup.
   // Signal dedup is handled above via created_at > prevState.lastRunAt.
   for (const event of socialHot?.events ?? []) {
-    if (event.heat_score >= 70) processedTweetIds.add(event.tweet_id);
+    if (event.heat_score >= 40) processedTweetIds.add(event.tweet_id);
   }
   for (const entry of discordLatest?.results ?? []) {
     if (entry.netuid != null && entry.alphaScore >= 70) {
