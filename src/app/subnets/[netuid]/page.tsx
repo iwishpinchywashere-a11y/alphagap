@@ -1,9 +1,8 @@
 "use client";
 
-import { use, useEffect, useRef, useState, useMemo } from "react";
+import { use, useEffect, useRef, useState, useMemo, useCallback } from "react";
 import Link from "next/link";
 import SocialLinks from "@/components/dashboard/SocialLinks";
-import { useWatchlist } from "@/components/dashboard/WatchlistProvider";
 
 // ── Types ─────────────────────────────────────────────────────────
 interface ScoreRow { date: string; agap: number; flow: number; dev: number; eval: number; social: number; price: number; mcap: number; emission_pct: number }
@@ -595,7 +594,35 @@ export default function SubnetDetailPage({ params }: { params: Promise<{ netuid:
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [timeframe, setTimeframe] = useState<Timeframe>("1M");
-  const { toggle: toggleWatchlist, isWatched } = useWatchlist();
+
+  // ── Watchlist (self-contained — subnet page is outside the dashboard layout) ──
+  const [watchlist, setWatchlist] = useState<Set<number>>(new Set());
+  const [watchlistBusy, setWatchlistBusy] = useState(false);
+  useEffect(() => {
+    fetch("/api/watchlist").then(r => r.ok ? r.json() : null).then(d => {
+      if (d?.netuids) setWatchlist(new Set(d.netuids));
+    }).catch(() => {});
+  }, []);
+  const isWatched = useCallback((id: number) => watchlist.has(id), [watchlist]);
+  const toggleWatchlist = useCallback(async (id: number) => {
+    if (watchlistBusy) return;
+    setWatchlistBusy(true);
+    const watching = watchlist.has(id);
+    // Optimistic update
+    setWatchlist(prev => { const next = new Set(prev); watching ? next.delete(id) : next.add(id); return next; });
+    try {
+      const r = watching
+        ? await fetch(`/api/watchlist?netuid=${id}`, { method: "DELETE" })
+        : await fetch("/api/watchlist", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ netuid: id }) });
+      const d = await r.json();
+      if (d?.netuids) setWatchlist(new Set(d.netuids));
+    } catch {
+      // Revert on error
+      setWatchlist(prev => { const next = new Set(prev); watching ? next.add(id) : next.delete(id); return next; });
+    } finally {
+      setWatchlistBusy(false);
+    }
+  }, [watchlist, watchlistBusy]);
 
   // 1Y price history lazy-loads only when the user picks 1Y
   const [yearHistory, setYearHistory] = useState<PricePoint[]>([]);
