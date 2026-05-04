@@ -70,7 +70,7 @@ const SUBNET_DASHBOARDS: Record<number, { label: string; url: string }[]> = {
   1:  [{ label: "Dashboard", url: "https://apex.macrocosmos.ai/" }],
   3:  [{ label: "Dashboard", url: "https://www.tplr.ai/dashboard" }],
   4:  [{ label: "Live Stats", url: "https://stats.targon.com/" }],
-  8:  [{ label: "Trading Dashboard", url: "https://dashboard.taoshi.io/" }, { label: "Tokenomics", url: "https://tokenomics.taoshi.io/" }],
+  8:  [{ label: "Tokenomics", url: "https://tokenomics.taoshi.io/" }],
   9:  [{ label: "Dashboard", url: "https://iota.macrocosmos.ai/" }],
   12: [{ label: "Grafana", url: "https://grafana.bittensor.church/d/subnet/metagraph-subnet?var-subnet=12" }],
   13: [{ label: "Data Dashboard", url: "https://sn13-dashboard.api.macrocosmos.ai/" }],

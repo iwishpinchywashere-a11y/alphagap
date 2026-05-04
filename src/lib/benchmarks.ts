@@ -991,7 +991,6 @@ export const BENCHMARK_DATA: BenchmarkEntry[] = [
     last_updated: "2026-05-04",
     sources: ["https://taoshi.io/"],
     dashboards: [
-      { url: "https://dashboard.taoshi.io/", label: "Trading Dashboard" },
       { url: "https://tokenomics.taoshi.io/", label: "Tokenomics" },
     ],
   },
