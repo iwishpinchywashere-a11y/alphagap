@@ -167,7 +167,8 @@ export async function GET(req: Request) {
   // Hard-coded handle overrides for subnets whose handle isn't registered on TaoStats yet
   const HANDLE_OVERRIDES: Record<string, number> = {
     "affine_io": 120,
-    "MaxScore": 44,   // Score / Manako founder
+    "MaxScore": 44,           // Score / Manako founder
+    "bitcast_network": 93,    // Bitcast — twitter null in TaoStats identity
   };
   for (const [handle, netuid] of Object.entries(HANDLE_OVERRIDES)) {
     if (!handleToNetuid.has(handle)) handleToNetuid.set(handle, netuid);

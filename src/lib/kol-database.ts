@@ -37,7 +37,7 @@ export const KOL_DATABASE: KOL[] = [
   { handle: "twistartups",      name: "This Week in Startups",    stitch3Score: 504,  followers: 94975,   weight: 68,  tier: 2 },
   { handle: "siamkidd",         name: "siamkidd",                 stitch3Score: 444,  followers: 25704,   weight: 60,  tier: 2 },
   { handle: "subnetsummertao",  name: "Subnet Summer",            stitch3Score: 516,  followers: 1358,    weight: 63,  tier: 2 },
-  { handle: "bitcast_network",  name: "Bitcast | SN93",           stitch3Score: 508,  followers: 2946,    weight: 63,  tier: 2 },
+  { handle: "bitcast_network",  name: "Bitcast | SN93",           stitch3Score: 508,  followers: 3271,    weight: 63,  tier: 2 },
   { handle: "bittingthembits",  name: "Andy ττ",                  stitch3Score: 426,  followers: 11267,   weight: 57,  tier: 2 },
   { handle: "webuildscore",     name: "Score - Subnet 44",        stitch3Score: 418,  followers: 8156,    weight: 55,  tier: 2 },
   { handle: "macrocosmosai",    name: "Macrocosmos",              stitch3Score: 406,  followers: 6310,    weight: 54,  tier: 2 },
