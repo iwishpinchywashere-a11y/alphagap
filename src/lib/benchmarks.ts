@@ -257,7 +257,6 @@ export const BENCHMARK_DATA: BenchmarkEntry[] = [
     ],
     dashboards: [
       { url: "https://stats.bitcast.network/", label: "Creator Stats" },
-      { url: "https://dashboard.bitcast.network/", label: "Campaign Dashboard" },
     ],
   },
   {

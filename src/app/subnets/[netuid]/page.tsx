@@ -82,7 +82,7 @@ const SUBNET_DASHBOARDS: Record<number, { label: string; url: string }[]> = {
   75: [{ label: "Network Stats", url: "https://hipstats.com/" }],
   78: [{ label: "Miner Stats", url: "https://subnet.loosh.ai/" }],
   82: [{ label: "Query Portal", url: "https://ask.hermes-subnet.ai/" }],
-  93: [{ label: "Creator Stats", url: "https://stats.bitcast.network/" }, { label: "Campaign Dashboard", url: "https://dashboard.bitcast.network/" }],
+  93: [{ label: "Creator Stats", url: "https://stats.bitcast.network/" }],
 };
 
 // ── TAO Pages slug helper (mirrors tao-pages-slugs.ts logic) ─────
