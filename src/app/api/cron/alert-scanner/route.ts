@@ -131,6 +131,9 @@ interface DiscordEntry {
   summary: string;
   signal: string;
   scannedAt: string;
+  /** True for Const (Bittensor founder) posts — always alert regardless of watchlist */
+  founderPost?: boolean;
+  channelName?: string;
 }
 
 interface DiscordLatest {
@@ -624,28 +627,46 @@ export async function GET(req: NextRequest) {
     }
 
     // ── Discord entry (event-based — processedIds dedup) ─────────────
+    // Founder (Const Tracker) posts bypass the watchlist check — they fire for
+    // ALL users who have discordEntry enabled, regardless of what subnets they
+    // follow. Every other entry still requires the subnet to be on the watchlist.
     if (settings.discordEntry?.enabled && discordLatest?.results?.length) {
       const watchlistSet = new Set(watchlist);
       const discordMinScore = Math.max(70, settings.discordEntry.minScore ?? 0);
       for (const entry of discordLatest.results) {
-        if (entry.netuid == null || !watchlistSet.has(entry.netuid)) continue;
+        const isFounder = entry.founderPost === true;
+
+        // Watchlist gate: skip non-founder entries whose subnet isn't watched
+        if (!isFounder && (entry.netuid == null || !watchlistSet.has(entry.netuid))) continue;
+
         if (entry.alphaScore < discordMinScore) continue;
-        const key = `${entry.netuid}:${entry.scannedAt}`;
+
+        // Dedup key: founder posts key off scannedAt only (no netuid)
+        const key = isFounder
+          ? `founder:${entry.scannedAt}`
+          : `${entry.netuid}:${entry.scannedAt}`;
         if (processedDiscordKeys.has(key)) continue;
 
-        const scanEntry = scanByNetuid.get(entry.netuid);
+        const scanEntry = entry.netuid != null ? scanByNetuid.get(entry.netuid) : null;
         const label = scanEntry ? subnetLabel(scanEntry) : entry.subnetName || `SN${entry.netuid}`;
 
-        await enqueueAlert(hash, {
-          type: "discordEntry",
-          netuid: entry.netuid,
-          subnetName: label,
-          message:
-            `💬 *Discord Activity Alert*\n` +
+        const message = isFounder
+          ? `📡 *Const Tracker Alert*\n` +
+            `*Bittensor Founder posted in Discord*\n\n` +
+            `${entry.summary}\n\n` +
+            `Alpha score: *${entry.alphaScore}/100*\n\n` +
+            `[View on social page →](${BASE_URL}/social)`
+          : `💬 *Discord Activity Alert*\n` +
             `*${label}*\n\n` +
             `${entry.summary}\n\n` +
             `Alpha score: *${entry.alphaScore}/100* — meaningful alpha discussion is happening in this subnet's Discord right now.\n\n` +
-            `[View on social page →](${BASE_URL}/social)`,
+            `[View on social page →](${BASE_URL}/social)`;
+
+        await enqueueAlert(hash, {
+          type: "discordEntry",
+          netuid: entry.netuid ?? undefined,
+          subnetName: isFounder ? "Const · Bittensor Founder" : label,
+          message,
         });
         totalAlerts++;
       }
@@ -660,8 +681,11 @@ export async function GET(req: NextRequest) {
     if (event.heat_score >= 40) processedTweetIds.add(event.tweet_id);
   }
   for (const entry of discordLatest?.results ?? []) {
-    if (entry.netuid != null && entry.alphaScore >= 70) {
-      processedDiscordKeys.add(`${entry.netuid}:${entry.scannedAt}`);
+    if (entry.alphaScore >= 70) {
+      const key = entry.founderPost === true
+        ? `founder:${entry.scannedAt}`
+        : entry.netuid != null ? `${entry.netuid}:${entry.scannedAt}` : null;
+      if (key) processedDiscordKeys.add(key);
     }
   }
   for (const event of flowEvents?.events ?? []) {
