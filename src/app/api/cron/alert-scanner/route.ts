@@ -494,10 +494,18 @@ export async function GET(req: NextRequest) {
     // be used for dedup — every ID immediately collides with the previous
     // run's IDs. Instead we filter by created_at > prevState.lastRunAt so
     // only signals that appeared since the last scanner run are alerted on.
+    //
+    // Only dev/research signals (dev_spike, hf_update) fire here — they
+    // represent GitHub commits and HuggingFace updates and link to /signals.
+    // Flow-type signals (flow_spike, flow_inflection, flow_warning) belong
+    // on the /flow page and are covered by the whaleActivity alert above.
     if (settings.newSignal?.enabled && scan.signals?.length) {
       const watchlistSet = new Set(watchlist);
       for (const signal of scan.signals) {
         if (!watchlistSet.has(signal.netuid)) continue;
+
+        // Skip flow signals — those belong to the /flow page, not /signals
+        if (signal.signal_type?.startsWith("flow_")) continue;
 
         // Skip signals that already existed in the previous run.
         // If created_at or lastRunAt is absent, allow through (first run / legacy data).
@@ -508,6 +516,7 @@ export async function GET(req: NextRequest) {
         const entry = scanByNetuid.get(signal.netuid);
         const label = entry ? subnetLabel(entry) : `SN${signal.netuid}`;
         const strengthLabel = signal.strength >= 80 ? "🔥 Strong signal" : signal.strength >= 60 ? "✅ Medium signal" : "📌 Weak signal";
+        const sourceLabel = signal.signal_type === "hf_update" ? "HuggingFace model update" : "GitHub dev activity";
 
         await enqueueAlert(hash, {
           type: "newSignal",
@@ -518,7 +527,7 @@ export async function GET(req: NextRequest) {
             `*${label}*\n\n` +
             `*${signal.title}*\n` +
             `${strengthLabel} (${signal.strength}/100)\n\n` +
-            `AlphaGap detected this signal from on-chain activity, dev commits, and market data.\n\n` +
+            `Source: ${sourceLabel}\n\n` +
             `[View all signals →](${BASE_URL}/signals)`,
         });
         totalAlerts++;
