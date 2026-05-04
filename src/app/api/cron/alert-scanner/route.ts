@@ -487,13 +487,21 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // ── New signals (event-based — processedIds dedup) ────────────────
+    // ── New signals (time-based dedup via created_at vs lastRunAt) ───
+    // NOTE: Signal IDs auto-increment from 1 on EVERY scan run and cannot
+    // be used for dedup — every ID immediately collides with the previous
+    // run's IDs. Instead we filter by created_at > prevState.lastRunAt so
+    // only signals that appeared since the last scanner run are alerted on.
     if (settings.newSignal?.enabled && scan.signals?.length) {
       const watchlistSet = new Set(watchlist);
       for (const signal of scan.signals) {
         if (!watchlistSet.has(signal.netuid)) continue;
-        const signalId = signal.id;
-        if (!signalId || processedSignalIds.has(signalId)) continue;
+
+        // Skip signals that already existed in the previous run.
+        // If created_at or lastRunAt is absent, allow through (first run / legacy data).
+        if (signal.created_at && prevState?.lastRunAt) {
+          if (new Date(signal.created_at) <= new Date(prevState.lastRunAt)) continue;
+        }
 
         const entry = scanByNetuid.get(signal.netuid);
         const label = entry ? subnetLabel(entry) : `SN${signal.netuid}`;
@@ -571,9 +579,9 @@ export async function GET(req: NextRequest) {
   }
 
   // Mark processed event IDs after all users handled
-  for (const signal of scan.signals ?? []) {
-    if (signal.id) processedSignalIds.add(signal.id);
-  }
+  // NOTE: processedSignalIds is intentionally NOT updated here — signal IDs
+  // auto-increment from 1 on every run and cannot be used for dedup.
+  // Signal dedup is handled above via created_at > prevState.lastRunAt.
   for (const event of socialHot?.events ?? []) {
     if (event.heat_score >= 70) processedTweetIds.add(event.tweet_id);
   }
