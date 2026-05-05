@@ -44,8 +44,9 @@ const FOUNDER_USER_IDS = new Set<string>([
   "229609371013029888", // const [τ, τ] — confirmed from live Bittensor Discord messages
 ]);
 
-// Prioritise channels we can map to a netuid — high cap to cover all 128 subnets + extras
-const MAX_CHANNELS = 250;
+// Prioritise channels we can map to a netuid — keep under timeout budget
+// 120 × (80ms delay + ~300ms fetch) ≈ 45s fetch + ~100s AI = ~145s well under 4min limit
+const MAX_CHANNELS = 120;
 // Messages per channel — Discord API hard cap is 100; keep at 100
 const MESSAGES_PER_CHANNEL = 100;
 // Minimum messages to bother analyzing — 1 so no channel with any activity is skipped
@@ -173,8 +174,17 @@ export async function GET() {
     // (smaller batches prevent max_tokens truncation of the JSON response)
     const results: DiscordAlphaResult[] = [];
     const BATCH_SIZE = 6;
+    // Time budget: bail out of AI batching if we're within 30s of the 240s hard limit
+    const scanStart = Date.now();
+    const AI_BUDGET_MS = 200_000; // 200s for AI (leaves 40s for fetching + overhead)
 
     for (let i = 0; i < activeChannels.length; i += BATCH_SIZE) {
+      if (Date.now() - scanStart > AI_BUDGET_MS) {
+        console.warn(`[discord-scan] Time budget reached — skipping remaining ${activeChannels.length - i} channels`);
+        // Add fallback results for skipped channels
+        for (const ch of activeChannels.slice(i)) results.push(fallbackResult(ch));
+        break;
+      }
       const batch = activeChannels.slice(i, i + BATCH_SIZE);
       const batchResults = await analyzeBatch(batch);
       results.push(...batchResults);
