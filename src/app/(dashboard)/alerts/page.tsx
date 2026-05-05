@@ -219,14 +219,10 @@ export default function AlertsPage() {
     );
   }
 
-  if (status === "unauthenticated") {
-    router.push("/auth/signin");
-    return null;
-  }
+  // ── Feature showcase — not signed in OR signed in but not premium ─────────
 
-  // ── Premium gate — full feature showcase ──────────────────────────────────
-
-  if (!isPremium) {
+  if (status === "unauthenticated" || !isPremium) {
+    const isSignedOut = status === "unauthenticated";
     const alertFeatures = [
       {
         icon: "📊",
@@ -286,7 +282,7 @@ export default function AlertsPage() {
             <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-5">How it works</h2>
             <div className="flex items-center gap-3 flex-wrap">
               {[
-                { step: "1", text: "Upgrade to Premium" },
+                { step: "1", text: isSignedOut ? "Sign in & upgrade" : "Upgrade to Premium" },
                 { step: "2", text: "Connect your Telegram in one tap" },
                 { step: "3", text: "Pick which alerts you want" },
                 { step: "4", text: "Alerts arrive instantly in Telegram" },
@@ -334,11 +330,21 @@ export default function AlertsPage() {
           {/* CTA */}
           <div className="text-center">
             <a
-              href="/pricing"
+              href="/subscribe"
               className="inline-block px-10 py-4 bg-green-500 hover:bg-green-400 text-black font-bold text-lg rounded-xl transition-colors shadow-lg shadow-green-500/20"
             >
-              Upgrade to Premium
+              Upgrade to Premium →
             </a>
+            {isSignedOut && (
+              <div className="mt-3">
+                <a
+                  href="/auth/signin"
+                  className="inline-block px-8 py-3 bg-gray-800 hover:bg-gray-700 text-white font-semibold rounded-xl transition-colors border border-gray-700 text-sm"
+                >
+                  Sign In
+                </a>
+              </div>
+            )}
             <p className="text-gray-600 text-xs mt-4">Premium plan · $49/mo · Cancel anytime</p>
           </div>
 
