@@ -46,8 +46,8 @@ const FOUNDER_USER_IDS = new Set<string>([
 
 // Prioritise channels we can map to a netuid — high cap to cover all 128 subnets + extras
 const MAX_CHANNELS = 250;
-// Messages per channel — more context = better AI analysis
-const MESSAGES_PER_CHANNEL = 150;
+// Messages per channel — Discord API hard cap is 100; keep at 100
+const MESSAGES_PER_CHANNEL = 100;
 // Minimum messages to bother analyzing — 1 so no channel with any activity is skipped
 const MIN_MESSAGES_TO_ANALYZE = 1;
 // Delay between channel fetches (ms)

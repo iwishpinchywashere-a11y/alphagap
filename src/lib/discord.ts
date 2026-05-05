@@ -83,7 +83,8 @@ export async function fetchChannelMessages(
   options: { limit?: number; after?: string } = {}
 ): Promise<DiscordMessage[]> {
   const params = new URLSearchParams();
-  params.set("limit", String(options.limit || 50));
+  // Discord API caps limit at 100 — clamp to avoid 400 Bad Request
+  params.set("limit", String(Math.min(options.limit || 50, 100)));
   if (options.after) params.set("after", options.after);
 
   const res = await fetch(`${DISCORD_BASE}/channels/${channelId}/messages?${params}`, {
@@ -97,7 +98,11 @@ export async function fetchChannelMessages(
     await new Promise(r => setTimeout(r, retryAfter * 1000 + 200));
     return fetchChannelMessages(token, channelId, options);
   }
-  if (!res.ok) return [];
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    console.error(`[discord] fetchChannelMessages ${channelId} failed: ${res.status} — ${body.slice(0, 200)}`);
+    return [];
+  }
   return res.json();
 }
 
