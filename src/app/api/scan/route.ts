@@ -479,6 +479,7 @@ export async function GET() {
   const GITHUB_REPO_OVERRIDES: Record<number, string> = {
     36:  "https://github.com/autoppia/autoppia_web_agents_subnet", // Autoppia Web Agents — missing from registry
     42:  "https://github.com/masa-finance/masa-bittensor",          // Masa real-time social data — missing from registry
+    44:  "https://github.com/score-technologies/turbovision",       // Score — team migrated from score-vision to turbovision (active daily commits)
     70:  "https://github.com/RendixNetwork/nexisgen",              // NexisGen — missing from registry
     82:  "https://github.com/SN-Hermes/hermes-subnet",             // Hermes (SubQuery) — missing from registry
     87:  "https://github.com/luminar-network/luminar-sn",          // Luminar Network — missing from registry
