@@ -170,6 +170,8 @@ interface ScannerState {
   lastRunAt: string;
   subnets: Record<string, SubnetState>;
   processedSignalIds: number[];
+  /** Composite dedup keys for newSignal alerts: "{netuid}:{signal_type}:{title[:50]}" */
+  processedSignalKeys: string[];
   processedTweetIds: string[];
   processedDiscordKeys: string[];
   /** Dedup keys for volume surge alerts: "{netuid}:volume_surge:{dayKey}" */
@@ -311,6 +313,7 @@ export async function GET(req: NextRequest) {
   // Previous state — read once, never written early
   const prevSubnets: Record<string, SubnetState> = prevState?.subnets ?? {};
   const processedSignalIds = new Set<number>(prevState?.processedSignalIds ?? []);
+  const processedSignalKeys = new Set<string>(prevState?.processedSignalKeys ?? []);
   const processedTweetIds = new Set<string>(prevState?.processedTweetIds ?? []);
   const processedDiscordKeys = new Set<string>(prevState?.processedDiscordKeys ?? []);
   const processedVolumeKeys = new Set<string>(prevState?.processedVolumeKeys ?? []);
@@ -549,16 +552,17 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // ── New signals (time-based dedup via created_at vs lastRunAt) ───
-    // NOTE: Signal IDs auto-increment from 1 on EVERY scan run and cannot
-    // be used for dedup — every ID immediately collides with the previous
-    // run's IDs. Instead we filter by created_at > prevState.lastRunAt so
-    // only signals that appeared since the last scanner run are alerted on.
+    // ── New signals (composite-key dedup) ────────────────────────────
+    // Signal IDs auto-increment from 1 on EVERY scan run — useless for dedup.
+    // created_at is optional and sometimes absent, so date-only dedup breaks.
+    //
+    // We use a persistent processedSignalKeys Set (stored in scanner state)
+    // keyed by "netuid:signal_type:title[:50]". Each unique signal fires
+    // exactly once per user, regardless of whether created_at is present.
     //
     // Only dev/research signals (dev_spike, hf_update) fire here — they
     // represent GitHub commits and HuggingFace updates and link to /signals.
-    // Flow-type signals (flow_spike, flow_inflection, flow_warning) belong
-    // on the /flow page and are covered by the whaleActivity alert above.
+    // Flow-type signals belong on /flow and are covered by whaleActivity above.
     if (settings.newSignal?.enabled && scan.signals?.length) {
       const watchlistSet = new Set(watchlist);
       const newSignalMinScore = settings.newSignal.minScore ?? 0;
@@ -568,14 +572,12 @@ export async function GET(req: NextRequest) {
         // Skip flow signals — those belong to the /flow page, not /signals
         if (signal.signal_type?.startsWith("flow_")) continue;
 
-        // Apply user's minimum score threshold
+        // Apply user's minimum score threshold FIRST — cheap check, reject early
         if (newSignalMinScore > 0 && signal.strength < newSignalMinScore) continue;
 
-        // Skip signals that already existed in the previous run.
-        // If created_at or lastRunAt is absent, allow through (first run / legacy data).
-        if (signal.created_at && prevState?.lastRunAt) {
-          if (new Date(signal.created_at) <= new Date(prevState.lastRunAt)) continue;
-        }
+        // Composite dedup key — stable across runs, doesn't depend on created_at
+        const sigKey = `${signal.netuid}:${signal.signal_type}:${(signal.title || "").slice(0, 50)}`;
+        if (processedSignalKeys.has(sigKey)) continue;
 
         const entry = scanByNetuid.get(signal.netuid);
         const label = entry ? subnetLabel(entry) : `SN${signal.netuid}`;
@@ -594,6 +596,9 @@ export async function GET(req: NextRequest) {
             `Source: ${sourceLabel}\n\n` +
             `[View all signals →](${BASE_URL}/signals)`,
         });
+        // Mark as processed immediately so subsequent users in this run don't
+        // get the same alert fired again (before the end-of-run state write)
+        processedSignalKeys.add(sigKey);
         totalAlerts++;
       }
     }
@@ -673,10 +678,10 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  // Mark processed event IDs after all users handled
-  // NOTE: processedSignalIds is intentionally NOT updated here — signal IDs
-  // auto-increment from 1 on every run and cannot be used for dedup.
-  // Signal dedup is handled above via created_at > prevState.lastRunAt.
+  // Mark processed event IDs after all users handled.
+  // processedSignalKeys was already populated inline (above) as each signal fired,
+  // so we just need to persist it here along with the other processed sets.
+  // processedSignalIds is kept for schema compatibility but is no longer used.
   for (const event of socialHot?.events ?? []) {
     if (event.heat_score >= 40) processedTweetIds.add(event.tweet_id);
   }
@@ -713,6 +718,7 @@ export async function GET(req: NextRequest) {
     lastRunAt: new Date().toISOString(),
     subnets: newSubnets,
     processedSignalIds: [...processedSignalIds].slice(-5000),
+    processedSignalKeys: [...processedSignalKeys].slice(-5000),
     processedTweetIds: [...processedTweetIds].slice(-5000),
     processedDiscordKeys: [...processedDiscordKeys].slice(-5000),
     processedVolumeKeys: [...processedVolumeKeys].slice(-5000),
