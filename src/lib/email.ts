@@ -344,7 +344,7 @@ export async function sendTelegramAnnouncementEmail(
   return resend.emails.send({
     from: FROM,
     to: email,
-    subject: "📡 Introducing: AlphaGap Telegram Alerts",
+    subject: "Introducing: AlphaGap Telegram Alerts",
     html,
   });
 }
