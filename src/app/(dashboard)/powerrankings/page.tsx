@@ -364,7 +364,7 @@ export default function PowerRankingsPage() {
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setShowInvestingGate(false)} />
                 <div
-                  className="absolute left-0 top-full mt-2 z-50 w-64 p-3.5 bg-gray-900 border border-purple-500/40 rounded-xl shadow-2xl text-xs leading-relaxed"
+                  className="absolute right-0 top-full mt-2 z-50 w-72 max-w-[calc(100vw-1rem)] p-3.5 bg-gray-900 border border-purple-500/40 rounded-xl shadow-2xl text-xs leading-relaxed"
                   onClick={(e) => e.stopPropagation()}
                 >
                   <div className="font-semibold text-purple-400 mb-1.5">📈 Investing Analysis</div>
