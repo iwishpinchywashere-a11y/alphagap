@@ -53,6 +53,10 @@ const KNOWN_HF_ORGS: Array<{ org: string; netuid?: number }> = [
   { org: "chunking-ai", netuid: 40 },
   // SN41 — Almanac / SportsTensor
   { org: "sportstensor", netuid: 41 },
+  // SN47 — EvolAI (openevolai)
+  { org: "evolai", netuid: 47 },
+  // SN52 — Dojo (Tensorplex Labs)
+  { org: "tensorplex-labs", netuid: 52 },
   // SN61 — RedTeam (Innerworks)
   { org: "innerworks", netuid: 61 },
   // SN62 — Ridges
@@ -61,10 +65,15 @@ const KNOWN_HF_ORGS: Array<{ org: string; netuid?: number }> = [
   { org: "chutesai", netuid: 64 },
   // SN65 — TAO Private Network (Taofu)
   { org: "taofu", netuid: 65 },
-  // Others with known HF presence (subnet TBD)
-  { org: "tensorplex-labs" },
-  { org: "coldint" },
-  { org: "borggAI" },
+  // SN72 — StreetVision by NATIX
+  { org: "natix-network", netuid: 72 },
+  // SN75 — Hippius (thenervelab)
+  { org: "hippius", netuid: 75 },
+  // SN9 participants — pretraining miners publish models here
+  { org: "borggAI", netuid: 9 },
+  // SN29 — Coldint validator/miner models
+  { org: "coldint", netuid: 29 },
+  // Others with known HF presence (subnet TBD or spans multiple)
   { org: "SocialTensor" },
 ];
 

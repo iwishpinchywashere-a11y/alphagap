@@ -480,11 +480,15 @@ export async function GET() {
     36:  "https://github.com/autoppia/autoppia_web_agents_subnet", // Autoppia Web Agents — missing from registry
     42:  "https://github.com/masa-finance/masa-bittensor",          // Masa real-time social data — missing from registry
     44:  "https://github.com/score-technologies/turbovision",       // Score — team migrated from score-vision to turbovision (active daily commits)
+    47:  "https://github.com/openevolai/evolai",                   // EvolAI — registry URL had .git suffix which breaks scanner
     70:  "https://github.com/RendixNetwork/nexisgen",              // NexisGen — missing from registry
-    82:  "https://github.com/SN-Hermes/hermes-subnet",             // Hermes (SubQuery) — missing from registry
+    74:  "https://github.com/entrius/gittensor",                   // Gittensor — registry URL had /tree/main suffix, not a repo root
     87:  "https://github.com/luminar-network/luminar-sn",          // Luminar Network — missing from registry
     99:  "https://github.com/RendixNetwork/leoma",                 // Leoma — missing from registry
     105: "https://github.com/Beam-Network/beam",                   // Beam — registry had org-page URL, not repo
+    118: "https://github.com/ditto-assistant/ditto-mcp-servers",  // Ditto — registry had org-page URL, not repo
+    // NOTE: SN82 override REMOVED — was wrongly pointing to Hermes (old SN82 tenant).
+    // SN82 is now Compelle; TaoStats correctly tracks compelle/compelle-validator.
   };
 
   // Verified X/Twitter handle overrides — sourced from @PinchyAlpha/following list (Apr 2026).
