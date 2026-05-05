@@ -274,7 +274,7 @@ export default function AuditsPage() {
   const [sortKey, setSortKey]     = useState<SortKey>("score");
   const [sortDir, setSortDir]     = useState<"asc" | "desc">("desc");
 
-  // Only fetch data once we know the user is premium
+  // Only fetch real data once we know the user is premium
   useEffect(() => {
     if (sessionStatus === "loading") return;
     if (!isPremium) { setLoading(false); return; }
@@ -288,6 +288,17 @@ export default function AuditsPage() {
       .catch(e => setError(String(e)))
       .finally(() => setLoading(false));
   }, [sessionStatus, isPremium]);
+
+  // Placeholder rows shown blurred to non-premium users
+  const base = { grade: "B" as const, activeMinerPct: 70, trustGini: 0.3, emissionPercent: 1.2, emissionEmaPct: 1.1, marketCap: null, inflow: null, outflow: null, updatedAt: "" };
+  const PREVIEW_ROWS: SubnetAudit[] = [
+    { ...base, netuid: 1,  name: "Apex",         grade: "A", operationalScore: 84, nakamotoCoefficient: 12, hhiNormalized: 0.11, top10Share: 0.42, burnedEmissionPct: 0,   emissionChainBuysPct: 6.2,  holdersCount: 4821, taoInPool: 18400, staleValidatorPct: 4,  staleValidatorCount: 0, zeroIncentiveMinerPct: 18, zeroIncentiveMinerCount: 9,  validatorCount: 18, minerCount: 50, maxWeightLagBlocks: 200,  top3ValidatorTrustShare: 38, flags: [] },
+    { ...base, netuid: 4,  name: "Targon",        grade: "B", operationalScore: 78, nakamotoCoefficient: 9,  hhiNormalized: 0.18, top10Share: 0.51, burnedEmissionPct: 0,   emissionChainBuysPct: 4.1,  holdersCount: 3102, taoInPool: 11200, staleValidatorPct: 8,  staleValidatorCount: 1, zeroIncentiveMinerPct: 22, zeroIncentiveMinerCount: 11, validatorCount: 12, minerCount: 50, maxWeightLagBlocks: 400,  top3ValidatorTrustShare: 44, flags: [] },
+    { ...base, netuid: 9,  name: "iota",          grade: "B", operationalScore: 72, nakamotoCoefficient: 7,  hhiNormalized: 0.22, top10Share: 0.58, burnedEmissionPct: 2.1, emissionChainBuysPct: 3.4,  holdersCount: 2890, taoInPool: 9800,  staleValidatorPct: 12, staleValidatorCount: 2, zeroIncentiveMinerPct: 30, zeroIncentiveMinerCount: 15, validatorCount: 16, minerCount: 50, maxWeightLagBlocks: 800,  top3ValidatorTrustShare: 49, flags: [{ type: "stale_weights" as const, severity: "warning" as const, message: "3 validators have stale weights" }] },
+    { ...base, netuid: 13, name: "Data Universe", grade: "C", operationalScore: 67, nakamotoCoefficient: 5,  hhiNormalized: 0.31, top10Share: 0.63, burnedEmissionPct: 5.3, emissionChainBuysPct: 2.1,  holdersCount: 1950, taoInPool: 7100,  staleValidatorPct: 19, staleValidatorCount: 3, zeroIncentiveMinerPct: 41, zeroIncentiveMinerCount: 21, validatorCount: 16, minerCount: 50, maxWeightLagBlocks: 1400, top3ValidatorTrustShare: 56, flags: [] },
+    { ...base, netuid: 22, name: "Desearch",      grade: "C", operationalScore: 61, nakamotoCoefficient: 4,  hhiNormalized: 0.38, top10Share: 0.69, burnedEmissionPct: 8.7, emissionChainBuysPct: 1.3,  holdersCount: 1340, taoInPool: 5200,  staleValidatorPct: 25, staleValidatorCount: 4, zeroIncentiveMinerPct: 48, zeroIncentiveMinerCount: 24, validatorCount: 16, minerCount: 50, maxWeightLagBlocks: 2200, top3ValidatorTrustShare: 62, flags: [{ type: "low_nakamoto" as const, severity: "critical" as const, message: "Nakamoto coefficient below threshold" }] },
+    { ...base, netuid: 64, name: "Chutes",        grade: "D", operationalScore: 55, nakamotoCoefficient: 3,  hhiNormalized: 0.45, top10Share: 0.74, burnedEmissionPct: 14,  emissionChainBuysPct: 0.8,  holdersCount: 980,  taoInPool: 3400,  staleValidatorPct: 33, staleValidatorCount: 5, zeroIncentiveMinerPct: 55, zeroIncentiveMinerCount: 28, validatorCount: 15, minerCount: 50, maxWeightLagBlocks: 3600, top3ValidatorTrustShare: 71, flags: [] },
+  ];
 
   function handleSort(key: SortKey) {
     if (sortKey === key) {
@@ -617,40 +628,128 @@ export default function AuditsPage() {
     );
   }
 
-  // Hard gate — not signed in
-  if (!session) {
-    return (
-      <main className="flex-1 flex items-center justify-center p-6">
-        <div className="text-center max-w-md">
-          <div className="text-5xl mb-4">🔒</div>
-          <h2 className="text-xl font-bold mb-2">Sign In Required</h2>
-          <p className="text-gray-400 mb-6">Sign in to access Subnet Audits.</p>
-          <Link href="/auth/signin" className="px-6 py-3 bg-green-600 hover:bg-green-500 text-black font-bold rounded-xl transition-colors">
-            Sign In
-          </Link>
+  // Gated — render blurred preview + overlay (same pattern as power rankings)
+  if (!session || !isPremium) {
+    const isSignedOut = !session;
+    // Build a fake filtered list using placeholder data
+    const previewTable = (
+      <div className="bg-gray-900/60 border border-gray-800 rounded-xl overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm min-w-[900px]">
+            <thead>
+              <tr className="border-b border-gray-800 bg-gray-950/40">
+                <th className="px-3 py-2.5 text-left w-8 text-xs text-gray-600 uppercase tracking-wide">#</th>
+                <th className="px-3 py-2.5 text-left text-xs text-gray-600 uppercase tracking-wide min-w-[140px]">Subnet</th>
+                <th className="px-2.5 py-2 text-right text-xs text-gray-600 uppercase tracking-wide">Audit Score</th>
+                <th className="px-2.5 py-2 text-right text-xs text-gray-600 uppercase tracking-wide">aGap</th>
+                <th className="px-2.5 py-2 text-right text-xs text-gray-600 uppercase tracking-wide">Mkt Cap</th>
+                <th className="px-2.5 py-2 text-right text-xs text-gray-600 uppercase tracking-wide">Holders</th>
+                <th className="px-2.5 py-2 text-right text-xs text-gray-600 uppercase tracking-wide">Nakamoto</th>
+                <th className="px-2.5 py-2 text-right text-xs text-gray-600 uppercase tracking-wide">HHI</th>
+                <th className="px-2.5 py-2 text-right text-xs text-gray-600 uppercase tracking-wide">Miner Burn</th>
+                <th className="px-2.5 py-2 text-right text-xs text-gray-600 uppercase tracking-wide">Stale Val%</th>
+                <th className="px-2.5 py-2 text-right text-xs text-gray-600 uppercase tracking-wide">ZI Miners%</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-800/50">
+              {PREVIEW_ROWS.map((audit, i) => {
+                const agap = agapMap.get(audit.netuid);
+                const mcap = marketCapUsdMap.get(audit.netuid);
+                return (
+                  <tr key={audit.netuid} className="hover:bg-gray-800/20">
+                    <td className="px-3 py-3 text-gray-600 text-sm tabular-nums text-center">{i + 1}</td>
+                    <td className="px-3 py-3">
+                      <div className="flex items-center gap-2">
+                        <SubnetLogo netuid={audit.netuid} name={audit.name} size={24} />
+                        <div>
+                          <div className="font-semibold text-white text-sm">{audit.name}</div>
+                          <div className="text-xs text-gray-600 font-mono">SN{audit.netuid}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-2.5 py-3 text-right"><div className="flex justify-end"><ScoreBadge score={audit.operationalScore} /></div></td>
+                    <td className="px-2.5 py-3 text-right">
+                      {agap != null ? <span className={`tabular-nums font-semibold text-sm ${agap >= 70 ? "text-emerald-400" : agap >= 40 ? "text-yellow-400" : "text-red-400"}`}>{Math.round(agap)}</span> : <span className="text-gray-600">—</span>}
+                    </td>
+                    <td className="px-2.5 py-3 text-right">
+                      {mcap != null ? <span className="text-gray-300 tabular-nums text-sm">${formatNum(mcap)}</span> : <span className="text-gray-600 text-sm">—</span>}
+                    </td>
+                    <td className="px-2.5 py-3 text-right"><CellVal value={fmtK(audit.holdersCount)} raw={audit.holdersCount} dir="high_good" thresholds={[500, 2000]} /></td>
+                    <td className="px-2.5 py-3 text-right"><CellVal value={String(audit.nakamotoCoefficient)} raw={audit.nakamotoCoefficient} dir="high_good" thresholds={[5, 10]} /></td>
+                    <td className="px-2.5 py-3 text-right"><CellVal value={num(audit.hhiNormalized)} raw={audit.hhiNormalized} dir="low_good" thresholds={[0.20, 0.50]} /></td>
+                    <td className="px-2.5 py-3 text-right"><CellVal value={pct(audit.burnedEmissionPct, 1)} raw={audit.burnedEmissionPct} dir="low_good" thresholds={[30, 70]} /></td>
+                    <td className="px-2.5 py-3 text-right"><CellVal value={pct(audit.staleValidatorPct, 0)} raw={audit.staleValidatorPct} dir="low_good" thresholds={[30, 70]} /></td>
+                    <td className="px-2.5 py-3 text-right"><CellVal value={pct(audit.zeroIncentiveMinerPct, 0)} raw={audit.zeroIncentiveMinerPct} dir="low_good" thresholds={[40, 80]} /></td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
-      </main>
+      </div>
     );
-  }
 
-  // Hard gate — signed in but not premium
-  if (!isPremium) {
     return (
-      <main className="flex-1 flex items-center justify-center p-6">
-        <div className="text-center max-w-lg">
-          <div className="text-5xl mb-4">📊</div>
-          <h2 className="text-2xl font-bold mb-3">Subnet Audits</h2>
-          <p className="text-gray-400 mb-2 leading-relaxed">
-            Deep operational intelligence across every active subnet — decentralisation scores, miner burn economics, validator health, liquidity, and adoption metrics in one sortable table.
-          </p>
-          <p className="text-gray-500 text-sm mb-8">Available on the Premium plan.</p>
-          <Link
-            href="/subscribe"
-            className="inline-block px-8 py-3.5 bg-gradient-to-r from-green-500 to-emerald-600 text-black font-bold rounded-xl text-base hover:from-green-400 hover:to-emerald-500 transition-all shadow-xl shadow-green-500/30"
-          >
-            Upgrade to Premium →
-          </Link>
-          <p className="text-xs text-gray-600 mt-3">Premium · $49/mo · Includes all Pro features</p>
+      <main className="flex-1 overflow-auto p-4 md:p-6">
+        <div className="max-w-screen-2xl mx-auto space-y-5">
+
+          {/* Header */}
+          <div>
+            <h1 className="text-xl font-bold text-white">Subnet Audits</h1>
+            <p className="text-sm text-gray-500 mt-1">
+              Operational health across every active subnet — decentralisation, miner economics, validator freshness, liquidity and adoption.
+            </p>
+          </div>
+
+          {/* Blurred preview + overlay */}
+          <div className="relative">
+            {/* Blurred table preview */}
+            <div className="blur-sm pointer-events-none select-none opacity-60">
+              {previewTable}
+            </div>
+
+            {/* Gradient fade at bottom */}
+            <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-gray-950 to-transparent pointer-events-none" />
+
+            {/* Overlay CTA */}
+            <div className="absolute inset-0 flex items-center justify-center z-10">
+              <div className="bg-gray-950/90 border border-gray-700/60 rounded-2xl p-6 md:p-8 text-center max-w-sm mx-4 shadow-2xl backdrop-blur-sm">
+                <div className="text-4xl mb-3">📊</div>
+                <h2 className="text-lg font-bold text-white mb-2">Subnet Audits</h2>
+                <p className="text-gray-400 text-sm mb-1 leading-relaxed">
+                  Deep operational intelligence — decentralisation scores, miner burn economics, validator health, and more across all {PREVIEW_ROWS.length > 0 ? "119" : ""} active subnets.
+                </p>
+                <p className="text-gray-500 text-xs mb-5">
+                  {isSignedOut ? "Sign in to access. Available on Premium." : "Available on Premium only."}
+                </p>
+                {isSignedOut ? (
+                  <div className="flex flex-col gap-2">
+                    <Link
+                      href="/subscribe"
+                      className="block w-full py-3 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-400 hover:to-emerald-500 text-black font-bold rounded-xl transition-all shadow-lg shadow-green-500/30 text-sm"
+                    >
+                      Upgrade to Premium →
+                    </Link>
+                    <Link
+                      href="/auth/signin"
+                      className="block w-full py-2.5 bg-gray-800 hover:bg-gray-700 text-white font-semibold rounded-xl transition-colors text-sm border border-gray-700"
+                    >
+                      Sign In
+                    </Link>
+                  </div>
+                ) : (
+                  <Link
+                    href="/subscribe"
+                    className="block w-full py-3 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-400 hover:to-emerald-500 text-black font-bold rounded-xl transition-all shadow-lg shadow-green-500/30 text-sm"
+                  >
+                    Upgrade to Premium →
+                  </Link>
+                )}
+                <p className="text-xs text-gray-600 mt-3">Premium · $49/mo · Includes all Pro features</p>
+              </div>
+            </div>
+          </div>
+
         </div>
       </main>
     );
