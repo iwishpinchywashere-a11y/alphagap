@@ -254,6 +254,7 @@ interface LeaderboardEntry {
   top_signal?: string;
   alpha_price?: number;
   market_cap?: number;
+  volume_24h?: number;
   net_flow_24h?: number;
   emission_pct?: number;
   emission_trend?: "up" | "down" | null; // significant change detected
@@ -3087,6 +3088,7 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
       top_signal: topSignalMap.get(d.netuid),
       alpha_price: d.alphaPriceUsd ?? undefined,
       market_cap: d.marketCapUsd ?? undefined,
+      volume_24h: d.volumeUsd ?? undefined,
       net_flow_24h: d.netFlow24h ?? undefined,
       emission_pct: d.emissionPct > 0 ? d.emissionPct / 100 : undefined,
       emission_change_pct: emissionChangePct,

@@ -30,6 +30,7 @@ export interface SubnetScore {
   top_signal?: string;
   alpha_price?: number;
   market_cap?: number;
+  volume_24h?: number;
   net_flow_24h?: number;
   emission_pct?: number;
   price_change_24h?: number;
