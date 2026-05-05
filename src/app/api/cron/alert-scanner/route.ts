@@ -684,8 +684,8 @@ export async function GET(req: NextRequest) {
         const label = scanEntry ? subnetLabel(scanEntry) : entry.subnetName || `SN${entry.netuid}`;
 
         // For per-channel founder entries the channelName is "founder-const-<channelName>"
-        const founderChannel = isFounder && entry.channelName.startsWith("founder-const-")
-          ? `#${entry.channelName.replace("founder-const-", "")}`
+        const founderChannel = isFounder && (entry.channelName ?? "").startsWith("founder-const-")
+          ? `#${entry.channelName!.replace("founder-const-", "")}`
           : null;
         const founderLocation = founderChannel
           ? `Posted in ${founderChannel}`
