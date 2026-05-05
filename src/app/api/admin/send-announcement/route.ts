@@ -11,12 +11,20 @@ import { sendTelegramAnnouncementEmail } from "@/lib/email";
 
 const ADMIN_EMAIL = "iwishpinchywashere@gmail.com";
 
-export async function POST(req: NextRequest) {
-  // Admin gate
-  const session = await getServerSession(authOptions);
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function isAuthorised(req: NextRequest, session: any): boolean {
+  // Allow via CRON_SECRET bearer token (for server-side / curl calls)
+  const secret = (process.env.CRON_SECRET || "").trim();
+  if (secret && req.headers.get("authorization") === `Bearer ${secret}`) return true;
+  // Allow via admin session
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const userEmail = (session?.user as any)?.email;
-  if (!userEmail || userEmail !== ADMIN_EMAIL) {
+  return !!(userEmail && userEmail === ADMIN_EMAIL);
+}
+
+export async function POST(req: NextRequest) {
+  const session = await getServerSession(authOptions);
+  if (!isAuthorised(req, session)) {
     return NextResponse.json({ error: "Unauthorised" }, { status: 403 });
   }
 
