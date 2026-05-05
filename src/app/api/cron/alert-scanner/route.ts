@@ -486,14 +486,20 @@ export async function GET(req: NextRequest) {
         }
       }
 
-      // Whale activity — only fire for strong signals (whale_ratio >= 3).
-      // whale_ratio is avg buy size / avg sell size; 3× means buys are 3x
-      // larger than sells (or vice versa), filtering out weak/noisy signals.
+      // Whale activity — fire for meaningful signals on either side.
+      // whale_ratio = avg buy size / avg sell size:
+      //   accumulating signal: ratio >= 1.5 (scan threshold), alert at >= 2.0 (quality bar)
+      //   distributing signal: ratio <= 0.5 (scan threshold), alert at any distributing signal
+      // BUG FIX: old check was `whaleRatio >= 3` which never fired for distributing
+      // (ratio ≤ 0.5) and was too high for most accumulation signals (1.5–2.9 range).
       const whaleRatio = current.whale_ratio ?? 0;
+      const isAlertableWhale =
+        (current.whale_signal === "accumulating" && whaleRatio >= 2.0) ||
+        (current.whale_signal === "distributing" && whaleRatio <= 0.5);
       if (
         settings.whaleActivity?.enabled &&
         current.whale_signal &&
-        whaleRatio >= 3
+        isAlertableWhale
       ) {
         const prevWhale = prev?.whaleSignal ?? null;
         if (current.whale_signal !== prevWhale) {
@@ -502,17 +508,19 @@ export async function GET(req: NextRequest) {
           } else {
             const emoji = current.whale_signal === "accumulating" ? "🐋" : "🔴";
             const action = current.whale_signal === "accumulating"
-              ? "accumulating — large wallets are staking into this subnet"
-              : "distributing — large wallets are unstaking from this subnet";
+              ? "accumulating — large wallets staking in"
+              : "distributing — large wallets unstaking";
+            const ratioStr = current.whale_signal === "accumulating"
+              ? `Avg buy ${whaleRatio.toFixed(1)}× larger than avg sell`
+              : `Avg sell ${(1 / whaleRatio).toFixed(1)}× larger than avg buy`;
             await enqueueAlert(hash, {
               type: "whaleActivity",
               netuid,
               subnetName: label,
               message:
-                `${emoji} *Whale Activity Alert*\n` +
-                `*${label}*\n\n` +
-                `Whales are ${action}.\n\n` +
-                `This is based on large TAO flow movements detected in the last 24h.\n\n` +
+                `${emoji} *Whale Activity — ${label}*\n\n` +
+                `Whales are *${action}*.\n` +
+                `${ratioStr}.\n\n` +
                 `[View on flow page →](${BASE_URL}/flow)`,
             });
             recordAlert(lastAlertedAt, hash, "whaleActivity", netuid);
