@@ -44,10 +44,10 @@ const FOUNDER_USER_IDS = new Set<string>([
   "229609371013029888", // const [τ, τ] — confirmed from live Bittensor Discord messages
 ]);
 
-// Prioritise channels we can map to a netuid — cap at 120 to maximise coverage
-const MAX_CHANNELS = 120;
+// Prioritise channels we can map to a netuid — high cap to cover all 128 subnets + extras
+const MAX_CHANNELS = 250;
 // Messages per channel — more context = better AI analysis
-const MESSAGES_PER_CHANNEL = 100;
+const MESSAGES_PER_CHANNEL = 150;
 // Minimum messages to bother analyzing — 1 so no channel with any activity is skipped
 const MIN_MESSAGES_TO_ANALYZE = 1;
 // Delay between channel fetches (ms)
@@ -57,6 +57,12 @@ const RATE_LIMIT_DELAY = 80;
 const FOUNDER_LOOKBACK_HOURS = 72;
 // Minimum entries to surface on the social page — if below this, relax signal thresholds
 const MIN_ENTRIES_TARGET = 10;
+// Extra general/announcement channels to scan for Const posts (name substrings)
+const FOUNDER_CHANNEL_PATTERNS = [
+  "general", "announce", "ecosystem", "governance", "core-team",
+  "const", "update", "news", "dev-chat", "builders", "official",
+];
+const MAX_FOUNDER_CHANNELS = 20;
 
 export async function GET() {
   if (!DISCORD_TOKEN) {
@@ -86,12 +92,27 @@ export async function GET() {
     const afterSnowflake72h = getHoursAgoSnowflake(FOUNDER_LOOKBACK_HOURS);
     const cutoff24h = Date.now() - 24 * 60 * 60 * 1000;
 
-    // 2. Fetch messages from each channel
+    // 2a. Identify general/announcement channels for founder-only scanning
+    // These channels are NOT analyzed for alpha (skipped in AI batch) but ARE
+    // included in analyzeFounderPosts so Const posts there are never missed.
+    const subnetChannelIds = new Set(channelsToScan.map(c => c.id));
+    const founderExtraChannels = allChannels
+      .filter(ch => (ch.type === 0 || ch.type === 5) && !subnetChannelIds.has(ch.id))
+      .filter(ch => {
+        const name = ch.name.toLowerCase();
+        return FOUNDER_CHANNEL_PATTERNS.some(p => name.includes(p));
+      })
+      .slice(0, MAX_FOUNDER_CHANNELS);
+
+    console.log(`[discord-scan] Also scanning ${founderExtraChannels.length} general channels for founder posts`);
+
+    // 2b. Fetch messages from each channel
     const channelScans: Array<{
       channelId: string;
       channelName: string;
       netuid: number | null;
       messages: DiscordMessage[];
+      founderOnly?: boolean; // true = skip AI batch analysis, founder detection only
     }> = [];
 
     for (const channel of channelsToScan) {
@@ -115,11 +136,34 @@ export async function GET() {
       }
     }
 
+    // Fetch general channels (founder detection only — no AI batch)
+    for (const channel of founderExtraChannels) {
+      try {
+        const messages = await fetchChannelMessages(DISCORD_TOKEN, channel.id, {
+          limit: 50,
+          after: afterSnowflake72h,
+        });
+        channelScans.push({
+          channelId: channel.id,
+          channelName: channel.name,
+          netuid: null,
+          messages,
+          founderOnly: true,
+        });
+        await new Promise(r => setTimeout(r, RATE_LIMIT_DELAY));
+      } catch (e) {
+        console.error(`[discord-scan] Failed to fetch general channel ${channel.name}:`, e);
+      }
+    }
+
     // For AI analysis, only use messages from the last 24h (keeps results fresh)
-    const channelScans24h = channelScans.map(c => ({
-      ...c,
-      messages: c.messages.filter(m => new Date(m.timestamp).getTime() >= cutoff24h),
-    }));
+    // Exclude founderOnly channels — those are for Const detection only, not AI batch
+    const channelScans24h = channelScans
+      .filter(c => !c.founderOnly)
+      .map(c => ({
+        ...c,
+        messages: c.messages.filter(m => new Date(m.timestamp).getTime() >= cutoff24h),
+      }));
 
     // 3. Filter to channels with enough activity
     const activeChannels = channelScans24h.filter(c => c.messages.length >= MIN_MESSAGES_TO_ANALYZE);

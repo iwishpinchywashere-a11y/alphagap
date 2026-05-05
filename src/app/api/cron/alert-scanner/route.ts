@@ -340,6 +340,11 @@ export async function GET(req: NextRequest) {
   } while (cursor);
 
   let totalAlerts = 0;
+  // Track discord keys that actually fired an alert (not just seen).
+  // Only fired keys are added to processedDiscordKeys at end-of-run.
+  // Avoids marking entries as processed when no user received the alert
+  // (e.g. discordEntry disabled), which would block future users from seeing them.
+  const firedDiscordKeys = new Set<string>();
 
   for (const hash of connectedHashes) {
     const conn = await getTelegramConnectionByHash(hash);
@@ -631,26 +636,49 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // ── Discord entry (event-based — processedIds dedup) ─────────────
-    // Founder (Const Tracker) posts bypass the watchlist check — they fire for
-    // ALL users who have discordEntry enabled, regardless of what subnets they
-    // follow. Every other entry still requires the subnet to be on the watchlist.
+    // ── Discord entry ─────────────────────────────────────────────────
+    // Founder (Const Tracker) posts:
+    //   - bypass watchlist gate → fires for ALL users with discordEntry enabled
+    //   - bypass minScore gate → EVERY significant founder post fires
+    //   - still deduped so the same post only fires once per user
+    // Regular entries:
+    //   - require subnet on watchlist
+    //   - require alphaScore >= discordMinScore (user-set, floor 40)
+    //   - require signal === "alpha" or "active" (no quiet/noise alerts)
+    //   - 4h cooldown per netuid so the same channel doesn't spam every scan cycle
+    //
+    // Dedup key uses content fingerprint (summary slice), NOT scannedAt.
+    // scannedAt changes every 3h scan cycle, making old entries look "new".
+    // Summary is stable for the same actual content, preventing repeat fires.
     if (settings.discordEntry?.enabled && discordLatest?.results?.length) {
       const watchlistSet = new Set(watchlist);
-      const discordMinScore = Math.max(70, settings.discordEntry.minScore ?? 0);
+      const discordMinScore = Math.max(40, settings.discordEntry.minScore ?? 0);
       for (const entry of discordLatest.results) {
         const isFounder = entry.founderPost === true;
+
+        // Signal gate: only alpha and active tier (not quiet/noise)
+        if (!isFounder && entry.signal !== "alpha" && entry.signal !== "active") continue;
 
         // Watchlist gate: skip non-founder entries whose subnet isn't watched
         if (!isFounder && (entry.netuid == null || !watchlistSet.has(entry.netuid))) continue;
 
-        if (entry.alphaScore < discordMinScore) continue;
+        // Score gate: founder posts bypass this — every significant Const post fires
+        if (!isFounder && entry.alphaScore < discordMinScore) continue;
 
-        // Dedup key: founder posts key off scannedAt only (no netuid)
+        // Content-fingerprint dedup key — stable across scan cycles
+        // scannedAt-based keys would re-fire the same content every 3h
+        const summarySlice = (entry.summary || "").slice(0, 60);
         const key = isFounder
-          ? `founder:${entry.scannedAt}`
-          : `${entry.netuid}:${entry.scannedAt}`;
+          ? `founder:${summarySlice}`
+          : `${entry.netuid}:${summarySlice}`;
         if (processedDiscordKeys.has(key)) continue;
+
+        // Cooldown gate for regular entries (4h) — prevents same channel re-alerting
+        // every scan cycle when there's sustained activity. Founder posts bypass.
+        if (!isFounder && onCooldown(lastAlertedAt, hash, "discordEntry", entry.netuid ?? 0)) {
+          console.log(`[alert-scanner] discordEntry SN${entry.netuid} → ${hash.slice(0, 8)} suppressed (cooldown)`);
+          continue;
+        }
 
         const scanEntry = entry.netuid != null ? scanByNetuid.get(entry.netuid) : null;
         const label = scanEntry ? subnetLabel(scanEntry) : entry.subnetName || `SN${entry.netuid}`;
@@ -673,25 +701,24 @@ export async function GET(req: NextRequest) {
           subnetName: isFounder ? "Const · Bittensor Founder" : label,
           message,
         });
+        if (!isFounder) recordAlert(lastAlertedAt, hash, "discordEntry", entry.netuid ?? 0);
+        firedDiscordKeys.add(key);
         totalAlerts++;
       }
     }
   }
 
   // Mark processed event IDs after all users handled.
-  // processedSignalKeys was already populated inline (above) as each signal fired,
-  // so we just need to persist it here along with the other processed sets.
+  // processedSignalKeys was already populated inline as each signal fired.
   // processedSignalIds is kept for schema compatibility but is no longer used.
   for (const event of socialHot?.events ?? []) {
     if (event.heat_score >= 40) processedTweetIds.add(event.tweet_id);
   }
-  for (const entry of discordLatest?.results ?? []) {
-    if (entry.alphaScore >= 70) {
-      const key = entry.founderPost === true
-        ? `founder:${entry.scannedAt}`
-        : entry.netuid != null ? `${entry.netuid}:${entry.scannedAt}` : null;
-      if (key) processedDiscordKeys.add(key);
-    }
+  // Only persist discord keys that ACTUALLY fired an alert this run.
+  // Skipping entries that didn't fire (no user had it enabled, watchlist mismatch,
+  // score too low) ensures new users / newly-enabled settings still see them.
+  for (const key of firedDiscordKeys) {
+    processedDiscordKeys.add(key);
   }
   for (const event of flowEvents?.events ?? []) {
     if (event.type === "volume_surge") {
