@@ -593,18 +593,19 @@ export async function GET() {
       // For repos with overrides: TaoStats data points to old/wrong repo.
       // Trust the direct GitHub scan for ALL metrics when override is active.
       if (GITHUB_REPO_OVERRIDES[netuid] !== undefined) {
-        // GitHubScanResult only has 24h data; use it for 7d fields too so stale TaoStats is replaced.
-        if (ghResult.commits24h !== undefined) existing.commits_7d = ghResult.commits24h;
-        if (ghResult.contributors24h !== undefined) existing.unique_contributors_30d = ghResult.contributors24h;
+        // Use the real 7d commit window (not 24h) so a repo with no push TODAY still scores correctly.
+        existing.commits_7d = ghResult.commits7d ?? ghResult.commits24h;
+        existing.unique_contributors_30d = ghResult.contributors7d ?? ghResult.contributors24h;
+        existing.unique_contributors_7d = ghResult.contributors7d ?? ghResult.contributors24h;
       }
-    } else if (ghResult.commits24h > 0 || ghResult.hasNewRelease) {
+    } else if (ghResult.commits7d > 0 || ghResult.commits24h > 0 || ghResult.hasNewRelease) {
       // Subnet has GitHub activity but wasn't in TaoStats dev data — add it
       devMap.set(netuid, {
         netuid,
         repo_url: ghResult.repoUrl,
         commits_1d: ghResult.commits24h,
-        commits_7d: ghResult.commits24h,
-        commits_30d: ghResult.commits24h,
+        commits_7d: ghResult.commits7d,
+        commits_30d: ghResult.commits7d,  // best approximation we have
         prs_opened_1d: 0,
         prs_merged_1d: 0,
         issues_opened_1d: 0,
@@ -614,9 +615,9 @@ export async function GET() {
         unique_contributors_1d: ghResult.contributors24h,
         prs_opened_7d: 0,
         prs_merged_7d: 0,
-        unique_contributors_7d: ghResult.contributors24h,
+        unique_contributors_7d: ghResult.contributors7d,
         prs_merged_30d: 0,
-        unique_contributors_30d: ghResult.contributors24h,
+        unique_contributors_30d: ghResult.contributors7d,
         days_since_last_event: 0,
         last_event_at: new Date().toISOString(),
         as_of_day: new Date().toISOString().slice(0, 10),

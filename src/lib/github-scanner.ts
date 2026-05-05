@@ -22,6 +22,9 @@ export interface GitHubScanResult {
   commits24h: number;
   contributors24h: number;
   commitMessages: string[];     // up to 15 most recent, formatted for AI
+  // 7-day activity (same API call as 24h — just a wider window)
+  commits7d: number;
+  contributors7d: number;
   // New release in last 24h
   hasNewRelease: boolean;
   releaseTag?: string;
@@ -57,7 +60,10 @@ export async function scanAllSubnetGitHub(
   subnets: Array<{ netuid: number; github_repo: string | null }>
 ): Promise<Map<number, GitHubScanResult>> {
   const results = new Map<number, GitHubScanResult>();
-  const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const since7d  = new Date(Date.now() - 7  * 24 * 60 * 60 * 1000).toISOString();
+  // Aliases so existing code below still compiles
+  const since = since24h;
 
   // Filter to subnets with GitHub repos we can parse
   const toScan = subnets
@@ -84,7 +90,7 @@ export async function scanAllSubnetGitHub(
         // Parallel: commits since 24h + releases + 30d LOC stats + repo metadata (stars/forks)
         const [commitsRes, releasesRes, codeFreqRes, repoMetaRes] = await Promise.allSettled([
           fetch(
-            `https://api.github.com/repos/${owner}/${repo}/commits?since=${since}&per_page=50`,
+            `https://api.github.com/repos/${owner}/${repo}/commits?since=${since7d}&per_page=100`,
             { headers: ghHeaders(), signal: AbortSignal.timeout(10000) }
           ),
           fetch(
@@ -102,22 +108,32 @@ export async function scanAllSubnetGitHub(
         ]);
 
         // ── Process commits ─────────────────────────────────────
+        // We query since=7d and count both windows from one response.
         let commits24h = 0;
+        let commits7d  = 0;
         const commitMessages: string[] = [];
-        const contributors = new Set<string>();
+        const contributors    = new Set<string>();
+        const contributors7d  = new Set<string>();
 
         if (commitsRes.status === "fulfilled" && commitsRes.value.ok) {
           const data = await commitsRes.value.json();
           if (Array.isArray(data)) {
-            commits24h = data.length;
-            for (const c of data.slice(0, 15)) {
-              // First line of commit message only (rest is detail)
-              const msg = (c.commit?.message || "").split("\n")[0].trim().slice(0, 120);
-              const date = c.commit?.author?.date?.slice(0, 10) || "";
-              const sha = (c.sha || "").slice(0, 7);
-              if (msg) commitMessages.push(`[${date}] ${sha}: ${msg}`);
+            commits7d = data.length;  // all commits since 7d ago
+            for (const c of data) {
+              const commitDate = c.commit?.author?.date || "";
               const author = c.commit?.author?.name || c.author?.login || "";
-              if (author) contributors.add(author);
+              if (author) contributors7d.add(author);
+              // Only count / capture messages for last 24h
+              if (commitDate >= since24h) {
+                commits24h++;
+                if (author) contributors.add(author);
+                if (commitMessages.length < 15) {
+                  const msg = (c.commit?.message || "").split("\n")[0].trim().slice(0, 120);
+                  const date = commitDate.slice(0, 10);
+                  const sha = (c.sha || "").slice(0, 7);
+                  if (msg) commitMessages.push(`[${date}] ${sha}: ${msg}`);
+                }
+              }
             }
           }
         } else if (commitsRes.status === "fulfilled" && commitsRes.value.status === 409) {
@@ -193,6 +209,8 @@ export async function scanAllSubnetGitHub(
           repoUrl,
           commits24h,
           contributors24h: contributors.size,
+          commits7d,
+          contributors7d: contributors7d.size,
           commitMessages,
           hasNewRelease,
           releaseTag,
