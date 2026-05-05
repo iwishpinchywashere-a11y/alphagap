@@ -3663,14 +3663,22 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
 
   // Cache result to Vercel Blob for instant page loads
   // SAFEGUARD: never overwrite a good blob with a degraded result.
-  // TaoStats outages or rate-limit failures return 0 subnets — if that
-  // happened this run we skip the write so paying customers always see
-  // the last good leaderboard rather than an empty dashboard.
+  // Two failure modes we guard against:
+  // 1. Count failure: TaoStats returns 0 subnets (total outage) — covered by MIN_HEALTHY_SUBNETS.
+  // 2. Data-quality failure: pool API fails silently (Promise.allSettled → pools=[]) — all subnets
+  //    still appear (from emissions/github) but with null prices and 0% price changes, which tanks
+  //    AGAP scores. Catch this by requiring at least 60 subnets to have valid alpha prices.
   const MIN_HEALTHY_SUBNETS = 50;
-  const isHealthyScan = leaderboard.length >= MIN_HEALTHY_SUBNETS;
+  const MIN_SUBNETS_WITH_PRICE = 60;
+  const subnetsWithPrice = leaderboard.filter(e => e.alpha_price != null && e.alpha_price > 0).length;
+  const isHealthyScan = leaderboard.length >= MIN_HEALTHY_SUBNETS && subnetsWithPrice >= MIN_SUBNETS_WITH_PRICE;
 
   if (!isHealthyScan) {
-    console.warn(`[scan] DEGRADED RESULT: only ${leaderboard.length} subnets (< ${MIN_HEALTHY_SUBNETS}). Skipping blob write to preserve last good cache.`);
+    console.warn(
+      `[scan] DEGRADED RESULT: ${leaderboard.length} subnets (need ≥${MIN_HEALTHY_SUBNETS}), ` +
+      `${subnetsWithPrice} with valid price (need ≥${MIN_SUBNETS_WITH_PRICE}). ` +
+      `Skipping blob write to preserve last good cache.`
+    );
   }
 
   try {
