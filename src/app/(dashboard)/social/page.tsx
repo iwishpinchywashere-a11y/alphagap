@@ -29,6 +29,8 @@ interface DiscordEntry {
   alphaTake?: string;
   founderPost?: boolean;
   channelContext?: string;
+  channelName?: string;   // raw channel name (founder entries: "founder-const-<channel>")
+  subnetName?: string;    // formatted display name (founder entries: "Const · <Name> (SNxx)")
   messageCount: number; uniquePosters: number; scannedAt: string; lastActivityAt?: string;
   composite_score: number | null; social_score: number | null;
   releaseHint?: boolean;
@@ -246,50 +248,92 @@ export default function SocialPage() {
 
         {/* ── Founder Signal (pinned above Discord Alpha) ── */}
         {(() => {
-          const founderEntry = rawDiscordLeaderboard.find(d => d.founderPost);
-          if (!founderEntry) return null;
+          const founderEntries = rawDiscordLeaderboard.filter(d => d.founderPost);
+          if (founderEntries.length === 0) return null;
+
+          // Derive a clean human-readable channel label from subnetName or channelName.
+          // subnetName is set to "Const · <FormattedName> (SNxx)" — strip the "Const · " prefix.
+          const channelLabel = (entry: typeof founderEntries[0]): string => {
+            if (entry.subnetName) {
+              const stripped = entry.subnetName.replace(/^Const\s*·\s*/i, "").trim();
+              if (stripped) return stripped;
+            }
+            // Fallback: strip "founder-const-" prefix from channelName
+            const raw = (entry.channelName ?? "").replace(/^founder-const-/, "");
+            return raw || "Bittensor Discord";
+          };
+
+          // Representative score = max across all entries
+          const topScore = Math.max(...founderEntries.map(e => e.alphaScore ?? 0));
+          const mostRecentAt = founderEntries
+            .map(e => e.lastActivityAt ?? e.scannedAt)
+            .sort()
+            .at(-1);
+
           return (
             <div className="bg-amber-950/20 border border-amber-500/40 rounded-xl overflow-hidden ring-1 ring-amber-500/20 shadow-lg shadow-amber-500/10">
+              {/* Card header */}
               <div className="px-5 py-3 border-b border-amber-500/20 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <span className="text-base">👑</span>
                   <div>
-                    <div className="flex items-center gap-2">
-                      <h2 className="font-bold text-amber-300 text-sm">Const · Bittensor Founder</h2>
-                      {founderEntry.netuid != null && founderEntry.netuid > 0 && (
-                        <span className="text-xs text-amber-500/70 bg-amber-900/30 border border-amber-500/30 px-1.5 py-0.5 rounded font-mono leading-none">SN{founderEntry.netuid}</span>
-                      )}
-                    </div>
+                    <h2 className="font-bold text-amber-300 text-sm">Const · Bittensor Founder</h2>
                     <p className="text-xs text-amber-500/70 mt-0.5">
-                      {founderEntry.channelContext ? `Posted in ${founderEntry.channelContext}` : "Posted in Discord"} · {timeAgo(founderEntry.lastActivityAt ?? founderEntry.scannedAt)}
+                      {founderEntries.length === 1
+                        ? `Posted in ${channelLabel(founderEntries[0])}`
+                        : `Posted in ${founderEntries.length} Discord channels`
+                      }
+                      {mostRecentAt && ` · ${timeAgo(mostRecentAt)}`}
                     </p>
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className={`text-lg font-bold tabular-nums leading-none ${(founderEntry.alphaScore ?? 0) >= 70 ? "text-green-400" : "text-yellow-400"}`}>{founderEntry.alphaScore ?? "—"}</div>
+                  <div className={`text-lg font-bold tabular-nums leading-none ${topScore >= 70 ? "text-green-400" : "text-yellow-400"}`}>{topScore}</div>
                   <div className="text-[10px] text-gray-600 mt-0.5">alpha</div>
                 </div>
               </div>
-              <div className="px-5 py-4">
-                {founderEntry.summary && (
-                  <p className="text-sm text-gray-100 leading-relaxed mb-2">{founderEntry.summary}</p>
-                )}
-                {founderEntry.keyInsights && founderEntry.keyInsights.length > 0 && (
-                  <ul className="space-y-1 mb-2">
-                    {founderEntry.keyInsights.map((insight, ii) => (
-                      <li key={ii} className="flex items-start gap-1.5 text-sm text-gray-300 leading-relaxed">
-                        <span className="text-amber-400 mt-0.5 shrink-0">›</span>
-                        <span>{insight}</span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                {founderEntry.alphaTake && (
-                  <div className="border-l-2 border-amber-500/60 bg-amber-500/5 rounded-r-lg px-3 py-2.5">
-                    <p className="text-[10px] font-bold text-amber-400 uppercase tracking-widest mb-1">AlphaGap Take</p>
-                    <p className="text-xs text-gray-200 leading-relaxed">{founderEntry.alphaTake}</p>
+
+              {/* One section per channel */}
+              <div className="divide-y divide-amber-500/10">
+                {founderEntries.map((entry, idx) => (
+                  <div key={idx} className="px-5 py-4">
+                    {/* Channel label — only shown when there are multiple entries */}
+                    {founderEntries.length > 1 && (
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-[10px] font-bold text-amber-400 uppercase tracking-widest">
+                          In {channelLabel(entry)}
+                        </span>
+                        {entry.netuid != null && entry.netuid > 0 && (
+                          <span className="text-[10px] text-amber-500/60 bg-amber-900/30 border border-amber-500/20 px-1.5 py-0.5 rounded font-mono leading-none">
+                            SN{entry.netuid}
+                          </span>
+                        )}
+                        <span className={`text-[10px] font-bold tabular-nums ml-auto ${(entry.alphaScore ?? 0) >= 70 ? "text-green-400" : "text-yellow-400"}`}>
+                          {entry.alphaScore ?? "—"}
+                        </span>
+                      </div>
+                    )}
+                    {entry.summary && (
+                      <p className="text-sm text-gray-100 leading-relaxed mb-2">{entry.summary}</p>
+                    )}
+                    {entry.keyInsights && entry.keyInsights.length > 0 && (
+                      <ul className="space-y-1 mb-2">
+                        {entry.keyInsights.map((insight, ii) => (
+                          <li key={ii} className="flex items-start gap-1.5 text-sm text-gray-300 leading-relaxed">
+                            <span className="text-amber-400 mt-0.5 shrink-0">›</span>
+                            <span>{insight}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {entry.alphaTake && (
+                      <div className="border-l-2 border-amber-500/60 bg-amber-500/5 rounded-r-lg px-3 py-2.5">
+                        <p className="text-[10px] font-bold text-amber-400 uppercase tracking-widest mb-1">AlphaGap Take</p>
+                        <p className="text-xs text-gray-200 leading-relaxed">{entry.alphaTake}</p>
+                      </div>
+                    )}
                   </div>
-                )}
+                ))}
               </div>
             </div>
           );
