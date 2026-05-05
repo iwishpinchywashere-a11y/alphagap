@@ -21,6 +21,7 @@ interface SubnetEntry {
   market_cap?: number;
   dev_score?: number;
   flow_score?: number;
+  score_delta_24h?: number;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────
@@ -75,6 +76,82 @@ function ScoreRing({ score }: { score: number }) {
         <span className={`relative z-10 text-lg font-black tabular-nums ${tier.color}`}>{score}</span>
       </div>
       <span className={`text-[10px] font-bold uppercase tracking-wider ${tier.color}`}>{tier.label}</span>
+    </div>
+  );
+}
+
+// ── Today's Movers ────────────────────────────────────────────────
+
+function TodaysMovers({ entries }: { entries: SubnetEntry[] }) {
+  // Only include entries with a real delta value
+  const withDelta = entries.filter(e => e.score_delta_24h != null);
+  if (withDelta.length < 4) return null; // not enough data yet
+
+  const sorted = [...withDelta].sort((a, b) => (b.score_delta_24h ?? 0) - (a.score_delta_24h ?? 0));
+  const gainers = sorted.slice(0, 3);
+  const losers = sorted.slice(-3).reverse();
+
+  return (
+    <div className="mb-6">
+      <div className="flex items-center gap-2 mb-3">
+        <span className="text-lg">🔥</span>
+        <h2 className="text-sm font-bold text-white tracking-wide">Today&apos;s Movers</h2>
+        <span className="text-xs text-gray-600">24h aGap score change</span>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2 sm:gap-3">
+        {/* Gainers */}
+        <div className="space-y-1.5">
+          <div className="text-[10px] uppercase tracking-widest text-emerald-500/70 font-bold pl-1">▲ Gainers</div>
+          {gainers.map(e => {
+            const delta = e.score_delta_24h ?? 0;
+            return (
+              <div
+                key={e.netuid}
+                className="flex items-center gap-2 px-3 py-2 rounded-xl bg-emerald-500/5 border border-emerald-500/20 hover:bg-emerald-500/10 transition-colors"
+              >
+                <SubnetLogo netuid={e.netuid} name={e.name} size={28} />
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs font-semibold text-white truncate leading-tight">{e.name}</div>
+                  <div className="text-[10px] text-gray-600 font-mono">SN{e.netuid}</div>
+                </div>
+                <div className="flex-shrink-0 text-right">
+                  <div className="text-sm font-black text-emerald-400 tabular-nums">
+                    +{delta.toFixed(1)}
+                  </div>
+                  <div className="text-[10px] text-gray-600">{e.composite_score}</div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Losers */}
+        <div className="space-y-1.5">
+          <div className="text-[10px] uppercase tracking-widest text-red-500/70 font-bold pl-1">▼ Losers</div>
+          {losers.map(e => {
+            const delta = e.score_delta_24h ?? 0;
+            return (
+              <div
+                key={e.netuid}
+                className="flex items-center gap-2 px-3 py-2 rounded-xl bg-red-500/5 border border-red-500/20 hover:bg-red-500/10 transition-colors"
+              >
+                <SubnetLogo netuid={e.netuid} name={e.name} size={28} />
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs font-semibold text-white truncate leading-tight">{e.name}</div>
+                  <div className="text-[10px] text-gray-600 font-mono">SN{e.netuid}</div>
+                </div>
+                <div className="flex-shrink-0 text-right">
+                  <div className="text-sm font-black text-red-400 tabular-nums">
+                    {delta.toFixed(1)}
+                  </div>
+                  <div className="text-[10px] text-gray-600">{e.composite_score}</div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 }
@@ -430,6 +507,11 @@ export default function PowerRankingsPage() {
           My Watchlist
         </button>
       </div>
+
+      {/* ── Today's Movers ────────────────────────────────────────── */}
+      {!loading && leaderboard.length > 0 && (
+        <TodaysMovers entries={leaderboard} />
+      )}
 
       {/* ── Rankings list ─────────────────────────────────────────── */}
       {loading ? (

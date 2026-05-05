@@ -295,6 +295,7 @@ interface LeaderboardEntry {
   apy_1h?: number;               // 1-hour APY (annualised) — for divergence detection
   apy_30d?: number;              // 30-day APY (annualised) — baseline for divergence
   loc_30d?: number;              // Lines of code (additions+deletions) in last 30 days
+  score_delta_24h?: number;      // Raw aGap score change in last 24h (signed, e.g. +4.2 or -1.8)
 }
 
 // ── Stitch3 campaign data (cached in Vercel Blob) ────────────────
@@ -3387,6 +3388,11 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
             50 + Math.tanh(velocity * levelMult / 2) * 50
           )));
           entry.agap_velo = velo;
+        }
+
+        // Always store the raw 24h delta for Today's Movers widget
+        if (d24 !== null) {
+          entry.score_delta_24h = Math.round(d24 * 10) / 10; // round to 1 decimal
         }
       }
 
