@@ -191,11 +191,11 @@ export async function GET() {
     }
 
     // ── Founder post detection (full 72h window) ───────────────────────────────
-    // Pass the full 72h channelScans so we catch posts from up to 3 days ago.
-    const founderResult = await analyzeFounderPosts(channelScans);
-    if (founderResult) {
-      results.unshift(founderResult); // pin to top
-      console.log(`[discord-scan] Founder post detected — alphaScore ${founderResult.alphaScore}`);
+    // Returns one entry per channel Const posted in, pinned to the top.
+    const founderResults = await analyzeFounderPosts(channelScans);
+    if (founderResults.length > 0) {
+      results.unshift(...founderResults); // pin all founder entries to top
+      console.log(`[discord-scan] ${founderResults.length} founder channel entry(s) added`);
     }
 
     // Add quiet channels (no messages) as "quiet" without AI analysis
@@ -528,6 +528,7 @@ Rules:
 }
 
 // ── Founder Post Analysis ─────────────────────────────────────────────────────
+// Returns one entry PER CHANNEL Const posted in so summaries are channel-specific.
 
 async function analyzeFounderPosts(
   channelScans: Array<{
@@ -536,60 +537,83 @@ async function analyzeFounderPosts(
     netuid: number | null;
     messages: DiscordMessage[];
   }>
-): Promise<DiscordAlphaResult | null> {
-  // Collect all messages from Const across every channel we scanned
-  const found: Array<{ channelName: string; netuid: number | null; msg: DiscordMessage }> = [];
+): Promise<DiscordAlphaResult[]> {
+  // Collect all messages from Const, grouped by channel
+  const byChannel = new Map<string, {
+    channelId: string;
+    channelName: string;
+    netuid: number | null;
+    msgs: DiscordMessage[];
+  }>();
 
   for (const scan of channelScans) {
     for (const msg of scan.messages) {
       if (msg.author.bot) continue;
       const uname = msg.author.username.toLowerCase();
       const displayName = (msg.author.global_name ?? "").toLowerCase();
-      // Match on: known usernames, known user ID, or any account whose
-      // username/display-name starts with "const" (catches "const [τ, τ]" variants)
       const isFounder =
         FOUNDER_USERNAMES.has(uname) ||
         FOUNDER_USER_IDS.has(msg.author.id) ||
         uname.startsWith("const") ||
         displayName.startsWith("const");
       if (isFounder && msg.content.trim().length > 15) {
-        found.push({ channelName: scan.channelName, netuid: scan.netuid, msg });
+        if (!byChannel.has(scan.channelName)) {
+          byChannel.set(scan.channelName, {
+            channelId: scan.channelId,
+            channelName: scan.channelName,
+            netuid: scan.netuid,
+            msgs: [],
+          });
+        }
+        byChannel.get(scan.channelName)!.msgs.push(msg);
       }
     }
   }
 
-  if (found.length === 0) {
+  if (byChannel.size === 0) {
     console.log("[discord-scan] No founder posts found in last 72h");
-    return null;
+    return [];
   }
 
-  console.log(`[discord-scan] Found ${found.length} founder message(s) across ${new Set(found.map(f => f.channelName)).size} channel(s)`);
+  const channelCount = byChannel.size;
+  const totalMsgs = [...byChannel.values()].reduce((s, c) => s + c.msgs.length, 0);
+  console.log(`[discord-scan] Found ${totalMsgs} founder message(s) across ${channelCount} channel(s)`);
 
-  if (!ANTHROPIC_KEY) return null;
+  if (!ANTHROPIC_KEY) return [];
 
-  const messageTexts = found
-    .map(f => `[#${f.channelName}] @${f.msg.author.username}: "${f.msg.content.slice(0, 500)}"`)
-    .join("\n");
+  // Build per-channel prompt sections
+  const channelSections = [...byChannel.values()]
+    .map(ch => {
+      const lines = ch.msgs
+        .map(m => `  "${m.content.slice(0, 500)}"`)
+        .join("\n");
+      return `=== #${ch.channelName} ===\n${lines}`;
+    })
+    .join("\n\n");
 
-  const prompt = `You are an analyst for Bittensor subnet investors. The following are Discord messages posted by Const — the founder of Bittensor — in the last 24 hours across various subnet channels.
+  const prompt = `You are an analyst for Bittensor subnet investors. The following are Discord messages posted by Const — the founder of Bittensor — in various subnet Discord channels in the last 72 hours. Each section is a separate channel.
 
-${messageTexts}
+${channelSections}
 
-Determine if any messages are SIGNIFICANT (not just greetings, "lol", one-word replies, or generic support).
-If significant messages exist, summarize what he said and what it means for investors.
+For EACH channel section, determine if the messages are SIGNIFICANT (not just greetings, "lol", one-word replies, or generic support). A message is significant if it reveals governance decisions, technical direction, security issues, subnet removals, partnerships, or anything an investor would want to know.
 
-Respond with JSON only:
-{
-  "significant": true or false,
-  "alphaScore": 0-100,
-  "summary": "One specific sentence — what did he actually say or announce?",
-  "keyInsights": ["Direct quote or close paraphrase of key insight 1", "insight 2"],
-  "alphaTake": "1-2 plain English sentences: what does the founder's message mean for investors? Is this actionable or just context?",
-  "channels": ["#channel-name-1", "#channel-name-2"]
-}
+Respond with a JSON array — one object per channel, IN THE SAME ORDER as the sections above:
+[
+  {
+    "channelName": "exact channel name without the # prefix",
+    "significant": true or false,
+    "alphaScore": 0-100,
+    "summary": "One specific punchy sentence about what Const said HERE in this channel — quote or closely paraphrase his actual words. Do NOT generalize across channels.",
+    "keyInsights": ["Direct quote or close paraphrase of key point 1 from this channel", "key point 2"],
+    "alphaTake": "1-2 plain English sentences: what does THIS message mean for investors in this specific subnet? Is it actionable?"
+  }
+]
 
-If no messages are significant (greetings, reactions, trivial chat), set "significant": false.
-Respond with ONLY the JSON object, no other text.`;
+Rules:
+- Each entry must only cover what Const said in THAT specific channel — no mixing across channels.
+- If a channel's messages are not significant, set "significant": false (summary/keyInsights can be empty).
+- alphaScore: 85-100 for governance/security/enforcement, 70-84 for technical direction or major commentary, 50-69 for notable but less critical posts.
+- Respond with ONLY the JSON array, no other text.`;
 
   try {
     const res = await fetch("https://api.anthropic.com/v1/messages", {
@@ -601,59 +625,64 @@ Respond with ONLY the JSON object, no other text.`;
       },
       body: JSON.stringify({
         model: "claude-haiku-4-5-20251001",
-        max_tokens: 500,
+        max_tokens: 1200,
         messages: [{ role: "user", content: prompt }],
       }),
     });
 
-    if (!res.ok) return null;
+    if (!res.ok) return [];
 
     const data = await res.json();
-    const text = data.content?.[0]?.text || "{}";
+    const text = data.content?.[0]?.text || "[]";
     const jsonText = text.replace(/^```json?\n?/, "").replace(/\n?```$/, "").trim();
 
-    const ai: {
+    const aiResults: Array<{
+      channelName: string;
       significant: boolean;
       alphaScore?: number;
       summary?: string;
       keyInsights?: string[];
       alphaTake?: string;
-      channels?: string[];
-    } = JSON.parse(jsonText);
+    }> = JSON.parse(jsonText);
 
-    if (!ai.significant) {
-      console.log("[discord-scan] Founder posts not significant — skipping");
-      return null;
+    const entries: DiscordAlphaResult[] = [];
+    const channelList = [...byChannel.values()];
+
+    for (let i = 0; i < channelList.length; i++) {
+      const ch = channelList[i];
+      const ai = aiResults[i];
+
+      if (!ai?.significant) {
+        console.log(`[discord-scan] Founder post in #${ch.channelName} not significant — skipping`);
+        continue;
+      }
+
+      const lastMsg = ch.msgs.at(-1);
+      entries.push({
+        channelId: `founder-const-${ch.channelId}`,
+        channelName: `founder-const-${ch.channelName}`,
+        netuid: ch.netuid,
+        subnetName: `Const · ${formatSubnetName(ch.channelName)}`,
+        signal: "alpha",
+        alphaScore: Math.min(100, ai.alphaScore ?? 85),
+        alphaTypes: ["founder"],
+        releaseHint: (ai.alphaScore ?? 0) >= 80,
+        summary: ai.summary || "The Bittensor founder posted in this channel.",
+        keyInsights: ai.keyInsights ?? [],
+        alphaTake: ai.alphaTake,
+        founderPost: true,
+        messageCount: ch.msgs.length,
+        uniquePosters: 1,
+        scannedAt: new Date().toISOString(),
+        lastActivityAt: lastMsg?.timestamp,
+      } as DiscordAlphaResult);
     }
 
-    // Use the first channel's netuid as a representative (or null if cross-channel)
-    const netuids = [...new Set(found.map(f => f.netuid).filter(n => n !== null))];
-    const netuid = netuids.length === 1 ? netuids[0] : null;
-    const channelLabel = (ai.channels ?? found.map(f => `#${f.channelName}`)).slice(0, 3).join(", ");
-
-    return {
-      channelId: "founder-const",
-      channelName: "founder-const",
-      netuid,
-      subnetName: `Const · Bittensor Founder`,
-      signal: "alpha",
-      alphaScore: Math.min(100, ai.alphaScore ?? 85),
-      alphaTypes: ["founder"],
-      releaseHint: (ai.alphaScore ?? 0) >= 80,
-      summary: ai.summary || "The Bittensor founder posted in Discord.",
-      keyInsights: ai.keyInsights ?? [],
-      alphaTake: ai.alphaTake,
-      founderPost: true,
-      messageCount: found.length,
-      uniquePosters: 1,
-      scannedAt: new Date().toISOString(),
-      lastActivityAt: found.at(-1)?.msg.timestamp,
-      // Store channel context in a reusable field
-      ...(channelLabel ? { channelContext: channelLabel } : {}),
-    } as DiscordAlphaResult & { channelContext?: string };
+    console.log(`[discord-scan] ${entries.length} significant founder channel(s) out of ${channelList.length}`);
+    return entries;
   } catch (e) {
     console.error("[discord-scan] Founder analysis error:", e);
-    return null;
+    return [];
   }
 }
 

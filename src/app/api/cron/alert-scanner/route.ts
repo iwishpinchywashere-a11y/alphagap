@@ -683,9 +683,17 @@ export async function GET(req: NextRequest) {
         const scanEntry = entry.netuid != null ? scanByNetuid.get(entry.netuid) : null;
         const label = scanEntry ? subnetLabel(scanEntry) : entry.subnetName || `SN${entry.netuid}`;
 
+        // For per-channel founder entries the channelName is "founder-const-<channelName>"
+        const founderChannel = isFounder && entry.channelName.startsWith("founder-const-")
+          ? `#${entry.channelName.replace("founder-const-", "")}`
+          : null;
+        const founderLocation = founderChannel
+          ? `Posted in ${founderChannel}`
+          : "Posted in Bittensor Discord";
+
         const message = isFounder
-          ? `📡 *Const Tracker Alert*\n` +
-            `*Bittensor Founder posted in Discord*\n\n` +
+          ? `👑 *Const Tracker Alert*\n` +
+            `*${founderLocation}*\n\n` +
             `${entry.summary}\n\n` +
             `Alpha score: *${entry.alphaScore}/100*\n\n` +
             `[View on social page →](${BASE_URL}/social)`
