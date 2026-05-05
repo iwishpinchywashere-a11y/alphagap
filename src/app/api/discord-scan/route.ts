@@ -734,8 +734,19 @@ function fallbackResult(ch: {
 }
 
 function formatSubnetName(channelName: string): string {
-  // Convert "sn3-templar" → "Templar (SN3)" etc.
-  const name = channelName.replace(/^sn[\-_]?\d+[\-_]?/, "").replace(/[\-_]/g, " ").trim();
+  // Bittensor Discord uses: "λ・trajectory-rl・11", "ה・coldint・ex29", "ظ・nova・68"
+  // Strip leading non-ASCII prefix char + interpunct (·, ・, etc.) and trailing ・number
+  let name = channelName
+    // Remove leading single non-ASCII char (Greek, Hebrew, Arabic, emoji) + separator
+    .replace(/^[^\x00-\x7F][·・•‧\s\-_]/, "")
+    // Remove trailing separator + number (e.g. "・68", "・ex29", "-68")
+    .replace(/[·・•‧\s\-_]+(?:ex)?\d+$/, "")
+    // Replace remaining separators with spaces
+    .replace(/[·・•‧\s\-_]+/g, " ")
+    // Strip sn-style prefixes
+    .replace(/^sn\s?\d+\s?/i, "")
+    .trim();
+
   const netuid = parseNetuidFromChannel(channelName);
   const displayName = name
     ? name.charAt(0).toUpperCase() + name.slice(1)
