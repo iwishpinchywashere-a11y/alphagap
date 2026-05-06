@@ -588,6 +588,11 @@ export async function GET() {
 
   // Merge: override TaoStats commits_1d with direct GitHub data (always fresher)
   for (const [netuid, ghResult] of githubScanMap) {
+    // Diagnostic logging for override repos so we can confirm they're getting scanned correctly
+    if (GITHUB_REPO_OVERRIDES[netuid] !== undefined) {
+      console.log(`[scan] Override SN${netuid} GitHub scan result: commits7d=${ghResult.commits7d}, commits24h=${ghResult.commits24h}, repo=${ghResult.repoUrl}`);
+    }
+
     const existing = devMap.get(netuid);
     if (existing) {
       existing.commits_1d = ghResult.commits24h;
@@ -597,36 +602,49 @@ export async function GET() {
       }
       // For repos with overrides: TaoStats data points to old/wrong repo.
       // Trust the direct GitHub scan for ALL metrics when override is active.
+      // IMPORTANT: Only overwrite commits_7d if the scan actually returned data (> 0).
+      // A 0 result can mean GitHub rate-limited us — we don't want to zero out good existing data.
       if (GITHUB_REPO_OVERRIDES[netuid] !== undefined) {
-        // Use the real 7d commit window (not 24h) so a repo with no push TODAY still scores correctly.
-        existing.commits_7d = ghResult.commits7d ?? ghResult.commits24h;
-        existing.unique_contributors_30d = ghResult.contributors7d ?? ghResult.contributors24h;
-        existing.unique_contributors_7d = ghResult.contributors7d ?? ghResult.contributors24h;
+        if (ghResult.commits7d > 0) {
+          existing.commits_7d = ghResult.commits7d;
+          existing.unique_contributors_30d = ghResult.contributors7d ?? ghResult.contributors24h;
+          existing.unique_contributors_7d = ghResult.contributors7d ?? ghResult.contributors24h;
+        }
+        if (ghResult.commits24h > 0) {
+          existing.commits_1d = ghResult.commits24h;
+        }
       }
-    } else if (ghResult.commits7d > 0 || ghResult.commits24h > 0 || ghResult.hasNewRelease) {
-      // Subnet has GitHub activity but wasn't in TaoStats dev data — add it
-      devMap.set(netuid, {
-        netuid,
-        repo_url: ghResult.repoUrl,
-        commits_1d: ghResult.commits24h,
-        commits_7d: ghResult.commits7d,
-        commits_30d: ghResult.commits7d,  // best approximation we have
-        prs_opened_1d: 0,
-        prs_merged_1d: 0,
-        issues_opened_1d: 0,
-        issues_closed_1d: 0,
-        reviews_1d: 0,
-        comments_1d: 0,
-        unique_contributors_1d: ghResult.contributors24h,
-        prs_opened_7d: 0,
-        prs_merged_7d: 0,
-        unique_contributors_7d: ghResult.contributors7d,
-        prs_merged_30d: 0,
-        unique_contributors_30d: ghResult.contributors7d,
-        days_since_last_event: 0,
-        last_event_at: new Date().toISOString(),
-        as_of_day: new Date().toISOString().slice(0, 10),
-      });
+    } else {
+      // Subnet wasn't in TaoStats dev data.
+      // Add it if: it has activity, OR it's an override repo (we always want override repos tracked).
+      const isOverride = GITHUB_REPO_OVERRIDES[netuid] !== undefined;
+      if (isOverride || ghResult.commits7d > 0 || ghResult.commits24h > 0 || ghResult.hasNewRelease) {
+        devMap.set(netuid, {
+          netuid,
+          repo_url: ghResult.repoUrl,
+          commits_1d: ghResult.commits24h,
+          commits_7d: ghResult.commits7d,
+          commits_30d: ghResult.commits7d,  // best approximation we have
+          prs_opened_1d: 0,
+          prs_merged_1d: 0,
+          issues_opened_1d: 0,
+          issues_closed_1d: 0,
+          reviews_1d: 0,
+          comments_1d: 0,
+          unique_contributors_1d: ghResult.contributors24h,
+          prs_opened_7d: 0,
+          prs_merged_7d: 0,
+          unique_contributors_7d: ghResult.contributors7d,
+          prs_merged_30d: 0,
+          unique_contributors_30d: ghResult.contributors7d,
+          days_since_last_event: ghResult.commits7d > 0 ? 0 : 99,
+          last_event_at: ghResult.commits7d > 0 ? new Date().toISOString() : "",
+          as_of_day: new Date().toISOString().slice(0, 10),
+        });
+        if (isOverride) {
+          console.log(`[scan] Override SN${netuid} added to devMap (was absent from TaoStats): commits7d=${ghResult.commits7d}`);
+        }
+      }
     }
   }
 
