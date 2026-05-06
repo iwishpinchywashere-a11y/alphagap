@@ -251,11 +251,17 @@ function recordAlert(
 }
 
 /**
- * Prune lastAlertedAt entries older than the cooldown window (+ buffer) to
+ * Prune lastAlertedAt entries older than the longest cooldown window (+ buffer) to
  * keep the blob from growing unboundedly. Keeps at most 2000 entries.
+ *
+ * IMPORTANT: must use the LONGEST cooldown in the system as the retention window.
+ * discordEntry uses DISCORD_COOLDOWN_MS (6h) — if we prune at ALERT_COOLDOWN_MS×2 (2h),
+ * the discord cooldown entry disappears before the 6h window expires, allowing
+ * the same subnet to fire again when the time bucket rolls over (e.g. 4:59→6:01 AM).
  */
 function pruneLastAlertedAt(lastAlertedAt: Record<string, string>): Record<string, string> {
-  const cutoff = Date.now() - ALERT_COOLDOWN_MS * 2; // keep 2× window as buffer
+  const longestCooldown = Math.max(ALERT_COOLDOWN_MS, DISCORD_COOLDOWN_MS); // 6h
+  const cutoff = Date.now() - longestCooldown * 2; // keep 12h as buffer
   const entries = Object.entries(lastAlertedAt)
     .filter(([, ts]) => new Date(ts).getTime() > cutoff)
     .sort(([, a], [, b]) => new Date(b).getTime() - new Date(a).getTime())
