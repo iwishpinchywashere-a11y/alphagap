@@ -22,10 +22,10 @@ export async function GET() {
 // POST handler for manual generation
 export async function POST(req: Request) {
   const body = await req.json().catch(() => ({}));
-  return generateReport(body?.netuid as number | undefined);
+  return generateReport(body?.netuid as number | undefined, body?.date as string | undefined);
 }
 
-async function generateReport(forceNetuid?: number) {
+async function generateReport(forceNetuid?: number, forceDate?: string) {
   if (!ANTHROPIC_KEY) {
     return NextResponse.json({ error: "No Anthropic API key" }, { status: 500 });
   }
@@ -392,7 +392,7 @@ Write the report using EXACTLY this structure. Each section should be substantiv
     }
 
     // Step 5: Store the report in Vercel Blob
-    const today = new Date().toISOString().split("T")[0];
+    const today = forceDate || new Date().toISOString().split("T")[0];
     const report = {
       date: today,
       netuid: targetNetuid,
