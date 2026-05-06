@@ -251,16 +251,30 @@ export default function SocialPage() {
           const founderEntries = rawDiscordLeaderboard.filter(d => d.founderPost);
           if (founderEntries.length === 0) return null;
 
-          // Derive a clean human-readable channel label from subnetName or channelName.
-          // subnetName is set to "Const · <FormattedName> (SNxx)" — strip the "Const · " prefix.
+          // Build a netuid → subnet name lookup from X leaderboard data
+          const subnetNameMap = new Map<number, string>(
+            rawXLeaderboard.map(e => [e.netuid, e.name])
+          );
+
+          // Derive "In <SubnetName> Discord" label for each entry.
+          // Priority: netuid lookup → subnetName field → channelName field → fallback
           const channelLabel = (entry: typeof founderEntries[0]): string => {
-            if (entry.subnetName) {
-              const stripped = entry.subnetName.replace(/^Const\s*·\s*/i, "").trim();
-              if (stripped) return stripped;
+            // Best: look up the proper subnet name from leaderboard data
+            if (entry.netuid != null && entry.netuid > 0) {
+              const name = subnetNameMap.get(entry.netuid);
+              if (name) return `${name} Discord`;
             }
-            // Fallback: strip "founder-const-" prefix from channelName
-            const raw = (entry.channelName ?? "").replace(/^founder-const-/, "");
-            return raw || "Bittensor Discord";
+            // Fallback: strip "Const · " prefix and "(SNxx)" suffix from subnetName
+            if (entry.subnetName) {
+              const stripped = entry.subnetName
+                .replace(/^Const\s*·\s*/i, "")
+                .replace(/\s*\(SN\d+\)$/i, "")
+                .trim();
+              if (stripped) return `${stripped} Discord`;
+            }
+            // Last resort: strip "founder-const-" prefix from raw channelName
+            const raw = (entry.channelName ?? "").replace(/^founder-const-/, "").replace(/[·・•‧\-_]/g, " ").trim();
+            return raw ? `${raw} Discord` : "Bittensor Discord";
           };
 
           // Representative score = max across all entries
