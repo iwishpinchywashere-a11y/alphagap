@@ -57,6 +57,54 @@ async function generateReport(forceNetuid?: number) {
     let targetNetuid: number;
     let targetName: string;
 
+    // ── Load report-index.json (maps YYYY-MM-DD → netuid) ─────────────────────
+    // Used for fast dedup AND updated on save. Load it here (before the if/else)
+    // so both force and auto modes can update it in the save section.
+    // The old approach (list({limit:30}) + individual get() per file) silently missed
+    // recent entries once the archive grew past 30 files — causing the same subnet to repeat.
+    let reportIndex: Record<string, number> = {};
+    try {
+      const indexBlob = await get("report-index.json", {
+        token: process.env.BLOB_READ_WRITE_TOKEN!,
+        access: "private",
+        abortSignal: AbortSignal.timeout(8000),
+      });
+      if (indexBlob?.stream) {
+        const reader = indexBlob.stream.getReader();
+        const chunks: Uint8Array[] = [];
+        while (true) { const { done, value } = await reader.read(); if (done) break; chunks.push(value); }
+        reportIndex = JSON.parse(Buffer.concat(chunks).toString("utf-8"));
+        console.log(`[report] Loaded report-index.json (${Object.keys(reportIndex).length} entries)`);
+      }
+    } catch { /* no index yet — will bootstrap below if needed */ }
+
+    // If index is empty (first run or missing), bootstrap from existing report files
+    if (Object.keys(reportIndex).length === 0 && process.env.BLOB_READ_WRITE_TOKEN) {
+      try {
+        // Paginate to get ALL report blobs (no hard limit)
+        let cursor: string | undefined;
+        do {
+          const page = await list({ prefix: "reports/", token: process.env.BLOB_READ_WRITE_TOKEN!, limit: 100, cursor });
+          for (const b of page.blobs) {
+            const dateMatch = b.pathname.match(/reports\/(\d{4}-\d{2}-\d{2})\.json/);
+            if (!dateMatch) continue;
+            try {
+              const r = await get(b.pathname, { token: process.env.BLOB_READ_WRITE_TOKEN!, access: "private", abortSignal: AbortSignal.timeout(5000) });
+              if (r?.stream) {
+                const reader2 = r.stream.getReader();
+                const chunks2: Uint8Array[] = [];
+                while (true) { const { done, value } = await reader2.read(); if (done) break; chunks2.push(value); }
+                const data = JSON.parse(Buffer.concat(chunks2).toString("utf-8"));
+                if (data.netuid) reportIndex[dateMatch[1]] = data.netuid;
+              }
+            } catch { /* skip this file */ }
+          }
+          cursor = page.cursor;
+        } while (cursor);
+        console.log(`[report] Bootstrapped report-index.json from ${Object.keys(reportIndex).length} existing files`);
+      } catch { /* no reports yet */ }
+    }
+
     if (forceNetuid) {
       targetNetuid = forceNetuid;
       const lb = (scanData?.leaderboard as Array<Record<string, unknown>>) || [];
@@ -69,30 +117,15 @@ async function generateReport(forceNetuid?: number) {
         return NextResponse.json({ error: "No scan data available" }, { status: 400 });
       }
 
-      // Get report netuids from the last 21 days — never repeat a subnet in this window
       const REPORT_COOLDOWN_DAYS = 21;
       const cutoffDate = new Date(Date.now() - REPORT_COOLDOWN_DAYS * 24 * 60 * 60 * 1000)
         .toISOString().slice(0, 10); // YYYY-MM-DD
+
+      // Build recentNetuids from index (fast — no individual file reads needed)
       const recentNetuids = new Set<number>();
-      try {
-        const { blobs } = await list({ prefix: "reports/", token: process.env.BLOB_READ_WRITE_TOKEN!, limit: 30 });
-        for (const b of blobs) {
-          // Extract date from pathname like "reports/2026-04-09.json"
-          const dateMatch = b.pathname.match(/reports\/(\d{4}-\d{2}-\d{2})\.json/);
-          if (!dateMatch) continue;
-          if (dateMatch[1] < cutoffDate) continue; // older than 21 days — ignore
-          try {
-            const r = await get(b.pathname, { token: process.env.BLOB_READ_WRITE_TOKEN!, access: "private" });
-            if (r?.stream) {
-              const reader = r.stream.getReader();
-              const chunks: Uint8Array[] = [];
-              while (true) { const { done, value } = await reader.read(); if (done) break; chunks.push(value); }
-              const data = JSON.parse(Buffer.concat(chunks).toString("utf-8"));
-              recentNetuids.add(data.netuid);
-            }
-          } catch { /* skip */ }
-        }
-      } catch { /* no reports yet */ }
+      for (const [date, netuid] of Object.entries(reportIndex)) {
+        if (date >= cutoffDate) recentNetuids.add(netuid);
+      }
 
       console.log(`[report] Subnets reported in last ${REPORT_COOLDOWN_DAYS} days (skipping): ${[...recentNetuids].join(", ")}`);
 
@@ -373,6 +406,7 @@ Write the report using EXACTLY this structure. Each section should be substantiv
 
     try {
       if (process.env.BLOB_READ_WRITE_TOKEN) {
+        // Save the report blob
         await put(`reports/${today}.json`, JSON.stringify(report), {
           access: "private",
           addRandomSuffix: false,
@@ -381,6 +415,17 @@ Write the report using EXACTLY this structure. Each section should be substantiv
           token: process.env.BLOB_READ_WRITE_TOKEN!,
         });
         console.log(`[report] Saved to Blob: reports/${today}.json`);
+
+        // Update report-index.json so dedup works reliably without reading individual files
+        reportIndex[today] = targetNetuid;
+        await put("report-index.json", JSON.stringify(reportIndex), {
+          access: "private",
+          addRandomSuffix: false,
+          allowOverwrite: true,
+          contentType: "application/json",
+          token: process.env.BLOB_READ_WRITE_TOKEN!,
+        });
+        console.log(`[report] Updated report-index.json (${Object.keys(reportIndex).length} entries)`);
       }
     } catch (e) {
       console.error("[report] Failed to save to Blob:", e);
