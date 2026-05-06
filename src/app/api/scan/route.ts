@@ -3061,12 +3061,20 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
     const emissionPenalty      = Math.round(Math.min(0, emissionBoost) * 0.45);
     const networkHealthPenalty = Math.round(Math.min(0, investNetworkHealth) * 0.5);
     const whalePenalty         = Math.round(Math.min(0, whaleBoost) * 0.7);
-    const investDeregPenalty   = d.deregRisk ? -12 : 0;
+    const investDeregPenalty   = d.deregRisk ? -18 : 0;
+
+    // ── ZERO-EMISSION PENALTY ────────────────────────────────────────────────
+    // A subnet with 0 emissions is at de-registration risk by definition.
+    // This is a long-term structural threat that product quality cannot override.
+    // deregRisk (from SubnetRadar) may not flag a subnet until it's already gone —
+    // zero emissionPct is the direct on-chain signal we can always measure.
+    const isZeroEmission = d.emissionPct === 0;
+    const investZeroEmissionPenalty = isZeroEmission ? -20 : 0;
 
     const rawInvestAGap = pillarDev + pillarProduct + pillarNetwork + pillarMoney
                         + revTractionBonus + marketValidationBonus + investSynergy
                         + emissionPenalty + networkHealthPenalty + whalePenalty
-                        + viability + investDeregPenalty + pillarHealth;
+                        + viability + investDeregPenalty + investZeroEmissionPenalty + pillarHealth;
 
     const clampedInvestAGap = Math.max(1, Math.min(100, Math.round(rawInvestAGap)));
 
@@ -3075,6 +3083,10 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
     // bad on-chain signals on a given day. The floor is what matters for a monthly
     // thesis — not whether emissions ticked down this week.
     // Confirmed ARR (BENCHMARK_DATA) gets a +4 floor bonus vs milestone estimates.
+    //
+    // EXCEPTION: zero-emission subnets are at de-registration risk — the product
+    // thesis only matters if the subnet survives. Revenue floors are capped at 50
+    // for zero-emission subnets so the structural risk is always reflected.
     const isBenchmarked = productSource === "benchmark";
     const floorBenchBonus = isBenchmarked ? 4 : 0;
     let investRevFloor = 0;
@@ -3090,6 +3102,9 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
     else if (estimatedArr >=    500_000) investRevFloor = 50;
     else if (estimatedArr >=    100_000) investRevFloor = 42;
     else if (estimatedArr >           0) investRevFloor = 36;
+
+    // Cap revenue floor for zero-emission subnets — de-reg risk trumps ARR
+    if (isZeroEmission && investRevFloor > 50) investRevFloor = 50;
 
     const investAGap = Math.max(investRevFloor, clampedInvestAGap);
 
