@@ -3301,7 +3301,14 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
           const reader = blob.stream.getReader();
           const chunks: Uint8Array[] = [];
           while (true) { const { done, value } = await reader.read(); if (done) break; chunks.push(value); }
-          scoreHistory = JSON.parse(Buffer.concat(chunks).toString("utf-8"));
+          const raw = Buffer.concat(chunks);
+          if (raw.byteLength > 40_000_000) {
+            // Blob too large (>40 MB) — was written with per-scan keys; start fresh
+            // to purge the bloat. Velo will recompute once hourly entries accumulate.
+            console.warn(`[scan] subnet-scores-history.json too large (${(raw.byteLength / 1e6).toFixed(1)} MB) — resetting to prevent parse failure`);
+          } else {
+            scoreHistory = JSON.parse(raw.toString("utf-8"));
+          }
         }
       } catch { /* start fresh */ }
 
@@ -3396,8 +3403,12 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
         }
       }
 
-      // Use full ISO timestamp so every scan writes its own entry (enables intraday charts)
-      const scanTs = new Date().toISOString(); // e.g. "2024-01-15T14:30:00.000Z"
+      // ── One entry per HOUR (not per scan) to prevent blob size explosion ──
+      // 10-min scans × ~13KB/snapshot × 30 days = ~57 MB which fails JSON.parse.
+      // Hourly keys: 24 × 90d = 2160 entries max ≈ 28 MB ceiling that never grows.
+      // Velo still works — nearest snapshot to 24h-ago is within the ±18h tolerance.
+      const _d = new Date(); _d.setMinutes(0, 0, 0);
+      const scanTs = _d.toISOString(); // e.g. "2026-05-05T14:00:00.000Z"
       scoreHistory[scanTs] = {};
       for (const entry of leaderboard) {
         scoreHistory[scanTs][String(entry.netuid)] = {
