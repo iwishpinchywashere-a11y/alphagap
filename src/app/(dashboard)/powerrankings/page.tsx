@@ -415,6 +415,11 @@ export default function PowerRankingsPage() {
         )}
       </div>
 
+      {/* ── Today's Movers ────────────────────────────────────────── */}
+      {!loading && leaderboard.length > 0 && (
+        <TodaysMovers entries={leaderboard} />
+      )}
+
       {/* ── Mode tabs ─────────────────────────────────────────────── */}
       <div className="flex flex-col gap-2 mb-5">
         {/* Trading + Investing + Dash (desktop only) — one row */}
@@ -507,11 +512,6 @@ export default function PowerRankingsPage() {
           My Watchlist
         </button>
       </div>
-
-      {/* ── Today's Movers ────────────────────────────────────────── */}
-      {!loading && leaderboard.length > 0 && (
-        <TodaysMovers entries={leaderboard} />
-      )}
 
       {/* ── Rankings list ─────────────────────────────────────────── */}
       {loading ? (
