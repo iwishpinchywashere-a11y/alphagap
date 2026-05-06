@@ -330,7 +330,7 @@ export default function AlertsPage() {
           {/* CTA */}
           <div className="text-center">
             <a
-              href="/subscribe"
+              href="/pricing"
               className="inline-block px-10 py-4 bg-green-500 hover:bg-green-400 text-black font-bold text-lg rounded-xl transition-colors shadow-lg shadow-green-500/20"
             >
               Upgrade to Premium →
