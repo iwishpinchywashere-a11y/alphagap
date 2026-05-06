@@ -204,6 +204,11 @@ interface ScannerLock {
 /** 60-minute hard cooldown per user per subnet per alert type */
 const ALERT_COOLDOWN_MS = 60 * 60_000;
 
+/** 6-hour cooldown for Discord entry alerts — scanner re-scans every ~3h and
+ *  the AI rewrites summaries slightly each cycle, causing false "new" entries.
+ *  A longer cooldown ensures the same subnet doesn't spam across multiple scan cycles. */
+const DISCORD_COOLDOWN_MS = 6 * 60 * 60_000;
+
 /** Minimum seconds between scanner runs — enforced by the lock blob */
 const RUN_COOLDOWN_SECONDS = 180;
 
@@ -673,19 +678,29 @@ export async function GET(req: NextRequest) {
         // Score gate: founder posts bypass this — every significant Const post fires
         if (!isFounder && entry.alphaScore < discordMinScore) continue;
 
-        // Content-fingerprint dedup key — stable across scan cycles
-        // scannedAt-based keys would re-fire the same content every 3h
+        // Dedup key: uses a 6-hour time bucket so the same subnet can't fire more than
+        // once per 6h window regardless of how the AI rewrites the summary each scan cycle.
+        // Bucket = "YYYY-MM-DD-H" where H is 0, 6, 12, or 18 (floor to 6h boundary).
+        const now = new Date();
+        const datePart = now.toISOString().slice(0, 10); // "2026-05-06"
+        const hourBucket = Math.floor(now.getUTCHours() / 6) * 6; // 0, 6, 12, or 18
+        const timeBucket = `${datePart}-${hourBucket}`;
         const summarySlice = (entry.summary || "").slice(0, 60);
         const key = isFounder
           ? `founder:${summarySlice}`
-          : `${entry.netuid}:${summarySlice}`;
+          : `${entry.netuid}:${timeBucket}`;
         if (processedDiscordKeys.has(key)) continue;
 
-        // Cooldown gate for regular entries (4h) — prevents same channel re-alerting
-        // every scan cycle when there's sustained activity. Founder posts bypass.
-        if (!isFounder && onCooldown(lastAlertedAt, hash, "discordEntry", entry.netuid ?? 0)) {
-          console.log(`[alert-scanner] discordEntry SN${entry.netuid} → ${hash.slice(0, 8)} suppressed (cooldown)`);
-          continue;
+        // Cooldown gate for regular entries (6h) — prevents same subnet re-alerting
+        // across scan cycles when the AI generates new summaries of the same discussion.
+        // Founder posts bypass.
+        if (!isFounder) {
+          const dcKey = `${hash}:discordEntry:${entry.netuid ?? 0}`;
+          const lastSent = lastAlertedAt[dcKey];
+          if (lastSent && Date.now() - new Date(lastSent).getTime() < DISCORD_COOLDOWN_MS) {
+            console.log(`[alert-scanner] discordEntry SN${entry.netuid} → ${hash.slice(0, 8)} suppressed (6h cooldown)`);
+            continue;
+          }
         }
 
         const scanEntry = entry.netuid != null ? scanByNetuid.get(entry.netuid) : null;
