@@ -18,7 +18,9 @@ function PortfolioChart({ history, costBasis }: { history: { date: string; total
   const toPct = (v: number) => ((v - base) / base) * 100;
 
   const values = history.map((h) => h.totalValue);
-  const pctValues = values.map(toPct);
+  const rawPctValues = values.map(toPct);
+  const startOffset = rawPctValues[0] ?? 0;
+  const pctValues = rawPctValues.map((p) => p - startOffset);
   const minPct = Math.min(...pctValues);
   const maxPct = Math.max(...pctValues);
   const range = maxPct - minPct || 1;
