@@ -2102,17 +2102,19 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
         : 0.4;
       if (disc.alphaScore != null) {
         // Non-linear scaling: huge alpha (85+) gets outsized impact on social score.
-        // alphaScore 0-84 → up to 35 pts | alphaScore 85-100 → up to 55 pts
+        // alphaScore 0-84 → up to 40 pts | alphaScore 85-100 → 55–70 pts
+        // The 85+ range must move the needle even without KOL support — that's the
+        // whole point of Discord scanning. Founder announcements + betas = unmissable.
         // releaseHint adds 8 pts on top (partnership/launch/integration going live)
         let base: number;
         if (disc.alphaScore >= 85) {
-          // 85→42, 90→48, 95→52, 100→55 — true big alpha is unmissable
-          base = Math.round(35 + (disc.alphaScore - 85) / 15 * 20);
+          // 85→55, 90→62, 95→66, 100→70 — true big alpha is unmissable
+          base = Math.round(55 + (disc.alphaScore - 85) / 15 * 15);
         } else {
-          base = Math.round(disc.alphaScore / 100 * 35);
+          base = Math.round(disc.alphaScore / 100 * 40);
         }
         if (disc.releaseHint) base += 8;
-        discordPts = Math.round(Math.min(55, base) * discFresh);
+        discordPts = Math.round(Math.min(70, base) * discFresh);
       } else if (disc.signal === "alpha") {
         const base = disc.releaseHint
           ? Math.min(40, (28 + Math.min(disc.uniquePosters, 8) * 1.5))
