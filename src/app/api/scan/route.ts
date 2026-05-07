@@ -1515,108 +1515,131 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
   // Multiple subnets can share the same score. Based on actual activity quality.
   function computeDevScore(d: RawSubnet): number {
     const dev = devMap.get(d.netuid);
-    const commits1d = dev?.commits_1d || 0;
-    const commits7d = dev?.commits_7d || 0;
-    const commits30d = dev?.commits_30d || 0;
-    const prs1d = dev?.prs_merged_1d || 0;
-    const prs7d = dev?.prs_merged_7d || 0;
-    const contributors1d = dev?.unique_contributors_1d || 0;
-    const contributors30d = dev?.unique_contributors_30d || 0;
+    const ghScan = githubScanMap.get(d.netuid);
 
-    // Use the BEST timeframe — some subnets push in bursts
-    // Score each timeframe independently and take the highest
-    let ghScore = 0;
+    const commits1d    = dev?.commits_1d || 0;
+    const commits7d    = dev?.commits_7d || 0;
+    const commits30d   = dev?.commits_30d || 0;
+    const prs1d        = dev?.prs_merged_1d || 0;
+    const prs7d        = dev?.prs_merged_7d || 0;
+    const prs30d       = dev?.prs_merged_30d || 0;
+    const contrib30d   = dev?.unique_contributors_30d || 0;
+    const daysSinceLast = dev?.days_since_last_event ?? 999;
+    const loc30d       = ghScan?.loc_30d ?? 0;
 
-    // --- 7-day score (most balanced view) ---
-    let weekly = 0;
-    if (commits7d >= 100) weekly += 55;
-    else if (commits7d >= 50) weekly += 45;
-    else if (commits7d >= 25) weekly += 35;
-    else if (commits7d >= 10) weekly += 22;
-    else if (commits7d >= 5) weekly += 14;
-    else if (commits7d >= 1) weekly += 7;
+    const hasGithub = !!dev || !!ghScan;
+    const hasHf = d.hfModels > 0 || d.hfDatasets > 0 || d.hfDownloads > 0;
 
-    if (prs7d >= 10) weekly += 25;
-    else if (prs7d >= 5) weekly += 20;
-    else if (prs7d >= 3) weekly += 15;
-    else if (prs7d >= 1) weekly += 8;
+    // ── Hard zeros ────────────────────────────────────────────────────
+    // No GitHub tracked AND no HuggingFace presence → 0
+    if (!hasGithub && !hasHf) return 0;
 
-    // --- Today score (freshness bonus — multiplied up) ---
-    let daily = 0;
-    if (commits1d >= 20) daily += 55;
-    else if (commits1d >= 10) daily += 45;
-    else if (commits1d >= 5) daily += 32;
-    else if (commits1d >= 3) daily += 22;
-    else if (commits1d >= 1) daily += 12;
+    // GitHub tracked but nothing shipped in 3+ months → 0
+    if (hasGithub && !hasHf && daysSinceLast >= 90) return 0;
 
-    if (prs1d >= 3) daily += 25;
-    else if (prs1d >= 1) daily += 15;
+    // Nothing in 2-3 months → effectively dormant
+    if (hasGithub && !hasHf && daysSinceLast >= 60) return 5;
 
-    // Take the better of weekly or daily
-    ghScore = Math.max(weekly, daily);
+    // Has GitHub, tracked, but zero activity in the 30d window
+    if (hasGithub && commits30d === 0 && prs30d === 0 && loc30d === 0 && !hasHf) return 12;
 
-    // Contributor bonus on top (max 15 pts)
-    if (contributors30d >= 10) ghScore += 15;
-    else if (contributors30d >= 5) ghScore += 10;
-    else if (contributors30d >= 3) ghScore += 7;
-    else if (contributors30d >= 1) ghScore += 3;
+    let score = 0;
 
-    // Cap GitHub at 90
-    ghScore = Math.min(90, ghScore);
+    // ── 1. QUANTITY — weekly commits (0-35 pts) ───────────────────────
+    // Calibrated to real Bittensor subnet activity (most active teams: 20-60 commits/wk)
+    if      (commits7d >= 50) score += 35;
+    else if (commits7d >= 25) score += 28;
+    else if (commits7d >= 12) score += 22;
+    else if (commits7d >= 6)  score += 16;
+    else if (commits7d >= 2)  score += 10;
+    else if (commits7d >= 1)  score += 6;
+    else if (commits30d > 0)  score += 3;   // quiet week but had activity this month
 
-    // === HUGGINGFACE bonus (max 20 pts on top) ===
-    let hfScore = 0;
-    if (d.hfModels >= 5) hfScore += 10;
-    else if (d.hfModels >= 3) hfScore += 7;
-    else if (d.hfModels >= 1) hfScore += 4;
+    // ── 2. QUALITY SIGNAL — PRs merged (0-15 pts) ────────────────────
+    // PRs = reviewed, intentional features — higher signal than raw commits
+    if      (prs7d >= 8) score += 15;
+    else if (prs7d >= 4) score += 11;
+    else if (prs7d >= 2) score += 8;
+    else if (prs7d >= 1) score += 4;
+    else if (prs30d > 0) score += 2;
 
-    if (d.hfDatasets >= 3) hfScore += 5;
-    else if (d.hfDatasets >= 1) hfScore += 2;
+    // ── 3. TEAM SIZE — contributors (0-10 pts) ────────────────────────
+    // Multiple contributors = real team, not a solo dev
+    if      (contrib30d >= 10) score += 10;
+    else if (contrib30d >= 5)  score += 8;
+    else if (contrib30d >= 3)  score += 6;
+    else if (contrib30d >= 2)  score += 4;
+    else if (contrib30d >= 1)  score += 2;
 
-    if (d.hfDownloads >= 5000) hfScore += 5;
-    else if (d.hfDownloads >= 500) hfScore += 3;
-    else if (d.hfDownloads >= 50) hfScore += 1;
+    // ── 4. CODE VOLUME — lines of code in 30d (0-20 pts) ─────────────
+    // Actual substance of shipping — not just commit noise
+    if      (loc30d >= 50_000) score += 20;
+    else if (loc30d >= 20_000) score += 16;
+    else if (loc30d >= 10_000) score += 13;
+    else if (loc30d >=  5_000) score += 10;
+    else if (loc30d >=  2_000) score += 7;
+    else if (loc30d >=    500) score += 4;
+    else if (loc30d >=    100) score += 2;
+    else if (loc30d >       0) score += 1;
 
-    let score = Math.min(100, ghScore + hfScore);
+    // ── 5. HUGGINGFACE — models / datasets / downloads (0-10 pts) ────
+    {
+      let hf = 0;
+      if      (d.hfModels >= 5) hf += 6;
+      else if (d.hfModels >= 3) hf += 4;
+      else if (d.hfModels >= 1) hf += 2;
+      if      (d.hfDatasets >= 3) hf += 2;
+      else if (d.hfDatasets >= 1) hf += 1;
+      if      (d.hfDownloads >= 5_000) hf += 2;
+      else if (d.hfDownloads >= 500)   hf += 1;
+      score += Math.min(10, hf);
+    }
 
-    // ── Quality adjustment (AI signal score) ──────────────────────
-    // Blends AI-assessed content quality into the quantity-based dev score.
-    // +18 for groundbreaking work (95+), −8 for low-quality noise (<30).
+    // Hard cap at 70 before quality & boost adjustments
+    // Quality and big events are what push a subnet into 80-100
+    score = Math.min(70, score);
+
+    // ── 6. AI QUALITY ADJUSTMENT (−10 to +25 pts) ────────────────────
+    // Separates "committing a lot" from "shipping something important"
+    // This is the key driver for getting into the 80-100 range
     const aiQuality = aiQualityMap.get(d.netuid);
     if (aiQuality !== undefined) {
-      const qualityAdj =
-        aiQuality >= 95 ? 18 :  // groundbreaking — major architectural shift or research breakthrough
-        aiQuality >= 85 ? 13 :
-        aiQuality >= 70 ? 9 :
-        aiQuality >= 50 ? 4 :
-        aiQuality >= 30 ? -3 :
-        -8;
-      score = Math.min(100, Math.max(0, score + qualityAdj));
+      const adj =
+        aiQuality >= 95 ? 25 :   // groundbreaking — architectural shift / research breakthrough
+        aiQuality >= 85 ? 18 :   // major feature or meaningful milestone
+        aiQuality >= 70 ? 12 :   // solid, quality work
+        aiQuality >= 50 ? 5  :   // routine but valid progress
+        aiQuality >= 30 ? -2 :   // low signal / noisy commits
+        -10;                      // spam / trivial changes
+      score = Math.min(100, Math.max(0, score + adj));
     }
 
-    // ── Early detection bonus ──────────────────────────────────────
-    // Small boost when we're catching fresh commits within 12h of being pushed.
-    // Rewards finding the signal before the market does.
-    // Early detection: if there's a fresh release within 12h, small boost
-    const ghScan = githubScanMap.get(d.netuid);
-    if (ghScan?.releaseDate && commits1d > 0) {
-      const hoursSinceRelease = (Date.now() - new Date(ghScan.releaseDate).getTime()) / 3600000;
-      if (hoursSinceRelease < 6) score = Math.min(100, score + 5);
-      else if (hoursSinceRelease < 12) score = Math.min(100, score + 3);
+    // ── 7. BIG EVENT BOOST ────────────────────────────────────────────
+    // New versioned release published recently
+    if (ghScan?.hasNewRelease && ghScan.releaseDate) {
+      const hoursAgo = (Date.now() - new Date(ghScan.releaseDate).getTime()) / 3_600_000;
+      if      (hoursAgo < 12) score = Math.min(100, score + 12);  // brand new release
+      else if (hoursAgo < 24) score = Math.min(100, score + 8);
+      else if (hoursAgo < 72) score = Math.min(100, score + 4);
     }
 
-    // ── LOC 30d bonus/penalty ─────────────────────────────────────
-    // Rewards sustained code volume; penalises repos with zero activity for 30d.
-    // Max impact: +8 (very active) / −5 (dead repo). Kept small — quality > quantity.
-    const loc30d = ghScan?.loc_30d;
-    if (loc30d !== undefined) {
-      if      (loc30d >= 50_000) score = Math.min(100, score + 8);
-      else if (loc30d >= 20_000) score = Math.min(100, score + 6);
-      else if (loc30d >= 10_000) score = Math.min(100, score + 4);
-      else if (loc30d >=  5_000) score = Math.min(100, score + 3);
-      else if (loc30d >=  1_000) score = Math.min(100, score + 2);
-      else if (loc30d >=    100) score = Math.min(100, score + 1);
-      else if (loc30d === 0 && commits30d === 0) score = Math.max(0, score - 5); // no activity in 30d
+    // Freshness bonus — commits happened TODAY
+    if      (commits1d >= 10) score = Math.min(100, score + 5);
+    else if (commits1d >= 3)  score = Math.min(100, score + 3);
+    else if (commits1d >= 1)  score = Math.min(100, score + 1);
+
+    // PRs merged today (strong freshness signal)
+    if (prs1d >= 2) score = Math.min(100, score + 3);
+    else if (prs1d >= 1) score = Math.min(100, score + 2);
+
+    // ── 8. STALENESS DECAY — last event was weeks ago ────────────────
+    // Even if 30d numbers look ok, fading freshness matters
+    // Only applies when we have GitHub data (HF-only subnets skip this)
+    if (hasGithub) {
+      if      (daysSinceLast >= 42) score = Math.round(score * 0.35);
+      else if (daysSinceLast >= 28) score = Math.round(score * 0.55);
+      else if (daysSinceLast >= 21) score = Math.round(score * 0.72);
+      else if (daysSinceLast >= 14) score = Math.round(score * 0.85);
     }
 
     return Math.round(score);
