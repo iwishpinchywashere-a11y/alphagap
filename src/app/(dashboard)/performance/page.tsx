@@ -8,19 +8,14 @@ import BlurGate from "@/components/BlurGate";
 import { getTier } from "@/lib/subscription";
 
 // Pure SVG chart — no external deps
-function PortfolioChart({ history, costBasis }: { history: { date: string; totalValue: number }[]; costBasis: number }) {
+function PortfolioChart({ history }: { history: { date: string; totalValue: number; cost: number }[] }) {
   const W = 800, H = 160;
   const PAD = { top: 12, right: 24, bottom: 28, left: 56 };
   const chartW = W - PAD.left - PAD.right;
   const chartH = H - PAD.top - PAD.bottom;
 
-  const base = costBasis > 0 ? costBasis : 1;
-  const toPct = (v: number) => ((v - base) / base) * 100;
-
-  const values = history.map((h) => h.totalValue);
-  const rawPctValues = values.map(toPct);
-  const startOffset = rawPctValues[0] ?? 0;
-  const pctValues = rawPctValues.map((p) => p - startOffset);
+  // Use per-point cost so % reflects actual return on capital deployed at each date
+  const pctValues = history.map(h => h.cost > 0 ? ((h.totalValue - h.cost) / h.cost) * 100 : 0);
   const minPct = Math.min(...pctValues);
   const maxPct = Math.max(...pctValues);
   const range = maxPct - minPct || 1;
@@ -78,14 +73,16 @@ function PortfolioChart({ history, costBasis }: { history: { date: string; total
   );
 }
 
+const POSITION_SIZE = 1000; // display as $1000 per position (10× stored $100 values)
+const PM = 10; // multiplier: stored values are $100-based, display as $1000-based
+
 export default function PerformancePage() {
   const { data: session } = useSession();
   const tier = getTier(session);
   const router = useRouter();
   const [portfolioData, setPortfolioData] = useState<PortfolioData | null>(null);
   const [portfolioLoading, setPortfolioLoading] = useState(true);
-  const [chartView] = useState<"current" | "max">("max");
-  type SortKey = "maxPnl" | "agap" | "bought" | "buyPrice" | "currentPrice" | "maxPrice" | "value" | "change24h";
+  type SortKey = "maxPnl" | "agap" | "bought" | "buyPrice" | "currentPrice" | "maxPrice" | "value" | "taoPnl" | "change24h";
   const [sortKey, setSortKey] = useState<SortKey>("maxPnl");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
 
@@ -94,7 +91,7 @@ export default function PerformancePage() {
     else { setSortKey(key); setSortDir("desc"); }
   }
 
-  function sortedPositions(positions: PortfolioData["positions"]) {
+  function sortedPositions(positions: PortfolioData["positions"], taoPrice: number) {
     return [...positions].sort((a, b) => {
       let av = 0, bv = 0;
       if (sortKey === "maxPnl")       { av = a.maxPnlUsd ?? -Infinity; bv = b.maxPnlUsd ?? -Infinity; }
@@ -104,6 +101,7 @@ export default function PerformancePage() {
       if (sortKey === "currentPrice") { av = a.currentPrice; bv = b.currentPrice; }
       if (sortKey === "maxPrice")     { av = (a as any).manualPeakPrice ?? a.peakPrice ?? 0; bv = (b as any).manualPeakPrice ?? b.peakPrice ?? 0; }
       if (sortKey === "value")        { av = a.currentValue; bv = b.currentValue; }
+      if (sortKey === "taoPnl")       { av = taoPrice > 0 ? (a.currentValue - a.amountUsd) / taoPrice : 0; bv = taoPrice > 0 ? (b.currentValue - b.amountUsd) / taoPrice : 0; }
       if (sortKey === "change24h")    { av = a.change24h;    bv = b.change24h; }
       return sortDir === "desc" ? bv - av : av - bv;
     });
@@ -124,7 +122,7 @@ export default function PerformancePage() {
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-white mb-1">Portfolio Performance</h1>
         <p className="text-sm text-gray-500 max-w-2xl">
-          Tracks a simulated $100 auto-buy portfolio — every time a subnet&apos;s aGap score crosses <span className="text-green-400 font-semibold">80</span>, it&apos;s added as a position. Watch real alpha token returns over time.
+          Tracks a simulated ${POSITION_SIZE.toLocaleString()} auto-buy portfolio — every time a subnet&apos;s aGap score crosses <span className="text-green-400 font-semibold">80</span>, it&apos;s added as a position. Watch real alpha token returns over time.
         </p>
       </div>
       <BlurGate tier={tier} required="premium" minHeight="500px">
@@ -142,7 +140,7 @@ export default function PerformancePage() {
             <div className="text-5xl mb-4">📈</div>
             <h3 className="text-lg font-bold mb-2">Portfolio Starts Building Soon</h3>
             <p className="text-gray-500 text-sm max-w-md mx-auto">
-              Every time a subnet&apos;s aGap score crosses <span className="text-green-400 font-semibold">80</span>, we auto-buy $100 of its alpha token.
+              Every time a subnet&apos;s aGap score crosses <span className="text-green-400 font-semibold">80</span>, we auto-buy ${POSITION_SIZE.toLocaleString()} of its alpha token.
             </p>
           </div>
         )}
@@ -158,7 +156,7 @@ export default function PerformancePage() {
                     {(portfolioData.summary.maxReturnPct ?? 0) >= 0 ? "+" : ""}{(portfolioData.summary.maxReturnPct ?? 0).toFixed(1)}% <span className="text-sm font-normal">if sold at peak</span>
                   </div>
                   <div className="text-xs text-green-500 mt-0.5">
-                    {(portfolioData.summary.maxReturnUsd ?? 0) >= 0 ? "+" : ""}${(portfolioData.summary.maxReturnUsd ?? 0).toFixed(2)}
+                    {(portfolioData.summary.maxReturnUsd ?? 0) >= 0 ? "+" : ""}${((portfolioData.summary.maxReturnUsd ?? 0) * PM).toFixed(2)}
                   </div>
                 </>
               ) : (
@@ -171,21 +169,20 @@ export default function PerformancePage() {
               // Compute max-value history: for each date, sum alphaTokens × peak price
               // for all positions that had been bought by that date
               const maxHistory = portfolioData.history.map(h => {
-                const maxValue = portfolioData.positions
-                  .filter(p => p.buyDate <= h.date)
-                  .reduce((sum, p) => {
-                    const peak = (p as any).manualPeakPrice ?? p.peakPrice ?? p.buyPriceUsd;
-                    return sum + p.alphaTokens * peak;
-                  }, 0);
-                return { date: h.date, totalValue: Math.round(maxValue * 100) / 100 };
+                const positionsByDate = portfolioData.positions.filter(p => p.buyDate <= h.date);
+                const maxValue = positionsByDate.reduce((sum, p) => {
+                  const peak = (p as any).manualPeakPrice ?? p.peakPrice ?? p.buyPriceUsd;
+                  return sum + p.alphaTokens * peak;
+                }, 0);
+                const cost = positionsByDate.reduce((sum, p) => sum + p.amountUsd, 0);
+                return { date: h.date, totalValue: Math.round(maxValue * 100) / 100, cost };
               });
-              const displayHistory = chartView === "max" ? maxHistory : portfolioData.history;
               return (
                 <div className="bg-gray-900/70 border border-gray-800 rounded-xl p-5">
                   <div className="flex items-center justify-between mb-4">
                     <div className="text-xs text-gray-500 uppercase tracking-wider">Portfolio Max Value Over Time</div>
                   </div>
-                  <PortfolioChart history={displayHistory} costBasis={portfolioData.summary.totalCost} />
+                  <PortfolioChart history={maxHistory} />
                 </div>
               );
             })() : (
@@ -199,17 +196,17 @@ export default function PerformancePage() {
             <div className="bg-gray-900/70 border border-gray-800 rounded-xl overflow-hidden">
               <div className="px-5 py-4 border-b border-gray-800 flex items-center justify-between">
                 <h3 className="font-semibold text-sm">Holdings</h3>
-                <span className="text-xs text-gray-600">$100 auto-buy when aGap ≥ 80</span>
+                <span className="text-xs text-gray-600">${POSITION_SIZE.toLocaleString()} auto-buy when aGap ≥ 80</span>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="text-xs text-gray-500 uppercase border-b border-gray-800/60">
                       <th className="text-left px-5 py-3">Subnet</th>
-                      {(["maxPnl","agap","bought","buyPrice","currentPrice","maxPrice","value","change24h"] as SortKey[]).map((key, i) => {
-                        const labels: Record<SortKey, string> = { maxPnl:"Max P&L", agap:"aGap", bought:"Bought", buyPrice:"Buy Price", currentPrice:"Current", maxPrice:"Max Price", value:"Value", change24h:"24h P&L" };
+                      {(["maxPnl","agap","bought","buyPrice","currentPrice","maxPrice","value","taoPnl","change24h"] as SortKey[]).map((key, i) => {
+                        const labels: Record<SortKey, string> = { maxPnl:"Max P&L", agap:"aGap", bought:"Bought", buyPrice:"Buy Price", currentPrice:"Current", maxPrice:"Max Price", value:"Value", taoPnl:"TAO PnL", change24h:"24h P&L" };
                         const active = sortKey === key;
-                        const isLast = i === 7;
+                        const isLast = i === 8;
                         return (
                           <th key={key} onClick={() => handleSort(key)} className={`text-right ${isLast ? "px-5" : "px-3"} py-3 cursor-pointer select-none whitespace-nowrap hover:text-gray-300 transition-colors ${active ? "text-white" : ""}`}>
                             {labels[key]}{active ? (sortDir === "desc" ? " ↓" : " ↑") : ""}
@@ -219,7 +216,7 @@ export default function PerformancePage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-800/40">
-                    {sortedPositions(portfolioData.positions).map((pos) => (
+                    {sortedPositions(portfolioData.positions, portfolioData.summary.taoPrice ?? 0).map((pos) => (
                       <tr
                         key={pos.netuid}
                         className="hover:bg-gray-800/30 transition-colors cursor-pointer"
@@ -236,7 +233,7 @@ export default function PerformancePage() {
                                 {(pos.maxPnlPct ?? 0) >= 0 ? "+" : ""}{(pos.maxPnlPct ?? 0).toFixed(1)}%
                               </div>
                               <div className="text-xs text-green-500">
-                                {(pos.maxPnlUsd ?? 0) >= 0 ? "+" : ""}${(pos.maxPnlUsd ?? 0).toFixed(2)}
+                                {(pos.maxPnlUsd ?? 0) >= 0 ? "+" : ""}${((pos.maxPnlUsd ?? 0) * PM).toFixed(2)}
                               </div>
                             </>
                           ) : (
@@ -260,7 +257,15 @@ export default function PerformancePage() {
                         <td className="text-right px-3 py-3 font-mono text-xs text-green-400">
                           {pos.peakPrice != null ? `$${pos.peakPrice < 0.01 ? pos.peakPrice.toFixed(5) : pos.peakPrice.toFixed(4)}` : "—"}
                         </td>
-                        <td className="text-right px-3 py-3 font-semibold">${pos.currentValue.toFixed(2)}</td>
+                        <td className="text-right px-3 py-3 font-semibold">${(pos.currentValue * PM).toFixed(2)}</td>
+                        <td className="text-right px-3 py-3 font-mono text-xs">
+                          {portfolioData.summary.taoPrice && portfolioData.summary.taoPrice > 0 ? (
+                            <span className={(pos.currentValue - pos.amountUsd) >= 0 ? "text-green-400" : "text-red-400"}>
+                              {(pos.currentValue - pos.amountUsd) >= 0 ? "+" : ""}
+                              {(((pos.currentValue - pos.amountUsd) * PM) / portfolioData.summary.taoPrice).toFixed(3)} τ
+                            </span>
+                          ) : <span className="text-gray-600">—</span>}
+                        </td>
                         <td className="text-right px-5 py-3">
                           <span className={pos.pnl24hUsd >= 0 ? "text-green-400" : "text-red-400"}>
                             {pos.change24h >= 0 ? "+" : ""}{pos.change24h.toFixed(1)}%
@@ -275,7 +280,7 @@ export default function PerformancePage() {
                       <td className="text-right px-3 py-3">
                         {portfolioData.summary.maxReturnUsd != null ? (
                           <span className="text-green-400">
-                            {(portfolioData.summary.maxReturnUsd ?? 0) >= 0 ? "+" : ""}${(portfolioData.summary.maxReturnUsd ?? 0).toFixed(2)}
+                            {(portfolioData.summary.maxReturnUsd ?? 0) >= 0 ? "+" : ""}${((portfolioData.summary.maxReturnUsd ?? 0) * PM).toFixed(2)}
                             <div className="text-xs font-normal">
                               ({(portfolioData.summary.maxReturnPct ?? 0) >= 0 ? "+" : ""}{(portfolioData.summary.maxReturnPct ?? 0).toFixed(1)}%)
                             </div>
@@ -285,7 +290,15 @@ export default function PerformancePage() {
                         )}
                       </td>
                       <td className="text-right px-3 py-3 text-gray-500" colSpan={5}>—</td>
-                      <td className="text-right px-3 py-3">${portfolioData.summary.totalValue.toFixed(2)}</td>
+                      <td className="text-right px-3 py-3">${(portfolioData.summary.totalValue * PM).toFixed(2)}</td>
+                      <td className="text-right px-3 py-3 font-mono text-xs">
+                        {portfolioData.summary.taoPrice && portfolioData.summary.taoPrice > 0 ? (
+                          <span className={(portfolioData.summary.totalValue - portfolioData.summary.totalCost) >= 0 ? "text-green-400" : "text-red-400"}>
+                            {(portfolioData.summary.totalValue - portfolioData.summary.totalCost) >= 0 ? "+" : ""}
+                            {((portfolioData.summary.totalValue - portfolioData.summary.totalCost) * PM / portfolioData.summary.taoPrice).toFixed(3)} τ
+                          </span>
+                        ) : <span className="text-gray-500">—</span>}
+                      </td>
                       <td className="text-right px-5 py-3 text-gray-500">—</td>
                     </tr>
                   </tfoot>
@@ -294,7 +307,7 @@ export default function PerformancePage() {
             </div>
 
             <div className="text-xs text-gray-600 text-center pb-2">
-              Simulated portfolio — $100 auto-invested per subnet when aGap ≥ 80. Tracks real alpha token prices. Not financial advice.
+              Simulated portfolio — ${POSITION_SIZE.toLocaleString()} auto-invested per subnet when aGap ≥ 80. Tracks real alpha token prices. Not financial advice.
             </div>
           </>
         )}

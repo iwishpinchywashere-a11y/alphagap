@@ -188,7 +188,7 @@ export async function PATCH(req: Request) {
       const portfolio = await loadPortfolio();
       const netuid = body.netuid!;
       const buyPriceUsd = body.buyPriceUsd!;
-      const amountUsd = 100;
+      const amountUsd = 1000;
       const alphaTokens = amountUsd / buyPriceUsd;
       // Remove existing position for this netuid if present (replace)
       portfolio.positions = portfolio.positions.filter(p => p.netuid !== netuid);

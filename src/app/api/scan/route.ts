@@ -3799,7 +3799,7 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
 
   // ── Portfolio auto-buy ───────────────────────────────────────────
   // When a subnet's aGap score crosses 80 for the first time, we
-  // "buy" $100 of its alpha token and track performance over time.
+  // "buy" $1000 of its alpha token and track performance over time.
   // This lets us validate whether aGap signals produce real gains.
   if (process.env.BLOB_READ_WRITE_TOKEN) {
     try {
@@ -3807,7 +3807,7 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
       const portfolio = await loadPortfolio();
 
       const BUY_THRESHOLD = 80;
-      const BUY_AMOUNT_USD = 100;
+      const BUY_AMOUNT_USD = 1000;
       const today = new Date().toISOString().slice(0, 10);
 
       let portfolioChanged = false;
