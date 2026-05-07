@@ -98,6 +98,7 @@ export default function LeaderboardPage() {
   const [filterNetInflow, setFilterNetInflow] = useState(false);
   const [filterHighConviction, setFilterHighConviction] = useState(false);
   const [filterVolumeSurge, setFilterVolumeSurge] = useState(false);
+  const [filterDeregWatch, setFilterDeregWatch] = useState(false);
   const [filterCategory, setFilterCategory] = useState<string>("");
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [timeHorizon, setTimeHorizon] = useState<"trading" | "investing">("trading");
@@ -183,6 +184,7 @@ export default function LeaderboardPage() {
     .filter((sub) => !filterNetInflow || (sub.net_flow_24h != null && sub.net_flow_24h > 0))
     .filter((sub) => !filterHighConviction || (sub.emission_trend === "up" && sub.whale_signal === "accumulating" && (sub.dev_score ?? 0) >= 40))
     .filter((sub) => !filterVolumeSurge || sub.volume_surge === true)
+    .filter((sub) => !filterDeregWatch || sub.dereg_top3 === true)
     .filter((sub) => !filterCategory || sub.category === filterCategory)
     .filter((sub) => !watchlistOnly || watchlist.has(sub.netuid))
     .sort((a, b) => {
@@ -336,15 +338,16 @@ export default function LeaderboardPage() {
               {/* Filters popover */}
               {(() => {
                 const FILTERS = [
-                  { label: "💰 >$5M MCap",         active: filterMinCap,          set: setFilterMinCap },
-                  { label: "⛽ Has Emissions",      active: filterHasEmissions,    set: setFilterHasEmissions },
-                  { label: "🐋 Whales Buying",      active: filterWhaleAccum,      set: setFilterWhaleAccum },
-                  { label: "📈 Emissions Rising",   active: filterEmissionsRising, set: setFilterEmissionsRising },
-                  { label: "📉 Oversold Quality",   active: filterOversoldQuality, set: setFilterOversoldQuality },
-                  { label: "🔥 KOL Active",         active: filterKolActive,       set: setFilterKolActive },
-                  { label: "💸 Net Inflow",          active: filterNetInflow,       set: setFilterNetInflow },
-                  { label: "🎯 High Conviction",     active: filterHighConviction,  set: setFilterHighConviction },
-                  { label: "🤑 Volume Surge",        active: filterVolumeSurge,     set: setFilterVolumeSurge },
+                  { label: "💰 >$5M MCap",             active: filterMinCap,          set: setFilterMinCap },
+                  { label: "⛽ Has Emissions",          active: filterHasEmissions,    set: setFilterHasEmissions },
+                  { label: "🐋 Whales Buying",          active: filterWhaleAccum,      set: setFilterWhaleAccum },
+                  { label: "📈 Emissions Rising",       active: filterEmissionsRising, set: setFilterEmissionsRising },
+                  { label: "📉 Oversold Quality",       active: filterOversoldQuality, set: setFilterOversoldQuality },
+                  { label: "🔥 KOL Active",             active: filterKolActive,       set: setFilterKolActive },
+                  { label: "💸 Net Inflow",              active: filterNetInflow,       set: setFilterNetInflow },
+                  { label: "🎯 High Conviction",         active: filterHighConviction,  set: setFilterHighConviction },
+                  { label: "🤑 Volume Surge",            active: filterVolumeSurge,     set: setFilterVolumeSurge },
+                  { label: "⚠️ Deregistration Watch",   active: filterDeregWatch,      set: setFilterDeregWatch },
                 ] as { label: string; active: boolean; set: React.Dispatch<React.SetStateAction<boolean>> }[];
                 const activeCount = FILTERS.filter(f => f.active).length + (filterCategory ? 1 : 0);
                 // Collect unique categories from leaderboard for the category picker
@@ -377,7 +380,7 @@ export default function LeaderboardPage() {
                             <span className="text-xs text-gray-500 font-medium">Filter subnets</span>
                             {activeCount > 0 && (
                               <button
-                                onClick={() => { FILTERS.forEach(f => f.set(false)); setFilterCategory(""); }}
+                                onClick={() => { FILTERS.forEach(f => f.set(false)); setFilterCategory(""); setFilterDeregWatch(false); }}
                                 className="text-[10px] text-gray-500 hover:text-red-400 transition-colors"
                               >
                                 Clear all
