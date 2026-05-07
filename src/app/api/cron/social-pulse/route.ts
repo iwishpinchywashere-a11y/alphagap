@@ -169,6 +169,7 @@ export async function GET(req: Request) {
     "affine_io": 120,
     "MaxScore": 44,           // Score / Manako founder
     "bitcast_network": 93,    // Bitcast — twitter null in TaoStats identity
+    "lium_io": 51,            // Lium (SN51) — registered as lium_io on X, not in TaoStats
   };
   for (const [handle, netuid] of Object.entries(HANDLE_OVERRIDES)) {
     if (!handleToNetuid.has(handle)) handleToNetuid.set(handle, netuid);
