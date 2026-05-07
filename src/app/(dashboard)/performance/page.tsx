@@ -101,7 +101,7 @@ export default function PerformancePage() {
       if (sortKey === "currentPrice") { av = a.currentPrice; bv = b.currentPrice; }
       if (sortKey === "maxPrice")     { av = (a as any).manualPeakPrice ?? a.peakPrice ?? 0; bv = (b as any).manualPeakPrice ?? b.peakPrice ?? 0; }
       if (sortKey === "value")        { av = a.currentValue; bv = b.currentValue; }
-      if (sortKey === "taoPnl")       { av = taoPrice > 0 ? (a.currentValue - a.amountUsd) / taoPrice : 0; bv = taoPrice > 0 ? (b.currentValue - b.amountUsd) / taoPrice : 0; }
+      if (sortKey === "taoPnl")       { av = taoPrice > 0 ? (a.maxPnlUsd ?? 0) / taoPrice : 0; bv = taoPrice > 0 ? (b.maxPnlUsd ?? 0) / taoPrice : 0; }
       if (sortKey === "change24h")    { av = a.change24h;    bv = b.change24h; }
       return sortDir === "desc" ? bv - av : av - bv;
     });
@@ -204,7 +204,7 @@ export default function PerformancePage() {
                     <tr className="text-xs text-gray-500 uppercase border-b border-gray-800/60">
                       <th className="text-left px-5 py-3">Subnet</th>
                       {(["maxPnl","agap","bought","buyPrice","currentPrice","maxPrice","value","taoPnl","change24h"] as SortKey[]).map((key, i) => {
-                        const labels: Record<SortKey, string> = { maxPnl:"Max P&L", agap:"aGap", bought:"Bought", buyPrice:"Buy Price", currentPrice:"Current", maxPrice:"Max Price", value:"Value", taoPnl:"TAO PnL", change24h:"24h P&L" };
+                        const labels: Record<SortKey, string> = { maxPnl:"Max P&L", agap:"aGap", bought:"Bought", buyPrice:"Buy Price", currentPrice:"Current", maxPrice:"Max Price", value:"Value", taoPnl:"Max τ PnL", change24h:"24h P&L" };
                         const active = sortKey === key;
                         const isLast = i === 8;
                         return (
@@ -259,10 +259,10 @@ export default function PerformancePage() {
                         </td>
                         <td className="text-right px-3 py-3 font-semibold">${(pos.currentValue * PM).toFixed(2)}</td>
                         <td className="text-right px-3 py-3 font-mono text-xs">
-                          {portfolioData.summary.taoPrice && portfolioData.summary.taoPrice > 0 ? (
-                            <span className={(pos.currentValue - pos.amountUsd) >= 0 ? "text-green-400" : "text-red-400"}>
-                              {(pos.currentValue - pos.amountUsd) >= 0 ? "+" : ""}
-                              {(((pos.currentValue - pos.amountUsd) * PM) / portfolioData.summary.taoPrice).toFixed(3)} τ
+                          {portfolioData.summary.taoPrice && portfolioData.summary.taoPrice > 0 && pos.maxPnlUsd != null ? (
+                            <span className={(pos.maxPnlUsd ?? 0) >= 0 ? "text-green-400" : "text-red-400"}>
+                              {(pos.maxPnlUsd ?? 0) >= 0 ? "+" : ""}
+                              {(((pos.maxPnlUsd ?? 0) * PM) / portfolioData.summary.taoPrice).toFixed(3)} τ
                             </span>
                           ) : <span className="text-gray-600">—</span>}
                         </td>
@@ -292,10 +292,10 @@ export default function PerformancePage() {
                       <td className="text-right px-3 py-3 text-gray-500" colSpan={5}>—</td>
                       <td className="text-right px-3 py-3">${(portfolioData.summary.totalValue * PM).toFixed(2)}</td>
                       <td className="text-right px-3 py-3 font-mono text-xs">
-                        {portfolioData.summary.taoPrice && portfolioData.summary.taoPrice > 0 ? (
-                          <span className={(portfolioData.summary.totalValue - portfolioData.summary.totalCost) >= 0 ? "text-green-400" : "text-red-400"}>
-                            {(portfolioData.summary.totalValue - portfolioData.summary.totalCost) >= 0 ? "+" : ""}
-                            {((portfolioData.summary.totalValue - portfolioData.summary.totalCost) * PM / portfolioData.summary.taoPrice).toFixed(3)} τ
+                        {portfolioData.summary.taoPrice && portfolioData.summary.taoPrice > 0 && portfolioData.summary.maxReturnUsd != null ? (
+                          <span className={(portfolioData.summary.maxReturnUsd ?? 0) >= 0 ? "text-green-400" : "text-red-400"}>
+                            {(portfolioData.summary.maxReturnUsd ?? 0) >= 0 ? "+" : ""}
+                            {(((portfolioData.summary.maxReturnUsd ?? 0) * PM) / portfolioData.summary.taoPrice).toFixed(3)} τ
                           </span>
                         ) : <span className="text-gray-500">—</span>}
                       </td>
