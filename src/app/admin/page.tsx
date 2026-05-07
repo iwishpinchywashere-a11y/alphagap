@@ -4,6 +4,17 @@ import { useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 
+interface Review {
+  id: string;
+  userId: string;
+  name: string;
+  xHandle: string;
+  review: string;
+  status: "pending" | "approved" | "denied";
+  submittedAt: string;
+  approvedAt?: string;
+}
+
 interface UserEntry {
   email: string;
   name: string;
@@ -38,6 +49,9 @@ export default function AdminPage() {
   const [actionMsg, setActionMsg] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
   const [filter, setFilter] = useState<"all" | "pro" | "premium" | "free">("all");
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [reviewsLoading, setReviewsLoading] = useState(true);
+  const [reviewFilter, setReviewFilter] = useState<"pending" | "approved" | "denied">("pending");
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const isAdmin = (session?.user as any)?.isAdmin ||
@@ -55,6 +69,12 @@ export default function AdminPage() {
       setUsers(userData.users ?? []);
       setStats(stripeData);
     }).catch(() => {}).finally(() => setLoading(false));
+
+    fetch("/api/reviews", { method: "PUT" })
+      .then(r => r.json())
+      .then(d => setReviews(d.reviews ?? []))
+      .catch(() => {})
+      .finally(() => setReviewsLoading(false));
   }, [status, isAdmin]);
 
   async function doAction(action: "grant" | "revoke" | "make-admin" | "delete" | "set-tier" | "sync-user", email: string, tier?: "free" | "pro" | "premium") {
@@ -95,6 +115,26 @@ export default function AdminPage() {
       }
     } finally {
       setActionLoading(false);
+    }
+  }
+
+  async function doReviewAction(id: string, action: "approve" | "deny" | "delete") {
+    if (action === "delete" && !confirm("Delete this review?")) return;
+    const res = await fetch("/api/reviews", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, action }),
+    });
+    if (res.ok) {
+      if (action === "delete") {
+        setReviews(prev => prev.filter(r => r.id !== id));
+      } else {
+        setReviews(prev => prev.map(r =>
+          r.id === id
+            ? { ...r, status: action === "approve" ? "approved" : "denied", approvedAt: action === "approve" ? new Date().toISOString() : r.approvedAt }
+            : r
+        ));
+      }
     }
   }
 
@@ -312,6 +352,103 @@ export default function AdminPage() {
             </div>
           )}
         </div>
+        {/* Reviews Management */}
+        <div className="mt-6 bg-gray-900/60 border border-gray-800 rounded-2xl overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-800 flex items-center justify-between flex-wrap gap-3">
+            <div className="flex items-center gap-3">
+              <h2 className="font-semibold text-white">Reviews</h2>
+              {reviews.filter(r => r.status === "pending").length > 0 && (
+                <span className="text-xs font-bold bg-yellow-500/15 text-yellow-400 border border-yellow-500/30 px-2 py-0.5 rounded-full">
+                  {reviews.filter(r => r.status === "pending").length} pending
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              {(["pending", "approved", "denied"] as const).map(f => (
+                <button
+                  key={f}
+                  onClick={() => setReviewFilter(f)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                    reviewFilter === f
+                      ? "bg-green-500/15 border-green-500/40 text-green-400"
+                      : "bg-gray-800/60 border-gray-700 text-gray-400 hover:text-gray-200 hover:border-gray-600"
+                  }`}
+                >
+                  {f.charAt(0).toUpperCase() + f.slice(1)}
+                  <span className={`ml-1.5 text-xs font-bold px-1.5 py-0.5 rounded-full ${reviewFilter === f ? "bg-green-500/20 text-green-300" : "bg-gray-700 text-gray-400"}`}>
+                    {reviews.filter(r => r.status === f).length}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {reviewsLoading ? (
+            <div className="p-8 text-center text-gray-600 text-sm">Loading reviews…</div>
+          ) : reviews.filter(r => r.status === reviewFilter).length === 0 ? (
+            <div className="p-8 text-center text-gray-600 text-sm">No {reviewFilter} reviews</div>
+          ) : (
+            <div className="divide-y divide-gray-800/60">
+              {reviews.filter(r => r.status === reviewFilter).map(review => (
+                <div key={review.id} className="px-6 py-4">
+                  <div className="flex items-start justify-between gap-4 flex-wrap">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="font-medium text-gray-200 text-sm">{review.name}</span>
+                        {review.xHandle && (
+                          <span className="text-xs text-blue-400">@{review.xHandle}</span>
+                        )}
+                        <span className="text-xs text-gray-600">{new Date(review.submittedAt).toLocaleDateString()}</span>
+                      </div>
+                      <p className="text-sm text-gray-400 leading-relaxed">&ldquo;{review.review}&rdquo;</p>
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      {review.status === "pending" && (
+                        <>
+                          <button
+                            onClick={() => doReviewAction(review.id, "approve")}
+                            className="text-xs px-3 py-1.5 bg-green-500/15 hover:bg-green-500/25 border border-green-500/30 text-green-400 rounded-lg font-medium transition-colors"
+                          >
+                            Approve
+                          </button>
+                          <button
+                            onClick={() => doReviewAction(review.id, "deny")}
+                            className="text-xs px-3 py-1.5 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 rounded-lg font-medium transition-colors"
+                          >
+                            Deny
+                          </button>
+                        </>
+                      )}
+                      {review.status === "approved" && (
+                        <button
+                          onClick={() => doReviewAction(review.id, "deny")}
+                          className="text-xs px-3 py-1.5 bg-yellow-500/10 hover:bg-yellow-500/20 border border-yellow-500/20 text-yellow-400 rounded-lg font-medium transition-colors"
+                        >
+                          Revoke
+                        </button>
+                      )}
+                      {review.status === "denied" && (
+                        <button
+                          onClick={() => doReviewAction(review.id, "approve")}
+                          className="text-xs px-3 py-1.5 bg-green-500/15 hover:bg-green-500/25 border border-green-500/30 text-green-400 rounded-lg font-medium transition-colors"
+                        >
+                          Approve
+                        </button>
+                      )}
+                      <button
+                        onClick={() => doReviewAction(review.id, "delete")}
+                        className="text-xs px-2 py-1.5 bg-red-900/30 hover:bg-red-900/60 text-red-500 border border-red-900/40 rounded-lg transition-colors"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
       </div>
     </div>
   );

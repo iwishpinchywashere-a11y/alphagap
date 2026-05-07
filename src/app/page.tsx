@@ -9,11 +9,20 @@ export default function LandingPage() {
   const [scrollY, setScrollY] = useState(0);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [stats, setStats] = useState<{ subnets: number; signals: number; reports: number; leaderboard: any[] }>({ subnets: 0, signals: 0, reports: 0, leaderboard: [] });
+  const [approvedReviews, setApprovedReviews] = useState<{ id: string; name: string; xHandle: string; review: string }[]>([]);
 
   useEffect(() => {
     const handleScroll = () => setScrollY(window.scrollY);
     window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  // Fetch approved reviews
+  useEffect(() => {
+    fetch("/api/reviews")
+      .then(r => r.json())
+      .then(d => setApprovedReviews(d.reviews ?? []))
+      .catch(() => {});
   }, []);
 
   // Fetch live stats + leaderboard preview
@@ -577,6 +586,34 @@ export default function LandingPage() {
           <p className="text-gray-500 text-center text-sm mb-12">Real words from real subscribers. Not paid endorsements.</p>
 
           <div className="columns-1 sm:columns-2 lg:columns-3 gap-4 space-y-4">
+            {/* Approved user-submitted reviews */}
+            {approvedReviews.map((r) => (
+              <div
+                key={r.id}
+                className="break-inside-avoid bg-[#0d0d14] border border-white/[0.06] rounded-2xl p-5 hover:border-green-500/20 transition-colors"
+              >
+                <div className="text-green-500/40 text-4xl font-serif leading-none mb-2">&ldquo;</div>
+                <p className="text-gray-300 text-sm leading-relaxed">{r.review}</p>
+                <div className="mt-3 flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-1.5">
+                    <div className="flex gap-0.5">
+                      {[...Array(5)].map((_, s) => (
+                        <svg key={s} className="w-3 h-3 text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                        </svg>
+                      ))}
+                    </div>
+                    <span className="text-xs text-gray-500 font-medium">{r.name}</span>
+                    {r.xHandle && (
+                      <span className="text-xs text-blue-400">@{r.xHandle}</span>
+                    )}
+                  </div>
+                  <span className="text-xs text-gray-600">Verified subscriber</span>
+                </div>
+              </div>
+            ))}
+
+            {/* Hardcoded testimonials */}
             {[
               {
                 quote: "I'm telling you guys. Personal testimony and I'm not paid for this whatsoever. I subscribed for $29/month and upgraded to premium. It paid for itself in 3–4 days with modest amounts of TAO trading subnets off signals. The AI is INSANELY fast. Highly recommend. I continue to be both impressed and addicted to subnets and what they are shipping!! 😎",
