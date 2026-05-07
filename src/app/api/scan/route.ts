@@ -1517,15 +1517,16 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
     const dev = devMap.get(d.netuid);
     const ghScan = githubScanMap.get(d.netuid);
 
-    const commits1d    = dev?.commits_1d || 0;
-    const commits7d    = dev?.commits_7d || 0;
-    const commits30d   = dev?.commits_30d || 0;
-    const prs1d        = dev?.prs_merged_1d || 0;
-    const prs7d        = dev?.prs_merged_7d || 0;
-    const prs30d       = dev?.prs_merged_30d || 0;
-    const contrib30d   = dev?.unique_contributors_30d || 0;
+    const commits1d     = dev?.commits_1d || 0;
+    const commits7d     = dev?.commits_7d || 0;
+    const commits30d    = dev?.commits_30d || 0;
+    const prs1d         = dev?.prs_merged_1d || 0;
+    const prs7d         = dev?.prs_merged_7d || 0;
+    const prs30d        = dev?.prs_merged_30d || 0;
+    const contrib30d    = dev?.unique_contributors_30d || 0;
     const daysSinceLast = dev?.days_since_last_event ?? 999;
-    const loc30d       = ghScan?.loc_30d ?? 0;
+    // loc30d comes from our DIRECT GitHub scanner — more trustworthy than TaoStats
+    const loc30d        = ghScan?.loc_30d ?? 0;
 
     const hasGithub = !!dev || !!ghScan;
     const hasHf = d.hfModels > 0 || d.hfDatasets > 0 || d.hfDownloads > 0;
@@ -1534,14 +1535,22 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
     // No GitHub tracked AND no HuggingFace presence → 0
     if (!hasGithub && !hasHf) return 0;
 
-    // GitHub tracked but nothing shipped in 3+ months → 0
-    if (hasGithub && !hasHf && daysSinceLast >= 90) return 0;
+    // ── "No real recent activity" detection ───────────────────────────
+    // TaoStats commits_30d can be STALE — a deprecated subnet might still show
+    // commits_30d=15 from a snapshot taken when it was active.
+    // Use loc30d (direct GitHub scan) and commits_7d as the ground truth.
+    // If BOTH are zero, the subnet has nothing verifiable from this week and
+    // our scanner found no code changes in 30d → treat as dormant.
+    const hasVerifiedRecentActivity = commits7d > 0 || prs7d > 0 || loc30d > 0;
 
-    // Nothing in 2-3 months → effectively dormant
-    if (hasGithub && !hasHf && daysSinceLast >= 60) return 5;
-
-    // Has GitHub, tracked, but zero activity in the 30d window
-    if (hasGithub && commits30d === 0 && prs30d === 0 && loc30d === 0 && !hasHf) return 12;
+    // No GitHub activity verified AND nothing in TaoStats 7d window → low floor
+    if (hasGithub && !hasVerifiedRecentActivity && !hasHf) {
+      // daysSinceLast is from TaoStats — may be stale, so clamp conservatively
+      if (daysSinceLast >= 60) return 0;
+      if (daysSinceLast >= 30) return 8;
+      // Has TaoStats history but nothing verifiable this week → minimal
+      return 15;
+    }
 
     let score = 0;
 
@@ -1553,7 +1562,8 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
     else if (commits7d >= 6)  score += 16;
     else if (commits7d >= 2)  score += 10;
     else if (commits7d >= 1)  score += 6;
-    else if (commits30d > 0)  score += 3;   // quiet week but had activity this month
+    // NOTE: no points awarded for commits30d alone — TaoStats 30d data can be stale.
+    // loc30d (direct scan) carries the "active but quiet week" signal instead.
 
     // ── 2. QUALITY SIGNAL — PRs merged (0-15 pts) ────────────────────
     // PRs = reviewed, intentional features — higher signal than raw commits
@@ -1561,18 +1571,20 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
     else if (prs7d >= 4) score += 11;
     else if (prs7d >= 2) score += 8;
     else if (prs7d >= 1) score += 4;
-    else if (prs30d > 0) score += 2;
+    // No fallback to prs30d — stale TaoStats data not trusted here
 
     // ── 3. TEAM SIZE — contributors (0-10 pts) ────────────────────────
-    // Multiple contributors = real team, not a solo dev
-    if      (contrib30d >= 10) score += 10;
-    else if (contrib30d >= 5)  score += 8;
-    else if (contrib30d >= 3)  score += 6;
-    else if (contrib30d >= 2)  score += 4;
-    else if (contrib30d >= 1)  score += 2;
+    // Only awarded when there IS verified recent activity (to avoid stale inflation)
+    if (hasVerifiedRecentActivity) {
+      if      (contrib30d >= 10) score += 10;
+      else if (contrib30d >= 5)  score += 8;
+      else if (contrib30d >= 3)  score += 6;
+      else if (contrib30d >= 2)  score += 4;
+      else if (contrib30d >= 1)  score += 2;
+    }
 
     // ── 4. CODE VOLUME — lines of code in 30d (0-20 pts) ─────────────
-    // Actual substance of shipping — not just commit noise
+    // Direct GitHub scan — trustworthy source of truth for real code shipped
     if      (loc30d >= 50_000) score += 20;
     else if (loc30d >= 20_000) score += 16;
     else if (loc30d >= 10_000) score += 13;
@@ -1618,7 +1630,7 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
     // New versioned release published recently
     if (ghScan?.hasNewRelease && ghScan.releaseDate) {
       const hoursAgo = (Date.now() - new Date(ghScan.releaseDate).getTime()) / 3_600_000;
-      if      (hoursAgo < 12) score = Math.min(100, score + 12);  // brand new release
+      if      (hoursAgo < 12) score = Math.min(100, score + 12);
       else if (hoursAgo < 24) score = Math.min(100, score + 8);
       else if (hoursAgo < 72) score = Math.min(100, score + 4);
     }
@@ -1629,17 +1641,17 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
     else if (commits1d >= 1)  score = Math.min(100, score + 1);
 
     // PRs merged today (strong freshness signal)
-    if (prs1d >= 2) score = Math.min(100, score + 3);
+    if      (prs1d >= 2) score = Math.min(100, score + 3);
     else if (prs1d >= 1) score = Math.min(100, score + 2);
 
-    // ── 8. STALENESS DECAY — last event was weeks ago ────────────────
-    // Even if 30d numbers look ok, fading freshness matters
-    // Only applies when we have GitHub data (HF-only subnets skip this)
+    // ── 8. STALENESS DECAY ────────────────────────────────────────────
+    // daysSinceLast from TaoStats may be stale — use it conservatively.
+    // Also decay hard when commits7d=0 AND loc30d=0 (nothing verifiable this week).
     if (hasGithub) {
-      if      (daysSinceLast >= 42) score = Math.round(score * 0.35);
-      else if (daysSinceLast >= 28) score = Math.round(score * 0.55);
-      else if (daysSinceLast >= 21) score = Math.round(score * 0.72);
-      else if (daysSinceLast >= 14) score = Math.round(score * 0.85);
+      if      (daysSinceLast >= 42) score = Math.round(score * 0.30);
+      else if (daysSinceLast >= 28) score = Math.round(score * 0.50);
+      else if (daysSinceLast >= 21) score = Math.round(score * 0.68);
+      else if (daysSinceLast >= 14) score = Math.round(score * 0.82);
     }
 
     return Math.round(score);
