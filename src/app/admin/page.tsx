@@ -186,9 +186,22 @@ export default function AdminPage() {
             </div>
             <p className="text-gray-500 text-sm">Subscriber management dashboard</p>
           </div>
-          <Link href="/dashboard" className="text-sm text-gray-500 hover:text-gray-300 transition-colors">
-            ← Dashboard
-          </Link>
+          <div className="flex items-center gap-3">
+            <Link
+              href="/admin/reviews"
+              className="flex items-center gap-2 px-4 py-2 bg-yellow-500/10 hover:bg-yellow-500/20 border border-yellow-500/25 text-yellow-400 rounded-lg text-sm font-medium transition-colors"
+            >
+              ⭐ Reviews
+              {reviews.filter(r => r.status === "pending").length > 0 && (
+                <span className="bg-yellow-500 text-black text-xs font-bold px-1.5 py-0.5 rounded-full leading-none">
+                  {reviews.filter(r => r.status === "pending").length}
+                </span>
+              )}
+            </Link>
+            <Link href="/dashboard" className="text-sm text-gray-500 hover:text-gray-300 transition-colors">
+              ← Dashboard
+            </Link>
+          </div>
         </div>
 
         {/* Stats */}
