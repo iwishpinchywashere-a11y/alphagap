@@ -91,7 +91,10 @@ export async function GET() {
     // Regular AI analysis uses only the 24h subset; founder scan uses all 72h.
     // This catches Const's posts even if the cron missed a run or two.
     const afterSnowflake72h = getHoursAgoSnowflake(FOUNDER_LOOKBACK_HOURS);
-    const cutoff24h = Date.now() - 24 * 60 * 60 * 1000;
+    // AI analysis window: 48h so team announcements posted yesterday aren't missed.
+    // High-reaction messages (≥15 total reactions) are promoted up to 72h.
+    const cutoff48h = Date.now() - 48 * 60 * 60 * 1000;
+    const cutoff72h = Date.now() - 72 * 60 * 60 * 1000;
 
     // 2a. Identify general/announcement channels for founder-only scanning
     // These channels are NOT analyzed for alpha (skipped in AI batch) but ARE
@@ -157,13 +160,23 @@ export async function GET() {
       }
     }
 
-    // For AI analysis, only use messages from the last 24h (keeps results fresh)
-    // Exclude founderOnly channels — those are for Const detection only, not AI batch
+    // For AI analysis, include messages from the last 48h (expanded from 24h so that
+    // high-signal announcements posted yesterday aren't silently dropped).
+    // Additionally, any message with ≥15 total reactions is included up to 72h —
+    // high community engagement is a strong signal regardless of age.
+    // Exclude founderOnly channels — those are for Const detection only, not AI batch.
     const channelScans24h = channelScans
       .filter(c => !c.founderOnly)
       .map(c => ({
         ...c,
-        messages: c.messages.filter(m => new Date(m.timestamp).getTime() >= cutoff24h),
+        messages: c.messages.filter(m => {
+          const ts = new Date(m.timestamp).getTime();
+          if (ts >= cutoff48h) return true; // within 48h → always include
+          // High-reaction messages (≥15 total) included up to 72h
+          const totalReactions = (m.reactions ?? []).reduce((s: number, r: { count: number }) => s + r.count, 0);
+          if (ts >= cutoff72h && totalReactions >= 15) return true;
+          return false;
+        }),
       }));
 
     // 3. Filter to channels with enough activity

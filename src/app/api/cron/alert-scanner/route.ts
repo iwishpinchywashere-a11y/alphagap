@@ -131,6 +131,8 @@ interface DiscordEntry {
   summary: string;
   signal: string;
   scannedAt: string;
+  /** Actual Discord message timestamp — stable across scan cycles */
+  lastActivityAt?: string;
   /** True for Const (Bittensor founder) posts — always alert regardless of watchlist */
   founderPost?: boolean;
   channelName?: string;
@@ -684,16 +686,24 @@ export async function GET(req: NextRequest) {
         // Score gate: founder posts bypass this — every significant Const post fires
         if (!isFounder && entry.alphaScore < discordMinScore) continue;
 
-        // Dedup key: uses a 6-hour time bucket so the same subnet can't fire more than
-        // once per 6h window regardless of how the AI rewrites the summary each scan cycle.
-        // Bucket = "YYYY-MM-DD-H" where H is 0, 6, 12, or 18 (floor to 6h boundary).
+        // Dedup key:
+        // - Founder: use channelName + calendar date of the actual Discord message
+        //   (lastActivityAt). This is STABLE across scan cycles even when the AI
+        //   rewrites the summary. Old approach used summarySlice which changed each
+        //   scan and caused duplicate Telegram alerts hours apart.
+        // - Regular: channelName-based time bucket (6h) so AI summary rewrites
+        //   don't cause re-fires.
         const now = new Date();
-        const datePart = now.toISOString().slice(0, 10); // "2026-05-06"
+        const datePart = now.toISOString().slice(0, 10); // "2026-05-07"
         const hourBucket = Math.floor(now.getUTCHours() / 6) * 6; // 0, 6, 12, or 18
         const timeBucket = `${datePart}-${hourBucket}`;
-        const summarySlice = (entry.summary || "").slice(0, 60);
+        // For founder posts use the date of the actual Discord message, not the scan time.
+        // Falls back to today's date if lastActivityAt is absent (shouldn't happen).
+        const founderMsgDate = entry.lastActivityAt
+          ? entry.lastActivityAt.slice(0, 10)
+          : datePart;
         const key = isFounder
-          ? `founder:${summarySlice}`
+          ? `founder:${entry.channelName ?? "unknown"}:${founderMsgDate}`
           : `${entry.netuid}:${timeBucket}`;
         if (processedDiscordKeys.has(key)) continue;
 
