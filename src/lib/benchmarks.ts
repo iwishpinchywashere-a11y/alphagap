@@ -1080,6 +1080,26 @@ export const BENCHMARK_DATA: BenchmarkEntry[] = [
       { url: "https://ask.hermes-subnet.ai/", label: "Query Portal" },
     ],
   },
+  {
+    subnet_id: 18,
+    subnet_name: "Zeus",
+    benchmark_score: 72,
+    benchmark_category: "Climate & Environmental AI",
+    vs_provider: "ECMWF / NOAA NWP / IBM Environmental Intelligence",
+    cost_saving_pct: 80,
+    perf_delta: "AI-driven forecasts at a fraction of physics-based NWP compute cost",
+    benchmark_summary: "Zeus (SN18) by Orpheus AI is a decentralized climate and environmental forecasting subnet. Miners run AI models to predict weather variables using the ERA5 reanalysis dataset — the largest global environmental dataset in existence, with hourly measurements from 1940 to present across hundreds of variables. Traditional physics-based Numerical Weather Prediction (NWP) models like those run by ECMWF require hours of supercomputing time per forecast. Zeus incentivises AI-driven alternatives that are faster, cheaper, and continuously improving through competitive miner evolution. Published peer-reviewed research includes a Decentralized Mixture-of-Experts approach for state-of-the-art weather forecasting and Gridded Transformer Neural Processes for spatio-temporal data. The subnet supports both short-horizon (0–48h) and long-horizon (0–360h / 15-day) forecasts across all ERA5 variables.",
+    active_users: "Climate researchers + energy market analysts",
+    annual_revenue_usd: 0,
+    last_updated: "2026-05-06",
+    sources: [
+      "https://www.zeussubnet.com/",
+      "https://github.com/Orpheus-AI/Zeus",
+    ],
+    dashboards: [
+      { url: "https://www.zeussubnet.com/", label: "Orpheus AI" },
+    ],
+  },
 ];
 
 // Quick lookup by subnet_id

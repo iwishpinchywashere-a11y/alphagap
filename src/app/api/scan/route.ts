@@ -487,6 +487,7 @@ export async function GET() {
     87:  "https://github.com/luminar-network/luminar-sn",          // Luminar Network — missing from registry
     99:  "https://github.com/RendixNetwork/leoma",                 // Leoma — missing from registry
     105: "https://github.com/Beam-Network/beam",                   // Beam — registry had org-page URL, not repo
+    18:  "https://github.com/Orpheus-AI/Zeus",                    // Zeus — TaoStats tracked wrong org (zeussubnet, 404)
     118: "https://github.com/ditto-assistant/ditto-mcp-servers",  // Ditto — registry had org-page URL, not repo
     // NOTE: SN82 override REMOVED — was wrongly pointing to Hermes (old SN82 tenant).
     // SN82 is now Compelle; TaoStats correctly tracks compelle/compelle-validator.
