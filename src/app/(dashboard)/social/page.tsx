@@ -294,10 +294,9 @@ export default function SocialPage() {
                     <h2 className="font-bold text-amber-300 text-sm">Const · Bittensor Founder</h2>
                     <p className="text-xs text-amber-500/70 mt-0.5">
                       {founderEntries.length === 1
-                        ? `Posted in ${channelLabel(founderEntries[0])}`
+                        ? <>Posted in {channelLabel(founderEntries[0])}{mostRecentAt && ` · ${timeAgo(mostRecentAt)}`}</>
                         : `Posted in ${founderEntries.length} Discord channels`
                       }
-                      {mostRecentAt && ` · ${timeAgo(mostRecentAt)}`}
                     </p>
                   </div>
                 </div>
@@ -320,6 +319,11 @@ export default function SocialPage() {
                         {entry.netuid != null && entry.netuid > 0 && (
                           <span className="text-[10px] text-amber-500/60 bg-amber-900/30 border border-amber-500/20 px-1.5 py-0.5 rounded font-mono leading-none">
                             SN{entry.netuid}
+                          </span>
+                        )}
+                        {(entry.lastActivityAt ?? entry.scannedAt) && (
+                          <span className="text-[10px] text-amber-500/50">
+                            {timeAgo(entry.lastActivityAt ?? entry.scannedAt!)}
                           </span>
                         )}
                         <span className={`text-[10px] font-bold tabular-nums ml-auto ${(entry.alphaScore ?? 0) >= 70 ? "text-green-400" : "text-yellow-400"}`}>
