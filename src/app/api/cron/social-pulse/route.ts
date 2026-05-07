@@ -177,17 +177,33 @@ export async function GET(req: Request) {
 
   // Hard-coded handle overrides for subnets whose handle isn't registered on TaoStats,
   // or is registered incorrectly. Multiple netuids per handle are supported.
+  // Source: cross-referenced @AlphaGapTAO/following list with TaoStats identity registry.
   const HANDLE_OVERRIDES: Record<string, number | number[]> = {
-    "affine_io":       120,           // Affine — registered differently in TaoStats
-    "MaxScore":        44,            // Score / Manako founder
-    "bitcast_network": 93,            // Bitcast — twitter null in TaoStats
-    "lium_io":         51,            // Lium — TaoStats sometimes stale
-    // Missing from TaoStats entirely — confirmed handles from on-chain/Discord/X
+    // ── Correct handles that TaoStats has wrong ──────────────────────
+    "bitads_ai":       16,            // BitAds — TaoStats has @bitkoop (old handle)
+    "sundaebar_ai":    121,           // Sundae Bar — TaoStats has @sundae_bar_ (old handle)
+    "quantumsn48":     48,            // Quantum Compute — dedicated account (TaoStats shares @qbittensorlabs with SN63)
+    "enigmasn63":      63,            // Enigma — dedicated account (TaoStats shares @qbittensorlabs with SN48)
+    "data_sn13":       13,            // Data Universe — dedicated account (TaoStats uses @macrocosmosai)
+    // ── Missing from TaoStats entirely ──────────────────────────────
     "computehorde":    12,            // Compute Horde (SN12)
-    "ridges_ai":       62,            // Ridges (SN62)
+    "taohash":         14,            // TAOHash (SN14)
+    "desearch_ai":     22,            // Desearch (SN22)
     "coldint":         29,            // Coldint (SN29)
+    "readyai_":        33,            // ReadyAI (SN33)
     "bitmindai":       34,            // BitMind (SN34)
-    "desearch_ai":     22,            // Desearch (SN22) — their API branding
+    "synthdataco":     50,            // Synth (SN50)
+    "ridges_ai":       62,            // Ridges (SN62)
+    "leadpoetai":      71,            // Leadpoet (SN71)
+    "bitcast_network": 93,            // Bitcast (SN93)
+    "arbos_born":      97,            // Arbos/Distil (SN97) — bio confirms "building distil (sn97)"
+    "_redteam_":       61,            // RedTeam (SN61)
+    "almanac_market":  41,            // Almanac (SN41)
+    "gradients_ai":    56,            // Gradients (SN56)
+    // ── Still valid overrides ────────────────────────────────────────
+    "affine_io":       120,           // Affine (SN120) — belt-and-suspenders
+    "MaxScore":        44,            // Score / Manako founder @MaxScore
+    "lium_io":         51,            // Lium (SN51) — belt-and-suspenders
   };
   for (const [handle, netuids] of Object.entries(HANDLE_OVERRIDES)) {
     const ids = Array.isArray(netuids) ? netuids : [netuids];
