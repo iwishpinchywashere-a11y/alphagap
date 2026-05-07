@@ -134,29 +134,40 @@ export async function GET(req: Request) {
     seen_ids: [],
     last_pulse: "",
   };
-  // Only keep seen_ids that are still in active events (same 72h window).
-  // Tweets that have aged out of events should be re-discoverable so fresh
-  // runs can pick up any new activity from the same tweet_id.
-  const activeEventTweetIds = new Set(
-    (existing.events ?? []).map(e => e.tweet_id.split("_")[0]) // strip _netuid suffix
+  // seenIds tracks tweet_id+netuid combos that already have events.
+  // Using the compound key (not bare tweet_id) means a tweet matched to SN25 on one run
+  // can still be matched to SN51 on a future run if a new handle override is added.
+  const seenEventKeys = new Set<string>(
+    (existing.events ?? [])
+      .filter(e => {
+        // Only treat as "seen" if the event is still within the 72h window
+        const age = Date.now() - new Date(e.detected_at).getTime();
+        return age < 72 * 3_600_000;
+      })
+      .map(e => e.tweet_id) // tweet_id already includes _netuid suffix
   );
-  const seenIds = new Set<string>(
-    (existing.seen_ids ?? []).filter(id => activeEventTweetIds.has(id))
-  );
+  // seenIds still tracks bare tweet IDs so we don't re-fetch/re-match the same tweet
+  // more than once PER RUN (within a single pulse execution).
+  const seenIds = new Set<string>();
 
   // ── Build subnet identity lookup ─────────────────────────────────
   const identities = await getSubnetIdentities().catch(() => []);
-  const handleToNetuid = new Map<string, number>();
+  // handleToNetuids supports MULTIPLE subnets per handle (e.g. @macrocosmosai → SN1, SN13, SN25)
+  const handleToNetuids = new Map<string, Set<number>>();
   const nameToNetuid = new Map<string, number>();
   const normNameToNetuid = new Map<string, number>();
   const netuidToName = new Map<number, string>();
 
+  function addHandle(handle: string, netuid: number) {
+    const h = handle.trim().replace(/^@/, "").split("/").pop()?.toLowerCase() || "";
+    if (!h) return;
+    if (!handleToNetuids.has(h)) handleToNetuids.set(h, new Set());
+    handleToNetuids.get(h)!.add(netuid);
+  }
+
   for (const id of identities) {
     netuidToName.set(id.netuid, id.subnet_name || `SN${id.netuid}`);
-    if (id.twitter) {
-      const handle = id.twitter.trim().replace(/^@/, "").split("/").pop()?.toLowerCase() || "";
-      if (handle) handleToNetuid.set(handle, id.netuid);
-    }
+    if (id.twitter) addHandle(id.twitter, id.netuid);
     if (id.subnet_name && id.subnet_name.length >= 4) {
       const name = id.subnet_name.toLowerCase();
       nameToNetuid.set(name, id.netuid);
@@ -164,16 +175,26 @@ export async function GET(req: Request) {
     }
   }
 
-  // Hard-coded handle overrides for subnets whose handle isn't registered on TaoStats yet
-  const HANDLE_OVERRIDES: Record<string, number> = {
-    "affine_io": 120,
-    "MaxScore": 44,           // Score / Manako founder
-    "bitcast_network": 93,    // Bitcast — twitter null in TaoStats identity
-    "lium_io": 51,            // Lium (SN51) — registered as lium_io on X, not in TaoStats
+  // Hard-coded handle overrides for subnets whose handle isn't registered on TaoStats,
+  // or is registered incorrectly. Multiple netuids per handle are supported.
+  const HANDLE_OVERRIDES: Record<string, number | number[]> = {
+    "affine_io":       120,           // Affine — registered differently in TaoStats
+    "MaxScore":        44,            // Score / Manako founder
+    "bitcast_network": 93,            // Bitcast — twitter null in TaoStats
+    "lium_io":         51,            // Lium — TaoStats sometimes stale
+    // Missing from TaoStats entirely — confirmed handles from on-chain/Discord/X
+    "computehorde":    12,            // Compute Horde (SN12)
+    "ridges_ai":       62,            // Ridges (SN62)
+    "coldint":         29,            // Coldint (SN29)
+    "bitmindai":       34,            // BitMind (SN34)
+    "desearch_ai":     22,            // Desearch (SN22) — their API branding
   };
-  for (const [handle, netuid] of Object.entries(HANDLE_OVERRIDES)) {
-    if (!handleToNetuid.has(handle)) handleToNetuid.set(handle, netuid);
-    if (!netuidToName.has(netuid)) netuidToName.set(netuid, `SN${netuid}`);
+  for (const [handle, netuids] of Object.entries(HANDLE_OVERRIDES)) {
+    const ids = Array.isArray(netuids) ? netuids : [netuids];
+    for (const netuid of ids) {
+      addHandle(handle, netuid);
+      if (!netuidToName.has(netuid)) netuidToName.set(netuid, `SN${netuid}`);
+    }
   }
 
   // Bittensor context gate — tweet must mention one of these to be subnet-related.
@@ -221,17 +242,20 @@ export async function GET(req: Request) {
     const matched = new Set<number>();
 
     // Subnet's own official Twitter handle — high confidence.
-    if (handleToNetuid.has(author)) {
+    // A handle can map to multiple subnets (e.g. @macrocosmosai → SN1, SN13, SN25).
+    if (handleToNetuids.has(author)) {
+      const authorNetuids = handleToNetuids.get(author)!;
       if (hasBittensorContext(text)) {
-        matched.add(handleToNetuid.get(author)!);
+        for (const netuid of authorNetuids) matched.add(netuid);
       } else {
         // No Bittensor context: only credit if they explicitly name their own subnet
         // as a whole word (not a substring). Require >= 5 chars so short names like
         // "hone" don't accidentally match inside words like "phone" or "honest".
-        const netuid = handleToNetuid.get(author)!;
-        const ownName = netuidToName.get(netuid)?.toLowerCase() || "";
-        if (ownName.length >= 5 && wordMatch(text, ownName)) {
-          matched.add(netuid);
+        for (const netuid of authorNetuids) {
+          const ownName = netuidToName.get(netuid)?.toLowerCase() || "";
+          if (ownName.length >= 5 && wordMatch(text, ownName)) {
+            matched.add(netuid);
+          }
         }
       }
       return [...matched];
@@ -240,9 +264,12 @@ export async function GET(req: Request) {
     // All remaining matches require Bittensor context
     if (!hasBittensorContext(text)) return [];
 
-    // @subnet_handle mentions — collect ALL mentioned handles
-    for (const [handle, netuid] of handleToNetuid) {
-      if (text.includes(`@${handle}`)) matched.add(netuid);
+    // @subnet_handle mentions — collect ALL mentioned handles.
+    // One handle can map to multiple subnets (e.g. @macrocosmosai = SN1 + SN13 + SN25).
+    for (const [handle, netuids] of handleToNetuids) {
+      if (text.includes(`@${handle}`)) {
+        for (const netuid of netuids) matched.add(netuid);
+      }
     }
 
     // SN# explicit mentions — collect ALL SN numbers in the tweet
@@ -320,7 +347,7 @@ export async function GET(req: Request) {
   const newEvents: HeatEvent[] = [];
 
   const processKolTweet = (tweet: DesearchTweet, kolWeight: number, kolTier: number, kolHandle: string, kolName: string) => {
-    if (seenIds.has(tweet.id)) return;
+    if (seenIds.has(tweet.id)) return; // already processed this tweet in this run
     seenIds.add(tweet.id);
 
     const tweetAge = Date.now() - new Date(tweet.created_at).getTime();
@@ -334,8 +361,10 @@ export async function GET(req: Request) {
     if (heatScore < 25) return;
 
     // Credit every subnet mentioned — multi-subnet tweets boost all referenced subnets.
-    // Use tweet_id + netuid as the dedup key so one tweet can credit multiple subnets.
+    // Use tweet_id + netuid as the dedup key so one tweet can credit multiple subnets,
+    // and so adding a new handle override on a future run still creates the missing event.
     for (const netuid of netuids) {
+      if (seenEventKeys.has(`${tweet.id}_${netuid}`)) continue; // this netuid already credited
       newEvents.push({
         tweet_id: `${tweet.id}_${netuid}`,
         netuid,
@@ -383,11 +412,12 @@ export async function GET(req: Request) {
     tweet_url: string; tweet_text: string; engagement: number; detected_at: string;
   }> = [];
 
-  // Check all fetched KOL timelines — official subnet accounts are in handleToNetuid
+  // Check all fetched KOL timelines — official subnet accounts are in handleToNetuids
   for (const r of kolResults) {
     if (r.status !== "fulfilled") continue;
     const { kol, tweets } = r.value;
-    const netuid = handleToNetuid.get(kol.handle.toLowerCase());
+    const netuidsForHandle = handleToNetuids.get(kol.handle.toLowerCase());
+    const netuid = netuidsForHandle ? [...netuidsForHandle][0] : undefined; // use first netuid for benchmark alerts
     if (!netuid) continue; // only official subnet accounts
     for (const tweet of tweets) {
       const text = tweet.text.toLowerCase();
@@ -478,8 +508,9 @@ export async function GET(req: Request) {
     // Fetch timelines for all subnets with known Twitter handles
     // Exclude handles already covered in KOL timelines (already processed above)
     const kolHandleSet = new Set(kols.map(k => k.handle.toLowerCase()));
-    const subnetHandlesToFetch = [...handleToNetuid.entries()]
-      .filter(([handle]) => !kolHandleSet.has(handle.toLowerCase()));
+    const subnetHandlesToFetch = [...handleToNetuids.entries()]
+      .filter(([handle]) => !kolHandleSet.has(handle.toLowerCase()))
+      .map(([handle, netuids]) => [handle, [...netuids][0]] as [string, number]); // one entry per handle
 
     const SEVEN_DAYS_MS = 7 * 24 * 3600 * 1000;
     const now = Date.now();
@@ -528,7 +559,8 @@ export async function GET(req: Request) {
     for (const r of kolResults) {
       if (r.status !== "fulfilled") continue;
       const { kol, tweets } = r.value;
-      const netuid = handleToNetuid.get(kol.handle.toLowerCase());
+      const netuidsSet2 = handleToNetuids.get(kol.handle.toLowerCase());
+      const netuid = netuidsSet2 ? [...netuidsSet2][0] : undefined;
       if (!netuid) continue;
 
       const recent7d = tweets.filter(t => now - new Date(t.created_at).getTime() <= SEVEN_DAYS_MS);
@@ -576,7 +608,7 @@ export async function GET(req: Request) {
 
   const updated: SocialHot = {
     events: [...eventMap.values()].sort((a, b) => b.heat_score - a.heat_score),
-    seen_ids: [...seenIds].slice(-6000), // cap to prevent unbounded growth
+    seen_ids: [...seenIds].slice(-6000), // per-run dedup only; per-netuid dedup uses seenEventKeys
     last_pulse: new Date().toISOString(),
   };
 
