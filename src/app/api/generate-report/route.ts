@@ -105,29 +105,42 @@ async function generateReport(forceNetuid?: number, forceDate?: string) {
       } catch { /* no reports yet */ }
     }
 
+    // ── Cooldown check (applies to BOTH manual and auto-select) ──────────────
+    const REPORT_COOLDOWN_DAYS = 14;
+    const cutoffDate = new Date(Date.now() - REPORT_COOLDOWN_DAYS * 24 * 60 * 60 * 1000)
+      .toISOString().slice(0, 10); // YYYY-MM-DD
+
+    const recentNetuids = new Map<number, string>(); // netuid → most recent report date
+    for (const [date, netuid] of Object.entries(reportIndex)) {
+      if (date >= cutoffDate) {
+        const prev = recentNetuids.get(netuid);
+        if (!prev || date > prev) recentNetuids.set(netuid, date);
+      }
+    }
+    console.log(`[report] Subnets reported in last ${REPORT_COOLDOWN_DAYS} days (cooldown): ${[...recentNetuids.keys()].join(", ")}`);
+
     if (forceNetuid) {
+      // Manual request — still enforce cooldown
+      const lastReportDate = recentNetuids.get(forceNetuid);
+      if (lastReportDate) {
+        const daysAgo = Math.floor((Date.now() - new Date(lastReportDate).getTime()) / 86400000);
+        return NextResponse.json({
+          error: `Report for SN${forceNetuid} was generated ${daysAgo} day(s) ago (${lastReportDate}). Cooldown is ${REPORT_COOLDOWN_DAYS} days.`,
+          lastReportDate,
+          cooldownDays: REPORT_COOLDOWN_DAYS,
+          daysRemaining: REPORT_COOLDOWN_DAYS - daysAgo,
+        }, { status: 429 });
+      }
       targetNetuid = forceNetuid;
       const lb = (scanData?.leaderboard as Array<Record<string, unknown>>) || [];
       const entry = lb.find(s => s.netuid === forceNetuid);
       targetName = (entry?.name as string) || `SN${forceNetuid}`;
     } else {
-      // Pick the top aGap subnet that HASN'T been reported on recently
+      // Auto-select: pick top aGap subnet not in cooldown
       const lb = (scanData?.leaderboard as Array<Record<string, unknown>>) || [];
       if (lb.length === 0) {
         return NextResponse.json({ error: "No scan data available" }, { status: 400 });
       }
-
-      const REPORT_COOLDOWN_DAYS = 21;
-      const cutoffDate = new Date(Date.now() - REPORT_COOLDOWN_DAYS * 24 * 60 * 60 * 1000)
-        .toISOString().slice(0, 10); // YYYY-MM-DD
-
-      // Build recentNetuids from index (fast — no individual file reads needed)
-      const recentNetuids = new Set<number>();
-      for (const [date, netuid] of Object.entries(reportIndex)) {
-        if (date >= cutoffDate) recentNetuids.add(netuid);
-      }
-
-      console.log(`[report] Subnets reported in last ${REPORT_COOLDOWN_DAYS} days (skipping): ${[...recentNetuids].join(", ")}`);
 
       // Walk down the aGap ranking to find a subnet without a recent report
       const sorted = [...lb].sort((a, b) => (b.composite_score as number) - (a.composite_score as number));
