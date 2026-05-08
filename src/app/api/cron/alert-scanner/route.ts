@@ -697,13 +697,14 @@ export async function GET(req: NextRequest) {
         const datePart = now.toISOString().slice(0, 10); // "2026-05-07"
         const hourBucket = Math.floor(now.getUTCHours() / 6) * 6; // 0, 6, 12, or 18
         const timeBucket = `${datePart}-${hourBucket}`;
-        // For founder posts use the date of the actual Discord message, not the scan time.
-        // Falls back to today's date if lastActivityAt is absent (shouldn't happen).
-        const founderMsgDate = entry.lastActivityAt
-          ? entry.lastActivityAt.slice(0, 10)
-          : datePart;
+        // Founder dedup: 48-hour epoch bucket keyed on channelName.
+        // DO NOT use lastActivityAt — it changes every discord scan as new messages
+        // arrive, causing the date to roll over midnight and produce a new key that
+        // bypasses the processedDiscordKeys set (the root cause of repeated Const alerts).
+        // A 48h bucket means any two fires within 48h of each other are always the same key.
+        const bucket48h = Math.floor(Date.now() / (48 * 60 * 60 * 1000));
         const key = isFounder
-          ? `founder:${entry.channelName ?? "unknown"}:${founderMsgDate}`
+          ? `founder:${entry.channelName ?? "unknown"}:${bucket48h}`
           : `${entry.netuid}:${timeBucket}`;
         if (processedDiscordKeys.has(key)) continue;
 
