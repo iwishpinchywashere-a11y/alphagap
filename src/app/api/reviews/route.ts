@@ -72,19 +72,27 @@ export async function POST(req: NextRequest) {
 
   const all = await loadReviews();
 
-  // One pending or approved review per user
-  const existing = all.find(r => r.userId === (user.id ?? user.email ?? "") && r.status !== "denied");
+  // Allow multiple reviews per account — deduplicate by (userId + name + xHandle) so
+  // 30-40 beta testers sharing one account can each submit under their own identity.
+  const userId = user.id ?? user.email ?? "";
+  const existing = all.find(
+    r =>
+      r.userId === userId &&
+      r.name.toLowerCase() === name.toLowerCase() &&
+      r.xHandle.toLowerCase() === xHandle.toLowerCase() &&
+      r.status !== "denied",
+  );
   if (existing) {
     return NextResponse.json({
       error: existing.status === "approved"
-        ? "You already have an approved review."
-        : "Your review is pending approval.",
+        ? "A review with this name and X handle already exists."
+        : "A review with this name and X handle is pending approval.",
     }, { status: 409 });
   }
 
   const newReview: Review = {
     id: randomUUID(),
-    userId: user.id ?? user.email ?? "",
+    userId,
     name,
     xHandle,
     review,
