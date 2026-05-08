@@ -492,7 +492,7 @@ export async function GET(req: Request) {
   }
   interface SubnetActivityBlob { subnets: Record<number, SubnetActivityEntry>; updatedAt: string }
 
-  const SUBNET_ACTIVITY_TTL_H = 4;
+  const SUBNET_ACTIVITY_TTL_H = 12; // was 4h — subnet posting habits don't shift faster than this
   let existingActivity: SubnetActivityBlob = { subnets: {}, updatedAt: "" };
   try {
     const saBlob = await (await import("@vercel/blob")).get("subnet-activity.json", { token, access: "private" });

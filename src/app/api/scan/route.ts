@@ -152,9 +152,11 @@ export const maxDuration = 800;
 const RAO = 1e9;
 
 // ── Desearch social cache — avoid calling Desearch on every 10-min scan ──
-// Social data is cached for 55 minutes; only the first scan each hour pays API credits.
-// social-pulse cron (every hour) handles deeper KOL timeline fetching independently.
+// Primary: Vercel Blob ("social-cache.json") — survives cold starts and is shared
+//          across all Lambda instances so deploys don't spike API costs.
+// Secondary: in-memory fallback for within-instance speed (skips Blob read).
 const SOCIAL_CACHE_TTL_MS = 3 * 60 * 60 * 1000; // 3 hours
+const SOCIAL_CACHE_BLOB = "social-cache.json";
 let _socialCache: { data: Map<number, { mentions: number; engagement: number }>; ts: number } | null = null;
 
 // ── Desearch fetch (inline, no DB dependency) ─────────────────────
@@ -668,15 +670,40 @@ export async function GET() {
   const elapsed1 = Date.now() - startTime;
   console.log(`[scan] All data fetched in ${elapsed1}ms.`);
 
-  // ── Step 4: Desearch social (cached — fires at most once per hour) ──
-  // Runs 144×/day without caching = ~5,760 Desearch calls/day. With 55-min cache = ~24/day.
+  // ── Step 4: Desearch social (cached — fires at most once per 3h) ──
+  // In-memory cache is fast but resets on cold starts (deploys). Blob cache is the
+  // source of truth: shared across all Lambda instances, survives restarts.
   const timeLeftForSocial = 50000 - (Date.now() - startTime);
   const socialMap = new Map<number, { mentions: number; engagement: number }>();
 
-  const socialCacheHit = _socialCache && (Date.now() - _socialCache.ts) < SOCIAL_CACHE_TTL_MS;
-  if (socialCacheHit) {
+  // Check in-memory cache first (fastest path)
+  const memCacheHit = _socialCache && (Date.now() - _socialCache.ts) < SOCIAL_CACHE_TTL_MS;
+  let socialCacheHit = memCacheHit;
+
+  if (memCacheHit) {
     for (const [k, v] of _socialCache!.data) socialMap.set(k, v);
-    console.log(`[scan] Social data from cache (${socialMap.size} subnets, ${Math.round((Date.now() - _socialCache!.ts) / 60000)}min old). Skipping Desearch.`);
+    console.log(`[scan] Social data from memory cache (${socialMap.size} subnets, ${Math.round((Date.now() - _socialCache!.ts) / 60000)}min old). Skipping Desearch.`);
+  } else if (process.env.BLOB_READ_WRITE_TOKEN) {
+    // Cold start or first run — check Blob before hitting Desearch API
+    try {
+      const { get: blobGetSocial } = await import("@vercel/blob");
+      const cacheBlob = await blobGetSocial(SOCIAL_CACHE_BLOB, {
+        token: process.env.BLOB_READ_WRITE_TOKEN,
+        access: "private",
+      });
+      if (cacheBlob?.stream) {
+        const reader = cacheBlob.stream.getReader();
+        const chunks: Uint8Array[] = [];
+        while (true) { const { done, value } = await reader.read(); if (done) break; chunks.push(value); }
+        const cached = JSON.parse(Buffer.concat(chunks).toString("utf-8")) as { ts: number; data: Record<number, { mentions: number; engagement: number }> };
+        if (cached.ts && (Date.now() - cached.ts) < SOCIAL_CACHE_TTL_MS) {
+          for (const [k, v] of Object.entries(cached.data)) socialMap.set(Number(k), v);
+          _socialCache = { data: new Map(socialMap), ts: cached.ts }; // warm in-memory too
+          socialCacheHit = true;
+          console.log(`[scan] Social data from Blob cache (${socialMap.size} subnets, ${Math.round((Date.now() - cached.ts) / 60000)}min old). Skipping Desearch.`);
+        }
+      }
+    } catch { /* Blob miss — will fetch fresh */ }
   }
 
   if (!socialCacheHit && timeLeftForSocial > 5000 && DESEARCH_KEY) {
@@ -836,42 +863,9 @@ export async function GET() {
         socialMap.set(netuid, existing);
       }
     }
-    // PASS 1b: KOL timeline fetches — catches tweets that don't mention "bittensor"
-    // e.g. const_reborn posts "404gen is making moves" — broad searches miss it entirely
-    // Fetch last 15 tweets from every Tier 1 + Tier 2 KOL in parallel
-    const { KOL_DATABASE } = await import("@/lib/kol-database");
-    const tier12Kols = KOL_DATABASE.filter(k => k.tier <= 2);
-    const kolTimelineResults = await Promise.allSettled(
-      tier12Kols.map(kol => fetchKolTimeline(kol.handle, 15))
-    );
-    let kolTweetCount = 0;
-    for (const r of kolTimelineResults) {
-      if (r.status === "fulfilled") {
-        for (const t of r.value) {
-          if (!allTweets.has(t.id)) { allTweets.set(t.id, t); kolTweetCount++; }
-        }
-      }
-    }
-    console.log(`[scan] KOL timelines: +${kolTweetCount} new tweets from ${tier12Kols.length} KOLs. Total: ${allTweets.size}`);
-
-    // Rebuild socialMap cleanly from full allTweets set (broad searches + KOL timelines, deduped)
-    socialMap.clear();
-    for (const tweet of allTweets.values()) {
-      const netuids = matchTweetToSubnet(tweet);
-      if (netuids.length === 0) continue;
-      const rawEngagement = tweet.like_count + tweet.retweet_count + tweet.reply_count + (tweet.quote_count || 0);
-      const kolWeight = getKOLWeight(tweet.user?.username || "");
-      const kolMultiplier = kolWeight > 0 ? 1 + (kolWeight / 50) : 1;
-      const weightedEngagement = Math.round(rawEngagement * kolMultiplier);
-      for (const netuid of netuids) {
-        const existing = socialMap.get(netuid) || { mentions: 0, engagement: 0 };
-        existing.mentions++;
-        existing.engagement += weightedEngagement;
-        socialMap.set(netuid, existing);
-      }
-    }
-
-    console.log(`[scan] Desearch broad search done. ${allTweets.size} tweets matched to ${socialMap.size} subnets.`);
+    // KOL timeline fetches are handled entirely by the social-pulse cron (hourly, 100 KOLs).
+    // Duplicating them here added 29 API calls per cache miss for no extra value — removed.
+    console.log(`[scan] Desearch broad search done. ${allTweets.size} tweets, ${socialMap.size} subnets.`);
 
     // PASS 2: Search for tweets FROM official subnet X handles
     // This captures the subnet's own posting activity + engagement
@@ -923,10 +917,21 @@ export async function GET() {
       }
     }
 
-    // Save to in-memory cache so the next 5 scans (within 55 min) skip Desearch entirely
-    if (socialMap.size > 0) {
-      _socialCache = { data: new Map(socialMap), ts: Date.now() };
-      console.log(`[scan] Social data cached (${socialMap.size} subnets). Next Desearch fetch in ~3h.`);
+    // Persist to Blob + in-memory so cold starts and all Lambda instances share the cache
+    if (socialMap.size > 0 && process.env.BLOB_READ_WRITE_TOKEN) {
+      const ts = Date.now();
+      _socialCache = { data: new Map(socialMap), ts };
+      try {
+        const { put: putBlob } = await import("@vercel/blob");
+        const cachePayload: Record<number, { mentions: number; engagement: number }> = {};
+        for (const [k, v] of socialMap) cachePayload[k] = v;
+        await putBlob(SOCIAL_CACHE_BLOB, JSON.stringify({ ts, data: cachePayload }), {
+          access: "private", addRandomSuffix: false, allowOverwrite: true, contentType: "application/json",
+        });
+        console.log(`[scan] Social data cached to Blob + memory (${socialMap.size} subnets). Next Desearch fetch in ~3h.`);
+      } catch (e) {
+        console.warn("[scan] Blob cache write failed (memory cache still active):", e);
+      }
     }
   }
 
