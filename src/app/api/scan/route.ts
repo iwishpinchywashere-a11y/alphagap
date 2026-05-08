@@ -2202,7 +2202,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
   // scores from crashing overnight when one data point changes.
   // Bump this when leaderboard formula changes — forces EMA history reset so old
   // baselines don't drag new scores down for hours after a formula update.
-  const AGAP_HISTORY_VERSION = 9; // bump only when EMA itself needs resetting
+  const AGAP_HISTORY_VERSION = 10; // bump only when EMA itself needs resetting
   type AGapHistoryEntry = {
     ema: number;
     lastUpdated: string;
@@ -2210,6 +2210,8 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     wrh?: number[];
     /** Star count readings: [{s: starCount, ts: isoTimestamp}, …] last 14 entries */
     sh?: Array<{ s: number; ts: string }>;
+    /** Staked pct history: last 10 readings of alphaStakedPct per scan */
+    sph?: number[];
   };
   type AGapHistory = Record<number, AGapHistoryEntry> & { __version?: number };
   let agapHistory: AGapHistory = {};
@@ -2610,6 +2612,27 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     else if (d.alphaStakedPct >= 65) stakingBoost = 8;
     else if (d.alphaStakedPct >= 55) stakingBoost = 4;
 
+    // ── STAKING TREND BONUS (±10 pts) ──────────────────────────────────────────
+    // Level tells us the float constraint. TREND tells us conviction is building or fading.
+    // Staked% rising = more holders locking up = thinning supply → price is more reactive.
+    // Staked% falling = unlock pressure building → near-term sell risk.
+    // Uses persisted sph (staked pct history) from agapHistory — needs 3+ readings.
+    const prevStakedHistory: number[] = (agapHistory[d.netuid] as AGapHistoryEntry | undefined)?.sph ?? [];
+    let stakingTrendBonus = 0;
+    if (d.alphaStakedPct > 0 && prevStakedHistory.length >= 3) {
+      const oldestStaked = prevStakedHistory[0];
+      const stakedDelta = d.alphaStakedPct - oldestStaked; // positive = rising conviction
+      if      (stakedDelta >= 8)  stakingTrendBonus = 10; // strong inflow — rapid float compression
+      else if (stakedDelta >= 5)  stakingTrendBonus =  7;
+      else if (stakedDelta >= 3)  stakingTrendBonus =  4;
+      else if (stakedDelta >= 1)  stakingTrendBonus =  2; // mild but consistent accumulation
+      else if (stakedDelta <= -8) stakingTrendBonus = -8; // heavy unlock pressure
+      else if (stakedDelta <= -5) stakingTrendBonus = -5;
+      else if (stakedDelta <= -3) stakingTrendBonus = -3;
+    }
+    // Append current reading; keep last 10 scans (~1 week at 2/day cadence)
+    const newStakedHistory = [...prevStakedHistory, d.alphaStakedPct].slice(-10);
+
     // ROOT PROPORTION — high root_prop means top validators allocated stake here
     let rootPropBonus = 0;
     if (d.rootProp >= 0.35) rootPropBonus = 8;
@@ -2767,15 +2790,17 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
       }
     }
 
-    // ── WHALE RATIO VELOCITY (±8 pts) ───────────────────────────────────────────
+    // ── WHALE RATIO VELOCITY + SUSTAINED ACCUMULATION (±15 pts) ────────────────
     // Snapshot whale ratio tells us the LEVEL. Velocity tells us the TREND.
-    // A ratio climbing from 0.9 → 1.2 → 1.5 → 2.0 over 4 runs is a stronger
-    // leading signal than a ratio sitting at 2.0 for weeks (already priced in).
+    // A ratio climbing from 0.9 → 1.2 → 1.5 → 2.0 over 4 runs is a leading signal.
+    // SUSTAINED: ratio ≥ 1.5 for 5+ consecutive scans = smart money holding conviction —
+    // more powerful than an improving trend (which the market may already be acting on).
     // Deteriorating trend: discount the existing whaleBoost so stale signals don't over-score.
     const histEntryForVelocity = agapHistory[d.netuid] as AGapHistoryEntry | undefined;
     const prevRatioHistory: number[] = histEntryForVelocity?.wrh ?? [];
     const ratioSnapshot = whaleRatio ?? 0; // 0 = no accumulation signal this run
     let whaleVelocityBonus = 0;
+    const allRatioReadings = [...prevRatioHistory, ratioSnapshot];
     if (prevRatioHistory.length >= 3) {
       const recent = [...prevRatioHistory.slice(-4), ratioSnapshot];
       let improvements = 0, deteriorations = 0;
@@ -2783,8 +2808,21 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
         if (recent[ri] > recent[ri - 1] + 0.08) improvements++;
         else if (recent[ri] < recent[ri - 1] - 0.08) deteriorations++;
       }
-      if (improvements >= 3 && ratioSnapshot >= 1.2) {
-        // Strong uptrend building — larger bonus if ratio is already meaningful
+
+      // Sustained accumulation: count consecutive tail scans with ratio ≥ 1.5
+      let sustainedCount = 0;
+      for (let ri = allRatioReadings.length - 1; ri >= 0; ri--) {
+        if (allRatioReadings[ri] >= 1.5) sustainedCount++;
+        else break;
+      }
+
+      if (sustainedCount >= 5) {
+        // 5+ scans of consistent accumulation — smart money isn't leaving
+        whaleVelocityBonus = ratioSnapshot >= 2.0 ? 15 : 12;
+      } else if (sustainedCount >= 3) {
+        whaleVelocityBonus = 7; // 3-4 scans of sustained buying — thesis holding
+      } else if (improvements >= 3 && ratioSnapshot >= 1.2) {
+        // Strong uptrend building (non-sustained) — larger bonus if ratio is already meaningful
         whaleVelocityBonus = ratioSnapshot >= 1.8 ? 8 : 5;
       } else if (improvements >= 2 && ratioSnapshot >= 1.0) {
         whaleVelocityBonus = 3; // mild uptrend forming
@@ -2955,6 +2993,25 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
       newStarsHistory = [...prevStarsHistory, { s: currentStars, ts: nowStarTs }].slice(-14);
     }
 
+    // ── SOCIAL VELOCITY BONUS (0-10 pts) ─────────────────────────────────────────
+    // velocityData is computed each scan comparing socialMap vs oldest snapshot.
+    // Accelerating social attention on an UNDISCOVERED subnet = gap opening, not closing.
+    // If social is already high (≥60), the velocity just confirms everyone already knows —
+    // no gap to close, so we don't double-count with socialMomentum.
+    const velo = velocityData[d.netuid];
+    let socialVelocityBonus = 0;
+    if (velo) {
+      if (velo.trend === "accelerating" && socialScore < 60) {
+        // Under-the-radar subnet going viral — strongest leading signal
+        socialVelocityBonus = velo.velocityScore >= 50 ? 10
+          : velo.velocityScore >= 25 ? 7
+          : 5;
+      } else if (velo.trend === "growing" && socialScore < 40) {
+        // Slow build on a quiet subnet — early but real
+        socialVelocityBonus = 3;
+      }
+    }
+
     // ── SIGNAL CONFLUENCE BONUS (0-15 pts) ──────────────────────────────────────
     // The "Templar pattern": when multiple independent leading signals all fire in the
     // SAME scan, the probability of an imminent price move is multiplicably higher.
@@ -2964,13 +3021,14 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
       whaleBoost > 7,              // meaningful whale accumulation (ratio >= 2.0+)
       socialMomentum >= 8,         // social score >= 40 (real KOL cluster, not noise)
       emissionBoost >= 7,          // emissions rising >= 20% week-over-week
+      socialVelocityBonus >= 5,    // accelerating social attention on quiet subnet
     ].filter(Boolean).length;
     let confluenceBonus = 0;
     if      (confluenceSignals >= 4) confluenceBonus = 15; // all 4 firing — rare and powerful
     else if (confluenceSignals >= 3) confluenceBonus = 8;  // 3/4 — Templar pattern
     else if (confluenceSignals >= 2) confluenceBonus = 2;  // 2 signals — early setup forming
 
-    const rawAGap = buildingPts + consistentBuilderBonus + devSpikeBonus + priceLag + floorReversalBonus + socialMomentum + evalBoost + evalVsPriceBonus + viability + campaignBoost + whaleBoost + whaleVelocityBonus + emissionBoost + volBoost + thinPoolBonus + stakingBoost + rootPropBonus + productAGapPts + productAwarenessGap + productVsPriceBonus + momentumBoost + gapClosurePenalty + starVelocityBonus + confluenceBonus;
+    const rawAGap = buildingPts + consistentBuilderBonus + devSpikeBonus + priceLag + floorReversalBonus + socialMomentum + evalBoost + evalVsPriceBonus + viability + campaignBoost + whaleBoost + whaleVelocityBonus + emissionBoost + volBoost + thinPoolBonus + stakingBoost + stakingTrendBonus + rootPropBonus + productAGapPts + productAwarenessGap + productVsPriceBonus + momentumBoost + gapClosurePenalty + starVelocityBonus + socialVelocityBonus + confluenceBonus;
 
     // SUSTAINED DECLINE CEILING — hard cap on the final score for chronic bleeders.
     // Reducing individual components (priceLag, evalVsPriceBonus) wasn't enough because
@@ -3152,12 +3210,13 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
 
     const investAGap = Math.max(investRevFloor, clampedInvestAGap);
 
-    // Update history for next scan (EMA + whale ratio velocity + star history)
+    // Update history for next scan (EMA + whale ratio velocity + star history + staked pct history)
     agapHistory[d.netuid] = {
       ema: aGap,
       lastUpdated: new Date().toISOString(),
       wrh: newRatioHistory,
       sh: newStarsHistory,
+      sph: newStakedHistory,
     };
 
     leaderboard.push({
