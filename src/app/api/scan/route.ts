@@ -1086,22 +1086,22 @@ ${releaseText}
 Write your intelligence report in this EXACT format:
 
 SCORE: [number 1-100]
-HEADLINE: [8 words max. What they actually built/shipped. Concrete, specific, no fluff. Examples: "Released v1.18 with new inference engine", "Fixed critical validator consensus bug", "Shipped multi-modal input support", "Launched public API for external devs". Do NOT write "pushed X commits" or "updated codebase".]
+HEADLINE: [10 words max. Plain English — what they actually shipped. Concrete and specific. No crypto jargon, no buzzwords, no filler. Write it like a newspaper sub-headline: "Fixed validator emission bug, unified model naming", "Launched public API for external developers", "Shipped new inference engine with 40% speed gain". Do NOT write "pushed X commits", "updated codebase", or anything starting with "Exciting".]
 
 🏗️ What is ${name}:
-[2 sentences MAX. What does this subnet do and what problem does it solve? Plain English — no crypto jargon. A smart friend with no Bittensor knowledge should instantly get it.]
+[1-2 sentences. What does this subnet do? Plain English — a smart friend with no Bittensor knowledge should get it instantly.]
 
 🔧 What they built:
-[Specific features, fixes, models, or improvements. Name actual things. No vague statements.]
+[1-2 sentences. Name the specific things shipped. No vague statements.]
 
 📡 Why it matters:
-[Why is this significant? What problem does it solve?]
+[1-2 sentences. Why is this significant right now?]
 
 💡 In simple terms:
-[Explain to a smart non-technical friend over coffee. Use analogies.]
+[1 sentence. Explain it like you're texting a smart non-technical friend.]
 
 🎯 The AlphaGap take:
-[Your boldest, most direct investment call. Is the market sleeping on this? Is this priced in or not? Be opinionated.]
+[1-2 sentences. Your direct investment call. Is the market sleeping on this or not? Be opinionated and brief.]
 
 HOW TO SCORE — the score is INVESTMENT SIGNAL STRENGTH: (dev quality) × (market opportunity).
 Use the FULL range 1–100. Most real-world dev activity lands between 25–65. Scores of 70+ should be RESERVED for genuinely notable work. Scores of 80+ should be rare and stand out.
@@ -1138,7 +1138,7 @@ CALIBRATION EXAMPLES — match these precisely:
 
 RULE: Scores of 70+ require clear external impact — a user could act on this TODAY. Scores of 80+ require a major public-facing milestone. Scores of 90+ are reserved for genuine breakthroughs. When in doubt, score lower — false positives erode trust far more than missed signals.
 
-Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete sentence.`;
+Keep every section SHORT. Total response should be under 200 words. Complete all 5 sections. End with a complete sentence. No padding, no filler, no repeated information across sections.`;
 
     try {
       const res = await fetch("https://api.anthropic.com/v1/messages", {
@@ -1150,7 +1150,7 @@ Each section: 2-3 sentences MAX. Complete all 4 sections. End with a complete se
         },
         body: JSON.stringify({
           model: "claude-haiku-4-5-20251001",
-          max_tokens: 1000,
+          max_tokens: 700,
           messages: [{ role: "user", content: prompt }],
         }),
       });

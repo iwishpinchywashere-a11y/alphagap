@@ -186,7 +186,7 @@ export default function SignalsPage() {
 
                   {/* Body */}
                   <div className="px-4 py-3">
-                    <h3 className="font-medium text-sm mb-2">{sig.title}</h3>
+                    <h3 className="font-bold text-[15px] leading-snug mb-2 text-white">{sig.title}</h3>
 
                     {/* Market cap + aGap badges */}
                     {lb && (
