@@ -201,6 +201,7 @@ export async function GET(req: Request) {
     "almanac_market":  41,            // Almanac (SN41)
     "gradients_ai":    56,            // Gradients (SN56)
     // ── Still valid overrides ────────────────────────────────────────
+    "traininghone":    5,             // Hone (SN5) — official product account
     "affine_io":       120,           // Affine (SN120) — belt-and-suspenders
     "MaxScore":        44,            // Score / Manako founder @MaxScore
     "lium_io":         51,            // Lium (SN51) — belt-and-suspenders
@@ -238,7 +239,7 @@ export async function GET(req: Request) {
     "investing", "vision", "atlas", "apex", "prime", "core", "genesis",
     "nexus", "origin", "signal", "pulse", "oracle", "forge", "bridge",
     "score", "quasar", "synth", "swarm", "beam", "echo",
-    "hone", "grail", "vanta", "soma", "kaito",
+    "grail", "vanta", "soma", "kaito", // "hone" removed — specific Bittensor subnet (SN5)
     // Common DeFi/crypto words that collide with subnet names
     "swap", "yield", "stake", "pool", "mint", "launch", "flow", "base",
     "liquidity", "leverage", "margin", "trading", "market", "alpha", "delta",

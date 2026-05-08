@@ -480,6 +480,7 @@ export async function GET() {
   // Subnets where the on-chain identity registry has no entry or the wrong repo.
   // Values here take precedence over what taostats returns.
   const GITHUB_REPO_OVERRIDES: Record<number, string> = {
+    5:   "https://github.com/manifold-inc/hone",                  // Hone — TaoStats still points to dead OpenKaito repo
     36:  "https://github.com/autoppia/autoppia_web_agents_subnet", // Autoppia Web Agents — missing from registry
     42:  "https://github.com/masa-finance/masa-bittensor",          // Masa real-time social data — missing from registry
     44:  "https://github.com/score-technologies/turbovision",       // Score — team migrated from score-vision to turbovision (active daily commits)
@@ -503,7 +504,7 @@ export async function GET() {
     2:   "omron_ai",        // Omron (zkML / Inference)
     3:   "tplr_ai",         // Templar (τemplar)
     4:   "TargonCompute",   // Targon
-    5:   "manifoldlabs",    // Manifold Labs (SN5)
+    5:   "traininghone",     // Hone (SN5) — official product account; @manifoldlabs is the dev company
     6:   "numinous_ai",     // Numinous
     7:   "SubVortexTao",    // SubVortex
     8:   "VantaTrading",    // Vanta
@@ -755,7 +756,7 @@ export async function GET() {
       "nexus", "origin", "signal", "pulse", "oracle", "forge", "bridge",
       "score", "quasar", "synth", "swarm", "beam", "echo",
       "liquidity", "leverage", "margin", "trading", "market", "alpha", "delta",
-      "hone", "grail", "vanta", "soma", "kaito",
+      "grail", "vanta", "soma", "kaito", // "hone" removed — it's a specific Bittensor subnet (SN5), not a generic word
       "swap", "yield", "stake", "pool", "mint", "launch", "flow", "base",
     ]);
 
