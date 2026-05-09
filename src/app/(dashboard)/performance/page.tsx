@@ -168,10 +168,12 @@ export default function PerformancePage() {
 
             {/* Chart */}
             {portfolioData.history.length >= 2 ? (() => {
-              // Compute max-value history: for each date, sum alphaTokens × peak price
-              // for all positions that had been bought by that date
-              // For each date, sum alphaTokens × peak price for all positions bought by then.
-              // Peak is clamped to buyPriceUsd so no position can pull the chart below 0%.
+              // Fixed denominator = total cost of ALL positions (never changes).
+              // Numerator = cumulative max gain for positions active by each date.
+              // Since each position's gain is clamped to ≥ 0, adding more positions
+              // can only increase the numerator → pct is monotonically non-decreasing
+              // → consistent uptrend guaranteed.
+              const totalPortfolioCost = portfolioData.positions.reduce((s, p) => s + p.amountUsd, 0);
               const maxHistory = portfolioData.history.map(h => {
                 const positionsByDate = portfolioData.positions.filter(p => p.buyDate <= h.date);
                 const maxGain = positionsByDate.reduce((sum, p) => {
@@ -179,9 +181,11 @@ export default function PerformancePage() {
                   const peak = Math.max(rawPeak, p.buyPriceUsd);
                   return sum + Math.max(0, p.alphaTokens * peak - p.amountUsd);
                 }, 0);
-                const cost = positionsByDate.reduce((sum, p) => sum + p.amountUsd, 0);
-                // totalValue = cost + gain so chart renders as % return on capital
-                return { date: h.date, totalValue: Math.round((cost + maxGain) * 100) / 100, cost };
+                return {
+                  date: h.date,
+                  totalValue: Math.round((totalPortfolioCost + maxGain) * 100) / 100,
+                  cost: totalPortfolioCost,
+                };
               });
               return (
                 <div className="bg-gray-900/70 border border-gray-800 rounded-xl p-5">
