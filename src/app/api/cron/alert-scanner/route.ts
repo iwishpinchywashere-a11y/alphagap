@@ -203,8 +203,14 @@ interface ScannerLock {
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-/** 60-minute hard cooldown per user per subnet per alert type */
+/** 60-minute hard cooldown per user per subnet per alert type (general) */
 const ALERT_COOLDOWN_MS = 60 * 60_000;
+
+/** 4-hour cooldown for whale activity alerts.
+ *  Whale ratios near the 0.5/1.5 threshold frequently oscillate null→distributing→null
+ *  across consecutive scans — a 60-min cooldown is too short to absorb that noise.
+ *  4 hours ensures one alert per meaningful move, not per oscillation tick. */
+const WHALE_COOLDOWN_MS = 4 * 60 * 60_000;
 
 /** 6-hour cooldown for Discord entry alerts — scanner re-scans every ~3h and
  *  the AI rewrites summaries slightly each cycle, causing false "new" entries.
@@ -226,6 +232,7 @@ const BASE_URL = "https://www.alphagap.io";
 /**
  * Check whether an alert for this user/type/netuid is within the cooldown window.
  * Returns true if the alert should be SUPPRESSED (sent too recently).
+ * Whale activity has its own longer cooldown to prevent oscillation spam.
  */
 function onCooldown(
   lastAlertedAt: Record<string, string>,
@@ -236,7 +243,10 @@ function onCooldown(
   const key = `${userHash}:${alertType}:${netuid}`;
   const lastSent = lastAlertedAt[key];
   if (!lastSent) return false;
-  return Date.now() - new Date(lastSent).getTime() < ALERT_COOLDOWN_MS;
+  const cooldown = alertType === "whaleActivity" ? WHALE_COOLDOWN_MS
+    : alertType === "discordEntry" ? DISCORD_COOLDOWN_MS
+    : ALERT_COOLDOWN_MS;
+  return Date.now() - new Date(lastSent).getTime() < cooldown;
 }
 
 /**
@@ -262,7 +272,7 @@ function recordAlert(
  * the same subnet to fire again when the time bucket rolls over (e.g. 4:59→6:01 AM).
  */
 function pruneLastAlertedAt(lastAlertedAt: Record<string, string>): Record<string, string> {
-  const longestCooldown = Math.max(ALERT_COOLDOWN_MS, DISCORD_COOLDOWN_MS); // 6h
+  const longestCooldown = Math.max(ALERT_COOLDOWN_MS, WHALE_COOLDOWN_MS, DISCORD_COOLDOWN_MS); // 6h
   const cutoff = Date.now() - longestCooldown * 2; // keep 12h as buffer
   const entries = Object.entries(lastAlertedAt)
     .filter(([, ts]) => new Date(ts).getTime() > cutoff)
