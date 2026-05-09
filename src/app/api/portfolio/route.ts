@@ -108,14 +108,12 @@ export async function GET() {
     const totalPnlUsd = totalValue - totalCost;
     const totalPnlPct = totalCost > 0 ? ((totalValue - totalCost) / totalCost) * 100 : 0;
 
-    // Max Return: sum of best-case gains across all positions with peak data
-    const posWithPeak = enriched.filter(p => p.maxPnlUsd != null);
-    const maxReturnUsd = posWithPeak.length > 0
-      ? posWithPeak.reduce((s, p) => s + (p.maxPnlUsd ?? 0), 0)
-      : null;
-    const maxReturnPct = posWithPeak.length > 0 && totalCost > 0
-      ? ((posWithPeak.reduce((s, p) => s + (p.alphaTokens * (p.peakPrice ?? 0)), 0) - posWithPeak.reduce((s, p) => s + p.amountUsd, 0)) / posWithPeak.reduce((s, p) => s + p.amountUsd, 0)) * 100
-      : null;
+    // Max Return: if every position was sold at its all-time peak.
+    // maxPnlUsd is already clamped to ≥ 0 per position (positions that never pumped
+    // contribute 0, not negative). Divide by TOTAL cost so the % is honest:
+    // "+40% Max Return" means "40% profit on total capital deployed at best execution".
+    const maxReturnUsd = enriched.reduce((s, p) => s + (p.maxPnlUsd ?? 0), 0);
+    const maxReturnPct = totalCost > 0 ? (maxReturnUsd / totalCost) * 100 : null;
 
     return NextResponse.json({
       positions: enriched,
