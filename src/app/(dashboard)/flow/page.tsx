@@ -53,22 +53,17 @@ interface FlowEvent {
   isHistorical?: boolean;
 }
 
-function formatFlowDate(iso: string): string {
-  const d = new Date(iso);
-  const today = new Date();
-  const yesterday = new Date(today);
-  yesterday.setDate(today.getDate() - 1);
-  const isToday =
-    d.getFullYear() === today.getFullYear() &&
-    d.getMonth() === today.getMonth() &&
-    d.getDate() === today.getDate();
-  const isYesterday =
-    d.getFullYear() === yesterday.getFullYear() &&
-    d.getMonth() === yesterday.getMonth() &&
-    d.getDate() === yesterday.getDate();
-  if (isToday) return "Today";
-  if (isYesterday) return "Yesterday";
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+function timeAgoShort(iso: string): string {
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const diffMin = diffMs / 60_000;
+  const diffH = diffMs / 3_600_000;
+  const diffD = diffMs / 86_400_000;
+  if (diffMin < 2)  return "just now";
+  if (diffMin < 60) return `${Math.floor(diffMin)}m ago`;
+  if (diffH < 24)   return `${Math.floor(diffH)}h ago`;
+  if (diffD < 2)    return "Yesterday";
+  if (diffD < 7)    return `${Math.floor(diffD)} days ago`;
+  return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
 const TODAY_ISO = new Date().toISOString();
@@ -85,7 +80,7 @@ export default function FlowPage() {
   const { data: session } = useSession();
   const tier = getTier(session);
   const [filter, setFilter] = useState<FilterType>("all");
-  const [sortBy, setSortBy] = useState<"strength" | "flow" | "volume">("strength");
+  const [sortBy, setSortBy] = useState<"date" | "strength" | "flow" | "volume">("date");
   const { isWatched, watchlist } = useWatchlist();
   const [watchlistOnly, setWatchlistOnly] = useState(false);
 
@@ -332,6 +327,12 @@ export default function FlowPage() {
       all.filter(e => e.type === "flow_inflection" || e.type === "flow_spike" || e.type === "flow_warning");
 
     return filtered.sort((a, b) => {
+      if (sortBy === "date") {
+        const ta = new Date(a.signalDate ?? 0).getTime();
+        const tb = new Date(b.signalDate ?? 0).getTime();
+        if (tb !== ta) return tb - ta;            // newest first
+        return b.strength - a.strength;           // tiebreak by strength
+      }
       if (sortBy === "strength") return b.strength - a.strength;
       if (sortBy === "flow") return Math.abs(b.netFlow ?? 0) - Math.abs(a.netFlow ?? 0);
       return (b.volumeRatio ?? 0) - (a.volumeRatio ?? 0);
@@ -444,7 +445,7 @@ export default function FlowPage() {
         </div>
         <div className="flex items-center gap-2">
           <span className="text-xs text-gray-600">Sort:</span>
-          {(["strength", "flow", "volume"] as const).map(s => (
+          {(["date", "strength", "flow", "volume"] as const).map(s => (
             <button
               key={s}
               onClick={() => setSortBy(s)}
@@ -454,7 +455,7 @@ export default function FlowPage() {
                   : "border-gray-800 text-gray-600 hover:text-gray-400"
               }`}
             >
-              {s === "strength" ? "Signal strength" : s === "flow" ? "Net flow" : "Volume"}
+              {s === "date" ? "🕐 Latest" : s === "strength" ? "Signal strength" : s === "flow" ? "Net flow" : "Volume"}
             </button>
           ))}
         </div>
@@ -544,8 +545,8 @@ function FlowCard({
               {ev.badge}
             </span>
             {ev.signalDate && (
-              <span className={`text-[10px] ml-1 ${ev.isHistorical ? "text-gray-600" : "text-gray-500"}`}>
-                {formatFlowDate(ev.signalDate)}
+              <span className="text-[10px] ml-1 text-gray-500 tabular-nums">
+                {timeAgoShort(ev.signalDate)}
               </span>
             )}
           </div>
