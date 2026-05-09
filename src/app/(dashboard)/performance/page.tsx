@@ -8,7 +8,7 @@ import BlurGate from "@/components/BlurGate";
 import { getTier } from "@/lib/subscription";
 
 // Pure SVG chart — no external deps
-function PortfolioChart({ history }: { history: { date: string; totalValue: number; cost: number }[] }) {
+function PortfolioChart({ history, alwaysUp }: { history: { date: string; totalValue: number; cost: number }[], alwaysUp?: boolean }) {
   const W = 800, H = 160;
   const PAD = { top: 12, right: 24, bottom: 28, left: 56 };
   const chartW = W - PAD.left - PAD.right;
@@ -32,7 +32,7 @@ function PortfolioChart({ history }: { history: { date: string; totalValue: numb
   const lastX = xScale(history.length - 1);
   const baseY = PAD.top + chartH;
   const areaPoints = `${firstX.toFixed(1)},${baseY} ${polyPoints} ${lastX.toFixed(1)},${baseY}`;
-  const isUp = pctValues[pctValues.length - 1] >= pctValues[0];
+  const isUp = alwaysUp || pctValues[pctValues.length - 1] >= pctValues[0];
   const lineColor = isUp ? "#4ade80" : "#f87171";
   const gradId = isUp ? "areaGreen" : "areaRed";
   const gradStop = isUp ? "#4ade80" : "#f87171";
@@ -185,7 +185,7 @@ export default function PerformancePage() {
                   <div className="flex items-center justify-between mb-4">
                     <div className="text-xs text-gray-500 uppercase tracking-wider">Portfolio Max Value Over Time</div>
                   </div>
-                  <PortfolioChart history={maxHistory} />
+                  <PortfolioChart history={maxHistory} alwaysUp={true} />
                 </div>
               );
             })() : (
