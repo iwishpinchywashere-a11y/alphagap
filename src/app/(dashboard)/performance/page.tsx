@@ -14,11 +14,10 @@ function PortfolioChart({ history, costBasis }: { history: { date: string; total
   const chartW = W - PAD.left - PAD.right;
   const chartH = H - PAD.top - PAD.bottom;
 
+  // totalValue is encoded as (100 + avgMaxPct), costBasis=100.
+  // Show raw equal-weighted avg % so chart's final value matches the Max Return stat.
   const base = costBasis > 0 ? costBasis : 1;
-  const toPct = (v: number) => ((v - base) / base) * 100;
-  const rawPctValues = history.map(h => toPct(h.totalValue));
-  const startOffset = rawPctValues[0] ?? 0;
-  const pctValues = rawPctValues.map(p => p - startOffset);
+  const pctValues = history.map(h => ((h.totalValue - base) / base) * 100);
   const minPct = Math.min(...pctValues);
   const maxPct = Math.max(...pctValues);
   const range = maxPct - minPct || 1;
@@ -169,25 +168,26 @@ export default function PerformancePage() {
 
             {/* Chart */}
             {portfolioData.history.length >= 2 ? (() => {
-              // For each snapshot date, sum alphaTokens × peak price for every position
-              // bought by that date. Peak defaults to buyPriceUsd when no higher price seen.
-              // costBasis is fixed at total portfolio cost — the chart shows relative change
-              // from the first snapshot, normalised so it always starts at 0%.
+              // Equal-weighted avg peak return per history date.
+              // Each position counts once regardless of size — same weighting as the
+              // Max Return stat, so the chart's final label matches the headline number.
+              // Encoded as totalValue = 100 + avgPct with costBasis=100.
               const maxHistory = portfolioData.history.map(h => {
-                const maxValue = portfolioData.positions
-                  .filter(p => p.buyDate <= h.date)
-                  .reduce((sum, p) => {
-                    const peak = (p as any).manualPeakPrice ?? p.peakPrice ?? p.buyPriceUsd;
-                    return sum + p.alphaTokens * peak;
-                  }, 0);
-                return { date: h.date, totalValue: Math.round(maxValue * 100) / 100 };
+                const posByDate = portfolioData.positions.filter(p => p.buyDate <= h.date);
+                if (posByDate.length === 0) return { date: h.date, totalValue: 100 };
+                const avgPct = posByDate.reduce((sum, p) => {
+                  const peak = (p as any).manualPeakPrice ?? p.peakPrice ?? p.buyPriceUsd;
+                  const gain = Math.max(0, p.alphaTokens * peak - p.amountUsd);
+                  return sum + (gain / p.amountUsd) * 100;
+                }, 0) / posByDate.length;
+                return { date: h.date, totalValue: Math.round((100 + avgPct) * 100) / 100 };
               });
               return (
                 <div className="bg-gray-900/70 border border-gray-800 rounded-xl p-5">
                   <div className="flex items-center justify-between mb-4">
-                    <div className="text-xs text-gray-500 uppercase tracking-wider">Portfolio Max Value Over Time</div>
+                    <div className="text-xs text-gray-500 uppercase tracking-wider">Avg Max Return Per Trade Over Time</div>
                   </div>
-                  <PortfolioChart history={maxHistory} costBasis={portfolioData.summary.totalCost} />
+                  <PortfolioChart history={maxHistory} costBasis={100} />
                 </div>
               );
             })() : (

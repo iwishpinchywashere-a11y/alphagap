@@ -108,12 +108,14 @@ export async function GET() {
     const totalPnlUsd = totalValue - totalCost;
     const totalPnlPct = totalCost > 0 ? ((totalValue - totalCost) / totalCost) * 100 : 0;
 
-    // Max Return: if every position was sold at its all-time peak.
-    // maxPnlUsd is already clamped to ≥ 0 per position (positions that never pumped
-    // contribute 0, not negative). Divide by TOTAL cost so the % is honest:
-    // "+40% Max Return" means "40% profit on total capital deployed at best execution".
+    // Max Return: equal-weighted average of per-position peak return.
+    // Each trade counts equally regardless of position size — prevents recently-added
+    // large manual positions from diluting the metric for the auto-buy trades.
     const maxReturnUsd = enriched.reduce((s, p) => s + (p.maxPnlUsd ?? 0), 0);
-    const maxReturnPct = totalCost > 0 ? (maxReturnUsd / totalCost) * 100 : null;
+    const posWithPeak = enriched.filter(p => p.maxPnlPct != null);
+    const maxReturnPct = posWithPeak.length > 0
+      ? posWithPeak.reduce((s, p) => s + (p.maxPnlPct ?? 0), 0) / posWithPeak.length
+      : null;
 
     return NextResponse.json({
       positions: enriched,
