@@ -14,8 +14,10 @@ function PortfolioChart({ history, alwaysUp }: { history: { date: string; totalV
   const chartW = W - PAD.left - PAD.right;
   const chartH = H - PAD.top - PAD.bottom;
 
-  // Use per-point cost so % reflects actual return on capital deployed at each date
-  const pctValues = history.map(h => h.cost > 0 ? ((h.totalValue - h.cost) / h.cost) * 100 : 0);
+  // Normalize so the chart always starts at 0% — show change relative to first data point
+  const rawPct = history.map(h => h.cost > 0 ? ((h.totalValue - h.cost) / h.cost) * 100 : 0);
+  const baseline = rawPct[0] ?? 0;
+  const pctValues = rawPct.map(v => v - baseline);
   const minPct = Math.min(...pctValues);
   const maxPct = Math.max(...pctValues);
   const range = maxPct - minPct || 1;
