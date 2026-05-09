@@ -171,7 +171,10 @@ export default function PerformancePage() {
               const maxHistory = portfolioData.history.map(h => {
                 const positionsByDate = portfolioData.positions.filter(p => p.buyDate <= h.date);
                 const maxValue = positionsByDate.reduce((sum, p) => {
-                  const peak = (p as any).manualPeakPrice ?? p.peakPrice ?? p.buyPriceUsd;
+                  // Clamp peak to buyPriceUsd: stale/bad peakPrice below cost basis would make
+                  // the chart show a loss in the "max value" view, which is never correct.
+                  const rawPeak = (p as any).manualPeakPrice ?? p.peakPrice ?? p.buyPriceUsd;
+                  const peak = Math.max(rawPeak, p.buyPriceUsd);
                   return sum + p.alphaTokens * peak;
                 }, 0);
                 const cost = positionsByDate.reduce((sum, p) => sum + p.amountUsd, 0);

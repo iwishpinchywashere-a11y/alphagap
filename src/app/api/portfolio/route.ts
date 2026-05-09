@@ -82,10 +82,12 @@ export async function GET() {
       const change24h = live?.change24h ?? 0;
       const pnl24hUsd = currentValue * (change24h / 100);
 
-      // Max P&L: manualPeakPrice (set via admin PATCH) takes priority over scan-tracked peakPrice
+      // Max P&L: manualPeakPrice (set via admin PATCH) takes priority over scan-tracked peakPrice.
+      // Clamped to 0 — if peakPrice never exceeded buy price the best outcome was breakeven, not a loss.
       const peakPrice = pos.manualPeakPrice ?? pos.peakPrice ?? null;
-      const maxPnlUsd = peakPrice != null ? pos.alphaTokens * peakPrice - pos.amountUsd : null;
-      const maxPnlPct = peakPrice != null ? ((pos.alphaTokens * peakPrice - pos.amountUsd) / pos.amountUsd) * 100 : null;
+      const rawMaxPnlUsd = peakPrice != null ? pos.alphaTokens * peakPrice - pos.amountUsd : null;
+      const maxPnlUsd = rawMaxPnlUsd != null ? Math.max(0, rawMaxPnlUsd) : null;
+      const maxPnlPct = maxPnlUsd != null ? (maxPnlUsd / pos.amountUsd) * 100 : null;
 
       return {
         ...pos,
