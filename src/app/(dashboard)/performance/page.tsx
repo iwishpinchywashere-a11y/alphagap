@@ -8,16 +8,17 @@ import BlurGate from "@/components/BlurGate";
 import { getTier } from "@/lib/subscription";
 
 // Pure SVG chart — no external deps
-function PortfolioChart({ history, alwaysUp }: { history: { date: string; totalValue: number; cost: number }[], alwaysUp?: boolean }) {
+function PortfolioChart({ history, costBasis }: { history: { date: string; totalValue: number }[]; costBasis: number }) {
   const W = 800, H = 160;
   const PAD = { top: 12, right: 24, bottom: 28, left: 56 };
   const chartW = W - PAD.left - PAD.right;
   const chartH = H - PAD.top - PAD.bottom;
 
-  // Normalize so the chart always starts at 0% — show change relative to first data point
-  const rawPct = history.map(h => h.cost > 0 ? ((h.totalValue - h.cost) / h.cost) * 100 : 0);
-  const baseline = rawPct[0] ?? 0;
-  const pctValues = rawPct.map(v => v - baseline);
+  const base = costBasis > 0 ? costBasis : 1;
+  const toPct = (v: number) => ((v - base) / base) * 100;
+  const rawPctValues = history.map(h => toPct(h.totalValue));
+  const startOffset = rawPctValues[0] ?? 0;
+  const pctValues = rawPctValues.map(p => p - startOffset);
   const minPct = Math.min(...pctValues);
   const maxPct = Math.max(...pctValues);
   const range = maxPct - minPct || 1;
@@ -34,7 +35,7 @@ function PortfolioChart({ history, alwaysUp }: { history: { date: string; totalV
   const lastX = xScale(history.length - 1);
   const baseY = PAD.top + chartH;
   const areaPoints = `${firstX.toFixed(1)},${baseY} ${polyPoints} ${lastX.toFixed(1)},${baseY}`;
-  const isUp = alwaysUp || pctValues[pctValues.length - 1] >= pctValues[0];
+  const isUp = pctValues[pctValues.length - 1] >= pctValues[0];
   const lineColor = isUp ? "#4ade80" : "#f87171";
   const gradId = isUp ? "areaGreen" : "areaRed";
   const gradStop = isUp ? "#4ade80" : "#f87171";
@@ -168,31 +169,25 @@ export default function PerformancePage() {
 
             {/* Chart */}
             {portfolioData.history.length >= 2 ? (() => {
-              // Fixed denominator = total cost of ALL positions (never changes).
-              // Numerator = cumulative max gain for positions active by each date.
-              // Since each position's gain is clamped to ≥ 0, adding more positions
-              // can only increase the numerator → pct is monotonically non-decreasing
-              // → consistent uptrend guaranteed.
-              const totalPortfolioCost = portfolioData.positions.reduce((s, p) => s + p.amountUsd, 0);
+              // For each snapshot date, sum alphaTokens × peak price for every position
+              // bought by that date. Peak defaults to buyPriceUsd when no higher price seen.
+              // costBasis is fixed at total portfolio cost — the chart shows relative change
+              // from the first snapshot, normalised so it always starts at 0%.
               const maxHistory = portfolioData.history.map(h => {
-                const positionsByDate = portfolioData.positions.filter(p => p.buyDate <= h.date);
-                const maxGain = positionsByDate.reduce((sum, p) => {
-                  const rawPeak = (p as any).manualPeakPrice ?? p.peakPrice ?? p.buyPriceUsd;
-                  const peak = Math.max(rawPeak, p.buyPriceUsd);
-                  return sum + Math.max(0, p.alphaTokens * peak - p.amountUsd);
-                }, 0);
-                return {
-                  date: h.date,
-                  totalValue: Math.round((totalPortfolioCost + maxGain) * 100) / 100,
-                  cost: totalPortfolioCost,
-                };
+                const maxValue = portfolioData.positions
+                  .filter(p => p.buyDate <= h.date)
+                  .reduce((sum, p) => {
+                    const peak = (p as any).manualPeakPrice ?? p.peakPrice ?? p.buyPriceUsd;
+                    return sum + p.alphaTokens * peak;
+                  }, 0);
+                return { date: h.date, totalValue: Math.round(maxValue * 100) / 100 };
               });
               return (
                 <div className="bg-gray-900/70 border border-gray-800 rounded-xl p-5">
                   <div className="flex items-center justify-between mb-4">
                     <div className="text-xs text-gray-500 uppercase tracking-wider">Portfolio Max Value Over Time</div>
                   </div>
-                  <PortfolioChart history={maxHistory} alwaysUp={true} />
+                  <PortfolioChart history={maxHistory} costBasis={portfolioData.summary.totalCost} />
                 </div>
               );
             })() : (
