@@ -697,25 +697,29 @@ export async function GET(req: NextRequest) {
         if (!isFounder && entry.alphaScore < discordMinScore) continue;
 
         // Dedup key:
-        // - Founder: use channelName + calendar date of the actual Discord message
-        //   (lastActivityAt). This is STABLE across scan cycles even when the AI
-        //   rewrites the summary. Old approach used summarySlice which changed each
-        //   scan and caused duplicate Telegram alerts hours apart.
-        // - Regular: channelName-based time bucket (6h) so AI summary rewrites
-        //   don't cause re-fires.
-        const now = new Date();
-        const datePart = now.toISOString().slice(0, 10); // "2026-05-07"
-        const hourBucket = Math.floor(now.getUTCHours() / 6) * 6; // 0, 6, 12, or 18
-        const timeBucket = `${datePart}-${hourBucket}`;
-        // Founder dedup: 48-hour epoch bucket keyed on channelName.
-        // DO NOT use lastActivityAt — it changes every discord scan as new messages
-        // arrive, causing the date to roll over midnight and produce a new key that
-        // bypasses the processedDiscordKeys set (the root cause of repeated Const alerts).
-        // A 48h bucket means any two fires within 48h of each other are always the same key.
+        // - Founder: 48-hour epoch bucket keyed on channelName. DO NOT use
+        //   lastActivityAt — it changes every discord scan as new messages arrive,
+        //   causing the date to roll over midnight and produce a new key that
+        //   bypasses the processedDiscordKeys set (root cause of repeated Const alerts).
+        //   A 48h bucket means any two fires within 48h of each other are always the same key.
+        // - Regular: use lastActivityAt truncated to hour precision ("2026-05-07T12").
+        //   This is the ACTUAL Discord message timestamp — stable across scan cycles
+        //   even when the AI rewrites summaries. The old approach used a wall-clock
+        //   time bucket (0/6/12/18 UTC) which rotated every 6h independent of the
+        //   Discord content, so a scanner run at 5:58 and another at 6:02 produced
+        //   DIFFERENT keys for the same conversation → duplicate alerts despite the
+        //   6h lastAlertedAt cooldown (which would catch it unless state write failed).
+        //   Using lastActivityAt means "same Discord thread = same key, always."
         const bucket48h = Math.floor(Date.now() / (48 * 60 * 60 * 1000));
+        // Fallback for regular entries: if lastActivityAt is absent, derive a
+        // time-bucket from the current run (same behavior as before the fix).
+        const now = new Date();
+        const datePart = now.toISOString().slice(0, 10);
+        const hourBucket = Math.floor(now.getUTCHours() / 6) * 6;
+        const fallbackBucket = `${datePart}-${hourBucket}`;
         const key = isFounder
           ? `founder:${entry.channelName ?? "unknown"}:${bucket48h}`
-          : `${entry.netuid}:${timeBucket}`;
+          : `${entry.netuid}:${entry.lastActivityAt?.slice(0, 13) ?? fallbackBucket}`;
         if (processedDiscordKeys.has(key)) continue;
 
         // Cooldown gate for regular entries (6h) — prevents same subnet re-alerting
