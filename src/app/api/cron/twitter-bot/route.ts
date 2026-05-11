@@ -185,6 +185,18 @@ export async function GET(req: NextRequest) {
 
   console.log(`[twitter-bot] Posting type=${post.type}: ${post.rationale}`);
 
+  // ── Final concurrent-safe dedup check ────────────────────────────
+  // Two invocations that both read a null lock within ~100ms of each other
+  // can both slip past the lock guard above. Re-read the postedLog fresh
+  // here (after AI generation, so we're likely staggered in time) to catch
+  // whichever invocation is "second". If the dedupId is already present
+  // (written by the first invocation's pending-save below), bail out.
+  const freshLog = await loadPostedLog();
+  if (freshLog.posted.some(p => p.id === post.dedupId)) {
+    console.log(`[twitter-bot] Concurrent dedup: ${post.dedupId} already claimed — skipping`);
+    return NextResponse.json({ ok: true, posted: false, reason: `concurrent dedup: ${post.dedupId} already claimed` });
+  }
+
   // ── Write dedup log entry BEFORE posting ──────────────────────────
   // If we post the tweet and then savePostedLog fails (network blip,
   // timeout), the next slot has no record of the post and fires again.
@@ -198,9 +210,9 @@ export async function GET(req: NextRequest) {
     tweetUrl: "pending",
     postedAt,
   };
-  postedLog.posted.push(logEntry);
-  postedLog.posted = postedLog.posted.slice(-200);
-  await savePostedLog(postedLog);
+  freshLog.posted.push(logEntry);
+  freshLog.posted = freshLog.posted.slice(-200);
+  await savePostedLog(freshLog);
 
   // Post the tweet(s)
   let tweetUrl: string | null = null;
@@ -221,7 +233,7 @@ export async function GET(req: NextRequest) {
 
   // Update the log entry with the real tweet URL (best-effort — dedupId already saved above)
   logEntry.tweetUrl = tweetUrl;
-  await savePostedLog(postedLog).catch((e) => {
+  await savePostedLog(freshLog).catch((e) => {
     console.warn("[twitter-bot] Failed to update postedLog with tweetUrl (non-fatal):", e);
   });
 
