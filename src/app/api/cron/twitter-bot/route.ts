@@ -106,8 +106,13 @@ export async function GET(req: NextRequest) {
   // Each cron slot (7am / 12pm / 5pm / 10pm UTC) gets a unique key.
   // If a lock already exists for this slot, a concurrent or retry
   // invocation bails out immediately — preventing double-posts.
+  //
+  // IMPORTANT: read the lock FIRST, claim it IMMEDIATELY after checking,
+  // then load everything else. Loading data blobs before writing the lock
+  // creates a race window where two concurrent invocations both pass the
+  // check and both proceed to post — that was the root cause of duplicates.
   const slotKey = currentSlotKey();
-  const [lock, postedLog] = await Promise.all([readLock(), loadPostedLog()]);
+  const lock = await readLock();
 
   if (lock?.slotKey === slotKey) {
     const minutesSinceLock = (Date.now() - new Date(lock.lockedAt).getTime()) / 60000;
@@ -115,8 +120,13 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: true, posted: false, reason: `locked (slot ${slotKey}, ${minutesSinceLock.toFixed(0)}m ago)` });
   }
 
-  // Load the rest of the data blobs
+  // Claim the slot NOW — before loading any other data. Any concurrent
+  // invocation that reads the lock after this write will see slotKey and bail.
+  await writeLock(slotKey);
+
+  // Load all data blobs in parallel now that the slot is claimed
   const [
+    postedLog,
     scanRaw,
     discordRaw,
     signalsRaw,
@@ -125,6 +135,7 @@ export async function GET(req: NextRequest) {
     benchmarksRaw,
     performanceRaw,
   ] = await Promise.all([
+    loadPostedLog(),
     readBlob<{ leaderboard: unknown[] }>("scan-latest.json"),
     readBlob<{ results: unknown[] }>("discord-latest.json"),
     readBlob<{ signals: unknown[] }>("signals-latest.json"),
@@ -174,9 +185,22 @@ export async function GET(req: NextRequest) {
 
   console.log(`[twitter-bot] Posting type=${post.type}: ${post.rationale}`);
 
-  // Write slot lock BEFORE posting — any concurrent/retry invocation
-  // that reaches this point will now see the lock and exit cleanly.
-  await writeLock(slotKey);
+  // ── Write dedup log entry BEFORE posting ──────────────────────────
+  // If we post the tweet and then savePostedLog fails (network blip,
+  // timeout), the next slot has no record of the post and fires again.
+  // Writing first means the dedupId is persisted even if the URL update
+  // below fails — preventing a future slot from re-posting the same content.
+  const postedAt = new Date().toISOString();
+  const logEntry = {
+    id: post.dedupId,
+    type: post.type,
+    text: post.tweets[0].slice(0, 100),
+    tweetUrl: "pending",
+    postedAt,
+  };
+  postedLog.posted.push(logEntry);
+  postedLog.posted = postedLog.posted.slice(-200);
+  await savePostedLog(postedLog);
 
   // Post the tweet(s)
   let tweetUrl: string | null = null;
@@ -191,19 +215,15 @@ export async function GET(req: NextRequest) {
 
   if (!tweetUrl) {
     console.error("[twitter-bot] Failed to post tweet:", tweetError);
+    // The dedupId is already persisted above — won't double-post.
     return NextResponse.json({ ok: false, reason: "tweet post failed", error: tweetError, postType: post.type, text: post.tweets[0]?.slice(0, 100) }, { status: 500 });
   }
 
-  // Log using stable dedupId so the 48h dedup actually works
-  postedLog.posted.push({
-    id: post.dedupId,
-    type: post.type,
-    text: post.tweets[0].slice(0, 100),
-    tweetUrl,
-    postedAt: new Date().toISOString(),
+  // Update the log entry with the real tweet URL (best-effort — dedupId already saved above)
+  logEntry.tweetUrl = tweetUrl;
+  await savePostedLog(postedLog).catch((e) => {
+    console.warn("[twitter-bot] Failed to update postedLog with tweetUrl (non-fatal):", e);
   });
-  postedLog.posted = postedLog.posted.slice(-200);
-  await savePostedLog(postedLog);
 
   console.log(`[twitter-bot] Posted: ${tweetUrl}`);
   return NextResponse.json({
