@@ -133,6 +133,7 @@ function defaultSettings(): AlertSettings {
     discordEntry: { enabled: false },
     goingViralX: { enabled: false },
     priceMove: { enabled: false, threshold: 10 },
+    constActivity: { enabled: false },
   };
 }
 
@@ -638,6 +639,14 @@ export default function AlertsPage() {
                   minScore={settings.goingViralX.minScore ?? 0}
                   onToggle={v => updateAlert("goingViralX", { enabled: v })}
                   onMinScore={v => updateAlert("goingViralX", { minScore: v })}
+                />
+
+                <AlertRow
+                  icon="👑"
+                  label="Const Tracker"
+                  description="Fire when Bittensor founder Const stakes into or unstakes from any subnet"
+                  enabled={settings.constActivity?.enabled ?? false}
+                  onToggle={v => updateAlert("constActivity", { enabled: v })}
                 />
 
                 <AlertRow

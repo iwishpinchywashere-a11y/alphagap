@@ -12,7 +12,7 @@ import { getTier } from "@/lib/subscription";
 import { useWatchlist } from "@/components/dashboard/WatchlistProvider";
 import type { PersistedFlowEvent } from "@/app/api/cron/flow-snapshot/route";
 
-type FilterType = "all" | "accumulating" | "distributing" | "volume" | "flow" | "yield";
+type FilterType = "all" | "accumulating" | "distributing" | "volume" | "flow" | "yield" | "const";
 
 function StrengthBar({ value }: { value: number }) {
   const pct = Math.min(100, Math.max(0, value));
@@ -51,6 +51,9 @@ interface FlowEvent {
   apy_30d?: number;
   /** true = from blob history (not current scan), used for "Yesterday" label */
   isHistorical?: boolean;
+  isConstEvent?: boolean;
+  constWallet?: string;
+  constType?: "buy" | "sell";
 }
 
 function timeAgoShort(iso: string): string {
@@ -94,6 +97,21 @@ export default function FlowPage() {
         if (Array.isArray(data.events)) setHistoricalEvents(data.events);
       })
       .catch(() => {/* non-critical */});
+  }, []);
+
+  // ── Const founder wallet events ────────────────────────────────
+  const [constEvents, setConstEvents] = useState<Array<{
+    id: string; type: "buy"|"sell"; netuid: number; subnetName?: string;
+    amountTao: number; amountUsd: number; detectedAt: string;
+  }>>([]);
+
+  useEffect(() => {
+    fetch("/api/const-tracker")
+      .then(r => r.json())
+      .then((data: { events: typeof constEvents }) => {
+        if (Array.isArray(data.events)) setConstEvents(data.events);
+      })
+      .catch(() => {});
   }, []);
 
   // ── Build live events from current scan ───────────────────────
@@ -316,10 +334,40 @@ export default function FlowPage() {
         isHistorical: true,
       }));
 
-    const all = [...liveEvents, ...historicalAsFlowEvents];
+    // Convert Const wallet events to FlowEvents
+    const constAsFlowEvents: FlowEvent[] = constEvents.map(ev => {
+      const sub = leaderboard.find(s => s.netuid === ev.netuid);
+      const usdStr = ev.amountUsd > 0 ? ` (~$${(ev.amountUsd/1000).toFixed(0)}k)` : "";
+      const amtStr = ev.amountTao >= 1000 ? `${(ev.amountTao/1000).toFixed(1)}k TAO` : `${ev.amountTao.toFixed(0)} TAO`;
+      return {
+        netuid: ev.netuid,
+        name: ev.subnetName ?? `SN${ev.netuid}`,
+        type: ev.type === "buy" ? "accumulating" : "distributing",
+        strength: ev.type === "buy" ? 95 : 70,
+        headline: ev.type === "buy"
+          ? `Const staked ${amtStr}${usdStr} — founder conviction`
+          : `Const unstaked ${amtStr}${usdStr}`,
+        detail: ev.type === "buy"
+          ? `Bittensor founder added ${amtStr} to ${ev.subnetName ?? `SN${ev.netuid}`}. Const's buys are historically significant signals.`
+          : `Bittensor founder withdrew ${amtStr} from ${ev.subnetName ?? `SN${ev.netuid}`}.`,
+        badge: ev.type === "buy" ? "👑 CONST BUY" : "👑 CONST SELL",
+        badgeColor: ev.type === "buy"
+          ? "bg-yellow-500/20 text-yellow-300 border-yellow-500/30"
+          : "bg-orange-500/20 text-orange-400 border-orange-500/30",
+        price: sub?.alpha_price,
+        change24h: sub?.price_change_24h,
+        signalDate: ev.detectedAt,
+        isConstEvent: true,
+        constType: ev.type,
+      };
+    });
+
+    const all = [...liveEvents, ...historicalAsFlowEvents, ...constAsFlowEvents];
 
     // ── Apply filter ─────────────────────────────────────────
-    const filtered = filter === "all" ? all :
+    const filtered =
+      filter === "const"         ? [...constAsFlowEvents, ...all.filter(e => e.isConstEvent && !constAsFlowEvents.includes(e))] :
+      filter === "all" ? all :
       filter === "accumulating"  ? all.filter(e => e.type === "accumulating" || e.type === "flow_inflection" || e.type === "flow_spike") :
       filter === "distributing"  ? all.filter(e => e.type === "distributing" || e.type === "flow_warning") :
       filter === "volume"        ? all.filter(e => e.type === "volume_surge") :
@@ -337,7 +385,7 @@ export default function FlowPage() {
       if (sortBy === "flow") return Math.abs(b.netFlow ?? 0) - Math.abs(a.netFlow ?? 0);
       return (b.volumeRatio ?? 0) - (a.volumeRatio ?? 0);
     });
-  }, [liveEvents, historicalEvents, filter, sortBy]);
+  }, [liveEvents, historicalEvents, constEvents, leaderboard, filter, sortBy]);
 
   const visibleEvents = watchlistOnly ? events.filter(ev => watchlist.has(ev.netuid)) : events;
 
@@ -368,6 +416,7 @@ export default function FlowPage() {
     { key: "volume",       label: "🤑 Vol Surge",    count: leaderboard.filter(s => s.volume_surge).length },
     { key: "flow",         label: "⚡ Flow Signals" },
     { key: "yield",        label: "📈 Yield",        count: yieldEventCount },
+    { key: "const",        label: "👑 Const",        count: constEvents.length },
   ];
 
   return (

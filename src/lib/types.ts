@@ -83,6 +83,8 @@ export interface SubnetScore {
   sparkline_prices?: number[];
   volume_surge?: boolean;
   volume_surge_ratio?: number;
+  const_buy_tao?: number;   // TAO Const staked into this subnet in current SR window
+  const_sell_tao?: number;  // TAO Const unstaked from this subnet in current SR window
   alpha_staked_pct?: number;
   sector_rotation?: boolean;
   product_score?: number;        // 0–100 — benchmark vs centralized (100) / website scan (80) / milestone (80) / heuristic (60)

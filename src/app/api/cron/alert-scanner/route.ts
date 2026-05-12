@@ -161,6 +161,20 @@ interface FlowEventsStore {
   updatedAt?: string;
 }
 
+interface ConstTrackerData {
+  events: Array<{
+    id: string;
+    type: "buy" | "sell";
+    wallet: string;
+    netuid: number;
+    subnetName?: string;
+    amountTao: number;
+    amountUsd: number;
+    detectedAt: string;
+  }>;
+  updatedAt?: string;
+}
+
 interface SubnetState {
   score: number;
   emission: number;
@@ -190,6 +204,7 @@ interface ScannerState {
    * (e.g. +15% alert → +16% an hour later should NOT fire again).
    */
   lastAlertPriceChange: Record<string, number>;
+  processedConstIds: string[];
 }
 
 /**
@@ -300,13 +315,14 @@ export async function GET(req: NextRequest) {
   // Without this: two concurrent invocations both read prevState.lastRunAt,
   // both see "5 minutes have passed", both proceed, and both send the same
   // alerts. The lock blob is the atomic claim that prevents this.
-  const [lock, prevState, scan, socialHot, discordLatest, flowEvents] = await Promise.all([
+  const [lock, prevState, scan, socialHot, discordLatest, flowEvents, constData] = await Promise.all([
     readBlob<ScannerLock>("alert-scanner-lock.json"),
     readBlob<ScannerState>("alert-scanner-state.json"),
     readBlob<ScanLatest>("scan-latest.json"),
     readBlob<SocialHot>("social-hot.json"),
     readBlob<DiscordLatest>("discord-latest.json"),
     readBlob<FlowEventsStore>("flow-events.json"),
+    readBlob<ConstTrackerData>("const-latest.json"),
   ]);
 
   // ── Global run cooldown (enforced by lock blob) ───────────────────────────
@@ -363,11 +379,14 @@ export async function GET(req: NextRequest) {
   } while (cursor);
 
   let totalAlerts = 0;
+  const processedConstIds = new Set<string>(prevState?.processedConstIds ?? []);
+
   // Track discord keys that actually fired an alert (not just seen).
   // Only fired keys are added to processedDiscordKeys at end-of-run.
   // Avoids marking entries as processed when no user received the alert
   // (e.g. discordEntry disabled), which would block future users from seeing them.
   const firedDiscordKeys = new Set<string>();
+  const firedConstIds = new Set<string>();
 
   for (const hash of connectedHashes) {
     const conn = await getTelegramConnectionByHash(hash);
@@ -768,6 +787,35 @@ export async function GET(req: NextRequest) {
         totalAlerts++;
       }
     }
+
+    // ── Const founder activity ─────────────────────────────────────
+    if (settings.constActivity?.enabled && constData?.events?.length) {
+      const CONST_CUTOFF_MS = 6 * 60 * 60 * 1000; // only alert on events < 6h old
+      for (const ev of constData.events) {
+        if (processedConstIds.has(ev.id)) continue;
+        if (Date.now() - new Date(ev.detectedAt).getTime() > CONST_CUTOFF_MS) continue;
+        const label = ev.subnetName ?? `SN${ev.netuid}`;
+        const amtStr = ev.amountTao >= 1000
+          ? `${(ev.amountTao / 1000).toFixed(1)}k TAO`
+          : `${ev.amountTao.toFixed(0)} TAO`;
+        const usdStr = ev.amountUsd > 0 ? ` (~$${(ev.amountUsd / 1000).toFixed(0)}k)` : "";
+        const emoji = ev.type === "buy" ? "👑🟢" : "👑🔴";
+        const action = ev.type === "buy" ? "staked into" : "unstaked from";
+        await enqueueAlert(hash, {
+          type: "constActivity",
+          netuid: ev.netuid,
+          subnetName: label,
+          message:
+            `${emoji} *Const Tracker Alert*\n` +
+            `*${label}*\n\n` +
+            `Const (Bittensor founder) just ${action} *${label}*.\n` +
+            `Amount: *${amtStr}*${usdStr}\n\n` +
+            `[View on social page →](https://www.alphagap.io/flow)`,
+        });
+        firedConstIds.add(ev.id);
+        totalAlerts++;
+      }
+    }
   }
 
   // Mark processed event IDs after all users handled.
@@ -781,6 +829,9 @@ export async function GET(req: NextRequest) {
   // score too low) ensures new users / newly-enabled settings still see them.
   for (const key of firedDiscordKeys) {
     processedDiscordKeys.add(key);
+  }
+  for (const id of firedConstIds) {
+    processedConstIds.add(id);
   }
   for (const event of flowEvents?.events ?? []) {
     if (event.type === "volume_surge") {
@@ -813,6 +864,7 @@ export async function GET(req: NextRequest) {
     processedVolumeKeys: [...processedVolumeKeys].slice(-5000),
     lastAlertedAt: pruneLastAlertedAt(lastAlertedAt),
     lastAlertPriceChange,
+    processedConstIds: [...processedConstIds].slice(-5000),
   } satisfies ScannerState);
 
   const duration = Date.now() - t0;

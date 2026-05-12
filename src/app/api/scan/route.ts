@@ -29,7 +29,32 @@ interface SRWhaleMove {
   timestamp: string;
   amount: number;
   netuid: number;
+  id?: string;
+  from?: string;
+  to?: string;
+  amountUsd?: number;
 }
+
+interface ConstEvent {
+  id: string;
+  type: "buy" | "sell";
+  wallet: string;
+  netuid: number;
+  subnetName?: string;
+  amountTao: number;
+  amountUsd: number;
+  detectedAt: string;
+}
+
+interface ConstTracker {
+  events: ConstEvent[];
+  updatedAt: string;
+}
+
+const CONST_WALLETS = new Set([
+  "5G62K98tpNqsaffgyJmTvDSTCEFzva8WkmMqB2CEFSDgawrS",
+  "5GH2aUTMRUh1RprCgH4x3tRyCaKeUi5BfmYCfs1NARA8R54n",
+]);
 async function fetchSRSubnets(): Promise<SRSubnet[]> {
   try {
     const res = await fetch("https://subnetradar.com/api/data/subnets", {
@@ -298,6 +323,8 @@ interface LeaderboardEntry {
   apy_30d?: number;              // 30-day APY (annualised) — baseline for divergence
   loc_30d?: number;              // Lines of code (additions+deletions) in last 30 days
   score_delta_24h?: number;      // Raw aGap score change in last 24h (signed, e.g. +4.2 or -1.8)
+  const_buy_tao?: number;        // TAO Const staked into this subnet in current SR window
+  const_sell_tao?: number;       // TAO Const unstaked from this subnet in current SR window
 }
 
 // ── Stitch3 campaign data (cached in Vercel Blob) ────────────────
@@ -463,6 +490,41 @@ export async function GET() {
       srWhaleNetFlowMap.set(move.netuid, (srWhaleNetFlowMap.get(move.netuid) || 0) + move.amount);
     } else if (move.type === "unstake") {
       srWhaleNetFlowMap.set(move.netuid, (srWhaleNetFlowMap.get(move.netuid) || 0) - move.amount);
+    }
+  }
+
+  // ── Const wallet detection ──────────────────────────────────────
+  // Track buys (stake) and sells (unstake) from Const's known coldkeys.
+  // These feed: (1) const-latest.json for the flow page + alerts,
+  //             (2) per-subnet const_buy_tao / const_sell_tao for aGap boost.
+  const constBuyMap = new Map<number, number>();   // netuid → total TAO bought
+  const constSellMap = new Map<number, number>();  // netuid → total TAO sold
+  const newConstEvents: ConstEvent[] = [];
+  for (const move of srWhaleMoves) {
+    if (!move.from || !CONST_WALLETS.has(move.from)) continue;
+    if (!move.netuid) continue;
+    if (move.type === "stake") {
+      constBuyMap.set(move.netuid, (constBuyMap.get(move.netuid) ?? 0) + move.amount);
+      newConstEvents.push({
+        id: move.id ?? `stake-${move.netuid}-${move.timestamp}`,
+        type: "buy",
+        wallet: move.from,
+        netuid: move.netuid,
+        amountTao: move.amount,
+        amountUsd: move.amountUsd ?? 0,
+        detectedAt: move.timestamp ?? new Date().toISOString(),
+      });
+    } else if (move.type === "unstake") {
+      constSellMap.set(move.netuid, (constSellMap.get(move.netuid) ?? 0) + move.amount);
+      newConstEvents.push({
+        id: move.id ?? `unstake-${move.netuid}-${move.timestamp}`,
+        type: "sell",
+        wallet: move.from,
+        netuid: move.netuid,
+        amountTao: move.amount,
+        amountUsd: move.amountUsd ?? 0,
+        detectedAt: move.timestamp ?? new Date().toISOString(),
+      });
     }
   }
 
@@ -2407,6 +2469,10 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     const devScore = computeDevScore(d);
     const flowScore = computeFlowScore(d);
     const { score: evalScore, ratio: evalRatio } = computeEvalScore(d);
+
+    // ── Const wallet flow boost ────────────────────────────────────
+    const constBuy = constBuyMap.get(d.netuid) ?? 0;
+    const constSell = constSellMap.get(d.netuid) ?? 0;
     const socialScore = computeSocialScore(d.netuid, d.socialMentions, d.socialEngagement);
 
     // ── THE ALPHA GAP FORMULA v7 ────────────────────────────────
@@ -3064,7 +3130,11 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
       ? Math.max(1, Math.min(sustainedDeclineCap, clampedRaw + auditPenalty))
       : clampedRaw;
 
-    const aGap = smoothAGap(d.netuid, clampedWithAudit);
+    let aGap = smoothAGap(d.netuid, clampedWithAudit);
+
+    // Const founder buy = big positive boost; sell = smaller negative
+    if (constBuy > 0) aGap = Math.min(100, aGap + Math.min(20, 10 + constBuy / 100));
+    if (constSell > 0) aGap = Math.max(1, aGap - Math.min(10, 3 + constSell / 200));
 
     // ── INVESTING aGap (PILLAR-CAPPED + REVENUE-ANCHORED formula, v18) ──────────
     // Monthly horizon. Tighter pillar caps + revenue floors to prevent on-chain
@@ -3276,6 +3346,8 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
       apy_1h:  yieldMap.get(d.netuid)?.apy_1h,
       apy_30d: yieldMap.get(d.netuid)?.apy_30d,
       loc_30d: githubScanMap.get(d.netuid)?.loc_30d,
+      const_buy_tao: constBuyMap.get(d.netuid) ?? undefined,
+      const_sell_tao: constSellMap.get(d.netuid) ?? undefined,
     });
   }
 
@@ -3994,6 +4066,40 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
       signal: AbortSignal.timeout(30_000),
     }).then(r => console.log(`[scan] Whale tracker triggered: ${r.status}`))
       .catch(e => console.warn("[scan] Whale tracker trigger failed:", e));
+  }
+
+  // ── Persist Const tracker events ──────────────────────────────
+  if (process.env.BLOB_READ_WRITE_TOKEN && newConstEvents.length > 0) {
+    try {
+      const { get: getBlob3, put: putBlob3 } = await import("@vercel/blob");
+      let constTracker: ConstTracker = { events: [], updatedAt: new Date().toISOString() };
+      try {
+        const b = await getBlob3("const-latest.json", { token: process.env.BLOB_READ_WRITE_TOKEN, access: "private" });
+        if (b?.stream) {
+          const reader = b.stream.getReader(); const chunks: Uint8Array[] = [];
+          while (true) { const { done, value } = await reader.read(); if (done) break; chunks.push(value); }
+          constTracker = JSON.parse(Buffer.concat(chunks).toString("utf-8"));
+        }
+      } catch { /* start fresh */ }
+      // Enrich newConstEvents with subnet names from leaderboard
+      const subnetNameMap = new Map(leaderboard.map(e => [e.netuid, e.name]));
+      for (const ev of newConstEvents) {
+        ev.subnetName = subnetNameMap.get(ev.netuid) ?? `SN${ev.netuid}`;
+      }
+      // Merge: dedupe by ID, keep last 7 days
+      const existingIds = new Set(constTracker.events.map(e => e.id));
+      const cutoff7d = Date.now() - 7 * 24 * 3600 * 1000;
+      constTracker.events = [
+        ...constTracker.events.filter(e => new Date(e.detectedAt).getTime() > cutoff7d),
+        ...newConstEvents.filter(e => !existingIds.has(e.id)),
+      ].sort((a, b) => new Date(b.detectedAt).getTime() - new Date(a.detectedAt).getTime());
+      constTracker.updatedAt = new Date().toISOString();
+      await putBlob3("const-latest.json", JSON.stringify(constTracker), {
+        access: "private", token: process.env.BLOB_READ_WRITE_TOKEN,
+        addRandomSuffix: false, allowOverwrite: true, contentType: "application/json",
+      });
+      console.log(`[scan] Const tracker: ${newConstEvents.length} new events, ${constTracker.events.length} total`);
+    } catch (e) { console.log("[scan] Const tracker persist failed:", e); }
   }
 
   return NextResponse.json(responseData);

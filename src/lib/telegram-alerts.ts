@@ -27,6 +27,7 @@ export interface AlertSettings {
   discordEntry: AlertType;    // new Discord entry on social page
   goingViralX: AlertType;     // going viral on X (social page)
   priceMove: AlertType;       // token price % move
+  constActivity: AlertType;  // Const founder wallet buy/sell
 }
 
 export interface TelegramConnection {
@@ -70,6 +71,7 @@ export function defaultAlertSettings(): AlertSettings {
     discordEntry: { enabled: false },
     goingViralX: { enabled: false },
     priceMove: { enabled: false, threshold: 10 },
+    constActivity: { enabled: false },
   };
 }
 
