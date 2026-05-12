@@ -228,3 +228,34 @@ export function get48hSnowflake(): string {
   const ms = Date.now() - 48 * 60 * 60 * 1000;
   return timestampToSnowflake(ms);
 }
+
+/**
+ * Fetch a single Discord message by ID.
+ * Returns:
+ *   "deleted" — Discord returned 404 (message was deleted)
+ *   null      — no access (403/401) or other error
+ *   DiscordMessage — message still exists
+ *
+ * Handles rate-limiting (429) automatically with one retry.
+ */
+export async function fetchMessageById(
+  token: string,
+  channelId: string,
+  messageId: string
+): Promise<DiscordMessage | null | "deleted"> {
+  const res = await fetch(`${DISCORD_BASE}/channels/${channelId}/messages/${messageId}`, {
+    headers: { Authorization: getAuthHeader(token) },
+  });
+
+  if (res.status === 404) return "deleted";
+  if (res.status === 403 || res.status === 401) return null;
+
+  if (res.status === 429) {
+    const retryAfter = parseFloat(res.headers.get("retry-after") || "1");
+    await new Promise(r => setTimeout(r, retryAfter * 1000 + 300));
+    return fetchMessageById(token, channelId, messageId);
+  }
+
+  if (!res.ok) return null;
+  return res.json();
+}

@@ -7,12 +7,14 @@ import { put, get } from "@vercel/blob";
 import {
   fetchGuildChannels,
   fetchChannelMessages,
+  fetchMessageById,
   filterSubnetChannels,
   parseNetuidFromChannel,
   getHoursAgoSnowflake,
   type DiscordAlphaResult,
   type DiscordMessage,
 } from "@/lib/discord";
+import { queryTaofluteMessages, type TaofluteMessage } from "@/lib/taoflute";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 240; // 4 min — fits Vercel Pro limit comfortably
@@ -64,6 +66,193 @@ const FOUNDER_CHANNEL_PATTERNS = [
   "const", "update", "news", "dev-chat", "builders", "official",
 ];
 const MAX_FOUNDER_CHANNELS = 20;
+
+// ── Deleted message detection ────────────────────────────────────────────────
+
+export interface DeletedMessageResult {
+  id: string;            // = messageId (dedup key)
+  messageId: string;
+  channelId: string;
+  channelName: string;
+  netuid: number | null;
+  subnetName: string;
+  content: string;
+  username: string;
+  postedAt: string;
+  detectedAt: string;
+  significant: boolean;
+  sinister: boolean;     // legal/security/exit risk — triggers aGap penalty
+  significance: string;  // AI explanation of why it matters
+}
+
+/**
+ * Cross-reference taoflute's archive against our current Discord fetch.
+ * Messages in taoflute but 404 on Discord = confirmed deleted.
+ * AI classifies which deletions are worth surfacing.
+ */
+async function detectDeletedMessages(
+  channelScans: Array<{
+    channelId: string;
+    channelName: string;
+    netuid: number | null;
+    messages: DiscordMessage[];
+    founderOnly?: boolean;
+  }>,
+  token: string,
+  alreadyProcessedIds: Set<string>
+): Promise<DeletedMessageResult[]> {
+  // Only scan mapped-subnet channels (less noise)
+  const relevant = channelScans.filter(c => !c.founderOnly && c.netuid != null).slice(0, 60);
+  if (relevant.length === 0) return [];
+
+  const channelIds = relevant.map(c => c.channelId);
+
+  // Query taoflute for messages from the last 36h in these channels
+  const taofluteMessages = await queryTaofluteMessages(channelIds, 36);
+  if (taofluteMessages.length === 0) return [];
+
+  // Build set of message IDs we currently see on Discord
+  const seenIds = new Set<string>();
+  for (const scan of relevant) {
+    for (const msg of scan.messages) seenIds.add(msg.id);
+  }
+
+  const channelMap = new Map(relevant.map(c => [c.channelId, c]));
+  const cutoffMs = Date.now() - 36 * 60 * 60 * 1000;
+
+  // Candidates: in taoflute but not in our Discord fetch
+  const candidates = taofluteMessages.filter(tm => {
+    if (seenIds.has(tm.messageId))           return false; // still live
+    if (alreadyProcessedIds.has(tm.messageId)) return false; // already handled
+    if (tm.content.length < 20)              return false; // too short
+    const uname = tm.username.toLowerCase();
+    if (uname.includes("bot") || uname.includes("webhook")) return false;
+    if (tm.timestamp && new Date(tm.timestamp).getTime() < cutoffMs) return false;
+    return true;
+  });
+
+  if (candidates.length === 0) return [];
+
+  // Verify up to 25 candidates with Discord single-message API (rate-limit: 200ms gap)
+  const MAX_VERIFY = 25;
+  const confirmed: TaofluteMessage[] = [];
+
+  for (const candidate of candidates.slice(0, MAX_VERIFY)) {
+    const result = await fetchMessageById(token, candidate.channelId, candidate.messageId);
+    if (result === "deleted") confirmed.push(candidate);
+    await new Promise(r => setTimeout(r, 200));
+  }
+
+  if (confirmed.length === 0) return [];
+
+  // AI classify confirmed deletions
+  return classifyDeletedMessages(confirmed, channelMap);
+}
+
+async function classifyDeletedMessages(
+  messages: TaofluteMessage[],
+  channelMap: Map<string, { channelName: string; netuid: number | null }>
+): Promise<DeletedMessageResult[]> {
+  if (!ANTHROPIC_KEY || messages.length === 0) return [];
+
+  const items = messages
+    .map((m, i) => {
+      const ch = channelMap.get(m.channelId);
+      return `[${i}] Channel: #${ch?.channelName ?? m.channelId} | User: @${m.username} | Posted: ${m.timestamp}\nContent: "${m.content.slice(0, 500)}"`;
+    })
+    .join("\n\n");
+
+  const prompt = `You are a Bittensor subnet intelligence analyst. Below are Discord messages that were DELETED from subnet channels after being posted.
+
+${items}
+
+For each message, determine if it's significant enough to surface to investors. Most deletions are NOT significant — be conservative. Only flag something if you are confident it would matter to a Bittensor investor.
+
+SIGNIFICANT: Team/founders deleting disclosures, deleted partnership announcements, security warnings, legal/regulatory mentions, exit signals, explicit "don't share this" content, revealing project problems.
+NOT SIGNIFICANT: Typo corrections, spam removal, casual chat, test messages, normal bot deletions.
+
+SINISTER: Only true if content strongly suggests legal trouble, security exploit/hack, rug pull risk, insider trading, or deliberate cover-up of bad news.
+
+Respond with a JSON array (one object per message, same order):
+[
+  {
+    "index": 0,
+    "significant": false,
+    "sinister": false,
+    "significance": "One sentence explaining why this is or isn't noteworthy (max 120 chars)"
+  }
+]
+
+Rules:
+- Be VERY conservative — false positives hurt trust. If in doubt: significant=false.
+- sinister=true ONLY when there is strong evidence of harm to investors.
+- Respond with ONLY the JSON array.`;
+
+  try {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": ANTHROPIC_KEY,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 600,
+        messages: [{ role: "user", content: prompt }],
+      }),
+      signal: AbortSignal.timeout(15_000),
+    });
+
+    if (!res.ok) return buildUnclassifiedResults(messages, channelMap);
+
+    const data = await res.json();
+    const text = (data.content?.[0]?.text || "[]").replace(/^```json?\n?/, "").replace(/\n?```$/, "").trim();
+    const parsed: Array<{ index: number; significant: boolean; sinister: boolean; significance: string }> =
+      JSON.parse(text);
+
+    const detectedAt = new Date().toISOString();
+    return messages.map((m, i) => {
+      const ai = parsed.find(p => p.index === i) ?? { significant: false, sinister: false, significance: "" };
+      const ch = channelMap.get(m.channelId);
+      return {
+        id: m.messageId,
+        messageId: m.messageId,
+        channelId: m.channelId,
+        channelName: ch?.channelName ?? "",
+        netuid: ch?.netuid ?? null,
+        subnetName: ch ? formatSubnetName(ch.channelName) : `SN?`,
+        content: m.content,
+        username: m.username,
+        postedAt: m.timestamp,
+        detectedAt,
+        significant: ai.significant,
+        sinister: ai.sinister,
+        significance: ai.significance,
+      };
+    });
+  } catch (e) {
+    console.error("[discord-scan] Deleted classification error:", e);
+    return buildUnclassifiedResults(messages, channelMap);
+  }
+}
+
+function buildUnclassifiedResults(
+  messages: TaofluteMessage[],
+  channelMap: Map<string, { channelName: string; netuid: number | null }>
+): DeletedMessageResult[] {
+  const detectedAt = new Date().toISOString();
+  return messages.map(m => {
+    const ch = channelMap.get(m.channelId);
+    return {
+      id: m.messageId, messageId: m.messageId, channelId: m.channelId,
+      channelName: ch?.channelName ?? "", netuid: ch?.netuid ?? null,
+      subnetName: ch ? formatSubnetName(ch.channelName) : "",
+      content: m.content, username: m.username, postedAt: m.timestamp,
+      detectedAt, significant: false, sinister: false, significance: "",
+    };
+  });
+}
 
 export async function GET() {
   if (!DISCORD_TOKEN) {
@@ -279,7 +468,35 @@ export async function GET() {
     const signalOrder2 = { alpha: 0, active: 1, quiet: 2, noise: 3 };
     results.sort((a, b) => signalOrder2[a.signal] - signalOrder2[b.signal]);
 
-    // 6. Save to blob
+    // 6. Deleted message detection (runs only if we have time/token budget)
+    // Adds at most ~20s: taoflute query + up to 25 × 200ms Discord verifications + AI
+    const DELETED_SCAN_BUDGET_MS = 200_000; // only run if < 200s elapsed
+    if (process.env.BLOB_READ_WRITE_TOKEN && Date.now() - scanStart < DELETED_SCAN_BUDGET_MS) {
+      try {
+        const prevDeleted = await readBlob<{ messages: DeletedMessageResult[] }>("discord-deleted.json");
+        const alreadyProcessedIds = new Set((prevDeleted?.messages ?? []).map(m => m.id));
+
+        console.log("[discord-scan] Running deleted message detection...");
+        const delStart = Date.now();
+        const newDeleted = await detectDeletedMessages(channelScans, DISCORD_TOKEN, alreadyProcessedIds);
+        const significant = newDeleted.filter(d => d.significant).length;
+        console.log(`[discord-scan] Deleted detection: ${newDeleted.length} verified, ${significant} significant (${Date.now() - delStart}ms)`);
+
+        // Merge with previous — keep 7-day rolling window, dedup by messageId
+        const cutoff7d = Date.now() - 7 * 24 * 60 * 60 * 1000;
+        const prev = (prevDeleted?.messages ?? []).filter(m => new Date(m.detectedAt).getTime() > cutoff7d);
+        const existingIds = new Set(prev.map(m => m.id));
+        const merged = [...prev, ...newDeleted.filter(m => !existingIds.has(m.id))];
+
+        await put("discord-deleted.json", JSON.stringify({ updatedAt: new Date().toISOString(), messages: merged }), {
+          access: "private", addRandomSuffix: false, allowOverwrite: true, contentType: "application/json",
+        });
+      } catch (e) {
+        console.error("[discord-scan] Deleted detection failed (non-fatal):", e);
+      }
+    }
+
+    // 7. Save to blob
     const output = {
       scannedAt: new Date().toISOString(),
       channelsScanned: channelsToScan.length,

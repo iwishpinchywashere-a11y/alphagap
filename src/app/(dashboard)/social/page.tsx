@@ -35,6 +35,21 @@ interface DiscordEntry {
   composite_score: number | null; social_score: number | null;
   releaseHint?: boolean;
 }
+interface DeletedMessage {
+  id: string;
+  messageId: string;
+  channelId: string;
+  channelName: string;
+  netuid: number | null;
+  subnetName: string;
+  content: string;
+  username: string;
+  postedAt: string;
+  detectedAt: string;
+  significant: boolean;
+  sinister: boolean;
+  significance: string;
+}
 interface KolRadarEntry {
   handle: string; name: string; tier: number; weight: number; followers: number;
   subnets: number[]; totalEngagement: number; topHeat: number; latestAt: string;
@@ -137,6 +152,7 @@ export default function SocialPage() {
   const [watchlistOnly, setWatchlistOnly] = useState(false);
   const [discordSort, setDiscordSort] = useState<"score" | "latest">("score");
   const [tweetsSort, setTweetsSort] = useState<"score" | "latest">("score");
+  const [deletedMessages, setDeletedMessages] = useState<DeletedMessage[]>([]);
 
   useEffect(() => {
     fetch("/api/social")
@@ -144,6 +160,15 @@ export default function SocialPage() {
       .then(setData)
       .catch(e => setError(e.message))
       .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    fetch("/api/discord-deleted")
+      .then(r => r.json())
+      .then((data: { messages: DeletedMessage[] }) => {
+        if (Array.isArray(data.messages)) setDeletedMessages(data.messages);
+      })
+      .catch(() => {/* non-critical */});
   }, []);
 
   if (loading) return (
@@ -208,6 +233,7 @@ export default function SocialPage() {
         <div className="flex items-center gap-2 flex-wrap">
           {[
             { id: "discord", label: "Discord Alpha", icon: "💬" },
+            ...(deletedMessages.length > 0 ? [{ id: "discord-deleted", label: "Deleted Msgs", icon: "⚠️" }] : []),
             { id: "hot-tweets", label: "Viral KOL Tweets", icon: "🔥" },
             { id: "x-leaderboard", label: "Top on X", icon: "𝕏" },
             { id: "kol-radar", label: "KOL Radar", icon: "📡" },
@@ -509,6 +535,70 @@ export default function SocialPage() {
           </div>
           </BlurGate>
         </div>
+
+        {/* ── Deleted Discord Messages ── */}
+        {deletedMessages.length > 0 && (
+          <div id="discord-deleted" className="bg-yellow-950/20 border border-yellow-500/40 rounded-xl overflow-hidden ring-1 ring-yellow-500/10">
+            <div className="px-5 py-4 border-b border-yellow-500/20 flex items-center justify-between">
+              <div>
+                <h2 className="font-bold text-yellow-300">⚠️ Deleted Discord Messages</h2>
+                <p className="text-xs text-yellow-600/70 mt-0.5">
+                  Messages deleted from subnet Discord channels — AI flagged as potentially significant
+                </p>
+              </div>
+              <span className="text-xs text-yellow-600/60 bg-yellow-500/10 border border-yellow-500/20 px-2 py-1 rounded-full font-medium">
+                {deletedMessages.length} flagged
+              </span>
+            </div>
+            <BlurGate tier={tier} required="premium" minHeight="120px">
+              <div className="divide-y divide-yellow-500/10">
+                {deletedMessages.map(msg => (
+                  <div key={msg.id} className={`px-5 py-4 hover:bg-yellow-500/5 transition-colors ${msg.sinister ? "bg-red-950/10" : ""}`}>
+                    {/* Header row */}
+                    <div className="flex items-center justify-between gap-3 mb-2">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {msg.netuid != null && (
+                          <button
+                            onClick={() => router.push(`/subnets/${msg.netuid}`)}
+                            className="flex items-center gap-1.5 hover:text-yellow-300 transition-colors"
+                          >
+                            <span className="text-xs text-gray-600 bg-gray-800 px-1.5 py-0.5 rounded font-mono">SN{msg.netuid}</span>
+                            <span className="font-semibold text-sm text-gray-200">{msg.subnetName}</span>
+                          </button>
+                        )}
+                        {msg.sinister && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded font-bold bg-red-500/20 text-red-400 border border-red-500/40 shrink-0">
+                            🚨 SINISTER
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-xs text-gray-600 shrink-0 whitespace-nowrap">detected {timeAgo(msg.detectedAt)}</span>
+                    </div>
+
+                    {/* Author & time */}
+                    <div className="text-xs text-gray-500 mb-2">
+                      @{msg.username} · posted {timeAgo(msg.postedAt)} · then deleted
+                    </div>
+
+                    {/* Deleted content */}
+                    <div className="bg-gray-900/70 border border-yellow-500/20 rounded-lg px-3 py-2.5 mb-2">
+                      <p className="text-[10px] font-bold text-yellow-500/60 uppercase tracking-widest mb-1.5">Deleted message</p>
+                      <p className="text-sm text-gray-200 leading-relaxed">{msg.content}</p>
+                    </div>
+
+                    {/* AI significance */}
+                    {msg.significance && (
+                      <div className="border-l-2 border-yellow-500/50 bg-yellow-500/5 rounded-r-lg px-3 py-2">
+                        <p className="text-[10px] font-bold text-yellow-400 uppercase tracking-widest mb-1">Why this was flagged</p>
+                        <p className="text-xs text-gray-300 leading-relaxed">{msg.significance}</p>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </BlurGate>
+          </div>
+        )}
 
         {/* ── Hot KOL Tweets ── */}
         <div id="hot-tweets" className="bg-gray-900/60 border border-gray-800 rounded-xl overflow-hidden">

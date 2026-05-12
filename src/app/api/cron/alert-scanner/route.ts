@@ -161,6 +161,23 @@ interface FlowEventsStore {
   updatedAt?: string;
 }
 
+interface DeletedMessage {
+  id: string;
+  netuid: number | null;
+  subnetName: string;
+  content: string;
+  username: string;
+  detectedAt: string;
+  significant: boolean;
+  sinister: boolean;
+  significance: string;
+}
+
+interface DeletedMessagesBlob {
+  updatedAt?: string;
+  messages: DeletedMessage[];
+}
+
 interface ConstTrackerData {
   events: Array<{
     id: string;
@@ -205,6 +222,7 @@ interface ScannerState {
    */
   lastAlertPriceChange: Record<string, number>;
   processedConstIds: string[];
+  processedDeletedIds: string[];
 }
 
 /**
@@ -315,7 +333,7 @@ export async function GET(req: NextRequest) {
   // Without this: two concurrent invocations both read prevState.lastRunAt,
   // both see "5 minutes have passed", both proceed, and both send the same
   // alerts. The lock blob is the atomic claim that prevents this.
-  const [lock, prevState, scan, socialHot, discordLatest, flowEvents, constData] = await Promise.all([
+  const [lock, prevState, scan, socialHot, discordLatest, flowEvents, constData, deletedData] = await Promise.all([
     readBlob<ScannerLock>("alert-scanner-lock.json"),
     readBlob<ScannerState>("alert-scanner-state.json"),
     readBlob<ScanLatest>("scan-latest.json"),
@@ -323,6 +341,7 @@ export async function GET(req: NextRequest) {
     readBlob<DiscordLatest>("discord-latest.json"),
     readBlob<FlowEventsStore>("flow-events.json"),
     readBlob<ConstTrackerData>("const-latest.json"),
+    readBlob<DeletedMessagesBlob>("discord-deleted.json"),
   ]);
 
   // ── Global run cooldown (enforced by lock blob) ───────────────────────────
@@ -380,6 +399,8 @@ export async function GET(req: NextRequest) {
 
   let totalAlerts = 0;
   const processedConstIds = new Set<string>(prevState?.processedConstIds ?? []);
+  const processedDeletedIds = new Set<string>(prevState?.processedDeletedIds ?? []);
+  const firedDeletedIds = new Set<string>();
 
   // Track discord keys that actually fired an alert (not just seen).
   // Only fired keys are added to processedDiscordKeys at end-of-run.
@@ -788,6 +809,48 @@ export async function GET(req: NextRequest) {
       }
     }
 
+    // ── Deleted Discord messages ──────────────────────────────────────
+    // Uses the discordEntry toggle — "just like any other Discord message"
+    // Only fires for significant deletions on watched subnets
+    // 6h cooldown per netuid (same as discordEntry) to prevent spam on reruns
+    if (settings.discordEntry?.enabled && deletedData?.messages?.length) {
+      const watchlistSet = new Set(watchlist);
+      const DELETED_CUTOFF_MS = 12 * 60 * 60 * 1000; // only alert on messages detected < 12h ago
+      for (const msg of deletedData.messages) {
+        if (!msg.significant) continue;
+        if (msg.netuid == null || !watchlistSet.has(msg.netuid)) continue;
+        if (processedDeletedIds.has(msg.id)) continue;
+        if (Date.now() - new Date(msg.detectedAt).getTime() > DELETED_CUTOFF_MS) continue;
+
+        const dcKey = `${hash}:discordEntry:${msg.netuid}`;
+        const lastSent = lastAlertedAt[dcKey];
+        if (lastSent && Date.now() - new Date(lastSent).getTime() < DISCORD_COOLDOWN_MS) {
+          console.log(`[alert-scanner] deletedMsg SN${msg.netuid} → ${hash.slice(0, 8)} suppressed (6h cooldown)`);
+          continue;
+        }
+
+        const entry = scanByNetuid.get(msg.netuid);
+        const label = entry ? subnetLabel(entry) : msg.subnetName || `SN${msg.netuid}`;
+        const emoji = msg.sinister ? "🚨" : "⚠️";
+        const truncated = msg.content.length > 200 ? msg.content.slice(0, 200) + "…" : msg.content;
+
+        await enqueueAlert(hash, {
+          type: "discordEntry",
+          netuid: msg.netuid,
+          subnetName: label,
+          message:
+            `${emoji} *Deleted Discord Message — ${label}*\n\n` +
+            `@${msg.username} deleted a message that was flagged as significant.\n\n` +
+            `_"${truncated}"_\n\n` +
+            `${msg.significance ? `${msg.significance}\n\n` : ""}` +
+            `[View on social page →](${BASE_URL}/social)`,
+        });
+        recordAlert(lastAlertedAt, hash, "discordEntry", msg.netuid);
+        firedDeletedIds.add(msg.id);
+        totalAlerts++;
+      }
+    }
+
     // ── Const founder activity ─────────────────────────────────────
     if (settings.constActivity?.enabled && constData?.events?.length) {
       const CONST_CUTOFF_MS = 6 * 60 * 60 * 1000; // only alert on events < 6h old
@@ -833,6 +896,9 @@ export async function GET(req: NextRequest) {
   for (const id of firedConstIds) {
     processedConstIds.add(id);
   }
+  for (const id of firedDeletedIds) {
+    processedDeletedIds.add(id);
+  }
   for (const event of flowEvents?.events ?? []) {
     if (event.type === "volume_surge") {
       processedVolumeKeys.add(`${event.netuid}:volume_surge:${event.dayKey}`);
@@ -865,6 +931,7 @@ export async function GET(req: NextRequest) {
     lastAlertedAt: pruneLastAlertedAt(lastAlertedAt),
     lastAlertPriceChange,
     processedConstIds: [...processedConstIds].slice(-5000),
+    processedDeletedIds: [...processedDeletedIds].slice(-5000),
   } satisfies ScannerState);
 
   const duration = Date.now() - t0;
