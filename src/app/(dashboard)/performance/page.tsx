@@ -205,10 +205,12 @@ export default function PerformancePage() {
               </div>
             </div>
 
-            {/* Chart — mature positions only, always green + up-to-right */}
+            {/* Chart — running-max of avg peak return, guaranteed up-to-right */}
             {portfolioData.history.length >= 2 && maturePositions.length >= 1 ? (() => {
-              // For each history date, avg peak return across mature positions bought by that date.
-              // Peak price monotonically increases → chart only goes up.
+              // Running maximum of avg peak return across mature positions.
+              // Once the average hits a new high it never drops — adding lower-return
+              // positions later can't pull the line back down.
+              let runningMax = 0;
               const maxHistory = portfolioData.history.map(h => {
                 const active = maturePositions.filter(p => p.buyDate <= h.date);
                 if (active.length === 0) return { date: h.date, totalValue: 100 };
@@ -217,14 +219,15 @@ export default function PerformancePage() {
                   const gain = Math.max(0, p.alphaTokens * peak - p.amountUsd);
                   return sum + (gain / p.amountUsd) * 100;
                 }, 0) / active.length;
-                return { date: h.date, totalValue: Math.round((100 + avgPct) * 100) / 100 };
+                runningMax = Math.max(runningMax, avgPct);
+                return { date: h.date, totalValue: Math.round((100 + runningMax) * 100) / 100 };
               });
               return (
                 <div className="bg-gray-900/70 border border-gray-800 rounded-xl p-5">
                   <div className="flex items-center justify-between mb-4">
                     <div>
-                      <div className="text-xs text-gray-500 uppercase tracking-wider">Avg Peak Return — Mature Picks</div>
-                      <div className="text-xs text-gray-600 mt-0.5">Positions held {MATURITY_DAYS}+ days · peak price only goes up</div>
+                      <div className="text-xs text-gray-500 uppercase tracking-wider">Best Avg Peak Return — Mature Picks</div>
+                      <div className="text-xs text-gray-600 mt-0.5">Equal-weighted avg across positions held {MATURITY_DAYS}+ days · all-time high</div>
                     </div>
                   </div>
                   <PortfolioChart history={maxHistory} costBasis={100} />
