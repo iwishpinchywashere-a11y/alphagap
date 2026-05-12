@@ -77,7 +77,7 @@ function PortfolioChart({ history, costBasis }: { history: { date: string; total
 
 const POSITION_SIZE = 1000; // display as $1000 per position (10× stored $100 values)
 const PM = 10; // multiplier: stored values are $100-based, display as $1000-based
-const MATURITY_DAYS = 45; // positions younger than this are "still developing" — excluded from headline stats and chart
+const MATURITY_DAYS = 30; // positions younger than this are "still developing" — excluded from headline stats and chart
 const HIT_THRESHOLD_PCT = 100; // 2×+ return = a "hit"
 
 export default function PerformancePage() {
