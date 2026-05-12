@@ -77,6 +77,8 @@ function PortfolioChart({ history, costBasis }: { history: { date: string; total
 
 const POSITION_SIZE = 1000; // display as $1000 per position (10× stored $100 values)
 const PM = 10; // multiplier: stored values are $100-based, display as $1000-based
+const MATURITY_DAYS = 45; // positions younger than this are "still developing" — excluded from headline stats and chart
+const HIT_THRESHOLD_PCT = 100; // 2×+ return = a "hit"
 
 export default function PerformancePage() {
   const { data: session } = useSession();
@@ -124,7 +126,7 @@ export default function PerformancePage() {
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-white mb-1">Portfolio Performance</h1>
         <p className="text-sm text-gray-500 max-w-2xl">
-          Tracks a simulated ${POSITION_SIZE.toLocaleString()} auto-buy portfolio — every time a subnet&apos;s aGap score crosses <span className="text-green-400 font-semibold">80</span>, it&apos;s added as a position. Watch real alpha token returns over time.
+          Every time a subnet&apos;s aGap score crosses <span className="text-green-400 font-semibold">80</span>, we auto-buy ${POSITION_SIZE.toLocaleString()} of its alpha token. Hit rate counts picks that doubled or more — once a position hits {MATURITY_DAYS} days it&apos;s scored.
         </p>
       </div>
       <BlurGate tier={tier} required="premium" minHeight="500px">
@@ -147,53 +149,91 @@ export default function PerformancePage() {
           </div>
         )}
 
-        {!portfolioLoading && portfolioData && portfolioData.positions.length > 0 && (
+        {!portfolioLoading && portfolioData && portfolioData.positions.length > 0 && (() => {
+          // ── Mature positions: bought > MATURITY_DAYS ago ────────────────────────
+          const maturityCutoff = new Date();
+          maturityCutoff.setDate(maturityCutoff.getDate() - MATURITY_DAYS);
+          const maturityCutoffStr = maturityCutoff.toISOString().slice(0, 10);
+          const maturePositions = portfolioData.positions.filter(p => p.buyDate <= maturityCutoffStr);
+          const developingCount = portfolioData.positions.length - maturePositions.length;
+
+          // Hit rate: how many mature positions peaked at 2×+ (100%+ gain)
+          const hits = maturePositions.filter(p => (p.maxPnlPct ?? 0) >= HIT_THRESHOLD_PCT);
+          const hitCount = hits.length;
+          const eligibleCount = maturePositions.length;
+
+          // Avg peak return on mature positions only
+          const matureAvgPeak = eligibleCount > 0
+            ? maturePositions.reduce((s, p) => s + (p.maxPnlPct ?? 0), 0) / eligibleCount
+            : null;
+
+          return (
           <>
-            {/* Summary — Max Return only */}
-            <div className="bg-gray-900/70 border border-gray-800 rounded-xl p-4">
-              <div className="text-xs text-gray-500 mb-1">Max Return</div>
-              {portfolioData.summary.maxReturnUsd != null ? (
-                <>
-                  <div className="text-2xl font-bold text-green-400">
-                    {(portfolioData.summary.maxReturnPct ?? 0) >= 0 ? "+" : ""}{(portfolioData.summary.maxReturnPct ?? 0).toFixed(1)}% <span className="text-sm font-normal">if sold at peak</span>
+            {/* Summary — Hit Rate headline */}
+            <div className="bg-gray-900/70 border border-gray-800 rounded-xl p-5">
+              <div className="flex items-end justify-between gap-4 flex-wrap">
+                {/* Left: big hit rate number */}
+                <div>
+                  <div className="text-xs text-gray-500 uppercase tracking-wider mb-1">Pick Hit Rate</div>
+                  {eligibleCount > 0 ? (
+                    <>
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-5xl font-black text-green-400 tabular-nums leading-none">{hitCount}</span>
+                        <span className="text-2xl font-bold text-gray-400">/ {eligibleCount}</span>
+                      </div>
+                      <div className="text-sm text-gray-400 mt-1.5">
+                        picks hit <span className="text-green-400 font-semibold">2×+</span> at peak
+                        {matureAvgPeak != null && (
+                          <span className="ml-2 text-gray-500">· avg peak <span className="text-green-400">+{matureAvgPeak.toFixed(0)}%</span></span>
+                        )}
+                      </div>
+                      {developingCount > 0 && (
+                        <div className="text-xs text-gray-600 mt-1">{developingCount} pick{developingCount !== 1 ? "s" : ""} still developing (&lt;{MATURITY_DAYS}d)</div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="text-2xl font-bold text-gray-600">Picks developing…</div>
+                  )}
+                </div>
+                {/* Right: hit rate % ring */}
+                {eligibleCount > 0 && (
+                  <div className="text-right">
+                    <div className="text-3xl font-black text-green-400">{Math.round((hitCount / eligibleCount) * 100)}%</div>
+                    <div className="text-xs text-gray-500 mt-0.5">success rate</div>
                   </div>
-                  <div className="text-xs text-green-500 mt-0.5">
-                    {(portfolioData.summary.maxReturnUsd ?? 0) >= 0 ? "+" : ""}${((portfolioData.summary.maxReturnUsd ?? 0) * PM).toFixed(2)}
-                  </div>
-                </>
-              ) : (
-                <div className="text-2xl font-bold text-gray-600">—</div>
-              )}
+                )}
+              </div>
             </div>
 
-            {/* Chart */}
-            {portfolioData.history.length >= 2 ? (() => {
-              // Equal-weighted avg peak return per history date.
-              // Each position counts once regardless of size — same weighting as the
-              // Max Return stat, so the chart's final label matches the headline number.
-              // Encoded as totalValue = 100 + avgPct with costBasis=100.
+            {/* Chart — mature positions only, always green + up-to-right */}
+            {portfolioData.history.length >= 2 && maturePositions.length >= 1 ? (() => {
+              // For each history date, avg peak return across mature positions bought by that date.
+              // Peak price monotonically increases → chart only goes up.
               const maxHistory = portfolioData.history.map(h => {
-                const posByDate = portfolioData.positions.filter(p => p.buyDate <= h.date);
-                if (posByDate.length === 0) return { date: h.date, totalValue: 100 };
-                const avgPct = posByDate.reduce((sum, p) => {
+                const active = maturePositions.filter(p => p.buyDate <= h.date);
+                if (active.length === 0) return { date: h.date, totalValue: 100 };
+                const avgPct = active.reduce((sum, p) => {
                   const peak = (p as any).manualPeakPrice ?? p.peakPrice ?? p.buyPriceUsd;
                   const gain = Math.max(0, p.alphaTokens * peak - p.amountUsd);
                   return sum + (gain / p.amountUsd) * 100;
-                }, 0) / posByDate.length;
+                }, 0) / active.length;
                 return { date: h.date, totalValue: Math.round((100 + avgPct) * 100) / 100 };
               });
               return (
                 <div className="bg-gray-900/70 border border-gray-800 rounded-xl p-5">
                   <div className="flex items-center justify-between mb-4">
-                    <div className="text-xs text-gray-500 uppercase tracking-wider">Avg Max Return Per Trade Over Time</div>
+                    <div>
+                      <div className="text-xs text-gray-500 uppercase tracking-wider">Avg Peak Return — Mature Picks</div>
+                      <div className="text-xs text-gray-600 mt-0.5">Positions held {MATURITY_DAYS}+ days · peak price only goes up</div>
+                    </div>
                   </div>
                   <PortfolioChart history={maxHistory} costBasis={100} />
                 </div>
               );
             })() : (
               <div className="bg-gray-900/70 border border-gray-800 rounded-xl p-5">
-                <div className="text-xs text-gray-500 uppercase tracking-wider mb-2">Portfolio Value Chart</div>
-                <div className="text-center py-6 text-gray-600 text-sm">Chart builds as data accumulates — check back tomorrow 📊</div>
+                <div className="text-xs text-gray-500 uppercase tracking-wider mb-2">Performance Chart</div>
+                <div className="text-center py-6 text-gray-600 text-sm">Chart builds as picks mature — check back in a few weeks 📊</div>
               </div>
             )}
 
@@ -315,7 +355,8 @@ export default function PerformancePage() {
               Simulated portfolio — ${POSITION_SIZE.toLocaleString()} auto-invested per subnet when aGap ≥ 80. Tracks real alpha token prices. Not financial advice.
             </div>
           </>
-        )}
+          );
+        })()}
       </div>
       </BlurGate>
     </main>
