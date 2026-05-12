@@ -98,7 +98,7 @@ export default function PerformancePage() {
   function sortedPositions(positions: PortfolioData["positions"], taoPrice: number) {
     return [...positions].sort((a, b) => {
       let av = 0, bv = 0;
-      if (sortKey === "maxPnl")       { av = a.maxPnlUsd ?? -Infinity; bv = b.maxPnlUsd ?? -Infinity; }
+      if (sortKey === "maxPnl")       { av = a.maxPnlPct ?? -Infinity; bv = b.maxPnlPct ?? -Infinity; }
       if (sortKey === "agap")         { av = a.buyAGapScore; bv = b.buyAGapScore; }
       if (sortKey === "bought")       { av = new Date(a.buyDate).getTime(); bv = new Date(b.buyDate).getTime(); }
       if (sortKey === "buyPrice")     { av = a.buyPriceUsd;  bv = b.buyPriceUsd; }
