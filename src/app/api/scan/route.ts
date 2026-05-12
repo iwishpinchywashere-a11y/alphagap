@@ -2742,13 +2742,17 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
         const avgSell = sellVol / sells;
         if (avgSell > 0) {
           whaleRatio = Math.round(avgBuy / avgSell * 100) / 100;
-          if (whaleRatio >= 1.5) {
+          // Require ratio >= 2.5 AND avg buy size >= 20 TAO (~$7k) to suppress
+          // small-dollar noise where tiny $2-5k average buys trigger whale signals.
+          // The absolute floor means ratio alone isn't enough — the actual
+          // transaction size must be meaningful.
+          if (whaleRatio >= 2.5 && avgBuy >= 20) {
             whaleSignal = "accumulating";
             // Whale accumulation boost — bigger boost if dev is also high
-            if (whaleRatio >= 2.5 && devScore >= 40) whaleBoost = 16; // very strong: big buys + dev
-            else if (whaleRatio >= 2.0) whaleBoost = 12;              // strong whale accumulation
-            else whaleBoost = 7;                                        // moderate buy-side lean
-          } else if (whaleRatio <= 0.5) {
+            if (whaleRatio >= 4.0 && devScore >= 40) whaleBoost = 16; // very strong: big buys + dev
+            else if (whaleRatio >= 3.0) whaleBoost = 12;              // strong whale accumulation
+            else whaleBoost = 7;                                        // meaningful buy-side lean (2.5-3.0)
+          } else if (whaleRatio <= 0.4) {
             whaleSignal = "distributing";
             whaleBoost = -7; // whales selling = caution
           }
@@ -2768,22 +2772,25 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     // Supplement with SubnetRadar real-time large stake/unstake events (last ~30 min)
     // This catches staking conviction not visible in the DEX pool buy/sell data
     const srWhaleNet = d.srWhaleNetTao;
-    if (srWhaleNet >= 500) {
+    // SubnetRadar thresholds raised to filter out small staking moves.
+    // Old: 200/500 TAO — caused low-value staking events to flag as whale activity.
+    // New: 500/1000 TAO — only meaningful large-wallet conviction triggers a signal.
+    if (srWhaleNet >= 1000) {
       // Strong net staking-in: override to accumulating if not already distributing
       if (whaleSignal !== "distributing") {
         whaleSignal = "accumulating";
         whaleBoost = Math.min(20, whaleBoost + 8);
       }
-    } else if (srWhaleNet >= 200) {
+    } else if (srWhaleNet >= 500) {
       if (whaleSignal !== "distributing") {
         whaleSignal = "accumulating";
         whaleBoost = Math.min(20, whaleBoost + 4);
       }
-    } else if (srWhaleNet <= -500) {
+    } else if (srWhaleNet <= -1000) {
       // Heavy unstaking: flag as distributing regardless of pool signal
       whaleSignal = "distributing";
       whaleBoost = Math.max(-12, whaleBoost - 6);
-    } else if (srWhaleNet <= -200) {
+    } else if (srWhaleNet <= -500) {
       if (whaleSignal !== "accumulating") {
         whaleSignal = "distributing";
         whaleBoost = Math.max(-12, whaleBoost - 3);
@@ -2792,8 +2799,8 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
 
     // ── WHALE RATIO VELOCITY + SUSTAINED ACCUMULATION (±15 pts) ────────────────
     // Snapshot whale ratio tells us the LEVEL. Velocity tells us the TREND.
-    // A ratio climbing from 0.9 → 1.2 → 1.5 → 2.0 over 4 runs is a leading signal.
-    // SUSTAINED: ratio ≥ 1.5 for 5+ consecutive scans = smart money holding conviction —
+    // A ratio climbing from 1.5 → 2.0 → 2.5 → 3.0 over 4 runs is a leading signal.
+    // SUSTAINED: ratio ≥ 2.5 for 5+ consecutive scans = smart money holding conviction —
     // more powerful than an improving trend (which the market may already be acting on).
     // Deteriorating trend: discount the existing whaleBoost so stale signals don't over-score.
     const histEntryForVelocity = agapHistory[d.netuid] as AGapHistoryEntry | undefined;
@@ -2809,22 +2816,22 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
         else if (recent[ri] < recent[ri - 1] - 0.08) deteriorations++;
       }
 
-      // Sustained accumulation: count consecutive tail scans with ratio ≥ 1.5
+      // Sustained accumulation: count consecutive tail scans with ratio ≥ 2.5 (new threshold)
       let sustainedCount = 0;
       for (let ri = allRatioReadings.length - 1; ri >= 0; ri--) {
-        if (allRatioReadings[ri] >= 1.5) sustainedCount++;
+        if (allRatioReadings[ri] >= 2.5) sustainedCount++;
         else break;
       }
 
       if (sustainedCount >= 5) {
         // 5+ scans of consistent accumulation — smart money isn't leaving
-        whaleVelocityBonus = ratioSnapshot >= 2.0 ? 15 : 12;
+        whaleVelocityBonus = ratioSnapshot >= 3.0 ? 15 : 12;
       } else if (sustainedCount >= 3) {
         whaleVelocityBonus = 7; // 3-4 scans of sustained buying — thesis holding
-      } else if (improvements >= 3 && ratioSnapshot >= 1.2) {
+      } else if (improvements >= 3 && ratioSnapshot >= 2.0) {
         // Strong uptrend building (non-sustained) — larger bonus if ratio is already meaningful
-        whaleVelocityBonus = ratioSnapshot >= 1.8 ? 8 : 5;
-      } else if (improvements >= 2 && ratioSnapshot >= 1.0) {
+        whaleVelocityBonus = ratioSnapshot >= 3.0 ? 8 : 5;
+      } else if (improvements >= 2 && ratioSnapshot >= 1.5) {
         whaleVelocityBonus = 3; // mild uptrend forming
       } else if (deteriorations >= 3 && whaleBoost > 0) {
         // Consistently declining ratio — the accumulation thesis is weakening
