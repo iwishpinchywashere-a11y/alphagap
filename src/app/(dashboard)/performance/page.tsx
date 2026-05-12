@@ -78,7 +78,7 @@ function PortfolioChart({ history, costBasis }: { history: { date: string; total
 const POSITION_SIZE = 1000; // display as $1000 per position (10× stored $100 values)
 const PM = 10; // multiplier: stored values are $100-based, display as $1000-based
 const MATURITY_DAYS = 30; // positions younger than this are "still developing" — excluded from headline stats and chart
-const HIT_THRESHOLD_PCT = 100; // 2×+ return = a "hit"
+const HIT_THRESHOLD_PCT = 30; // 30%+ return = a "hit"
 
 export default function PerformancePage() {
   const { data: session } = useSession();
@@ -126,7 +126,7 @@ export default function PerformancePage() {
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-white mb-1">Portfolio Performance</h1>
         <p className="text-sm text-gray-500 max-w-2xl">
-          Every time a subnet&apos;s aGap score crosses <span className="text-green-400 font-semibold">80</span>, we auto-buy ${POSITION_SIZE.toLocaleString()} of its alpha token. Hit rate counts picks that doubled or more — once a position hits {MATURITY_DAYS} days it&apos;s scored.
+          Every time a subnet&apos;s aGap score crosses <span className="text-green-400 font-semibold">80</span>, we auto-buy ${POSITION_SIZE.toLocaleString()} of its alpha token. Hit rate counts picks that returned +30% or more — once a position hits {MATURITY_DAYS}+ days it&apos;s scored.
         </p>
       </div>
       <BlurGate tier={tier} required="premium" minHeight="500px">
@@ -182,7 +182,7 @@ export default function PerformancePage() {
                         <span className="text-2xl font-bold text-gray-400">/ {eligibleCount}</span>
                       </div>
                       <div className="text-sm text-gray-400 mt-1.5">
-                        picks hit <span className="text-green-400 font-semibold">2×+</span> at peak
+                        picks hit <span className="text-green-400 font-semibold">+30%+</span> at peak
                         {matureAvgPeak != null && (
                           <span className="ml-2 text-gray-500">· avg peak <span className="text-green-400">+{matureAvgPeak.toFixed(0)}%</span></span>
                         )}
