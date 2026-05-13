@@ -8,14 +8,14 @@ import BlurGate from "@/components/BlurGate";
 import { getTier } from "@/lib/subscription";
 
 // Pure SVG chart — no external deps
-// values[] is the pre-computed Y-axis numbers; formatY controls axis + endpoint labels
+// Narrower viewBox (500 wide) so text scales better on mobile screens.
 function PortfolioChart({ history, values, formatY }: {
   history: { date: string }[];
   values: number[];
   formatY: (v: number) => string;
 }) {
-  const W = 800, H = 160;
-  const PAD = { top: 12, right: 24, bottom: 28, left: 64 };
+  const W = 500, H = 180;
+  const PAD = { top: 14, right: 16, bottom: 30, left: 58 };
   const chartW = W - PAD.left - PAD.right;
   const chartH = H - PAD.top - PAD.bottom;
 
@@ -39,7 +39,7 @@ function PortfolioChart({ history, values, formatY }: {
   const lineColor = isUp ? "#4ade80" : "#f87171";
   const gradId = isUp ? "areaGreen" : "areaRed";
   const gradStop = isUp ? "#4ade80" : "#f87171";
-  const yTicks = [yMin + (yMax - yMin) * 0.1, yMin + (yMax - yMin) * 0.5, yMin + (yMax - yMin) * 0.9];
+  const yTicks = [yMin + (yMax - yMin) * 0.15, yMin + (yMax - yMin) * 0.5, yMin + (yMax - yMin) * 0.85];
   const xLabels = [0, Math.floor((history.length - 1) / 2), history.length - 1]
     .filter((i, idx, arr) => arr.indexOf(i) === idx)
     .map((i) => ({
@@ -50,26 +50,26 @@ function PortfolioChart({ history, values, formatY }: {
   const lastPt = { x: xScale(history.length - 1), y: yScale(lastV) };
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: "160px" }}>
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: "clamp(160px, 28vw, 220px)" }}>
       <defs>
         <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={gradStop} stopOpacity="0.18" />
-          <stop offset="100%" stopColor={gradStop} stopOpacity="0.01" />
+          <stop offset="0%" stopColor={gradStop} stopOpacity="0.22" />
+          <stop offset="100%" stopColor={gradStop} stopOpacity="0.02" />
         </linearGradient>
       </defs>
       {yTicks.map((v, i) => (
         <g key={i}>
           <line x1={PAD.left} y1={yScale(v).toFixed(1)} x2={PAD.left + chartW} y2={yScale(v).toFixed(1)} stroke="#1f2937" strokeWidth="1" />
-          <text x={PAD.left - 6} y={(yScale(v) + 4).toFixed(1)} fill="#6b7280" fontSize="10" textAnchor="end">{formatY(v)}</text>
+          <text x={PAD.left - 6} y={(yScale(v) + 4).toFixed(1)} fill="#6b7280" fontSize="13" textAnchor="end">{formatY(v)}</text>
         </g>
       ))}
       <polygon points={areaPoints} fill={`url(#${gradId})`} />
-      <polyline points={polyPoints} fill="none" stroke={lineColor} strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
+      <polyline points={polyPoints} fill="none" stroke={lineColor} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
       {xLabels.map((l, i) => (
-        <text key={i} x={l.x.toFixed(1)} y={H - 6} fill="#6b7280" fontSize="10" textAnchor="middle">{l.label}</text>
+        <text key={i} x={l.x.toFixed(1)} y={H - 7} fill="#6b7280" fontSize="13" textAnchor="middle">{l.label}</text>
       ))}
       <circle cx={lastPt.x.toFixed(1)} cy={lastPt.y.toFixed(1)} r="4" fill={lineColor} />
-      <text x={(lastPt.x - 4).toFixed(1)} y={(lastPt.y - 8).toFixed(1)} fill={lineColor} fontSize="11" fontWeight="bold" textAnchor="end">
+      <text x={(lastPt.x - 6).toFixed(1)} y={(lastPt.y - 9).toFixed(1)} fill={lineColor} fontSize="14" fontWeight="bold" textAnchor="end">
         {formatY(lastV)}
       </text>
     </svg>
@@ -172,43 +172,86 @@ export default function PerformancePage() {
             ? maturePositions.reduce((s, p) => s + (p.maxPnlPct ?? 0), 0) / eligibleCount
             : null;
 
+          // Best single pick by peak %
+          const bestPick = maturePositions.reduce((best, p) =>
+            (p.maxPnlPct ?? 0) > (best?.maxPnlPct ?? 0) ? p : best,
+            maturePositions[0] ?? null
+          );
+          // Total peak profit across all positions (normalized)
+          const totalPeakProfit = portfolioData.positions.reduce(
+            (s, p) => s + normDollar(p.maxPnlUsd ?? 0, p.amountUsd), 0
+          );
+          const formatDollarKM = (v: number) =>
+            `${v >= 0 ? "+" : "-"}$${Math.abs(v) >= 1000
+              ? (Math.abs(v) / 1000).toFixed(1) + "k"
+              : Math.abs(v).toFixed(0)}`;
+
           return (
           <>
-            {/* Summary — Hit Rate headline */}
-            <div className="bg-gray-900/70 border border-gray-800 rounded-xl p-5">
-              <div className="flex items-end justify-between gap-4 flex-wrap">
-                {/* Left: big hit rate number */}
-                <div>
-                  <div className="text-xs text-gray-500 uppercase tracking-wider mb-1">Pick Hit Rate</div>
-                  {eligibleCount > 0 ? (
-                    <>
-                      <div className="flex items-baseline gap-2">
-                        <span className="text-5xl font-black text-green-400 tabular-nums leading-none">{hitCount}</span>
-                        <span className="text-2xl font-bold text-gray-400">/ {eligibleCount}</span>
-                      </div>
-                      <div className="text-sm text-gray-400 mt-1.5">
-                        picks hit <span className="text-green-400 font-semibold">+30%+</span> at peak
-                        {matureAvgPeak != null && (
-                          <span className="ml-2 text-gray-500">· avg peak <span className="text-green-400">+{matureAvgPeak.toFixed(0)}%</span></span>
-                        )}
-                      </div>
-                      {developingCount > 0 && (
-                        <div className="text-xs text-gray-600 mt-1">{developingCount} pick{developingCount !== 1 ? "s" : ""} still developing (&lt;{MATURITY_DAYS}d)</div>
-                      )}
-                    </>
-                  ) : (
-                    <div className="text-2xl font-bold text-gray-600">Picks developing…</div>
-                  )}
-                </div>
-                {/* Right: hit rate % ring */}
-                {eligibleCount > 0 && (
-                  <div className="text-right">
-                    <div className="text-3xl font-black text-green-400">{Math.round((hitCount / eligibleCount) * 100)}%</div>
-                    <div className="text-xs text-gray-500 mt-0.5">success rate</div>
-                  </div>
+            {/* ── KPI grid: 2×2 on mobile, 4 across on desktop ── */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              {/* Hit Rate */}
+              <div className="bg-gray-900/70 border border-gray-800 rounded-xl p-4">
+                <div className="text-xs text-gray-500 uppercase tracking-wider mb-2">Hit Rate</div>
+                {eligibleCount > 0 ? (
+                  <>
+                    <div className="flex items-baseline gap-1.5">
+                      <span className="text-4xl font-black text-green-400 tabular-nums leading-none">{hitCount}</span>
+                      <span className="text-xl font-bold text-gray-500">/ {eligibleCount}</span>
+                    </div>
+                    <div className="text-xs text-gray-500 mt-1.5">picks hit +{HIT_THRESHOLD_PCT}%+ at peak</div>
+                  </>
+                ) : (
+                  <div className="text-lg font-bold text-gray-600 mt-1">Developing…</div>
                 )}
               </div>
+
+              {/* Success Rate */}
+              <div className="bg-gray-900/70 border border-gray-800 rounded-xl p-4">
+                <div className="text-xs text-gray-500 uppercase tracking-wider mb-2">Success Rate</div>
+                {eligibleCount > 0 ? (
+                  <>
+                    <div className="text-4xl font-black text-green-400 leading-none">
+                      {Math.round((hitCount / eligibleCount) * 100)}%
+                    </div>
+                    <div className="text-xs text-gray-500 mt-1.5">of scored picks</div>
+                  </>
+                ) : (
+                  <div className="text-lg font-bold text-gray-600 mt-1">—</div>
+                )}
+              </div>
+
+              {/* Avg Peak Return */}
+              <div className="bg-gray-900/70 border border-gray-800 rounded-xl p-4">
+                <div className="text-xs text-gray-500 uppercase tracking-wider mb-2">Avg Peak Return</div>
+                {matureAvgPeak != null ? (
+                  <>
+                    <div className="text-4xl font-black text-green-400 leading-none">
+                      +{matureAvgPeak.toFixed(0)}%
+                    </div>
+                    <div className="text-xs text-gray-500 mt-1.5">across {eligibleCount} scored picks</div>
+                  </>
+                ) : (
+                  <div className="text-lg font-bold text-gray-600 mt-1">—</div>
+                )}
+              </div>
+
+              {/* Peak Profit */}
+              <div className="bg-gray-900/70 border border-gray-800 rounded-xl p-4">
+                <div className="text-xs text-gray-500 uppercase tracking-wider mb-2">Peak Profit</div>
+                <div className="text-4xl font-black text-green-400 leading-none">
+                  {formatDollarKM(totalPeakProfit)}
+                </div>
+                <div className="text-xs text-gray-500 mt-1.5">
+                  {bestPick ? `best: ${bestPick.name} +${(bestPick.maxPnlPct ?? 0).toFixed(0)}%` : "if sold at highs"}
+                </div>
+              </div>
             </div>
+            {developingCount > 0 && (
+              <div className="text-xs text-gray-600 -mt-1 px-1">
+                {developingCount} pick{developingCount !== 1 ? "s" : ""} still developing (&lt;{MATURITY_DAYS}d) · not yet scored
+              </div>
+            )}
 
             {/* Chart — cumulative max profit in dollars.
                  Each position's maxPnlUsd (peak-price gain, never decreases) is
@@ -252,27 +295,22 @@ export default function PerformancePage() {
 
               const totalMaxPnl = buyPoints[buyPoints.length - 1]?.cum ?? 0;
 
-              const formatDollar = (v: number) =>
-                `${v >= 0 ? "+" : "-"}$${Math.abs(v) >= 1000
-                  ? (Math.abs(v) / 1000).toFixed(1) + "k"
-                  : Math.abs(v).toFixed(0)}`;
-
               return (
-                <div className="bg-gray-900/70 border border-gray-800 rounded-xl p-5">
-                  <div className="flex items-center justify-between mb-4">
+                <div className="bg-gray-900/70 border border-gray-800 rounded-xl p-4 md:p-5">
+                  <div className="flex items-start justify-between mb-3 md:mb-4 gap-3">
                     <div>
                       <div className="text-xs text-gray-500 uppercase tracking-wider">Cumulative Max Profit</div>
-                      <div className="text-xs text-gray-600 mt-0.5">Total profit if every pick sold at its all-time high · never goes down</div>
+                      <div className="text-xs text-gray-600 mt-0.5">Total if every pick sold at its all-time high · never goes down</div>
                     </div>
-                    <div className="text-right">
-                      <div className="text-2xl font-black text-green-400">{formatDollar(totalMaxPnl)}</div>
+                    <div className="text-right shrink-0">
+                      <div className="text-3xl font-black text-green-400">{formatDollarKM(totalMaxPnl)}</div>
                       <div className="text-xs text-gray-500">peak total</div>
                     </div>
                   </div>
                   <PortfolioChart
                     history={chartData}
                     values={chartData.map(h => h.cum)}
-                    formatY={formatDollar}
+                    formatY={formatDollarKM}
                   />
                 </div>
               );
