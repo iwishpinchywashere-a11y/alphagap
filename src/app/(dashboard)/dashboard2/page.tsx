@@ -611,7 +611,7 @@ export default function LeaderboardPage() {
                   <div className="flex items-center gap-2">
                     <span className="text-base">⚙️</span>
                     <span className="text-sm font-bold text-white">Custom Formula Builder</span>
-                    <span className="text-xs text-gray-500">— assign weights to each signal (must total 100%)</span>
+                    <span className="text-xs text-gray-400">— assign weights to each signal (must total 100%)</span>
                   </div>
                   <div className="flex items-center gap-3">
                     <span className={`text-xs font-bold tabular-nums ${
@@ -650,7 +650,7 @@ export default function LeaderboardPage() {
                       <span>{preset.name}</span>
                     </button>
                   ))}
-                  <span className="text-[10px] text-gray-600 self-center ml-1">← load a preset to start</span>
+                  <span className="text-xs text-gray-400 self-center ml-1">← load a preset to start</span>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4">
@@ -661,7 +661,7 @@ export default function LeaderboardPage() {
                         <div className="flex items-center justify-between">
                           <div>
                             <span className="text-xs font-semibold text-gray-200">{label}</span>
-                            <span className="text-[10px] text-gray-600 ml-1.5">{desc}</span>
+                            <span className="text-xs text-gray-400 ml-1.5">{desc}</span>
                           </div>
                           <div className="flex items-center gap-1">
                             <button
@@ -693,10 +693,10 @@ export default function LeaderboardPage() {
                 <div className="mt-5 pt-4 border-t border-gray-800/60">
                   <div className="flex items-center gap-2 mb-1">
                     <span className="text-xs font-bold text-amber-400">⚡ Gap Bonuses</span>
-                    <span className="text-[10px] text-gray-500">— reward signal combinations, stack on top of your base formula</span>
+                    <span className="text-xs text-gray-400">— reward signal combinations, stack on top of your base formula</span>
                   </div>
-                  <p className="text-[10px] text-gray-600 mb-4 leading-relaxed">
-                    Each bonus fires when two signals align (e.g. Dev is high but Flow is low). Max <span className="text-gray-400">+30 pts</span> per bonus. A coefficient of 0–1 scales the bonus automatically based on how strongly the combo is present — so a subnet perfectly matching the condition scores the full intensity.
+                  <p className="text-xs text-gray-400 mb-4 leading-relaxed">
+                    Each bonus fires when two signals align (e.g. Dev is high but Flow is low). Max <span className="text-gray-300 font-medium">+30 pts</span> per bonus — scales automatically based on how strongly the combo is present.
                   </p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
                     {GAP_BONUS_FIELDS.map(({ key, emoji, label, desc, triggerA, triggerB }) => {
@@ -705,9 +705,9 @@ export default function LeaderboardPage() {
                         <div key={key} className="flex flex-col gap-1.5">
                           <div className="flex items-center justify-between">
                             <div>
-                              <span className="text-xs font-semibold text-amber-300/90">{emoji} {label}</span>
-                              <span className="text-[10px] text-gray-600 ml-1.5">{desc}</span>
-                              <div className="text-[9px] text-gray-700 mt-0.5">fires when: <span className="text-green-600">{triggerA}</span> + <span className="text-red-700">{triggerB}</span></div>
+                              <span className="text-xs font-semibold text-amber-300">{emoji} {label}</span>
+                              <span className="text-xs text-gray-400 ml-1.5">{desc}</span>
+                              <div className="text-xs text-gray-500 mt-0.5">fires when: <span className="text-green-400">{triggerA}</span> + <span className="text-red-400">{triggerB}</span></div>
                             </div>
                             <div className="flex items-center gap-1 shrink-0">
                               <button
@@ -737,7 +737,7 @@ export default function LeaderboardPage() {
                 </div>
 
                 <div className="mt-4 pt-3 border-t border-gray-800 flex items-center justify-between gap-3 flex-wrap">
-                  <div className="text-xs text-gray-500">
+                  <div className="text-xs text-gray-400">
                     {totalWeight === 0
                       ? "Start by assigning weights above. Each slider represents how much that signal contributes to your custom aGap score."
                       : totalWeight < 100
