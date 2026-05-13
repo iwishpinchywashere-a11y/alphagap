@@ -262,6 +262,39 @@ export default function LeaderboardPage() {
     { key: "emChange", label: "Em Δ", desc: "Emission change trend" },
   ];
 
+  const PRESETS: { name: string; emoji: string; desc: string; weights: CustomWeights }[] = [
+    {
+      name: "Momentum",
+      emoji: "⚡",
+      desc: "Velocity + flow + emission signals",
+      weights: { velo:30, flow:30, dev:0, evalW:0, prod:0, soc:0, aud:0, emPct:25, emChange:15 },
+    },
+    {
+      name: "Deep Value",
+      emoji: "🔬",
+      desc: "Dev + product + audit health",
+      weights: { velo:0, flow:0, dev:40, evalW:0, prod:35, soc:0, aud:25, emPct:0, emChange:0 },
+    },
+    {
+      name: "Buzz",
+      emoji: "📢",
+      desc: "Social + velocity + flow",
+      weights: { velo:30, flow:30, dev:0, evalW:0, prod:0, soc:40, aud:0, emPct:0, emChange:0 },
+    },
+    {
+      name: "TAO Flow",
+      emoji: "🌊",
+      desc: "eVal + emission % + emission change",
+      weights: { velo:0, flow:0, dev:0, evalW:45, prod:0, soc:0, aud:0, emPct:30, emChange:25 },
+    },
+    {
+      name: "Conviction",
+      emoji: "💎",
+      desc: "Dev + product + audit + eVal — fundamentals only",
+      weights: { velo:0, flow:0, dev:30, evalW:10, prod:30, soc:0, aud:20, emPct:5, emChange:5 },
+    },
+  ];
+
   return (
     <main className="flex-1 flex overflow-x-hidden">
       {/* Refreshes session 3s after returning from Stripe payment */}
@@ -559,6 +592,22 @@ export default function LeaderboardPage() {
                       ✕
                     </button>
                   </div>
+                </div>
+
+                {/* Preset buttons */}
+                <div className="flex flex-wrap gap-2 mb-4 pb-4 border-b border-gray-800">
+                  {PRESETS.map(preset => (
+                    <button
+                      key={preset.name}
+                      onClick={() => setCustomWeights(preset.weights)}
+                      title={preset.desc}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 border border-gray-700 hover:border-blue-500/50 text-xs font-semibold text-gray-300 hover:text-white transition-all"
+                    >
+                      <span>{preset.emoji}</span>
+                      <span>{preset.name}</span>
+                    </button>
+                  ))}
+                  <span className="text-[10px] text-gray-600 self-center ml-1">← load a preset to start</span>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4">
