@@ -290,7 +290,7 @@ export default function AuditsPage() {
   }, [sessionStatus, isPremium]);
 
   // Placeholder rows shown blurred to non-premium users
-  const base = { grade: "B" as const, activeMinerPct: 70, trustGini: 0.3, emissionPercent: 1.2, emissionEmaPct: 1.1, marketCap: null, inflow: null, outflow: null, updatedAt: "" };
+  const base = { grade: "B" as const, activeMinerPct: 70, trustGini: 0.3, emissionPercent: 1.2, emissionEmaPct: 1.1, marketCap: null, inflow: null, outflow: null, updatedAt: "", avgVTrust: null };
   const PREVIEW_ROWS: SubnetAudit[] = [
     { ...base, netuid: 1,  name: "Apex",         grade: "A", operationalScore: 84, nakamotoCoefficient: 12, hhiNormalized: 0.11, top10Share: 0.42, burnedEmissionPct: 0,   emissionChainBuysPct: 6.2,  holdersCount: 4821, taoInPool: 18400, staleValidatorPct: 4,  staleValidatorCount: 0, zeroIncentiveMinerPct: 18, zeroIncentiveMinerCount: 9,  validatorCount: 18, minerCount: 50, maxWeightLagBlocks: 200,  top3ValidatorTrustShare: 38, flags: [] },
     { ...base, netuid: 4,  name: "Targon",        grade: "B", operationalScore: 78, nakamotoCoefficient: 9,  hhiNormalized: 0.18, top10Share: 0.51, burnedEmissionPct: 0,   emissionChainBuysPct: 4.1,  holdersCount: 3102, taoInPool: 11200, staleValidatorPct: 8,  staleValidatorCount: 1, zeroIncentiveMinerPct: 22, zeroIncentiveMinerCount: 11, validatorCount: 12, minerCount: 50, maxWeightLagBlocks: 400,  top3ValidatorTrustShare: 44, flags: [] },
@@ -428,6 +428,8 @@ export default function AuditsPage() {
                   <ColHeader label="ZI Miners%" sub="zero incentive"
                     tooltip="Percentage of registered miners currently receiving zero incentive. High values mean many registered miners aren't contributing useful work, wasting network slots."
                     onClick={() => handleSort("ziMiners")} sorted={sortKey === "ziMiners"} />
+                  <ColHeader label="VTrust" sub="validator align"
+                    tooltip="Average validator trust score (0–1.0) across all validators. Measures how aligned each validator's weight-setting is with the honest stake-weighted majority. 1.0 = perfect consensus. Low VTrust means validators disagree on which miners are good — often a sign of manipulation, spam, or poor coordination." />
 
                 </tr>
               </thead>
@@ -598,6 +600,20 @@ export default function AuditsPage() {
                           dir="low_good"
                           thresholds={[40, 80]}
                         />
+                      </td>
+
+                      {/* VTrust — avg validator trust alignment */}
+                      <td className="px-2.5 py-3 text-right">
+                        {audit.avgVTrust != null ? (
+                          <CellVal
+                            value={audit.avgVTrust.toFixed(2)}
+                            raw={audit.avgVTrust}
+                            dir="high_good"
+                            thresholds={[0.5, 0.8]}
+                          />
+                        ) : (
+                          <span className="text-gray-600 text-sm">—</span>
+                        )}
                       </td>
 
                     </tr>

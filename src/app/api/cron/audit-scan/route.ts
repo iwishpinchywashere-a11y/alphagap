@@ -62,6 +62,7 @@ export interface SubnetAudit {
   // ── Metagraph: trust / collusion ─────────────────────────────────
   trustGini: number;
   top3ValidatorTrustShare: number;
+  avgVTrust: number | null;        // avg validator_trust across validators (0–1); 1.0 = perfect honest consensus
 
   // ── TaoSwap: decentralisation ────────────────────────────────────
   nakamotoCoefficient: number;         // min validators to control network
@@ -247,6 +248,7 @@ function computeAudit(
   let activeMinerPct          = 0;
   let trustGiniVal            = 0;
   let top3ValidatorTrustShare = 0;
+  let avgVTrustVal: number | null = null;
 
   if (hasNeuronData) {
     validators = neurons.filter(n => n.validator_permit);
@@ -281,6 +283,12 @@ function computeAudit(
     const top3Dividends         = sortedDividends.slice(0, 3).reduce((s, t) => s + t, 0);
     top3ValidatorTrustShare     = totalDividends > 0
       ? Math.round((top3Dividends / totalDividends) * 100) : 0;
+
+    // Average VTrust — how aligned validators are with the honest stake-weighted majority
+    const vtrustVals = validators.map(v => parseFloat(v.validator_trust || "0")).filter(v => !isNaN(v));
+    avgVTrustVal = vtrustVals.length > 0
+      ? Math.round(vtrustVals.reduce((s, v) => s + v, 0) / vtrustVals.length * 100) / 100
+      : null;
   }
 
   // ── Weighted composite score ──────────────────────────────────────
@@ -393,6 +401,7 @@ function computeAudit(
     zeroIncentiveMinerCount, zeroIncentiveMinerPct, activeMinerPct,
     trustGini: Math.round(trustGiniVal * 100) / 100,
     top3ValidatorTrustShare,
+    avgVTrust: avgVTrustVal,
     nakamotoCoefficient, hhiNormalized,
     top10Share: Math.round(top10Share * 1000) / 1000,
     burnedEmissionPct: Math.round((burnedEmissionPct ?? 0) * 10) / 10,

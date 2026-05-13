@@ -325,6 +325,7 @@ interface LeaderboardEntry {
   score_delta_24h?: number;      // Raw aGap score change in last 24h (signed, e.g. +4.2 or -1.8)
   const_buy_tao?: number;        // TAO Const staked into this subnet in current SR window
   const_sell_tao?: number;       // TAO Const unstaked from this subnet in current SR window
+  regs_burned_24h?: number;      // TAO burned on neuron registrations in last 24h (0 = none)
 }
 
 // ── Stitch3 campaign data (cached in Vercel Blob) ────────────────
@@ -3348,6 +3349,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
       loc_30d: githubScanMap.get(d.netuid)?.loc_30d,
       const_buy_tao: constBuyMap.get(d.netuid) ?? undefined,
       const_sell_tao: constSellMap.get(d.netuid) ?? undefined,
+      regs_burned_24h: d.regsBurned24h > 0 ? d.regsBurned24h : undefined,
     });
   }
 
@@ -3879,7 +3881,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     .catch(() => { /* non-critical */ });
 
   // Bump this when leaderboard schema changes (forces dashboard to rescan instead of using stale blob)
-  const SCAN_SCHEMA_VERSION = 20; // v20: revenue-scaled awareness/price gap bonuses — low ARR subnets capped below 100
+  const SCAN_SCHEMA_VERSION = 21; // v21: added regs_burned_24h (neuron registration burn) to leaderboard entries
 
   const responseData = {
     schema_version: SCAN_SCHEMA_VERSION,

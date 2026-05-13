@@ -34,7 +34,7 @@ function StrengthBar({ value }: { value: number }) {
 interface FlowEvent {
   netuid: number;
   name: string;
-  type: "accumulating" | "distributing" | "volume_surge" | "flow_spike" | "flow_inflection" | "flow_warning" | "yield_spike" | "yield_dip";
+  type: "accumulating" | "distributing" | "volume_surge" | "flow_spike" | "flow_inflection" | "flow_warning" | "yield_spike" | "yield_dip" | "registration_spike";
   strength: number;
   headline: string;
   detail: string;
@@ -372,7 +372,7 @@ export default function FlowPage() {
     const filtered =
       filter === "const"         ? [...constAsFlowEvents, ...all.filter(e => e.isConstEvent && !constAsFlowEvents.includes(e))] :
       filter === "all" ? all :
-      filter === "accumulating"  ? all.filter(e => e.type === "accumulating" || e.type === "flow_inflection" || e.type === "flow_spike") :
+      filter === "accumulating"  ? all.filter(e => e.type === "accumulating" || e.type === "flow_inflection" || e.type === "flow_spike" || e.type === "registration_spike") :
       filter === "distributing"  ? all.filter(e => e.type === "distributing" || e.type === "flow_warning") :
       filter === "volume"        ? all.filter(e => e.type === "volume_surge") :
       filter === "yield"         ? all.filter(e => e.type === "yield_spike" || e.type === "yield_dip") :
@@ -563,16 +563,21 @@ function FlowCard({
   onClick: () => void;
 }) {
   const isYield   = ev.type === "yield_spike" || ev.type === "yield_dip";
-  const isPositive = ev.type === "accumulating" || ev.type === "volume_surge" || ev.type === "flow_inflection" || ev.type === "flow_spike" || ev.type === "yield_spike";
+  const isRegSpike = ev.type === "registration_spike";
+  const isPositive = ev.type === "accumulating" || ev.type === "volume_surge" || ev.type === "flow_inflection" || ev.type === "flow_spike" || ev.type === "yield_spike" || isRegSpike;
   const isNegative = ev.type === "distributing" || ev.type === "flow_warning" || ev.type === "yield_dip";
 
-  const borderColor = isYield
+  const borderColor = isRegSpike
+    ? "border-purple-500/25"
+    : isYield
     ? isPositive ? "border-lime-500/25" : "border-orange-500/20"
     : isPositive
     ? ev.type === "volume_surge" ? "border-yellow-500/25" : "border-cyan-500/25"
     : isNegative ? "border-red-500/20" : "border-purple-500/20";
 
-  const accentColor = isYield
+  const accentColor = isRegSpike
+    ? "bg-purple-400/60"
+    : isYield
     ? isPositive ? "bg-lime-400/60" : "bg-orange-400/50"
     : isPositive
     ? ev.type === "volume_surge" ? "bg-yellow-400/60" : "bg-cyan-400/60"

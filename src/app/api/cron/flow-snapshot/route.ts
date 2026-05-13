@@ -71,6 +71,7 @@ interface LeaderboardEntry {
   apy_1h?: number | null;
   apy_7d?: number | null;
   apy_30d?: number | null;
+  regs_burned_24h?: number | null; // TAO burned on neuron registrations in 24h
 }
 
 interface ScanLatest {
@@ -86,7 +87,8 @@ export interface PersistedFlowEvent {
     | "distributing"
     | "volume_surge"
     | "yield_spike"
-    | "yield_dip";
+    | "yield_dip"
+    | "registration_spike";
   strength: number;
   headline: string;
   detail: string;
@@ -283,6 +285,33 @@ function buildEvents(
           detectedAt,
         });
       }
+    }
+
+    // ── Registration spike ─────────────────────────────────────
+    if (sub.regs_burned_24h != null && sub.regs_burned_24h >= 0.5) {
+      const tao = sub.regs_burned_24h;
+      const usd = taoPrice != null ? tao * taoPrice : null;
+      // strength scales: 0.5 TAO = 55, 2 TAO = 70, 5 TAO = 85, 10+ TAO = 95
+      const strength = Math.round(
+        Math.min(95, 50 + Math.log10(tao / 0.5 + 1) * 40)
+      );
+      const level = tao >= 5 ? "heavy" : tao >= 2 ? "significant" : "notable";
+      out.push({
+        netuid: sub.netuid,
+        name,
+        type: "registration_spike",
+        strength,
+        headline: `${tao.toFixed(2)} TAO burned registering new miners in 24h`,
+        detail: usd != null
+          ? `$${fmt(Math.round(usd))} spent locking in miner slots · New miners competing = active network demand. ${level.charAt(0).toUpperCase() + level.slice(1)} registration activity.`
+          : `${tao.toFixed(2)} TAO burned on neuron registrations · New miners joining = active network demand. ${level.charAt(0).toUpperCase() + level.slice(1)} registration activity.`,
+        badge: "⛏️ MINER RUSH",
+        badgeColor: "bg-purple-500/20 text-purple-300 border-purple-500/30",
+        price: sub.alpha_price ?? undefined,
+        change24h: sub.price_change_24h ?? undefined,
+        dayKey,
+        detectedAt,
+      });
     }
   }
 

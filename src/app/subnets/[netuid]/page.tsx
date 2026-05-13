@@ -945,14 +945,12 @@ export default function SubnetDetailPage({ params }: { params: Promise<{ netuid:
                   { label: "Dev", data: devSeries, color: "#60a5fa", current: dev },
                   { label: "eVal", data: evalSeries, color: "#a78bfa", current: evalScore },
                   { label: "Social", data: socialSeries, color: "#22d3ee", current: social },
-                  { label: "Emission %", data: emissionSeries, color: "#f59e0b", current: emissionPct * 100,
-                    formatY: (v: number) => `${v.toFixed(2)}%` },
-                ].map(({ label, data: d, color, current: cur, formatY }) => (
+                ].map(({ label, data: d, color, current: cur, formatY }: { label: string; data: { x: string; y: number }[]; color: string; current: number; formatY?: (v: number) => string }) => (
                   <div key={label} className="bg-gray-900/60 border border-gray-800 rounded-xl p-3">
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-xs text-gray-500 uppercase tracking-wide">{label}</span>
-                      <span className={`text-lg font-bold tabular-nums ${label !== "Emission %" ? scoreColor(cur) : "text-yellow-400"}`}>
-                        {label === "Emission %" ? `${(cur).toFixed(2)}%` : Math.round(cur)}
+                      <span className={`text-lg font-bold tabular-nums ${scoreColor(cur)}`}>
+                        {formatY ? formatY(cur) : Math.round(cur)}
                       </span>
                     </div>
                     <ScoreChart data={d} color={color} label={label} formatY={formatY} />
@@ -988,6 +986,45 @@ export default function SubnetDetailPage({ params }: { params: Promise<{ netuid:
               </div>
               <TaoFlowChart allData={data.flowHistory ?? []} />
             </div>
+
+            {/* ── Emission Trajectory ─────────────────────────────── */}
+            {emissionSeries.length > 0 && (
+              <div className="bg-gray-900/60 border border-amber-500/20 rounded-xl p-4">
+                <div className="flex items-start justify-between mb-1">
+                  <div>
+                    <h2 className="text-sm font-semibold text-gray-300 uppercase tracking-wider">Emission Trajectory</h2>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      This subnet&apos;s share of total TAO emissions over time. Rising emissions = network is rewarding this subnet more heavily — often a leading indicator of price action.
+                    </p>
+                  </div>
+                  <div className="text-right flex-shrink-0 ml-4">
+                    <span className="text-2xl font-bold tabular-nums text-amber-400">
+                      {(emissionPct * 100).toFixed(2)}%
+                    </span>
+                    {emissionSeries.length >= 2 && (() => {
+                      const prev = emissionSeries[emissionSeries.length - 2]?.y ?? 0;
+                      const curr = emissionSeries[emissionSeries.length - 1]?.y ?? 0;
+                      const delta = curr - prev;
+                      if (Math.abs(delta) < 0.001) return null;
+                      return (
+                        <div className={`text-xs font-medium tabular-nums mt-0.5 ${delta > 0 ? "text-green-400" : "text-red-400"}`}>
+                          {delta > 0 ? "▲" : "▼"} {Math.abs(delta).toFixed(3)}% vs last scan
+                        </div>
+                      );
+                    })()}
+                    <div className="text-xs text-gray-600 mt-0.5">current allocation</div>
+                  </div>
+                </div>
+                <div className="mt-3">
+                  <ScoreChart
+                    data={emissionSeries}
+                    color="#f59e0b"
+                    label="Emission %"
+                    formatY={(v) => `${v.toFixed(2)}%`}
+                  />
+                </div>
+              </div>
+            )}
 
             {/* Description */}
             {(data.identity?.summary || data.identity?.description) && (
