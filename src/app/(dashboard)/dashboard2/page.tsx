@@ -101,7 +101,10 @@ export default function LeaderboardPage() {
   const [filterDeregWatch, setFilterDeregWatch] = useState(false);
   const [filterCategory, setFilterCategory] = useState<string>("");
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [timeHorizon, setTimeHorizon] = useState<"trading" | "investing">("trading");
+  type CustomWeights = { velo: number; flow: number; dev: number; evalW: number; prod: number; soc: number; aud: number; emPct: number; emChange: number };
+  const [customWeights, setCustomWeights] = useState<CustomWeights>({ velo:0, flow:0, dev:0, evalW:0, prod:0, soc:0, aud:0, emPct:0, emChange:0 });
+  const [showCustomEditor, setShowCustomEditor] = useState(false);
+  const [timeHorizon, setTimeHorizon] = useState<"trading" | "investing" | "custom">("trading");
   const [showInvestingGate, setShowInvestingGate] = useState(false);
   const isPremium = canAccessPremium(tier);
   const { isWatched, watchlist } = useWatchlist();
@@ -162,9 +165,34 @@ export default function LeaderboardPage() {
     };
   }, [leaderboard.length]);
 
+  // Normalise emission fields to 0-100 for custom formula
+  const maxEmPct = Math.max(...leaderboard.map(s => s.emission_pct ?? 0), 0.001);
+  const minEmChange = Math.min(...leaderboard.map(s => s.emission_change_pct ?? 0), 0);
+  const maxEmChange = Math.max(...leaderboard.map(s => s.emission_change_pct ?? 0), 0.001);
+  const emChangeRange = maxEmChange - minEmChange || 1;
+
+  const computeCustomScore = (sub: SubnetScore): number => {
+    const w = customWeights;
+    const emPctNorm = Math.min(100, ((sub.emission_pct ?? 0) / maxEmPct) * 100);
+    const emChangeNorm = Math.min(100, Math.max(0, ((sub.emission_change_pct ?? 0) - minEmChange) / emChangeRange * 100));
+    return Math.round(
+      ((sub.agap_velo ?? 0) * w.velo +
+       (sub.flow_score ?? 0) * w.flow +
+       (sub.dev_score ?? 0) * w.dev +
+       (sub.eval_score ?? 0) * w.evalW +
+       (sub.product_score ?? 0) * w.prod +
+       (sub.social_score ?? 0) * w.soc +
+       (sub.audit_score ?? 0) * w.aud +
+       emPctNorm * w.emPct +
+       emChangeNorm * w.emChange) / 100
+    );
+  };
+
   // Returns the aGap score for a subnet based on the active time horizon
   const activeAGap = (sub: SubnetScore) =>
-    timeHorizon === "investing" ? (sub.invest_agap ?? sub.composite_score) : sub.composite_score;
+    timeHorizon === "investing" ? (sub.invest_agap ?? sub.composite_score)
+    : timeHorizon === "custom" ? computeCustomScore(sub)
+    : sub.composite_score;
 
   const handleSort = (col: keyof SubnetScore) => {
     if (!isPro) return; // free users cannot sort
@@ -188,17 +216,34 @@ export default function LeaderboardPage() {
     .filter((sub) => !filterCategory || sub.category === filterCategory)
     .filter((sub) => !watchlistOnly || watchlist.has(sub.netuid))
     .sort((a, b) => {
-      // In investing mode, sort the aGap column by invest_agap instead of composite_score
+      // In investing/custom mode, sort the aGap column by the appropriate score
       const av = (sortCol === "composite_score" && timeHorizon === "investing")
         ? (a.invest_agap ?? a.composite_score)
+        : (sortCol === "composite_score" && timeHorizon === "custom")
+        ? computeCustomScore(a)
         : (a[sortCol] ?? -Infinity);
       const bv = (sortCol === "composite_score" && timeHorizon === "investing")
         ? (b.invest_agap ?? b.composite_score)
+        : (sortCol === "composite_score" && timeHorizon === "custom")
+        ? computeCustomScore(b)
         : (b[sortCol] ?? -Infinity);
       if (av < bv) return sortAsc ? -1 : 1;
       if (av > bv) return sortAsc ? 1 : -1;
       return 0;
     });
+
+  const totalWeight = Object.values(customWeights).reduce((a, b) => a + b, 0);
+  const WEIGHT_FIELDS: { key: keyof CustomWeights; label: string; desc: string }[] = [
+    { key: "velo",     label: "Velocity",  desc: "aGap score momentum" },
+    { key: "flow",     label: "Flow",      desc: "Price action & whale moves" },
+    { key: "dev",      label: "Dev",       desc: "Development activity" },
+    { key: "evalW",    label: "eVal",      desc: "Emissions vs valuation" },
+    { key: "prod",     label: "Product",   desc: "Real-world utility" },
+    { key: "soc",      label: "Social",    desc: "Community & KOL signal" },
+    { key: "aud",      label: "Audit",     desc: "Network health & safety" },
+    { key: "emPct",    label: "Em %",      desc: "Emission share" },
+    { key: "emChange", label: "Em Δ", desc: "Emission change trend" },
+  ];
 
   return (
     <main className="flex-1 flex overflow-x-hidden">
@@ -299,6 +344,21 @@ export default function LeaderboardPage() {
                     title={isPremium ? "Investing (Long-Term): aGap optimised for 1–6 month horizon — weights sustained development, real product utility, smart money positioning, and network emissions." : "Investing Analysis — Premium feature"}
                   >
                     📈 Investing{!isPremium && <span className="ml-1 text-purple-500/70">✦</span>}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setTimeHorizon("custom");
+                      setShowInvestingGate(false);
+                      setShowCustomEditor(true);
+                    }}
+                    className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors whitespace-nowrap ${
+                      timeHorizon === "custom"
+                        ? "bg-blue-500/20 border border-blue-500/40 text-blue-400"
+                        : "text-gray-500 hover:text-gray-300"
+                    }`}
+                    title="Build your own aGap formula with custom weights"
+                  >
+                    🤖 Custom
                   </button>
                 </div>
               </div>
@@ -439,7 +499,98 @@ export default function LeaderboardPage() {
                 </svg>
                 My Watchlist
               </button>
+              {/* Reopen custom editor button — only visible in custom mode */}
+              {timeHorizon === "custom" && !showCustomEditor && (
+                <button
+                  onClick={() => setShowCustomEditor(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-blue-500/20 border border-blue-500/40 text-blue-400 hover:bg-blue-500/30 transition-colors"
+                  title="Open custom formula builder"
+                >
+                  ⚙️ Formula
+                </button>
+              )}
             </div>
+
+            {/* Custom formula editor — shown when custom mode is active */}
+            {timeHorizon === "custom" && showCustomEditor && (
+              <div className="mb-4 bg-gray-900/90 border border-blue-500/30 rounded-xl p-4">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">⚙️</span>
+                    <span className="text-sm font-bold text-white">Custom Formula Builder</span>
+                    <span className="text-xs text-gray-500">— assign weights to each signal (must total 100%)</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className={`text-xs font-bold tabular-nums ${
+                      totalWeight === 100 ? "text-green-400" :
+                      totalWeight > 100 ? "text-red-400" : "text-yellow-400"
+                    }`}>
+                      {totalWeight === 100 ? "✓ 100% — ready" :
+                       totalWeight > 100 ? `${totalWeight}% — ${totalWeight - 100}% over` :
+                       `${totalWeight}% — ${100 - totalWeight}% remaining`}
+                    </span>
+                    <button
+                      onClick={() => setCustomWeights({ velo:0, flow:0, dev:0, evalW:0, prod:0, soc:0, aud:0, emPct:0, emChange:0 })}
+                      className="text-xs text-gray-600 hover:text-gray-400 transition-colors"
+                    >
+                      Reset
+                    </button>
+                    <button
+                      onClick={() => setShowCustomEditor(false)}
+                      className="text-gray-600 hover:text-gray-300 text-sm transition-colors"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4">
+                  {WEIGHT_FIELDS.map(({ key, label, desc }) => {
+                    const val = customWeights[key];
+                    return (
+                      <div key={key} className="flex flex-col gap-1.5">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <span className="text-xs font-semibold text-gray-200">{label}</span>
+                            <span className="text-[10px] text-gray-600 ml-1.5">{desc}</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={() => setCustomWeights(w => ({ ...w, [key]: Math.max(0, w[key] - 5) }))}
+                              className="w-5 h-5 rounded bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white text-xs flex items-center justify-center transition-colors select-none"
+                            >−</button>
+                            <span className="text-sm font-bold text-white w-8 text-center tabular-nums">{val}%</span>
+                            <button
+                              onClick={() => setCustomWeights(w => ({ ...w, [key]: Math.min(100, w[key] + 5) }))}
+                              className="w-5 h-5 rounded bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white text-xs flex items-center justify-center transition-colors select-none"
+                            >+</button>
+                          </div>
+                        </div>
+                        <input
+                          type="range"
+                          min={0}
+                          max={100}
+                          step={1}
+                          value={val}
+                          onChange={e => setCustomWeights(w => ({ ...w, [key]: parseInt(e.target.value) }))}
+                          className="w-full h-1.5 cursor-pointer accent-blue-500"
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {totalWeight !== 100 && (
+                  <div className="mt-3 pt-3 border-t border-gray-800 text-xs text-gray-500">
+                    {totalWeight === 0
+                      ? "Start by assigning weights above. Each slider represents how much that signal contributes to your custom aGap score."
+                      : totalWeight < 100
+                      ? `Allocate the remaining ${100 - totalWeight}% across any signals to activate your custom leaderboard.`
+                      : `Remove ${totalWeight - 100}% from any signals to balance your formula.`}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Mobile-only sticky CTA — sits above the horizontally-scrolling table */}
             {!isPro && (
@@ -478,16 +629,18 @@ export default function LeaderboardPage() {
                         const baseStyle = isScore
                           ? (timeHorizon === "investing"
                               ? { background: "rgba(168,85,247,0.06)", borderLeft: "2px solid rgba(168,85,247,0.15)", width: w }
+                              : timeHorizon === "custom"
+                              ? { background: "rgba(59,130,246,0.06)", borderLeft: "2px solid rgba(59,130,246,0.15)", width: w }
                               : { background: "rgba(16,185,129,0.06)", borderLeft: "2px solid rgba(16,185,129,0.15)", width: w })
                           : { width: w };
                         return (
                           <th
                             key={key}
-                            className={`text-right py-2 px-3 font-medium cursor-pointer hover:text-gray-300 select-none ${isScore ? (timeHorizon === "investing" ? "text-purple-400/80" : "text-green-400/80") : ""}`}
+                            className={`text-right py-2 px-3 font-medium cursor-pointer hover:text-gray-300 select-none ${isScore ? (timeHorizon === "investing" ? "text-purple-400/80" : timeHorizon === "custom" ? "text-blue-400/80" : "text-green-400/80") : ""}`}
                             style={baseStyle}
                             onClick={() => handleSort(key)}
                           >
-                            {isScore ? (timeHorizon === "investing" ? "aGap 📈" : label) : label}
+                            {isScore ? (timeHorizon === "investing" ? "aGap 📈" : timeHorizon === "custom" ? "aGap 🤖" : label) : label}
                             {sortCol === key && <span className="ml-1 text-green-400">{sortAsc ? "▲" : "▼"}</span>}
                           </th>
                         );
@@ -507,11 +660,11 @@ export default function LeaderboardPage() {
                     {COLUMNS.map(([key, label, tooltip]) => (
                       <React.Fragment key={key}>
                         <th
-                          className={`text-right py-2 px-3 font-medium transition-colors select-none ${isPro ? "cursor-pointer hover:text-gray-300" : "cursor-not-allowed opacity-60"} ${key === "composite_score" ? (timeHorizon === "investing" ? "text-purple-400/80" : "text-green-400/80") : ""}`}
+                          className={`text-right py-2 px-3 font-medium transition-colors select-none ${isPro ? "cursor-pointer hover:text-gray-300" : "cursor-not-allowed opacity-60"} ${key === "composite_score" ? (timeHorizon === "investing" ? "text-purple-400/80" : timeHorizon === "custom" ? "text-blue-400/80" : "text-green-400/80") : ""}`}
                           onClick={() => handleSort(key)}
-                          style={key === "composite_score" ? (timeHorizon === "investing" ? { background: "rgba(168, 85, 247, 0.06)", borderLeft: "2px solid rgba(168, 85, 247, 0.15)" } : { background: "rgba(16, 185, 129, 0.06)", borderLeft: "2px solid rgba(16, 185, 129, 0.15)" }) : undefined}
+                          style={key === "composite_score" ? (timeHorizon === "investing" ? { background: "rgba(168, 85, 247, 0.06)", borderLeft: "2px solid rgba(168, 85, 247, 0.15)" } : timeHorizon === "custom" ? { background: "rgba(59, 130, 246, 0.06)", borderLeft: "2px solid rgba(59, 130, 246, 0.15)" } : { background: "rgba(16, 185, 129, 0.06)", borderLeft: "2px solid rgba(16, 185, 129, 0.15)" }) : undefined}
                         >
-                          {key === "composite_score" ? (timeHorizon === "investing" ? "aGap 📈" : label) : label}
+                          {key === "composite_score" ? (timeHorizon === "investing" ? "aGap 📈" : timeHorizon === "custom" ? "aGap 🤖" : label) : label}
                           {tooltip && (
                             <span
                               className="ml-1 inline-flex items-center justify-center w-3.5 h-3.5 rounded-full border border-gray-700 text-[9px] text-gray-600 hover:text-green-400 hover:border-green-400 cursor-help normal-case tracking-normal"
@@ -546,7 +699,7 @@ export default function LeaderboardPage() {
                     <tr
                       className={`border-b transition-colors ${isLocked ? "opacity-50 pointer-events-none select-none" : "cursor-pointer"} ${
                         activeAGap(sub) >= 80
-                          ? (timeHorizon === "investing" ? "border-purple-500/20 bg-purple-900/10 hover:bg-purple-900/20" : "border-green-500/20 bg-green-900/20 hover:bg-green-900/35")
+                          ? (timeHorizon === "investing" ? "border-purple-500/20 bg-purple-900/10 hover:bg-purple-900/20" : timeHorizon === "custom" ? "border-blue-500/20 bg-blue-900/10 hover:bg-blue-900/20" : "border-green-500/20 bg-green-900/20 hover:bg-green-900/35")
                           : i % 2 === 0
                           ? "border-gray-800/40 bg-gray-900/30 hover:bg-gray-800/50"
                           : "border-gray-800/40 hover:bg-gray-800/50"
@@ -574,8 +727,12 @@ export default function LeaderboardPage() {
                         )}
                       </td>
                       <td className={`py-2 px-3 text-right font-bold text-lg tabular-nums ${scoreColor(activeAGap(sub))}`}
-                        style={timeHorizon === "investing" ? { background: "rgba(168, 85, 247, 0.06)", borderLeft: "2px solid rgba(168, 85, 247, 0.15)" } : { background: "rgba(16, 185, 129, 0.06)", borderLeft: "2px solid rgba(16, 185, 129, 0.15)" }}>
-                        {activeAGap(sub)}
+                        style={
+                          timeHorizon === "investing" ? { background: "rgba(168, 85, 247, 0.06)", borderLeft: "2px solid rgba(168, 85, 247, 0.15)" }
+                          : timeHorizon === "custom" ? { background: "rgba(59, 130, 246, 0.06)", borderLeft: "2px solid rgba(59, 130, 246, 0.15)" }
+                          : { background: "rgba(16, 185, 129, 0.06)", borderLeft: "2px solid rgba(16, 185, 129, 0.15)" }
+                        }>
+                        {timeHorizon === "custom" && totalWeight !== 100 ? "—" : activeAGap(sub)}
                       </td>
                       <td className={`py-2 px-3 text-right font-bold tabular-nums text-sm ${
                         sub.agap_velo == null ? "text-gray-700" :
