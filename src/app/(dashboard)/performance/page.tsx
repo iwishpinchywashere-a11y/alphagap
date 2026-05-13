@@ -205,32 +205,59 @@ export default function PerformancePage() {
               </div>
             </div>
 
-            {/* Chart — running-max of avg peak return, guaranteed up-to-right */}
-            {portfolioData.history.length >= 2 && maturePositions.length >= 1 ? (() => {
-              // Running maximum of avg peak return across mature positions.
-              // Once the average hits a new high it never drops — adding lower-return
-              // positions later can't pull the line back down.
-              let runningMax = 0;
-              const maxHistory = portfolioData.history.map(h => {
-                const active = maturePositions.filter(p => p.buyDate <= h.date);
-                if (active.length === 0) return { date: h.date, totalValue: 100 };
-                const avgPct = active.reduce((sum, p) => {
-                  const peak = (p as any).manualPeakPrice ?? p.peakPrice ?? p.buyPriceUsd;
-                  const gain = Math.max(0, p.alphaTokens * peak - p.amountUsd);
-                  return sum + (gain / p.amountUsd) * 100;
-                }, 0) / active.length;
-                runningMax = Math.max(runningMax, avgPct);
-                return { date: h.date, totalValue: Math.round((100 + runningMax) * 100) / 100 };
+            {/* Chart — cumulative peak returns (sum of all-time highs per pick)
+                 Built from per-position peakPrice (a running max) → NEVER decreases.
+                 Each pick added contributes its maxPnlPct; line only goes up. */}
+            {maturePositions.length >= 2 ? (() => {
+              // Sort mature positions by buy date oldest→newest
+              const sortedMature = [...maturePositions]
+                .sort((a, b) => a.buyDate.localeCompare(b.buyDate));
+
+              // Build cumulative sum of peak returns
+              let cumSum = 0;
+              const rawPoints: { date: string; cum: number }[] = [];
+              for (const pos of sortedMature) {
+                cumSum += (pos.maxPnlPct ?? 0);
+                rawPoints.push({ date: pos.buyDate, cum: cumSum });
+              }
+
+              // Densify: fill every calendar day between first buy and today
+              // so the chart x-axis looks like a continuous timeline
+              const firstDate = rawPoints[0].date;
+              const today = new Date().toISOString().slice(0, 10);
+              const allDates: string[] = [];
+              const cur = new Date(firstDate + "T12:00:00");
+              const end = new Date(today + "T12:00:00");
+              while (cur <= end) {
+                allDates.push(cur.toISOString().slice(0, 10));
+                cur.setDate(cur.getDate() + 1);
+              }
+
+              // Build lookup for position cumulative values by date
+              const byDate: Record<string, number> = {};
+              for (const pt of rawPoints) byDate[pt.date] = pt.cum;
+
+              let lastCum = 0;
+              const returnHistory = allDates.map(d => {
+                if (byDate[d] !== undefined) lastCum = byDate[d];
+                return { date: d, totalValue: Math.round((100 + lastCum) * 100) / 100 };
               });
+
+              const finalCum = lastCum;
+
               return (
                 <div className="bg-gray-900/70 border border-gray-800 rounded-xl p-5">
                   <div className="flex items-center justify-between mb-4">
                     <div>
-                      <div className="text-xs text-gray-500 uppercase tracking-wider">Best Avg Peak Return — Mature Picks</div>
-                      <div className="text-xs text-gray-600 mt-0.5">Equal-weighted avg across positions held {MATURITY_DAYS}+ days · all-time high</div>
+                      <div className="text-xs text-gray-500 uppercase tracking-wider">Cumulative Peak Returns</div>
+                      <div className="text-xs text-gray-600 mt-0.5">Running total of all-time-high gains across mature picks · never goes down</div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-2xl font-black text-green-400">+{finalCum.toFixed(0)}%</div>
+                      <div className="text-xs text-gray-500">total captured</div>
                     </div>
                   </div>
-                  <PortfolioChart history={maxHistory} costBasis={100} />
+                  <PortfolioChart history={returnHistory} costBasis={100} />
                 </div>
               );
             })() : (
