@@ -206,25 +206,47 @@ export default function PerformancePage() {
               </div>
             </div>
 
-            {/* Chart — total profit in dollars from actual daily portfolio history.
-                 Y-axis = (totalValue − costAtDate) × display multiplier.
-                 Grows as positions are added and gains accumulate. */}
-            {portfolioData.history.length >= 2 ? (() => {
-              const sortedHistory = [...portfolioData.history]
-                .sort((a, b) => a.date.localeCompare(b.date));
+            {/* Chart — cumulative max profit in dollars.
+                 Each position's maxPnlUsd (peak-price gain, never decreases) is
+                 attributed to its buy date. Running sum = total profit if every
+                 pick had been sold at its all-time high. Always up or flat. */}
+            {portfolioData.positions.length >= 2 ? (() => {
               const sortedPositions = [...portfolioData.positions]
                 .sort((a, b) => a.buyDate.localeCompare(b.buyDate));
 
-              // Dollar P&L at each snapshot date (scaled to $1,000 display units)
-              const dollarPnlHistory = sortedHistory.map(h => {
-                const costByDate = sortedPositions
-                  .filter(p => p.buyDate <= h.date)
-                  .reduce((s, p) => s + p.amountUsd, 0);
-                const pnl = costByDate > 0 ? (h.totalValue - costByDate) * PM : 0;
-                return { date: h.date, pnl: Math.round(pnl) };
+              // Build cumulative max profit staircase at each buy date
+              let cumMaxPnl = 0;
+              const buyPoints: { date: string; cum: number }[] = [];
+              for (const pos of sortedPositions) {
+                cumMaxPnl += (pos.maxPnlUsd ?? 0) * PM;
+                // If multiple buys on same day, just update
+                const last = buyPoints[buyPoints.length - 1];
+                if (last && last.date === pos.buyDate) {
+                  last.cum = cumMaxPnl;
+                } else {
+                  buyPoints.push({ date: pos.buyDate, cum: cumMaxPnl });
+                }
+              }
+
+              // Densify: fill every calendar day first buy → today
+              const today = new Date().toISOString().slice(0, 10);
+              const allDates: string[] = [];
+              const cur = new Date(buyPoints[0].date + "T12:00:00");
+              const end = new Date(today + "T12:00:00");
+              while (cur <= end) {
+                allDates.push(cur.toISOString().slice(0, 10));
+                cur.setDate(cur.getDate() + 1);
+              }
+
+              let lastCum = 0;
+              const chartData = allDates.map(d => {
+                const pt = buyPoints.filter(p => p.date <= d).pop();
+                if (pt) lastCum = pt.cum;
+                return { date: d, cum: lastCum };
               });
 
-              const currentPnl = dollarPnlHistory[dollarPnlHistory.length - 1]?.pnl ?? 0;
+              const totalMaxPnl = buyPoints[buyPoints.length - 1]?.cum ?? 0;
+
               const formatDollar = (v: number) =>
                 `${v >= 0 ? "+" : "-"}$${Math.abs(v) >= 1000
                   ? (Math.abs(v) / 1000).toFixed(1) + "k"
@@ -234,19 +256,17 @@ export default function PerformancePage() {
                 <div className="bg-gray-900/70 border border-gray-800 rounded-xl p-5">
                   <div className="flex items-center justify-between mb-4">
                     <div>
-                      <div className="text-xs text-gray-500 uppercase tracking-wider">Total Profit</div>
-                      <div className="text-xs text-gray-600 mt-0.5">Daily dollar P&amp;L across all open picks · real prices</div>
+                      <div className="text-xs text-gray-500 uppercase tracking-wider">Cumulative Max Profit</div>
+                      <div className="text-xs text-gray-600 mt-0.5">Total profit if every pick sold at its all-time high · never goes down</div>
                     </div>
                     <div className="text-right">
-                      <div className={`text-2xl font-black ${currentPnl >= 0 ? "text-green-400" : "text-red-400"}`}>
-                        {formatDollar(currentPnl)}
-                      </div>
-                      <div className="text-xs text-gray-500">current profit</div>
+                      <div className="text-2xl font-black text-green-400">{formatDollar(totalMaxPnl)}</div>
+                      <div className="text-xs text-gray-500">peak total</div>
                     </div>
                   </div>
                   <PortfolioChart
-                    history={dollarPnlHistory}
-                    values={dollarPnlHistory.map(h => h.pnl)}
+                    history={chartData}
+                    values={chartData.map(h => h.cum)}
                     formatY={formatDollar}
                   />
                 </div>
