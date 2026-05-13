@@ -248,8 +248,12 @@ export default function PerformancePage() {
               </div>
             </div>
             {developingCount > 0 && (
-              <div className="text-xs text-gray-600 -mt-1 px-1">
-                {developingCount} pick{developingCount !== 1 ? "s" : ""} still developing (&lt;{MATURITY_DAYS}d) · not yet scored
+              <div className="flex items-center gap-2 bg-yellow-500/10 border border-yellow-500/25 rounded-lg px-3 py-2">
+                <span className="text-yellow-400 text-base">⏳</span>
+                <span className="text-sm text-yellow-300 font-medium">
+                  {developingCount} pick{developingCount !== 1 ? "s" : ""} still developing
+                  <span className="text-yellow-500 font-normal"> · under {MATURITY_DAYS} days old · not yet scored</span>
+                </span>
               </div>
             )}
 
