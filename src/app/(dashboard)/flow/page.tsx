@@ -247,10 +247,14 @@ export default function FlowPage() {
       }
     }
 
-    // ── Flow signals from the signals feed ──────────────────
+    // ── Flow signals from the signals feed (last 3 days only) ──────────────────
+    const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString();
     const flowTypes = ["flow_inflection", "flow_spike", "flow_warning", "whale_sell"];
     for (const sig of signals) {
       if (!flowTypes.includes(sig.signal_type)) continue;
+      // Skip signals older than 3 days
+      const sigDate = sig.signal_date || sig.created_at;
+      if (sigDate && sigDate < threeDaysAgo) continue;
       const alreadyType =
         sig.signal_type === "flow_warning" || sig.signal_type === "whale_sell"
           ? "distributing"

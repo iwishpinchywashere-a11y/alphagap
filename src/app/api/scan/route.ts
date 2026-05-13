@@ -3706,7 +3706,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
   // ── Persist signals to rolling history ──────────────────────────
   // Signals are generated fresh each scan from the last 24h of GitHub/HF activity.
   // Without persistence, signals disappear the moment a subnet's window falls outside 24h.
-  // We accumulate signals in signals-history.json (14-day rolling window).
+  // We accumulate signals in signals-history.json (3-day rolling window).
   // Dedup key: netuid + signal_type + signal_date (day). New scan always wins on same day.
   let signalHistory: ScanSignal[] = [];
   if (process.env.BLOB_READ_WRITE_TOKEN) {
@@ -3726,8 +3726,8 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     } catch { console.log("[scan] No signals history yet, starting fresh"); }
   }
 
-  // Keep last 14 days of history
-  const histCutoff = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
+  // Keep last 3 days of history
+  const histCutoff = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString();
   const recentHistory = signalHistory.filter(s => (s.signal_date || s.created_at) >= histCutoff);
 
   // Merge: history is the base, current scan signals override for same netuid+type+day
