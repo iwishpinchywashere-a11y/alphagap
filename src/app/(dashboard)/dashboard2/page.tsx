@@ -606,162 +606,146 @@ export default function LeaderboardPage() {
 
             {/* Custom formula editor — shown when custom mode is active */}
             {timeHorizon === "custom" && showCustomEditor && (
-              <div className="mb-4 rounded-2xl overflow-hidden border border-gray-700/60 bg-[#0d0f17]">
-
-                {/* ── Header ── */}
-                <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-800">
-                  <div className="flex items-center gap-2.5">
+              <div className="mb-4 bg-gray-900/90 border border-blue-500/30 rounded-xl p-4">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
                     <span className="text-base">⚙️</span>
                     <span className="text-sm font-bold text-white">Custom Formula Builder</span>
-                    <span className="hidden sm:inline text-xs text-gray-500">— base weights must total 100%</span>
+                    <span className="text-xs text-gray-400">— assign weights to each signal (must total 100%)</span>
                   </div>
-                  <div className="flex items-center gap-4">
-                    <span className={`text-sm font-bold tabular-nums ${
+                  <div className="flex items-center gap-3">
+                    <span className={`text-xs font-bold tabular-nums ${
                       totalWeight === 100 ? "text-green-400" :
-                      totalWeight > 100  ? "text-red-400"   : "text-yellow-400"
+                      totalWeight > 100 ? "text-red-400" : "text-yellow-400"
                     }`}>
                       {totalWeight === 100 ? "✓ 100% — ready" :
-                       totalWeight > 100  ? `${totalWeight}% — ${totalWeight - 100}% over` :
-                       `${totalWeight}% — ${100 - totalWeight}% left`}
+                       totalWeight > 100 ? `${totalWeight}% — ${totalWeight - 100}% over` :
+                       `${totalWeight}% — ${100 - totalWeight}% remaining`}
                     </span>
-                    <button onClick={() => setCustomWeights(EMPTY_WEIGHTS)}
-                      className="text-xs text-gray-500 hover:text-gray-300 transition-colors">Reset</button>
-                    <button onClick={() => setShowCustomEditor(false)}
-                      className="text-gray-500 hover:text-gray-200 text-lg leading-none transition-colors">✕</button>
+                    <button
+                      onClick={() => setCustomWeights(EMPTY_WEIGHTS)}
+                      className="text-xs text-gray-600 hover:text-gray-400 transition-colors"
+                    >
+                      Reset
+                    </button>
+                    <button
+                      onClick={() => setShowCustomEditor(false)}
+                      className="text-gray-600 hover:text-gray-300 text-sm transition-colors"
+                    >
+                      ✕
+                    </button>
                   </div>
                 </div>
 
-                {/* ── Presets ── */}
-                <div className="flex items-center gap-2 px-5 py-3 border-b border-gray-800/70 bg-gray-900/40 flex-wrap">
-                  <span className="text-xs text-gray-500 shrink-0 mr-1">Quick start:</span>
+                {/* Preset buttons */}
+                <div className="flex flex-wrap gap-2 mb-4 pb-4 border-b border-gray-800">
                   {PRESETS.map(preset => (
                     <button
                       key={preset.name}
                       onClick={() => setCustomWeights(preset.weights)}
                       title={preset.desc}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-800/80 hover:bg-gray-700 border border-gray-700/80 hover:border-blue-500/60 text-xs font-semibold text-gray-300 hover:text-white transition-all"
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 border border-gray-700 hover:border-blue-500/50 text-xs font-semibold text-gray-300 hover:text-white transition-all"
                     >
-                      <span>{preset.emoji}</span><span>{preset.name}</span>
+                      <span>{preset.emoji}</span>
+                      <span>{preset.name}</span>
                     </button>
                   ))}
+                  <span className="text-xs text-gray-400 self-center ml-1">← load a preset to start</span>
                 </div>
 
-                <div className="p-5 space-y-6">
-
-                  {/* ── Allocation bar ── */}
-                  {totalWeight > 0 && (() => {
-                    const colors = ["bg-blue-500","bg-violet-500","bg-cyan-500","bg-emerald-500","bg-pink-500","bg-orange-500","bg-teal-500","bg-indigo-400","bg-rose-400"];
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4">
+                  {WEIGHT_FIELDS.map(({ key, label, desc }) => {
+                    const val = customWeights[key];
                     return (
-                      <div>
-                        <div className="flex h-2.5 rounded-full overflow-hidden bg-gray-800 gap-px">
-                          {WEIGHT_FIELDS.map(({ key }, i) => {
-                            const pct = customWeights[key];
-                            if (!pct) return null;
-                            return <div key={key} className={`${colors[i]} transition-all duration-200`} style={{ width: `${pct}%` }} />;
-                          })}
-                          {totalWeight < 100 && <div className="flex-1 bg-gray-700/50" />}
+                      <div key={key} className="flex flex-col gap-1.5">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <span className="text-xs font-semibold text-gray-200">{label}</span>
+                            <span className="text-xs text-gray-400 ml-1.5">{desc}</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={() => setCustomWeights(w => ({ ...w, [key]: Math.max(0, w[key] - 5) }))}
+                              className="w-5 h-5 rounded bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white text-xs flex items-center justify-center transition-colors select-none"
+                            >−</button>
+                            <span className="text-sm font-bold text-white w-8 text-center tabular-nums">{val}%</span>
+                            <button
+                              onClick={() => setCustomWeights(w => ({ ...w, [key]: Math.min(100, w[key] + 5) }))}
+                              className="w-5 h-5 rounded bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white text-xs flex items-center justify-center transition-colors select-none"
+                            >+</button>
+                          </div>
                         </div>
-                        <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2">
-                          {WEIGHT_FIELDS.map(({ key, label }, i) => {
-                            const pct = customWeights[key];
-                            if (!pct) return null;
-                            return (
-                              <span key={key} className="flex items-center gap-1 text-xs text-gray-400">
-                                <span className={`w-2 h-2 rounded-full ${colors[i]} inline-block`} />
-                                {label} {pct}%
-                              </span>
-                            );
-                          })}
-                        </div>
+                        <input
+                          type="range"
+                          min={0}
+                          max={100}
+                          step={1}
+                          value={val}
+                          onChange={e => setCustomWeights(w => ({ ...w, [key]: parseInt(e.target.value) }))}
+                          className="w-full h-1.5 cursor-pointer accent-blue-500"
+                        />
                       </div>
                     );
-                  })()}
+                  })}
+                </div>
 
-                  {/* ── Base weight cards ── */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {WEIGHT_FIELDS.map(({ key, label, desc }) => {
+                {/* ── Gap Bonuses ─────────────────────────────────────────────── */}
+                <div className="mt-5 pt-4 border-t border-gray-800/60">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-xs font-bold text-amber-400">⚡ Gap Bonuses</span>
+                    <span className="text-xs text-gray-400">— reward signal combinations, stack on top of your base formula</span>
+                  </div>
+                  <p className="text-xs text-gray-400 mb-4 leading-relaxed">
+                    Each bonus fires when two signals align (e.g. Dev is high but Flow is low). Max <span className="text-gray-300 font-medium">+30 pts</span> per bonus — scales automatically based on how strongly the combo is present.
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
+                    {GAP_BONUS_FIELDS.map(({ key, emoji, label, desc, triggerA, triggerB }) => {
                       const val = customWeights[key];
-                      const active = val > 0;
                       return (
-                        <div key={key} className={`rounded-xl p-3.5 border transition-all ${
-                          active ? "bg-blue-950/25 border-blue-500/35" : "bg-gray-800/25 border-gray-700/40"
-                        }`}>
-                          <div className="flex items-start justify-between mb-3">
+                        <div key={key} className="flex flex-col gap-1.5">
+                          <div className="flex items-center justify-between">
                             <div>
-                              <div className={`text-sm font-semibold ${active ? "text-white" : "text-gray-400"}`}>{label}</div>
-                              <div className="text-xs text-gray-500 mt-0.5">{desc}</div>
+                              <span className="text-xs font-semibold text-amber-300">{emoji} {label}</span>
+                              <span className="text-xs text-gray-400 ml-1.5">{desc}</span>
+                              <div className="text-xs text-gray-500 mt-0.5">fires when: <span className="text-green-400">{triggerA}</span> + <span className="text-red-400">{triggerB}</span></div>
                             </div>
-                            <span className={`text-xl font-bold tabular-nums leading-none ${active ? "text-blue-300" : "text-gray-600"}`}>{val}%</span>
+                            <div className="flex items-center gap-1 shrink-0">
+                              <button
+                                onClick={() => setCustomWeights(w => ({ ...w, [key]: Math.max(0, w[key] - 5) }))}
+                                className="w-5 h-5 rounded bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white text-xs flex items-center justify-center transition-colors select-none"
+                              >−</button>
+                              <span className="text-sm font-bold text-amber-300 w-8 text-center tabular-nums">+{val}</span>
+                              <button
+                                onClick={() => setCustomWeights(w => ({ ...w, [key]: Math.min(30, w[key] + 5) }))}
+                                className="w-5 h-5 rounded bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white text-xs flex items-center justify-center transition-colors select-none"
+                              >+</button>
+                            </div>
                           </div>
                           <input
-                            type="range" min={0} max={100} step={5} value={val}
+                            type="range"
+                            min={0}
+                            max={30}
+                            step={1}
+                            value={val}
                             onChange={e => setCustomWeights(w => ({ ...w, [key]: parseInt(e.target.value) }))}
-                            className="w-full h-2 cursor-pointer accent-blue-500 mb-2.5"
+                            className="w-full h-1.5 cursor-pointer accent-amber-500"
                           />
-                          <div className="flex justify-between gap-2">
-                            <button onClick={() => setCustomWeights(w => ({ ...w, [key]: Math.max(0, w[key] - 5) }))}
-                              className="flex-1 py-1 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white text-sm font-bold transition-colors select-none">−5</button>
-                            <button onClick={() => setCustomWeights(w => ({ ...w, [key]: Math.min(100, w[key] + 5) }))}
-                              className="flex-1 py-1 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white text-sm font-bold transition-colors select-none">+5</button>
-                          </div>
                         </div>
                       );
                     })}
                   </div>
-
-                  {/* ── Gap Bonuses ── */}
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-sm font-bold text-amber-400">⚡ Gap Bonuses</span>
-                      <span className="text-xs text-gray-500">stack on top — reward two signals aligning together</span>
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
-                      {GAP_BONUS_FIELDS.map(({ key, emoji, label, desc, triggerA, triggerB }) => {
-                        const val = customWeights[key];
-                        const active = val > 0;
-                        return (
-                          <div key={key} className={`rounded-xl p-3.5 border transition-all ${
-                            active ? "bg-amber-950/20 border-amber-500/35" : "bg-gray-800/25 border-gray-700/40"
-                          }`}>
-                            <div className="flex items-start justify-between mb-2">
-                              <div>
-                                <div className={`text-sm font-semibold ${active ? "text-amber-300" : "text-gray-400"}`}>{emoji} {label}</div>
-                                <div className="text-xs text-gray-500 mt-0.5">{desc}</div>
-                                <div className="flex items-center gap-1.5 mt-2">
-                                  <span className="text-xs font-medium text-green-400 bg-green-950/50 border border-green-800/50 rounded-md px-2 py-0.5">{triggerA}</span>
-                                  <span className="text-gray-600 text-xs">+</span>
-                                  <span className="text-xs font-medium text-red-400 bg-red-950/50 border border-red-800/50 rounded-md px-2 py-0.5">{triggerB}</span>
-                                </div>
-                              </div>
-                              <span className={`text-xl font-bold tabular-nums leading-none ${active ? "text-amber-300" : "text-gray-600"}`}>+{val}</span>
-                            </div>
-                            <input
-                              type="range" min={0} max={30} step={5} value={val}
-                              onChange={e => setCustomWeights(w => ({ ...w, [key]: parseInt(e.target.value) }))}
-                              className="w-full h-2 cursor-pointer accent-amber-500 mb-2.5 mt-1"
-                            />
-                            <div className="flex justify-between gap-2">
-                              <button onClick={() => setCustomWeights(w => ({ ...w, [key]: Math.max(0, w[key] - 5) }))}
-                                className="flex-1 py-1 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white text-sm font-bold transition-colors select-none">−5</button>
-                              <button onClick={() => setCustomWeights(w => ({ ...w, [key]: Math.min(30, w[key] + 5) }))}
-                                className="flex-1 py-1 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white text-sm font-bold transition-colors select-none">+5</button>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-
                 </div>
 
-                {/* ── Footer ── */}
-                <div className="flex items-center justify-between px-5 py-3.5 border-t border-gray-800 bg-gray-900/40 gap-3 flex-wrap">
-                  <p className="text-xs text-gray-400">
-                    {totalWeight === 0   ? "Load a preset or drag the sliders to build your formula." :
-                     totalWeight < 100  ? `${100 - totalWeight}% left to allocate — formula activates at 100%.` :
-                     totalWeight > 100  ? `${totalWeight - 100}% over budget — reduce any signal to balance.` :
-                     "Formula ready. Hit Save to keep it across sessions."}
-                  </p>
+                <div className="mt-4 pt-3 border-t border-gray-800 flex items-center justify-between gap-3 flex-wrap">
+                  <div className="text-xs text-gray-400">
+                    {totalWeight === 0
+                      ? "Start by assigning weights above. Each slider represents how much that signal contributes to your custom aGap score."
+                      : totalWeight < 100
+                      ? `Allocate the remaining ${100 - totalWeight}% across any signals to activate your custom leaderboard.`
+                      : totalWeight > 100
+                      ? `Remove ${totalWeight - 100}% from any signals to balance your formula.`
+                      : "Formula balanced. Save it to keep your settings across sessions."}
+                  </div>
                   <button
                     disabled={totalWeight !== 100 || saveStatus === "saving"}
                     onClick={async () => {
@@ -779,16 +763,22 @@ export default function LeaderboardPage() {
                         setTimeout(() => setSaveStatus("idle"), 2500);
                       }
                     }}
-                    className={`flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-bold transition-all shrink-0 ${
+                    className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-bold transition-all shrink-0 ${
                       totalWeight !== 100
                         ? "bg-gray-800 text-gray-600 cursor-not-allowed"
-                        : saveStatus === "saved"  ? "bg-green-500/20 border border-green-500/40 text-green-400"
-                        : saveStatus === "error"  ? "bg-red-500/20 border border-red-500/40 text-red-400"
-                        : saveStatus === "saving" ? "bg-blue-500/20 border border-blue-500/40 text-blue-400 opacity-70"
-                        : "bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-900/30"
+                        : saveStatus === "saved"
+                        ? "bg-green-500/20 border border-green-500/40 text-green-400"
+                        : saveStatus === "error"
+                        ? "bg-red-500/20 border border-red-500/40 text-red-400"
+                        : saveStatus === "saving"
+                        ? "bg-blue-500/20 border border-blue-500/40 text-blue-400 opacity-70"
+                        : "bg-blue-600 hover:bg-blue-500 text-white"
                     }`}
                   >
-                    {saveStatus === "saving" ? "Saving…" : saveStatus === "saved" ? "✓ Saved" : saveStatus === "error" ? "Error — retry" : "💾 Save Formula"}
+                    {saveStatus === "saving" ? "Saving…"
+                      : saveStatus === "saved" ? "✓ Saved"
+                      : saveStatus === "error" ? "Error — retry"
+                      : "💾 Save Formula"}
                   </button>
                 </div>
               </div>
