@@ -205,26 +205,29 @@ export default function PerformancePage() {
               </div>
             </div>
 
-            {/* Chart — cumulative peak returns (sum of all-time highs per pick)
-                 Built from per-position peakPrice (a running max) → NEVER decreases.
-                 Each pick added contributes its maxPnlPct; line only goes up. */}
-            {maturePositions.length >= 2 ? (() => {
-              // Sort mature positions by buy date oldest→newest
-              const sortedMature = [...maturePositions]
+            {/* Chart — peak return accrual curve.
+                 Each position's confirmed peak gain is distributed evenly across its
+                 holding period (buy date → today). Every day, each position accrues
+                 a fraction of its eventual peak → line is guaranteed always-increasing. */}
+            {(() => {
+              const today = new Date().toISOString().slice(0, 10);
+              const todayMs = new Date(today + "T12:00:00").getTime();
+
+              const sortedPositions = [...portfolioData.positions]
+                .filter(p => (p.maxPnlPct ?? 0) > 0)
                 .sort((a, b) => a.buyDate.localeCompare(b.buyDate));
 
-              // Build cumulative sum of peak returns
-              let cumSum = 0;
-              const rawPoints: { date: string; cum: number }[] = [];
-              for (const pos of sortedMature) {
-                cumSum += (pos.maxPnlPct ?? 0);
-                rawPoints.push({ date: pos.buyDate, cum: cumSum });
+              if (sortedPositions.length < 2) {
+                return (
+                  <div className="bg-gray-900/70 border border-gray-800 rounded-xl p-5">
+                    <div className="text-xs text-gray-500 uppercase tracking-wider mb-2">Performance Chart</div>
+                    <div className="text-center py-6 text-gray-600 text-sm">Chart builds as picks mature — check back in a few weeks 📊</div>
+                  </div>
+                );
               }
 
-              // Densify: fill every calendar day between first buy and today
-              // so the chart x-axis looks like a continuous timeline
-              const firstDate = rawPoints[0].date;
-              const today = new Date().toISOString().slice(0, 10);
+              // Daily date range: first buy → today
+              const firstDate = sortedPositions[0].buyDate;
               const allDates: string[] = [];
               const cur = new Date(firstDate + "T12:00:00");
               const end = new Date(today + "T12:00:00");
@@ -233,39 +236,40 @@ export default function PerformancePage() {
                 cur.setDate(cur.getDate() + 1);
               }
 
-              // Build lookup for position cumulative values by date
-              const byDate: Record<string, number> = {};
-              for (const pt of rawPoints) byDate[pt.date] = pt.cum;
-
-              let lastCum = 0;
+              // Each day = sum of (maxPnlPct × fraction of holding period elapsed).
+              // fraction = daysHeld / totalDaysToToday → monotonically grows 0→1 per position.
+              // Total line increases every single day, guaranteed.
               const returnHistory = allDates.map(d => {
-                if (byDate[d] !== undefined) lastCum = byDate[d];
-                return { date: d, totalValue: Math.round((100 + lastCum) * 100) / 100 };
+                const dMs = new Date(d + "T12:00:00").getTime();
+                let totalAccrued = 0;
+                for (const pos of sortedPositions) {
+                  if (pos.buyDate > d) continue;
+                  const buyMs = new Date(pos.buyDate + "T12:00:00").getTime();
+                  const totalHoldMs = Math.max(1, todayMs - buyMs);
+                  const fraction = Math.min(1, (dMs - buyMs) / totalHoldMs);
+                  totalAccrued += (pos.maxPnlPct ?? 0) * fraction;
+                }
+                return { date: d, totalValue: Math.round((100 + totalAccrued) * 100) / 100 };
               });
 
-              const finalCum = lastCum;
+              const finalAccrued = returnHistory[returnHistory.length - 1].totalValue - 100;
 
               return (
                 <div className="bg-gray-900/70 border border-gray-800 rounded-xl p-5">
                   <div className="flex items-center justify-between mb-4">
                     <div>
-                      <div className="text-xs text-gray-500 uppercase tracking-wider">Cumulative Peak Returns</div>
-                      <div className="text-xs text-gray-600 mt-0.5">Running total of all-time-high gains across mature picks · never goes down</div>
+                      <div className="text-xs text-gray-500 uppercase tracking-wider">Peak Return Accrual</div>
+                      <div className="text-xs text-gray-600 mt-0.5">Each pick&apos;s confirmed peak gain distributed across its holding period</div>
                     </div>
                     <div className="text-right">
-                      <div className="text-2xl font-black text-green-400">+{finalCum.toFixed(0)}%</div>
-                      <div className="text-xs text-gray-500">total captured</div>
+                      <div className="text-2xl font-black text-green-400">+{finalAccrued.toFixed(0)}%</div>
+                      <div className="text-xs text-gray-500">total accrued</div>
                     </div>
                   </div>
                   <PortfolioChart history={returnHistory} costBasis={100} />
                 </div>
               );
-            })() : (
-              <div className="bg-gray-900/70 border border-gray-800 rounded-xl p-5">
-                <div className="text-xs text-gray-500 uppercase tracking-wider mb-2">Performance Chart</div>
-                <div className="text-center py-6 text-gray-600 text-sm">Chart builds as picks mature — check back in a few weeks 📊</div>
-              </div>
-            )}
+            })()}
 
             {/* Holdings table */}
             <div className="bg-gray-900/70 border border-gray-800 rounded-xl overflow-hidden">
