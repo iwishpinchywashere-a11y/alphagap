@@ -261,7 +261,7 @@ export default function AuditsPage() {
 
   // Build netuid → loc_30d from leaderboard (lines of code added+deleted in past 30 days)
   const loc30dMap = useMemo(
-    () => new Map(leaderboard.map(s => [s.netuid, (s as { loc_30d?: number }).loc_30d])),
+    () => new Map(leaderboard.map(s => [s.netuid, s.loc_30d])),
     [leaderboard]
   );
 
@@ -364,9 +364,9 @@ export default function AuditsPage() {
       ) : filtered.length === 0 ? (
         <div className="text-center py-16 text-gray-600 text-sm">No subnets match your search.</div>
       ) : (
-        <div className="bg-gray-900/60 border border-gray-800 rounded-xl overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm min-w-[1440px]">
+        <div className="bg-gray-900/60 border border-gray-800 rounded-xl overflow-x-auto">
+          <div>
+            <table className="w-full text-sm min-w-[1560px]">
               <thead>
                 <tr className="border-b border-gray-800 bg-gray-950/40">
                   {/* Fixed left: rank + subnet */}

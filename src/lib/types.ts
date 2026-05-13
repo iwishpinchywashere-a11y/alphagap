@@ -103,4 +103,6 @@ export interface SubnetScore {
   apy_7d?: number;               // Average 7-day staking APY across top validators (0–1 decimal, e.g. 0.51 = 51%)
   apy_1h?: number;               // Average 1-hour APY (annualised) — used for divergence detection
   apy_30d?: number;              // Average 30-day APY (annualised) — baseline for divergence
+  loc_30d?: number;              // Lines of code (additions+deletions) pushed to GitHub in past 30 days
+  regs_burned_24h?: number;      // TAO burned on neuron registrations in last 24h
 }

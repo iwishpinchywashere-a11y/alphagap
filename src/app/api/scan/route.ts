@@ -3441,8 +3441,16 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
         while (true) { const { done, value } = await reader.read(); if (done) break; chunks.push(value); }
         const prevScan = JSON.parse(Buffer.concat(chunks).toString("utf-8")) as { leaderboard?: LeaderboardEntry[] };
         const prevFlowMap = new Map<number, number>();
+        const prevLocMap  = new Map<number, number>(); // carry-forward loc_30d when GitHub rate-limits
         for (const e of (prevScan.leaderboard || [])) {
           if (e.net_flow_24h != null) prevFlowMap.set(e.netuid, e.net_flow_24h);
+          if (e.loc_30d       != null) prevLocMap.set(e.netuid, e.loc_30d);
+        }
+        // Fill in any missing loc_30d values from previous scan (GitHub 202 / rate-limit)
+        for (const entry of leaderboard) {
+          if (entry.loc_30d == null && prevLocMap.has(entry.netuid)) {
+            entry.loc_30d = prevLocMap.get(entry.netuid);
+          }
         }
 
         const today = new Date().toISOString().slice(0, 10);
