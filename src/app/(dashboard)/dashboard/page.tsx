@@ -575,7 +575,7 @@ export default function LeaderboardPage() {
                       </td>
                       <td className={`py-2 px-3 text-right font-bold text-lg tabular-nums ${scoreColor(activeAGap(sub))}`}
                         style={timeHorizon === "investing" ? { background: "rgba(168, 85, 247, 0.06)", borderLeft: "2px solid rgba(168, 85, 247, 0.15)" } : { background: "rgba(16, 185, 129, 0.06)", borderLeft: "2px solid rgba(16, 185, 129, 0.15)" }}>
-                        {activeAGap(sub)}
+                        {Math.round(activeAGap(sub))}
                       </td>
                       <td className={`py-2 px-3 text-right font-bold tabular-nums text-sm ${
                         sub.agap_velo == null ? "text-gray-700" :

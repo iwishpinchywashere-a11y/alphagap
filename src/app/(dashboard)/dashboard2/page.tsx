@@ -785,7 +785,7 @@ export default function LeaderboardPage() {
                           : timeHorizon === "custom" ? { background: "rgba(59, 130, 246, 0.06)", borderLeft: "2px solid rgba(59, 130, 246, 0.15)" }
                           : { background: "rgba(16, 185, 129, 0.06)", borderLeft: "2px solid rgba(16, 185, 129, 0.15)" }
                         }>
-                        {timeHorizon === "custom" && totalWeight !== 100 ? "—" : activeAGap(sub)}
+                        {timeHorizon === "custom" && totalWeight !== 100 ? "—" : Math.round(activeAGap(sub))}
                       </td>
                       <td className={`py-2 px-3 text-right font-bold tabular-nums text-sm ${
                         sub.agap_velo == null ? "text-gray-700" :
