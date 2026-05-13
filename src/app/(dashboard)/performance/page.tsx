@@ -8,33 +8,34 @@ import BlurGate from "@/components/BlurGate";
 import { getTier } from "@/lib/subscription";
 
 // Pure SVG chart — no external deps
-function PortfolioChart({ history, costBasis }: { history: { date: string; totalValue: number }[]; costBasis: number }) {
+// values[] is the pre-computed Y-axis numbers; formatY controls axis + endpoint labels
+function PortfolioChart({ history, values, formatY }: {
+  history: { date: string }[];
+  values: number[];
+  formatY: (v: number) => string;
+}) {
   const W = 800, H = 160;
-  const PAD = { top: 12, right: 24, bottom: 28, left: 56 };
+  const PAD = { top: 12, right: 24, bottom: 28, left: 64 };
   const chartW = W - PAD.left - PAD.right;
   const chartH = H - PAD.top - PAD.bottom;
 
-  // totalValue is encoded as (100 + avgMaxPct), costBasis=100.
-  // Show raw equal-weighted avg % so chart's final value matches the Max Return stat.
-  const base = costBasis > 0 ? costBasis : 1;
-  const pctValues = history.map(h => ((h.totalValue - base) / base) * 100);
-  const minPct = Math.min(...pctValues);
-  const maxPct = Math.max(...pctValues);
-  const range = maxPct - minPct || 1;
+  const minV = Math.min(...values);
+  const maxV = Math.max(...values);
+  const range = maxV - minV || 1;
   const padRange = range * 0.12;
-  const yMin = minPct - padRange;
-  const yMax = maxPct + padRange;
+  const yMin = minV - padRange;
+  const yMax = maxV + padRange;
 
   const xScale = (i: number) => PAD.left + (i / Math.max(history.length - 1, 1)) * chartW;
-  const yScale = (pct: number) => PAD.top + chartH - ((pct - yMin) / (yMax - yMin)) * chartH;
+  const yScale = (v: number) => PAD.top + chartH - ((v - yMin) / (yMax - yMin)) * chartH;
 
-  const pts = pctValues.map((pct, i) => `${xScale(i).toFixed(1)},${yScale(pct).toFixed(1)}`);
+  const pts = values.map((v, i) => `${xScale(i).toFixed(1)},${yScale(v).toFixed(1)}`);
   const polyPoints = pts.join(" ");
   const firstX = xScale(0);
   const lastX = xScale(history.length - 1);
   const baseY = PAD.top + chartH;
   const areaPoints = `${firstX.toFixed(1)},${baseY} ${polyPoints} ${lastX.toFixed(1)},${baseY}`;
-  const isUp = pctValues[pctValues.length - 1] >= pctValues[0];
+  const isUp = values[values.length - 1] >= values[0];
   const lineColor = isUp ? "#4ade80" : "#f87171";
   const gradId = isUp ? "areaGreen" : "areaRed";
   const gradStop = isUp ? "#4ade80" : "#f87171";
@@ -45,8 +46,8 @@ function PortfolioChart({ history, costBasis }: { history: { date: string; total
       x: xScale(i),
       label: new Date(history[i].date + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" }),
     }));
-  const lastPct = pctValues[pctValues.length - 1];
-  const lastPt = { x: xScale(history.length - 1), y: yScale(lastPct) };
+  const lastV = values[values.length - 1];
+  const lastPt = { x: xScale(history.length - 1), y: yScale(lastV) };
 
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: "160px" }}>
@@ -56,10 +57,10 @@ function PortfolioChart({ history, costBasis }: { history: { date: string; total
           <stop offset="100%" stopColor={gradStop} stopOpacity="0.01" />
         </linearGradient>
       </defs>
-      {yTicks.map((pct, i) => (
+      {yTicks.map((v, i) => (
         <g key={i}>
-          <line x1={PAD.left} y1={yScale(pct).toFixed(1)} x2={PAD.left + chartW} y2={yScale(pct).toFixed(1)} stroke="#1f2937" strokeWidth="1" />
-          <text x={PAD.left - 6} y={(yScale(pct) + 4).toFixed(1)} fill="#6b7280" fontSize="10" textAnchor="end">{pct >= 0 ? "+" : ""}{pct.toFixed(1)}%</text>
+          <line x1={PAD.left} y1={yScale(v).toFixed(1)} x2={PAD.left + chartW} y2={yScale(v).toFixed(1)} stroke="#1f2937" strokeWidth="1" />
+          <text x={PAD.left - 6} y={(yScale(v) + 4).toFixed(1)} fill="#6b7280" fontSize="10" textAnchor="end">{formatY(v)}</text>
         </g>
       ))}
       <polygon points={areaPoints} fill={`url(#${gradId})`} />
@@ -69,7 +70,7 @@ function PortfolioChart({ history, costBasis }: { history: { date: string; total
       ))}
       <circle cx={lastPt.x.toFixed(1)} cy={lastPt.y.toFixed(1)} r="4" fill={lineColor} />
       <text x={(lastPt.x - 4).toFixed(1)} y={(lastPt.y - 8).toFixed(1)} fill={lineColor} fontSize="11" fontWeight="bold" textAnchor="end">
-        {lastPct >= 0 ? "+" : ""}{lastPct.toFixed(1)}%
+        {formatY(lastV)}
       </text>
     </svg>
   );
@@ -205,71 +206,57 @@ export default function PerformancePage() {
               </div>
             </div>
 
-            {/* Chart — peak return accrual curve.
-                 Each position's confirmed peak gain is distributed evenly across its
-                 holding period (buy date → today). Every day, each position accrues
-                 a fraction of its eventual peak → line is guaranteed always-increasing. */}
-            {(() => {
-              const today = new Date().toISOString().slice(0, 10);
-              const todayMs = new Date(today + "T12:00:00").getTime();
-
+            {/* Chart — total profit in dollars from actual daily portfolio history.
+                 Y-axis = (totalValue − costAtDate) × display multiplier.
+                 Grows as positions are added and gains accumulate. */}
+            {portfolioData.history.length >= 2 ? (() => {
+              const sortedHistory = [...portfolioData.history]
+                .sort((a, b) => a.date.localeCompare(b.date));
               const sortedPositions = [...portfolioData.positions]
-                .filter(p => (p.maxPnlPct ?? 0) > 0)
                 .sort((a, b) => a.buyDate.localeCompare(b.buyDate));
 
-              if (sortedPositions.length < 2) {
-                return (
-                  <div className="bg-gray-900/70 border border-gray-800 rounded-xl p-5">
-                    <div className="text-xs text-gray-500 uppercase tracking-wider mb-2">Performance Chart</div>
-                    <div className="text-center py-6 text-gray-600 text-sm">Chart builds as picks mature — check back in a few weeks 📊</div>
-                  </div>
-                );
-              }
-
-              // Daily date range: first buy → today
-              const firstDate = sortedPositions[0].buyDate;
-              const allDates: string[] = [];
-              const cur = new Date(firstDate + "T12:00:00");
-              const end = new Date(today + "T12:00:00");
-              while (cur <= end) {
-                allDates.push(cur.toISOString().slice(0, 10));
-                cur.setDate(cur.getDate() + 1);
-              }
-
-              // Each day = sum of (maxPnlPct × fraction of holding period elapsed).
-              // fraction = daysHeld / totalDaysToToday → monotonically grows 0→1 per position.
-              // Total line increases every single day, guaranteed.
-              const returnHistory = allDates.map(d => {
-                const dMs = new Date(d + "T12:00:00").getTime();
-                let totalAccrued = 0;
-                for (const pos of sortedPositions) {
-                  if (pos.buyDate > d) continue;
-                  const buyMs = new Date(pos.buyDate + "T12:00:00").getTime();
-                  const totalHoldMs = Math.max(1, todayMs - buyMs);
-                  const fraction = Math.min(1, (dMs - buyMs) / totalHoldMs);
-                  totalAccrued += (pos.maxPnlPct ?? 0) * fraction;
-                }
-                return { date: d, totalValue: Math.round((100 + totalAccrued) * 100) / 100 };
+              // Dollar P&L at each snapshot date (scaled to $1,000 display units)
+              const dollarPnlHistory = sortedHistory.map(h => {
+                const costByDate = sortedPositions
+                  .filter(p => p.buyDate <= h.date)
+                  .reduce((s, p) => s + p.amountUsd, 0);
+                const pnl = costByDate > 0 ? (h.totalValue - costByDate) * PM : 0;
+                return { date: h.date, pnl: Math.round(pnl) };
               });
 
-              const finalAccrued = returnHistory[returnHistory.length - 1].totalValue - 100;
+              const currentPnl = dollarPnlHistory[dollarPnlHistory.length - 1]?.pnl ?? 0;
+              const formatDollar = (v: number) =>
+                `${v >= 0 ? "+" : "-"}$${Math.abs(v) >= 1000
+                  ? (Math.abs(v) / 1000).toFixed(1) + "k"
+                  : Math.abs(v).toFixed(0)}`;
 
               return (
                 <div className="bg-gray-900/70 border border-gray-800 rounded-xl p-5">
                   <div className="flex items-center justify-between mb-4">
                     <div>
-                      <div className="text-xs text-gray-500 uppercase tracking-wider">Peak Return Accrual</div>
-                      <div className="text-xs text-gray-600 mt-0.5">Each pick&apos;s confirmed peak gain distributed across its holding period</div>
+                      <div className="text-xs text-gray-500 uppercase tracking-wider">Total Profit</div>
+                      <div className="text-xs text-gray-600 mt-0.5">Daily dollar P&amp;L across all open picks · real prices</div>
                     </div>
                     <div className="text-right">
-                      <div className="text-2xl font-black text-green-400">+{finalAccrued.toFixed(0)}%</div>
-                      <div className="text-xs text-gray-500">total accrued</div>
+                      <div className={`text-2xl font-black ${currentPnl >= 0 ? "text-green-400" : "text-red-400"}`}>
+                        {formatDollar(currentPnl)}
+                      </div>
+                      <div className="text-xs text-gray-500">current profit</div>
                     </div>
                   </div>
-                  <PortfolioChart history={returnHistory} costBasis={100} />
+                  <PortfolioChart
+                    history={dollarPnlHistory}
+                    values={dollarPnlHistory.map(h => h.pnl)}
+                    formatY={formatDollar}
+                  />
                 </div>
               );
-            })()}
+            })() : (
+              <div className="bg-gray-900/70 border border-gray-800 rounded-xl p-5">
+                <div className="text-xs text-gray-500 uppercase tracking-wider mb-2">Performance Chart</div>
+                <div className="text-center py-6 text-gray-600 text-sm">Chart builds as picks mature — check back in a few weeks 📊</div>
+              </div>
+            )}
 
             {/* Holdings table */}
             <div className="bg-gray-900/70 border border-gray-800 rounded-xl overflow-hidden">
