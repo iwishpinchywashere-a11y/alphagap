@@ -102,8 +102,10 @@ export default function LeaderboardPage() {
   const [filterCategory, setFilterCategory] = useState<string>("");
   const [filtersOpen, setFiltersOpen] = useState(false);
   type CustomWeights = { velo: number; flow: number; dev: number; evalW: number; prod: number; soc: number; aud: number; emPct: number; emChange: number };
-  const [customWeights, setCustomWeights] = useState<CustomWeights>({ velo:0, flow:0, dev:0, evalW:0, prod:0, soc:0, aud:0, emPct:0, emChange:0 });
+  const EMPTY_WEIGHTS: CustomWeights = { velo:0, flow:0, dev:0, evalW:0, prod:0, soc:0, aud:0, emPct:0, emChange:0 };
+  const [customWeights, setCustomWeights] = useState<CustomWeights>(EMPTY_WEIGHTS);
   const [showCustomEditor, setShowCustomEditor] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [timeHorizon, setTimeHorizon] = useState<"trading" | "investing" | "custom">("trading");
   const [showInvestingGate, setShowInvestingGate] = useState(false);
   const isPremium = canAccessPremium(tier);
@@ -164,6 +166,21 @@ export default function LeaderboardPage() {
       if (wrapper) wrapper.removeEventListener("scroll", onTableScroll);
     };
   }, [leaderboard.length]);
+
+  // Load saved custom weights from the server on mount (if user is logged in)
+  useEffect(() => {
+    fetch("/api/custom-formula")
+      .then(r => r.ok ? r.json() : null)
+      .then((data: { weights: CustomWeights | null } | null) => {
+        if (data?.weights) {
+          setCustomWeights(data.weights);
+          setTimeHorizon("custom");
+          setShowCustomEditor(true);
+        }
+      })
+      .catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Normalise emission fields to 0-100 for custom formula
   const maxEmPct = Math.max(...leaderboard.map(s => s.emission_pct ?? 0), 0.001);
@@ -580,15 +597,51 @@ export default function LeaderboardPage() {
                   })}
                 </div>
 
-                {totalWeight !== 100 && (
-                  <div className="mt-3 pt-3 border-t border-gray-800 text-xs text-gray-500">
+                <div className="mt-4 pt-3 border-t border-gray-800 flex items-center justify-between gap-3 flex-wrap">
+                  <div className="text-xs text-gray-500">
                     {totalWeight === 0
                       ? "Start by assigning weights above. Each slider represents how much that signal contributes to your custom aGap score."
                       : totalWeight < 100
                       ? `Allocate the remaining ${100 - totalWeight}% across any signals to activate your custom leaderboard.`
-                      : `Remove ${totalWeight - 100}% from any signals to balance your formula.`}
+                      : totalWeight > 100
+                      ? `Remove ${totalWeight - 100}% from any signals to balance your formula.`
+                      : "Formula balanced. Save it to keep your settings across sessions."}
                   </div>
-                )}
+                  <button
+                    disabled={totalWeight !== 100 || saveStatus === "saving"}
+                    onClick={async () => {
+                      setSaveStatus("saving");
+                      try {
+                        const r = await fetch("/api/custom-formula", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ weights: customWeights }),
+                        });
+                        setSaveStatus(r.ok ? "saved" : "error");
+                        setTimeout(() => setSaveStatus("idle"), 2500);
+                      } catch {
+                        setSaveStatus("error");
+                        setTimeout(() => setSaveStatus("idle"), 2500);
+                      }
+                    }}
+                    className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-bold transition-all shrink-0 ${
+                      totalWeight !== 100
+                        ? "bg-gray-800 text-gray-600 cursor-not-allowed"
+                        : saveStatus === "saved"
+                        ? "bg-green-500/20 border border-green-500/40 text-green-400"
+                        : saveStatus === "error"
+                        ? "bg-red-500/20 border border-red-500/40 text-red-400"
+                        : saveStatus === "saving"
+                        ? "bg-blue-500/20 border border-blue-500/40 text-blue-400 opacity-70"
+                        : "bg-blue-600 hover:bg-blue-500 text-white"
+                    }`}
+                  >
+                    {saveStatus === "saving" ? "Saving…"
+                      : saveStatus === "saved" ? "✓ Saved"
+                      : saveStatus === "error" ? "Error — retry"
+                      : "💾 Save Formula"}
+                  </button>
+                </div>
               </div>
             )}
 
