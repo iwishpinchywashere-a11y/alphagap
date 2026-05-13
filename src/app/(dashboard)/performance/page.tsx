@@ -76,8 +76,12 @@ function PortfolioChart({ history, values, formatY }: {
   );
 }
 
-const POSITION_SIZE = 1000; // display as $1000 per position (10× stored $100 values)
-const PM = 10; // multiplier: stored values are $100-based, display as $1000-based
+const POSITION_SIZE = 1000; // display as $1000 per position
+// Normalize any position to $1,000-equivalent display: × (1000 / amountUsd).
+// Auto-buys store $100 → ×10. Manually-added positions store $1000 → ×1.
+// Never use raw PM=10 for dollar amounts — positions may have different stored sizes.
+const PM = 10; // kept for currentValue display (currentValue = alphaTokens × price, not amountUsd-based)
+const normDollar = (usd: number, amountUsd: number) => usd * (POSITION_SIZE / amountUsd);
 const MATURITY_DAYS = 30; // positions younger than this are "still developing" — excluded from headline stats and chart
 const HIT_THRESHOLD_PCT = 30; // 30%+ return = a "hit"
 
@@ -215,10 +219,11 @@ export default function PerformancePage() {
                 .sort((a, b) => a.buyDate.localeCompare(b.buyDate));
 
               // Build cumulative max profit staircase at each buy date
+              // Use normDollar so $100-stored and $1000-stored positions both display at $1000 scale
               let cumMaxPnl = 0;
               const buyPoints: { date: string; cum: number }[] = [];
               for (const pos of sortedPositions) {
-                cumMaxPnl += (pos.maxPnlUsd ?? 0) * PM;
+                cumMaxPnl += normDollar(pos.maxPnlUsd ?? 0, pos.amountUsd);
                 // If multiple buys on same day, just update
                 const last = buyPoints[buyPoints.length - 1];
                 if (last && last.date === pos.buyDate) {
@@ -319,7 +324,7 @@ export default function PerformancePage() {
                                 {(pos.maxPnlPct ?? 0) >= 0 ? "+" : ""}{(pos.maxPnlPct ?? 0).toFixed(1)}%
                               </div>
                               <div className="text-xs text-green-500">
-                                {(pos.maxPnlUsd ?? 0) >= 0 ? "+" : ""}${((pos.maxPnlUsd ?? 0) * PM).toFixed(2)}
+                                {(pos.maxPnlUsd ?? 0) >= 0 ? "+" : ""}${normDollar(pos.maxPnlUsd ?? 0, pos.amountUsd).toFixed(2)}
                               </div>
                             </>
                           ) : (
@@ -348,7 +353,7 @@ export default function PerformancePage() {
                           {portfolioData.summary.taoPrice && portfolioData.summary.taoPrice > 0 && pos.maxPnlUsd != null ? (
                             <span className={(pos.maxPnlUsd ?? 0) >= 0 ? "text-green-400" : "text-red-400"}>
                               {(pos.maxPnlUsd ?? 0) >= 0 ? "+" : ""}
-                              {(((pos.maxPnlUsd ?? 0) * PM) / portfolioData.summary.taoPrice).toFixed(3)} τ
+                              {(normDollar(pos.maxPnlUsd ?? 0, pos.amountUsd) / portfolioData.summary.taoPrice).toFixed(3)} τ
                             </span>
                           ) : <span className="text-gray-600">—</span>}
                         </td>
@@ -366,7 +371,7 @@ export default function PerformancePage() {
                       <td className="text-right px-3 py-3">
                         {portfolioData.summary.maxReturnUsd != null ? (
                           <span className="text-green-400">
-                            {(portfolioData.summary.maxReturnUsd ?? 0) >= 0 ? "+" : ""}${((portfolioData.summary.maxReturnUsd ?? 0) * PM).toFixed(2)}
+                            {(portfolioData.summary.maxReturnUsd ?? 0) >= 0 ? "+" : ""}${portfolioData.positions.reduce((s, p) => s + normDollar(p.maxPnlUsd ?? 0, p.amountUsd), 0).toFixed(2)}
                             <div className="text-xs font-normal">
                               ({(portfolioData.summary.maxReturnPct ?? 0) >= 0 ? "+" : ""}{(portfolioData.summary.maxReturnPct ?? 0).toFixed(1)}%)
                             </div>
@@ -381,7 +386,7 @@ export default function PerformancePage() {
                         {portfolioData.summary.taoPrice && portfolioData.summary.taoPrice > 0 && portfolioData.summary.maxReturnUsd != null ? (
                           <span className={(portfolioData.summary.maxReturnUsd ?? 0) >= 0 ? "text-green-400" : "text-red-400"}>
                             {(portfolioData.summary.maxReturnUsd ?? 0) >= 0 ? "+" : ""}
-                            {(((portfolioData.summary.maxReturnUsd ?? 0) * PM) / portfolioData.summary.taoPrice).toFixed(3)} τ
+                            {(portfolioData.positions.reduce((s, p) => s + normDollar(p.maxPnlUsd ?? 0, p.amountUsd), 0) / portfolioData.summary.taoPrice).toFixed(3)} τ
                           </span>
                         ) : <span className="text-gray-500">—</span>}
                       </td>
