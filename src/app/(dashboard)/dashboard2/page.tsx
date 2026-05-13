@@ -101,8 +101,15 @@ export default function LeaderboardPage() {
   const [filterDeregWatch, setFilterDeregWatch] = useState(false);
   const [filterCategory, setFilterCategory] = useState<string>("");
   const [filtersOpen, setFiltersOpen] = useState(false);
-  type CustomWeights = { velo: number; flow: number; dev: number; evalW: number; prod: number; soc: number; aud: number; emPct: number; emChange: number };
-  const EMPTY_WEIGHTS: CustomWeights = { velo:0, flow:0, dev:0, evalW:0, prod:0, soc:0, aud:0, emPct:0, emChange:0 };
+  type CustomWeights = {
+    // Base weights — must sum to 100
+    velo: number; flow: number; dev: number; evalW: number; prod: number;
+    soc: number; aud: number; emPct: number; emChange: number;
+    // Gap bonus intensities — independent of base sum, each 0–30
+    gapAlpha: number; gapHidden: number; gapEmissions: number; gapSmart: number;
+  };
+  const BASE_WEIGHT_KEYS: (keyof CustomWeights)[] = ["velo","flow","dev","evalW","prod","soc","aud","emPct","emChange"];
+  const EMPTY_WEIGHTS: CustomWeights = { velo:0, flow:0, dev:0, evalW:0, prod:0, soc:0, aud:0, emPct:0, emChange:0, gapAlpha:0, gapHidden:0, gapEmissions:0, gapSmart:0 };
   const [customWeights, setCustomWeights] = useState<CustomWeights>(EMPTY_WEIGHTS);
   const [showCustomEditor, setShowCustomEditor] = useState(false);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
@@ -190,19 +197,48 @@ export default function LeaderboardPage() {
 
   const computeCustomScore = (sub: SubnetScore): number => {
     const w = customWeights;
-    const emPctNorm = Math.min(100, ((sub.emission_pct ?? 0) / maxEmPct) * 100);
+    const emPctNorm    = Math.min(100, ((sub.emission_pct ?? 0) / maxEmPct) * 100);
     const emChangeNorm = Math.min(100, Math.max(0, ((sub.emission_change_pct ?? 0) - minEmChange) / emChangeRange * 100));
-    return Math.round(
-      ((sub.agap_velo ?? 0) * w.velo +
-       (sub.flow_score ?? 0) * w.flow +
-       (sub.dev_score ?? 0) * w.dev +
-       (sub.eval_score ?? 0) * w.evalW +
-       (sub.product_score ?? 0) * w.prod +
-       (sub.social_score ?? 0) * w.soc +
-       (sub.audit_score ?? 0) * w.aud +
-       emPctNorm * w.emPct +
-       emChangeNorm * w.emChange) / 100
-    );
+
+    // Base weighted average (0–100 when base weights sum to 100)
+    const base = (
+      (sub.agap_velo    ?? 0) * w.velo +
+      (sub.flow_score   ?? 0) * w.flow +
+      (sub.dev_score    ?? 0) * w.dev  +
+      (sub.eval_score   ?? 0) * w.evalW +
+      (sub.product_score ?? 0) * w.prod +
+      (sub.social_score ?? 0) * w.soc  +
+      (sub.audit_score  ?? 0) * w.aud  +
+      emPctNorm          * w.emPct +
+      emChangeNorm       * w.emChange
+    ) / 100;
+
+    // ── Gap Bonuses — reward signal combinations ──────────────────
+    // Each coefficient is 0–1. Max bonus per type = intensity (0–30 pts).
+    // coefficient = (high-signal / 100) × ((100 - lagging-signal) / 100)
+    const dev  = sub.dev_score    ?? 0;
+    const flow = sub.flow_score   ?? 0;
+    const prod = sub.product_score ?? 0;
+    const soc  = sub.social_score ?? 0;
+    const aud  = sub.audit_score  ?? 0;
+    const velo = sub.agap_velo    ?? 0;
+
+    // Alpha Gap: high dev + price lagging (flow low) → market hasn't priced in building
+    const alphaCoeff     = (dev / 100) * ((100 - flow) / 100);
+    // Hidden Gem: high dev+prod avg + low social → shipping without the hype
+    const hiddenCoeff    = (((dev + prod) / 2) / 100) * ((100 - soc) / 100);
+    // Emissions Surge: rising emissions + price not following (flow low)
+    const emSurgeCoeff   = (emChangeNorm / 100) * ((100 - flow) / 100);
+    // Smart Money: audit health + momentum aligning → validator conviction + price action
+    const smartCoeff     = (aud / 100) * (velo / 100);
+
+    const gapBonus =
+      (w.gapAlpha     ?? 0) * alphaCoeff   +
+      (w.gapHidden    ?? 0) * hiddenCoeff  +
+      (w.gapEmissions ?? 0) * emSurgeCoeff +
+      (w.gapSmart     ?? 0) * smartCoeff;
+
+    return Math.round(Math.min(100, Math.max(0, base + gapBonus)));
   };
 
   // Returns the aGap score for a subnet based on the active time horizon
@@ -249,7 +285,7 @@ export default function LeaderboardPage() {
       return 0;
     });
 
-  const totalWeight = Object.values(customWeights).reduce((a, b) => a + b, 0);
+  const totalWeight = BASE_WEIGHT_KEYS.reduce((a, k) => a + customWeights[k], 0);
   const WEIGHT_FIELDS: { key: keyof CustomWeights; label: string; desc: string }[] = [
     { key: "velo",     label: "Velocity",  desc: "aGap score momentum" },
     { key: "flow",     label: "Flow",      desc: "Price action & whale moves" },
@@ -262,36 +298,43 @@ export default function LeaderboardPage() {
     { key: "emChange", label: "Em Δ", desc: "Emission change trend" },
   ];
 
+  const GAP_BONUS_FIELDS: { key: keyof CustomWeights; emoji: string; label: string; desc: string; triggerA: string; triggerB: string }[] = [
+    { key: "gapAlpha",     emoji: "🎯", label: "Alpha Gap",        desc: "High Dev + price lagging",        triggerA: "Dev ↑", triggerB: "Flow ↓" },
+    { key: "gapHidden",    emoji: "👻", label: "Hidden Gem",       desc: "High Dev+Product + low Social",    triggerA: "Dev+Prod ↑", triggerB: "Social ↓" },
+    { key: "gapEmissions", emoji: "📈", label: "Emissions Surge",  desc: "Rising emissions + price lagging", triggerA: "Em Δ ↑", triggerB: "Flow ↓" },
+    { key: "gapSmart",     emoji: "🧠", label: "Smart Money",      desc: "Audit health + velocity aligning", triggerA: "Audit ↑", triggerB: "Velo ↑" },
+  ];
+
   const PRESETS: { name: string; emoji: string; desc: string; weights: CustomWeights }[] = [
     {
       name: "Momentum",
       emoji: "⚡",
       desc: "Velocity + flow + emission signals",
-      weights: { velo:30, flow:30, dev:0, evalW:0, prod:0, soc:0, aud:0, emPct:25, emChange:15 },
+      weights: { velo:30, flow:30, dev:0, evalW:0, prod:0, soc:0, aud:0, emPct:25, emChange:15, gapAlpha:0, gapHidden:0, gapEmissions:20, gapSmart:0 },
     },
     {
       name: "Deep Value",
       emoji: "🔬",
       desc: "Dev + product + audit health",
-      weights: { velo:0, flow:0, dev:40, evalW:0, prod:35, soc:0, aud:25, emPct:0, emChange:0 },
+      weights: { velo:0, flow:0, dev:40, evalW:0, prod:35, soc:0, aud:25, emPct:0, emChange:0, gapAlpha:0, gapHidden:25, gapEmissions:0, gapSmart:0 },
     },
     {
       name: "Buzz",
       emoji: "📢",
       desc: "Social + velocity + flow",
-      weights: { velo:30, flow:30, dev:0, evalW:0, prod:0, soc:40, aud:0, emPct:0, emChange:0 },
+      weights: { velo:30, flow:30, dev:0, evalW:0, prod:0, soc:40, aud:0, emPct:0, emChange:0, gapAlpha:0, gapHidden:0, gapEmissions:0, gapSmart:0 },
     },
     {
       name: "TAO Flow",
       emoji: "🌊",
       desc: "eVal + emission % + emission change",
-      weights: { velo:0, flow:0, dev:0, evalW:45, prod:0, soc:0, aud:0, emPct:30, emChange:25 },
+      weights: { velo:0, flow:0, dev:0, evalW:45, prod:0, soc:0, aud:0, emPct:30, emChange:25, gapAlpha:0, gapHidden:0, gapEmissions:25, gapSmart:0 },
     },
     {
       name: "Conviction",
       emoji: "💎",
       desc: "Dev + product + audit + eVal — fundamentals only",
-      weights: { velo:0, flow:0, dev:30, evalW:10, prod:30, soc:0, aud:20, emPct:5, emChange:5 },
+      weights: { velo:0, flow:0, dev:30, evalW:10, prod:30, soc:0, aud:20, emPct:5, emChange:5, gapAlpha:15, gapHidden:10, gapEmissions:0, gapSmart:0 },
     },
   ];
 
@@ -580,7 +623,7 @@ export default function LeaderboardPage() {
                        `${totalWeight}% — ${100 - totalWeight}% remaining`}
                     </span>
                     <button
-                      onClick={() => setCustomWeights({ velo:0, flow:0, dev:0, evalW:0, prod:0, soc:0, aud:0, emPct:0, emChange:0 })}
+                      onClick={() => setCustomWeights(EMPTY_WEIGHTS)}
                       className="text-xs text-gray-600 hover:text-gray-400 transition-colors"
                     >
                       Reset
@@ -644,6 +687,53 @@ export default function LeaderboardPage() {
                       </div>
                     );
                   })}
+                </div>
+
+                {/* ── Gap Bonuses ─────────────────────────────────────────────── */}
+                <div className="mt-5 pt-4 border-t border-gray-800/60">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-xs font-bold text-amber-400">⚡ Gap Bonuses</span>
+                    <span className="text-[10px] text-gray-500">— reward signal combinations, stack on top of your base formula</span>
+                  </div>
+                  <p className="text-[10px] text-gray-600 mb-4 leading-relaxed">
+                    Each bonus fires when two signals align (e.g. Dev is high but Flow is low). Max <span className="text-gray-400">+30 pts</span> per bonus. A coefficient of 0–1 scales the bonus automatically based on how strongly the combo is present — so a subnet perfectly matching the condition scores the full intensity.
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
+                    {GAP_BONUS_FIELDS.map(({ key, emoji, label, desc, triggerA, triggerB }) => {
+                      const val = customWeights[key];
+                      return (
+                        <div key={key} className="flex flex-col gap-1.5">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <span className="text-xs font-semibold text-amber-300/90">{emoji} {label}</span>
+                              <span className="text-[10px] text-gray-600 ml-1.5">{desc}</span>
+                              <div className="text-[9px] text-gray-700 mt-0.5">fires when: <span className="text-green-600">{triggerA}</span> + <span className="text-red-700">{triggerB}</span></div>
+                            </div>
+                            <div className="flex items-center gap-1 shrink-0">
+                              <button
+                                onClick={() => setCustomWeights(w => ({ ...w, [key]: Math.max(0, w[key] - 5) }))}
+                                className="w-5 h-5 rounded bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white text-xs flex items-center justify-center transition-colors select-none"
+                              >−</button>
+                              <span className="text-sm font-bold text-amber-300 w-8 text-center tabular-nums">+{val}</span>
+                              <button
+                                onClick={() => setCustomWeights(w => ({ ...w, [key]: Math.min(30, w[key] + 5) }))}
+                                className="w-5 h-5 rounded bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white text-xs flex items-center justify-center transition-colors select-none"
+                              >+</button>
+                            </div>
+                          </div>
+                          <input
+                            type="range"
+                            min={0}
+                            max={30}
+                            step={1}
+                            value={val}
+                            onChange={e => setCustomWeights(w => ({ ...w, [key]: parseInt(e.target.value) }))}
+                            className="w-full h-1.5 cursor-pointer accent-amber-500"
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
 
                 <div className="mt-4 pt-3 border-t border-gray-800 flex items-center justify-between gap-3 flex-wrap">

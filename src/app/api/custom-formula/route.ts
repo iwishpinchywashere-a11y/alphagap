@@ -13,6 +13,7 @@ import { put, get as blobGet } from "@vercel/blob";
 import crypto from "crypto";
 
 export interface CustomWeights {
+  // Base weights — must sum to 100
   velo: number;
   flow: number;
   dev: number;
@@ -22,6 +23,11 @@ export interface CustomWeights {
   aud: number;
   emPct: number;
   emChange: number;
+  // Gap bonus intensities — independent of base sum, each 0–30
+  gapAlpha: number;
+  gapHidden: number;
+  gapEmissions: number;
+  gapSmart: number;
 }
 
 function emailHash(email: string): string {
@@ -70,16 +76,26 @@ export async function POST(req: NextRequest) {
   const body = await req.json() as { weights: CustomWeights };
   const { weights } = body;
 
-  // Validate: all values must be numbers 0-100 and sum to exactly 100
-  const fields: (keyof CustomWeights)[] = ["velo", "flow", "dev", "evalW", "prod", "soc", "aud", "emPct", "emChange"];
-  for (const f of fields) {
+  // Validate base weights: all 0-100, sum to exactly 100
+  const baseFields: (keyof CustomWeights)[] = ["velo", "flow", "dev", "evalW", "prod", "soc", "aud", "emPct", "emChange"];
+  for (const f of baseFields) {
     if (typeof weights[f] !== "number" || weights[f] < 0 || weights[f] > 100) {
       return NextResponse.json({ error: `Invalid value for ${f}` }, { status: 400 });
     }
   }
-  const total = fields.reduce((s, f) => s + weights[f], 0);
+  const total = baseFields.reduce((s, f) => s + weights[f], 0);
   if (total !== 100) {
     return NextResponse.json({ error: `Weights must sum to 100, got ${total}` }, { status: 400 });
+  }
+
+  // Validate gap bonus intensities: each 0-30 (optional — default 0 if missing)
+  const gapFields: (keyof CustomWeights)[] = ["gapAlpha", "gapHidden", "gapEmissions", "gapSmart"];
+  for (const f of gapFields) {
+    const v = weights[f] ?? 0;
+    if (typeof v !== "number" || v < 0 || v > 30) {
+      return NextResponse.json({ error: `Invalid gap bonus value for ${f} (must be 0–30)` }, { status: 400 });
+    }
+    weights[f] = v; // normalise missing → 0
   }
 
   await put(blobKey(email), JSON.stringify(weights), {
