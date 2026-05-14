@@ -3137,14 +3137,14 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     if (constBuy > 0) aGap = Math.min(100, aGap + Math.min(20, 10 + constBuy / 100));
     if (constSell > 0) aGap = Math.max(1, aGap - Math.min(10, 3 + constSell / 200));
 
-    // ── INVESTING aGap (PILLAR-CAPPED + REVENUE-ANCHORED formula, v19) ──────────
-    // Monthly horizon. Raised pillar caps so strong subnets can reach 85–95
-    // without confirmed ARR. Growth Potential bonus rewards undiscovered gems.
+    // ── INVESTING aGap (PILLAR-CAPPED + REVENUE-ANCHORED formula, v20) ──────────
+    // Monthly horizon. Moderately raised pillar caps — still conservative enough
+    // to filter but no longer crushing strong subnets without confirmed ARR.
     //
     // Architecture: 5 pillars + RevTraction + MktVal + Synergy + GrowthPotential + Revenue Floor
-    //   Dev(28) + Product(35) + Network(14) + Money(10) + Health(12)
-    //   + RevTraction(20) + MktVal(5) + Synergy(6) + GrowthPotential(15)
-    //   Max theoretical = 145 → always clamped to 100.
+    //   Dev(25) + Product(31) + Network(12) + Money(9) + Health(11)
+    //   + RevTraction(20) + MktVal(5) + Synergy(5) + GrowthPotential(10)
+    //   Max theoretical = 103 → always clamped to 100.
     //
     // Revenue floors: confirmed ARR guarantees a minimum score so network penalties
     // can't bury a subnet that's generating real fiat revenue.
@@ -3192,11 +3192,11 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     else if (productSource === "benchmark" && confirmedArr >          0) marketValidationBonus = 2;
     else if (productSource === "benchmark")                              marketValidationBonus = 1;
 
-    // ── PILLAR 1: DEV (max 28) ────────────────────────────────────────────────
+    // ── PILLAR 1: DEV (max 25) ────────────────────────────────────────────────
     const rawDevPillar = (buildingPts * 1.0) + (consistentBuilderBonus * 2.2) + (devSpikeBonus * 0.10);
-    const pillarDev = Math.min(28, Math.round(rawDevPillar));
+    const pillarDev = Math.min(25, Math.round(rawDevPillar));
 
-    // ── PILLAR 2: PRODUCT (max 35) ────────────────────────────────────────────
+    // ── PILLAR 2: PRODUCT (max 31) ────────────────────────────────────────────
     const iProductSourceMult = productSource === "benchmark" ? 1.5 :
                                productSource === "website"   ? 1.3 :
                                productSource === "milestone" ? 1.1 :
@@ -3205,9 +3205,9 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
                            + (productAwarenessGap * 2.0)
                            + (productVsPriceBonus  * 2.0)
                            + (investPreLaunch       * 0.9);
-    const pillarProduct = Math.min(35, Math.round(rawProductPillar));
+    const pillarProduct = Math.min(31, Math.round(rawProductPillar));
 
-    // ── PILLAR 3: NETWORK (max 14) ────────────────────────────────────────────
+    // ── PILLAR 3: NETWORK (max 12) ────────────────────────────────────────────
     // Eval/emissions are weekly signals. A subnet can be a great long-term
     // investment with moderate on-chain metrics.
     const rawNetworkPillar = (evalBoost            * 0.45)
@@ -3216,39 +3216,39 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
                            + (stakingBoost          * 0.5)
                            + (rootPropBonus         * 0.6)
                            + Math.max(0, investNetworkHealth);
-    const pillarNetwork = Math.min(14, Math.round(rawNetworkPillar));
+    const pillarNetwork = Math.min(12, Math.round(rawNetworkPillar));
 
-    // ── PILLAR 4: SMART MONEY (max 10) ────────────────────────────────────────
+    // ── PILLAR 4: SMART MONEY (max 9) ────────────────────────────────────────
     const rawMoneyPillar = (Math.max(0, whaleBoost) * 0.6) + (Math.max(0, volBoost) * 0.02);
-    const pillarMoney = Math.min(10, Math.round(rawMoneyPillar));
+    const pillarMoney = Math.min(9, Math.round(rawMoneyPillar));
 
-    // ── CROSS-PILLAR SYNERGY (max 6) ─────────────────────────────────────────
+    // ── CROSS-PILLAR SYNERGY (max 5) ─────────────────────────────────────────
     let investSynergy = 0;
-    if      (pillarDev >= 22 && pillarProduct >= 28) investSynergy = 6;
-    else if (pillarDev >= 16 && pillarProduct >= 22) investSynergy = 4;
-    else if (pillarDev >=  8 && pillarProduct >= 14) investSynergy = 2;
+    if      (pillarDev >= 20 && pillarProduct >= 26) investSynergy = 5;
+    else if (pillarDev >= 14 && pillarProduct >= 20) investSynergy = 3;
+    else if (pillarDev >=  8 && pillarProduct >= 14) investSynergy = 1;
 
-    // ── PILLAR 5: HEALTH (max 12, min −5) ────────────────────────────────────
+    // ── PILLAR 5: HEALTH (max 11, min −5) ────────────────────────────────────
     // Long-term investors care far more about decentralisation than traders.
     // Good health → additive bonus. Very centralised → structural risk penalty.
     // null data (new/unscanned subnet) → small neutral contribution.
     const pillarHealth = auditScore == null ? 3   // unknown → neutral
-      : auditScore >= 80 ? 12
-      : auditScore >= 65 ?  8
-      : auditScore >= 50 ?  5
+      : auditScore >= 80 ? 11
+      : auditScore >= 65 ?  7
+      : auditScore >= 50 ?  4
       : auditScore >= 30 ?  1
       : -5; // highly centralised = long-term structural risk
 
-    // ── GROWTH POTENTIAL BONUS (0–15 pts) ────────────────────────────────────
+    // ── GROWTH POTENTIAL BONUS (0–10 pts) ────────────────────────────────────
     // Only fires when confirmedArr === 0 (no verified revenue data).
     // Strong dev + strong product + no ARR = undiscovered gem.
     // Subnets WITH confirmed revenue already get RevTraction + MktVal instead.
     let growthPotentialBonus = 0;
     if (confirmedArr === 0) {
-      if      (pillarDev >= 24 && pillarProduct >= 30) growthPotentialBonus = 15;
-      else if (pillarDev >= 20 && pillarProduct >= 24) growthPotentialBonus = 10;
-      else if (pillarDev >= 15 && pillarProduct >= 18) growthPotentialBonus = 6;
-      else if (pillarDev >= 10 && pillarProduct >= 12) growthPotentialBonus = 3;
+      if      (pillarDev >= 21 && pillarProduct >= 26) growthPotentialBonus = 10;
+      else if (pillarDev >= 17 && pillarProduct >= 21) growthPotentialBonus = 7;
+      else if (pillarDev >= 13 && pillarProduct >= 16) growthPotentialBonus = 4;
+      else if (pillarDev >=  9 && pillarProduct >= 11) growthPotentialBonus = 2;
     }
 
     // ── PENALTIES (reduced severity — on-chain noise shouldn't bury real products) ──
