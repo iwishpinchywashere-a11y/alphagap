@@ -144,35 +144,54 @@ export async function GET() {
   } catch { /* non-critical */ }
 
   // ── Fetch top stake balances from TaoStats ─────────────────────
-  // Fetch 1000 entries to capture enough unique coldkeys for the top 50 richest
-  const allEntries: StakeBalanceEntry[] = [];
-  try {
-    const url = "https://api.taostats.io/api/dtao/stake_balance/latest/v1?limit=500&order=balance_as_tao_desc&page=1";
-    const r = await fetchWithKey(url, TAOSTATS_KEY);
-    if (r.ok) {
-      const j = await r.json();
-      const page1: StakeBalanceEntry[] = j?.data ?? [];
-      allEntries.push(...page1);
+  // Try multiple endpoint candidates — TaoStats naming isn't always documented clearly
+  const ENDPOINTS_TO_TRY = [
+    "https://api.taostats.io/api/dtao/stake_balance/latest/v1?limit=200&order=balance_as_tao_desc",
+    "https://api.taostats.io/api/stake/latest/v1?limit=200&order=balance_desc",
+    "https://api.taostats.io/api/account/latest/v1?limit=200&order=balance_desc",
+  ];
 
-      // Fetch page 2 for more coverage
-      if (j?.pagination?.total_pages > 1) {
-        const r2 = await fetchWithKey(
-          "https://api.taostats.io/api/dtao/stake_balance/latest/v1?limit=500&order=balance_as_tao_desc&page=2",
-          TAOSTATS_KEY
-        );
-        if (r2.ok) {
-          const j2 = await r2.json();
-          allEntries.push(...(j2?.data ?? []));
-        }
+  const allEntries: StakeBalanceEntry[] = [];
+  const endpointErrors: string[] = [];
+
+  for (const url of ENDPOINTS_TO_TRY) {
+    try {
+      const r = await fetchWithKey(url, TAOSTATS_KEY);
+      if (!r.ok) {
+        const errBody = await r.text().catch(() => "");
+        const msg = `${url.split("api.taostats.io/api")[1]?.split("?")[0]} → HTTP ${r.status}: ${errBody.slice(0, 120)}`;
+        endpointErrors.push(msg);
+        console.warn(`[wallet-tracker] ${msg}`);
+        continue;
       }
+      const j = await r.json();
+      const entries: StakeBalanceEntry[] = j?.data ?? [];
+      if (entries.length > 0) {
+        console.log(`[wallet-tracker] Got ${entries.length} entries from ${url}`);
+        allEntries.push(...entries);
+
+        // Fetch page 2 if available
+        if (j?.pagination?.total_pages > 1) {
+          const r2 = await fetchWithKey(url.replace(/page=\d+/, "") + "&page=2", TAOSTATS_KEY);
+          if (r2.ok) {
+            const j2 = await r2.json();
+            allEntries.push(...(j2?.data ?? []));
+          }
+        }
+        break; // success — stop trying other endpoints
+      }
+    } catch (e) {
+      const msg = `${url} → ${String(e).slice(0, 80)}`;
+      endpointErrors.push(msg);
+      console.error("[wallet-tracker]", msg);
     }
-  } catch (e) {
-    console.error("[wallet-tracker] Failed to fetch stake balances:", e);
-    return NextResponse.json({ error: "Failed to fetch wallet data" }, { status: 500 });
   }
 
   if (allEntries.length === 0) {
-    return NextResponse.json({ error: "No stake balance data returned" }, { status: 500 });
+    return NextResponse.json({
+      error: "No stake balance data returned from TaoStats",
+      debug: endpointErrors,
+    }, { status: 500 });
   }
 
   // ── Aggregate by coldkey ───────────────────────────────────────

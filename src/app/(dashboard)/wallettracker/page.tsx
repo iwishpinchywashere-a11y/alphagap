@@ -191,6 +191,7 @@ export default function WalletTrackerPage() {
   const [updatedAt, setUpdatedAt] = useState<string>("");
   const [loading, setLoading]   = useState(true);
   const [error, setError]       = useState<string | null>(null);
+  const [debugInfo, setDebugInfo] = useState<string[] | null>(null);
   const [tracked, setTracked]   = useState<Set<string>>(new Set());
   const [tab, setTab]           = useState<"top" | "known" | "tracked">("top");
   const [sortMode, setSortMode] = useState<"tao" | "usd" | "subnets">("tao");
@@ -200,8 +201,12 @@ export default function WalletTrackerPage() {
   useEffect(() => {
     fetch("/api/wallet-tracker")
       .then(r => r.json())
-      .then((data: ApiResponse) => {
-        if ("error" in data) { setError(String((data as { error: string }).error)); return; }
+      .then((data: ApiResponse & { debug?: string[] }) => {
+        if ("error" in data) {
+          setError(String((data as { error: string }).error));
+          if (data.debug) setDebugInfo(data.debug);
+          return;
+        }
         setWallets(data.wallets ?? []);
         setUpdatedAt(data.updatedAt ?? "");
       })
@@ -381,9 +386,15 @@ export default function WalletTrackerPage() {
         )}
 
         {error && (
-          <div className="py-12 text-center">
-            <p className="text-red-400 text-sm">{error}</p>
-            <p className="text-gray-600 text-xs mt-1">TaoStats API may be unavailable</p>
+          <div className="py-8 px-6">
+            <p className="text-red-400 text-sm font-medium mb-1">{error}</p>
+            {debugInfo && (
+              <div className="mt-2 space-y-1">
+                {debugInfo.map((d, i) => (
+                  <p key={i} className="text-[11px] font-mono text-gray-600">{d}</p>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
