@@ -495,36 +495,69 @@ export async function GET() {
   }
 
   // ── Const wallet detection ──────────────────────────────────────
-  // Track buys (stake) and sells (unstake) from Const's known coldkeys.
+  // Distinguish true buys/sells from validator swaps.
+  // A validator swap = unstake from hotkey A + restake to hotkey B on the SAME
+  // subnet in the same scan window — the gross legs cancel out to near-zero net.
+  //
+  // Strategy: aggregate all stake/unstake legs per subnet, then inspect the NET.
+  //   net > +10 TAO  → genuine new position  → buy event
+  //   net < -10 TAO  → genuine exit           → sell event
+  //   |net| ≤ 10 TAO → validator swap noise   → silently ignored, no alert
+  //
   // These feed: (1) const-latest.json for the flow page + alerts,
   //             (2) per-subnet const_buy_tao / const_sell_tao for aGap boost.
-  const constBuyMap = new Map<number, number>();   // netuid → total TAO bought
-  const constSellMap = new Map<number, number>();  // netuid → total TAO sold
-  const newConstEvents: ConstEvent[] = [];
+
+  // Pass 1 — accumulate gross staked/unstaked per subnet, track metadata
+  interface ConstLeg { staked: number; unstaked: number; wallet: string; latestTs: string }
+  const constLegs = new Map<number, ConstLeg>();
   for (const move of srWhaleMoves) {
     if (!move.from || !CONST_WALLETS.has(move.from)) continue;
     if (!move.netuid) continue;
-    if (move.type === "stake") {
-      constBuyMap.set(move.netuid, (constBuyMap.get(move.netuid) ?? 0) + move.amount);
+    if (move.type !== "stake" && move.type !== "unstake") continue;
+    const leg = constLegs.get(move.netuid) ?? { staked: 0, unstaked: 0, wallet: move.from, latestTs: move.timestamp ?? new Date().toISOString() };
+    if (move.type === "stake")   leg.staked   += move.amount;
+    if (move.type === "unstake") leg.unstaked  += move.amount;
+    if (move.timestamp && move.timestamp > leg.latestTs) leg.latestTs = move.timestamp;
+    leg.wallet = move.from;
+    constLegs.set(move.netuid, leg);
+  }
+
+  // Pass 2 — compute net per subnet, fire events only for genuine moves
+  const SWAP_THRESHOLD_TAO = 10; // legs within 10 TAO of each other = validator swap
+  const constBuyMap  = new Map<number, number>();  // netuid → net TAO bought
+  const constSellMap = new Map<number, number>();  // netuid → net TAO sold
+  const newConstEvents: ConstEvent[] = [];
+  const nowIso = new Date().toISOString();
+
+  for (const [netuid, leg] of constLegs) {
+    const net = leg.staked - leg.unstaked;
+    if (Math.abs(net) <= SWAP_THRESHOLD_TAO) {
+      // Validator swap — both legs cancel. Log for visibility but no alert.
+      console.log(`[scan] Const SN${netuid}: stake=${leg.staked.toFixed(1)} unstake=${leg.unstaked.toFixed(1)} → net=${net.toFixed(1)} TAO — validator swap, skipped`);
+      continue;
+    }
+    if (net > 0) {
+      constBuyMap.set(netuid, net);
       newConstEvents.push({
-        id: move.id ?? `stake-${move.netuid}-${move.timestamp}`,
+        id: `const-buy-${netuid}-${leg.latestTs}`,
         type: "buy",
-        wallet: move.from,
-        netuid: move.netuid,
-        amountTao: move.amount,
-        amountUsd: move.amountUsd ?? 0,
-        detectedAt: move.timestamp ?? new Date().toISOString(),
+        wallet: leg.wallet,
+        netuid,
+        amountTao: Math.round(net * 100) / 100,
+        amountUsd: Math.round(net * taoPrice * 100) / 100,
+        detectedAt: leg.latestTs ?? nowIso,
       });
-    } else if (move.type === "unstake") {
-      constSellMap.set(move.netuid, (constSellMap.get(move.netuid) ?? 0) + move.amount);
+    } else {
+      const sellAmt = Math.abs(net);
+      constSellMap.set(netuid, sellAmt);
       newConstEvents.push({
-        id: move.id ?? `unstake-${move.netuid}-${move.timestamp}`,
+        id: `const-sell-${netuid}-${leg.latestTs}`,
         type: "sell",
-        wallet: move.from,
-        netuid: move.netuid,
-        amountTao: move.amount,
-        amountUsd: move.amountUsd ?? 0,
-        detectedAt: move.timestamp ?? new Date().toISOString(),
+        wallet: leg.wallet,
+        netuid,
+        amountTao: Math.round(sellAmt * 100) / 100,
+        amountUsd: Math.round(sellAmt * taoPrice * 100) / 100,
+        detectedAt: leg.latestTs ?? nowIso,
       });
     }
   }
