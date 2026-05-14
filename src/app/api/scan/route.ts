@@ -3133,8 +3133,8 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
 
     let aGap = smoothAGap(d.netuid, clampedWithAudit);
 
-    // Const founder buy = big positive boost; sell = smaller negative
-    if (constBuy > 0) aGap = Math.min(100, aGap + Math.min(20, 10 + constBuy / 100));
+    // Const founder buy = positive boost (muted — he buys frequently); sell = smaller negative
+    if (constBuy > 0) aGap = Math.min(100, aGap + Math.min(13, 7 + constBuy / 150));
     if (constSell > 0) aGap = Math.max(1, aGap - Math.min(10, 3 + constSell / 200));
 
     // ── INVESTING aGap (PILLAR-CAPPED + REVENUE-ANCHORED formula, v20) ──────────
