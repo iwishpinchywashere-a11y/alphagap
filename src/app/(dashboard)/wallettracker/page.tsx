@@ -2,35 +2,30 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useSession } from "next-auth/react";
-import SubnetLogo from "@/components/dashboard/SubnetLogo";
 
 // ── Types ─────────────────────────────────────────────────────────
-interface WalletPosition {
-  netuid: number;
-  name?: string;
-  balance_tao: number;
-  balance_usd?: number;
-}
-
-interface TrackedWallet {
+interface WalletEntry {
   address: string;
   label?: string;
   emoji?: string;
   category?: string;
-  total_tao: number;
-  total_usd: number;
-  subnet_count: number;
-  top_position: WalletPosition | null;
-  positions: WalletPosition[];
-  rank_by_tao: number;
-  rank_by_usd: number;
   is_known: boolean;
+  total_tao: number;
+  free_tao: number;
+  staked_tao: number;
+  change_24h_tao: number;
+  change_24h_pct: number;
+  rank: number;
 }
 
 interface ApiResponse {
-  wallets: TrackedWallet[];
+  holders:   WalletEntry[];
+  winners:   WalletEntry[];
+  losers:    WalletEntry[];
   updatedAt: string;
 }
+
+type TabKey = "top" | "winners" | "known" | "tracked";
 
 // ── Helpers ───────────────────────────────────────────────────────
 function shortAddr(addr: string): string {
@@ -44,10 +39,11 @@ function fmtTao(n: number): string {
   return `${n.toFixed(1)} τ`;
 }
 
-function fmtUsd(n: number): string {
-  if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(2)}M`;
-  if (n >= 1_000)     return `$${(n / 1_000).toFixed(0)}K`;
-  return `$${n.toFixed(0)}`;
+function fmtChange(n: number): string {
+  const sign = n >= 0 ? "+" : "";
+  if (Math.abs(n) >= 1_000_000) return `${sign}${(n / 1_000_000).toFixed(2)}M τ`;
+  if (Math.abs(n) >= 1_000)     return `${sign}${(n / 1_000).toFixed(1)}K τ`;
+  return `${sign}${n.toFixed(1)} τ`;
 }
 
 function timeAgo(iso: string): string {
@@ -59,17 +55,17 @@ function timeAgo(iso: string): string {
   return `${Math.floor(h / 24)}d ago`;
 }
 
-// ── Row Component ─────────────────────────────────────────────────
-function WalletRow({
+// ── Holder Row ────────────────────────────────────────────────────
+function HolderRow({
   wallet,
   tracked,
   onToggleTrack,
-  sortMode,
+  showChange = false,
 }: {
-  wallet: TrackedWallet;
+  wallet: WalletEntry;
   tracked: boolean;
   onToggleTrack: (addr: string) => void;
-  sortMode: "tao" | "usd" | "subnets";
+  showChange?: boolean;
 }) {
   const [copied, setCopied] = useState(false);
 
@@ -80,31 +76,31 @@ function WalletRow({
     setTimeout(() => setCopied(false), 1500);
   }
 
-  const rank = sortMode === "tao" ? wallet.rank_by_tao
-             : sortMode === "usd" ? wallet.rank_by_usd
-             : wallet.rank_by_tao;
-
-  const rankColor = rank <= 3
+  const rankColor = wallet.rank <= 3
     ? "text-yellow-400 font-bold"
-    : rank <= 10
+    : wallet.rank <= 10
     ? "text-amber-400 font-semibold"
     : "text-gray-600";
+
+  const isPositive = wallet.change_24h_tao >= 0;
+  const changeColor = isPositive ? "text-green-400" : "text-red-400";
 
   return (
     <div className={`group flex items-center gap-3 px-4 py-3 border-b border-gray-800/50 last:border-0 transition-colors hover:bg-gray-800/30 ${
       tracked ? "bg-blue-950/20 border-l-2 border-l-blue-400/60" : ""
-    }`}>
+    } ${showChange ? "bg-gradient-to-r from-green-950/10 to-transparent" : ""}`}>
+
       {/* Rank */}
-      <div className={`w-8 text-center text-sm tabular-nums flex-shrink-0 ${rankColor}`}>
-        {rank <= 100 && rank !== 9999 ? `#${rank}` : "—"}
+      <div className={`w-8 text-center text-sm tabular-nums flex-shrink-0 ${
+        showChange ? "text-gray-600" : rankColor
+      }`}>
+        {showChange ? `#${wallet.rank}` : (wallet.rank <= 9999 ? `#${wallet.rank}` : "—")}
       </div>
 
       {/* Address + label */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
-          {wallet.emoji && (
-            <span className="text-base">{wallet.emoji}</span>
-          )}
+          {wallet.emoji && <span className="text-base">{wallet.emoji}</span>}
           {wallet.label && (
             <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full ${
               wallet.category === "founder"
@@ -125,37 +121,44 @@ function WalletRow({
           </button>
         </div>
 
-        {/* Top positions mini-bar */}
-        {wallet.positions.length > 0 && (
-          <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
-            {wallet.positions.slice(0, 4).map((pos) => (
-              <div key={pos.netuid} className="flex items-center gap-1">
-                <SubnetLogo netuid={pos.netuid} name={pos.name ?? `SN${pos.netuid}`} size={14} />
-                <span className="text-[10px] text-gray-600">{pos.name ?? `SN${pos.netuid}`}</span>
-                <span className="text-[10px] text-gray-500">{fmtTao(pos.balance_tao)}</span>
-              </div>
-            ))}
-            {wallet.subnet_count > 4 && (
-              <span className="text-[10px] text-gray-600">+{wallet.subnet_count - 4} more</span>
-            )}
-          </div>
-        )}
+        {/* Staked / free breakdown */}
+        <div className="flex items-center gap-3 mt-1">
+          {wallet.staked_tao > 0 && (
+            <span className="text-[10px] text-gray-600">
+              <span className="text-gray-500">{fmtTao(wallet.staked_tao)}</span>
+              <span className="text-gray-700 ml-1">staked</span>
+            </span>
+          )}
+          {wallet.free_tao > 0 && (
+            <span className="text-[10px] text-gray-700">
+              {fmtTao(wallet.free_tao)} free
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Stats */}
-      <div className="flex items-center gap-5 flex-shrink-0">
+      <div className="flex items-center gap-4 flex-shrink-0">
+        {/* 24h change — prominent for winners tab */}
+        {showChange && (
+          <div className="text-right">
+            <div className={`text-sm font-bold tabular-nums ${changeColor}`}>
+              {fmtChange(wallet.change_24h_tao)}
+            </div>
+            <div className={`text-[10px] tabular-nums ${changeColor} opacity-70`}>
+              {isPositive ? "+" : ""}{wallet.change_24h_pct.toFixed(1)}%
+            </div>
+          </div>
+        )}
+
         {/* Total TAO */}
         <div className="text-right hidden sm:block">
           <div className="text-sm font-semibold text-white tabular-nums">{fmtTao(wallet.total_tao)}</div>
-          {wallet.total_usd > 0 && (
-            <div className="text-xs text-gray-500 tabular-nums">{fmtUsd(wallet.total_usd)}</div>
+          {!showChange && wallet.change_24h_tao !== 0 && (
+            <div className={`text-[10px] tabular-nums ${changeColor}`}>
+              {fmtChange(wallet.change_24h_tao)}
+            </div>
           )}
-        </div>
-
-        {/* Subnet count */}
-        <div className="text-right hidden md:block w-14">
-          <div className="text-sm text-gray-300 tabular-nums">{wallet.subnet_count}</div>
-          <div className="text-[10px] text-gray-600">subnets</div>
         </div>
 
         {/* Track button */}
@@ -187,34 +190,36 @@ function WalletRow({
 // ── Main Page ─────────────────────────────────────────────────────
 export default function WalletTrackerPage() {
   const { data: session } = useSession();
-  const [wallets, setWallets]   = useState<TrackedWallet[]>([]);
-  const [updatedAt, setUpdatedAt] = useState<string>("");
-  const [loading, setLoading]   = useState(true);
-  const [error, setError]       = useState<string | null>(null);
-  const [debugInfo, setDebugInfo] = useState<string[] | null>(null);
-  const [tracked, setTracked]   = useState<Set<string>>(new Set());
-  const [tab, setTab]           = useState<"top" | "known" | "tracked">("top");
-  const [sortMode, setSortMode] = useState<"tao" | "usd" | "subnets">("tao");
-  const [search, setSearch]     = useState("");
 
-  // Load data
+  const [holders,   setHolders]   = useState<WalletEntry[]>([]);
+  const [winners,   setWinners]   = useState<WalletEntry[]>([]);
+  const [updatedAt, setUpdatedAt] = useState<string>("");
+  const [loading,   setLoading]   = useState(true);
+  const [error,     setError]     = useState<string | null>(null);
+  const [debugInfo, setDebugInfo] = useState<string[] | null>(null);
+  const [tracked,   setTracked]   = useState<Set<string>>(new Set());
+  const [tab,       setTab]       = useState<TabKey>("top");
+  const [search,    setSearch]    = useState("");
+
+  // Load API data
   useEffect(() => {
     fetch("/api/wallet-tracker")
       .then(r => r.json())
-      .then((data: ApiResponse & { debug?: string[] }) => {
-        if ("error" in data) {
-          setError(String((data as { error: string }).error));
+      .then((data: ApiResponse & { error?: string; debug?: string[] }) => {
+        if (data.error) {
+          setError(data.error);
           if (data.debug) setDebugInfo(data.debug);
           return;
         }
-        setWallets(data.wallets ?? []);
+        setHolders(data.holders ?? []);
+        setWinners(data.winners ?? []);
         setUpdatedAt(data.updatedAt ?? "");
       })
       .catch(e => setError(String(e)))
       .finally(() => setLoading(false));
   }, []);
 
-  // Load tracked wallets from localStorage (client-side persistence for now)
+  // Load tracked wallets from localStorage
   useEffect(() => {
     try {
       const stored = localStorage.getItem("alphagap_tracked_wallets");
@@ -231,31 +236,34 @@ export default function WalletTrackerPage() {
     });
   }
 
-  const sortedWallets = useMemo(() => {
-    let list = [...wallets];
-    if (sortMode === "usd")     list = list.sort((a, b) => b.total_usd - a.total_usd);
-    if (sortMode === "tao")     list = list.sort((a, b) => b.total_tao - a.total_tao);
-    if (sortMode === "subnets") list = list.sort((a, b) => b.subnet_count - a.subnet_count);
-    return list;
-  }, [wallets, sortMode]);
+  const trackedCount = tracked.size;
+
+  // All unique wallets (holders ∪ winners) deduplicated by address
+  const allWallets = useMemo(() => {
+    const map = new Map<string, WalletEntry>();
+    for (const w of holders) map.set(w.address, w);
+    for (const w of winners) if (!map.has(w.address)) map.set(w.address, w);
+    return [...map.values()];
+  }, [holders, winners]);
 
   const displayWallets = useMemo(() => {
-    let list = sortedWallets;
+    let list: WalletEntry[] = [];
 
-    if (tab === "known")   list = list.filter(w => w.is_known);
-    if (tab === "tracked") list = list.filter(w => tracked.has(w.address));
-
-    // Known wallets + tracked wallets: include even if not in top-100 API result
+    if (tab === "top")     list = [...holders];
+    if (tab === "winners") list = [...winners];
+    if (tab === "known")   list = allWallets.filter(w => w.is_known);
     if (tab === "tracked") {
+      list = allWallets.filter(w => tracked.has(w.address));
+      // Add stubs for tracked wallets not in the API response
       const found = new Set(list.map(w => w.address));
       for (const addr of tracked) {
         if (!found.has(addr)) {
           list.push({
             address: addr,
-            total_tao: 0, total_usd: 0, subnet_count: 0,
-            top_position: null, positions: [],
-            rank_by_tao: 9999, rank_by_usd: 9999,
             is_known: false,
+            total_tao: 0, free_tao: 0, staked_tao: 0,
+            change_24h_tao: 0, change_24h_pct: 0,
+            rank: 9999,
           });
         }
       }
@@ -270,9 +278,9 @@ export default function WalletTrackerPage() {
     }
 
     return list;
-  }, [sortedWallets, tab, tracked, search]);
+  }, [holders, winners, allWallets, tab, tracked, search]);
 
-  const trackedCount = tracked.size;
+  const isWinnersTab = tab === "winners";
 
   return (
     <main className="flex-1 overflow-auto p-4 md:p-6 space-y-5 max-w-5xl mx-auto">
@@ -304,8 +312,8 @@ export default function WalletTrackerPage() {
       {!loading && !error && (
         <div className="grid grid-cols-3 gap-3">
           {[
-            { label: "Wallets indexed", value: wallets.filter(w => w.total_tao > 0).length.toString() },
-            { label: "Known addresses", value: wallets.filter(w => w.is_known).length.toString() },
+            { label: "Top holders",  value: holders.length.toString() },
+            { label: "Big winners",  value: winners.length.toString() },
             { label: "You tracking", value: trackedCount.toString() },
           ].map(({ label, value }) => (
             <div key={label} className="bg-gray-900/60 border border-gray-800 rounded-xl p-3 text-center">
@@ -316,20 +324,23 @@ export default function WalletTrackerPage() {
         </div>
       )}
 
-      {/* Tabs + controls */}
+      {/* Tabs + search */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex gap-1 bg-gray-900/60 border border-gray-800 rounded-lg p-1">
           {([
             { key: "top",     label: "🏆 Top Holders" },
+            { key: "winners", label: "🚀 Big Winners" },
             { key: "known",   label: "👑 Known Wallets" },
             { key: "tracked", label: `🔔 Tracked${trackedCount > 0 ? ` (${trackedCount})` : ""}` },
-          ] as const).map(t => (
+          ] as { key: TabKey; label: string }[]).map(t => (
             <button
               key={t.key}
               onClick={() => setTab(t.key)}
               className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${
                 tab === t.key
-                  ? "bg-gray-700 text-white"
+                  ? t.key === "winners"
+                    ? "bg-green-500/20 text-green-300"
+                    : "bg-gray-700 text-white"
                   : "text-gray-500 hover:text-gray-300"
               }`}
             >
@@ -338,43 +349,32 @@ export default function WalletTrackerPage() {
           ))}
         </div>
 
-        <div className="flex items-center gap-2">
-          <input
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder="Search address…"
-            className="bg-gray-900/60 border border-gray-800 rounded-lg px-3 py-1.5 text-xs text-gray-300 placeholder-gray-600 focus:outline-none focus:border-gray-600 w-40"
-          />
-          <div className="flex gap-1 bg-gray-900/60 border border-gray-800 rounded-lg p-1">
-            {([
-              { key: "tao",     label: "τ TAO" },
-              { key: "usd",     label: "$ USD" },
-              { key: "subnets", label: "# Nets" },
-            ] as const).map(s => (
-              <button
-                key={s.key}
-                onClick={() => setSortMode(s.key)}
-                className={`px-2.5 py-1 rounded text-[10px] font-medium transition-colors ${
-                  sortMode === s.key
-                    ? "bg-green-500/20 text-green-400"
-                    : "text-gray-600 hover:text-gray-400"
-                }`}
-              >
-                {s.label}
-              </button>
-            ))}
-          </div>
-        </div>
+        <input
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="Search address…"
+          className="bg-gray-900/60 border border-gray-800 rounded-lg px-3 py-1.5 text-xs text-gray-300 placeholder-gray-600 focus:outline-none focus:border-gray-600 w-40"
+        />
       </div>
+
+      {/* Winners banner */}
+      {isWinnersTab && !loading && !error && (
+        <div className="flex items-center gap-2 px-3 py-2 bg-green-950/30 border border-green-500/20 rounded-lg text-xs text-green-400/80">
+          <span className="text-base">🚀</span>
+          <span>Wallets with the biggest <strong className="text-green-300">24-hour TAO gains</strong> — sorted by raw TAO increase today.</span>
+        </div>
+      )}
 
       {/* Wallet list */}
       <div className="bg-gray-900/60 border border-gray-800 rounded-xl overflow-hidden">
         {/* Column headers */}
         <div className="flex items-center gap-3 px-4 py-2 border-b border-gray-800 bg-gray-950/40 text-[10px] text-gray-600 uppercase tracking-wide">
           <div className="w-8 text-center">Rank</div>
-          <div className="flex-1">Wallet / Positions</div>
-          <div className="hidden sm:block text-right w-28">TAO Stake</div>
-          <div className="hidden md:block text-right w-14">Subnets</div>
+          <div className="flex-1">Wallet</div>
+          {isWinnersTab && (
+            <div className="hidden sm:block text-right w-28 text-green-600">24h Gain</div>
+          )}
+          <div className="hidden sm:block text-right w-28">Total TAO</div>
           <div className="w-8" />
         </div>
 
@@ -407,12 +407,12 @@ export default function WalletTrackerPage() {
         )}
 
         {!loading && !error && displayWallets.map(wallet => (
-          <WalletRow
+          <HolderRow
             key={wallet.address}
             wallet={wallet}
             tracked={tracked.has(wallet.address)}
             onToggleTrack={toggleTrack}
-            sortMode={sortMode}
+            showChange={isWinnersTab}
           />
         ))}
       </div>
@@ -421,11 +421,11 @@ export default function WalletTrackerPage() {
       {!loading && !error && (
         <div className="text-xs text-gray-600 space-y-1 px-1">
           <p>
-            Data from TaoStats · Shows wallets with the largest staked TAO-equivalent positions across all dTAO subnets.
-            Balances update every ~30 min.
+            Data from TaoMarketCap · Top Holders sorted by total TAO balance · Big Winners sorted by 24h TAO gain.
+            Refreshes every 20 min.
           </p>
           <p>
-            🔔 Tracking is saved locally. Movement alerts via the Alerts system coming soon.
+            🔔 Tracking is saved locally in your browser.
           </p>
           {session?.user && (
             <p className="text-purple-500/70">
