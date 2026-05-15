@@ -608,7 +608,7 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // ── Single wallet PROFILE (positions + trade history) ───────
+  // ── Single wallet PROFILE (positions + trade history + P&L) ──
   if (mode === "wallet-profile") {
     const address = request.nextUrl.searchParams.get("address");
     if (!address) return NextResponse.json({ error: "Missing address" }, { status: 400 });
@@ -621,10 +621,11 @@ export async function GET(request: NextRequest) {
         fetchSubnetNames(),
         getTaoPrice().catch(() => 0),
         fetch(
-          `https://api.taostats.io/api/delegation/v1?nominator_ss58=${encodeURIComponent(address)}&limit=50&order=timestamp_desc`,
+          // 500 records desc → display recent 30, reverse for chronological P&L calc
+          `https://api.taostats.io/api/delegation/v1?nominator_ss58=${encodeURIComponent(address)}&limit=500&order=timestamp_desc`,
           {
             headers: { Authorization: TAOSTATS_KEY },
-            signal: AbortSignal.timeout(10000),
+            signal: AbortSignal.timeout(12000),
             next: { revalidate: 0 },
           }
         ).catch(() => null),
@@ -638,60 +639,93 @@ export async function GET(request: NextRequest) {
           posMap.set(hk.subnet, (posMap.get(hk.subnet) ?? 0) + (hk.tao_staked ?? 0));
         }
       }
-
       const positions: AlphaPosition[] = [...posMap.entries()]
         .map(([netuid, taoRao]) => {
           const staked_tao = Math.round(taoRao / RAO_PER_TAO * 100) / 100;
-          return {
-            netuid,
-            name:       subnetNames.get(netuid) ?? `SN${netuid}`,
-            staked_tao,
-            staked_usd: Math.round(staked_tao * taoPrice * 100) / 100,
-          };
+          return { netuid, name: subnetNames.get(netuid) ?? `SN${netuid}`, staked_tao, staked_usd: Math.round(staked_tao * taoPrice * 100) / 100 };
         })
         .sort((a, b) => b.staked_tao - a.staked_tao);
 
-      // Build recent trades
-      interface TSDelegationRaw {
-        action:    "DELEGATE" | "UNDELEGATE";
-        timestamp: string;
-        amount:    string;
-        usd:       string | null;
-        netuid:    number | null;
-      }
+      interface TSDelegationRaw { action: "DELEGATE" | "UNDELEGATE"; timestamp: string; amount: string; usd: string | null; netuid: number | null; }
+      interface TradeEntry { action: "DELEGATE" | "UNDELEGATE"; netuid: number | null; subnet_name: string; amount_tao: number; amount_usd: number; timestamp: string; }
 
-      interface TradeEntry {
-        action:      "DELEGATE" | "UNDELEGATE";
-        netuid:      number | null;
-        subnet_name: string;
-        amount_tao:  number;
-        amount_usd:  number;
-        timestamp:   string;
-      }
-
-      let trades: TradeEntry[] = [];
+      let rawRows: TSDelegationRaw[] = [];
       if (tradesRes?.ok) {
-        const tradesJson = await tradesRes.json() as { data?: TSDelegationRaw[] };
-        const rows = tradesJson.data ?? [];
-        trades = rows.map(d => {
-          const netuid = d.netuid;
-          return {
-            action:      d.action,
-            netuid,
-            subnet_name: netuid != null && netuid > 0
-              ? (subnetNames.get(netuid) ?? `SN${netuid}`)
-              : "Root",
-            amount_tao:  Math.round(parseInt(d.amount || "0") / RAO_PER_TAO * 100) / 100,
-            amount_usd:  Math.round((parseFloat(d.usd ?? "0") || 0) * 100) / 100,
-            timestamp:   d.timestamp,
-          };
-        });
+        const j = await tradesRes.json() as { data?: TSDelegationRaw[] };
+        rawRows = j.data ?? [];
       }
 
-      const known      = KNOWN_WALLETS[address];
-      const total_tao  = detail ? Math.round(detail.total / RAO_PER_TAO * 100) / 100 : 0;
-      const free_tao   = detail ? Math.round(detail.free  / RAO_PER_TAO * 100) / 100 : 0;
-      const staked_tao = Math.round(positions.reduce((s, p) => s + p.staked_tao, 0) * 100) / 100;
+      // Build display trades (most recent first, only alpha subnets)
+      const trades: TradeEntry[] = rawRows
+        .filter(d => d.netuid != null && d.netuid > 0)
+        .slice(0, 50)
+        .map(d => ({
+          action:      d.action,
+          netuid:      d.netuid,
+          subnet_name: subnetNames.get(d.netuid!) ?? `SN${d.netuid}`,
+          amount_tao:  Math.round(parseInt(d.amount || "0") / RAO_PER_TAO * 100) / 100,
+          amount_usd:  Math.round((parseFloat(d.usd ?? "0") || 0) * 100) / 100,
+          timestamp:   d.timestamp,
+        }));
+
+      // ── P&L engine (FIFO per subnet, chronological order) ──────
+      // Only alpha subnets, process oldest-first
+      const chronoRows = [...rawRows]
+        .filter(d => d.netuid != null && d.netuid > 0)
+        .reverse();
+
+      const buyQueues = new Map<number, Array<{ tao: number; ts: number }>>();
+      let total_invested = 0; // sum of all DELEGATE TAO
+      let realized_pnl   = 0;
+      let wins = 0, losses = 0;
+      const hold_days: number[] = [];
+
+      for (const d of chronoRows) {
+        const netuid   = d.netuid!;
+        const tao      = parseInt(d.amount || "0") / RAO_PER_TAO;
+        const ts       = new Date(d.timestamp).getTime();
+
+        if (!buyQueues.has(netuid)) buyQueues.set(netuid, []);
+        const queue = buyQueues.get(netuid)!;
+
+        if (d.action === "DELEGATE") {
+          total_invested += tao;
+          queue.push({ tao, ts });
+        } else {
+          // Match sell against buy lots FIFO
+          let sell_remaining = tao;
+          let cost_matched   = 0;
+          while (sell_remaining > 0.001 && queue.length > 0) {
+            const lot = queue[0];
+            const matched = Math.min(sell_remaining, lot.tao);
+            cost_matched   += matched;
+            hold_days.push((ts - lot.ts) / 86_400_000);
+            if (matched >= lot.tao - 0.001) { queue.shift(); }
+            else { lot.tao -= matched; }
+            sell_remaining -= matched;
+          }
+          if (cost_matched > 0) {
+            const trade_pnl = tao - cost_matched;
+            realized_pnl   += trade_pnl;
+            if (trade_pnl >= 0) wins++; else losses++;
+          }
+        }
+      }
+
+      // Remaining buy queue = cost basis of open positions
+      let cost_basis_open = 0;
+      for (const q of buyQueues.values()) cost_basis_open += q.reduce((s, l) => s + l.tao, 0);
+
+      const current_staked    = positions.reduce((s, p) => s + p.staked_tao, 0);
+      const unrealized_pnl    = current_staked - cost_basis_open;
+      const total_pnl         = Math.round((realized_pnl + unrealized_pnl) * 100) / 100;
+      const roi_pct           = total_invested > 0 ? Math.round((total_pnl / total_invested) * 10000) / 100 : 0;
+      const win_rate          = (wins + losses) > 0 ? Math.round((wins / (wins + losses)) * 1000) / 10 : null;
+      const avg_hold_days     = hold_days.length > 0 ? Math.round(hold_days.reduce((s, d) => s + d, 0) / hold_days.length * 10) / 10 : null;
+
+      const known     = KNOWN_WALLETS[address];
+      const total_tao = detail ? Math.round(detail.total / RAO_PER_TAO * 100) / 100 : 0;
+      const free_tao  = detail ? Math.round(detail.free  / RAO_PER_TAO * 100) / 100 : 0;
 
       return NextResponse.json({
         address,
@@ -701,10 +735,17 @@ export async function GET(request: NextRequest) {
         is_known:   !!known,
         total_tao,
         free_tao,
-        staked_tao,
-        total_usd:  Math.round(total_tao  * taoPrice * 100) / 100,
+        staked_tao: Math.round(current_staked * 100) / 100,
+        total_usd:  Math.round(total_tao * taoPrice * 100) / 100,
         alpha_count: posMap.size,
         tao_price:  taoPrice,
+        // P&L metrics
+        total_pnl,
+        realized_pnl:   Math.round(realized_pnl   * 100) / 100,
+        unrealized_pnl: Math.round(unrealized_pnl * 100) / 100,
+        roi_pct,
+        win_rate,
+        avg_hold_days,
         positions,
         trades,
       });

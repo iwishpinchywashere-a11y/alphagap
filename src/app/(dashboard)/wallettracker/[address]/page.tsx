@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import Link from "next/link";
 import SubnetLogo from "@/components/dashboard/SubnetLogo";
 
@@ -23,19 +23,26 @@ interface TradeEntry {
 }
 
 interface WalletProfile {
-  address:     string;
-  label?:      string;
-  emoji?:      string;
-  category?:   string;
-  is_known:    boolean;
-  total_tao:   number;
-  free_tao:    number;
-  staked_tao:  number;
-  total_usd:   number;
-  alpha_count: number;
-  tao_price:   number;
-  positions:   AlphaPosition[];
-  trades:      TradeEntry[];
+  address:        string;
+  label?:         string;
+  emoji?:         string;
+  category?:      string;
+  is_known:       boolean;
+  total_tao:      number;
+  free_tao:       number;
+  staked_tao:     number;
+  total_usd:      number;
+  alpha_count:    number;
+  tao_price:      number;
+  // P&L
+  total_pnl:      number;
+  realized_pnl:   number;
+  unrealized_pnl: number;
+  roi_pct:        number;
+  win_rate:       number | null;
+  avg_hold_days:  number | null;
+  positions:      AlphaPosition[];
+  trades:         TradeEntry[];
 }
 
 // ── Helpers ───────────────────────────────────────────────────────
@@ -43,14 +50,25 @@ function shortAddr(addr: string) {
   return addr.length < 12 ? addr : `${addr.slice(0, 8)}…${addr.slice(-6)}`;
 }
 function fmtTao(n: number) {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(2)}M τ`;
-  if (n >= 1_000)     return `${(n / 1_000).toFixed(1)}K τ`;
-  return `${n.toFixed(1)} τ`;
+  const abs = Math.abs(n);
+  const sign = n < 0 ? "-" : "";
+  if (abs >= 1_000_000) return `${sign}${(abs / 1_000_000).toFixed(2)}M τ`;
+  if (abs >= 1_000)     return `${sign}${(abs / 1_000).toFixed(1)}K τ`;
+  return `${sign}${abs.toFixed(1)} τ`;
+}
+function fmtTaoSigned(n: number) {
+  const abs = Math.abs(n);
+  const sign = n >= 0 ? "+" : "-";
+  if (abs >= 1_000_000) return `${sign}${(abs / 1_000_000).toFixed(2)}M`;
+  if (abs >= 1_000)     return `${sign}${(abs / 1_000).toFixed(1)}K`;
+  return `${sign}${abs.toFixed(1)}`;
 }
 function fmtUsd(n: number) {
-  if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(2)}M`;
-  if (n >= 1_000)     return `$${(n / 1_000).toFixed(0)}K`;
-  return `$${n.toFixed(0)}`;
+  const abs = Math.abs(n);
+  const sign = n < 0 ? "-" : "";
+  if (abs >= 1_000_000) return `${sign}$${(abs / 1_000_000).toFixed(2)}M`;
+  if (abs >= 1_000)     return `${sign}$${(abs / 1_000).toFixed(0)}K`;
+  return `${sign}$${abs.toFixed(0)}`;
 }
 function timeAgo(iso: string) {
   const m = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
@@ -60,18 +78,28 @@ function timeAgo(iso: string) {
   return h < 24 ? `${h}h ago` : `${Math.floor(h / 24)}d ago`;
 }
 
-// ── Stat Card ─────────────────────────────────────────────────────
-function StatCard({ label, value, sub, accent }: {
-  label:   string;
-  value:   string;
-  sub?:    string;
-  accent?: string;
+// ── Metric tile (compact, dashboard-style) ────────────────────────
+function Tile({
+  label, value, sub, color,
+}: {
+  label: string;
+  value: string;
+  sub?: string;
+  color?: "green" | "red" | "white" | "indigo" | "violet" | "cyan";
 }) {
+  const valueClass =
+    color === "green"  ? "text-green-400" :
+    color === "red"    ? "text-red-400"   :
+    color === "indigo" ? "text-indigo-300" :
+    color === "violet" ? "text-violet-300" :
+    color === "cyan"   ? "text-cyan-300"  :
+    "text-white";
+
   return (
-    <div className="bg-gray-900/70 border border-gray-800 rounded-xl p-4 flex flex-col gap-1">
-      <div className="text-[10px] text-gray-500 uppercase tracking-wider font-semibold">{label}</div>
-      <div className={`text-xl font-bold tabular-nums ${accent ?? "text-white"}`}>{value}</div>
-      {sub && <div className="text-xs text-gray-500 tabular-nums">{sub}</div>}
+    <div className="bg-[#111318] border border-gray-800/80 rounded-xl px-4 py-3 flex flex-col gap-0.5">
+      <div className="text-[9px] font-bold uppercase tracking-widest text-gray-500">{label}</div>
+      <div className={`text-lg font-bold tabular-nums leading-tight ${valueClass}`}>{value}</div>
+      {sub && <div className="text-[10px] text-gray-600 tabular-nums">{sub}</div>}
     </div>
   );
 }
@@ -83,10 +111,7 @@ function BellButton({ address }: { address: string }) {
   useEffect(() => {
     try {
       const s = localStorage.getItem("alphagap_tracked_wallets");
-      if (s) {
-        const arr = JSON.parse(s) as string[];
-        setTracked(arr.includes(address));
-      }
+      if (s) setTracked((JSON.parse(s) as string[]).includes(address));
     } catch { /* ignore */ }
   }, [address]);
 
@@ -94,14 +119,9 @@ function BellButton({ address }: { address: string }) {
     setTracked(prev => {
       const next = !prev;
       try {
-        const s   = localStorage.getItem("alphagap_tracked_wallets");
-        const arr = s ? (JSON.parse(s) as string[]) : [];
-        if (next) {
-          if (!arr.includes(address)) arr.push(address);
-        } else {
-          const i = arr.indexOf(address);
-          if (i !== -1) arr.splice(i, 1);
-        }
+        const arr = JSON.parse(localStorage.getItem("alphagap_tracked_wallets") ?? "[]") as string[];
+        if (next) { if (!arr.includes(address)) arr.push(address); }
+        else { const i = arr.indexOf(address); if (i !== -1) arr.splice(i, 1); }
         localStorage.setItem("alphagap_tracked_wallets", JSON.stringify(arr));
       } catch { /* ignore */ }
       return next;
@@ -141,7 +161,6 @@ function BellButton({ address }: { address: string }) {
 // ── Main Page ─────────────────────────────────────────────────────
 export default function WalletProfilePage() {
   const params  = useParams<{ address: string }>();
-  const router  = useRouter();
   const address = params?.address ?? "";
 
   const [profile, setProfile] = useState<WalletProfile | null>(null);
@@ -171,175 +190,197 @@ export default function WalletProfilePage() {
     setTimeout(() => setCopied(false), 1500);
   }
 
-  // ── Loading skeleton ──
-  if (loading) {
-    return (
-      <main className="flex-1 overflow-auto p-4 md:p-8 max-w-[1100px] mx-auto w-full">
-        <div className="flex items-center gap-3 mb-8">
-          <Link href="/wallettracker" className="text-gray-600 hover:text-gray-300 transition-colors text-sm flex items-center gap-1">
-            ← Whale Radar
-          </Link>
-        </div>
-        <div className="flex flex-col items-center justify-center py-24 gap-4">
-          <div className="w-6 h-6 border-2 border-indigo-400/30 border-t-indigo-400 rounded-full animate-spin" />
-          <p className="text-sm text-gray-500">Loading wallet profile…</p>
-        </div>
-      </main>
-    );
-  }
+  if (loading) return (
+    <main className="flex-1 overflow-auto p-4 md:p-8 max-w-[1100px] mx-auto w-full">
+      <Link href="/wallettracker" className="inline-flex items-center gap-1 text-sm text-gray-600 hover:text-gray-300 mb-8">
+        ← Whale Radar
+      </Link>
+      <div className="flex flex-col items-center justify-center py-24 gap-4">
+        <div className="w-6 h-6 border-2 border-indigo-400/30 border-t-indigo-400 rounded-full animate-spin" />
+        <p className="text-sm text-gray-500">Loading wallet profile…</p>
+      </div>
+    </main>
+  );
 
-  // ── Error state ──
-  if (error) {
-    return (
-      <main className="flex-1 overflow-auto p-4 md:p-8 max-w-[1100px] mx-auto w-full">
-        <div className="flex items-center gap-3 mb-8">
-          <Link href="/wallettracker" className="text-gray-600 hover:text-gray-300 transition-colors text-sm">
-            ← Whale Radar
-          </Link>
-        </div>
-        <div className="bg-red-950/30 border border-red-800/40 rounded-xl p-8 text-center">
-          <p className="text-red-400 text-sm">{error}</p>
-          <button onClick={load} className="mt-4 text-xs text-gray-500 hover:text-gray-300 underline">
-            Retry
-          </button>
-        </div>
-      </main>
-    );
-  }
+  if (error) return (
+    <main className="flex-1 overflow-auto p-4 md:p-8 max-w-[1100px] mx-auto w-full">
+      <Link href="/wallettracker" className="inline-flex items-center gap-1 text-sm text-gray-600 hover:text-gray-300 mb-8">
+        ← Whale Radar
+      </Link>
+      <div className="bg-red-950/30 border border-red-800/40 rounded-xl p-8 text-center space-y-3">
+        <p className="text-red-400 text-sm">{error}</p>
+        <button onClick={load} className="text-xs text-gray-500 hover:text-gray-300 underline">Retry</button>
+      </div>
+    </main>
+  );
 
   if (!profile) return null;
 
-  const totalStakedUsd  = profile.positions.reduce((s, p) => s + p.staked_usd, 0);
-  const freeUsd         = Math.round(profile.free_tao * profile.tao_price * 100) / 100;
+  const totalStakedUsd = profile.positions.reduce((s, p) => s + p.staked_usd, 0);
+  const freeUsd        = Math.round(profile.free_tao * profile.tao_price * 100) / 100;
+  const pnlColor       = (n: number) => n > 0 ? "green" : n < 0 ? "red" : "white";
 
   return (
     <main className="flex-1 overflow-auto p-4 md:p-8 max-w-[1100px] mx-auto w-full space-y-6">
 
       {/* ── Back nav ─────────────────────────────────────────────── */}
-      <div>
-        <Link
-          href="/wallettracker"
-          className="inline-flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-300 transition-colors"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-          </svg>
-          Whale Radar
-        </Link>
-      </div>
+      <Link
+        href="/wallettracker"
+        className="inline-flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-300 transition-colors"
+      >
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+        </svg>
+        Whale Radar
+      </Link>
 
       {/* ── Header ───────────────────────────────────────────────── */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div className="space-y-2 min-w-0">
-          {/* Label + emoji */}
+        <div className="space-y-1.5 min-w-0">
           {(profile.label || profile.emoji) && (
             <div className="flex items-center gap-2">
-              {profile.emoji && <span className="text-2xl leading-none">{profile.emoji}</span>}
+              {profile.emoji && <span className="text-xl leading-none">{profile.emoji}</span>}
               {profile.label && (
-                <span className={`text-sm font-bold px-2.5 py-1 rounded-full border ${
+                <span className={`text-xs font-bold px-2 py-0.5 rounded-full border ${
                   profile.category === "founder"
                     ? "bg-yellow-500/15 text-yellow-400 border-yellow-500/30"
                     : "bg-purple-500/15 text-purple-400 border-purple-500/30"
-                }`}>
-                  {profile.label}
-                </span>
+                }`}>{profile.label}</span>
               )}
             </div>
           )}
-
-          {/* Address row */}
           <div className="flex items-center gap-2 flex-wrap">
-            <h1 className="font-mono text-lg font-semibold text-white tracking-tight">
-              {shortAddr(address)}
-            </h1>
+            <h1 className="font-mono text-base font-semibold text-white">{shortAddr(address)}</h1>
             <button
               onClick={copyAddress}
-              className="flex items-center gap-1 text-[11px] text-gray-600 hover:text-gray-300 transition-colors px-2 py-0.5 rounded bg-gray-800/60 border border-gray-700/50"
+              className="text-[10px] text-gray-600 hover:text-gray-300 px-2 py-0.5 rounded bg-gray-800/60 border border-gray-700/50 transition-colors"
             >
-              {copied ? "✓ copied" : "⎘ copy full"}
+              {copied ? "✓ copied" : "⎘ copy"}
             </button>
           </div>
-
-          {/* Full address dimmed */}
-          <p className="font-mono text-[10px] text-gray-700 break-all leading-relaxed">
-            {address}
-          </p>
+          <p className="font-mono text-[9px] text-gray-700 break-all">{address}</p>
         </div>
-
-        {/* Track bell */}
         <BellButton address={address} />
       </div>
 
-      {/* ── Stat cards ───────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <StatCard
-          label="Total Portfolio"
+      {/* ── Row 1: Portfolio overview ────────────────────────────── */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
+        <Tile
+          label="Total Holdings"
           value={fmtTao(profile.total_tao)}
           sub={fmtUsd(profile.total_usd)}
-          accent="text-white"
+          color="white"
         />
-        <StatCard
-          label="Alpha Staked"
+        <Tile
+          label="Staked"
           value={fmtTao(profile.staked_tao)}
           sub={totalStakedUsd > 0 ? fmtUsd(totalStakedUsd) : undefined}
-          accent="text-indigo-300"
+          color="indigo"
         />
-        <StatCard
-          label="Free TAO"
+        <Tile
+          label="Free Balance"
           value={fmtTao(profile.free_tao)}
           sub={freeUsd > 0 ? fmtUsd(freeUsd) : undefined}
-          accent="text-gray-300"
+          color="white"
         />
-        <StatCard
-          label="Alpha Tokens"
-          value={profile.alpha_count.toString()}
-          sub={profile.alpha_count === 1 ? "subnet" : "subnets"}
-          accent="text-purple-300"
+        <Tile
+          label="Total P&L"
+          value={fmtTaoSigned(profile.total_pnl)}
+          color={pnlColor(profile.total_pnl) as "green" | "red" | "white"}
+        />
+        <Tile
+          label="ROI"
+          value={`${profile.roi_pct >= 0 ? "+" : ""}${profile.roi_pct.toFixed(2)}%`}
+          color={pnlColor(profile.roi_pct) as "green" | "red" | "white"}
         />
       </div>
 
-      {/* ── Holdings grid ────────────────────────────────────────── */}
+      {/* ── Row 2: P&L breakdown ─────────────────────────────────── */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        <Tile
+          label="Unrealized P&L"
+          value={fmtTaoSigned(profile.unrealized_pnl)}
+          color={pnlColor(profile.unrealized_pnl) as "green" | "red" | "white"}
+        />
+        <Tile
+          label="Realized P&L"
+          value={fmtTaoSigned(profile.realized_pnl)}
+          color={pnlColor(profile.realized_pnl) as "green" | "red" | "white"}
+        />
+        <Tile
+          label="Win Rate"
+          value={profile.win_rate != null ? `${profile.win_rate.toFixed(0)}%` : "—"}
+          color={profile.win_rate != null && profile.win_rate >= 50 ? "green" : "white"}
+        />
+        <Tile
+          label="Avg Hold"
+          value={profile.avg_hold_days != null
+            ? profile.avg_hold_days >= 1
+              ? `${profile.avg_hold_days.toFixed(1)}d`
+              : `${Math.round(profile.avg_hold_days * 24)}h`
+            : "—"}
+          color="cyan"
+        />
+      </div>
+
+      {/* ── Holdings table ───────────────────────────────────────── */}
       {profile.positions.length > 0 && (
-        <section className="space-y-3">
+        <section className="space-y-2">
           <div className="flex items-center gap-2">
-            <h2 className="text-sm font-semibold text-white">Alpha Holdings</h2>
+            <h2 className="text-sm font-semibold text-white">Portfolio</h2>
             <span className="text-[10px] font-medium text-indigo-400 bg-indigo-500/10 border border-indigo-500/20 px-2 py-0.5 rounded-full">
               {profile.positions.length} token{profile.positions.length !== 1 ? "s" : ""}
             </span>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
-            {profile.positions.map(pos => {
-              const pct = profile.staked_tao > 0
-                ? (pos.staked_tao / profile.staked_tao) * 100
-                : 0;
+          <div className="bg-[#111318] border border-gray-800/80 rounded-xl overflow-hidden">
+            {/* Header */}
+            <div className="grid grid-cols-[2rem_1fr_auto_auto_auto] items-center gap-3 px-4 py-2.5 border-b border-gray-800 text-[9px] font-bold uppercase tracking-widest text-gray-600">
+              <div>#</div>
+              <div>Asset</div>
+              <div className="text-right w-24">Amount</div>
+              <div className="text-right w-16">USD</div>
+              <div className="text-right w-16">Alloc</div>
+            </div>
+
+            {profile.positions.map((pos, i) => {
+              const pct = profile.staked_tao > 0 ? (pos.staked_tao / profile.staked_tao) * 100 : 0;
               return (
                 <div
                   key={pos.netuid}
-                  className="group bg-gray-900/70 border border-gray-800 hover:border-indigo-500/40 rounded-xl p-3.5 transition-all"
+                  className="grid grid-cols-[2rem_1fr_auto_auto_auto] items-center gap-3 px-4 py-3 border-b border-gray-800/40 last:border-0 hover:bg-white/[0.02] transition-colors"
                 >
-                  <div className="flex items-center gap-3">
-                    <SubnetLogo netuid={pos.netuid} name={pos.name} size={28} />
-                    <div className="flex-1 min-w-0">
+                  {/* Rank */}
+                  <div className="text-[10px] text-gray-700 tabular-nums">{i + 1}</div>
+
+                  {/* Asset */}
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <SubnetLogo netuid={pos.netuid} name={pos.name} size={24} />
+                    <div className="min-w-0">
                       <div className="flex items-center gap-1.5">
-                        <span className="text-[10px] text-gray-600 font-mono">SN{pos.netuid}</span>
+                        <span className="text-[9px] text-gray-600 font-mono">SN{pos.netuid}</span>
                         <span className="text-xs font-semibold text-white truncate">{pos.name}</span>
                       </div>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <span className="text-sm font-bold text-indigo-300 tabular-nums">{fmtTao(pos.staked_tao)}</span>
-                        {pos.staked_usd > 0 && (
-                          <span className="text-[11px] text-gray-500 tabular-nums">{fmtUsd(pos.staked_usd)}</span>
-                        )}
-                        <span className="text-[10px] text-gray-600 ml-auto tabular-nums">{pct.toFixed(0)}%</span>
+                      {/* Mini bar */}
+                      <div className="mt-1 h-[3px] w-24 bg-gray-800 rounded-full overflow-hidden">
+                        <div className="h-full bg-indigo-500/70 rounded-full" style={{ width: `${Math.min(100, pct)}%` }} />
                       </div>
                     </div>
                   </div>
-                  {/* Allocation bar */}
-                  <div className="mt-2.5 h-0.5 bg-gray-800 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-indigo-500/60 rounded-full transition-all"
-                      style={{ width: `${Math.min(100, pct)}%` }}
-                    />
+
+                  {/* Amount */}
+                  <div className="text-right w-24">
+                    <div className="text-sm font-semibold text-indigo-300 tabular-nums">{fmtTao(pos.staked_tao)}</div>
+                  </div>
+
+                  {/* USD */}
+                  <div className="text-right w-16">
+                    <div className="text-xs text-gray-500 tabular-nums">{pos.staked_usd > 0 ? fmtUsd(pos.staked_usd) : "—"}</div>
+                  </div>
+
+                  {/* Allocation */}
+                  <div className="text-right w-16">
+                    <div className="text-xs text-gray-400 tabular-nums font-medium">{pct.toFixed(1)}%</div>
                   </div>
                 </div>
               );
@@ -348,34 +389,34 @@ export default function WalletProfilePage() {
         </section>
       )}
 
-      {/* ── Recent Activity ───────────────────────────────────────── */}
+      {/* ── Recent Trades table ──────────────────────────────────── */}
       {profile.trades.length > 0 && (
-        <section className="space-y-3">
-          <h2 className="text-sm font-semibold text-white">Recent Activity</h2>
+        <section className="space-y-2">
+          <h2 className="text-sm font-semibold text-white">Recent Trades</h2>
 
-          <div className="bg-gray-900/60 border border-gray-800 rounded-xl overflow-hidden">
+          <div className="bg-[#111318] border border-gray-800/80 rounded-xl overflow-hidden">
             {/* Header */}
-            <div className="grid grid-cols-[auto_1fr_auto_auto] items-center gap-3 px-4 py-2 border-b border-gray-800 bg-gray-950/40 text-[10px] text-gray-600 uppercase tracking-wide">
-              <div className="w-16">Action</div>
+            <div className="grid grid-cols-[5rem_1fr_auto_auto] items-center gap-3 px-4 py-2.5 border-b border-gray-800 text-[9px] font-bold uppercase tracking-widest text-gray-600">
+              <div>Action</div>
               <div>Subnet</div>
-              <div className="text-right w-20">Amount</div>
+              <div className="text-right w-24">Amount</div>
               <div className="text-right w-14">When</div>
             </div>
 
-            {profile.trades.slice(0, 30).map((trade, i) => {
+            {profile.trades.map((trade, i) => {
               const isBuy = trade.action === "DELEGATE";
               return (
                 <div
                   key={i}
-                  className="grid grid-cols-[auto_1fr_auto_auto] items-center gap-3 px-4 py-2.5 border-b border-gray-800/40 last:border-0 hover:bg-gray-800/20 transition-colors"
+                  className="grid grid-cols-[5rem_1fr_auto_auto] items-center gap-3 px-4 py-2.5 border-b border-gray-800/40 last:border-0 hover:bg-white/[0.02] transition-colors"
                 >
-                  {/* Action badge */}
-                  <div className={`w-16 text-[10px] font-bold px-2 py-0.5 rounded-full text-center ${
+                  {/* Badge */}
+                  <div className={`inline-flex items-center gap-1 text-[9px] font-bold px-2 py-1 rounded-md w-fit ${
                     isBuy
-                      ? "bg-green-500/15 text-green-400 border border-green-500/20"
-                      : "bg-red-500/15 text-red-400 border border-red-500/20"
+                      ? "bg-green-500/10 text-green-400 border border-green-500/20"
+                      : "bg-red-500/10 text-red-400 border border-red-500/20"
                   }`}>
-                    {isBuy ? "▲ STAKE" : "▼ UNSTAKE"}
+                    {isBuy ? "▲" : "▼"} {isBuy ? "STAKE" : "UNSTAKE"}
                   </div>
 
                   {/* Subnet */}
@@ -383,14 +424,12 @@ export default function WalletProfilePage() {
                     {trade.netuid != null && trade.netuid > 0 && (
                       <SubnetLogo netuid={trade.netuid} name={trade.subnet_name} size={16} />
                     )}
-                    <span className="text-[10px] text-gray-500 font-mono flex-shrink-0">
-                      SN{trade.netuid ?? "—"}
-                    </span>
+                    <span className="text-[9px] text-gray-600 font-mono flex-shrink-0">SN{trade.netuid ?? "—"}</span>
                     <span className="text-xs text-gray-300 truncate">{trade.subnet_name}</span>
                   </div>
 
                   {/* Amount */}
-                  <div className="text-right w-20">
+                  <div className="text-right w-24">
                     <div className={`text-xs font-semibold tabular-nums ${isBuy ? "text-green-400" : "text-red-400"}`}>
                       {fmtTao(trade.amount_tao)}
                     </div>
@@ -410,17 +449,15 @@ export default function WalletProfilePage() {
         </section>
       )}
 
-      {/* Empty state */}
+      {/* Empty */}
       {profile.positions.length === 0 && (
-        <div className="bg-gray-900/60 border border-gray-800 rounded-xl py-16 text-center">
+        <div className="bg-[#111318] border border-gray-800/80 rounded-xl py-16 text-center">
           <p className="text-gray-600 text-sm">No alpha positions found for this wallet.</p>
         </div>
       )}
 
-      {/* Footer */}
-      <div className="text-[11px] text-gray-700 space-y-1 px-1 pb-4">
-        <p>Position data from TaoMarketCap · Trade history from on-chain records · Amounts in TAO-equivalent</p>
-        <p>🔔 Tracking is saved locally in your browser.</p>
+      <div className="text-[10px] text-gray-700 pb-4">
+        P&L calculated from on-chain delegation history (FIFO) · Amounts in TAO-equivalent · Based on available history
       </div>
     </main>
   );
