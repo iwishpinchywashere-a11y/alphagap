@@ -1005,6 +1005,11 @@ export default function WalletTrackerPage() {
         )}
       </div>
 
+      {/* Telegram alert settings */}
+      {session?.user && (
+        <AlertSettingsPanel trackedWallets={[...tracked]} />
+      )}
+
       {/* Stats */}
       {!loading && !error && (
         <div className="grid grid-cols-3 gap-3">
@@ -1177,11 +1182,6 @@ export default function WalletTrackerPage() {
           />
         ))}
       </div>
-
-      {/* Telegram alert settings */}
-      {session?.user && trackedCount > 0 && (
-        <AlertSettingsPanel trackedWallets={[...tracked]} />
-      )}
 
       {/* Footer */}
       {!loading && !error && (
