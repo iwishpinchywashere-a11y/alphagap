@@ -678,7 +678,6 @@ export async function GET(request: NextRequest) {
       const buyQueues = new Map<number, Array<{ tao: number; ts: number }>>();
       let total_invested = 0; // sum of all DELEGATE TAO
       let realized_pnl   = 0;
-      let wins = 0, losses = 0;
       const hold_days: number[] = [];
 
       for (const d of chronoRows) {
@@ -705,11 +704,7 @@ export async function GET(request: NextRequest) {
             else { lot.tao -= matched; }
             sell_remaining -= matched;
           }
-          if (cost_matched > 0) {
-            const trade_pnl = tao - cost_matched;
-            realized_pnl   += trade_pnl;
-            if (trade_pnl >= 0) wins++; else losses++;
-          }
+          if (cost_matched > 0) realized_pnl += tao - cost_matched;
         }
       }
 
@@ -721,7 +716,6 @@ export async function GET(request: NextRequest) {
       const unrealized_pnl    = current_staked - cost_basis_open;
       const total_pnl         = Math.round((realized_pnl + unrealized_pnl) * 100) / 100;
       const roi_pct           = total_invested > 0 ? Math.round((total_pnl / total_invested) * 10000) / 100 : 0;
-      const win_rate          = (wins + losses) > 0 ? Math.round((wins / (wins + losses)) * 1000) / 10 : null;
       const avg_hold_days     = hold_days.length > 0 ? Math.round(hold_days.reduce((s, d) => s + d, 0) / hold_days.length * 10) / 10 : null;
 
       const known     = KNOWN_WALLETS[address];
@@ -745,7 +739,6 @@ export async function GET(request: NextRequest) {
         realized_pnl:   Math.round(realized_pnl   * 100) / 100,
         unrealized_pnl: Math.round(unrealized_pnl * 100) / 100,
         roi_pct,
-        win_rate,
         avg_hold_days,
         positions,
         trades,

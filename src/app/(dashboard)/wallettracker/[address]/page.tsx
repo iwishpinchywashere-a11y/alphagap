@@ -39,7 +39,6 @@ interface WalletProfile {
   realized_pnl:   number;
   unrealized_pnl: number;
   roi_pct:        number;
-  win_rate:       number | null;
   avg_hold_days:  number | null;
   positions:      AlphaPosition[];
   trades:         TradeEntry[];
@@ -314,11 +313,6 @@ export default function WalletProfilePage() {
           label="Realized P&L"
           value={fmtTaoSigned(profile.realized_pnl)}
           color={pnlColor(profile.realized_pnl) as "green" | "red" | "white"}
-        />
-        <Tile
-          label="Win Rate"
-          value={profile.win_rate != null ? `${profile.win_rate.toFixed(0)}%` : "—"}
-          color={profile.win_rate != null && profile.win_rate >= 50 ? "green" : "white"}
         />
         <Tile
           label="Avg Hold"
