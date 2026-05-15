@@ -229,6 +229,48 @@ async function fetchSubnetNames(): Promise<Map<number, string>> {
   } catch { return new Map(); }
 }
 
+// ── Alpha-position filter (shared across all list modes) ─────────
+/**
+ * Given a list of wallet addresses, returns a Set of those that currently
+ * hold at least one alpha token (netuid > 0, tao_staked > 0).
+ *
+ * Fast-path: any address already in the main cache is known to qualify.
+ * Slow-path: remaining addresses are batch-checked via fetchDetail (up to 60,
+ *            10 concurrent) so we don't add unbounded latency.
+ */
+async function filterToAlphaHolders(addresses: string[]): Promise<Set<string>> {
+  // Load main cache for the fast-path (usually already warm / in-memory blob)
+  const main    = await readBlob<MainCache>(MAIN_CACHE_KEY);
+  const mainSet = new Set((main?.wallets ?? []).map(w => w.address));
+
+  const result:  Set<string> = new Set();
+  const unknown: string[]    = [];
+
+  for (const addr of addresses) {
+    if (mainSet.has(addr)) result.add(addr);
+    else unknown.push(addr);
+  }
+
+  // Batch-check up to 60 unknown wallets (10 concurrent)
+  const toCheck    = unknown.slice(0, 60);
+  const CONCURRENT = 10;
+  for (let i = 0; i < toCheck.length; i += CONCURRENT) {
+    const batch   = toCheck.slice(i, i + CONCURRENT);
+    const settled = await Promise.allSettled(batch.map(addr => fetchDetail(addr)));
+    for (let j = 0; j < batch.length; j++) {
+      const s      = settled[j];
+      const detail = s.status === "fulfilled" ? s.value : null;
+      if (!detail?.hotkeys?.length) continue;
+      const hasAlpha = detail.hotkeys.some(
+        hk => hk.subnet != null && hk.subnet !== ROOT_NETUID && (hk.tao_staked ?? 0) > 0
+      );
+      if (hasAlpha) result.add(batch[j]);
+    }
+  }
+
+  return result;
+}
+
 // ── Build the main filtered wallet list ───────────────────────────
 async function buildMainList(): Promise<WalletEntry[]> {
   // Fetch top 1500 wallets by total TAO, subnet names, and TAO price in parallel
@@ -386,9 +428,11 @@ async function buildTSWhales(): Promise<TSWhaleWallet[]> {
   }
 
   // Sort by total USD deployed (largest alpha investors first)
-  return result
-    .sort((a, b) => b.total_usd - a.total_usd)
-    .slice(0, 200);
+  const sorted = result.sort((a, b) => b.total_usd - a.total_usd).slice(0, 200);
+
+  // Drop any wallet that currently holds zero alpha positions
+  const alphaSet = await filterToAlphaHolders(sorted.map(w => w.address));
+  return sorted.filter(w => alphaSet.has(w.address));
 }
 
 // ── Build SubnetRadar whale wallet list ───────────────────────────
@@ -472,9 +516,13 @@ async function buildSRWhales(): Promise<SRWhaleWallet[]> {
   }
 
   // Sort by total volume (staked + unstaked), most active first
-  return result
+  const sorted = result
     .sort((a, b) => (b.total_staked + b.total_unstaked) - (a.total_staked + a.total_unstaked))
     .slice(0, 150);
+
+  // Drop any wallet that currently holds zero alpha positions
+  const alphaSet = await filterToAlphaHolders(sorted.map(w => w.address));
+  return sorted.filter(w => alphaSet.has(w.address));
 }
 
 // ── Main handler ──────────────────────────────────────────────────
@@ -524,9 +572,9 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(cached);
     }
     try {
-      const raw = await fetchTMCList("tao_change_24h", 60);
-      const winners: WinnerEntry[] = raw
-        .filter(w => w.tao_change_24h > 0 && w.total > 0)
+      const raw = await fetchTMCList("tao_change_24h", 100);
+      const candidates: WinnerEntry[] = raw
+        .filter(w => w.tao_change_24h > 0 && w.total > 0 && (w.tao_staked ?? 0) > 0)
         .map((w, i) => {
           const known = KNOWN_WALLETS[w.id];
           return {
@@ -543,10 +591,44 @@ export async function GET(request: NextRequest) {
             rank:           w.rank ?? i + 1,
           };
         })
-        .slice(0, 50);
+        .slice(0, 80);
+
+      // Drop wallets with zero current alpha positions
+      const alphaSet = await filterToAlphaHolders(candidates.map(w => w.address));
+      const winners  = candidates.filter(w => alphaSet.has(w.address)).slice(0, 50);
+
       const result: WinnersCache = { winners, updatedAt: new Date().toISOString() };
       await writeBlob(WIN_CACHE_KEY, result);
       return NextResponse.json(result);
+    } catch (e) {
+      return NextResponse.json({ error: String(e) }, { status: 500 });
+    }
+  }
+
+  // ── Single wallet detail (on-demand positions for other tabs) ──
+  if (mode === "wallet-detail") {
+    const address = request.nextUrl.searchParams.get("address");
+    if (!address) return NextResponse.json({ error: "Missing address" }, { status: 400 });
+    try {
+      const [detail, subnetNames, taoPrice] = await Promise.all([
+        fetchDetail(address),
+        fetchSubnetNames(),
+        getTaoPrice().catch(() => 0),
+      ]);
+      if (!detail?.hotkeys?.length) return NextResponse.json({ positions: [] });
+
+      const posMap = new Map<number, number>();
+      for (const hk of detail.hotkeys) {
+        if (hk.subnet == null || hk.subnet === ROOT_NETUID) continue;
+        posMap.set(hk.subnet, (posMap.get(hk.subnet) ?? 0) + (hk.tao_staked ?? 0));
+      }
+      const positions: AlphaPosition[] = [...posMap.entries()]
+        .map(([netuid, taoRao]) => {
+          const staked_tao = Math.round(taoRao / RAO_PER_TAO * 100) / 100;
+          return { netuid, name: subnetNames.get(netuid) ?? `SN${netuid}`, staked_tao, staked_usd: Math.round(staked_tao * taoPrice * 100) / 100 };
+        })
+        .sort((a, b) => b.staked_tao - a.staked_tao);
+      return NextResponse.json({ positions });
     } catch (e) {
       return NextResponse.json({ error: String(e) }, { status: 500 });
     }
