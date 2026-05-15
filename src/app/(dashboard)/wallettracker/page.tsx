@@ -556,8 +556,9 @@ function WinnerRow({
   const changeColor = wallet.change_24h_tao >= 0 ? "text-green-400" : "text-red-400";
 
   return (
-    <div className={`group flex items-center gap-3 px-4 py-3 border-b border-gray-800/40 transition-colors
+    <div className={`group flex items-center gap-3 px-4 py-3 border-b border-gray-800/40 transition-colors cursor-pointer
       ${tracked ? "bg-blue-950/20 border-l-2 border-l-blue-400/60" : "hover:bg-gray-800/25 bg-gradient-to-r from-green-950/10 to-transparent"}`}
+      onClick={() => onToggleTrack(wallet.address)}
     >
       <div className="w-8 text-center text-sm tabular-nums flex-shrink-0 text-gray-600">#{wallet.rank}</div>
 
@@ -572,7 +573,7 @@ function WinnerRow({
             }`}>{wallet.label}</span>
           )}
           <button
-            onClick={() => { navigator.clipboard.writeText(wallet.address).catch(() => {}); setCopied(true); setTimeout(() => setCopied(false), 1500); }}
+            onClick={e => { e.stopPropagation(); navigator.clipboard.writeText(wallet.address).catch(() => {}); setCopied(true); setTimeout(() => setCopied(false), 1500); }}
             className="font-mono text-xs text-gray-400 hover:text-white transition-colors flex items-center gap-1"
           >
             {shortAddr(wallet.address)}
@@ -592,12 +593,11 @@ function WinnerRow({
         <div className="text-right hidden sm:block">
           <div className="text-sm font-semibold text-white tabular-nums">{fmtTao(wallet.total_tao)}</div>
         </div>
-        <button
-          onClick={() => onToggleTrack(wallet.address)}
+        <div
           className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center transition-all ${
             tracked
-              ? "bg-blue-500/20 text-blue-400 border border-blue-500/40 hover:bg-red-500/20 hover:text-red-400 hover:border-red-500/40"
-              : "bg-gray-800/50 text-gray-500 border border-gray-700/50 hover:bg-blue-500/20 hover:text-blue-400 hover:border-blue-500/40"
+              ? "bg-blue-500/20 text-blue-400 border border-blue-500/40 group-hover:bg-red-500/20 group-hover:text-red-400 group-hover:border-red-500/40"
+              : "bg-gray-800/50 text-gray-500 border border-gray-700/50 group-hover:bg-blue-500/20 group-hover:text-blue-400 group-hover:border-blue-500/40"
           }`}
         >
           {tracked ? (
@@ -610,7 +610,7 @@ function WinnerRow({
                 d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
             </svg>
           )}
-        </button>
+        </div>
       </div>
     </div>
   );
@@ -631,8 +631,9 @@ function TSWhaleRow({
   const netSign   = isBuy ? "+" : "";
 
   return (
-    <div className={`group flex items-center gap-3 px-4 py-3 border-b border-gray-800/40 transition-colors
+    <div className={`group flex items-center gap-3 px-4 py-3 border-b border-gray-800/40 transition-colors cursor-pointer
       ${tracked ? "bg-blue-950/20 border-l-2 border-l-blue-400/60" : "hover:bg-gray-800/25"}`}
+      onClick={() => onToggleTrack(wallet.address)}
     >
       <div className="w-8 text-center text-sm tabular-nums flex-shrink-0 text-gray-600">#{rank}</div>
 
@@ -647,7 +648,7 @@ function TSWhaleRow({
             }`}>{wallet.label}</span>
           )}
           <button
-            onClick={() => { navigator.clipboard.writeText(wallet.address).catch(() => {}); setCopied(true); setTimeout(() => setCopied(false), 1500); }}
+            onClick={e => { e.stopPropagation(); navigator.clipboard.writeText(wallet.address).catch(() => {}); setCopied(true); setTimeout(() => setCopied(false), 1500); }}
             className="font-mono text-xs text-gray-400 hover:text-white transition-colors flex items-center gap-1"
           >
             {shortAddr(wallet.address)}
@@ -677,12 +678,11 @@ function TSWhaleRow({
           </div>
           <div className="text-[10px] text-gray-600 tabular-nums">{fmtUsd(wallet.total_usd)} total</div>
         </div>
-        <button
-          onClick={() => onToggleTrack(wallet.address)}
+        <div
           className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center transition-all ${
             tracked
-              ? "bg-blue-500/20 text-blue-400 border border-blue-500/40 hover:bg-red-500/20 hover:text-red-400 hover:border-red-500/40"
-              : "bg-gray-800/50 text-gray-500 border border-gray-700/50 hover:bg-blue-500/20 hover:text-blue-400 hover:border-blue-500/40"
+              ? "bg-blue-500/20 text-blue-400 border border-blue-500/40 group-hover:bg-red-500/20 group-hover:text-red-400 group-hover:border-red-500/40"
+              : "bg-gray-800/50 text-gray-500 border border-gray-700/50 group-hover:bg-blue-500/20 group-hover:text-blue-400 group-hover:border-blue-500/40"
           }`}
         >
           {tracked ? (
@@ -695,7 +695,7 @@ function TSWhaleRow({
                 d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
             </svg>
           )}
-        </button>
+        </div>
       </div>
     </div>
   );
@@ -717,8 +717,9 @@ function SRWhaleRow({
   const netSign     = isNetBuyer ? "+" : "";
 
   return (
-    <div className={`group flex items-center gap-3 px-4 py-3 border-b border-gray-800/40 transition-colors
+    <div className={`group flex items-center gap-3 px-4 py-3 border-b border-gray-800/40 transition-colors cursor-pointer
       ${tracked ? "bg-blue-950/20 border-l-2 border-l-blue-400/60" : "hover:bg-gray-800/25"}`}
+      onClick={() => onToggleTrack(wallet.address)}
     >
       {/* Rank */}
       <div className="w-8 text-center text-sm tabular-nums flex-shrink-0 text-gray-600">#{rank}</div>
@@ -735,7 +736,7 @@ function SRWhaleRow({
             }`}>{wallet.label}</span>
           )}
           <button
-            onClick={() => { navigator.clipboard.writeText(wallet.address).catch(() => {}); setCopied(true); setTimeout(() => setCopied(false), 1500); }}
+            onClick={e => { e.stopPropagation(); navigator.clipboard.writeText(wallet.address).catch(() => {}); setCopied(true); setTimeout(() => setCopied(false), 1500); }}
             className="font-mono text-xs text-gray-400 hover:text-white transition-colors flex items-center gap-1"
           >
             {shortAddr(wallet.address)}
@@ -770,12 +771,11 @@ function SRWhaleRow({
           </div>
         </div>
 
-        <button
-          onClick={() => onToggleTrack(wallet.address)}
+        <div
           className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center transition-all ${
             tracked
-              ? "bg-blue-500/20 text-blue-400 border border-blue-500/40 hover:bg-red-500/20 hover:text-red-400 hover:border-red-500/40"
-              : "bg-gray-800/50 text-gray-500 border border-gray-700/50 hover:bg-blue-500/20 hover:text-blue-400 hover:border-blue-500/40"
+              ? "bg-blue-500/20 text-blue-400 border border-blue-500/40 group-hover:bg-red-500/20 group-hover:text-red-400 group-hover:border-red-500/40"
+              : "bg-gray-800/50 text-gray-500 border border-gray-700/50 group-hover:bg-blue-500/20 group-hover:text-blue-400 group-hover:border-blue-500/40"
           }`}
         >
           {tracked ? (
@@ -788,7 +788,7 @@ function SRWhaleRow({
                 d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
             </svg>
           )}
-        </button>
+        </div>
       </div>
     </div>
   );
