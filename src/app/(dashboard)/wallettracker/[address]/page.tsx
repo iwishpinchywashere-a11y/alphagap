@@ -38,7 +38,7 @@ interface WalletProfile {
   total_pnl:      number;
   realized_pnl:   number;
   unrealized_pnl: number;
-  roi_pct:        number;
+  roi_pct:        number | null;
   avg_hold_days:  number | null;
   positions:      AlphaPosition[];
   trades:         TradeEntry[];
@@ -97,7 +97,7 @@ function Tile({
   return (
     <div className="bg-[#111318] border border-gray-800/80 rounded-xl px-4 py-3 flex flex-col gap-0.5">
       <div className="text-[9px] font-bold uppercase tracking-widest text-gray-500">{label}</div>
-      <div className={`text-lg font-bold tabular-nums leading-tight ${valueClass}`}>{value}</div>
+      <div className={`text-base sm:text-lg font-bold tabular-nums leading-tight ${valueClass}`}>{value}</div>
       {sub && <div className="text-sm font-medium text-white tabular-nums">{sub}</div>}
     </div>
   );
@@ -297,8 +297,10 @@ export default function WalletProfilePage() {
         />
         <Tile
           label="ROI"
-          value={`${profile.roi_pct >= 0 ? "+" : ""}${profile.roi_pct.toFixed(2)}%`}
-          color={pnlColor(profile.roi_pct) as "green" | "red" | "white"}
+          value={profile.roi_pct != null
+            ? `${profile.roi_pct >= 0 ? "+" : ""}${profile.roi_pct.toFixed(2)}%`
+            : "—"}
+          color={profile.roi_pct != null ? pnlColor(profile.roi_pct) as "green" | "red" | "white" : "white"}
         />
       </div>
 
@@ -337,11 +339,11 @@ export default function WalletProfilePage() {
 
           <div className="bg-[#111318] border border-gray-800/80 rounded-xl overflow-hidden">
             {/* Header */}
-            <div className="grid grid-cols-[2rem_1fr_auto_auto_auto] items-center gap-3 px-4 py-2.5 border-b border-gray-800 text-[9px] font-bold uppercase tracking-widest text-gray-600">
+            <div className="grid grid-cols-[2rem_1fr_auto_auto] sm:grid-cols-[2rem_1fr_auto_auto_auto] items-center gap-3 px-4 py-2.5 border-b border-gray-800 text-[9px] font-bold uppercase tracking-widest text-gray-600">
               <div>#</div>
               <div>Asset</div>
               <div className="text-right w-24">Amount</div>
-              <div className="text-right w-16">USD</div>
+              <div className="hidden sm:block text-right w-16">USD</div>
               <div className="text-right w-16">Alloc</div>
             </div>
 
@@ -350,7 +352,7 @@ export default function WalletProfilePage() {
               return (
                 <div
                   key={pos.netuid}
-                  className="grid grid-cols-[2rem_1fr_auto_auto_auto] items-center gap-3 px-4 py-3 border-b border-gray-800/40 last:border-0 hover:bg-white/[0.02] transition-colors"
+                  className="grid grid-cols-[2rem_1fr_auto_auto] sm:grid-cols-[2rem_1fr_auto_auto_auto] items-center gap-3 px-4 py-3 border-b border-gray-800/40 last:border-0 hover:bg-white/[0.02] transition-colors"
                 >
                   {/* Rank */}
                   <div className="text-[10px] text-gray-700 tabular-nums">{i + 1}</div>
@@ -364,7 +366,7 @@ export default function WalletProfilePage() {
                         <span className="text-xs font-semibold text-white truncate">{pos.name}</span>
                       </div>
                       {/* Mini bar */}
-                      <div className="mt-1 h-[3px] w-24 bg-gray-800 rounded-full overflow-hidden">
+                      <div className="mt-1 h-[3px] w-16 sm:w-24 bg-gray-800 rounded-full overflow-hidden">
                         <div className="h-full bg-indigo-500/70 rounded-full" style={{ width: `${Math.min(100, pct)}%` }} />
                       </div>
                     </div>
@@ -376,7 +378,7 @@ export default function WalletProfilePage() {
                   </div>
 
                   {/* USD */}
-                  <div className="text-right w-16">
+                  <div className="hidden sm:block text-right w-16">
                     <div className="text-xs text-gray-500 tabular-nums">{pos.staked_usd > 0 ? fmtUsd(pos.staked_usd) : "—"}</div>
                   </div>
 
@@ -398,11 +400,11 @@ export default function WalletProfilePage() {
 
           <div className="bg-[#111318] border border-gray-800/80 rounded-xl overflow-hidden">
             {/* Header */}
-            <div className="grid grid-cols-[5rem_1fr_auto_auto] items-center gap-3 px-4 py-2.5 border-b border-gray-800 text-[9px] font-bold uppercase tracking-widest text-gray-600">
+            <div className="grid grid-cols-[5rem_1fr_auto] sm:grid-cols-[5rem_1fr_auto_auto] items-center gap-3 px-4 py-2.5 border-b border-gray-800 text-[9px] font-bold uppercase tracking-widest text-gray-600">
               <div>Action</div>
               <div>Subnet</div>
               <div className="text-right w-24">Amount</div>
-              <div className="text-right w-14">When</div>
+              <div className="hidden sm:block text-right w-14">When</div>
             </div>
 
             {profile.trades.map((trade, i) => {
@@ -410,7 +412,7 @@ export default function WalletProfilePage() {
               return (
                 <div
                   key={i}
-                  className="grid grid-cols-[5rem_1fr_auto_auto] items-center gap-3 px-4 py-2.5 border-b border-gray-800/40 last:border-0 hover:bg-white/[0.02] transition-colors"
+                  className="grid grid-cols-[5rem_1fr_auto] sm:grid-cols-[5rem_1fr_auto_auto] items-center gap-3 px-4 py-2.5 border-b border-gray-800/40 last:border-0 hover:bg-white/[0.02] transition-colors"
                 >
                   {/* Badge */}
                   <div className={`inline-flex items-center gap-1 text-[9px] font-bold px-2 py-1 rounded-md w-fit ${
@@ -441,7 +443,7 @@ export default function WalletProfilePage() {
                   </div>
 
                   {/* Time */}
-                  <div className="text-right w-14 text-[10px] text-gray-600 tabular-nums">
+                  <div className="hidden sm:block text-right w-14 text-[10px] text-gray-600 tabular-nums">
                     {timeAgo(trade.timestamp)}
                   </div>
                 </div>

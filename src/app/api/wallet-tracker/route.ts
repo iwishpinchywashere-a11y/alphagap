@@ -655,9 +655,12 @@ export async function GET(request: NextRequest) {
       interface TradeEntry { action: "DELEGATE" | "UNDELEGATE"; netuid: number | null; subnet_name: string; amount_tao: number; amount_usd: number; timestamp: string; }
 
       let rawRows: TSDelegationRaw[] = [];
+      let historyComplete = true; // false when wallet has >500 total delegation events
       if (tradesRes?.ok) {
-        const j = await tradesRes.json() as { data?: TSDelegationRaw[] };
+        const j = await tradesRes.json() as { data?: TSDelegationRaw[]; pagination?: { total_items?: number } };
         rawRows = j.data ?? [];
+        const totalItems = j.pagination?.total_items ?? rawRows.length;
+        historyComplete = totalItems <= 500;
       }
 
       // Build display trades (most recent first, only alpha subnets)
@@ -712,15 +715,23 @@ export async function GET(request: NextRequest) {
         }
       }
 
-      // Remaining buy queue = cost basis of open positions
-      let cost_basis_open = 0;
-      for (const q of buyQueues.values()) cost_basis_open += q.reduce((s, l) => s + l.tao, 0);
+      // Remaining buy queue = cost basis of open positions (raw, may be inflated by incomplete history)
+      let cost_basis_open_raw = 0;
+      for (const q of buyQueues.values()) cost_basis_open_raw += q.reduce((s, l) => s + l.tao, 0);
 
-      const current_staked    = positions.reduce((s, p) => s + p.staked_tao, 0);
-      const unrealized_pnl    = current_staked - cost_basis_open;
-      const total_pnl         = Math.round((realized_pnl + unrealized_pnl) * 100) / 100;
-      const roi_pct           = total_invested > 0 ? Math.round((total_pnl / total_invested) * 10000) / 100 : 0;
-      const avg_hold_days     = hold_days.length > 0 ? Math.round(hold_days.reduce((s, d) => s + d, 0) / hold_days.length * 10) / 10 : null;
+      const current_staked = positions.reduce((s, p) => s + p.staked_tao, 0);
+
+      // Cap cost basis at actual current holdings. When history is incomplete (>500 records),
+      // UNDELEGATEs that closed earlier positions fall outside our window, leaving "orphaned"
+      // buy lots that produce phantom losses. Capping prevents this.
+      const cost_basis_open = Math.min(cost_basis_open_raw, current_staked);
+      const unrealized_pnl  = current_staked - cost_basis_open;
+      const total_pnl       = Math.round((realized_pnl + unrealized_pnl) * 100) / 100;
+      // ROI is only meaningful when we have complete history (≤500 total delegation events)
+      const roi_pct         = (historyComplete && total_invested > 0)
+        ? Math.round((total_pnl / total_invested) * 10000) / 100
+        : null;
+      const avg_hold_days   = hold_days.length > 0 ? Math.round(hold_days.reduce((s, d) => s + d, 0) / hold_days.length * 10) / 10 : null;
 
       const known     = KNOWN_WALLETS[address];
       const total_tao = detail ? Math.round(detail.total / RAO_PER_TAO * 100) / 100 : 0;
