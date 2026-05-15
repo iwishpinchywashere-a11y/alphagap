@@ -574,7 +574,7 @@ export async function GET(request: NextRequest) {
     try {
       const raw = await fetchTMCList("tao_change_24h", 100);
       const candidates: WinnerEntry[] = raw
-        .filter(w => w.tao_change_24h > 0 && w.total > 0 && (w.tao_staked ?? 0) > 0)
+        .filter(w => w.tao_change_24h >= RAO_PER_TAO && w.total > 0 && (w.tao_staked ?? 0) > 0) // ≥ 1 TAO gain, no dust
         .map((w, i) => {
           const known = KNOWN_WALLETS[w.id];
           return {
@@ -593,9 +593,12 @@ export async function GET(request: NextRequest) {
         })
         .slice(0, 80);
 
-      // Drop wallets with zero current alpha positions
+      // Drop wallets with zero current alpha positions, then sort by biggest 24h gain first
       const alphaSet = await filterToAlphaHolders(candidates.map(w => w.address));
-      const winners  = candidates.filter(w => alphaSet.has(w.address)).slice(0, 50);
+      const winners  = candidates
+        .filter(w => alphaSet.has(w.address))
+        .sort((a, b) => b.change_24h_tao - a.change_24h_tao)
+        .slice(0, 50);
 
       const result: WinnersCache = { winners, updatedAt: new Date().toISOString() };
       await writeBlob(WIN_CACHE_KEY, result);
