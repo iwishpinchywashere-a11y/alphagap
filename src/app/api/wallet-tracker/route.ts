@@ -621,8 +621,9 @@ export async function GET(request: NextRequest) {
         fetchSubnetNames(),
         getTaoPrice().catch(() => 0),
         fetch(
-          // 500 records desc → display recent 30, reverse for chronological P&L calc
-          `https://api.taostats.io/api/delegation/v1?nominator_ss58=${encodeURIComponent(address)}&limit=500&order=timestamp_desc`,
+          // correct param is "nominator" (not "nominator_ss58" which is silently ignored)
+          // 500 records desc → display recent 50, reverse for chronological P&L calc
+          `https://api.taostats.io/api/delegation/v1?nominator=${encodeURIComponent(address)}&limit=500&order=timestamp_desc`,
           {
             headers: { Authorization: TAOSTATS_KEY },
             signal: AbortSignal.timeout(12000),
