@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import SubnetLogo from "@/components/dashboard/SubnetLogo";
 
@@ -160,8 +160,11 @@ function BellButton({ address }: { address: string }) {
 
 // ── Main Page ─────────────────────────────────────────────────────
 export default function WalletProfilePage() {
-  const params  = useParams<{ address: string }>();
-  const address = params?.address ?? "";
+  const params      = useParams<{ address: string }>();
+  const searchParams = useSearchParams();
+  const address     = params?.address ?? "";
+  const fromTab     = searchParams?.get("from") ?? "top";
+  const backHref    = `/wallettracker?tab=${fromTab}`;
 
   const [profile, setProfile] = useState<WalletProfile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -192,7 +195,7 @@ export default function WalletProfilePage() {
 
   if (loading) return (
     <main className="flex-1 overflow-auto p-4 md:p-8 max-w-[1100px] mx-auto w-full">
-      <Link href="/wallettracker" className="inline-flex items-center gap-1 text-sm text-gray-600 hover:text-gray-300 mb-8">
+      <Link href={backHref} className="inline-flex items-center gap-1 text-sm text-gray-600 hover:text-gray-300 mb-8">
         ← Whale Radar
       </Link>
       <div className="flex flex-col items-center justify-center py-24 gap-4">
@@ -204,7 +207,7 @@ export default function WalletProfilePage() {
 
   if (error) return (
     <main className="flex-1 overflow-auto p-4 md:p-8 max-w-[1100px] mx-auto w-full">
-      <Link href="/wallettracker" className="inline-flex items-center gap-1 text-sm text-gray-600 hover:text-gray-300 mb-8">
+      <Link href={backHref} className="inline-flex items-center gap-1 text-sm text-gray-600 hover:text-gray-300 mb-8">
         ← Whale Radar
       </Link>
       <div className="bg-red-950/30 border border-red-800/40 rounded-xl p-8 text-center space-y-3">
@@ -225,7 +228,7 @@ export default function WalletProfilePage() {
 
       {/* ── Back nav ─────────────────────────────────────────────── */}
       <Link
-        href="/wallettracker"
+        href={backHref}
         className="inline-flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-300 transition-colors"
       >
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

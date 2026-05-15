@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import SubnetLogo from "@/components/dashboard/SubnetLogo";
 
@@ -482,12 +482,13 @@ function OnDemandPositionDrawer({ address }: { address: string }) {
 
 // ── Wallet Row (multi-asset list) ─────────────────────────────────
 function WalletRow({
-  wallet, tracked, onToggleTrack, highlightName,
+  wallet, tracked, onToggleTrack, highlightName, fromTab,
 }: {
   wallet: WalletEntry;
   tracked: boolean;
   onToggleTrack: (addr: string) => void;
   highlightName?: string;
+  fromTab: string;
 }) {
   const router = useRouter();
   const rankColor =
@@ -497,7 +498,7 @@ function WalletRow({
 
   return (
     <div
-      onClick={() => router.push(`/wallettracker/${wallet.address}`)}
+      onClick={() => router.push(`/wallettracker/${wallet.address}?from=${fromTab}`)}
       className={`group flex items-center gap-3 px-4 py-3 border-b border-gray-800/40 cursor-pointer transition-colors
         ${tracked ? "bg-blue-950/20 border-l-2 border-l-blue-400/60" : "hover:bg-gray-800/25"}`}
     >
@@ -573,11 +574,12 @@ function WalletRow({
 
 // ── Winner Row ────────────────────────────────────────────────────
 function WinnerRow({
-  wallet, tracked, onToggleTrack,
+  wallet, tracked, onToggleTrack, fromTab,
 }: {
   wallet: WinnerEntry;
   tracked: boolean;
   onToggleTrack: (addr: string) => void;
+  fromTab: string;
 }) {
   const router = useRouter();
   const changeColor = wallet.change_24h_tao >= 0 ? "text-green-400" : "text-red-400";
@@ -587,7 +589,7 @@ function WinnerRow({
       className={`group flex items-center gap-3 px-4 py-3 border-b border-gray-800/40 transition-colors cursor-pointer
         ${tracked ? "bg-blue-950/20 border-l-2 border-l-blue-400/60" :
                     "hover:bg-gray-800/25 bg-gradient-to-r from-green-950/10 to-transparent"}`}
-      onClick={() => router.push(`/wallettracker/${wallet.address}`)}
+      onClick={() => router.push(`/wallettracker/${wallet.address}?from=${fromTab}`)}
     >
       <div className="w-8 text-center text-sm tabular-nums flex-shrink-0 text-gray-600">#{wallet.rank}</div>
 
@@ -649,12 +651,13 @@ function WinnerRow({
 
 // ── TaoStats Whale Row ────────────────────────────────────────────
 function TSWhaleRow({
-  wallet, tracked, onToggleTrack, rank,
+  wallet, tracked, onToggleTrack, rank, fromTab,
 }: {
   wallet: TSWhaleWallet;
   tracked: boolean;
   onToggleTrack: (addr: string) => void;
   rank: number;
+  fromTab: string;
 }) {
   const router    = useRouter();
   const isBuy     = wallet.net_usd > 0;
@@ -665,7 +668,7 @@ function TSWhaleRow({
     <div
       className={`group flex items-center gap-3 px-4 py-3 border-b border-gray-800/40 transition-colors cursor-pointer
         ${tracked ? "bg-blue-950/20 border-l-2 border-l-blue-400/60" : "hover:bg-gray-800/25"}`}
-      onClick={() => router.push(`/wallettracker/${wallet.address}`)}
+      onClick={() => router.push(`/wallettracker/${wallet.address}?from=${fromTab}`)}
     >
       <div className="w-8 text-center text-sm tabular-nums flex-shrink-0 text-gray-600">#{rank}</div>
 
@@ -737,12 +740,13 @@ function TSWhaleRow({
 
 // ── SR Whale Row ──────────────────────────────────────────────────
 function SRWhaleRow({
-  wallet, tracked, onToggleTrack, rank,
+  wallet, tracked, onToggleTrack, rank, fromTab,
 }: {
   wallet: SRWhaleWallet;
   tracked: boolean;
   onToggleTrack: (addr: string) => void;
   rank: number;
+  fromTab: string;
 }) {
   const router      = useRouter();
   const isNetBuyer  = wallet.net_tao > 0;
@@ -754,7 +758,7 @@ function SRWhaleRow({
     <div
       className={`group flex items-center gap-3 px-4 py-3 border-b border-gray-800/40 transition-colors cursor-pointer
         ${tracked ? "bg-blue-950/20 border-l-2 border-l-blue-400/60" : "hover:bg-gray-800/25"}`}
-      onClick={() => router.push(`/wallettracker/${wallet.address}`)}
+      onClick={() => router.push(`/wallettracker/${wallet.address}?from=${fromTab}`)}
     >
       {/* Rank */}
       <div className="w-8 text-center text-sm tabular-nums flex-shrink-0 text-gray-600">#{rank}</div>
@@ -833,6 +837,8 @@ function SRWhaleRow({
 // ── Main Page ─────────────────────────────────────────────────────
 export default function WalletTrackerPage() {
   const { data: session } = useSession();
+  const searchParams = useSearchParams();
+  const router = useRouter();
 
   const [wallets,   setWallets]   = useState<WalletEntry[]>([]);
   const [winners,    setWinners]    = useState<WinnerEntry[]>([]);
@@ -857,8 +863,18 @@ export default function WalletTrackerPage() {
   const [tsError,  setTsError]  = useState<string | null>(null);
 
   const [tracked,  setTracked]  = useState<Set<string>>(new Set());
-  const [tab,      setTab]      = useState<TabKey>("top");
+  const VALID_TABS = new Set<TabKey>(["top", "winners", "sr", "ts", "known", "tracked"]);
+  const initialTab = (searchParams?.get("tab") ?? "top") as TabKey;
+  const [tab, setTab] = useState<TabKey>(VALID_TABS.has(initialTab) ? initialTab : "top");
   const [search,   setSearch]   = useState("");
+
+  // Keep URL in sync so back navigation returns to the right tab
+  function changeTab(t: TabKey) {
+    setTab(t);
+    const url = new URL(window.location.href);
+    url.searchParams.set("tab", t);
+    window.history.replaceState(null, "", url.toString());
+  }
 
   // Load main wallet list (filtered: ≥2 alpha tokens)
   useEffect(() => {
@@ -1065,14 +1081,14 @@ export default function WalletTrackerPage() {
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex gap-1 bg-gray-900/60 border border-gray-800 rounded-lg p-1">
           {([
-            { key: "top",     label: "🎯 Multi-Asset Top 200" },
+            { key: "top",     label: "🎯 Top 200" },
             { key: "winners", label: "🚀 Big Winners" },
             { key: "sr",      label: "🐋 Active Movers" },
             { key: "ts",      label: "📊 Big Deployers" },
             { key: "known",   label: "👑 Known" },
             { key: "tracked", label: `🔔 Tracked${trackedCount > 0 ? ` (${trackedCount})` : ""}` },
           ] as { key: TabKey; label: string }[]).map(t => (
-            <button key={t.key} onClick={() => setTab(t.key)}
+            <button key={t.key} onClick={() => changeTab(t.key)}
               className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${
                 tab === t.key
                   ? t.key === "winners" ? "bg-green-500/20 text-green-300"
@@ -1180,6 +1196,7 @@ export default function WalletTrackerPage() {
             tracked={tracked.has(wallet.address)}
             onToggleTrack={toggleTrack}
             highlightName={subnetSearchName || undefined}
+            fromTab={tab}
           />
         ))}
 
@@ -1190,6 +1207,7 @@ export default function WalletTrackerPage() {
             wallet={wallet}
             tracked={tracked.has(wallet.address)}
             onToggleTrack={toggleTrack}
+            fromTab={tab}
           />
         ))}
 
@@ -1201,6 +1219,7 @@ export default function WalletTrackerPage() {
             rank={i + 1}
             tracked={tracked.has(wallet.address)}
             onToggleTrack={toggleTrack}
+            fromTab={tab}
           />
         ))}
 
@@ -1212,6 +1231,7 @@ export default function WalletTrackerPage() {
             rank={i + 1}
             tracked={tracked.has(wallet.address)}
             onToggleTrack={toggleTrack}
+            fromTab={tab}
           />
         ))}
       </div>
