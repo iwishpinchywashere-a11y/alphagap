@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useParams, useSearchParams } from "next/navigation";
+import { useParams } from "next/navigation";
 import Link from "next/link";
 import SubnetLogo from "@/components/dashboard/SubnetLogo";
 
@@ -160,11 +160,15 @@ function BellButton({ address }: { address: string }) {
 
 // ── Main Page ─────────────────────────────────────────────────────
 export default function WalletProfilePage() {
-  const params      = useParams<{ address: string }>();
-  const searchParams = useSearchParams();
-  const address     = params?.address ?? "";
-  const fromTab     = searchParams?.get("from") ?? "top";
-  const backHref    = `/wallettracker?tab=${fromTab}`;
+  const params   = useParams<{ address: string }>();
+  const address  = params?.address ?? "";
+  const [backHref, setBackHref] = useState("/wallettracker");
+
+  // Client-only: read ?from= without useSearchParams (avoids Suspense requirement)
+  useEffect(() => {
+    const from = new URLSearchParams(window.location.search).get("from") ?? "top";
+    setBackHref(`/wallettracker?tab=${from}`);
+  }, []);
 
   const [profile, setProfile] = useState<WalletProfile | null>(null);
   const [loading, setLoading] = useState(true);

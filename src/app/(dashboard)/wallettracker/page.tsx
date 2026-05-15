@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import SubnetLogo from "@/components/dashboard/SubnetLogo";
 
@@ -837,7 +837,6 @@ function SRWhaleRow({
 // ── Main Page ─────────────────────────────────────────────────────
 export default function WalletTrackerPage() {
   const { data: session } = useSession();
-  const searchParams = useSearchParams();
   const router = useRouter();
 
   const [wallets,   setWallets]   = useState<WalletEntry[]>([]);
@@ -863,12 +862,18 @@ export default function WalletTrackerPage() {
   const [tsError,  setTsError]  = useState<string | null>(null);
 
   const [tracked,  setTracked]  = useState<Set<string>>(new Set());
-  const VALID_TABS = new Set<TabKey>(["top", "winners", "sr", "ts", "known", "tracked"]);
-  const initialTab = (searchParams?.get("tab") ?? "top") as TabKey;
-  const [tab, setTab] = useState<TabKey>(VALID_TABS.has(initialTab) ? initialTab : "top");
+  const [tab,      setTab]      = useState<TabKey>("top");
   const [search,   setSearch]   = useState("");
 
-  // Keep URL in sync so back navigation returns to the right tab
+  // On mount: restore tab from ?tab= URL param (client-only, no Suspense needed)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const t = params.get("tab") as TabKey | null;
+    const valid = new Set<TabKey>(["top", "winners", "sr", "ts", "known", "tracked"]);
+    if (t && valid.has(t)) setTab(t);
+  }, []);
+
+  // Keep URL in sync so browser back always returns to the right tab
   function changeTab(t: TabKey) {
     setTab(t);
     const url = new URL(window.location.href);
