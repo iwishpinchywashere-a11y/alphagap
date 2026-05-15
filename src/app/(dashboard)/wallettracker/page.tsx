@@ -1113,8 +1113,7 @@ export default function WalletTrackerPage() {
             </span>
           </div>
           <p className="hidden sm:block text-sm text-gray-500">
-            Top 200 multi-asset TAO wallets — active investors holding ≥2 alpha tokens.
-            {activeUpdatedAt && <span className="ml-2 text-gray-600">Updated {timeAgo(activeUpdatedAt)}</span>}
+            Top multi-asset TAO wallets — active investors holding ≥2 alpha tokens.
           </p>
         </div>
         {trackedCount > 0 && (
