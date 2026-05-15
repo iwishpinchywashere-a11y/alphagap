@@ -1,16 +1,11 @@
 /**
  * GET /api/wallet-tracker
- *
- * Default mode:
- *   - top 50 wallets by total TAO balance  (Top Holders)
- *   - top 50 wallets by 24h TAO gain       (Today's Big Winners)
+ *   → top 200 holders (by total TAO) + top 50 winners (by 24h gain)
  *   Cached in Vercel Blob for 20 minutes.
  *
- * ?mode=diversified:
- *   - top 200 wallets (by total TAO) that hold ≥ 2 distinct alpha tokens
- *   - each wallet includes a per-subnet positions breakdown
- *   Cached in Vercel Blob for 45 minutes.
- *   First request takes ~10-20s; subsequent requests serve from cache instantly.
+ * GET /api/wallet-tracker?mode=detail&address=5G...
+ *   → per-subnet alpha positions for a single wallet (real-time, ~500ms)
+ *   Used when the user clicks a wallet row to expand it.
  *
  * Data source: TaoMarketCap public/v1/accounts/coldkeys
  */
@@ -19,17 +14,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { put, get as blobGet } from "@vercel/blob";
 import { getTaoPrice } from "@/lib/taostats";
 
-export const dynamic    = "force-dynamic";
-export const maxDuration = 60; // seconds — needed for diversified batch fetches
+export const dynamic     = "force-dynamic";
+export const maxDuration = 30;
 
-const TMC_API_KEY  = process.env.TMC_API_KEY || "";
-const RAO_PER_TAO  = 1_000_000_000;
+const TMC_API_KEY = process.env.TMC_API_KEY || "";
+const RAO_PER_TAO = 1_000_000_000;
 
-const CACHE_KEY         = "wallet-tracker-cache.json";
-const CACHE_TTL_MS      = 20 * 60 * 1000; // 20 min
-
-const DIV_CACHE_KEY     = "wallet-tracker-diversified.json";
-const DIV_CACHE_TTL_MS  = 45 * 60 * 1000; // 45 min
+const CACHE_KEY    = "wallet-tracker-cache.json";
+const CACHE_TTL_MS = 20 * 60 * 1000; // 20 min
 
 // ── Known labeled wallets ─────────────────────────────────────────
 export const KNOWN_WALLETS: Record<string, { label: string; emoji: string; category: string }> = {
@@ -39,72 +31,60 @@ export const KNOWN_WALLETS: Record<string, { label: string; emoji: string; categ
 
 // ── Types ─────────────────────────────────────────────────────────
 export interface AlphaPosition {
-  netuid: number;
-  name: string;
-  staked_tao: number;  // TAO equivalent
-  staked_usd: number;  // USD value
+  netuid:     number;
+  name:       string;
+  staked_tao: number;
+  staked_usd: number;
 }
 
 export interface WalletEntry {
-  address: string;
-  label?: string;
-  emoji?: string;
-  category?: string;
-  is_known: boolean;
-  // balances in TAO
-  total_tao: number;
-  free_tao: number;
-  staked_tao: number;
-  // 24h change in TAO
+  address:        string;
+  label?:         string;
+  emoji?:         string;
+  category?:      string;
+  is_known:       boolean;
+  total_tao:      number;
+  free_tao:       number;
+  staked_tao:     number;
   change_24h_tao: number;
   change_24h_pct: number;
-  // rank in their respective list
-  rank: number;
-  // diversified mode only
-  alpha_count?: number;
-  positions?: AlphaPosition[];
+  rank:           number;
 }
 
 interface CacheData {
-  holders:  WalletEntry[];
-  winners:  WalletEntry[];
-  losers:   WalletEntry[];
-  updatedAt: string;
-}
-
-interface DiversifiedCache {
-  wallets:   WalletEntry[];
+  holders:   WalletEntry[];
+  winners:   WalletEntry[];
+  losers:    WalletEntry[];
   updatedAt: string;
 }
 
 interface TMCColdkey {
-  id: string;
-  total: number;
-  free: number;
-  staked: number;
-  tao_staked: number;
-  tao_change_24h: number;
+  id:                 string;
+  total:              number;
+  free:               number;
+  staked:             number;
+  tao_staked:         number;
+  tao_change_24h:     number;
   percent_change_24h: number;
-  rank?: number;
+  rank?:              number;
 }
 
 interface TMCHotkey {
-  hotkey: string;
-  subnet: number;
-  staked: number;      // alpha (rao)
-  tao_staked: number;  // TAO equivalent (rao)
+  hotkey:     string;
+  subnet:     number;
+  staked:     number;
+  tao_staked: number;
 }
 
 interface TMCWalletDetail {
-  id: string;
-  hotkeys: TMCHotkey[];
-  total: number;
-  free: number;
-  staked: number;
-  tao_staked: number;
-  rank: number;
-  tao_change_24h: number;
+  id:                 string;
+  hotkeys:            TMCHotkey[];
+  total:              number;
+  free:               number;
+  tao_staked:         number;
+  tao_change_24h:     number;
   percent_change_24h: number;
+  rank:               number;
 }
 
 // ── Blob helpers ──────────────────────────────────────────────────
@@ -133,7 +113,7 @@ async function writeBlob(key: string, data: unknown): Promise<void> {
   } catch { /* non-critical */ }
 }
 
-// ── TMC helpers ───────────────────────────────────────────────────
+// ── TMC list fetch ────────────────────────────────────────────────
 async function fetchTMC(orderBy: string, limit = 60): Promise<TMCColdkey[]> {
   const url = `https://api.taomarketcap.com/public/v1/accounts/coldkeys/?limit=${limit}&order_by=${orderBy}&order=desc`;
   const r = await fetch(url, {
@@ -149,27 +129,25 @@ async function fetchTMC(orderBy: string, limit = 60): Promise<TMCColdkey[]> {
   return (j?.results ?? j?.data ?? j ?? []) as TMCColdkey[];
 }
 
+// ── TMC per-wallet detail ─────────────────────────────────────────
 async function fetchWalletDetail(address: string): Promise<TMCWalletDetail | null> {
   try {
-    const url = `https://api.taomarketcap.com/public/v1/accounts/coldkeys/${address}/`;
-    const r = await fetch(url, {
-      headers: { Authorization: TMC_API_KEY },
-      signal: AbortSignal.timeout(8000),
-      next: { revalidate: 0 },
-    });
+    const r = await fetch(
+      `https://api.taomarketcap.com/public/v1/accounts/coldkeys/${address}/`,
+      { headers: { Authorization: TMC_API_KEY }, signal: AbortSignal.timeout(8000), next: { revalidate: 0 } }
+    );
     if (!r.ok) return null;
     return await r.json() as TMCWalletDetail;
   } catch { return null; }
 }
 
+// ── Subnet name map ───────────────────────────────────────────────
 async function fetchSubnetNames(): Promise<Map<number, string>> {
   try {
-    const url = "https://api.taomarketcap.com/public/v1/subnets/table/";
-    const r = await fetch(url, {
-      headers: { Authorization: TMC_API_KEY },
-      signal: AbortSignal.timeout(10000),
-      next: { revalidate: 0 },
-    });
+    const r = await fetch(
+      "https://api.taomarketcap.com/public/v1/subnets/table/",
+      { headers: { Authorization: TMC_API_KEY }, signal: AbortSignal.timeout(10000), next: { revalidate: 0 } }
+    );
     if (!r.ok) return new Map();
     const data = await r.json() as { subnet: number; name: string }[];
     const map = new Map<number, string>();
@@ -178,7 +156,7 @@ async function fetchSubnetNames(): Promise<Map<number, string>> {
   } catch { return new Map(); }
 }
 
-// ── Enrich basic wallet list ───────────────────────────────────────
+// ── Enrich coldkey list → WalletEntry ────────────────────────────
 function enrich(rows: TMCColdkey[]): WalletEntry[] {
   return rows
     .filter(r => r.id && r.total > 0)
@@ -195,48 +173,35 @@ function enrich(rows: TMCColdkey[]): WalletEntry[] {
         staked_tao:     Math.round((r.tao_staked ?? 0) / RAO_PER_TAO * 100) / 100,
         change_24h_tao: Math.round(r.tao_change_24h / RAO_PER_TAO * 100) / 100,
         change_24h_pct: Math.round(r.percent_change_24h * 100) / 100,
-        rank:           (r.rank ?? i + 1),
+        rank:           r.rank ?? i + 1,
       };
     });
 }
 
-// ── Diversified wallet computation ────────────────────────────────
-async function buildDiversified(): Promise<WalletEntry[]> {
-  // Fetch top 350 wallets by total TAO, subnet names, and TAO price in parallel
-  const [topWallets, subnetNames, taoPrice] = await Promise.all([
-    fetchTMC("total", 350),
-    fetchSubnetNames(),
-    getTaoPrice().catch(() => 0),
-  ]);
+// ── Main handler ──────────────────────────────────────────────────
+export async function GET(request: NextRequest) {
+  const mode    = request.nextUrl.searchParams.get("mode");
+  const address = request.nextUrl.searchParams.get("address");
 
-  // Batch-fetch per-wallet detail (25 concurrent at a time)
-  const BATCH = 25;
-  const details: (TMCWalletDetail | null)[] = [];
-  for (let i = 0; i < topWallets.length; i += BATCH) {
-    const batch = topWallets.slice(i, i + BATCH);
-    const results = await Promise.allSettled(batch.map(w => fetchWalletDetail(w.id)));
-    for (const r of results) {
-      details.push(r.status === "fulfilled" ? r.value : null);
-    }
-  }
+  // ── Single wallet detail (on-demand, no cache) ────────────────
+  if (mode === "detail" && address) {
+    if (!TMC_API_KEY) return NextResponse.json({ error: "TMC_API_KEY not configured" }, { status: 500 });
 
-  const enriched: WalletEntry[] = [];
-  for (let i = 0; i < topWallets.length; i++) {
-    const w       = topWallets[i];
-    const detail  = details[i];
-    if (!detail?.hotkeys?.length) continue;
+    const [detail, subnetNames, taoPrice] = await Promise.all([
+      fetchWalletDetail(address),
+      fetchSubnetNames(),
+      getTaoPrice().catch(() => 0),
+    ]);
+
+    if (!detail) return NextResponse.json({ error: "Wallet not found" }, { status: 404 });
 
     // Aggregate tao_staked per subnet (wallet may have multiple validators per subnet)
-    const posMap = new Map<number, number>(); // netuid → total tao_staked (rao)
-    for (const hk of detail.hotkeys) {
-      if (!hk.subnet && hk.subnet !== 0) continue;
+    const posMap = new Map<number, number>();
+    for (const hk of detail.hotkeys ?? []) {
+      if (hk.subnet == null) continue;
       posMap.set(hk.subnet, (posMap.get(hk.subnet) ?? 0) + (hk.tao_staked ?? 0));
     }
 
-    // Must hold ≥ 2 distinct alpha tokens
-    if (posMap.size < 2) continue;
-
-    // Build sorted position list
     const positions: AlphaPosition[] = [...posMap.entries()]
       .map(([netuid, taoRao]) => {
         const staked_tao = Math.round(taoRao / RAO_PER_TAO * 100) / 100;
@@ -249,52 +214,10 @@ async function buildDiversified(): Promise<WalletEntry[]> {
       })
       .sort((a, b) => b.staked_tao - a.staked_tao);
 
-    const known = KNOWN_WALLETS[w.id];
-    enriched.push({
-      address:        w.id,
-      label:          known?.label,
-      emoji:          known?.emoji,
-      category:       known?.category,
-      is_known:       !!known,
-      total_tao:      Math.round(w.total          / RAO_PER_TAO * 100) / 100,
-      free_tao:       Math.round(w.free           / RAO_PER_TAO * 100) / 100,
-      staked_tao:     Math.round((w.tao_staked ?? 0) / RAO_PER_TAO * 100) / 100,
-      change_24h_tao: Math.round(w.tao_change_24h / RAO_PER_TAO * 100) / 100,
-      change_24h_pct: Math.round(w.percent_change_24h * 100) / 100,
-      rank:           w.rank ?? i + 1,
-      alpha_count:    posMap.size,
-      positions,
-    });
+    return NextResponse.json({ address, positions, alpha_count: posMap.size });
   }
 
-  // Sort by total TAO, take top 200
-  return enriched.sort((a, b) => b.total_tao - a.total_tao).slice(0, 200);
-}
-
-// ── Main handler ──────────────────────────────────────────────────
-export async function GET(request: NextRequest) {
-  const mode = request.nextUrl.searchParams.get("mode");
-
-  // ── Diversified mode ──────────────────────────────────────────
-  if (mode === "diversified") {
-    const cached = await readBlob<DiversifiedCache>(DIV_CACHE_KEY);
-    if (cached && Date.now() - new Date(cached.updatedAt).getTime() < DIV_CACHE_TTL_MS) {
-      return NextResponse.json(cached);
-    }
-    if (!TMC_API_KEY) {
-      return NextResponse.json({ error: "TMC_API_KEY not configured" }, { status: 500 });
-    }
-    try {
-      const wallets = await buildDiversified();
-      const result: DiversifiedCache = { wallets, updatedAt: new Date().toISOString() };
-      await writeBlob(DIV_CACHE_KEY, result);
-      return NextResponse.json(result);
-    } catch (e) {
-      return NextResponse.json({ error: String(e) }, { status: 500 });
-    }
-  }
-
-  // ── Default mode (holders / winners) ─────────────────────────
+  // ── Default: top 200 holders + top 50 winners ─────────────────
   const cached = await readBlob<CacheData>(CACHE_KEY);
   if (cached && Date.now() - new Date(cached.updatedAt).getTime() < CACHE_TTL_MS) {
     return NextResponse.json(cached);
@@ -309,8 +232,8 @@ export async function GET(request: NextRequest) {
   const errors: string[] = [];
 
   const [holdersResult, winnersResult] = await Promise.allSettled([
-    fetchTMC("total",          60),
-    fetchTMC("tao_change_24h", 60),
+    fetchTMC("total",          210), // fetch 210, serve 200 after filter
+    fetchTMC("tao_change_24h",  60),
   ]);
 
   if (holdersResult.status === "fulfilled") holders = holdersResult.value;
@@ -324,7 +247,7 @@ export async function GET(request: NextRequest) {
   }
 
   const result: CacheData = {
-    holders: enrich(holders).slice(0, 50),
+    holders: enrich(holders).slice(0, 200),
     winners: enrich(winners.filter(w => w.tao_change_24h > 0)).slice(0, 50),
     losers:  enrich([...winners].reverse().filter(w => w.tao_change_24h < 0)).slice(0, 50),
     updatedAt: new Date().toISOString(),
