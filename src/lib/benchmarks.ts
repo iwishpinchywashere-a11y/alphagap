@@ -1118,23 +1118,6 @@ export const BENCHMARK_DATA: BenchmarkEntry[] = [
   },
   // ── MAY 2026 RESEARCH SWEEP — NEW ENTRIES ────────────────────────
   {
-    subnet_id: 10,
-    subnet_name: "Sturdy Finance",
-    benchmark_score: 76,
-    benchmark_category: "Finance & Trading",
-    vs_provider: "Yearn Finance / Gauntlet / Aave manual management",
-    cost_saving_pct: 40,
-    perf_delta: "$175M+ live AUM — AI-optimized DeFi yield beats manual Yearn strategies",
-    benchmark_summary: "Sturdy Finance (SN10) is a decentralized AI yield optimization platform — miners compete to build the best yield allocation algorithms across Morpho, Aave, Compound, Yearn, Pendle, and Ondo lending pools. Validators score miners on real-world returns. $175M+ in actively managed deposits (up from $110M Nov 2024 → $125M Feb 2025 → $175M+ 2026). Gauntlet confirmed as risk management partner. First Bittensor subnet incubated by Yuma (DCG). SN10 2.0 upgraded for lower latency. Revenue model: management/performance fees on AUM. $175M AUM places Sturdy Finance among the top DeFi yield protocols by assets managed.",
-    active_users: "$175M+ AUM depositors",
-    annual_revenue_usd: 500000,
-    last_updated: "2026-05-15",
-    sources: [
-      "https://sturdyfinance.medium.com/sturdy-sn10-ai-powered-yield-optimization-for-defi-539a40f53412",
-      "https://sturdy.finance/",
-    ],
-  },
-  {
     subnet_id: 33,
     subnet_name: "ReadyAI",
     benchmark_score: 71,
