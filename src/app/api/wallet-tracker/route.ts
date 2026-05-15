@@ -117,6 +117,29 @@ interface SRCache {
   updatedAt: string;
 }
 
+// ── TaoStats Whale types ──────────────────────────────────────────
+export interface TSWhaleWallet {
+  address:        string;
+  label?:         string;
+  emoji?:         string;
+  category?:      string;
+  is_known:       boolean;
+  subnet_count:   number;   // unique alpha subnets staked in
+  total_usd:      number;   // sum of all DELEGATE USD in window
+  net_usd:        number;   // DELEGATE - UNDELEGATE USD
+  last_action:    "DELEGATE" | "UNDELEGATE";
+  last_netuid:    number;
+  last_usd:       number;
+  last_ts:        string;
+  active_subnets: number[];
+}
+interface TSCache {
+  whales:    TSWhaleWallet[];
+  updatedAt: string;
+}
+const TS_CACHE_KEY    = "wallet-tracker-ts-whales.json";
+const TS_CACHE_TTL_MS = 10 * 60 * 1000; // 10 min
+
 interface TMCColdkey {
   id:                 string;
   total:              number;
@@ -284,6 +307,90 @@ async function buildMainList(): Promise<WalletEntry[]> {
   return enriched.sort((a, b) => b.total_tao - a.total_tao).slice(0, 200);
 }
 
+// ── Build TaoStats whale wallet list (recent large dTAO stakers) ─
+async function buildTSWhales(): Promise<TSWhaleWallet[]> {
+  const TAOSTATS_KEY = process.env.TAOSTATS_API_KEY || "";
+  const thirtyDaysAgo = Math.floor((Date.now() - 30 * 86400_000) / 1000);
+
+  // Fetch top 500 delegations by amount in last 30 days
+  const url = `https://api.taostats.io/api/delegation/v1?limit=500&order=amount_desc&timestamp_start=${thirtyDaysAgo}`;
+  const r = await fetch(url, {
+    headers: { Authorization: TAOSTATS_KEY },
+    signal: AbortSignal.timeout(15000),
+    next: { revalidate: 0 },
+  });
+  if (!r.ok) throw new Error(`TaoStats delegation → HTTP ${r.status}`);
+
+  interface TSDelegation {
+    action:    "DELEGATE" | "UNDELEGATE";
+    timestamp: string;
+    nominator: { ss58: string };
+    amount:    string; // rao
+    usd:       string | null;
+    netuid:    number | null;
+  }
+  const json = await r.json() as { data?: TSDelegation[] };
+  const rows = json.data ?? [];
+
+  // Only alpha subnet staking (netuid > 0), skip root network
+  const alpha = rows.filter(d => d.netuid != null && d.netuid > 0);
+
+  // Aggregate per wallet
+  const map = new Map<string, {
+    delegateUsd: number; undelegateUsd: number;
+    subnets: Set<number>;
+    lastAction: "DELEGATE" | "UNDELEGATE"; lastNetuid: number;
+    lastUsd: number; lastTs: string;
+  }>();
+
+  for (const d of alpha) {
+    const addr = d.nominator.ss58;
+    const usd  = parseFloat(d.usd ?? "0") || 0;
+    const netuid = d.netuid!;
+
+    if (!map.has(addr)) {
+      map.set(addr, {
+        delegateUsd: 0, undelegateUsd: 0, subnets: new Set(),
+        lastAction: d.action, lastNetuid: netuid, lastUsd: usd, lastTs: d.timestamp,
+      });
+    }
+    const w = map.get(addr)!;
+    if (d.action === "DELEGATE")   w.delegateUsd   += usd;
+    else                           w.undelegateUsd += usd;
+    w.subnets.add(netuid);
+    if (d.timestamp >= w.lastTs) {
+      w.lastTs = d.timestamp; w.lastAction = d.action;
+      w.lastNetuid = netuid;  w.lastUsd = usd;
+    }
+  }
+
+  const result: TSWhaleWallet[] = [];
+  for (const [address, agg] of map) {
+    if (agg.subnets.size < 1) continue; // must have at least 1 alpha subnet
+    const known = KNOWN_WALLETS[address];
+    result.push({
+      address,
+      label:    known?.label,
+      emoji:    known?.emoji,
+      category: known?.category,
+      is_known: !!known,
+      subnet_count:   agg.subnets.size,
+      total_usd:      Math.round(agg.delegateUsd),
+      net_usd:        Math.round(agg.delegateUsd - agg.undelegateUsd),
+      last_action:    agg.lastAction,
+      last_netuid:    agg.lastNetuid,
+      last_usd:       Math.round(agg.lastUsd),
+      last_ts:        agg.lastTs,
+      active_subnets: [...agg.subnets].sort((a, b) => a - b),
+    });
+  }
+
+  // Sort by total USD deployed (largest alpha investors first)
+  return result
+    .sort((a, b) => b.total_usd - a.total_usd)
+    .slice(0, 200);
+}
+
 // ── Build SubnetRadar whale wallet list ───────────────────────────
 async function buildSRWhales(): Promise<SRWhaleWallet[]> {
   const r = await fetch("https://subnetradar.com/api/whales", {
@@ -370,6 +477,22 @@ export async function GET(request: NextRequest) {
 
   if (!TMC_API_KEY) {
     return NextResponse.json({ error: "TMC_API_KEY not configured" }, { status: 500 });
+  }
+
+  // ── TaoStats Whales mode (recent large dTAO stakers, 10-min cache) ──
+  if (mode === "taostats-whales") {
+    const cached = await readBlob<TSCache>(TS_CACHE_KEY);
+    if (cached && Date.now() - new Date(cached.updatedAt).getTime() < TS_CACHE_TTL_MS) {
+      return NextResponse.json(cached);
+    }
+    try {
+      const whales = await buildTSWhales();
+      const result: TSCache = { whales, updatedAt: new Date().toISOString() };
+      await writeBlob(TS_CACHE_KEY, result);
+      return NextResponse.json(result);
+    } catch (e) {
+      return NextResponse.json({ error: String(e) }, { status: 500 });
+    }
   }
 
   // ── SR Whales mode (live SubnetRadar data, 5-min cache) ──────
