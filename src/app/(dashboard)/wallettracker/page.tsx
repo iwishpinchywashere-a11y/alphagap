@@ -42,7 +42,24 @@ interface WinnerEntry {
   rank:           number;
 }
 
-type TabKey = "top" | "winners" | "known" | "tracked";
+interface SRWhaleWallet {
+  address:        string;
+  label?:         string;
+  emoji?:         string;
+  category?:      string;
+  is_known:       boolean;
+  move_count:     number;
+  total_staked:   number;
+  total_unstaked: number;
+  net_tao:        number;
+  last_action:    "stake" | "unstake";
+  last_netuid?:   number;
+  last_amount:    number;
+  last_ts:        string;
+  active_subnets: number[];
+}
+
+type TabKey = "top" | "winners" | "sr" | "known" | "tracked";
 
 // ── Alert Settings Panel ──────────────────────────────────────────
 interface WalletAlertPrefs {
@@ -583,21 +600,119 @@ function WinnerRow({
   );
 }
 
+// ── SR Whale Row ──────────────────────────────────────────────────
+function SRWhaleRow({
+  wallet, tracked, onToggleTrack, rank,
+}: {
+  wallet: SRWhaleWallet;
+  tracked: boolean;
+  onToggleTrack: (addr: string) => void;
+  rank: number;
+}) {
+  const [copied, setCopied] = useState(false);
+  const isNetBuyer  = wallet.net_tao > 0;
+  const isNetSeller = wallet.net_tao < 0;
+  const netColor    = isNetBuyer ? "text-green-400" : isNetSeller ? "text-red-400" : "text-gray-500";
+  const netSign     = isNetBuyer ? "+" : "";
+
+  return (
+    <div className={`group flex items-center gap-3 px-4 py-3 border-b border-gray-800/40 transition-colors
+      ${tracked ? "bg-blue-950/20 border-l-2 border-l-blue-400/60" : "hover:bg-gray-800/25"}`}
+    >
+      {/* Rank */}
+      <div className="w-8 text-center text-sm tabular-nums flex-shrink-0 text-gray-600">#{rank}</div>
+
+      {/* Address + last action */}
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 flex-wrap">
+          {wallet.emoji && <span className="text-base leading-none">{wallet.emoji}</span>}
+          {wallet.label && (
+            <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full ${
+              wallet.category === "founder"
+                ? "bg-yellow-500/15 text-yellow-400 border border-yellow-500/30"
+                : "bg-purple-500/15 text-purple-400 border border-purple-500/30"
+            }`}>{wallet.label}</span>
+          )}
+          <button
+            onClick={() => { navigator.clipboard.writeText(wallet.address).catch(() => {}); setCopied(true); setTimeout(() => setCopied(false), 1500); }}
+            className="font-mono text-xs text-gray-400 hover:text-white transition-colors flex items-center gap-1"
+          >
+            {shortAddr(wallet.address)}
+            <span className="text-[10px] text-gray-600 group-hover:text-gray-500">{copied ? "✓" : "⎘"}</span>
+          </button>
+        </div>
+        {/* Last move */}
+        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+          <span className={`text-[10px] font-semibold ${wallet.last_action === "stake" ? "text-green-400" : "text-red-400"}`}>
+            {wallet.last_action === "stake" ? "▲ STAKED" : "▼ UNSTAKED"}
+          </span>
+          {wallet.last_netuid != null && (
+            <span className="text-[10px] text-gray-500">SN{wallet.last_netuid}</span>
+          )}
+          <span className="text-[10px] text-gray-600 tabular-nums">{fmtTao(wallet.last_amount)}</span>
+          <span className="text-[10px] text-gray-700">·</span>
+          <span className="text-[10px] text-gray-600">{timeAgo(wallet.last_ts)}</span>
+          {wallet.active_subnets.length > 1 && (
+            <span className="text-[10px] text-indigo-500">{wallet.active_subnets.length} subnets</span>
+          )}
+        </div>
+      </div>
+
+      {/* Stats */}
+      <div className="flex items-center gap-3 flex-shrink-0">
+        <div className="text-right hidden sm:block">
+          <div className={`text-sm font-semibold tabular-nums ${netColor}`}>
+            {netSign}{fmtTao(Math.abs(wallet.net_tao))} net
+          </div>
+          <div className="text-[10px] text-gray-600 tabular-nums">
+            {wallet.move_count} move{wallet.move_count !== 1 ? "s" : ""}
+          </div>
+        </div>
+
+        <button
+          onClick={() => onToggleTrack(wallet.address)}
+          className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center transition-all ${
+            tracked
+              ? "bg-blue-500/20 text-blue-400 border border-blue-500/40 hover:bg-red-500/20 hover:text-red-400 hover:border-red-500/40"
+              : "bg-gray-800/50 text-gray-500 border border-gray-700/50 hover:bg-blue-500/20 hover:text-blue-400 hover:border-blue-500/40"
+          }`}
+        >
+          {tracked ? (
+            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+              <path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zm0 16a3 3 0 01-2.83-2h5.66A3 3 0 0110 18z" />
+            </svg>
+          ) : (
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+            </svg>
+          )}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ── Main Page ─────────────────────────────────────────────────────
 export default function WalletTrackerPage() {
   const { data: session } = useSession();
 
   const [wallets,   setWallets]   = useState<WalletEntry[]>([]);
-  const [winners,   setWinners]   = useState<WinnerEntry[]>([]);
-  const [updatedAt, setUpdatedAt] = useState("");
-  const [winUpdatedAt, setWinUpdatedAt] = useState("");
+  const [winners,    setWinners]    = useState<WinnerEntry[]>([]);
+  const [srWhales,   setSrWhales]   = useState<SRWhaleWallet[]>([]);
+  const [updatedAt,  setUpdatedAt]  = useState("");
+  const [winUpdatedAt,  setWinUpdatedAt]  = useState("");
+  const [srUpdatedAt,   setSrUpdatedAt]   = useState("");
 
   const [loading,    setLoading]    = useState(true);
   const [winLoading, setWinLoading] = useState(false);
   const [winLoaded,  setWinLoaded]  = useState(false);
+  const [srLoading,  setSrLoading]  = useState(false);
+  const [srLoaded,   setSrLoaded]   = useState(false);
 
   const [error,    setError]    = useState<string | null>(null);
   const [winError, setWinError] = useState<string | null>(null);
+  const [srError,  setSrError]  = useState<string | null>(null);
 
   const [tracked,  setTracked]  = useState<Set<string>>(new Set());
   const [tab,      setTab]      = useState<TabKey>("top");
@@ -633,6 +748,22 @@ export default function WalletTrackerPage() {
       .finally(() => setWinLoading(false));
   }, [tab, winLoaded, winLoading]);
 
+  // Lazy-load SR whales when that tab is first opened
+  useEffect(() => {
+    if (tab !== "sr" || srLoaded || srLoading) return;
+    setSrLoading(true);
+    fetch("/api/wallet-tracker?mode=sr-whales")
+      .then(r => r.json())
+      .then((d: { whales?: SRWhaleWallet[]; error?: string; updatedAt?: string }) => {
+        if (d.error) { setSrError(d.error); return; }
+        setSrWhales(d.whales ?? []);
+        setSrUpdatedAt(d.updatedAt ?? "");
+        setSrLoaded(true);
+      })
+      .catch(e => setSrError(String(e)))
+      .finally(() => setSrLoading(false));
+  }, [tab, srLoaded, srLoading]);
+
   // Load tracked wallets from localStorage
   useEffect(() => {
     try {
@@ -651,7 +782,7 @@ export default function WalletTrackerPage() {
   }
 
   const trackedCount = tracked.size;
-  const activeUpdatedAt = tab === "winners" ? winUpdatedAt : updatedAt;
+  const activeUpdatedAt = tab === "winners" ? winUpdatedAt : tab === "sr" ? srUpdatedAt : updatedAt;
 
   // Detect if search is targeting a subnet name (matches at least one position name)
   const subnetSearchName = useMemo(() => {
@@ -715,6 +846,14 @@ export default function WalletTrackerPage() {
     );
   }, [winners, search]);
 
+  const displaySRWhales = useMemo(() => {
+    if (!search.trim()) return srWhales;
+    const q = search.toLowerCase();
+    return srWhales.filter(w =>
+      w.address.toLowerCase().includes(q) || w.label?.toLowerCase().includes(q)
+    );
+  }, [srWhales, search]);
+
   return (
     <main className="flex-1 overflow-auto p-4 md:p-8 space-y-5 max-w-[1400px] mx-auto w-full">
       {/* Header */}
@@ -758,6 +897,7 @@ export default function WalletTrackerPage() {
           {([
             { key: "top",     label: "🎯 Multi-Asset Top 200" },
             { key: "winners", label: "🚀 Big Winners" },
+            { key: "sr",      label: "🐋 SR Whales" },
             { key: "known",   label: "👑 Known" },
             { key: "tracked", label: `🔔 Tracked${trackedCount > 0 ? ` (${trackedCount})` : ""}` },
           ] as { key: TabKey; label: string }[]).map(t => (
@@ -766,6 +906,7 @@ export default function WalletTrackerPage() {
                 tab === t.key
                   ? t.key === "winners" ? "bg-green-500/20 text-green-300"
                   : t.key === "top"     ? "bg-indigo-500/20 text-indigo-300"
+                  : t.key === "sr"      ? "bg-cyan-500/20 text-cyan-300"
                   : "bg-gray-700 text-white"
                   : "text-gray-500 hover:text-gray-300"
               }`}
@@ -787,8 +928,9 @@ export default function WalletTrackerPage() {
           <div className="w-8 text-center">Rank</div>
           <div className="flex-1">Wallet</div>
           {tab === "winners" && <div className="hidden sm:block text-right w-28 text-green-600">24h Gain</div>}
-          <div className="hidden sm:block text-right w-28">Total TAO</div>
-          {tab !== "winners" && <div className="w-4" />}
+          {tab === "sr"      && <div className="hidden sm:block text-right w-28 text-cyan-700">Net TAO</div>}
+          {tab !== "winners" && tab !== "sr" && <div className="hidden sm:block text-right w-28">Total TAO</div>}
+          {tab !== "winners" && tab !== "sr" && <div className="w-4" />}
           <div className="w-8" />
         </div>
 
@@ -808,6 +950,12 @@ export default function WalletTrackerPage() {
             <span className="text-sm text-gray-500">Fetching today's winners…</span>
           </div>
         )}
+        {tab === "sr" && srLoading && (
+          <div className="flex items-center justify-center py-12 gap-2">
+            <div className="w-4 h-4 border-2 border-cyan-400/30 border-t-cyan-400 rounded-full animate-spin" />
+            <span className="text-sm text-gray-500">Loading SubnetRadar whale data…</span>
+          </div>
+        )}
 
         {/* Errors */}
         {error && !loading && (
@@ -816,12 +964,18 @@ export default function WalletTrackerPage() {
         {winError && tab === "winners" && (
           <div className="py-8 px-6"><p className="text-red-400 text-sm">{winError}</p></div>
         )}
+        {srError && tab === "sr" && (
+          <div className="py-8 px-6"><p className="text-red-400 text-sm">{srError}</p></div>
+        )}
 
         {/* Empty */}
-        {!loading && !error && tab !== "winners" && displayWallets.length === 0 && (
+        {!loading && !error && tab !== "winners" && tab !== "sr" && displayWallets.length === 0 && (
           <div className="py-12 text-center text-gray-600 text-sm">
             {tab === "tracked" ? "No wallets tracked yet — click 🔔 next to any wallet." : "No wallets found."}
           </div>
+        )}
+        {!srLoading && !srError && tab === "sr" && displaySRWhales.length === 0 && srLoaded && (
+          <div className="py-12 text-center text-gray-600 text-sm">No whale data available.</div>
         )}
 
         {/* Subnet search banner */}
@@ -854,6 +1008,17 @@ export default function WalletTrackerPage() {
           <WinnerRow
             key={wallet.address}
             wallet={wallet}
+            tracked={tracked.has(wallet.address)}
+            onToggleTrack={toggleTrack}
+          />
+        ))}
+
+        {/* SR Whales list */}
+        {tab === "sr" && !srLoading && !srError && displaySRWhales.map((wallet, i) => (
+          <SRWhaleRow
+            key={wallet.address}
+            wallet={wallet}
+            rank={i + 1}
             tracked={tracked.has(wallet.address)}
             onToggleTrack={toggleTrack}
           />

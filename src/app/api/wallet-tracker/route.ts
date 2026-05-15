@@ -28,6 +28,9 @@ const MAIN_CACHE_KEY    = "wallet-tracker-v4.json";
 const MAIN_CACHE_TTL_MS = 45 * 60 * 1000; // 45 min (expensive to compute)
 
 const WIN_CACHE_KEY     = "wallet-tracker-winners.json";
+
+const SR_CACHE_KEY      = "wallet-tracker-sr-whales.json";
+const SR_CACHE_TTL_MS   = 5 * 60 * 1000; // 5 min (live SR data)
 const WIN_CACHE_TTL_MS  = 20 * 60 * 1000; // 20 min
 
 // ── Known labeled wallets ─────────────────────────────────────────
@@ -80,6 +83,37 @@ interface MainCache {
 }
 interface WinnersCache {
   winners:   WinnerEntry[];
+  updatedAt: string;
+}
+
+// ── SubnetRadar Whale types ───────────────────────────────────────
+export interface SRWhaleWallet {
+  address:       string;
+  label?:        string;
+  emoji?:        string;
+  category?:     string;
+  is_known:      boolean;
+  move_count:    number;   // number of stake/unstake moves in the SR window
+  total_staked:  number;   // total TAO staked across all moves
+  total_unstaked: number;  // total TAO unstaked
+  net_tao:       number;   // staked - unstaked (positive = net buyer)
+  last_action:   "stake" | "unstake";
+  last_netuid?:  number;
+  last_amount:   number;   // TAO
+  last_ts:       string;   // ISO
+  active_subnets: number[]; // unique netuids touched
+}
+interface SRWhaleMoveRaw {
+  id?:        string;
+  type:       string;
+  timestamp:  string;
+  amount:     number;
+  from:       string;
+  to?:        string;
+  netuid?:    number;
+}
+interface SRCache {
+  whales:    SRWhaleWallet[];
   updatedAt: string;
 }
 
@@ -250,12 +284,108 @@ async function buildMainList(): Promise<WalletEntry[]> {
   return enriched.sort((a, b) => b.total_tao - a.total_tao).slice(0, 200);
 }
 
+// ── Build SubnetRadar whale wallet list ───────────────────────────
+async function buildSRWhales(): Promise<SRWhaleWallet[]> {
+  const r = await fetch("https://subnetradar.com/api/whales", {
+    signal: AbortSignal.timeout(10000),
+    headers: {
+      "User-Agent": "Mozilla/5.0 AppleWebKit/537.36",
+      "Accept":     "application/json",
+      "Referer":    "https://subnetradar.com/",
+    },
+    next: { revalidate: 0 },
+  });
+  if (!r.ok) throw new Error(`SR whales → HTTP ${r.status}`);
+  const data = await r.json() as { moves?: SRWhaleMoveRaw[]; whaleData?: SRWhaleMoveRaw[] };
+
+  // Prefer whaleData if it exists, fall back to moves
+  const moves: SRWhaleMoveRaw[] = data.whaleData ?? data.moves ?? [];
+
+  // Only care about stake/unstake moves with a from address
+  const stakeMoves = moves.filter(
+    m => (m.type === "stake" || m.type === "unstake") && m.from && m.amount > 0
+  );
+
+  // Aggregate per wallet
+  const walletMap = new Map<string, {
+    staked: number; unstaked: number; moveCount: number;
+    lastAction: "stake" | "unstake"; lastNetuid?: number;
+    lastAmount: number; lastTs: string; subnets: Set<number>;
+  }>();
+
+  for (const m of stakeMoves) {
+    const addr = m.from;
+    if (!walletMap.has(addr)) {
+      walletMap.set(addr, {
+        staked: 0, unstaked: 0, moveCount: 0,
+        lastAction: m.type as "stake" | "unstake",
+        lastNetuid: m.netuid, lastAmount: m.amount,
+        lastTs: m.timestamp, subnets: new Set(),
+      });
+    }
+    const w = walletMap.get(addr)!;
+    if (m.type === "stake")   w.staked   += m.amount;
+    else                      w.unstaked += m.amount;
+    w.moveCount++;
+    if (m.netuid != null) w.subnets.add(m.netuid);
+    // Track most recent
+    if (m.timestamp >= w.lastTs) {
+      w.lastTs     = m.timestamp;
+      w.lastAction = m.type as "stake" | "unstake";
+      w.lastNetuid = m.netuid;
+      w.lastAmount = m.amount;
+    }
+  }
+
+  const result: SRWhaleWallet[] = [];
+  for (const [address, agg] of walletMap) {
+    const known = KNOWN_WALLETS[address];
+    result.push({
+      address,
+      label:          known?.label,
+      emoji:          known?.emoji,
+      category:       known?.category,
+      is_known:       !!known,
+      move_count:     agg.moveCount,
+      total_staked:   Math.round(agg.staked   * 100) / 100,
+      total_unstaked: Math.round(agg.unstaked * 100) / 100,
+      net_tao:        Math.round((agg.staked - agg.unstaked) * 100) / 100,
+      last_action:    agg.lastAction,
+      last_netuid:    agg.lastNetuid,
+      last_amount:    Math.round(agg.lastAmount * 100) / 100,
+      last_ts:        agg.lastTs,
+      active_subnets: [...agg.subnets].sort((a, b) => a - b),
+    });
+  }
+
+  // Sort by total volume (staked + unstaked), most active first
+  return result
+    .sort((a, b) => (b.total_staked + b.total_unstaked) - (a.total_staked + a.total_unstaked))
+    .slice(0, 150);
+}
+
 // ── Main handler ──────────────────────────────────────────────────
 export async function GET(request: NextRequest) {
   const mode = request.nextUrl.searchParams.get("mode");
 
   if (!TMC_API_KEY) {
     return NextResponse.json({ error: "TMC_API_KEY not configured" }, { status: 500 });
+  }
+
+  // ── SR Whales mode (live SubnetRadar data, 5-min cache) ──────
+  if (mode === "sr-whales") {
+    const cached = await readBlob<SRCache>(SR_CACHE_KEY);
+    if (cached && Date.now() - new Date(cached.updatedAt).getTime() < SR_CACHE_TTL_MS) {
+      return NextResponse.json(cached);
+    }
+    try {
+      const whales = await buildSRWhales();
+      const result: SRCache = { whales, updatedAt: new Date().toISOString() };
+      await writeBlob(SR_CACHE_KEY, result);
+      return NextResponse.json(result);
+    } catch (e) {
+      return NextResponse.json({ error: String(e) }, { status: 500 });
+    }
   }
 
   // ── Winners mode (fast, 20-min cache) ────────────────────────
