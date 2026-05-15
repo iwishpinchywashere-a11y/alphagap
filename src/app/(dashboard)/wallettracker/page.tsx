@@ -78,6 +78,85 @@ interface TSWhaleWallet {
 
 type TabKey = "top" | "winners" | "sr" | "ts" | "known" | "tracked";
 
+// ── Add Wallet Input ──────────────────────────────────────────────
+function AddWalletInput({ onAdd }: { onAdd: (address: string) => void }) {
+  const [value,  setValue]  = useState("");
+  const [error,  setError]  = useState<string | null>(null);
+  const [added,  setAdded]  = useState(false);
+
+  // Basic SS58 validation: starts with '5', 47-48 chars
+  function isValidAddress(a: string) {
+    return /^5[A-Za-z0-9]{47}$/.test(a.trim());
+  }
+
+  function handleAdd() {
+    const addr = value.trim();
+    if (!addr) return;
+    if (!isValidAddress(addr)) {
+      setError("Invalid TAO address — should start with 5 and be 48 characters");
+      return;
+    }
+    setError(null);
+    onAdd(addr);
+    setValue("");
+    setAdded(true);
+    setTimeout(() => setAdded(false), 2000);
+  }
+
+  function handlePaste(e: React.ClipboardEvent<HTMLInputElement>) {
+    // Auto-submit on paste if address looks valid
+    const pasted = e.clipboardData.getData("text").trim();
+    if (isValidAddress(pasted)) {
+      e.preventDefault();
+      setValue(pasted);
+      setError(null);
+      onAdd(pasted);
+      setValue("");
+      setAdded(true);
+      setTimeout(() => setAdded(false), 2000);
+    }
+  }
+
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center gap-2">
+        <div className="relative flex-1 max-w-xl">
+          <input
+            value={value}
+            onChange={e => { setValue(e.target.value); setError(null); }}
+            onPaste={handlePaste}
+            onKeyDown={e => e.key === "Enter" && handleAdd()}
+            placeholder="Paste any TAO wallet address to track it…"
+            spellCheck={false}
+            className={`w-full bg-gray-900/60 border rounded-lg px-3 py-2 text-xs font-mono text-gray-200 placeholder-gray-600 focus:outline-none transition-colors pr-10 ${
+              error
+                ? "border-red-500/50 focus:border-red-500/70"
+                : added
+                ? "border-green-500/40"
+                : "border-gray-800 focus:border-gray-600"
+            }`}
+          />
+          {/* Status icon inside input */}
+          {added && (
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-green-400 text-xs">✓</span>
+          )}
+        </div>
+        <button
+          onClick={handleAdd}
+          disabled={!value.trim()}
+          className="flex items-center gap-1.5 px-3 py-2 bg-blue-500/15 hover:bg-blue-500/25 text-blue-400 border border-blue-500/30 rounded-lg text-xs font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0"
+        >
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+          </svg>
+          Track
+        </button>
+      </div>
+      {error && <p className="text-[10px] text-red-400 px-1">{error}</p>}
+    </div>
+  );
+}
+
 // ── Alert Settings Panel ──────────────────────────────────────────
 interface WalletAlertPrefs {
   connected:      boolean;
@@ -1081,6 +1160,18 @@ export default function WalletTrackerPage() {
           ))}
         </div>
       )}
+
+      {/* Track a wallet manually */}
+      <AddWalletInput onAdd={(addr) => {
+        setTracked(prev => {
+          if (prev.has(addr)) return prev;
+          const next = new Set(prev);
+          next.add(addr);
+          try { localStorage.setItem("alphagap_tracked_wallets", JSON.stringify([...next])); } catch { /* ignore */ }
+          return next;
+        });
+        changeTab("tracked");
+      }} />
 
       {/* Tabs + search */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
