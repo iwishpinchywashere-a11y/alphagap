@@ -119,7 +119,7 @@ function AddWalletInput({ fromTab }: { fromTab: string }) {
             onChange={e => { setValue(e.target.value); setError(null); }}
             onPaste={handlePaste}
             onKeyDown={e => e.key === "Enter" && handleGo()}
-            placeholder="Paste any TAO wallet address to view its profile…"
+            placeholder="Paste a TAO wallet address…"
             spellCheck={false}
             className={`w-full bg-gray-900/60 border rounded-lg px-3 py-2 text-[10px] sm:text-xs font-mono text-gray-200 placeholder-gray-600 focus:outline-none transition-colors ${
               error ? "border-red-500/50 focus:border-red-500/70" : "border-gray-800 focus:border-gray-600"

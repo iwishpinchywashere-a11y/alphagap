@@ -545,6 +545,7 @@ export async function GET(request: NextRequest) {
       await writeBlob(TS_CACHE_KEY, result);
       return NextResponse.json(result);
     } catch (e) {
+      if (cached) return NextResponse.json(cached);
       return NextResponse.json({ error: String(e) }, { status: 500 });
     }
   }
@@ -561,6 +562,7 @@ export async function GET(request: NextRequest) {
       await writeBlob(SR_CACHE_KEY, result);
       return NextResponse.json(result);
     } catch (e) {
+      if (cached) return NextResponse.json(cached);
       return NextResponse.json({ error: String(e) }, { status: 500 });
     }
   }
@@ -604,6 +606,8 @@ export async function GET(request: NextRequest) {
       await writeBlob(WIN_CACHE_KEY, result);
       return NextResponse.json(result);
     } catch (e) {
+      const winCached = await readBlob<WinnersCache>(WIN_CACHE_KEY);
+      if (winCached) return NextResponse.json(winCached);
       return NextResponse.json({ error: String(e) }, { status: 500 });
     }
   }
@@ -789,6 +793,8 @@ export async function GET(request: NextRequest) {
     await writeBlob(MAIN_CACHE_KEY, result);
     return NextResponse.json(result);
   } catch (e) {
+    // On rate-limit or transient error, serve stale cache rather than erroring
+    if (cached) return NextResponse.json(cached);
     return NextResponse.json({ error: String(e) }, { status: 500 });
   }
 }
