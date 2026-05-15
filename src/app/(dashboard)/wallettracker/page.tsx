@@ -413,7 +413,7 @@ export default function WalletTrackerPage() {
   }, [winners, search]);
 
   return (
-    <main className="flex-1 overflow-auto p-4 md:p-6 space-y-5 w-full">
+    <main className="flex-1 overflow-auto p-4 md:p-8 space-y-5 max-w-[1400px] mx-auto w-full">
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>
