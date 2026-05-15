@@ -59,9 +59,9 @@ function fmtTao(n: number) {
 function fmtTaoSigned(n: number) {
   const abs = Math.abs(n);
   const sign = n >= 0 ? "+" : "-";
-  if (abs >= 1_000_000) return `${sign}${(abs / 1_000_000).toFixed(2)}M`;
-  if (abs >= 1_000)     return `${sign}${(abs / 1_000).toFixed(1)}K`;
-  return `${sign}${abs.toFixed(1)}`;
+  if (abs >= 1_000_000) return `${sign}${(abs / 1_000_000).toFixed(2)}M τ`;
+  if (abs >= 1_000)     return `${sign}${(abs / 1_000).toFixed(1)}K τ`;
+  return `${sign}${abs.toFixed(1)} τ`;
 }
 function fmtUsd(n: number) {
   const abs = Math.abs(n);
@@ -286,6 +286,7 @@ export default function WalletProfilePage() {
         <Tile
           label="Total P&L"
           value={fmtTaoSigned(profile.total_pnl)}
+          sub={profile.tao_price > 0 ? `${profile.total_pnl >= 0 ? "+" : ""}${fmtUsd(profile.total_pnl * profile.tao_price)}` : undefined}
           color={pnlColor(profile.total_pnl) as "green" | "red" | "white"}
         />
         <Tile
