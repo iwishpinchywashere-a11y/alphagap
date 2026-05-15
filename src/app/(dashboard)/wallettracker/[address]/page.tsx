@@ -99,7 +99,7 @@ function Tile({
     <div className="bg-[#111318] border border-gray-800/80 rounded-xl px-4 py-3 flex flex-col gap-0.5">
       <div className="text-[9px] font-bold uppercase tracking-widest text-gray-500">{label}</div>
       <div className={`text-lg font-bold tabular-nums leading-tight ${valueClass}`}>{value}</div>
-      {sub && <div className="text-[10px] text-gray-600 tabular-nums">{sub}</div>}
+      {sub && <div className="text-sm font-medium text-white tabular-nums">{sub}</div>}
     </div>
   );
 }
