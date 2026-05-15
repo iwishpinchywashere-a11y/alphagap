@@ -1113,7 +1113,7 @@ export default function WalletTrackerPage() {
             </span>
           </div>
           <p className="hidden sm:block text-sm text-gray-500">
-            Top multi-asset TAO wallets — active investors holding ≥2 alpha tokens.
+            Top TAO wallets actively holding ≥2 alpha tokens.
           </p>
         </div>
         {trackedCount > 0 && (
@@ -1150,7 +1150,7 @@ export default function WalletTrackerPage() {
         <div className="overflow-x-auto pb-0.5 -mx-4 px-4 sm:mx-0 sm:px-0">
           <div className="flex gap-1 bg-gray-900/60 border border-gray-800 rounded-lg p-1 w-max">
             {([
-              { key: "top",     label: "🎯 Top 200" },
+              { key: "top",     label: "🎯 Top Wallets" },
               { key: "winners", label: "🚀 Big Winners" },
               { key: "sr",      label: "🐋 Active Movers" },
               { key: "ts",      label: "📊 Big Deployers" },
@@ -1310,7 +1310,7 @@ export default function WalletTrackerPage() {
       {!loading && !error && (
         <div className="text-xs text-gray-600 space-y-1 px-1">
           <p>
-            Only wallets holding ≥2 distinct alpha tokens shown (root network excluded) · refreshes every 45 min.
+            Wallets holding ≥2 distinct alpha tokens (root network excluded) · refreshes every 45 min.
           </p>
           <p>💡 Click any wallet row to view their full profile — holdings, stats, and recent trades.</p>
           <p>🔔 Tracking saved locally in your browser.</p>

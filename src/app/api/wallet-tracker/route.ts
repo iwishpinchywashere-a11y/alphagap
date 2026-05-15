@@ -24,7 +24,7 @@ const TMC_API_KEY  = process.env.TMC_API_KEY || "";
 const RAO_PER_TAO  = 1_000_000_000;
 const ROOT_NETUID  = 0; // subnet 0 = root/legacy — NOT an alpha token
 
-const MAIN_CACHE_KEY    = "wallet-tracker-v4.json";
+const MAIN_CACHE_KEY    = "wallet-tracker-v5.json";
 const MAIN_CACHE_TTL_MS = 45 * 60 * 1000; // 45 min (expensive to compute)
 
 const WIN_CACHE_KEY     = "wallet-tracker-winners.json";
@@ -273,22 +273,33 @@ async function filterToAlphaHolders(addresses: string[]): Promise<Set<string>> {
 
 // ── Build the main filtered wallet list ───────────────────────────
 async function buildMainList(): Promise<WalletEntry[]> {
-  // Fetch top 1500 wallets by total TAO, subnet names, and TAO price in parallel
-  const [topWallets, subnetNames, taoPrice] = await Promise.all([
-    fetchTMCList("total", 1500),
+  // Fetch by tao_staked (direct alpha investors) AND by total (big fish) in parallel.
+  // Sorting by tao_staked gives us wallets actively holding alpha tokens — far more
+  // likely to pass the ≥2 alpha filter than sorting by total TAO (which is dominated
+  // by validators and root-only stakers).
+  const [byStaked, byTotal, subnetNames, taoPrice] = await Promise.all([
+    fetchTMCList("tao_staked", 2000),
+    fetchTMCList("total",      500),
     fetchSubnetNames(),
     getTaoPrice().catch(() => 0),
   ]);
 
-  console.log(`[wallet-tracker] Got ${topWallets.length} wallets, ${subnetNames.size} subnets, TAO=$${taoPrice}`);
+  // Deduplicate: tao_staked list first (higher signal), total list fills gaps
+  const seen = new Set<string>();
+  const merged: TMCColdkey[] = [];
+  for (const w of [...byStaked, ...byTotal]) {
+    if (!seen.has(w.id)) { seen.add(w.id); merged.push(w); }
+  }
+
+  console.log(`[wallet-tracker] ${merged.length} unique wallets, ${subnetNames.size} subnets, TAO=$${taoPrice}`);
 
   // Pre-filter: only fetch detail for wallets with tao_staked > 0
   // (pure root-network validators have tao_staked=0 and will never qualify)
-  const candidates = topWallets.filter(w => (w.tao_staked ?? 0) > 0);
-  console.log(`[wallet-tracker] ${candidates.length}/${topWallets.length} wallets have alpha staking`);
+  const candidates = merged.filter(w => (w.tao_staked ?? 0) > 0);
+  console.log(`[wallet-tracker] ${candidates.length}/${merged.length} wallets have alpha staking`);
 
-  // Batch-fetch per-wallet detail (20 concurrent at a time)
-  const BATCH = 20;
+  // Batch-fetch per-wallet detail (30 concurrent at a time)
+  const BATCH = 30;
   const details: (TMCWalletDetail | null)[] = [];
   for (let i = 0; i < candidates.length; i += BATCH) {
     const batch   = candidates.slice(i, i + BATCH);
