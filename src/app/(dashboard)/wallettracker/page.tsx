@@ -72,9 +72,18 @@ function timeAgo(iso: string) {
 }
 
 // ── Position Drawer (instant — data already in props) ─────────────
-function PositionDrawer({ positions }: { positions: AlphaPosition[] }) {
+function PositionDrawer({ positions, highlightName }: { positions: AlphaPosition[]; highlightName?: string }) {
   const totalTao = positions.reduce((s, p) => s + p.staked_tao, 0);
   const totalUsd = positions.reduce((s, p) => s + p.staked_usd, 0);
+
+  // Put highlighted position first
+  const sorted = highlightName
+    ? [...positions].sort((a, b) => {
+        const aH = a.name.toLowerCase().includes(highlightName) ? 1 : 0;
+        const bH = b.name.toLowerCase().includes(highlightName) ? 1 : 0;
+        return bH - aH;
+      })
+    : positions;
 
   return (
     <div className="bg-gray-950/70 border-b border-gray-800/50 px-4 py-3">
@@ -95,31 +104,44 @@ function PositionDrawer({ positions }: { positions: AlphaPosition[] }) {
 
       {/* Position grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-        {positions.map(pos => {
-          const pct = totalTao > 0 ? (pos.staked_tao / totalTao) * 100 : 0;
+        {sorted.map(pos => {
+          const pct       = totalTao > 0 ? (pos.staked_tao / totalTao) * 100 : 0;
+          const isMatch   = !!highlightName && pos.name.toLowerCase().includes(highlightName);
           return (
             <div
               key={pos.netuid}
-              className="flex items-center gap-2.5 bg-gray-900/70 border border-gray-800/80 rounded-lg px-3 py-2.5 hover:border-indigo-500/30 transition-colors"
+              className={`flex items-center gap-2.5 rounded-lg px-3 py-2.5 transition-colors ${
+                isMatch
+                  ? "bg-emerald-950/40 border border-emerald-500/40 ring-1 ring-emerald-500/20"
+                  : "bg-gray-900/70 border border-gray-800/80 hover:border-indigo-500/30"
+              }`}
             >
               <SubnetLogo netuid={pos.netuid} name={pos.name} size={24} />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between gap-1">
                   <div className="flex items-center gap-1.5 min-w-0">
                     <span className="text-[10px] text-gray-600 font-mono flex-shrink-0">SN{pos.netuid}</span>
-                    <span className="text-xs font-semibold text-white truncate">{pos.name}</span>
+                    <span className={`text-xs font-semibold truncate ${isMatch ? "text-emerald-300" : "text-white"}`}>
+                      {pos.name}
+                    </span>
+                    {isMatch && <span className="text-[9px] font-bold text-emerald-400 flex-shrink-0">✓</span>}
                   </div>
                   <span className="text-[10px] text-gray-600 flex-shrink-0 ml-1">{pct.toFixed(0)}%</span>
                 </div>
                 <div className="flex items-center gap-2 mt-0.5">
-                  <span className="text-xs font-medium text-indigo-300 tabular-nums">{fmtTao(pos.staked_tao)}</span>
+                  <span className={`text-xs font-medium tabular-nums ${isMatch ? "text-emerald-300" : "text-indigo-300"}`}>
+                    {fmtTao(pos.staked_tao)}
+                  </span>
                   {pos.staked_usd > 0 && (
                     <span className="text-[10px] text-gray-500 tabular-nums">{fmtUsd(pos.staked_usd)}</span>
                   )}
                 </div>
                 {/* Allocation bar */}
                 <div className="mt-1.5 h-0.5 bg-gray-800 rounded-full overflow-hidden">
-                  <div className="h-full bg-indigo-500/60 rounded-full" style={{ width: `${Math.min(100, pct)}%` }} />
+                  <div
+                    className={`h-full rounded-full ${isMatch ? "bg-emerald-500/70" : "bg-indigo-500/60"}`}
+                    style={{ width: `${Math.min(100, pct)}%` }}
+                  />
                 </div>
               </div>
             </div>
@@ -133,13 +155,14 @@ function PositionDrawer({ positions }: { positions: AlphaPosition[] }) {
 
 // ── Wallet Row (multi-asset list) ─────────────────────────────────
 function WalletRow({
-  wallet, tracked, onToggleTrack, expanded, onToggleExpand,
+  wallet, tracked, onToggleTrack, expanded, onToggleExpand, highlightName,
 }: {
   wallet: WalletEntry;
   tracked: boolean;
   onToggleTrack: (addr: string) => void;
   expanded: boolean;
   onToggleExpand: (addr: string) => void;
+  highlightName?: string;
 }) {
   const [copied, setCopied] = useState(false);
 
@@ -228,7 +251,7 @@ function WalletRow({
         </div>
       </div>
 
-      {expanded && <PositionDrawer positions={wallet.positions} />}
+      {expanded && <PositionDrawer positions={wallet.positions} highlightName={highlightName} />}
     </>
   );
 }
@@ -375,6 +398,21 @@ export default function WalletTrackerPage() {
   const trackedCount = tracked.size;
   const activeUpdatedAt = tab === "winners" ? winUpdatedAt : updatedAt;
 
+  // Detect if search is targeting a subnet name (matches at least one position name)
+  const subnetSearchName = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q || q.length < 2) return "";
+    // Only treat as subnet search if it doesn't look like a wallet address/label
+    const matchesSubnet = wallets.some(w =>
+      w.positions?.some(p => p.name.toLowerCase().includes(q))
+    );
+    const matchesWallet = wallets.some(w =>
+      w.address.toLowerCase().includes(q) || w.label?.toLowerCase().includes(q)
+    );
+    // Prefer subnet search when the term hits subnet names (and isn't purely a wallet search)
+    return matchesSubnet && !matchesWallet ? q : matchesSubnet ? q : "";
+  }, [wallets, search]);
+
   const displayWallets = useMemo(() => {
     let list = tab === "known"
       ? wallets.filter(w => w.is_known)
@@ -394,15 +432,25 @@ export default function WalletTrackerPage() {
       : [...wallets];
 
     if (search.trim()) {
-      const q = search.toLowerCase();
+      const q = search.trim().toLowerCase();
       list = list.filter(w =>
         w.address.toLowerCase().includes(q) ||
         w.label?.toLowerCase().includes(q) ||
         w.positions?.some(p => p.name.toLowerCase().includes(q))
       );
     }
+
+    // When filtering by subnet name: sort by how much of that subnet each wallet holds
+    if (subnetSearchName) {
+      list = [...list].sort((a, b) => {
+        const aPos = a.positions?.find(p => p.name.toLowerCase().includes(subnetSearchName))?.staked_tao ?? 0;
+        const bPos = b.positions?.find(p => p.name.toLowerCase().includes(subnetSearchName))?.staked_tao ?? 0;
+        return bPos - aPos;
+      });
+    }
+
     return list;
-  }, [wallets, tab, tracked, search]);
+  }, [wallets, tab, tracked, search, subnetSearchName]);
 
   const displayWinners = useMemo(() => {
     if (!search.trim()) return winners;
@@ -472,7 +520,7 @@ export default function WalletTrackerPage() {
         <input
           value={search}
           onChange={e => setSearch(e.target.value)}
-          placeholder={tab === "top" ? "Search wallet or token…" : "Search address…"}
+          placeholder={tab === "top" ? "Search subnet, wallet…" : "Search address…"}
           className="bg-gray-900/60 border border-gray-800 rounded-lg px-3 py-1.5 text-xs text-gray-300 placeholder-gray-600 focus:outline-none focus:border-gray-600 w-44"
         />
       </div>
@@ -521,6 +569,18 @@ export default function WalletTrackerPage() {
           </div>
         )}
 
+        {/* Subnet search banner */}
+        {!loading && !error && tab !== "winners" && subnetSearchName && displayWallets.length > 0 && (
+          <div className="flex items-center gap-2 px-4 py-2 bg-emerald-950/30 border-b border-emerald-800/30">
+            <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wide">🔍 Subnet filter</span>
+            <span className="text-[10px] text-gray-500">—</span>
+            <span className="text-[10px] text-emerald-300">
+              {displayWallets.length} wallet{displayWallets.length !== 1 ? "s" : ""} holding <strong>{displayWallets[0]?.positions?.find(p => p.name.toLowerCase().includes(subnetSearchName))?.name ?? search.trim()}</strong>
+              , sorted by largest position
+            </span>
+          </div>
+        )}
+
         {/* Main wallet list (top / known / tracked) */}
         {!loading && !error && tab !== "winners" && displayWallets.map(wallet => (
           <WalletRow
@@ -530,6 +590,7 @@ export default function WalletTrackerPage() {
             onToggleTrack={toggleTrack}
             expanded={expanded === wallet.address}
             onToggleExpand={addr => setExpanded(prev => prev === addr ? null : addr)}
+            highlightName={subnetSearchName || undefined}
           />
         ))}
 
