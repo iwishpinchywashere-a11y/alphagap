@@ -17,6 +17,12 @@ export interface AlertType {
   minScore?: number;  // minimum signal/alpha/heat score to trigger (0 = all)
 }
 
+export interface WalletTrackerAlerts {
+  enabled: boolean;
+  minUsdAmount: number;      // only alert when tx value >= this (USD)
+  trackedWallets: string[];  // coldkey addresses to monitor
+}
+
 export interface AlertSettings {
   enabled: boolean;
   subnets: SubnetScope;
@@ -27,7 +33,8 @@ export interface AlertSettings {
   discordEntry: AlertType;    // new Discord entry on social page
   goingViralX: AlertType;     // going viral on X (social page)
   priceMove: AlertType;       // token price % move
-  constActivity: AlertType;  // Const founder wallet buy/sell
+  constActivity: AlertType;    // Const founder wallet buy/sell
+  walletTracker?: WalletTrackerAlerts; // per-wallet buy/sell alerts (optional — older settings blobs may not have it)
 }
 
 export interface TelegramConnection {
@@ -72,6 +79,7 @@ export function defaultAlertSettings(): AlertSettings {
     goingViralX: { enabled: false },
     priceMove: { enabled: false, threshold: 10 },
     constActivity: { enabled: false },
+    walletTracker: { enabled: false, minUsdAmount: 1000, trackedWallets: [] },
   };
 }
 

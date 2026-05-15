@@ -17,6 +17,10 @@
       "schedule": "*/5 * * * *"
     },
     {
+      "path": "/api/cron/wallet-alerts",
+      "schedule": "*/5 * * * *"
+    },
+    {
       "path": "/api/generate-report",
       "schedule": "0 14 * * *"
     },

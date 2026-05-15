@@ -44,6 +44,261 @@ interface WinnerEntry {
 
 type TabKey = "top" | "winners" | "known" | "tracked";
 
+// ── Alert Settings Panel ──────────────────────────────────────────
+interface WalletAlertPrefs {
+  connected:      boolean;
+  username?:      string;
+  firstName?:     string;
+  walletTracker: {
+    enabled:        boolean;
+    minUsdAmount:   number;
+    trackedWallets: string[];
+  };
+}
+
+function AlertSettingsPanel({ trackedWallets }: { trackedWallets: string[] }) {
+  const [prefs,      setPrefs]      = useState<WalletAlertPrefs | null>(null);
+  const [loading,    setLoading]    = useState(true);
+  const [saving,     setSaving]     = useState(false);
+  const [expanded,   setExpanded]   = useState(false);
+
+  // Local editable state (mirrors server)
+  const [enabled,    setEnabled]    = useState(false);
+  const [minUsd,     setMinUsd]     = useState(1000);
+
+  // Telegram connect flow
+  const [code,       setCode]       = useState<string | null>(null);
+  const [connecting, setConnecting] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/wallet-alerts")
+      .then(r => r.ok ? r.json() : null)
+      .then((d: WalletAlertPrefs | null) => {
+        if (d) {
+          setPrefs(d);
+          setEnabled(d.walletTracker.enabled);
+          setMinUsd(d.walletTracker.minUsdAmount ?? 1000);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  // Poll for Telegram connection after code is shown
+  useEffect(() => {
+    if (!code) return;
+    const interval = setInterval(async () => {
+      const r = await fetch("/api/alerts/connect").catch(() => null);
+      if (!r?.ok) return;
+      const d = await r.json() as { connected: boolean; username?: string; firstName?: string };
+      if (d.connected) {
+        clearInterval(interval);
+        setCode(null);
+        setPrefs(prev => prev ? { ...prev, connected: true, username: d.username, firstName: d.firstName } : prev);
+      }
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [code]);
+
+  async function generateCode() {
+    setConnecting(true);
+    try {
+      const r = await fetch("/api/alerts/connect", { method: "POST" });
+      const d = await r.json() as { code?: string };
+      if (d.code) setCode(d.code);
+    } finally {
+      setConnecting(false);
+    }
+  }
+
+  async function save() {
+    setSaving(true);
+    try {
+      await fetch("/api/wallet-alerts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled, minUsdAmount: minUsd, trackedWallets }),
+      });
+      setPrefs(prev => prev ? {
+        ...prev,
+        walletTracker: { enabled, minUsdAmount: minUsd, trackedWallets },
+      } : prev);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  // Only show if user is logged in (prefs loaded, even if null means 401)
+  if (loading) return null;
+  if (!prefs) return null; // not logged in
+
+  const isConnected = prefs.connected;
+  const isDirty = enabled !== prefs.walletTracker.enabled || minUsd !== prefs.walletTracker.minUsdAmount;
+
+  return (
+    <div className="border border-gray-800 rounded-xl overflow-hidden">
+      {/* Header bar */}
+      <button
+        onClick={() => setExpanded(e => !e)}
+        className="w-full flex items-center justify-between px-4 py-3 bg-gray-900/60 hover:bg-gray-900/80 transition-colors text-left"
+      >
+        <div className="flex items-center gap-2.5">
+          <span className="text-base">📱</span>
+          <div>
+            <div className="text-sm font-semibold text-white">Telegram Alerts for Tracked Wallets</div>
+            <div className="text-[10px] text-gray-500 mt-0.5">
+              {!isConnected
+                ? "Connect Telegram to receive buy/sell alerts"
+                : enabled
+                ? `Active · alerting on moves ≥ $${minUsd.toLocaleString()}`
+                : "Connected — alerts off"}
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          {isConnected && (
+            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+              enabled
+                ? "bg-green-500/15 text-green-400 border-green-500/30"
+                : "bg-gray-700/40 text-gray-500 border-gray-700"
+            }`}>
+              {enabled ? "ON" : "OFF"}
+            </span>
+          )}
+          <svg className={`w-4 h-4 text-gray-600 transition-transform ${expanded ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </div>
+      </button>
+
+      {expanded && (
+        <div className="bg-gray-950/60 border-t border-gray-800/50 px-4 py-4 space-y-4">
+          {!isConnected ? (
+            /* ── Not connected: show connect flow ── */
+            <div className="space-y-3">
+              {!code ? (
+                <>
+                  <p className="text-sm text-gray-400">
+                    Connect your Telegram account to receive alerts when tracked wallets buy or sell.
+                  </p>
+                  <button
+                    onClick={generateCode}
+                    disabled={connecting}
+                    className="flex items-center gap-2 px-4 py-2 bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 border border-blue-500/30 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+                  >
+                    {connecting ? (
+                      <span className="w-3.5 h-3.5 border-2 border-blue-400/30 border-t-blue-400 rounded-full animate-spin" />
+                    ) : "✈️"}
+                    Connect Telegram
+                  </button>
+                </>
+              ) : (
+                <div className="space-y-2">
+                  <p className="text-sm text-gray-300">Open Telegram and send this message to <strong className="text-white">@AlphaGapBot</strong>:</p>
+                  <div className="flex items-center gap-2 bg-gray-900 border border-gray-700 rounded-lg px-3 py-2.5">
+                    <code className="text-sm font-mono text-indigo-300 flex-1">/start {code}</code>
+                    <button
+                      onClick={() => navigator.clipboard.writeText(`/start ${code}`).catch(() => {})}
+                      className="text-[10px] text-gray-600 hover:text-gray-400"
+                    >
+                      ⎘ copy
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 border-2 border-blue-400/30 border-t-blue-400 rounded-full animate-spin" />
+                    <span className="text-[11px] text-gray-500">Waiting for you to send the code…</span>
+                  </div>
+                  <p className="text-[10px] text-gray-600">Code expires in 10 minutes</p>
+                </div>
+              )}
+            </div>
+          ) : (
+            /* ── Connected: show settings ── */
+            <div className="space-y-4">
+              {/* Connected badge */}
+              <div className="flex items-center gap-2 text-sm">
+                <span className="text-green-400 font-bold">✓ Connected</span>
+                {prefs.firstName && <span className="text-gray-500">as {prefs.firstName}{prefs.username ? ` (@${prefs.username})` : ""}</span>}
+              </div>
+
+              {/* Toggle */}
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <div className="text-sm font-medium text-white">Alert me on buys &amp; sells</div>
+                  <div className="text-[10px] text-gray-500 mt-0.5">
+                    Get a Telegram message when any tracked wallet stakes or unstakes
+                  </div>
+                </div>
+                <button
+                  onClick={() => setEnabled(e => !e)}
+                  className={`relative w-11 h-6 rounded-full transition-colors flex-shrink-0 ${
+                    enabled ? "bg-indigo-500" : "bg-gray-700"
+                  }`}
+                >
+                  <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
+                    enabled ? "translate-x-5" : ""
+                  }`} />
+                </button>
+              </div>
+
+              {/* Min amount */}
+              {enabled && (
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-white">
+                    Only alert on transactions over
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <span className="text-gray-400 text-sm">$</span>
+                    <input
+                      type="number"
+                      min={0}
+                      step={100}
+                      value={minUsd}
+                      onChange={e => setMinUsd(Math.max(0, parseInt(e.target.value) || 0))}
+                      className="w-32 bg-gray-900 border border-gray-700 rounded-lg px-3 py-1.5 text-sm text-white tabular-nums focus:outline-none focus:border-indigo-500"
+                    />
+                    <span className="text-[11px] text-gray-600">USD equivalent</span>
+                  </div>
+                  <div className="flex gap-1.5 flex-wrap">
+                    {[500, 1000, 5000, 10000].map(v => (
+                      <button
+                        key={v}
+                        onClick={() => setMinUsd(v)}
+                        className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors ${
+                          minUsd === v
+                            ? "bg-indigo-500/20 text-indigo-300 border-indigo-500/40"
+                            : "text-gray-500 border-gray-700 hover:text-gray-300"
+                        }`}
+                      >
+                        ${v.toLocaleString()}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Tracked wallets count */}
+              <div className="text-[11px] text-gray-600">
+                Monitoring <span className="text-gray-400 font-medium">{trackedWallets.length}</span> wallet{trackedWallets.length !== 1 ? "s" : ""}
+                {trackedWallets.length === 0 && " — track wallets above first"}
+              </div>
+
+              {/* Save button */}
+              <button
+                onClick={save}
+                disabled={saving || !isDirty}
+                className="px-4 py-2 bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 border border-indigo-500/30 rounded-lg text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {saving ? "Saving…" : isDirty ? "Save changes" : "Saved ✓"}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Helpers ───────────────────────────────────────────────────────
 function shortAddr(addr: string) {
   return addr.length < 12 ? addr : `${addr.slice(0, 6)}…${addr.slice(-5)}`;
@@ -604,6 +859,11 @@ export default function WalletTrackerPage() {
           />
         ))}
       </div>
+
+      {/* Telegram alert settings */}
+      {session?.user && trackedCount > 0 && (
+        <AlertSettingsPanel trackedWallets={[...tracked]} />
+      )}
 
       {/* Footer */}
       {!loading && !error && (
