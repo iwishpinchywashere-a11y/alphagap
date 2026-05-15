@@ -121,7 +121,7 @@ function AddWalletInput({ fromTab }: { fromTab: string }) {
             onKeyDown={e => e.key === "Enter" && handleGo()}
             placeholder="Paste any TAO wallet address to view its profile…"
             spellCheck={false}
-            className={`w-full bg-gray-900/60 border rounded-lg px-3 py-2 text-xs font-mono text-gray-200 placeholder-gray-600 focus:outline-none transition-colors ${
+            className={`w-full bg-gray-900/60 border rounded-lg px-3 py-2 text-[10px] sm:text-xs font-mono text-gray-200 placeholder-gray-600 focus:outline-none transition-colors ${
               error ? "border-red-500/50 focus:border-red-500/70" : "border-gray-800 focus:border-gray-600"
             }`}
           />
@@ -131,7 +131,7 @@ function AddWalletInput({ fromTab }: { fromTab: string }) {
           disabled={!value.trim()}
           className="flex items-center gap-1.5 px-3 py-2 bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-400 border border-indigo-500/30 rounded-lg text-xs font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0"
         >
-          View Profile →
+          <span className="hidden sm:inline">View Profile </span>→
         </button>
       </div>
       {error && <p className="text-[10px] text-red-400 px-1">{error}</p>}
@@ -560,11 +560,11 @@ function WalletRow({
   return (
     <div
       onClick={() => router.push(`/wallettracker/${wallet.address}?from=${fromTab}`)}
-      className={`group flex items-center gap-3 px-4 py-3 border-b border-gray-800/40 cursor-pointer transition-colors
+      className={`group flex items-center gap-3 px-3 py-3 sm:px-4 border-b border-gray-800/40 cursor-pointer transition-colors
         ${tracked ? "bg-blue-950/20 border-l-2 border-l-blue-400/60" : "hover:bg-gray-800/25"}`}
     >
       {/* Rank */}
-      <div className={`w-8 text-center text-sm tabular-nums flex-shrink-0 ${rankColor}`}>
+      <div className={`w-8 text-center text-sm tabular-nums flex-shrink-0 hidden sm:flex justify-center ${rankColor}`}>
         #{wallet.rank}
       </div>
 
@@ -647,12 +647,12 @@ function WinnerRow({
 
   return (
     <div
-      className={`group flex items-center gap-3 px-4 py-3 border-b border-gray-800/40 transition-colors cursor-pointer
+      className={`group flex items-center gap-3 px-3 py-3 sm:px-4 border-b border-gray-800/40 transition-colors cursor-pointer
         ${tracked ? "bg-blue-950/20 border-l-2 border-l-blue-400/60" :
                     "hover:bg-gray-800/25 bg-gradient-to-r from-green-950/10 to-transparent"}`}
       onClick={() => router.push(`/wallettracker/${wallet.address}?from=${fromTab}`)}
     >
-      <div className="w-8 text-center text-sm tabular-nums flex-shrink-0 text-gray-600">#{wallet.rank}</div>
+      <div className="w-8 text-center text-sm tabular-nums flex-shrink-0 text-gray-600 hidden sm:block">#{wallet.rank}</div>
 
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
@@ -727,11 +727,11 @@ function TSWhaleRow({
 
   return (
     <div
-      className={`group flex items-center gap-3 px-4 py-3 border-b border-gray-800/40 transition-colors cursor-pointer
+      className={`group flex items-center gap-3 px-3 py-3 sm:px-4 border-b border-gray-800/40 transition-colors cursor-pointer
         ${tracked ? "bg-blue-950/20 border-l-2 border-l-blue-400/60" : "hover:bg-gray-800/25"}`}
       onClick={() => router.push(`/wallettracker/${wallet.address}?from=${fromTab}`)}
     >
-      <div className="w-8 text-center text-sm tabular-nums flex-shrink-0 text-gray-600">#{rank}</div>
+      <div className="w-8 text-center text-sm tabular-nums flex-shrink-0 text-gray-600 hidden sm:block">#{rank}</div>
 
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
@@ -817,12 +817,12 @@ function SRWhaleRow({
 
   return (
     <div
-      className={`group flex items-center gap-3 px-4 py-3 border-b border-gray-800/40 transition-colors cursor-pointer
+      className={`group flex items-center gap-3 px-3 py-3 sm:px-4 border-b border-gray-800/40 transition-colors cursor-pointer
         ${tracked ? "bg-blue-950/20 border-l-2 border-l-blue-400/60" : "hover:bg-gray-800/25"}`}
       onClick={() => router.push(`/wallettracker/${wallet.address}?from=${fromTab}`)}
     >
       {/* Rank */}
-      <div className="w-8 text-center text-sm tabular-nums flex-shrink-0 text-gray-600">#{rank}</div>
+      <div className="w-8 text-center text-sm tabular-nums flex-shrink-0 text-gray-600 hidden sm:block">#{rank}</div>
 
       {/* Address + last action */}
       <div className="flex-1 min-w-0">
@@ -1112,7 +1112,7 @@ export default function WalletTrackerPage() {
               Secret
             </span>
           </div>
-          <p className="text-sm text-gray-500">
+          <p className="hidden sm:block text-sm text-gray-500">
             Top 200 multi-asset TAO wallets — active investors holding ≥2 alpha tokens.
             {activeUpdatedAt && <span className="ml-2 text-gray-600">Updated {timeAgo(activeUpdatedAt)}</span>}
           </p>
@@ -1135,7 +1135,7 @@ export default function WalletTrackerPage() {
             { label: "Avg alpha tokens",  value: wallets.length > 0 ? (wallets.reduce((s, w) => s + w.alpha_count, 0) / wallets.length).toFixed(1) : "—" },
             { label: "You tracking",      value: trackedCount.toString() },
           ].map(({ label, value }) => (
-            <div key={label} className="bg-gray-900/60 border border-gray-800 rounded-xl p-3 text-center">
+            <div key={label} className="bg-gray-900/60 border border-gray-800 rounded-xl p-2 sm:p-3 text-center">
               <div className="text-xl font-bold text-white tabular-nums">{value}</div>
               <div className="text-xs text-gray-500 mt-0.5">{label}</div>
             </div>
@@ -1147,34 +1147,36 @@ export default function WalletTrackerPage() {
       <AddWalletInput fromTab={tab} />
 
       {/* Tabs + search */}
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div className="flex gap-1 bg-gray-900/60 border border-gray-800 rounded-lg p-1">
-          {([
-            { key: "top",     label: "🎯 Top 200" },
-            { key: "winners", label: "🚀 Big Winners" },
-            { key: "sr",      label: "🐋 Active Movers" },
-            { key: "ts",      label: "📊 Big Deployers" },
-            { key: "known",   label: "👑 Known" },
-            { key: "tracked", label: `🔔 Tracked${trackedCount > 0 ? ` (${trackedCount})` : ""}` },
-          ] as { key: TabKey; label: string }[]).map(t => (
-            <button key={t.key} onClick={() => changeTab(t.key)}
-              className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${
-                tab === t.key
-                  ? t.key === "winners" ? "bg-green-500/20 text-green-300"
-                  : t.key === "top"     ? "bg-indigo-500/20 text-indigo-300"
-                  : t.key === "sr"      ? "bg-cyan-500/20 text-cyan-300"
-                  : t.key === "ts"      ? "bg-violet-500/20 text-violet-300"
-                  : "bg-gray-700 text-white"
-                  : "text-gray-500 hover:text-gray-300"
-              }`}
-            >{t.label}</button>
-          ))}
+      <div className="space-y-2">
+        <div className="overflow-x-auto pb-0.5 -mx-4 px-4 sm:mx-0 sm:px-0">
+          <div className="flex gap-1 bg-gray-900/60 border border-gray-800 rounded-lg p-1 w-max">
+            {([
+              { key: "top",     label: "🎯 Top 200" },
+              { key: "winners", label: "🚀 Big Winners" },
+              { key: "sr",      label: "🐋 Active Movers" },
+              { key: "ts",      label: "📊 Big Deployers" },
+              { key: "known",   label: "👑 Known" },
+              { key: "tracked", label: `🔔 Tracked${trackedCount > 0 ? ` (${trackedCount})` : ""}` },
+            ] as { key: TabKey; label: string }[]).map(t => (
+              <button key={t.key} onClick={() => changeTab(t.key)}
+                className={`flex-shrink-0 whitespace-nowrap px-3 py-1.5 rounded text-xs font-medium transition-colors ${
+                  tab === t.key
+                    ? t.key === "winners" ? "bg-green-500/20 text-green-300"
+                    : t.key === "top"     ? "bg-indigo-500/20 text-indigo-300"
+                    : t.key === "sr"      ? "bg-cyan-500/20 text-cyan-300"
+                    : t.key === "ts"      ? "bg-violet-500/20 text-violet-300"
+                    : "bg-gray-700 text-white"
+                    : "text-gray-500 hover:text-gray-300"
+                }`}
+              >{t.label}</button>
+            ))}
+          </div>
         </div>
         <input
           value={search}
           onChange={e => setSearch(e.target.value)}
           placeholder={tab === "top" ? "Search subnet, wallet…" : "Search address…"}
-          className="bg-gray-900/60 border border-gray-800 rounded-lg px-3 py-1.5 text-xs text-gray-300 placeholder-gray-600 focus:outline-none focus:border-gray-600 w-44"
+          className="bg-gray-900/60 border border-gray-800 rounded-lg px-3 py-1.5 text-xs text-gray-300 placeholder-gray-600 focus:outline-none focus:border-gray-600 w-full sm:w-44"
         />
       </div>
 
@@ -1182,7 +1184,7 @@ export default function WalletTrackerPage() {
       <div className="bg-gray-900/60 border border-gray-800 rounded-xl overflow-hidden">
         {/* Column headers */}
         <div className="flex items-center gap-3 px-4 py-2 border-b border-gray-800 bg-gray-950/40 text-[10px] text-gray-600 uppercase tracking-wide">
-          <div className="w-8 text-center">Rank</div>
+          <div className="w-8 text-center hidden sm:block">Rank</div>
           <div className="flex-1">Wallet</div>
           {tab === "winners" && <div className="hidden sm:block text-right w-28 text-green-600">24h Gain</div>}
           {tab === "sr"      && <div className="hidden sm:block text-right w-28 text-cyan-700">Net TAO</div>}
