@@ -24,7 +24,7 @@ const TMC_API_KEY  = process.env.TMC_API_KEY || "";
 const RAO_PER_TAO  = 1_000_000_000;
 const ROOT_NETUID  = 0; // subnet 0 = root/legacy — NOT an alpha token
 
-const MAIN_CACHE_KEY    = "wallet-tracker-v3.json";
+const MAIN_CACHE_KEY    = "wallet-tracker-v4.json";
 const MAIN_CACHE_TTL_MS = 45 * 60 * 1000; // 45 min (expensive to compute)
 
 const WIN_CACHE_KEY     = "wallet-tracker-winners.json";
@@ -174,30 +174,35 @@ async function fetchSubnetNames(): Promise<Map<number, string>> {
 
 // ── Build the main filtered wallet list ───────────────────────────
 async function buildMainList(): Promise<WalletEntry[]> {
-  // Fetch top 350 candidates, subnet names, and TAO price in parallel
+  // Fetch top 1500 wallets by total TAO, subnet names, and TAO price in parallel
   const [topWallets, subnetNames, taoPrice] = await Promise.all([
-    fetchTMCList("total", 350),
+    fetchTMCList("total", 1500),
     fetchSubnetNames(),
     getTaoPrice().catch(() => 0),
   ]);
 
   console.log(`[wallet-tracker] Got ${topWallets.length} wallets, ${subnetNames.size} subnets, TAO=$${taoPrice}`);
 
+  // Pre-filter: only fetch detail for wallets with tao_staked > 0
+  // (pure root-network validators have tao_staked=0 and will never qualify)
+  const candidates = topWallets.filter(w => (w.tao_staked ?? 0) > 0);
+  console.log(`[wallet-tracker] ${candidates.length}/${topWallets.length} wallets have alpha staking`);
+
   // Batch-fetch per-wallet detail (20 concurrent at a time)
   const BATCH = 20;
   const details: (TMCWalletDetail | null)[] = [];
-  for (let i = 0; i < topWallets.length; i += BATCH) {
-    const batch   = topWallets.slice(i, i + BATCH);
+  for (let i = 0; i < candidates.length; i += BATCH) {
+    const batch   = candidates.slice(i, i + BATCH);
     const results = await Promise.allSettled(batch.map(w => fetchDetail(w.id)));
     for (const r of results) details.push(r.status === "fulfilled" ? r.value : null);
   }
 
-  console.log(`[wallet-tracker] Fetched ${details.filter(Boolean).length}/${topWallets.length} details`);
+  console.log(`[wallet-tracker] Fetched ${details.filter(Boolean).length}/${candidates.length} details`);
 
   const enriched: WalletEntry[] = [];
 
-  for (let i = 0; i < topWallets.length; i++) {
-    const w      = topWallets[i];
+  for (let i = 0; i < candidates.length; i++) {
+    const w      = candidates[i];
     const detail = details[i];
     if (!detail?.hotkeys?.length) continue;
 
