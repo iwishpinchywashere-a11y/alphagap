@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import SubnetLogo from "@/components/dashboard/SubnetLogo";
 
@@ -481,401 +482,351 @@ function OnDemandPositionDrawer({ address }: { address: string }) {
 
 // ── Wallet Row (multi-asset list) ─────────────────────────────────
 function WalletRow({
-  wallet, tracked, onToggleTrack, expanded, onToggleExpand, highlightName,
+  wallet, tracked, onToggleTrack, highlightName,
 }: {
   wallet: WalletEntry;
   tracked: boolean;
   onToggleTrack: (addr: string) => void;
-  expanded: boolean;
-  onToggleExpand: (addr: string) => void;
   highlightName?: string;
 }) {
-  const [copied, setCopied] = useState(false);
-
+  const router = useRouter();
   const rankColor =
     wallet.rank <= 3  ? "text-yellow-400 font-bold" :
     wallet.rank <= 10 ? "text-amber-400 font-semibold" : "text-gray-600";
   const changeColor = wallet.change_24h_tao >= 0 ? "text-green-400" : "text-red-400";
 
   return (
-    <>
-      <div
-        onClick={() => onToggleExpand(wallet.address)}
-        className={`group flex items-center gap-3 px-4 py-3 border-b border-gray-800/40 cursor-pointer transition-colors
-          ${expanded ? "bg-gray-800/40 border-l-2 border-l-indigo-400/70" :
-            tracked  ? "bg-blue-950/20 border-l-2 border-l-blue-400/60" :
-                       "hover:bg-gray-800/25"}`}
-      >
-        {/* Rank */}
-        <div className={`w-8 text-center text-sm tabular-nums flex-shrink-0 ${rankColor}`}>
-          #{wallet.rank}
+    <div
+      onClick={() => router.push(`/wallettracker/${wallet.address}`)}
+      className={`group flex items-center gap-3 px-4 py-3 border-b border-gray-800/40 cursor-pointer transition-colors
+        ${tracked ? "bg-blue-950/20 border-l-2 border-l-blue-400/60" : "hover:bg-gray-800/25"}`}
+    >
+      {/* Rank */}
+      <div className={`w-8 text-center text-sm tabular-nums flex-shrink-0 ${rankColor}`}>
+        #{wallet.rank}
+      </div>
+
+      {/* Address + label */}
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 flex-wrap">
+          {wallet.emoji && <span className="text-base leading-none">{wallet.emoji}</span>}
+          {wallet.label && (
+            <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full ${
+              wallet.category === "founder"
+                ? "bg-yellow-500/15 text-yellow-400 border border-yellow-500/30"
+                : "bg-purple-500/15 text-purple-400 border border-purple-500/30"
+            }`}>{wallet.label}</span>
+          )}
+          <span className="font-mono text-xs text-gray-400 group-hover:text-gray-200 transition-colors">
+            {shortAddr(wallet.address)}
+          </span>
+          {highlightName && wallet.positions?.some(p => p.name.toLowerCase().includes(highlightName)) && (
+            <span className="text-[9px] font-bold text-emerald-400">✓</span>
+          )}
         </div>
-
-        {/* Address + label */}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            {wallet.emoji && <span className="text-base leading-none">{wallet.emoji}</span>}
-            {wallet.label && (
-              <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full ${
-                wallet.category === "founder"
-                  ? "bg-yellow-500/15 text-yellow-400 border border-yellow-500/30"
-                  : "bg-purple-500/15 text-purple-400 border border-purple-500/30"
-              }`}>{wallet.label}</span>
-            )}
-            <button
-              onClick={e => { e.stopPropagation(); navigator.clipboard.writeText(wallet.address).catch(() => {}); setCopied(true); setTimeout(() => setCopied(false), 1500); }}
-              className="font-mono text-xs text-gray-400 hover:text-white transition-colors flex items-center gap-1"
-            >
-              {shortAddr(wallet.address)}
-              <span className="text-[10px] text-gray-600 group-hover:text-gray-500">{copied ? "✓" : "⎘"}</span>
-            </button>
-          </div>
-          <div className="flex items-center gap-2 mt-0.5">
-            <span className="text-[10px] font-medium text-indigo-400">
-              {wallet.alpha_count} tokens
-            </span>
-            {wallet.staked_tao > 0 && (
-              <span className="text-[10px] text-gray-600">{fmtTao(wallet.staked_tao)} staked</span>
-            )}
-          </div>
-        </div>
-
-        {/* Stats */}
-        <div className="flex items-center gap-3 flex-shrink-0">
-          <div className="text-right hidden sm:block">
-            <div className="text-sm font-semibold text-white tabular-nums">{fmtTao(wallet.total_tao)}</div>
-            {wallet.change_24h_tao !== 0 && (
-              <div className={`text-[10px] tabular-nums ${changeColor}`}>{fmtChange(wallet.change_24h_tao)}</div>
-            )}
-          </div>
-
-          <div className={`w-4 flex-shrink-0 text-gray-600 transition-transform duration-200 ${expanded ? "rotate-180" : ""}`}>
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
-          </div>
-
-          <button
-            onClick={e => { e.stopPropagation(); onToggleTrack(wallet.address); }}
-            className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center transition-all ${
-              tracked
-                ? "bg-blue-500/20 text-blue-400 border border-blue-500/40 hover:bg-red-500/20 hover:text-red-400 hover:border-red-500/40"
-                : "bg-gray-800/50 text-gray-500 border border-gray-700/50 hover:bg-blue-500/20 hover:text-blue-400 hover:border-blue-500/40"
-            }`}
-          >
-            {tracked ? (
-              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zm0 16a3 3 0 01-2.83-2h5.66A3 3 0 0110 18z" />
-              </svg>
-            ) : (
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
-                  d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-              </svg>
-            )}
-          </button>
+        <div className="flex items-center gap-2 mt-0.5">
+          <span className="text-[10px] font-medium text-indigo-400">
+            {wallet.alpha_count} tokens
+          </span>
+          {wallet.staked_tao > 0 && (
+            <span className="text-[10px] text-gray-600">{fmtTao(wallet.staked_tao)} staked</span>
+          )}
         </div>
       </div>
 
-      {expanded && <PositionDrawer positions={wallet.positions} highlightName={highlightName} />}
-    </>
+      {/* Stats */}
+      <div className="flex items-center gap-3 flex-shrink-0">
+        <div className="text-right hidden sm:block">
+          <div className="text-sm font-semibold text-white tabular-nums">{fmtTao(wallet.total_tao)}</div>
+          {wallet.change_24h_tao !== 0 && (
+            <div className={`text-[10px] tabular-nums ${changeColor}`}>{fmtChange(wallet.change_24h_tao)}</div>
+          )}
+        </div>
+
+        <svg className="w-4 h-4 text-gray-700 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5l7 7-7 7" />
+        </svg>
+
+        <button
+          onClick={e => { e.stopPropagation(); onToggleTrack(wallet.address); }}
+          className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center transition-all ${
+            tracked
+              ? "bg-blue-500/20 text-blue-400 border border-blue-500/40 hover:bg-red-500/20 hover:text-red-400 hover:border-red-500/40"
+              : "bg-gray-800/50 text-gray-500 border border-gray-700/50 hover:bg-blue-500/20 hover:text-blue-400 hover:border-blue-500/40"
+          }`}
+        >
+          {tracked ? (
+            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+              <path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zm0 16a3 3 0 01-2.83-2h5.66A3 3 0 0110 18z" />
+            </svg>
+          ) : (
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+            </svg>
+          )}
+        </button>
+      </div>
+    </div>
   );
 }
 
 // ── Winner Row ────────────────────────────────────────────────────
 function WinnerRow({
-  wallet, tracked, onToggleTrack, expanded, onToggleExpand,
+  wallet, tracked, onToggleTrack,
 }: {
   wallet: WinnerEntry;
   tracked: boolean;
   onToggleTrack: (addr: string) => void;
-  expanded: boolean;
-  onToggleExpand: (addr: string) => void;
 }) {
-  const [copied, setCopied] = useState(false);
+  const router = useRouter();
   const changeColor = wallet.change_24h_tao >= 0 ? "text-green-400" : "text-red-400";
 
   return (
-    <>
-      <div className={`group flex items-center gap-3 px-4 py-3 border-b border-gray-800/40 transition-colors cursor-pointer
-        ${expanded ? "bg-gray-800/40 border-l-2 border-l-green-400/70" :
-          tracked  ? "bg-blue-950/20 border-l-2 border-l-blue-400/60" :
-                     "hover:bg-gray-800/25 bg-gradient-to-r from-green-950/10 to-transparent"}`}
-        onClick={() => onToggleExpand(wallet.address)}
-      >
-        <div className="w-8 text-center text-sm tabular-nums flex-shrink-0 text-gray-600">#{wallet.rank}</div>
+    <div
+      className={`group flex items-center gap-3 px-4 py-3 border-b border-gray-800/40 transition-colors cursor-pointer
+        ${tracked ? "bg-blue-950/20 border-l-2 border-l-blue-400/60" :
+                    "hover:bg-gray-800/25 bg-gradient-to-r from-green-950/10 to-transparent"}`}
+      onClick={() => router.push(`/wallettracker/${wallet.address}`)}
+    >
+      <div className="w-8 text-center text-sm tabular-nums flex-shrink-0 text-gray-600">#{wallet.rank}</div>
 
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            {wallet.emoji && <span className="text-base leading-none">{wallet.emoji}</span>}
-            {wallet.label && (
-              <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full ${
-                wallet.category === "founder"
-                  ? "bg-yellow-500/15 text-yellow-400 border border-yellow-500/30"
-                  : "bg-purple-500/15 text-purple-400 border border-purple-500/30"
-              }`}>{wallet.label}</span>
-            )}
-            <button
-              onClick={e => { e.stopPropagation(); navigator.clipboard.writeText(wallet.address).catch(() => {}); setCopied(true); setTimeout(() => setCopied(false), 1500); }}
-              className="font-mono text-xs text-gray-400 hover:text-white transition-colors flex items-center gap-1"
-            >
-              {shortAddr(wallet.address)}
-              <span className="text-[10px] text-gray-600 group-hover:text-gray-500">{copied ? "✓" : "⎘"}</span>
-            </button>
-          </div>
-          {wallet.staked_tao > 0 && (
-            <span className="text-[10px] text-gray-600 mt-0.5 block">{fmtTao(wallet.staked_tao)} staked</span>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 flex-wrap">
+          {wallet.emoji && <span className="text-base leading-none">{wallet.emoji}</span>}
+          {wallet.label && (
+            <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full ${
+              wallet.category === "founder"
+                ? "bg-yellow-500/15 text-yellow-400 border border-yellow-500/30"
+                : "bg-purple-500/15 text-purple-400 border border-purple-500/30"
+            }`}>{wallet.label}</span>
           )}
+          <span className="font-mono text-xs text-gray-400 group-hover:text-gray-200 transition-colors">
+            {shortAddr(wallet.address)}
+          </span>
         </div>
-
-        <div className="flex items-center gap-3 flex-shrink-0">
-          <div className="text-right">
-            <div className={`text-sm font-bold tabular-nums ${changeColor}`}>{fmtChange(wallet.change_24h_tao)}</div>
-            <div className={`text-[10px] tabular-nums ${changeColor} opacity-70`}>+{wallet.change_24h_pct.toFixed(1)}%</div>
-          </div>
-          <div className="text-right hidden sm:block">
-            <div className="text-sm font-semibold text-white tabular-nums">{fmtTao(wallet.total_tao)}</div>
-          </div>
-
-          <div className={`w-4 flex-shrink-0 text-gray-600 transition-transform duration-200 ${expanded ? "rotate-180" : ""}`}>
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
-          </div>
-
-          <button
-            onClick={e => { e.stopPropagation(); onToggleTrack(wallet.address); }}
-            className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center transition-all ${
-              tracked
-                ? "bg-blue-500/20 text-blue-400 border border-blue-500/40 hover:bg-red-500/20 hover:text-red-400 hover:border-red-500/40"
-                : "bg-gray-800/50 text-gray-500 border border-gray-700/50 hover:bg-blue-500/20 hover:text-blue-400 hover:border-blue-500/40"
-            }`}
-          >
-            {tracked ? (
-              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zm0 16a3 3 0 01-2.83-2h5.66A3 3 0 0110 18z" />
-              </svg>
-            ) : (
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
-                  d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-              </svg>
-            )}
-          </button>
-        </div>
+        {wallet.staked_tao > 0 && (
+          <span className="text-[10px] text-gray-600 mt-0.5 block">{fmtTao(wallet.staked_tao)} staked</span>
+        )}
       </div>
 
-      {expanded && <OnDemandPositionDrawer address={wallet.address} />}
-    </>
+      <div className="flex items-center gap-3 flex-shrink-0">
+        <div className="text-right">
+          <div className={`text-sm font-bold tabular-nums ${changeColor}`}>{fmtChange(wallet.change_24h_tao)}</div>
+          <div className={`text-[10px] tabular-nums ${changeColor} opacity-70`}>+{wallet.change_24h_pct.toFixed(1)}%</div>
+        </div>
+        <div className="text-right hidden sm:block">
+          <div className="text-sm font-semibold text-white tabular-nums">{fmtTao(wallet.total_tao)}</div>
+        </div>
+
+        <svg className="w-4 h-4 text-gray-700 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5l7 7-7 7" />
+        </svg>
+
+        <button
+          onClick={e => { e.stopPropagation(); onToggleTrack(wallet.address); }}
+          className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center transition-all ${
+            tracked
+              ? "bg-blue-500/20 text-blue-400 border border-blue-500/40 hover:bg-red-500/20 hover:text-red-400 hover:border-red-500/40"
+              : "bg-gray-800/50 text-gray-500 border border-gray-700/50 hover:bg-blue-500/20 hover:text-blue-400 hover:border-blue-500/40"
+          }`}
+        >
+          {tracked ? (
+            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+              <path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zm0 16a3 3 0 01-2.83-2h5.66A3 3 0 0110 18z" />
+            </svg>
+          ) : (
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+            </svg>
+          )}
+        </button>
+      </div>
+    </div>
   );
 }
 
 // ── TaoStats Whale Row ────────────────────────────────────────────
 function TSWhaleRow({
-  wallet, tracked, onToggleTrack, rank, expanded, onToggleExpand,
+  wallet, tracked, onToggleTrack, rank,
 }: {
   wallet: TSWhaleWallet;
   tracked: boolean;
   onToggleTrack: (addr: string) => void;
   rank: number;
-  expanded: boolean;
-  onToggleExpand: (addr: string) => void;
 }) {
-  const [copied, setCopied] = useState(false);
+  const router    = useRouter();
   const isBuy     = wallet.net_usd > 0;
   const netColor  = isBuy ? "text-green-400" : wallet.net_usd < 0 ? "text-red-400" : "text-gray-500";
   const netSign   = isBuy ? "+" : "";
 
   return (
-    <>
-      <div className={`group flex items-center gap-3 px-4 py-3 border-b border-gray-800/40 transition-colors cursor-pointer
-        ${expanded ? "bg-gray-800/40 border-l-2 border-l-violet-400/70" :
-          tracked  ? "bg-blue-950/20 border-l-2 border-l-blue-400/60" :
-                     "hover:bg-gray-800/25"}`}
-        onClick={() => onToggleExpand(wallet.address)}
-      >
-        <div className="w-8 text-center text-sm tabular-nums flex-shrink-0 text-gray-600">#{rank}</div>
+    <div
+      className={`group flex items-center gap-3 px-4 py-3 border-b border-gray-800/40 transition-colors cursor-pointer
+        ${tracked ? "bg-blue-950/20 border-l-2 border-l-blue-400/60" : "hover:bg-gray-800/25"}`}
+      onClick={() => router.push(`/wallettracker/${wallet.address}`)}
+    >
+      <div className="w-8 text-center text-sm tabular-nums flex-shrink-0 text-gray-600">#{rank}</div>
 
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            {wallet.emoji && <span className="text-base leading-none">{wallet.emoji}</span>}
-            {wallet.label && (
-              <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full ${
-                wallet.category === "founder"
-                  ? "bg-yellow-500/15 text-yellow-400 border border-yellow-500/30"
-                  : "bg-purple-500/15 text-purple-400 border border-purple-500/30"
-              }`}>{wallet.label}</span>
-            )}
-            <button
-              onClick={e => { e.stopPropagation(); navigator.clipboard.writeText(wallet.address).catch(() => {}); setCopied(true); setTimeout(() => setCopied(false), 1500); }}
-              className="font-mono text-xs text-gray-400 hover:text-white transition-colors flex items-center gap-1"
-            >
-              {shortAddr(wallet.address)}
-              <span className="text-[10px] text-gray-600 group-hover:text-gray-500">{copied ? "✓" : "⎘"}</span>
-            </button>
-          </div>
-          <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-            <span className={`text-[10px] font-semibold ${wallet.last_action === "DELEGATE" ? "text-green-400" : "text-red-400"}`}>
-              {wallet.last_action === "DELEGATE" ? "▲ STAKED" : "▼ UNSTAKED"}
-            </span>
-            <span className="text-[10px] text-gray-500">SN{wallet.last_netuid}</span>
-            {wallet.last_usd > 0 && (
-              <span className="text-[10px] text-gray-600 tabular-nums">{fmtUsd(wallet.last_usd)}</span>
-            )}
-            <span className="text-[10px] text-gray-700">·</span>
-            <span className="text-[10px] text-gray-600">{timeAgo(wallet.last_ts)}</span>
-            {wallet.active_subnets.length > 1 && (
-              <span className="text-[10px] text-violet-500">{wallet.subnet_count} subnets</span>
-            )}
-          </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 flex-wrap">
+          {wallet.emoji && <span className="text-base leading-none">{wallet.emoji}</span>}
+          {wallet.label && (
+            <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full ${
+              wallet.category === "founder"
+                ? "bg-yellow-500/15 text-yellow-400 border border-yellow-500/30"
+                : "bg-purple-500/15 text-purple-400 border border-purple-500/30"
+            }`}>{wallet.label}</span>
+          )}
+          <span className="font-mono text-xs text-gray-400 group-hover:text-gray-200 transition-colors">
+            {shortAddr(wallet.address)}
+          </span>
         </div>
-
-        <div className="flex items-center gap-3 flex-shrink-0">
-          <div className="text-right hidden sm:block">
-            <div className={`text-sm font-semibold tabular-nums ${netColor}`}>
-              {netSign}{fmtUsd(Math.abs(wallet.net_usd))} net
-            </div>
-            <div className="text-[10px] text-gray-600 tabular-nums">{fmtUsd(wallet.total_usd)} total</div>
-          </div>
-
-          <div className={`w-4 flex-shrink-0 text-gray-600 transition-transform duration-200 ${expanded ? "rotate-180" : ""}`}>
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
-          </div>
-
-          <button
-            onClick={e => { e.stopPropagation(); onToggleTrack(wallet.address); }}
-            className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center transition-all ${
-              tracked
-                ? "bg-blue-500/20 text-blue-400 border border-blue-500/40 hover:bg-red-500/20 hover:text-red-400 hover:border-red-500/40"
-                : "bg-gray-800/50 text-gray-500 border border-gray-700/50 hover:bg-blue-500/20 hover:text-blue-400 hover:border-blue-500/40"
-            }`}
-          >
-            {tracked ? (
-              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zm0 16a3 3 0 01-2.83-2h5.66A3 3 0 0110 18z" />
-              </svg>
-            ) : (
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
-                  d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-              </svg>
-            )}
-          </button>
+        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+          <span className={`text-[10px] font-semibold ${wallet.last_action === "DELEGATE" ? "text-green-400" : "text-red-400"}`}>
+            {wallet.last_action === "DELEGATE" ? "▲ STAKED" : "▼ UNSTAKED"}
+          </span>
+          <span className="text-[10px] text-gray-500">SN{wallet.last_netuid}</span>
+          {wallet.last_usd > 0 && (
+            <span className="text-[10px] text-gray-600 tabular-nums">{fmtUsd(wallet.last_usd)}</span>
+          )}
+          <span className="text-[10px] text-gray-700">·</span>
+          <span className="text-[10px] text-gray-600">{timeAgo(wallet.last_ts)}</span>
+          {wallet.active_subnets.length > 1 && (
+            <span className="text-[10px] text-violet-500">{wallet.subnet_count} subnets</span>
+          )}
         </div>
       </div>
 
-      {expanded && <OnDemandPositionDrawer address={wallet.address} />}
-    </>
+      <div className="flex items-center gap-3 flex-shrink-0">
+        <div className="text-right hidden sm:block">
+          <div className={`text-sm font-semibold tabular-nums ${netColor}`}>
+            {netSign}{fmtUsd(Math.abs(wallet.net_usd))} net
+          </div>
+          <div className="text-[10px] text-gray-600 tabular-nums">{fmtUsd(wallet.total_usd)} total</div>
+        </div>
+
+        <svg className="w-4 h-4 text-gray-700 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5l7 7-7 7" />
+        </svg>
+
+        <button
+          onClick={e => { e.stopPropagation(); onToggleTrack(wallet.address); }}
+          className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center transition-all ${
+            tracked
+              ? "bg-blue-500/20 text-blue-400 border border-blue-500/40 hover:bg-red-500/20 hover:text-red-400 hover:border-red-500/40"
+              : "bg-gray-800/50 text-gray-500 border border-gray-700/50 hover:bg-blue-500/20 hover:text-blue-400 hover:border-blue-500/40"
+          }`}
+        >
+          {tracked ? (
+            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+              <path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zm0 16a3 3 0 01-2.83-2h5.66A3 3 0 0110 18z" />
+            </svg>
+          ) : (
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+            </svg>
+          )}
+        </button>
+      </div>
+    </div>
   );
 }
 
 // ── SR Whale Row ──────────────────────────────────────────────────
 function SRWhaleRow({
-  wallet, tracked, onToggleTrack, rank, expanded, onToggleExpand,
+  wallet, tracked, onToggleTrack, rank,
 }: {
   wallet: SRWhaleWallet;
   tracked: boolean;
   onToggleTrack: (addr: string) => void;
   rank: number;
-  expanded: boolean;
-  onToggleExpand: (addr: string) => void;
 }) {
-  const [copied, setCopied] = useState(false);
+  const router      = useRouter();
   const isNetBuyer  = wallet.net_tao > 0;
   const isNetSeller = wallet.net_tao < 0;
   const netColor    = isNetBuyer ? "text-green-400" : isNetSeller ? "text-red-400" : "text-gray-500";
   const netSign     = isNetBuyer ? "+" : "";
 
   return (
-    <>
-      <div className={`group flex items-center gap-3 px-4 py-3 border-b border-gray-800/40 transition-colors cursor-pointer
-        ${expanded ? "bg-gray-800/40 border-l-2 border-l-cyan-400/70" :
-          tracked  ? "bg-blue-950/20 border-l-2 border-l-blue-400/60" :
-                     "hover:bg-gray-800/25"}`}
-        onClick={() => onToggleExpand(wallet.address)}
-      >
-        {/* Rank */}
-        <div className="w-8 text-center text-sm tabular-nums flex-shrink-0 text-gray-600">#{rank}</div>
+    <div
+      className={`group flex items-center gap-3 px-4 py-3 border-b border-gray-800/40 transition-colors cursor-pointer
+        ${tracked ? "bg-blue-950/20 border-l-2 border-l-blue-400/60" : "hover:bg-gray-800/25"}`}
+      onClick={() => router.push(`/wallettracker/${wallet.address}`)}
+    >
+      {/* Rank */}
+      <div className="w-8 text-center text-sm tabular-nums flex-shrink-0 text-gray-600">#{rank}</div>
 
-        {/* Address + last action */}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            {wallet.emoji && <span className="text-base leading-none">{wallet.emoji}</span>}
-            {wallet.label && (
-              <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full ${
-                wallet.category === "founder"
-                  ? "bg-yellow-500/15 text-yellow-400 border border-yellow-500/30"
-                  : "bg-purple-500/15 text-purple-400 border border-purple-500/30"
-              }`}>{wallet.label}</span>
-            )}
-            <button
-              onClick={e => { e.stopPropagation(); navigator.clipboard.writeText(wallet.address).catch(() => {}); setCopied(true); setTimeout(() => setCopied(false), 1500); }}
-              className="font-mono text-xs text-gray-400 hover:text-white transition-colors flex items-center gap-1"
-            >
-              {shortAddr(wallet.address)}
-              <span className="text-[10px] text-gray-600 group-hover:text-gray-500">{copied ? "✓" : "⎘"}</span>
-            </button>
-          </div>
-          {/* Last move */}
-          <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-            <span className={`text-[10px] font-semibold ${wallet.last_action === "stake" ? "text-green-400" : "text-red-400"}`}>
-              {wallet.last_action === "stake" ? "▲ STAKED" : "▼ UNSTAKED"}
-            </span>
-            {wallet.last_netuid != null && (
-              <span className="text-[10px] text-gray-500">SN{wallet.last_netuid}</span>
-            )}
-            <span className="text-[10px] text-gray-600 tabular-nums">{fmtTao(wallet.last_amount)}</span>
-            <span className="text-[10px] text-gray-700">·</span>
-            <span className="text-[10px] text-gray-600">{timeAgo(wallet.last_ts)}</span>
-            {wallet.active_subnets.length > 1 && (
-              <span className="text-[10px] text-indigo-500">{wallet.active_subnets.length} subnets</span>
-            )}
-          </div>
+      {/* Address + last action */}
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 flex-wrap">
+          {wallet.emoji && <span className="text-base leading-none">{wallet.emoji}</span>}
+          {wallet.label && (
+            <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full ${
+              wallet.category === "founder"
+                ? "bg-yellow-500/15 text-yellow-400 border border-yellow-500/30"
+                : "bg-purple-500/15 text-purple-400 border border-purple-500/30"
+            }`}>{wallet.label}</span>
+          )}
+          <span className="font-mono text-xs text-gray-400 group-hover:text-gray-200 transition-colors">
+            {shortAddr(wallet.address)}
+          </span>
         </div>
-
-        {/* Stats */}
-        <div className="flex items-center gap-3 flex-shrink-0">
-          <div className="text-right hidden sm:block">
-            <div className={`text-sm font-semibold tabular-nums ${netColor}`}>
-              {netSign}{fmtTao(Math.abs(wallet.net_tao))} net
-            </div>
-            <div className="text-[10px] text-gray-600 tabular-nums">
-              {wallet.move_count} move{wallet.move_count !== 1 ? "s" : ""}
-            </div>
-          </div>
-
-          <div className={`w-4 flex-shrink-0 text-gray-600 transition-transform duration-200 ${expanded ? "rotate-180" : ""}`}>
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
-          </div>
-
-          <button
-            onClick={e => { e.stopPropagation(); onToggleTrack(wallet.address); }}
-            className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center transition-all ${
-              tracked
-                ? "bg-blue-500/20 text-blue-400 border border-blue-500/40 hover:bg-red-500/20 hover:text-red-400 hover:border-red-500/40"
-                : "bg-gray-800/50 text-gray-500 border border-gray-700/50 hover:bg-blue-500/20 hover:text-blue-400 hover:border-blue-500/40"
-            }`}
-          >
-            {tracked ? (
-              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zm0 16a3 3 0 01-2.83-2h5.66A3 3 0 0110 18z" />
-              </svg>
-            ) : (
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
-                  d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-              </svg>
-            )}
-          </button>
+        {/* Last move */}
+        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+          <span className={`text-[10px] font-semibold ${wallet.last_action === "stake" ? "text-green-400" : "text-red-400"}`}>
+            {wallet.last_action === "stake" ? "▲ STAKED" : "▼ UNSTAKED"}
+          </span>
+          {wallet.last_netuid != null && (
+            <span className="text-[10px] text-gray-500">SN{wallet.last_netuid}</span>
+          )}
+          <span className="text-[10px] text-gray-600 tabular-nums">{fmtTao(wallet.last_amount)}</span>
+          <span className="text-[10px] text-gray-700">·</span>
+          <span className="text-[10px] text-gray-600">{timeAgo(wallet.last_ts)}</span>
+          {wallet.active_subnets.length > 1 && (
+            <span className="text-[10px] text-indigo-500">{wallet.active_subnets.length} subnets</span>
+          )}
         </div>
       </div>
 
-      {expanded && <OnDemandPositionDrawer address={wallet.address} />}
-    </>
+      {/* Stats */}
+      <div className="flex items-center gap-3 flex-shrink-0">
+        <div className="text-right hidden sm:block">
+          <div className={`text-sm font-semibold tabular-nums ${netColor}`}>
+            {netSign}{fmtTao(Math.abs(wallet.net_tao))} net
+          </div>
+          <div className="text-[10px] text-gray-600 tabular-nums">
+            {wallet.move_count} move{wallet.move_count !== 1 ? "s" : ""}
+          </div>
+        </div>
+
+        <svg className="w-4 h-4 text-gray-700 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5l7 7-7 7" />
+        </svg>
+
+        <button
+          onClick={e => { e.stopPropagation(); onToggleTrack(wallet.address); }}
+          className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center transition-all ${
+            tracked
+              ? "bg-blue-500/20 text-blue-400 border border-blue-500/40 hover:bg-red-500/20 hover:text-red-400 hover:border-red-500/40"
+              : "bg-gray-800/50 text-gray-500 border border-gray-700/50 hover:bg-blue-500/20 hover:text-blue-400 hover:border-blue-500/40"
+          }`}
+        >
+          {tracked ? (
+            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+              <path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zm0 16a3 3 0 01-2.83-2h5.66A3 3 0 0110 18z" />
+            </svg>
+          ) : (
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+            </svg>
+          )}
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -908,7 +859,6 @@ export default function WalletTrackerPage() {
   const [tracked,  setTracked]  = useState<Set<string>>(new Set());
   const [tab,      setTab]      = useState<TabKey>("top");
   const [search,   setSearch]   = useState("");
-  const [expanded, setExpanded] = useState<string | null>(null);
 
   // Load main wallet list (filtered: ≥2 alpha tokens)
   useEffect(() => {
@@ -1229,8 +1179,6 @@ export default function WalletTrackerPage() {
             wallet={wallet}
             tracked={tracked.has(wallet.address)}
             onToggleTrack={toggleTrack}
-            expanded={expanded === wallet.address}
-            onToggleExpand={addr => setExpanded(prev => prev === addr ? null : addr)}
             highlightName={subnetSearchName || undefined}
           />
         ))}
@@ -1242,8 +1190,6 @@ export default function WalletTrackerPage() {
             wallet={wallet}
             tracked={tracked.has(wallet.address)}
             onToggleTrack={toggleTrack}
-            expanded={expanded === wallet.address}
-            onToggleExpand={addr => setExpanded(prev => prev === addr ? null : addr)}
           />
         ))}
 
@@ -1255,8 +1201,6 @@ export default function WalletTrackerPage() {
             rank={i + 1}
             tracked={tracked.has(wallet.address)}
             onToggleTrack={toggleTrack}
-            expanded={expanded === wallet.address}
-            onToggleExpand={addr => setExpanded(prev => prev === addr ? null : addr)}
           />
         ))}
 
@@ -1268,8 +1212,6 @@ export default function WalletTrackerPage() {
             rank={i + 1}
             tracked={tracked.has(wallet.address)}
             onToggleTrack={toggleTrack}
-            expanded={expanded === wallet.address}
-            onToggleExpand={addr => setExpanded(prev => prev === addr ? null : addr)}
           />
         ))}
       </div>
@@ -1280,7 +1222,7 @@ export default function WalletTrackerPage() {
           <p>
             Only wallets holding ≥2 distinct alpha tokens shown (root network excluded) · refreshes every 45 min.
           </p>
-          <p>💡 Click any wallet row to instantly see their full alpha portfolio breakdown.</p>
+          <p>💡 Click any wallet row to view their full profile — holdings, stats, and recent trades.</p>
           <p>🔔 Tracking saved locally in your browser.</p>
           {session?.user && <p className="text-purple-500/70">🔒 Not linked anywhere — share carefully.</p>}
         </div>

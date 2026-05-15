@@ -608,6 +608,111 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  // ── Single wallet PROFILE (positions + trade history) ───────
+  if (mode === "wallet-profile") {
+    const address = request.nextUrl.searchParams.get("address");
+    if (!address) return NextResponse.json({ error: "Missing address" }, { status: 400 });
+
+    const TAOSTATS_KEY = process.env.TAOSTATS_API_KEY || "";
+
+    try {
+      const [detail, subnetNames, taoPrice, tradesRes] = await Promise.all([
+        fetchDetail(address),
+        fetchSubnetNames(),
+        getTaoPrice().catch(() => 0),
+        fetch(
+          `https://api.taostats.io/api/delegation/v1?nominator_ss58=${encodeURIComponent(address)}&limit=50&order=timestamp_desc`,
+          {
+            headers: { Authorization: TAOSTATS_KEY },
+            signal: AbortSignal.timeout(10000),
+            next: { revalidate: 0 },
+          }
+        ).catch(() => null),
+      ]);
+
+      // Build positions
+      const posMap = new Map<number, number>();
+      if (detail?.hotkeys?.length) {
+        for (const hk of detail.hotkeys) {
+          if (hk.subnet == null || hk.subnet === ROOT_NETUID) continue;
+          posMap.set(hk.subnet, (posMap.get(hk.subnet) ?? 0) + (hk.tao_staked ?? 0));
+        }
+      }
+
+      const positions: AlphaPosition[] = [...posMap.entries()]
+        .map(([netuid, taoRao]) => {
+          const staked_tao = Math.round(taoRao / RAO_PER_TAO * 100) / 100;
+          return {
+            netuid,
+            name:       subnetNames.get(netuid) ?? `SN${netuid}`,
+            staked_tao,
+            staked_usd: Math.round(staked_tao * taoPrice * 100) / 100,
+          };
+        })
+        .sort((a, b) => b.staked_tao - a.staked_tao);
+
+      // Build recent trades
+      interface TSDelegationRaw {
+        action:    "DELEGATE" | "UNDELEGATE";
+        timestamp: string;
+        amount:    string;
+        usd:       string | null;
+        netuid:    number | null;
+      }
+
+      interface TradeEntry {
+        action:      "DELEGATE" | "UNDELEGATE";
+        netuid:      number | null;
+        subnet_name: string;
+        amount_tao:  number;
+        amount_usd:  number;
+        timestamp:   string;
+      }
+
+      let trades: TradeEntry[] = [];
+      if (tradesRes?.ok) {
+        const tradesJson = await tradesRes.json() as { data?: TSDelegationRaw[] };
+        const rows = tradesJson.data ?? [];
+        trades = rows.map(d => {
+          const netuid = d.netuid;
+          return {
+            action:      d.action,
+            netuid,
+            subnet_name: netuid != null && netuid > 0
+              ? (subnetNames.get(netuid) ?? `SN${netuid}`)
+              : "Root",
+            amount_tao:  Math.round(parseInt(d.amount || "0") / RAO_PER_TAO * 100) / 100,
+            amount_usd:  Math.round((parseFloat(d.usd ?? "0") || 0) * 100) / 100,
+            timestamp:   d.timestamp,
+          };
+        });
+      }
+
+      const known      = KNOWN_WALLETS[address];
+      const total_tao  = detail ? Math.round(detail.total / RAO_PER_TAO * 100) / 100 : 0;
+      const free_tao   = detail ? Math.round(detail.free  / RAO_PER_TAO * 100) / 100 : 0;
+      const staked_tao = Math.round(positions.reduce((s, p) => s + p.staked_tao, 0) * 100) / 100;
+
+      return NextResponse.json({
+        address,
+        label:      known?.label,
+        emoji:      known?.emoji,
+        category:   known?.category,
+        is_known:   !!known,
+        total_tao,
+        free_tao,
+        staked_tao,
+        total_usd:  Math.round(total_tao  * taoPrice * 100) / 100,
+        alpha_count: posMap.size,
+        tao_price:  taoPrice,
+        positions,
+        trades,
+      });
+    } catch (e) {
+      return NextResponse.json({ error: String(e) }, { status: 500 });
+    }
+  }
+
   // ── Single wallet detail (on-demand positions for other tabs) ──
   if (mode === "wallet-detail") {
     const address = request.nextUrl.searchParams.get("address");
