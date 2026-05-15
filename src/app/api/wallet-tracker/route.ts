@@ -403,10 +403,16 @@ async function buildSRWhales(): Promise<SRWhaleWallet[]> {
     next: { revalidate: 0 },
   });
   if (!r.ok) throw new Error(`Whale data fetch failed (${r.status})`);
-  const data = await r.json() as { moves?: SRWhaleMoveRaw[]; whaleData?: SRWhaleMoveRaw[] };
+  const data = await r.json() as {
+    moves?: SRWhaleMoveRaw[];
+    whaleData?: { moves?: SRWhaleMoveRaw[] } | SRWhaleMoveRaw[];
+  };
 
-  // Prefer whaleData if it exists, fall back to moves
-  const moves: SRWhaleMoveRaw[] = data.whaleData ?? data.moves ?? [];
+  // whaleData is { moves: [], pressure: [], ... } — pull nested moves array
+  const whaleDataMoves = Array.isArray(data.whaleData)
+    ? data.whaleData
+    : (data.whaleData as { moves?: SRWhaleMoveRaw[] } | undefined)?.moves ?? [];
+  const moves: SRWhaleMoveRaw[] = whaleDataMoves.length ? whaleDataMoves : (data.moves ?? []);
 
   // Only care about stake/unstake moves with a from address
   const stakeMoves = moves.filter(
