@@ -197,7 +197,7 @@ async function fetchTMCList(orderBy: string, limit: number): Promise<TMCColdkey[
     signal: AbortSignal.timeout(15000),
     next: { revalidate: 0 },
   });
-  if (!r.ok) throw new Error(`TMC list ${orderBy} → HTTP ${r.status}`);
+  if (!r.ok) throw new Error(`Wallet list fetch failed (${r.status})`);
   const j = await r.json();
   return (j?.results ?? j?.data ?? j ?? []) as TMCColdkey[];
 }
@@ -319,7 +319,7 @@ async function buildTSWhales(): Promise<TSWhaleWallet[]> {
     signal: AbortSignal.timeout(15000),
     next: { revalidate: 0 },
   });
-  if (!r.ok) throw new Error(`TaoStats delegation → HTTP ${r.status}`);
+  if (!r.ok) throw new Error(`On-chain data fetch failed (${r.status})`);
 
   interface TSDelegation {
     action:    "DELEGATE" | "UNDELEGATE";
@@ -402,7 +402,7 @@ async function buildSRWhales(): Promise<SRWhaleWallet[]> {
     },
     next: { revalidate: 0 },
   });
-  if (!r.ok) throw new Error(`SR whales → HTTP ${r.status}`);
+  if (!r.ok) throw new Error(`Whale data fetch failed (${r.status})`);
   const data = await r.json() as { moves?: SRWhaleMoveRaw[]; whaleData?: SRWhaleMoveRaw[] };
 
   // Prefer whaleData if it exists, fall back to moves

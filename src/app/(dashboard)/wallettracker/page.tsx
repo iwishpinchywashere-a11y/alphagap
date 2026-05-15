@@ -1027,8 +1027,8 @@ export default function WalletTrackerPage() {
           {([
             { key: "top",     label: "🎯 Multi-Asset Top 200" },
             { key: "winners", label: "🚀 Big Winners" },
-            { key: "sr",      label: "🐋 SR Whales" },
-            { key: "ts",      label: "📊 TaoStats" },
+            { key: "sr",      label: "🐋 Active Movers" },
+            { key: "ts",      label: "📊 Big Deployers" },
             { key: "known",   label: "👑 Known" },
             { key: "tracked", label: `🔔 Tracked${trackedCount > 0 ? ` (${trackedCount})` : ""}` },
           ] as { key: TabKey; label: string }[]).map(t => (
@@ -1072,8 +1072,8 @@ export default function WalletTrackerPage() {
           <div className="flex flex-col items-center justify-center py-16 gap-3">
             <div className="w-5 h-5 border-2 border-indigo-400/30 border-t-indigo-400 rounded-full animate-spin" />
             <div className="text-center">
-              <p className="text-sm text-gray-400 font-medium">Scanning 350+ wallets for alpha positions…</p>
-              <p className="text-xs text-gray-600 mt-1">First load takes ~15s · cached for 45 min after that</p>
+              <p className="text-sm text-gray-400 font-medium">Scanning wallets for alpha positions…</p>
+              <p className="text-xs text-gray-600 mt-1">First load takes ~15s · cached after that</p>
             </div>
           </div>
         )}
@@ -1086,13 +1086,13 @@ export default function WalletTrackerPage() {
         {tab === "sr" && srLoading && (
           <div className="flex items-center justify-center py-12 gap-2">
             <div className="w-4 h-4 border-2 border-cyan-400/30 border-t-cyan-400 rounded-full animate-spin" />
-            <span className="text-sm text-gray-500">Loading SubnetRadar whale data…</span>
+            <span className="text-sm text-gray-500">Loading whale data…</span>
           </div>
         )}
         {tab === "ts" && tsLoading && (
           <div className="flex items-center justify-center py-12 gap-2">
             <div className="w-4 h-4 border-2 border-violet-400/30 border-t-violet-400 rounded-full animate-spin" />
-            <span className="text-sm text-gray-500">Loading TaoStats delegation data…</span>
+            <span className="text-sm text-gray-500">Loading on-chain data…</span>
           </div>
         )}
 
@@ -1187,7 +1187,7 @@ export default function WalletTrackerPage() {
       {!loading && !error && (
         <div className="text-xs text-gray-600 space-y-1 px-1">
           <p>
-            Only wallets holding ≥2 distinct alpha tokens shown (root network excluded) · data from TaoMarketCap · refreshes every 45 min.
+            Only wallets holding ≥2 distinct alpha tokens shown (root network excluded) · refreshes every 45 min.
           </p>
           <p>💡 Click any wallet row to instantly see their full alpha portfolio breakdown.</p>
           <p>🔔 Tracking saved locally in your browser.</p>

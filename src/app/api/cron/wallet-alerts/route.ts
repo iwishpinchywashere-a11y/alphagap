@@ -133,7 +133,7 @@ export async function GET(req: NextRequest) {
   ]);
 
   if (!moves.length) {
-    return NextResponse.json({ ok: true, message: "No moves from SubnetRadar" });
+    return NextResponse.json({ ok: true, message: "No new moves found" });
   }
 
   console.log(`[wallet-alerts] ${moves.length} SR moves, TAO=$${taoPrice}`);
@@ -201,7 +201,7 @@ export async function GET(req: NextRequest) {
             ``,
             `💰 Amount: *${fmtTao(m.amount)}* (~${fmtUsd(usdValue)})`,
             `👛 Wallet: \`${shortAddr(addr)}\``,
-            `${emoji} [View on TaoMarketCap](https://taomarketcap.com/wallets/${addr})`,
+            `${emoji} [View wallet](https://alphagap.io/wallettracker)`,
           ].join("\n");
 
           await enqueueAlert(hash, {
