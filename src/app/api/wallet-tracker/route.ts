@@ -18,13 +18,13 @@ import { put, get as blobGet } from "@vercel/blob";
 import { getTaoPrice } from "@/lib/taostats";
 
 export const dynamic     = "force-dynamic";
-export const maxDuration = 60;
+export const maxDuration = 120;
 
 const TMC_API_KEY  = process.env.TMC_API_KEY || "";
 const RAO_PER_TAO  = 1_000_000_000;
 const ROOT_NETUID  = 0; // subnet 0 = root/legacy — NOT an alpha token
 
-const MAIN_CACHE_KEY    = "wallet-tracker-v5.json";
+const MAIN_CACHE_KEY    = "wallet-tracker-v6.json";
 const MAIN_CACHE_TTL_MS = 45 * 60 * 1000; // 45 min (expensive to compute)
 
 const WIN_CACHE_KEY     = "wallet-tracker-winners.json";
@@ -295,11 +295,13 @@ async function buildMainList(): Promise<WalletEntry[]> {
 
   // Pre-filter: only fetch detail for wallets with tao_staked > 0
   // (pure root-network validators have tao_staked=0 and will never qualify)
-  const candidates = merged.filter(w => (w.tao_staked ?? 0) > 0);
-  console.log(`[wallet-tracker] ${candidates.length}/${merged.length} wallets have alpha staking`);
+  // Cap at 1200: list is already sorted tao_staked desc so top wallets come first.
+  // 1200 candidates × 60 concurrent ≈ 20 batches × ~2s each = ~40s, fits in 60s limit.
+  const candidates = merged.filter(w => (w.tao_staked ?? 0) > 0).slice(0, 1200);
+  console.log(`[wallet-tracker] ${candidates.length} candidates to detail-fetch`);
 
-  // Batch-fetch per-wallet detail (30 concurrent at a time)
-  const BATCH = 30;
+  // Batch-fetch per-wallet detail (60 concurrent at a time)
+  const BATCH = 60;
   const details: (TMCWalletDetail | null)[] = [];
   for (let i = 0; i < candidates.length; i += BATCH) {
     const batch   = candidates.slice(i, i + BATCH);
