@@ -1647,13 +1647,13 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     // our scanner found no code changes in 30d → treat as dormant.
     const hasVerifiedRecentActivity = commits7d > 0 || prs7d > 0 || loc30d > 0;
 
-    // No GitHub activity verified AND nothing in TaoStats 7d window → low floor
+    // No GitHub activity verified AND nothing in TaoStats 7d window → dormant
     if (hasGithub && !hasVerifiedRecentActivity && !hasHf) {
-      // daysSinceLast is from TaoStats — may be stale, so clamp conservatively
-      if (daysSinceLast >= 60) return 0;
-      if (daysSinceLast >= 30) return 8;
-      // Has TaoStats history but nothing verifiable this week → minimal
-      return 15;
+      // daysSinceLast is from TaoStats — may be stale, but ≥30d with no 7d signal
+      // means the subnet genuinely has nothing happening this month → 0
+      if (daysSinceLast >= 30) return 0;
+      // Active within 30d but quiet this week → minimal holding score
+      return 10;
     }
 
     let score = 0;

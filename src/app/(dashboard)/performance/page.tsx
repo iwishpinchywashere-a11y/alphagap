@@ -370,7 +370,7 @@ export default function PerformancePage() {
                           )}
                         </td>
                         <td className="text-right px-3 py-3">
-                          <span className="text-green-400 font-semibold">{pos.buyAGapScore}</span>
+                          <span className="text-green-400 font-semibold">{Math.round(pos.buyAGapScore)}</span>
                         </td>
                         <td className="text-right px-3 py-3 text-gray-400 text-xs whitespace-nowrap">
                           {new Date(pos.buyDate + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })}
