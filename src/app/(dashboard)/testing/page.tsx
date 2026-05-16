@@ -377,16 +377,24 @@ function MiniPriceChart({
   prices: PricePoint[];
   pump: PumpEvent | null;
 }) {
-  const W = 480; const H = 120;
-  const PAD = { top: 8, right: 8, bottom: 20, left: 8 };
+  const W = 600; const H = 160;
+  const PAD = { top: 16, right: 16, bottom: 32, left: 56 };
 
   if (prices.length < 2) {
     return (
-      <div className="flex items-center justify-center h-[120px] text-gray-600 text-xs">
+      <div className="flex items-center justify-center h-[160px] text-gray-600 text-xs">
         Loading price data…
       </div>
     );
   }
+
+  const fmtPrice = (v: number) => {
+    if (v < 0.0001) return `$${v.toFixed(6)}`;
+    if (v < 0.01)   return `$${v.toFixed(4)}`;
+    if (v < 1)      return `$${v.toFixed(3)}`;
+    if (v < 1000)   return `$${v.toFixed(2)}`;
+    return `$${(v / 1000).toFixed(1)}K`;
+  };
 
   const vals = prices.map((p) => p.price);
   const minV = Math.min(...vals);
@@ -402,7 +410,8 @@ function MiniPriceChart({
   const path = prices.map((p, i) => `${i === 0 ? "M" : "L"} ${x(i).toFixed(1)} ${y(p.price).toFixed(1)}`).join(" ");
 
   // Fill path (close to bottom)
-  const fill = path + ` L ${x(prices.length - 1).toFixed(1)} ${(H - PAD.bottom).toFixed(1)} L ${PAD.left} ${(H - PAD.bottom).toFixed(1)} Z`;
+  const areaBottom = PAD.top + cH;
+  const fill = path + ` L ${x(prices.length - 1).toFixed(1)} ${areaBottom.toFixed(1)} L ${PAD.left} ${areaBottom.toFixed(1)} Z`;
 
   // Pump region highlight
   const pumpRect =
@@ -415,20 +424,74 @@ function MiniPriceChart({
 
   const isUp = prices[prices.length - 1].price >= prices[0].price;
   const lineColor = pump && pump.gain > 0 ? "#4ade80" : isUp ? "#4ade80" : "#f87171";
+  const gradId = isUp ? "chartFillGreen" : "chartFillRed";
+
+  // Y-axis: 4 labels
+  const yLabels = [0, 1, 2, 3].map((i) => {
+    const val = minV + (i / 3) * range;
+    const yPos = y(val);
+    return { val, yPos };
+  });
+
+  // X-axis: 4-5 evenly spaced date labels
+  const xLabelCount = 4;
+  const xLabels = Array.from({ length: xLabelCount }, (_, i) => {
+    const idx = Math.round((i / (xLabelCount - 1)) * (prices.length - 1));
+    return {
+      idx,
+      xPos: x(idx),
+      label: new Date(prices[idx].timestamp).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+    };
+  });
+
+  const pumpPeakIdx = pump && pump.endIdx < prices.length ? pump.endIdx : null;
+  const pumpPeakX = pumpPeakIdx != null ? x(pumpPeakIdx) : null;
+  const pumpPeakY = pumpPeakIdx != null ? y(prices[pumpPeakIdx].price) : null;
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: "120px" }} preserveAspectRatio="none">
+    <svg
+      viewBox={`0 0 ${W} ${H}`}
+      className="w-full"
+      style={{ height: "160px" }}
+      preserveAspectRatio="xMidYMid meet"
+    >
       <defs>
-        <linearGradient id="chartFill" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={lineColor} stopOpacity="0.25" />
+        <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={lineColor} stopOpacity="0.3" />
           <stop offset="100%" stopColor={lineColor} stopOpacity="0.02" />
         </linearGradient>
       </defs>
+
+      {/* Horizontal gridlines */}
+      {yLabels.map(({ yPos }, i) => (
+        <line
+          key={i}
+          x1={PAD.left} y1={yPos.toFixed(1)}
+          x2={W - PAD.right} y2={yPos.toFixed(1)}
+          stroke="rgba(55,65,81,0.4)"
+          strokeWidth="1"
+        />
+      ))}
+
+      {/* Y-axis price labels */}
+      {yLabels.map(({ val, yPos }, i) => (
+        <text
+          key={i}
+          x={PAD.left - 4}
+          y={(yPos + 3).toFixed(1)}
+          fill="#6b7280"
+          fontSize="9"
+          textAnchor="end"
+        >
+          {fmtPrice(val)}
+        </text>
+      ))}
+
       {/* Pump region */}
       {pumpRect && (
         <rect
           x={pumpRect.x1} y={PAD.top}
-          width={pumpRect.x2 - pumpRect.x1}
+          width={Math.max(pumpRect.x2 - pumpRect.x1, 2)}
           height={cH}
           fill="rgba(250,204,21,0.08)"
           stroke="rgba(250,204,21,0.3)"
@@ -436,25 +499,47 @@ function MiniPriceChart({
           rx="2"
         />
       )}
-      {/* Fill */}
-      <path d={fill} fill="url(#chartFill)" />
-      {/* Line */}
-      <path d={path} fill="none" stroke={lineColor} strokeWidth="1.5" strokeLinejoin="round" />
+
+      {/* Fill under line */}
+      <path d={fill} fill={`url(#${gradId})`} />
+
+      {/* Price line */}
+      <path d={path} fill="none" stroke={lineColor} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+
       {/* Pump start dot */}
       {pump && pump.startIdx < prices.length && (
-        <circle cx={x(pump.startIdx)} cy={y(prices[pump.startIdx].price)} r="3" fill="#facc15" />
+        <circle cx={x(pump.startIdx).toFixed(1)} cy={y(prices[pump.startIdx].price).toFixed(1)} r="4" fill="#facc15" />
       )}
-      {/* Pump peak dot */}
-      {pump && pump.endIdx < prices.length && (
-        <circle cx={x(pump.endIdx)} cy={y(prices[pump.endIdx].price)} r="3" fill="#4ade80" />
+
+      {/* Pump peak dot + label */}
+      {pumpPeakX != null && pumpPeakY != null && pump != null && (
+        <>
+          <circle cx={pumpPeakX.toFixed(1)} cy={pumpPeakY.toFixed(1)} r="4" fill="#4ade80" />
+          <text
+            x={(pumpPeakX + 6).toFixed(1)}
+            y={(pumpPeakY - 6).toFixed(1)}
+            fill="#4ade80"
+            fontSize="10"
+            fontWeight="bold"
+          >
+            ▲ +{pump.gain.toFixed(0)}%
+          </text>
+        </>
       )}
-      {/* Baseline label */}
-      <text x={PAD.left + 2} y={H - 4} fill="#4b5563" fontSize="9">
-        {prices[0] ? new Date(prices[0].timestamp).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : ""}
-      </text>
-      <text x={W - PAD.right - 2} y={H - 4} fill="#4b5563" fontSize="9" textAnchor="end">
-        {prices[prices.length - 1] ? new Date(prices[prices.length - 1].timestamp).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : ""}
-      </text>
+
+      {/* X-axis date labels */}
+      {xLabels.map(({ xPos, label }, i) => (
+        <text
+          key={i}
+          x={xPos.toFixed(1)}
+          y={(H - 6).toFixed(1)}
+          fill="#4b5563"
+          fontSize="9"
+          textAnchor="middle"
+        >
+          {label}
+        </text>
+      ))}
     </svg>
   );
 }
@@ -596,9 +681,8 @@ function ScoreTable({ scores, pump }: { scores: ScoreRow[]; pump: PumpEvent | nu
 // ── Autopsy Card ──────────────────────────────────────────────────────────
 
 function AutopsyCard({ autopsy, onRemove }: { autopsy: Autopsy; onRemove: () => void }) {
-  const [expanded, setExpanded] = useState(true);
-
   const { pumper, current, detail, pumpEvent, findings, narrative, loading, error } = autopsy;
+
   const fmtUsd = (v: number) => {
     if (v >= 1e9) return `$${(v / 1e9).toFixed(2)}B`;
     if (v >= 1e6) return `$${(v / 1e6).toFixed(2)}M`;
@@ -615,421 +699,352 @@ function AutopsyCard({ autopsy, onRemove }: { autopsy: Autopsy; onRemove: () => 
 
   const ms = detail?.marketStats ?? null;
   const price7d = current?.price_change_7d ?? ms?.priceChangePct7d ?? null;
-  const price30d = current?.price_change_30d ?? ms?.priceChangePct30d ?? null;
   const priceUsd = current?.alpha_price ?? ms?.priceUsd ?? null;
   const mcap = current?.market_cap ?? ms?.marketCapUsd ?? null;
 
   const firedCount = findings.filter((f) => f.fired).length;
-  const strongCount = findings.filter((f) => f.fired && (f.strength === "strong" || f.strength === "high")).length;
+  const firedFindings = findings.filter((f) => f.fired);
+
+  const signalBubbleColor = firedCount >= 3
+    ? "bg-green-900/60 border-green-700/50 text-green-400"
+    : firedCount === 2
+    ? "bg-yellow-900/60 border-yellow-700/50 text-yellow-400"
+    : "bg-orange-900/60 border-orange-700/50 text-orange-400";
 
   return (
-    <div className="bg-gray-900/60 border border-gray-800 rounded-xl overflow-hidden">
+    <div className="bg-gray-950/70 border border-gray-800/50 rounded-2xl overflow-hidden backdrop-blur-sm">
+
       {/* Card header */}
-      <div
-        className="flex items-center justify-between px-5 py-4 cursor-pointer hover:bg-gray-800/30 transition-colors"
-        onClick={() => setExpanded((e) => !e)}
-      >
-        <div className="flex items-center gap-4">
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-white font-bold text-lg">{pumper.name}</span>
-              {pumper.netuid != null && (
-                <Link
-                  href={`/subnets/${pumper.netuid}`}
-                  onClick={(e) => e.stopPropagation()}
-                  className="text-xs text-gray-500 bg-gray-800 rounded px-1.5 py-0.5 hover:text-gray-300"
-                >
-                  SN{pumper.netuid}
-                </Link>
-              )}
-              {loading && <span className="text-xs text-gray-600 animate-pulse">Loading…</span>}
-              {error && <span className="text-xs text-red-500">{error}</span>}
-            </div>
-            <div className="flex items-center gap-3 mt-0.5 text-xs text-gray-500">
-              {priceUsd != null && <span>{fmtPrice(priceUsd)}</span>}
-              {mcap != null && <span>MCap {fmtUsd(mcap)}</span>}
-              {price7d != null && (
-                <span className={pctColor(price7d)}>7D {price7d >= 0 ? "+" : ""}{price7d.toFixed(1)}%</span>
-              )}
-              {price30d != null && (
-                <span className={pctColor(price30d)}>30D {price30d >= 0 ? "+" : ""}{price30d.toFixed(1)}%</span>
-              )}
-            </div>
+      <div className="relative flex items-center justify-between px-5 py-4 bg-gradient-to-r from-violet-950/40 via-indigo-950/20 to-transparent border-b border-gray-800/50">
+        {/* Left accent bar */}
+        <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-violet-500 to-indigo-600 rounded-l-2xl" />
+
+        {/* Left: name + meta */}
+        <div className="pl-3">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-white font-bold text-xl">{pumper.name}</span>
+            {pumper.netuid != null && (
+              <Link
+                href={`/subnets/${pumper.netuid}`}
+                className="text-[11px] text-violet-400 bg-violet-900/40 border border-violet-800/40 rounded-md px-2 py-0.5 hover:text-violet-300 hover:bg-violet-900/60 transition-colors"
+              >
+                SN{pumper.netuid}
+              </Link>
+            )}
+            {loading && <span className="text-xs text-gray-600 animate-pulse">Loading…</span>}
+            {error && <span className="text-xs text-red-500">{error}</span>}
+          </div>
+          <div className="flex items-center gap-3 text-xs">
+            {priceUsd != null && <span className="text-gray-300 font-mono">{fmtPrice(priceUsd)}</span>}
+            {mcap != null && <span className="text-gray-500">MCap {fmtUsd(mcap)}</span>}
+            {price7d != null && (
+              <span className={`font-medium ${pctColor(price7d)}`}>
+                7D {price7d >= 0 ? "+" : ""}{price7d.toFixed(1)}%
+              </span>
+            )}
           </div>
         </div>
 
+        {/* Right: pump badge + signal count + remove */}
         <div className="flex items-center gap-4">
-          {/* Pump badge */}
           {pumpEvent && (
             <div className="text-center">
-              <div className="text-green-400 font-bold text-xl leading-none">
+              <div className="text-green-400 font-bold text-2xl leading-none tabular-nums">
                 +{pumpEvent.gain.toFixed(0)}%
               </div>
-              <div className="text-gray-600 text-xs mt-0.5">7D peak pump</div>
+              <div className="text-gray-500 text-[11px] mt-0.5">peak pump</div>
             </div>
           )}
 
-          {/* Signal summary */}
-          <div className="text-center hidden sm:block">
-            <div className="text-yellow-400 font-bold text-xl leading-none">{firedCount}/{findings.length}</div>
-            <div className="text-gray-600 text-xs mt-0.5">signals fired</div>
+          <div className={`flex flex-col items-center justify-center w-12 h-12 rounded-xl border ${signalBubbleColor}`}>
+            <span className="font-bold text-lg leading-none">{firedCount}</span>
+            <span className="text-[9px] leading-none mt-0.5 opacity-70">signals</span>
           </div>
 
-          {/* aGap */}
-          {current?.composite_score != null && (
-            <div className="text-center hidden md:block">
-              <div className={`font-bold text-xl leading-none ${current.composite_score >= 70 ? "text-green-400" : current.composite_score >= 45 ? "text-yellow-400" : "text-red-400"}`}>
-                {current.composite_score}
-              </div>
-              <div className="text-gray-600 text-xs mt-0.5">aGap now</div>
-            </div>
-          )}
-
-          {/* Remove + expand toggle */}
-          <div className="flex items-center gap-2">
-            <button
-              onClick={(e) => { e.stopPropagation(); onRemove(); }}
-              className="text-gray-700 hover:text-red-500 transition-colors text-xs px-2 py-1 rounded hover:bg-gray-800"
-              title="Remove from tracker"
-            >
-              ✕
-            </button>
-            <span className="text-gray-600 text-lg">{expanded ? "▲" : "▼"}</span>
-          </div>
+          <button
+            onClick={onRemove}
+            className="text-gray-700 hover:text-red-500 transition-colors text-xs px-2 py-1 rounded-lg hover:bg-gray-800/60"
+            title="Remove from tracker"
+          >
+            ✕
+          </button>
         </div>
       </div>
 
-      {/* Expanded body */}
-      {expanded && (
-        <div className="px-5 pb-5 border-t border-gray-800/50 pt-4 space-y-5">
+      {/* Card body — always expanded */}
+      <div className="px-5 pb-5 pt-4 space-y-5">
 
-          {/* Price chart */}
-          <div>
-            <div className="flex items-center gap-2 mb-2">
-              <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">90-Day Price</h3>
-              {pumpEvent && (
-                <span className="text-xs text-yellow-400/80">
-                  🟡 pump start &nbsp; 🟢 pump peak
-                </span>
-              )}
-            </div>
-            <div className="bg-gray-950/50 rounded-lg p-2">
-              <MiniPriceChart prices={detail?.priceHistory ?? []} pump={pumpEvent} />
-            </div>
+        {/* Price chart */}
+        <div>
+          <div className="flex items-center gap-2 mb-2">
+            <h3 className="text-[11px] font-semibold text-gray-500 uppercase tracking-widest">90-Day Price</h3>
             {pumpEvent && (
-              <div className="flex gap-4 mt-2 text-xs text-gray-500">
-                <span>Pump: {new Date(pumpEvent.startDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })} → {new Date(pumpEvent.endDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
-                <span className="text-green-400">+{pumpEvent.gain.toFixed(1)}% ({fmtPrice(pumpEvent.startPrice)} → {fmtPrice(pumpEvent.peakPrice)})</span>
-                <span className={pumpEvent.daysAgo <= 7 ? "text-yellow-400" : ""}>{pumpEvent.daysAgo <= 3 ? "🔥 Recent!" : pumpEvent.daysAgo <= 7 ? "Recent" : `~${pumpEvent.daysAgo}d ago`}</span>
-              </div>
+              <span className="text-[11px] text-gray-600">
+                🟡 pump start &nbsp; 🟢 pump peak
+              </span>
             )}
           </div>
+          <div className="bg-gray-900/50 rounded-xl p-3 border border-gray-800/30">
+            <MiniPriceChart prices={detail?.priceHistory ?? []} pump={pumpEvent} />
+          </div>
+          {pumpEvent && (
+            <div className="flex flex-wrap gap-4 mt-2 text-xs text-gray-500">
+              <span>{new Date(pumpEvent.startDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })} → {new Date(pumpEvent.endDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
+              <span className="text-green-400">+{pumpEvent.gain.toFixed(1)}% ({fmtPrice(pumpEvent.startPrice)} → {fmtPrice(pumpEvent.peakPrice)})</span>
+              <span className={pumpEvent.daysAgo <= 7 ? "text-yellow-400" : ""}>{pumpEvent.daysAgo <= 3 ? "🔥 Recent!" : pumpEvent.daysAgo <= 7 ? "Recent" : `~${pumpEvent.daysAgo}d ago`}</span>
+            </div>
+          )}
+        </div>
 
-          {/* Two-col: signals + scores */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        {/* Signal findings — fired only */}
+        {firedFindings.length > 0 && (
+          <div>
+            <h3 className="text-[11px] font-semibold text-gray-500 uppercase tracking-widest mb-3">
+              Pre-Pump Signals Detected
+            </h3>
+            <div className="space-y-2">
+              {firedFindings.map((f) => {
+                const isStrong = f.strength === "strong" || f.strength === "high";
+                const borderColor = isStrong ? "border-l-green-500" : "border-l-yellow-500/70";
+                const bgColor = isStrong ? "bg-green-950/20" : "bg-yellow-950/10";
+                const badgeColor = isStrong
+                  ? "bg-green-900/60 text-green-400 border-green-800/40"
+                  : "bg-yellow-900/50 text-yellow-400 border-yellow-800/40";
+                const badgeLabel = f.strength === "strong" ? "STRONG" : f.strength === "high" ? "HIGH" : "MODERATE";
 
-            {/* Signal findings */}
-            <div>
-              <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
-                Pre-Pump Signal Audit
-                {strongCount > 0 && <span className="ml-2 text-green-400 normal-case font-normal">{strongCount} strong</span>}
-              </h3>
-              <div className="space-y-2">
-                {findings.map((f) => (
-                  <div key={f.label} className={`flex items-start gap-3 rounded-lg px-3 py-2.5 border ${
-                    f.fired && (f.strength === "strong" || f.strength === "high")
-                      ? "bg-green-950/30 border-green-800/30"
-                      : f.fired && f.strength === "moderate"
-                      ? "bg-yellow-950/20 border-yellow-800/20"
-                      : "bg-gray-900/30 border-gray-800/20"
-                  }`}>
-                    <span className="text-base leading-none mt-0.5">{f.icon}</span>
+                return (
+                  <div
+                    key={f.label}
+                    className={`flex items-start gap-3 rounded-xl px-4 py-3 border border-gray-800/30 border-l-4 ${borderColor} ${bgColor}`}
+                  >
+                    <span className="text-base leading-none mt-0.5 flex-shrink-0">{f.icon}</span>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-medium text-gray-300">{f.label}</span>
-                        {f.fired ? (
-                          <span className={`text-[10px] rounded-full px-1.5 py-0.5 font-medium ${
-                            f.strength === "strong" ? "bg-green-900/60 text-green-400" :
-                            f.strength === "high"   ? "bg-green-900/60 text-green-400" :
-                            f.strength === "moderate" ? "bg-yellow-900/60 text-yellow-400" :
-                            "bg-gray-800 text-gray-400"
-                          }`}>
-                            {f.strength === "strong" ? "✓ STRONG" : f.strength === "high" ? "✓ HIGH" : f.strength === "moderate" ? "~ MODERATE" : "~ WEAK"}
-                          </span>
-                        ) : (
-                          <span className="text-[10px] rounded-full px-1.5 py-0.5 bg-gray-800/60 text-gray-600">✗ NOT DETECTED</span>
-                        )}
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-sm font-semibold text-gray-200">{f.label}</span>
+                        <span className={`text-[10px] border rounded-full px-1.5 py-0.5 font-bold tracking-wide ${badgeColor}`}>
+                          {badgeLabel}
+                        </span>
                       </div>
-                      <p className="text-[11px] text-gray-500 mt-0.5 leading-snug">{f.detail}</p>
+                      <p className="text-xs text-gray-400 leading-snug">{f.detail}</p>
                     </div>
-                    {f.fired && f.daysBeforePump > 0 && (
-                      <div className="text-right flex-shrink-0">
-                        <div className="text-[10px] text-gray-600">−{f.daysBeforePump}d</div>
-                        <div className="text-[9px] text-gray-700">before</div>
+                    {f.daysBeforePump > 0 && (
+                      <div className="text-right flex-shrink-0 bg-gray-800/50 rounded-lg px-2.5 py-1.5">
+                        <div className="text-xs font-bold text-gray-300 tabular-nums">−{f.daysBeforePump}d</div>
+                        <div className="text-[9px] text-gray-600">before pump</div>
                       </div>
                     )}
                   </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Score history */}
-            <div>
-              <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Score History (Pre-Pump)</h3>
-              <div className="bg-gray-950/40 rounded-lg p-3">
-                <ScoreTable scores={detail?.scoreHistory ?? []} pump={pumpEvent} />
-              </div>
-
-              {/* Current stats grid */}
-              {current && (
-                <div className="mt-3 grid grid-cols-3 gap-2">
-                  {[
-                    { label: "Dev", val: current.dev_score },
-                    { label: "Flow", val: current.flow_score },
-                    { label: "Social", val: current.social_score },
-                    { label: "Eval", val: current.eval_score },
-                    { label: "Product", val: current.product_score },
-                    { label: "Em%", val: current.emission_pct != null ? parseFloat(current.emission_pct.toFixed(2)) : null, isRaw: true },
-                  ].map(({ label, val, isRaw }) => (
-                    val != null && (
-                      <div key={label} className="bg-gray-900/60 rounded-lg px-2 py-1.5 text-center">
-                        <div className={`text-sm font-bold font-mono ${!isRaw ? (val >= 70 ? "text-green-400" : val >= 45 ? "text-yellow-400" : "text-red-400") : "text-gray-300"}`}>
-                          {isRaw ? `${val}%` : val.toFixed(0)}
-                        </div>
-                        <div className="text-[10px] text-gray-600">{label} now</div>
-                      </div>
-                    )
-                  ))}
-                </div>
-              )}
-
-              {/* Whale / volume indicators */}
-              {current && (
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {current.whale_signal === "accumulating" && (
-                    <span className="text-xs bg-blue-900/30 text-blue-400 border border-blue-800/30 rounded-full px-2 py-0.5">🐋 Whales accumulating</span>
-                  )}
-                  {current.whale_signal === "distributing" && (
-                    <span className="text-xs bg-red-900/30 text-red-400 border border-red-800/30 rounded-full px-2 py-0.5">🐋 Whales distributing</span>
-                  )}
-                  {current.volume_surge && (
-                    <span className="text-xs bg-purple-900/30 text-purple-400 border border-purple-800/30 rounded-full px-2 py-0.5">📊 Vol surge {current.volume_surge_ratio?.toFixed(1)}×</span>
-                  )}
-                  {current.emission_trend === "up" && (
-                    <span className="text-xs bg-emerald-900/30 text-emerald-400 border border-emerald-800/30 rounded-full px-2 py-0.5">⚛️ Emission ↑</span>
-                  )}
-                  {current.sector_rotation && (
-                    <span className="text-xs bg-orange-900/30 text-orange-400 border border-orange-800/30 rounded-full px-2 py-0.5">🔄 Sector rotation</span>
-                  )}
-                </div>
-              )}
+                );
+              })}
             </div>
           </div>
+        )}
 
-          {/* Recent signals list */}
-          {detail && detail.signals.length > 0 && (
-            <div>
-              <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
-                Recent Signals ({detail.signals.length} captured)
-              </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {detail.signals.slice(0, 8).map((sig, i) => (
-                  <div key={i} className={`flex items-start gap-2 rounded-lg px-3 py-2 border text-xs ${
-                    sig.strength >= 80 ? "border-green-800/40 bg-green-950/20" :
-                    sig.strength >= 50 ? "border-yellow-800/30 bg-yellow-950/10" :
-                    "border-gray-800/30 bg-gray-900/20"
-                  }`}>
-                    <span className={`font-bold tabular-nums flex-shrink-0 ${
-                      sig.strength >= 80 ? "text-green-400" : sig.strength >= 50 ? "text-yellow-400" : "text-gray-500"
-                    }`}>{sig.strength}</span>
-                    <div className="min-w-0">
-                      <div className="text-gray-300 truncate">{sig.title}</div>
-                      <div className="text-gray-600 text-[10px]">{sig.signal_type} · {new Date(sig.signal_date || sig.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</div>
+        {/* Recent signals list */}
+        {detail && detail.signals.length > 0 && (
+          <div>
+            <h3 className="text-[11px] font-semibold text-gray-500 uppercase tracking-widest mb-3">
+              Recent Signals ({detail.signals.length} captured)
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {detail.signals.slice(0, 8).map((sig, i) => (
+                <div key={i} className={`flex items-start gap-2 rounded-xl px-3 py-2 border text-xs ${
+                  sig.strength >= 80 ? "border-green-800/40 bg-green-950/20" :
+                  sig.strength >= 50 ? "border-yellow-800/30 bg-yellow-950/10" :
+                  "border-gray-800/30 bg-gray-950/60"
+                }`}>
+                  <span className={`font-bold tabular-nums flex-shrink-0 ${
+                    sig.strength >= 80 ? "text-green-400" : sig.strength >= 50 ? "text-yellow-400" : "text-gray-500"
+                  }`}>{sig.strength}</span>
+                  <div className="min-w-0">
+                    <div className="text-gray-300 truncate">{sig.title}</div>
+                    <div className="text-gray-600 text-[10px]">{sig.signal_type} · {new Date(sig.signal_date || sig.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ── Retroactive Research ────────────────────────────── */}
+        {(autopsy.researchLoading || autopsy.research) && (
+          <div className="border-t border-gray-800/40 pt-4 space-y-4">
+            <h3 className="text-[11px] font-semibold text-gray-500 uppercase tracking-widest flex items-center gap-2">
+              🔭 Retroactive Research
+              {autopsy.researchLoading && (
+                <span className="text-gray-600 font-normal normal-case animate-pulse text-xs">
+                  Fetching GitHub + on-chain data…
+                </span>
+              )}
+            </h3>
+
+            {autopsy.research && (
+              <div className="space-y-4">
+
+                {/* GitHub commit analysis */}
+                {autopsy.research.github && (
+                  <div className="bg-gray-950/60 border border-gray-800/40 rounded-2xl p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-xs font-semibold text-gray-300 flex items-center gap-1.5">
+                        <span>⎇</span>
+                        GitHub Commit History (30d before pump)
+                      </span>
+                      <a
+                        href={`https://github.com/${autopsy.research.github.owner}/${autopsy.research.github.repo}/commits`}
+                        target="_blank" rel="noopener noreferrer"
+                        className="text-[10px] text-gray-600 hover:text-gray-400"
+                      >
+                        {autopsy.research.github.owner}/{autopsy.research.github.repo} ↗
+                      </a>
+                    </div>
+
+                    {/* Stats row */}
+                    <div className="grid grid-cols-4 gap-3 mb-3">
+                      {[
+                        { label: "Total commits", val: autopsy.research.github.totalCommits },
+                        { label: "Contributors", val: autopsy.research.github.uniqueContributors },
+                        { label: "Peak day", val: autopsy.research.github.peakCount > 0 ? `${autopsy.research.github.peakCount} commits` : "—" },
+                        {
+                          label: "Spike vs baseline",
+                          val: autopsy.research.github.baselineAvgPerDay > 0
+                            ? `${autopsy.research.github.spikeMultiplier.toFixed(1)}×`
+                            : "no baseline",
+                          color: autopsy.research.github.spikeMultiplier >= 3 ? "text-green-400"
+                            : autopsy.research.github.spikeMultiplier >= 1.5 ? "text-yellow-400"
+                            : "text-gray-400",
+                        },
+                      ].map(({ label, val, color }) => (
+                        <div key={label} className="text-center">
+                          <div className={`text-base font-bold font-mono ${color ?? "text-white"}`}>{val}</div>
+                          <div className="text-[10px] text-gray-600">{label}</div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Commit bar chart (commits per day) */}
+                    {autopsy.research.github.commitsByDay.length > 0 && (
+                      <div className="mb-3">
+                        <div className="text-[10px] text-gray-600 mb-1">Commits/day (oldest → pump date)</div>
+                        <CommitBarChart
+                          days={autopsy.research.github.commitsByDay}
+                          pumpDay={0}
+                        />
+                      </div>
+                    )}
+
+                    {/* Release badge */}
+                    {autopsy.research.github.hasRelease && autopsy.research.github.releaseInfo && (
+                      <div className="mb-3 inline-flex items-center gap-2 bg-blue-950/40 border border-blue-800/30 rounded-lg px-3 py-1.5 text-xs">
+                        <span>🚀</span>
+                        <span className="text-blue-300 font-medium">Release: {autopsy.research.github.releaseInfo.name}</span>
+                        <span className="text-gray-500">
+                          {new Date(autopsy.research.github.releaseInfo.date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Top commits */}
+                    {autopsy.research.github.topCommits.length > 0 && (
+                      <div>
+                        <div className="text-[10px] text-gray-600 mb-1.5">Notable commits before pump</div>
+                        <div className="space-y-1.5">
+                          {autopsy.research.github.topCommits.slice(0, 6).map((c) => (
+                            <div key={c.sha} className="flex items-start gap-2 text-xs">
+                              <span className="font-mono text-gray-600 flex-shrink-0 w-12 text-right">
+                                −{c.daysBeforePump}d
+                              </span>
+                              <span className="font-mono text-purple-400/70 flex-shrink-0">{c.sha}</span>
+                              <span className="text-gray-400 truncate">{c.message}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Finding */}
+                    <div className="mt-3 pt-3 border-t border-gray-800/30 text-xs text-gray-400 leading-relaxed">
+                      {autopsy.research.github.finding}
                     </div>
                   </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* ── Retroactive Research ────────────────────────────── */}
-          {(autopsy.researchLoading || autopsy.research) && (
-            <div className="border-t border-gray-800/40 pt-4 space-y-4">
-              <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-2">
-                🔭 Retroactive Research
-                {autopsy.researchLoading && (
-                  <span className="text-gray-600 font-normal normal-case animate-pulse text-xs">
-                    Fetching GitHub + on-chain data…
-                  </span>
                 )}
-              </h3>
 
-              {autopsy.research && (
-                <div className="space-y-4">
+                {/* No GitHub repo */}
+                {!autopsy.research.github && autopsy.detail?.identity?.github_repo == null && (
+                  <div className="bg-gray-950/60 border border-gray-800/40 rounded-2xl px-4 py-3 text-xs text-gray-600 flex items-center gap-2">
+                    <span>⎇</span>
+                    No GitHub repo linked to this subnet — dev activity can&apos;t be researched retroactively.
+                  </div>
+                )}
 
-                  {/* GitHub commit analysis */}
-                  {autopsy.research.github && (
-                    <div className="bg-gray-950/60 border border-gray-800/40 rounded-xl p-4">
-                      <div className="flex items-center justify-between mb-3">
-                        <span className="text-xs font-semibold text-gray-300 flex items-center gap-1.5">
-                          <span>⎇</span>
-                          GitHub Commit History (30d before pump)
-                        </span>
-                        <a
-                          href={`https://github.com/${autopsy.research.github.owner}/${autopsy.research.github.repo}/commits`}
-                          target="_blank" rel="noopener noreferrer"
-                          className="text-[10px] text-gray-600 hover:text-gray-400"
-                        >
-                          {autopsy.research.github.owner}/{autopsy.research.github.repo} ↗
-                        </a>
-                      </div>
-
-                      {/* Stats row */}
-                      <div className="grid grid-cols-4 gap-3 mb-3">
-                        {[
-                          { label: "Total commits", val: autopsy.research.github.totalCommits },
-                          { label: "Contributors", val: autopsy.research.github.uniqueContributors },
-                          { label: "Peak day", val: autopsy.research.github.peakCount > 0 ? `${autopsy.research.github.peakCount} commits` : "—" },
-                          {
-                            label: "Spike vs baseline",
-                            val: autopsy.research.github.baselineAvgPerDay > 0
-                              ? `${autopsy.research.github.spikeMultiplier.toFixed(1)}×`
-                              : "no baseline",
-                            color: autopsy.research.github.spikeMultiplier >= 3 ? "text-green-400"
-                              : autopsy.research.github.spikeMultiplier >= 1.5 ? "text-yellow-400"
-                              : "text-gray-400",
-                          },
-                        ].map(({ label, val, color }) => (
-                          <div key={label} className="text-center">
-                            <div className={`text-base font-bold font-mono ${color ?? "text-white"}`}>{val}</div>
-                            <div className="text-[10px] text-gray-600">{label}</div>
-                          </div>
-                        ))}
-                      </div>
-
-                      {/* Commit bar chart (commits per day) */}
-                      {autopsy.research.github.commitsByDay.length > 0 && (
-                        <div className="mb-3">
-                          <div className="text-[10px] text-gray-600 mb-1">Commits/day (oldest → pump date)</div>
-                          <CommitBarChart
-                            days={autopsy.research.github.commitsByDay}
-                            pumpDay={0}
-                          />
+                {/* Emission / volume analysis */}
+                {autopsy.research.emission && (
+                  <div className="bg-gray-950/60 border border-gray-800/40 rounded-2xl p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-xs font-semibold text-gray-300">📊 On-Chain Volume (pre-pump vs pump window)</span>
+                      <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                        autopsy.research.emission.trend === "rising" ? "bg-green-900/40 text-green-400" :
+                        autopsy.research.emission.trend === "falling" ? "bg-red-900/40 text-red-400" :
+                        "bg-gray-800 text-gray-500"
+                      }`}>
+                        {autopsy.research.emission.trend === "rising" ? "↑ RISING" :
+                         autopsy.research.emission.trend === "falling" ? "↓ FALLING" : "→ FLAT"}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-3 mb-3">
+                      {[
+                        { label: "Pre-pump avg vol", val: fmtTao(autopsy.research.emission.prePumpVolume) },
+                        { label: "Pump window avg", val: fmtTao(autopsy.research.emission.pumpWindowVolume) },
+                        {
+                          label: "Volume multiplier",
+                          val: autopsy.research.emission.volumeMultiplier > 0 ? `${autopsy.research.emission.volumeMultiplier.toFixed(1)}×` : "—",
+                          color: autopsy.research.emission.volumeMultiplier >= 3 ? "text-green-400" :
+                                 autopsy.research.emission.volumeMultiplier >= 1.5 ? "text-yellow-400" : "text-gray-400",
+                        },
+                      ].map(({ label, val, color }) => (
+                        <div key={label} className="text-center">
+                          <div className={`text-base font-bold font-mono ${color ?? "text-white"}`}>{val}</div>
+                          <div className="text-[10px] text-gray-600">{label}</div>
                         </div>
-                      )}
-
-                      {/* Release badge */}
-                      {autopsy.research.github.hasRelease && autopsy.research.github.releaseInfo && (
-                        <div className="mb-3 inline-flex items-center gap-2 bg-blue-950/40 border border-blue-800/30 rounded-lg px-3 py-1.5 text-xs">
-                          <span>🚀</span>
-                          <span className="text-blue-300 font-medium">Release: {autopsy.research.github.releaseInfo.name}</span>
-                          <span className="text-gray-500">
-                            {new Date(autopsy.research.github.releaseInfo.date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                          </span>
-                        </div>
-                      )}
-
-                      {/* Top commits */}
-                      {autopsy.research.github.topCommits.length > 0 && (
-                        <div>
-                          <div className="text-[10px] text-gray-600 mb-1.5">Notable commits before pump</div>
-                          <div className="space-y-1.5">
-                            {autopsy.research.github.topCommits.slice(0, 6).map((c) => (
-                              <div key={c.sha} className="flex items-start gap-2 text-xs">
-                                <span className="font-mono text-gray-600 flex-shrink-0 w-12 text-right">
-                                  −{c.daysBeforePump}d
-                                </span>
-                                <span className="font-mono text-purple-400/70 flex-shrink-0">{c.sha}</span>
-                                <span className="text-gray-400 truncate">{c.message}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Finding */}
-                      <div className="mt-3 pt-3 border-t border-gray-800/30 text-xs text-gray-400 leading-relaxed">
-                        {autopsy.research.github.finding}
-                      </div>
+                      ))}
                     </div>
-                  )}
+                    <div className="text-xs text-gray-400 leading-relaxed">{autopsy.research.emission.finding}</div>
+                  </div>
+                )}
 
-                  {/* No GitHub repo */}
-                  {!autopsy.research.github && autopsy.detail?.identity?.github_repo == null && (
-                    <div className="bg-gray-950/40 border border-gray-800/30 rounded-xl px-4 py-3 text-xs text-gray-600 flex items-center gap-2">
-                      <span>⎇</span>
-                      No GitHub repo linked to this subnet — dev activity can&apos;t be researched retroactively.
-                    </div>
-                  )}
+                {/* Overall findings */}
+                {(autopsy.research.overallFindings?.length ?? 0) > 0 && (
+                  <div className="bg-yellow-950/10 border border-yellow-800/20 rounded-2xl px-4 py-3">
+                    <div className="text-xs font-semibold text-yellow-400/80 mb-2">🔑 Key Retroactive Findings</div>
+                    <ul className="space-y-1">
+                      {autopsy.research.overallFindings.map((f, i) => (
+                        <li key={i} className="text-xs text-gray-400 leading-relaxed">{f}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
-                  {/* Emission / volume analysis */}
-                  {autopsy.research.emission && (
-                    <div className="bg-gray-950/60 border border-gray-800/40 rounded-xl p-4">
-                      <div className="flex items-center justify-between mb-3">
-                        <span className="text-xs font-semibold text-gray-300">📊 On-Chain Volume (pre-pump vs pump window)</span>
-                        <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-                          autopsy.research.emission.trend === "rising" ? "bg-green-900/40 text-green-400" :
-                          autopsy.research.emission.trend === "falling" ? "bg-red-900/40 text-red-400" :
-                          "bg-gray-800 text-gray-500"
-                        }`}>
-                          {autopsy.research.emission.trend === "rising" ? "↑ RISING" :
-                           autopsy.research.emission.trend === "falling" ? "↓ FALLING" : "→ FLAT"}
-                        </span>
-                      </div>
-                      <div className="grid grid-cols-3 gap-3 mb-3">
-                        {[
-                          { label: "Pre-pump avg vol", val: fmtTao(autopsy.research.emission.prePumpVolume) },
-                          { label: "Pump window avg", val: fmtTao(autopsy.research.emission.pumpWindowVolume) },
-                          {
-                            label: "Volume multiplier",
-                            val: autopsy.research.emission.volumeMultiplier > 0 ? `${autopsy.research.emission.volumeMultiplier.toFixed(1)}×` : "—",
-                            color: autopsy.research.emission.volumeMultiplier >= 3 ? "text-green-400" :
-                                   autopsy.research.emission.volumeMultiplier >= 1.5 ? "text-yellow-400" : "text-gray-400",
-                          },
-                        ].map(({ label, val, color }) => (
-                          <div key={label} className="text-center">
-                            <div className={`text-base font-bold font-mono ${color ?? "text-white"}`}>{val}</div>
-                            <div className="text-[10px] text-gray-600">{label}</div>
-                          </div>
-                        ))}
-                      </div>
-                      <div className="text-xs text-gray-400 leading-relaxed">{autopsy.research.emission.finding}</div>
-                    </div>
-                  )}
-
-                  {/* Overall findings */}
-                  {(autopsy.research.overallFindings?.length ?? 0) > 0 && (
-                    <div className="bg-yellow-950/10 border border-yellow-800/20 rounded-xl px-4 py-3">
-                      <div className="text-xs font-semibold text-yellow-400/80 mb-2">🔑 Key Retroactive Findings</div>
-                      <ul className="space-y-1">
-                        {autopsy.research.overallFindings.map((f, i) => (
-                          <li key={i} className="text-xs text-gray-400 leading-relaxed">{f}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Narrative */}
-          <div className="border-t border-gray-800/40 pt-4">
-            <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
-              🔍 Analysis
-            </h3>
-            <p className="text-sm text-gray-400 leading-relaxed">{narrative}</p>
-            <div className="mt-2 text-xs text-gray-600">
-              Added: {pumper.added_at} · Reason: {pumper.reason ?? "manual"} ·
-              {pumper.netuid != null && (
-                <Link href={`/subnets/${pumper.netuid}`} className="ml-1 text-gray-500 hover:text-gray-300">
-                  Full subnet page →
-                </Link>
-              )}
-            </div>
+        {/* Narrative */}
+        <div className="border-t border-gray-800/40 pt-4">
+          <h3 className="text-[11px] font-semibold text-gray-500 uppercase tracking-widest mb-2">
+            🔍 Analysis
+          </h3>
+          <blockquote className="bg-gray-900/60 border-l-4 border-violet-500/50 rounded-r-xl px-4 py-3 text-sm text-gray-300 leading-relaxed italic">
+            {narrative}
+          </blockquote>
+          <div className="mt-2 text-xs text-gray-600">
+            Added: {pumper.added_at} · Reason: {pumper.reason ?? "manual"} ·
+            {pumper.netuid != null && (
+              <Link href={`/subnets/${pumper.netuid}`} className="ml-1 text-gray-500 hover:text-gray-300">
+                Full subnet page →
+              </Link>
+            )}
           </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }
@@ -1130,7 +1145,7 @@ export default function TestingPage() {
         const netuid = stub.pumper.netuid;
         if (netuid == null) continue;
 
-        await new Promise((r) => setTimeout(r, i * 600)); // stagger
+        await new Promise((r) => setTimeout(r, i * 200)); // stagger
 
         try {
           const res = await fetch(`/api/subnets/${netuid}`);
@@ -1251,85 +1266,123 @@ export default function TestingPage() {
     setAutopsies((prev) => prev.filter((a) => a.pumper.name !== name));
   }
 
-
   const loading = autopsies.some((a) => a.loading);
+
+  // Sort autopsies by fired signal count DESC, still-loading at bottom
+  const sortedAutopsies = [...autopsies]
+    .filter((a) => a.loading || a.findings.filter((f) => f.fired).length > 0)
+    .sort((a, b) => {
+      if (a.loading && !b.loading) return 1;
+      if (!a.loading && b.loading) return -1;
+      return b.findings.filter((f) => f.fired).length - a.findings.filter((f) => f.fired).length;
+    });
+
+  const totalCases = sortedAutopsies.filter(a => !a.loading).length;
+  const totalStrong = autopsies.reduce((n, a) => n + a.findings.filter((f) => f.fired && f.strength === "strong").length, 0);
+  const pumpsWithEvent = autopsies.filter((a) => a.pumpEvent);
+  const avgPump = pumpsWithEvent.length > 0
+    ? (pumpsWithEvent.reduce((s, a) => s + (a.pumpEvent?.gain ?? 0), 0) / pumpsWithEvent.length).toFixed(0)
+    : null;
 
   return (
     <div className="min-h-screen bg-[#0a0a0f] text-white">
-      {/* Page header always visible */}
-      <div className="max-w-screen-xl mx-auto px-4 md:px-6 pt-8 pb-4">
-        <div className="flex items-center gap-3 mb-1">
-          <h1 className="text-2xl font-bold text-white">🔬 Pump Autopsy Lab</h1>
-          <span className="text-xs bg-yellow-900/50 text-yellow-400 border border-yellow-800/40 rounded-full px-2 py-0.5 font-medium">BETA</span>
-        </div>
-        <p className="text-gray-500 text-sm max-w-2xl">
-          Backtesting which signals fire before price pumps. Tracks subnets that have pumped strongly on the 7D timeframe and audits what indicators preceded the move — to sharpen the AlphaGap algo.
-        </p>
-        <div className="flex items-center gap-2 mt-3 text-xs text-gray-600">
-          <Link href="/dashboard" className="hover:text-gray-400 transition-colors">Dashboard</Link>
-          <span>/</span>
-          <span className="text-gray-400">Pump Autopsy</span>
-        </div>
-      </div>
-      <BlurGate tier={tier} required="premium" minHeight="500px">
-      <div className="max-w-screen-xl mx-auto px-4 md:px-6 pb-8 space-y-8">
 
-        {/* Auto-added pumpers banner */}
-        {autoDetected.length > 0 && (
-          <div className="bg-green-950/20 border border-green-800/30 rounded-xl p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <span className="text-green-400 font-semibold text-sm">🚀 Auto-added {autoDetected.length} new pumper{autoDetected.length > 1 ? "s" : ""}</span>
-              <span className="text-xs text-gray-500">Detected &gt;30% 7D gain — added automatically for study</span>
-            </div>
-            <div className="flex flex-wrap gap-3">
-              {autoDetected.map((p) => (
-                <div key={p.netuid ?? p.name} className="flex items-center gap-2 bg-green-950/30 border border-green-800/20 rounded-lg px-3 py-2">
-                  <span className="text-white font-medium text-sm">{p.name}</span>
-                  {p.netuid != null && <span className="text-xs text-gray-500">SN{p.netuid}</span>}
-                  {p.pump_pct != null && <span className="text-green-400 font-bold text-sm">+{p.pump_pct.toFixed(0)}%</span>}
-                  <span className="text-xs text-green-600">✓ added</span>
-                </div>
-              ))}
-            </div>
+      {/* Page hero header */}
+      <div className="relative overflow-hidden border-b border-gray-800/50">
+        {/* Subtle grid pattern */}
+        <div
+          className="absolute inset-0 opacity-[0.03]"
+          style={{
+            backgroundImage: "linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)",
+            backgroundSize: "40px 40px",
+          }}
+        />
+        {/* Violet glow orb */}
+        <div className="absolute -top-20 left-1/3 w-96 h-96 bg-violet-600/10 rounded-full blur-3xl pointer-events-none" />
+
+        <div className="relative max-w-screen-xl mx-auto px-4 md:px-6 pt-10 pb-7">
+          <div className="flex items-center gap-3 mb-2">
+            <h1 className="text-3xl font-bold bg-gradient-to-r from-violet-400 via-indigo-300 to-white bg-clip-text text-transparent">
+              🔬 Pump Autopsy Lab
+            </h1>
+            <span className="text-xs bg-yellow-900/50 text-yellow-400 border border-yellow-800/40 rounded-full px-2 py-0.5 font-medium">BETA</span>
           </div>
-        )}
+          <p className="text-gray-400 text-sm max-w-2xl mb-5">
+            Backtesting which signals fire before price pumps. Tracks subnets that have pumped strongly on the 7D timeframe and audits what indicators preceded the move — to sharpen the AlphaGap algo.
+          </p>
 
-        {/* Summary stats bar */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {[
-            { label: "Tracked Pumpers", val: autopsies.length },
-            { label: "Strong Signals Found", val: autopsies.reduce((n, a) => n + a.findings.filter((f) => f.fired && f.strength === "strong").length, 0) },
-            {
-              label: "Avg Peak 7D Pump",
-              val: autopsies.filter((a) => a.pumpEvent).length > 0
-                ? `+${(autopsies.filter((a) => a.pumpEvent).reduce((s, a) => s + (a.pumpEvent?.gain ?? 0), 0) / autopsies.filter((a) => a.pumpEvent).length).toFixed(0)}%`
-                : "—",
-            },
-            { label: "Loading", val: loading ? autopsies.filter((a) => a.loading).length + " remaining" : "Done ✓" },
-          ].map(({ label, val }) => (
-            <div key={label} className="bg-gray-900/60 border border-gray-800 rounded-xl px-4 py-3">
-              <div className="text-xl font-bold text-white">{val}</div>
-              <div className="text-xs text-gray-500 mt-0.5">{label}</div>
-            </div>
-          ))}
-        </div>
+          {/* Summary stats as horizontal chips */}
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs bg-gray-800/60 border border-gray-700/40 rounded-full px-3 py-1.5 text-gray-300">
+              <span className="font-bold text-white">{totalCases}</span> cases
+            </span>
+            <span className="text-gray-700">·</span>
+            <span className="text-xs bg-green-900/30 border border-green-800/30 rounded-full px-3 py-1.5 text-gray-300">
+              <span className="font-bold text-green-400">{totalStrong}</span> strong signals
+            </span>
+            {avgPump && (
+              <>
+                <span className="text-gray-700">·</span>
+                <span className="text-xs bg-gray-800/60 border border-gray-700/40 rounded-full px-3 py-1.5 text-gray-300">
+                  avg <span className="font-bold text-green-400">+{avgPump}%</span> pump
+                </span>
+              </>
+            )}
+            {loading && (
+              <>
+                <span className="text-gray-700">·</span>
+                <span className="text-xs bg-gray-800/60 border border-gray-700/40 rounded-full px-3 py-1.5 text-gray-500 animate-pulse">
+                  Loading {autopsies.filter((a) => a.loading).length} remaining…
+                </span>
+              </>
+            )}
+          </div>
 
-        {/* Autopsy cards — only show cases where ≥1 signal fired */}
-        <div className="space-y-4">
-          {autopsies
-            .filter((a) => a.loading || a.findings.filter((f) => f.fired).length > 0)
-            .map((a) => (
-            <AutopsyCard
-              key={a.pumper.name}
-              autopsy={a}
-              onRemove={() => handleRemove(a.pumper.name)}
-            />
-          ))}
-          {autopsies.length === 0 && !loading && (
-            <div className="text-center py-12 text-gray-600">No pumpers tracked yet.</div>
-          )}
+          <div className="flex items-center gap-2 mt-4 text-xs text-gray-600">
+            <Link href="/dashboard" className="hover:text-gray-400 transition-colors">Dashboard</Link>
+            <span>/</span>
+            <span className="text-gray-500">Pump Autopsy</span>
+          </div>
         </div>
       </div>
+
+      <BlurGate tier={tier} required="premium" minHeight="500px">
+        <div className="max-w-screen-xl mx-auto px-4 md:px-6 py-8 space-y-6">
+
+          {/* Auto-added pumpers banner */}
+          {autoDetected.length > 0 && (
+            <div className="bg-green-950/20 border border-green-800/30 rounded-2xl p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-green-400 font-semibold text-sm">🚀 Auto-added {autoDetected.length} new pumper{autoDetected.length > 1 ? "s" : ""}</span>
+                <span className="text-xs text-gray-500">Detected &gt;30% 7D gain — added automatically for study</span>
+              </div>
+              <div className="flex flex-wrap gap-3">
+                {autoDetected.map((p) => (
+                  <div key={p.netuid ?? p.name} className="flex items-center gap-2 bg-green-950/30 border border-green-800/20 rounded-xl px-3 py-2">
+                    <span className="text-white font-medium text-sm">{p.name}</span>
+                    {p.netuid != null && <span className="text-xs text-gray-500">SN{p.netuid}</span>}
+                    {p.pump_pct != null && <span className="text-green-400 font-bold text-sm">+{p.pump_pct.toFixed(0)}%</span>}
+                    <span className="text-xs text-green-600">✓ added</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Autopsy cards — sorted by signal count DESC */}
+          <div className="space-y-4">
+            {sortedAutopsies.map((a) => (
+              <AutopsyCard
+                key={a.pumper.name}
+                autopsy={a}
+                onRemove={() => handleRemove(a.pumper.name)}
+              />
+            ))}
+            {autopsies.length === 0 && !loading && (
+              <div className="text-center py-12 text-gray-600">No pumpers tracked yet.</div>
+            )}
+          </div>
+        </div>
       </BlurGate>
     </div>
   );
