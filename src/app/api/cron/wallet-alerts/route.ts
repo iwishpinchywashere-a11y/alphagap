@@ -14,6 +14,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { list as blobList, get as blobGet, put as blobPut } from "@vercel/blob";
 import { enqueueAlert } from "@/lib/telegram-alerts";
 import type { TelegramConnection } from "@/lib/telegram-alerts";
+import { getSubnetIdentities } from "@/lib/taostats";
 import crypto from "crypto";
 
 export const dynamic     = "force-dynamic";
@@ -127,6 +128,15 @@ export async function GET(req: NextRequest) {
   // Look back 10 minutes (covers 5-min cron + buffer for TaoStats indexing lag)
   const since = Math.floor((Date.now() - 10 * 60 * 1000) / 1000);
 
+  // Build netuid → subnet name map (best-effort; falls back to "SNxx")
+  const subnetNames = new Map<number, string>();
+  try {
+    const identities = await getSubnetIdentities();
+    for (const id of identities) {
+      if (id.netuid != null && id.subnet_name) subnetNames.set(id.netuid, id.subnet_name);
+    }
+  } catch { /* non-fatal — alerts still send without names */ }
+
   // ── Pass 1: collect all telegram users + their tracked wallets ──
   interface UserEntry {
     hash:          string;
@@ -211,7 +221,8 @@ export async function GET(req: NextRequest) {
         const isBuy     = ev.action === "DELEGATE";
         const action    = isBuy ? "🟢 STAKED" : "🔴 UNSTAKED";
         const emoji     = isBuy ? "📈" : "📉";
-        const subnetLabel = `SN${ev.netuid}`;
+        const snName    = ev.netuid != null ? subnetNames.get(ev.netuid) : undefined;
+        const subnetLabel = snName ? `SN${ev.netuid} - ${snName}` : `SN${ev.netuid}`;
 
         const message = [
           `🐋 *Tracked Wallet Alert*`,
