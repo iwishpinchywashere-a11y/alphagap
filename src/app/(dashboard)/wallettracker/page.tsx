@@ -1132,7 +1132,7 @@ export default function WalletTrackerPage() {
           {[
             { label: "Qualified wallets", value: wallets.length.toString() },
             { label: "Avg alpha tokens",  value: wallets.length > 0 ? (wallets.reduce((s, w) => s + w.alpha_count, 0) / wallets.length).toFixed(1) : "—" },
-            { label: "You tracking",      value: trackedCount.toString() },
+            { label: "You are tracking",   value: trackedCount.toString() },
           ].map(({ label, value }) => (
             <div key={label} className="bg-gray-900/60 border border-gray-800 rounded-xl p-2 sm:p-3 text-center">
               <div className="text-xl font-bold text-white tabular-nums">{value}</div>
