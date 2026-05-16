@@ -376,15 +376,15 @@ export default function PerformancePage() {
                           {new Date(pos.buyDate + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                         </td>
                         <td className="text-right px-3 py-3 text-gray-300 font-mono text-xs">
-                          ${pos.buyPriceUsd < 0.01 ? pos.buyPriceUsd.toFixed(5) : pos.buyPriceUsd.toFixed(4)}
+                          ${pos.buyPriceUsd.toFixed(2)}
                         </td>
                         <td className="text-right px-3 py-3 font-mono text-xs">
                           <span className={pos.currentPrice >= pos.buyPriceUsd ? "text-green-400" : "text-red-400"}>
-                            ${pos.currentPrice < 0.01 ? pos.currentPrice.toFixed(5) : pos.currentPrice.toFixed(4)}
+                            ${pos.currentPrice.toFixed(2)}
                           </span>
                         </td>
                         <td className="text-right px-3 py-3 font-mono text-xs text-green-400">
-                          {pos.peakPrice != null ? `$${pos.peakPrice < 0.01 ? pos.peakPrice.toFixed(5) : pos.peakPrice.toFixed(4)}` : "—"}
+                          {pos.peakPrice != null ? `$${pos.peakPrice.toFixed(2)}` : "—"}
                         </td>
                         <td className="text-right px-3 py-3 font-semibold">${(pos.currentValue * PM).toFixed(2)}</td>
                         <td className="text-right px-3 py-3 font-mono text-xs">
