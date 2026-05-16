@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import SubnetLogo from "@/components/dashboard/SubnetLogo";
@@ -884,23 +884,6 @@ function TabBar({
   trackedCount: number;
 }) {
   const [openInfo, setOpenInfo] = useState<TabKey | null>(null);
-  const barRef = useRef<HTMLDivElement>(null);
-
-  // Close on outside click/tap
-  useEffect(() => {
-    if (!openInfo) return;
-    function handle(e: MouseEvent | TouchEvent) {
-      if (barRef.current && !barRef.current.contains(e.target as Node)) {
-        setOpenInfo(null);
-      }
-    }
-    document.addEventListener("mousedown", handle);
-    document.addEventListener("touchstart", handle);
-    return () => {
-      document.removeEventListener("mousedown", handle);
-      document.removeEventListener("touchstart", handle);
-    };
-  }, [openInfo]);
 
   const allTabs = [
     ...TAB_CONFIG,
@@ -913,55 +896,62 @@ function TabBar({
     },
   ];
 
+  const openTab = allTabs.find(t => t.key === openInfo);
+
   return (
-    <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0 flex-1" ref={barRef}>
-      <div className="flex gap-1 w-max">
-        {allTabs.map(t => {
-          const isOpen = openInfo === t.key;
-          return (
-            <div key={t.key} className="relative flex-shrink-0">
-              {/* Tab button */}
-              <button
-                onClick={() => { changeTab(t.key); setOpenInfo(null); }}
-                className={`whitespace-nowrap flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold border transition-all duration-150 ${
-                  tab === t.key
-                    ? t.activeClass
-                    : "border-transparent text-gray-500 hover:text-gray-300 hover:bg-white/[0.04]"
-                }`}
-              >
-                {t.label}
-              </button>
-
-              {/* Info toggle button */}
-              <button
-                onClick={e => {
-                  e.stopPropagation();
-                  setOpenInfo(isOpen ? null : t.key);
-                }}
-                aria-label={`Info about ${t.label}`}
-                className={`absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold transition-all duration-150 z-10 ${
-                  isOpen
-                    ? "bg-violet-500 text-white"
-                    : "bg-gray-800 text-gray-500 hover:bg-gray-700 hover:text-gray-300"
-                }`}
-              >
-                i
-              </button>
-
-              {/* Popover */}
-              {isOpen && (
-                <div className="absolute bottom-full left-0 mb-2.5 w-56 z-50">
-                  <div className="bg-gray-900 border border-gray-700/70 rounded-xl px-3.5 py-3 text-[12px] text-gray-300 leading-relaxed shadow-2xl">
-                    <div className="font-semibold text-white mb-1 text-[11px]">{t.label}</div>
-                    {t.info}
-                  </div>
-                  <div className="w-2 h-2 bg-gray-900 border-r border-b border-gray-700/70 rotate-45 ml-4 -mt-1" />
-                </div>
-              )}
-            </div>
-          );
-        })}
+    <div className="flex-1 space-y-2">
+      {/* Scrollable tab row */}
+      <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+        <div className="flex gap-1 w-max">
+          {allTabs.map(t => {
+            const isOpen = openInfo === t.key;
+            return (
+              <div key={t.key} className="flex items-center flex-shrink-0">
+                {/* Tab button */}
+                <button
+                  onClick={() => { changeTab(t.key); setOpenInfo(null); }}
+                  className={`whitespace-nowrap px-3.5 py-2 rounded-l-lg text-xs font-semibold border-y border-l transition-all duration-150 ${
+                    tab === t.key
+                      ? t.activeClass
+                      : "border-transparent text-gray-500 hover:text-gray-300 hover:bg-white/[0.04]"
+                  }`}
+                >
+                  {t.label}
+                </button>
+                {/* Info button — inline, never clipped */}
+                <button
+                  onClick={() => setOpenInfo(isOpen ? null : t.key)}
+                  aria-label={`About ${t.label}`}
+                  className={`flex items-center justify-center w-6 h-[34px] rounded-r-lg border-y border-r text-[10px] font-bold transition-all duration-150 ${
+                    isOpen
+                      ? "bg-violet-500/30 text-violet-300 border-violet-500/40"
+                      : tab === t.key
+                      ? t.activeClass + " opacity-60 hover:opacity-100"
+                      : "border-transparent text-gray-700 hover:text-gray-400 hover:bg-white/[0.04]"
+                  }`}
+                >
+                  i
+                </button>
+              </div>
+            );
+          })}
+        </div>
       </div>
+
+      {/* Info strip — rendered outside the overflow container, never clipped */}
+      {openTab && (
+        <div className="flex items-start gap-3 px-3.5 py-2.5 bg-gray-900/80 border border-gray-700/50 rounded-xl text-xs text-gray-300 leading-relaxed">
+          <span className="font-semibold text-white whitespace-nowrap">{openTab.label}</span>
+          <span className="text-gray-500">—</span>
+          <span className="flex-1">{openTab.info}</span>
+          <button
+            onClick={() => setOpenInfo(null)}
+            className="flex-shrink-0 text-gray-600 hover:text-gray-400 text-sm leading-none mt-px"
+          >
+            ✕
+          </button>
+        </div>
+      )}
     </div>
   );
 }
