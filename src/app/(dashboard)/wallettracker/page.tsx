@@ -1150,24 +1150,34 @@ export default function WalletTrackerPage() {
         <div className="overflow-x-auto pb-0.5 -mx-4 px-4 sm:mx-0 sm:px-0">
           <div className="flex gap-1 bg-gray-900/60 border border-gray-800 rounded-lg p-1 w-max">
             {([
-              { key: "top",     label: "🎯 Top Wallets" },
-              { key: "winners", label: "🚀 Big Winners" },
-              { key: "sr",      label: "🐋 Active Movers" },
-              { key: "ts",      label: "📊 Big Deployers" },
-              { key: "known",   label: "👑 Known" },
-              { key: "tracked", label: `🔔 Tracked${trackedCount > 0 ? ` (${trackedCount})` : ""}` },
-            ] as { key: TabKey; label: string }[]).map(t => (
-              <button key={t.key} onClick={() => changeTab(t.key)}
-                className={`flex-shrink-0 whitespace-nowrap px-3 py-1.5 rounded text-xs font-medium transition-colors ${
-                  tab === t.key
-                    ? t.key === "winners" ? "bg-green-500/20 text-green-300"
-                    : t.key === "top"     ? "bg-indigo-500/20 text-indigo-300"
-                    : t.key === "sr"      ? "bg-cyan-500/20 text-cyan-300"
-                    : t.key === "ts"      ? "bg-violet-500/20 text-violet-300"
-                    : "bg-gray-700 text-white"
-                    : "text-gray-500 hover:text-gray-300"
-                }`}
-              >{t.label}</button>
+              { key: "top",     label: "🎯 Top Wallets",   info: "Biggest alpha portfolio holders right now — wallets with the most TAO staked across 2+ subnets." },
+              { key: "winners", label: "🚀 Big Winners",   info: "Who made the most TAO in the last 24h. Useful for spotting wallets riding current momentum." },
+              { key: "sr",      label: "🐋 Active Movers", info: "Wallets actively staking or unstaking right now. Great for seeing what's being bought or sold in real time." },
+              { key: "ts",      label: "📊 Big Deployers", info: "Wallets that deployed the most capital into alpha subnets over the last 30 days — the biggest committed buyers." },
+              { key: "known",   label: "👑 Known",         info: "Labelled wallets belonging to known founders, teams, or notable figures in the Bittensor ecosystem." },
+              { key: "tracked", label: `🔔 Tracked${trackedCount > 0 ? ` (${trackedCount})` : ""}`, info: "Wallets you're personally tracking. Click the 🔔 bell on any wallet to add it here." },
+            ] as { key: TabKey; label: string; info: string }[]).map(t => (
+              <div key={t.key} className="relative flex-shrink-0 group/tab">
+                <button onClick={() => changeTab(t.key)}
+                  className={`whitespace-nowrap px-3 py-1.5 rounded text-xs font-medium transition-colors ${
+                    tab === t.key
+                      ? t.key === "winners" ? "bg-green-500/20 text-green-300"
+                      : t.key === "top"     ? "bg-indigo-500/20 text-indigo-300"
+                      : t.key === "sr"      ? "bg-cyan-500/20 text-cyan-300"
+                      : t.key === "ts"      ? "bg-violet-500/20 text-violet-300"
+                      : "bg-gray-700 text-white"
+                      : "text-gray-500 hover:text-gray-300"
+                  }`}
+                >{t.label}</button>
+                {/* Info tooltip */}
+                <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-52 z-50
+                                opacity-0 group-hover/tab:opacity-100 transition-opacity duration-150">
+                  <div className="bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-[11px] text-gray-300 leading-snug shadow-xl">
+                    {t.info}
+                  </div>
+                  <div className="w-2 h-2 bg-gray-900 border-r border-b border-gray-700 rotate-45 mx-auto -mt-1" />
+                </div>
+              </div>
             ))}
           </div>
         </div>

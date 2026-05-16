@@ -644,7 +644,11 @@ export default function SubnetDetailPage({ params }: { params: Promise<{ netuid:
         return;
       }
       const d = await r.json();
-      if (Array.isArray(d?.netuids)) setWatchlist(new Set(d.netuids.map(Number)));
+      if (Array.isArray(d?.netuids)) {
+        setWatchlist(new Set(d.netuids.map(Number)));
+        // Notify the dashboard WatchlistProvider so it updates instantly on back-nav
+        window.dispatchEvent(new CustomEvent("watchlist-saved", { detail: d.netuids }));
+      }
     } catch {
       // Revert on network error
       setWatchlist(prev => { const next = new Set(prev); watching ? next.add(id) : next.delete(id); return next; });
