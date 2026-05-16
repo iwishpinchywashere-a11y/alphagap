@@ -1516,7 +1516,9 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     const social = socialMap.get(netuid);
 
     const name = identity?.subnet_name || pool?.name || `Subnet ${netuid}`;
+    // Skip empty, unknown, or explicitly deprecated subnets
     if (name === "Unknown" || name === "") continue;
+    if (/^deprecated$/i.test(name)) continue;
 
     const priceChange = pool?.price_change_1_day ? parseFloat(pool.price_change_1_day) : 0;
     const priceChange1h = pool?.price_change_1_hour ? parseFloat(pool.price_change_1_hour) : 0;
