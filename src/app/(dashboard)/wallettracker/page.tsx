@@ -1162,13 +1162,14 @@ export default function WalletTrackerPage() {
                 <div key={t.key} className="relative flex-shrink-0 group/tab">
                   <button
                     onClick={() => changeTab(t.key)}
-                    className={`whitespace-nowrap px-3.5 py-2 rounded-lg text-xs font-semibold border transition-all duration-150 ${
+                    className={`whitespace-nowrap flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold border transition-all duration-150 ${
                       tab === t.key
                         ? t.activeClass
                         : "border-transparent text-gray-500 hover:text-gray-300 hover:bg-white/[0.04]"
                     }`}
                   >
                     {t.label}
+                    <span className="text-[9px] opacity-30 group-hover/tab:opacity-70 transition-opacity font-normal leading-none">ⓘ</span>
                   </button>
                   {/* Tooltip */}
                   <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 z-50 opacity-0 group-hover/tab:opacity-100 transition-opacity duration-150">
