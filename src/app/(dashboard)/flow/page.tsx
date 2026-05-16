@@ -414,7 +414,7 @@ export default function FlowPage() {
   [leaderboard]);
 
   const FILTERS: { key: FilterType; label: string; count?: number }[] = [
-    { key: "all",          label: "All Signals",     count: events.length },
+    { key: "all",          label: "All Signals" },
     { key: "accumulating", label: "🐋 Buying",       count: leaderboard.filter(s => s.whale_signal === "accumulating").length },
     { key: "distributing", label: "🔻 Selling",      count: leaderboard.filter(s => s.whale_signal === "distributing").length },
     { key: "volume",       label: "🤑 Vol Surge",    count: leaderboard.filter(s => s.volume_surge).length },
