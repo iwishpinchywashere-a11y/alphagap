@@ -192,15 +192,19 @@ export function detectFlowInflections(): Signal[] {
 // 80-90=major launch/release, 95=once-in-a-while breakthrough.
 export function scoreDevQuality(events: Array<{ title: string; event_type: string }>): number {
   // Event type base: releases >> PRs >> pushes
+  // Bittensor repos ship heavily via pushes — don't penalise push-heavy workflows
   const hasRelease = events.some(e => e.event_type === "ReleaseEvent");
-  const prCount = events.filter(e => e.event_type === "PullRequestEvent").length;
-  const pushCount = events.filter(e => e.event_type === "PushEvent").length;
+  const prCount    = events.filter(e => e.event_type === "PullRequestEvent").length;
+  const pushCount  = events.filter(e => e.event_type === "PushEvent").length;
 
   let typePts = 0;
-  if (hasRelease) typePts = 35;       // Actual versioned release = huge signal
-  else if (prCount >= 3) typePts = 20; // Multiple PRs merged = real feature work
-  else if (prCount >= 1) typePts = 14;
-  else typePts = 6;                    // Push-only = smaller signal
+  if (hasRelease)       typePts = 40;  // Versioned release = biggest signal
+  else if (prCount >= 3) typePts = 28; // Multiple PRs = real feature work
+  else if (prCount >= 1) typePts = 20;
+  else if (pushCount >= 10) typePts = 22; // Sustained push burst = serious dev sprint
+  else if (pushCount >= 5)  typePts = 16;
+  else if (pushCount >= 2)  typePts = 12;
+  else                      typePts = 8;  // Any push is still a signal
 
   // Keyword quality tiers
   const allText = events.map(e => e.title.toLowerCase()).join(" ");
@@ -209,17 +213,18 @@ export function scoreDevQuality(events: Array<{ title: string; event_type: strin
     "major release", "ship", "shipped", "breakthrough", "milestone", "new product", "goes live"];
   const tier2 = ["new feature", "add ", "implement", "new model", "new endpoint", "new api",
     "deploy", "release", "improve", "upgrade", "support ", "enable ", "performance", "speed",
-    "accuracy", "new miner", "new validator"];
+    "accuracy", "new miner", "new validator", "integrate", "training", "inference", "pipeline"];
   const tier3 = ["fix ", "update", "refactor", "optimize", "patch", "cleanup", "enhancement"];
-  const penalty = ["chore", "ci:", "test:", "bump version", "update deps", "typo",
-    "lint", "format ", "readme", "bump ", "dependabot", "minor fix", "housekeeping"];
+  const penalty = ["chore", "ci:", "bump version", "update deps", "typo",
+    "lint", "format ", "readme", "bump ", "dependabot", "housekeeping"];
 
   const t1hits = tier1.filter(k => allText.includes(k)).length;
   const t2hits = tier2.filter(k => allText.includes(k)).length;
   const t3hits = tier3.filter(k => allText.includes(k)).length;
   const phits  = penalty.filter(k => allText.includes(k)).length;
 
-  const keywordPts = Math.min(50, t1hits * 20 + t2hits * 8 + t3hits * 3) - Math.min(20, phits * 7);
+  // More generous keyword scoring — tier2 work ("implement", "add") is real dev signal
+  const keywordPts = Math.min(55, t1hits * 22 + t2hits * 10 + t3hits * 5) - Math.min(15, phits * 5);
 
   const raw = typePts + keywordPts;
   return Math.min(95, Math.max(20, Math.round(raw)));
@@ -241,7 +246,7 @@ export function detectDevSpikes(): Signal[] {
        WHERE created_at > datetime('now', '-24 hours')
        AND event_type IN ('PushEvent', 'PullRequestEvent', 'ReleaseEvent')
        GROUP BY repo
-       HAVING recent_events > 3`
+       HAVING recent_events > 1`
     )
     .all() as Array<{
     repo: string;
@@ -252,7 +257,7 @@ export function detectDevSpikes(): Signal[] {
 
   for (const row of rows) {
     const dailyAvg = row.week_events / 7;
-    if (row.recent_events > dailyAvg * 2 || row.recent_events > 10) {
+    if (row.recent_events > dailyAvg * 1.5 || row.recent_events >= 5) {
       // Fetch the actual event titles to score content quality
       const events = db.prepare(
         `SELECT title, event_type FROM github_events
