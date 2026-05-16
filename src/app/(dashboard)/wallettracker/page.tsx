@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import SubnetLogo from "@/components/dashboard/SubnetLogo";
@@ -875,6 +875,97 @@ const TAB_CONFIG = [
   },
 ];
 
+// ── Tab Bar (tap-to-toggle info, works on mobile + desktop) ───────
+function TabBar({
+  tab, changeTab, trackedCount,
+}: {
+  tab: TabKey;
+  changeTab: (t: TabKey) => void;
+  trackedCount: number;
+}) {
+  const [openInfo, setOpenInfo] = useState<TabKey | null>(null);
+  const barRef = useRef<HTMLDivElement>(null);
+
+  // Close on outside click/tap
+  useEffect(() => {
+    if (!openInfo) return;
+    function handle(e: MouseEvent | TouchEvent) {
+      if (barRef.current && !barRef.current.contains(e.target as Node)) {
+        setOpenInfo(null);
+      }
+    }
+    document.addEventListener("mousedown", handle);
+    document.addEventListener("touchstart", handle);
+    return () => {
+      document.removeEventListener("mousedown", handle);
+      document.removeEventListener("touchstart", handle);
+    };
+  }, [openInfo]);
+
+  const allTabs = [
+    ...TAB_CONFIG,
+    {
+      key: "tracked" as TabKey,
+      label: `🔔 Tracked${trackedCount > 0 ? ` (${trackedCount})` : ""}`,
+      info: "Wallets you're personally tracking. Tap the 🔔 bell on any wallet to add it here.",
+      accent: "blue",
+      activeClass: "bg-blue-500/15 text-blue-300 border-blue-500/30",
+    },
+  ];
+
+  return (
+    <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0 flex-1" ref={barRef}>
+      <div className="flex gap-1 w-max">
+        {allTabs.map(t => {
+          const isOpen = openInfo === t.key;
+          return (
+            <div key={t.key} className="relative flex-shrink-0">
+              {/* Tab button */}
+              <button
+                onClick={() => { changeTab(t.key); setOpenInfo(null); }}
+                className={`whitespace-nowrap flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold border transition-all duration-150 ${
+                  tab === t.key
+                    ? t.activeClass
+                    : "border-transparent text-gray-500 hover:text-gray-300 hover:bg-white/[0.04]"
+                }`}
+              >
+                {t.label}
+              </button>
+
+              {/* Info toggle button */}
+              <button
+                onClick={e => {
+                  e.stopPropagation();
+                  setOpenInfo(isOpen ? null : t.key);
+                }}
+                aria-label={`Info about ${t.label}`}
+                className={`absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold transition-all duration-150 z-10 ${
+                  isOpen
+                    ? "bg-violet-500 text-white"
+                    : "bg-gray-800 text-gray-500 hover:bg-gray-700 hover:text-gray-300"
+                }`}
+              >
+                i
+              </button>
+
+              {/* Popover */}
+              {isOpen && (
+                <div className="absolute bottom-full left-0 mb-2.5 w-56 z-50">
+                  <div className="bg-gray-900 border border-gray-700/70 rounded-xl px-3.5 py-3 text-[12px] text-gray-300 leading-relaxed shadow-2xl">
+                    <div className="font-semibold text-white mb-1 text-[11px]">{t.label}</div>
+                    {t.info}
+                  </div>
+                  <div className="w-2 h-2 bg-gray-900 border-r border-b border-gray-700/70 rotate-45 ml-4 -mt-1" />
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ── Main Page ─────────────────────────────────────────────────────
 export default function WalletTrackerPage() {
   const { data: session } = useSession();
@@ -1147,41 +1238,11 @@ export default function WalletTrackerPage() {
         {/* Tab bar + search */}
         <div className="flex flex-col sm:flex-row sm:items-center gap-2">
           {/* Tabs */}
-          <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0 flex-1">
-            <div className="flex gap-1 w-max">
-              {([
-                ...TAB_CONFIG,
-                {
-                  key: "tracked" as TabKey,
-                  label: `🔔 Tracked${trackedCount > 0 ? ` (${trackedCount})` : ""}`,
-                  info: "Wallets you're personally tracking. Click the 🔔 bell on any wallet to add it here.",
-                  accent: "blue",
-                  activeClass: "bg-blue-500/15 text-blue-300 border-blue-500/30",
-                },
-              ]).map(t => (
-                <div key={t.key} className="relative flex-shrink-0 group/tab">
-                  <button
-                    onClick={() => changeTab(t.key)}
-                    className={`whitespace-nowrap flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold border transition-all duration-150 ${
-                      tab === t.key
-                        ? t.activeClass
-                        : "border-transparent text-gray-500 hover:text-gray-300 hover:bg-white/[0.04]"
-                    }`}
-                  >
-                    {t.label}
-                    <span className="text-[9px] opacity-30 group-hover/tab:opacity-70 transition-opacity font-normal leading-none">ⓘ</span>
-                  </button>
-                  {/* Tooltip */}
-                  <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 z-50 opacity-0 group-hover/tab:opacity-100 transition-opacity duration-150">
-                    <div className="bg-gray-900 border border-gray-700/60 rounded-xl px-3.5 py-2.5 text-[11px] text-gray-300 leading-snug shadow-2xl backdrop-blur-sm">
-                      {t.info}
-                    </div>
-                    <div className="w-2 h-2 bg-gray-900 border-r border-b border-gray-700/60 rotate-45 mx-auto -mt-1" />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+          <TabBar
+            tab={tab}
+            changeTab={changeTab}
+            trackedCount={trackedCount}
+          />
 
           {/* Search */}
           <div className="relative flex-shrink-0">
