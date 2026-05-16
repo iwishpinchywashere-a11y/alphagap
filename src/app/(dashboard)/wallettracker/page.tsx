@@ -252,7 +252,7 @@ function AlertSettingsPanel({ trackedWallets }: { trackedWallets: string[] }) {
               ? "bg-blue-500/20 border border-blue-500/30"
               : "bg-gray-800/60 border border-gray-700/50"
           }`}>
-            <span className="text-sm">✈️</span>
+            <span className="text-sm">🚨</span>
           </div>
           <div>
             <div className="text-sm font-semibold text-white">Telegram Wallet Alerts</div>
@@ -293,7 +293,7 @@ function AlertSettingsPanel({ trackedWallets }: { trackedWallets: string[] }) {
                     disabled={connecting}
                     className="flex items-center gap-2 px-4 py-2.5 bg-blue-500/15 hover:bg-blue-500/25 text-blue-400 border border-blue-500/30 rounded-xl text-sm font-medium transition-colors disabled:opacity-50"
                   >
-                    {connecting ? <span className="w-3.5 h-3.5 border-2 border-blue-400/30 border-t-blue-400 rounded-full animate-spin" /> : "✈️"}
+                    {connecting ? <span className="w-3.5 h-3.5 border-2 border-blue-400/30 border-t-blue-400 rounded-full animate-spin" /> : "🚨"}
                     Connect Telegram
                   </button>
                 </>
