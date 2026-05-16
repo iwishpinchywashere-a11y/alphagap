@@ -3396,7 +3396,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
       loc_30d: githubScanMap.get(d.netuid)?.loc_30d,
       const_buy_tao: constBuyMap.get(d.netuid) ?? undefined,
       const_sell_tao: constSellMap.get(d.netuid) ?? undefined,
-      regs_burned_24h: d.regsBurned24h > 0 ? d.regsBurned24h : undefined,
+      regs_burned_24h: d.regsBurned24h > 0 ? d.regsBurned24h / 1e9 : undefined, // convert RAO → TAO
     });
   }
 
