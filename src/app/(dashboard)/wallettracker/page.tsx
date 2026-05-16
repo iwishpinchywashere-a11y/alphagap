@@ -1099,7 +1099,7 @@ export default function WalletTrackerPage() {
                 </span>
               </h1>
               <p className="text-sm text-gray-500 mt-1.5 max-w-lg">
-                Top TAO wallets actively holding alpha tokens across 2+ subnets — updated every 45 min.
+                Top TAO wallets actively holding multiple alpha tokens.
               </p>
             </div>
 
