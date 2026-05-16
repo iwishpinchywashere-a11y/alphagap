@@ -1141,6 +1141,18 @@ export default function TestingPage() {
           const findings = buildFindings(pumpEvent, detail.scoreHistory, detail.signals, stub.current);
           const narrative = buildNarrative(stub.pumper.name, pumpEvent, findings, detail.scoreHistory, stub.current);
 
+          // Auto-purge: if 0 signals fired, remove from blob and skip showing this case
+          const firedCount = findings.filter((f) => f.fired).length;
+          if (firedCount === 0) {
+            fetch("/api/testing", {
+              method: "DELETE",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ name: stub.pumper.name }),
+            }).catch(() => {});
+            setAutopsies((prev) => prev.filter((_, idx) => idx !== i));
+            continue;
+          }
+
           // Only show research loading spinner if we have a pump date to research
           const researchPumpDate = pumpEvent?.startDate ?? null;
 
@@ -1302,9 +1314,11 @@ export default function TestingPage() {
           ))}
         </div>
 
-        {/* Autopsy cards */}
+        {/* Autopsy cards — only show cases where ≥1 signal fired */}
         <div className="space-y-4">
-          {autopsies.map((a) => (
+          {autopsies
+            .filter((a) => a.loading || a.findings.filter((f) => f.fired).length > 0)
+            .map((a) => (
             <AutopsyCard
               key={a.pumper.name}
               autopsy={a}
