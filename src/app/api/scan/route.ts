@@ -1140,7 +1140,7 @@ export async function GET() {
 
     // Cache check — skip Claude if the commit set hasn't changed.
     // Version suffix forces re-score when the scoring prompt changes.
-    const PROMPT_VERSION = "v3"; // bump this when scoring calibration changes
+    const PROMPT_VERSION = "v4"; // bump this when scoring calibration changes
     const cacheKey = `${ctx.commits[0] ?? `release:${ctx.release?.tag ?? "none"}`}:${PROMPT_VERSION}`;
     const cached = devAnalysisCache[ctx.act.netuid];
     if (cached && cached.cacheKey === cacheKey) {
@@ -1200,16 +1200,14 @@ HEADLINE: [10 words max. Plain English — what they actually shipped. Concrete 
 [1-2 sentences. Your direct investment call. Is the market sleeping on this or not? Be opinionated and brief.]
 
 HOW TO SCORE — the score is INVESTMENT SIGNAL STRENGTH: (dev quality) × (market opportunity).
-Use the FULL range 1–100. Most real-world dev activity lands between 25–65. Scores of 70+ should be RESERVED for genuinely notable work. Scores of 80+ should be rare and stand out.
-
-‼️ CRITICAL CALIBRATION PROBLEM TO AVOID: Do NOT inflate scores. Routine commits, bug fixes, and incremental updates are NOT high-signal investment events even at small market caps. A score of 70+ means a user should seriously consider acting on this — set that bar accordingly.
+Use the FULL range 1–100. Score accurately — neither inflate noise NOR undersell real work.
 
 DEV QUALITY tiers:
 - Noise (1–20): version bumps, dep updates, CI fixes, README edits, typos, linting
 - Routine (21–40): small bug fixes, minor config changes, test additions, solo-contributor chores
-- Incremental (41–60): small features, refactors with purpose, moderate PRs, consistent team activity
-- Meaningful (61–72): real new capability, new API endpoint, protocol improvement, multi-contributor sprint with tangible output
-- Significant (73–85): major feature launch, new model shipped, protocol upgrade, public release, important fix that unblocks users — must have clear external impact
+- Incremental (41–55): small features, refactors with purpose, moderate PRs, consistent team activity
+- Meaningful (56–70): real new capability, new API endpoint, protocol improvement, multi-contributor sprint with tangible output — THIS IS WHERE MOST SOLID DEV WORK LANDS
+- Significant (71–85): major feature launch, new model shipped, protocol upgrade, public release, important fix that unblocks users
 - Extraordinary (86–100): paradigm shift, breakthrough capability, first-ever feature in category, massive release — genuinely rare
 
 MARKET OPPORTUNITY — adjust UP or DOWN based on context:
@@ -1223,16 +1221,17 @@ MARKET OPPORTUNITY — adjust UP or DOWN based on context:
 
 CALIBRATION EXAMPLES — match these precisely:
 - Bumped npm deps + CI fix at $80M mcap: 8
-- Fixed a bug, solo contributor at $5M mcap: 22
-- Added tests + refactored module, token flat at $12M: 38
-- Shipped 3 merged PRs improving performance, $8M mcap, token down 5%: 55
-- Real new API endpoint, improved accuracy, $5M mcap, token flat: 65
-- Shipped new model + 3 contributors, $10M mcap, token down 8%: 75
-- Major protocol upgrade + public launch, $8M mcap, token flat: 82
-- Released v2.0 new architecture, first public testnet launch, $20M mcap: 89
+- Fixed a bug, solo contributor at $5M mcap: 25
+- Added tests + refactored module, token flat at $12M: 40
+- Several pushes with meaningful commit messages, small team, token flat: 52
+- Shipped 3 merged PRs improving performance, $8M mcap, token down 5%: 65
+- Real new API endpoint, improved accuracy, $5M mcap, token flat: 72
+- Shipped new model + 3 contributors, $10M mcap, token down 8%: 78
+- Major protocol upgrade + public launch, $8M mcap, token flat: 85
+- Released v2.0 new architecture, first public testnet launch, $20M mcap: 91
 - First-ever real-time video model on Bittensor, $3M mcap, undiscovered: 96
 
-RULE: Scores of 70+ require clear external impact — a user could act on this TODAY. Scores of 80+ require a major public-facing milestone. Scores of 90+ are reserved for genuine breakthroughs. When in doubt, score lower — false positives erode trust far more than missed signals.
+RULE: Score the work accurately. Solid shipping by a real team on a small-cap subnet with a flat/down token IS investable and should score 60-75. Reserve 80+ for clear public-facing milestones. Reserve 90+ for genuine breakthroughs.
 
 Keep every section SHORT. Total response should be under 200 words. Complete all 5 sections. End with a complete sentence. No padding, no filler, no repeated information across sections.`;
 
