@@ -789,7 +789,6 @@ export default function AuditsPage() {
           </div>
 
         </div>
-        </div>
       </main>
     );
   }
