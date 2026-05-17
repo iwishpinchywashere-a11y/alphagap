@@ -24,7 +24,7 @@ const TMC_API_KEY  = process.env.TMC_API_KEY || "";
 const RAO_PER_TAO  = 1_000_000_000;
 const ROOT_NETUID  = 0; // subnet 0 = root/legacy — NOT an alpha token
 
-const MAIN_CACHE_KEY    = "wallet-tracker-v9.json";
+const MAIN_CACHE_KEY    = "wallet-tracker-v10.json";
 const MAIN_CACHE_TTL_MS = 60 * 60 * 1000; // 60 min (expensive to compute)
 
 const WIN_CACHE_KEY     = "wallet-tracker-winners.json";
@@ -288,23 +288,27 @@ async function filterToAlphaHolders(addresses: string[]): Promise<Set<string>> {
 
 // ── Build the main filtered wallet list ───────────────────────────
 // Strategy: seed candidates from TaoStats delegation events (confirmed alpha
-// holders) instead of scanning random TMC wallets. TaoStats delegation events
-// with netuid > 0 ARE alpha staking events, so every address is guaranteed to
-// be a real alpha investor. Enrich with TMC detail for current positions.
+// holders). Sort by timestamp_desc to get diverse recent stakers, and fetch
+// 5 pages in parallel to collect 300+ unique alpha wallet addresses.
 async function buildMainList(): Promise<WalletEntry[]> {
   const TAOSTATS_KEY = process.env.TAOSTATS_API_KEY || "";
-  const sixtyDaysAgo = Math.floor((Date.now() - 60 * 86400_000) / 1000);
+  const thirtyDaysAgo = Math.floor((Date.now() - 30 * 86400_000) / 1000);
 
   // Fetch in parallel:
-  //  1. TaoStats delegations — confirmed alpha investor addresses
-  //  2. TMC top 100 — provides rank + 24h change data for known wallets
+  //  1. TaoStats delegations pages 1-5 (timestamp_desc = most recent + diverse)
+  //  2. TMC top 100 — rank + 24h change data for known wallets
   //  3. Subnet names + TAO price
   interface TSDelegationLite { nominator: { ss58: string }; netuid: number | null; }
-  const [tsResult, tmcTop, subnetNames, taoPrice] = await Promise.all([
+  type TSResult = { data?: TSDelegationLite[] };
+
+  const tsFetch = (page: number) =>
     fetch(
-      `https://api.taostats.io/api/delegation/v1?limit=1000&order=amount_desc&timestamp_start=${sixtyDaysAgo}`,
+      `https://api.taostats.io/api/delegation/v1?limit=200&page=${page}&order=timestamp_desc&timestamp_start=${thirtyDaysAgo}`,
       { headers: { Authorization: TAOSTATS_KEY }, signal: AbortSignal.timeout(15000), next: { revalidate: 0 } }
-    ).then(r => r.ok ? r.json() as Promise<{ data?: TSDelegationLite[] }> : { data: [] }).catch(() => ({ data: [] })),
+    ).then(r => r.ok ? r.json() as Promise<TSResult> : { data: [] }).catch(() => ({ data: [] }));
+
+  const [ts1, ts2, ts3, ts4, ts5, tmcTop, subnetNames, taoPrice] = await Promise.all([
+    tsFetch(1), tsFetch(2), tsFetch(3), tsFetch(4), tsFetch(5),
     fetchTMCList("tao_staked", 100).catch(() => [] as TMCColdkey[]),
     fetchSubnetNames(),
     getTaoPrice().catch(() => 0),
@@ -312,12 +316,14 @@ async function buildMainList(): Promise<WalletEntry[]> {
 
   // Collect confirmed alpha investor addresses from TaoStats (netuid > 0 only)
   const tsAddresses = new Set<string>();
-  for (const d of (tsResult.data ?? [])) {
-    if (d.netuid != null && d.netuid > 0 && d.nominator?.ss58) {
-      tsAddresses.add(d.nominator.ss58);
+  for (const page of [ts1, ts2, ts3, ts4, ts5]) {
+    for (const d of (page.data ?? [])) {
+      if (d.netuid != null && d.netuid > 0 && d.nominator?.ss58) {
+        tsAddresses.add(d.nominator.ss58);
+      }
     }
   }
-  console.log(`[wallet-tracker] ${tsAddresses.size} alpha investors from TaoStats, ${tmcTop.length} from TMC top, TAO=$${taoPrice}`);
+  console.log(`[wallet-tracker] ${tsAddresses.size} alpha investors from TaoStats (5 pages), ${tmcTop.length} from TMC top, TAO=$${taoPrice}`);
 
   // Build TMC lookup for rank + 24h change enrichment
   const tmcMap = new Map<string, TMCColdkey>();
@@ -900,7 +906,7 @@ export async function GET(request: NextRequest) {
     // On rate-limit or transient error, serve stale cache rather than showing error
     if (cached) return NextResponse.json(cached);
     // Last-resort: try reading the previous cache version
-    const prev = await readBlob<MainCache>("wallet-tracker-v8.json");
+    const prev = await readBlob<MainCache>("wallet-tracker-v9.json");
     if (prev?.wallets?.length) return NextResponse.json(prev);
     return NextResponse.json({ error: String(e) }, { status: 500 });
   }
