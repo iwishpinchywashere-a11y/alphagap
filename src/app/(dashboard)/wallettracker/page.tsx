@@ -115,8 +115,8 @@ function AddWalletInput({ fromTab }: { fromTab: string }) {
       <div className="flex items-center gap-2">
         <div className="relative flex-1 max-w-2xl group">
           {/* glow ring on focus */}
-          <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-violet-500/20 via-indigo-500/20 to-cyan-500/20 opacity-0 group-focus-within:opacity-100 blur-sm transition-opacity duration-300 pointer-events-none" />
-          <div className="relative flex items-center bg-gray-950/80 border border-gray-700/60 rounded-xl overflow-hidden focus-within:border-violet-500/50 transition-colors">
+          <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-green-500/20 via-emerald-500/20 to-cyan-500/20 opacity-0 group-focus-within:opacity-100 blur-sm transition-opacity duration-300 pointer-events-none" />
+          <div className="relative flex items-center bg-gray-950/80 border border-gray-700/60 rounded-xl overflow-hidden focus-within:border-green-500/50 transition-colors">
             <span className="pl-3 text-gray-600 flex-shrink-0">
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -134,7 +134,7 @@ function AddWalletInput({ fromTab }: { fromTab: string }) {
             <button
               onClick={handleGo}
               disabled={!value.trim()}
-              className="flex items-center gap-1.5 px-4 py-2.5 bg-violet-500/20 hover:bg-violet-500/30 text-violet-300 border-l border-gray-700/60 text-xs font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0"
+              className="flex items-center gap-1.5 px-4 py-2.5 bg-green-500/20 hover:bg-green-500/30 text-green-300 border-l border-gray-700/60 text-xs font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0"
             >
               <span className="hidden sm:inline">View</span>
               <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -301,7 +301,7 @@ function AlertSettingsPanel({ trackedWallets }: { trackedWallets: string[] }) {
                 <div className="space-y-3">
                   <p className="text-sm text-gray-300">Open Telegram and send this to <strong className="text-white">@AlphaGapBot</strong>:</p>
                   <div className="flex items-center gap-2 bg-gray-900/80 border border-gray-700/60 rounded-xl px-4 py-3">
-                    <code className="text-sm font-mono text-violet-300 flex-1">/start {code}</code>
+                    <code className="text-sm font-mono text-green-300 flex-1">/start {code}</code>
                     <button
                       onClick={() => navigator.clipboard.writeText(`/start ${code}`).catch(() => {})}
                       className="text-[10px] text-gray-600 hover:text-gray-400 transition-colors"
@@ -331,7 +331,7 @@ function AlertSettingsPanel({ trackedWallets }: { trackedWallets: string[] }) {
                 </div>
                 <button
                   onClick={() => setEnabled(e => !e)}
-                  className={`relative w-11 h-6 rounded-full transition-colors flex-shrink-0 ${enabled ? "bg-violet-500" : "bg-gray-700"}`}
+                  className={`relative w-11 h-6 rounded-full transition-colors flex-shrink-0 ${enabled ? "bg-green-500" : "bg-gray-700"}`}
                 >
                   <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${enabled ? "translate-x-5" : ""}`} />
                 </button>
@@ -344,7 +344,7 @@ function AlertSettingsPanel({ trackedWallets }: { trackedWallets: string[] }) {
                     <input
                       type="number" min={0} step={100} value={minUsd}
                       onChange={e => setMinUsd(Math.max(0, parseInt(e.target.value) || 0))}
-                      className="w-32 bg-gray-900/80 border border-gray-700/60 rounded-lg px-3 py-1.5 text-sm text-white tabular-nums focus:outline-none focus:border-violet-500/50 transition-colors"
+                      className="w-32 bg-gray-900/80 border border-gray-700/60 rounded-lg px-3 py-1.5 text-sm text-white tabular-nums focus:outline-none focus:border-green-500/50 transition-colors"
                     />
                     <span className="text-[11px] text-gray-600">USD equivalent</span>
                   </div>
@@ -352,7 +352,7 @@ function AlertSettingsPanel({ trackedWallets }: { trackedWallets: string[] }) {
                     {[500, 1000, 5000, 10000].map(v => (
                       <button key={v} onClick={() => setMinUsd(v)}
                         className={`text-[10px] px-2.5 py-0.5 rounded-full border transition-colors ${
-                          minUsd === v ? "bg-violet-500/20 text-violet-300 border-violet-500/40" : "text-gray-500 border-gray-700 hover:text-gray-300"
+                          minUsd === v ? "bg-green-500/20 text-green-300 border-green-500/40" : "text-gray-500 border-gray-700 hover:text-gray-300"
                         }`}>
                         ${v.toLocaleString()}
                       </button>
@@ -367,7 +367,7 @@ function AlertSettingsPanel({ trackedWallets }: { trackedWallets: string[] }) {
               <button
                 onClick={save}
                 disabled={saving || !isDirty}
-                className="px-4 py-2 bg-violet-500/15 hover:bg-violet-500/25 text-violet-300 border border-violet-500/30 rounded-xl text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                className="px-4 py-2 bg-green-500/15 hover:bg-green-500/25 text-green-300 border border-green-500/30 rounded-xl text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 {saving ? "Saving…" : isDirty ? "Save changes" : "Saved ✓"}
               </button>
@@ -446,7 +446,7 @@ function LabelChip({ label, category }: { label: string; category?: string }) {
     <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full whitespace-nowrap ${
       category === "founder"
         ? "bg-amber-500/15 text-amber-400 border border-amber-500/25"
-        : "bg-purple-500/15 text-purple-400 border border-purple-500/25"
+        : "bg-green-500/15 text-green-400 border border-green-500/25"
     }`}>{label}</span>
   );
 }
@@ -467,7 +467,7 @@ function PositionDrawer({ positions, highlightName }: { positions: AlphaPosition
   return (
     <div className="bg-gray-950/90 border-b border-gray-800/40 px-4 py-4">
       <div className="flex items-center gap-3 mb-3">
-        <span className="text-[10px] font-semibold text-violet-400 uppercase tracking-wider">
+        <span className="text-[10px] font-semibold text-green-400 uppercase tracking-wider">
           {positions.length} alpha position{positions.length !== 1 ? "s" : ""}
         </span>
         <span className="text-gray-700">·</span>
@@ -488,7 +488,7 @@ function PositionDrawer({ positions, highlightName }: { positions: AlphaPosition
               className={`flex items-center gap-2.5 rounded-xl px-3 py-2.5 transition-colors ${
                 isMatch
                   ? "bg-emerald-950/50 border border-emerald-500/40 ring-1 ring-emerald-500/15"
-                  : "bg-gray-900/60 border border-gray-800/60 hover:border-violet-500/20"
+                  : "bg-gray-900/60 border border-gray-800/60 hover:border-green-500/20"
               }`}
             >
               <SubnetLogo netuid={pos.netuid} name={pos.name} size={24} />
@@ -502,7 +502,7 @@ function PositionDrawer({ positions, highlightName }: { positions: AlphaPosition
                   <span className="text-[9px] text-gray-600 flex-shrink-0">{pct.toFixed(0)}%</span>
                 </div>
                 <div className="flex items-center gap-2 mt-0.5">
-                  <span className={`text-xs font-medium tabular-nums ${isMatch ? "text-emerald-300" : "text-violet-300"}`}>
+                  <span className={`text-xs font-medium tabular-nums ${isMatch ? "text-emerald-300" : "text-green-300"}`}>
                     {fmtTao(pos.staked_tao)}
                   </span>
                   {pos.staked_usd > 0 && (
@@ -511,7 +511,7 @@ function PositionDrawer({ positions, highlightName }: { positions: AlphaPosition
                 </div>
                 <div className="mt-1.5 h-0.5 bg-gray-800 rounded-full overflow-hidden">
                   <div
-                    className={`h-full rounded-full transition-all ${isMatch ? "bg-emerald-500/70" : "bg-violet-500/50"}`}
+                    className={`h-full rounded-full transition-all ${isMatch ? "bg-emerald-500/70" : "bg-green-500/50"}`}
                     style={{ width: `${Math.min(100, pct)}%` }}
                   />
                 </div>
@@ -545,7 +545,7 @@ function OnDemandPositionDrawer({ address }: { address: string }) {
 
   if (loading) return (
     <div className="bg-gray-950/90 border-b border-gray-800/40 px-4 py-5 flex items-center gap-2">
-      <div className="w-3.5 h-3.5 border-2 border-violet-400/30 border-t-violet-400 rounded-full animate-spin" />
+      <div className="w-3.5 h-3.5 border-2 border-green-400/30 border-t-green-400 rounded-full animate-spin" />
       <span className="text-xs text-gray-500">Loading portfolio…</span>
     </div>
   );
@@ -582,7 +582,7 @@ function WalletRow({
           : "hover:bg-white/[0.02] border-l-2 border-l-transparent"}`}
     >
       {/* hover glow */}
-      <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none bg-gradient-to-r from-violet-500/[0.03] to-transparent" />
+      <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none bg-gradient-to-r from-green-500/[0.03] to-transparent" />
 
       {/* Rank */}
       <div className="w-7 flex items-center justify-center flex-shrink-0 hidden sm:flex">
@@ -602,7 +602,7 @@ function WalletRow({
           )}
         </div>
         <div className="flex items-center gap-2 mt-1">
-          <span className="text-[10px] font-semibold text-violet-400/80 bg-violet-500/10 px-1.5 py-0.5 rounded-md border border-violet-500/15">
+          <span className="text-[10px] font-semibold text-green-400/80 bg-green-500/10 px-1.5 py-0.5 rounded-md border border-green-500/15">
             {wallet.alpha_count} tokens
           </span>
           {wallet.staked_tao > 0 && (
@@ -703,7 +703,7 @@ function TSWhaleRow({
         ${tracked ? "bg-blue-950/20 border-l-2 border-l-blue-500/60 pl-3.5" : "hover:bg-white/[0.02] border-l-2 border-l-transparent"}`}
       onClick={() => router.push(`/wallettracker/${wallet.address}?from=${fromTab}`)}
     >
-      <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none bg-gradient-to-r from-violet-500/[0.03] to-transparent" />
+      <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none bg-gradient-to-r from-green-500/[0.03] to-transparent" />
 
       <div className="w-7 flex items-center justify-center flex-shrink-0 hidden sm:flex">
         <RankBadge rank={rank} />
@@ -726,7 +726,7 @@ function TSWhaleRow({
           <span className="text-[10px] text-gray-700">·</span>
           <span className="text-[10px] text-gray-600">{timeAgo(wallet.last_ts)}</span>
           {wallet.active_subnets.length > 1 && (
-            <span className="text-[10px] text-violet-500 bg-violet-500/10 px-1.5 py-0.5 rounded-md border border-violet-500/20">
+            <span className="text-[10px] text-green-500 bg-green-500/10 px-1.5 py-0.5 rounded-md border border-green-500/20">
               {wallet.subnet_count} subnets
             </span>
           )}
@@ -842,8 +842,8 @@ const TAB_CONFIG = [
     key: "top"     as TabKey,
     label: "🎯 Top Wallets",
     info: "Biggest alpha portfolio holders right now — wallets with the most TAO staked across 2+ subnets.",
-    accent: "violet",
-    activeClass: "bg-violet-500/15 text-violet-300 border-violet-500/30",
+    accent: "green",
+    activeClass: "bg-green-500/15 text-green-300 border-green-500/30",
   },
   {
     key: "winners" as TabKey,
@@ -863,8 +863,8 @@ const TAB_CONFIG = [
     key: "ts"      as TabKey,
     label: "📊 Big Deployers",
     info: "Wallets that deployed the most capital into alpha subnets over the last 30 days — the biggest committed buyers.",
-    accent: "purple",
-    activeClass: "bg-purple-500/15 text-purple-300 border-purple-500/30",
+    accent: "green",
+    activeClass: "bg-green-500/15 text-green-300 border-green-500/30",
   },
   {
     key: "known"   as TabKey,
@@ -924,7 +924,7 @@ function TabBar({
                   aria-label={`About ${t.label}`}
                   className={`flex items-center justify-center w-6 h-[34px] rounded-r-lg border-y border-r text-[10px] font-bold transition-all duration-150 ${
                     isOpen
-                      ? "bg-violet-500/30 text-violet-300 border-violet-500/40"
+                      ? "bg-green-500/30 text-green-300 border-green-500/40"
                       : tab === t.key
                       ? t.activeClass + " opacity-60 hover:opacity-100"
                       : "border-transparent text-gray-700 hover:text-gray-400 hover:bg-white/[0.04]"
@@ -1156,7 +1156,7 @@ export default function WalletTrackerPage() {
           }}
         />
         {/* Glow orbs */}
-        <div className="absolute -top-20 -left-20 w-64 h-64 rounded-full bg-violet-600/10 blur-3xl pointer-events-none" />
+        <div className="absolute -top-20 -left-20 w-64 h-64 rounded-full bg-green-600/10 blur-3xl pointer-events-none" />
         <div className="absolute -top-10 right-1/4 w-48 h-48 rounded-full bg-cyan-500/8 blur-3xl pointer-events-none" />
 
         <div className="relative max-w-[1400px] mx-auto px-4 md:px-8 py-7">
@@ -1164,8 +1164,8 @@ export default function WalletTrackerPage() {
             <div>
               {/* Badge row */}
               <div className="flex items-center gap-2 mb-2.5">
-                <span className="inline-flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-1 rounded-full bg-violet-500/15 text-violet-400 border border-violet-500/25 uppercase tracking-wider">
-                  <span className="w-1.5 h-1.5 rounded-full bg-violet-400 animate-pulse" />
+                <span className="inline-flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-1 rounded-full bg-green-500/15 text-green-400 border border-green-500/25 uppercase tracking-wider">
+                  <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
                   Live · Whale Radar
                 </span>
                 <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400/80 border border-amber-500/20 uppercase tracking-wide">
@@ -1188,19 +1188,19 @@ export default function WalletTrackerPage() {
             {!loading && !error && (
               <div className="flex gap-2.5 sm:gap-3 flex-shrink-0">
                 {[
-                  { label: "Wallets", value: wallets.length.toString(), icon: "👛", color: "violet" },
+                  { label: "Wallets", value: wallets.length.toString(), icon: "👛", color: "green" },
                   { label: "Avg tokens", value: wallets.length > 0 ? (wallets.reduce((s, w) => s + w.alpha_count, 0) / wallets.length).toFixed(1) : "—", icon: "⚡", color: "cyan" },
                   { label: "Tracking", value: trackedCount.toString(), icon: "🔔", color: "blue" },
                 ].map(({ label, value, icon, color }) => (
                   <div key={label}
                     className={`bg-gray-900/60 border rounded-xl px-3.5 py-2.5 text-center min-w-[72px] backdrop-blur-sm ${
-                      color === "violet" ? "border-violet-500/20" :
+                      color === "green" ? "border-green-500/20" :
                       color === "cyan"   ? "border-cyan-500/20" :
                       "border-blue-500/20"
                     }`}>
                     <div className="text-base mb-0.5">{icon}</div>
                     <div className={`text-lg font-black tabular-nums ${
-                      color === "violet" ? "text-violet-300" :
+                      color === "green" ? "text-green-300" :
                       color === "cyan"   ? "text-cyan-300" :
                       "text-blue-300"
                     }`}>{value}</div>
@@ -1269,7 +1269,7 @@ export default function WalletTrackerPage() {
             <div className="flex-1 text-[9px] font-bold text-gray-600 uppercase tracking-widest">Wallet</div>
             {tab === "winners" && <div className="hidden sm:block text-right w-28 text-[9px] font-bold text-emerald-700/70 uppercase tracking-widest">24h Gain</div>}
             {tab === "sr"      && <div className="hidden sm:block text-right w-28 text-[9px] font-bold text-cyan-700/70 uppercase tracking-widest">Net TAO</div>}
-            {tab === "ts"      && <div className="hidden sm:block text-right w-28 text-[9px] font-bold text-purple-700/70 uppercase tracking-widest">Net USD</div>}
+            {tab === "ts"      && <div className="hidden sm:block text-right w-28 text-[9px] font-bold text-green-700/70 uppercase tracking-widest">Net USD</div>}
             {tab !== "winners" && tab !== "sr" && tab !== "ts" && (
               <div className="hidden sm:block text-right w-28 text-[9px] font-bold text-gray-600 uppercase tracking-widest">Total TAO</div>
             )}
@@ -1372,7 +1372,7 @@ export default function WalletTrackerPage() {
             <span>🐋 Holding ≥2 alpha tokens · refreshes every 45 min</span>
             <span>💡 Click any row to view full wallet profile</span>
             <span>🔔 Tracking is saved locally in your browser</span>
-            {session?.user && <span className="text-violet-700/60">🔒 Alerts are private to your account</span>}
+            {session?.user && <span className="text-green-700/60">🔒 Alerts are private to your account</span>}
           </div>
         )}
       </div>
