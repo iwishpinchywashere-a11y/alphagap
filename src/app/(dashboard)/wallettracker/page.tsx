@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import SubnetLogo from "@/components/dashboard/SubnetLogo";
+import { getTier } from "@/lib/subscription";
 
 // ── Types ─────────────────────────────────────────────────────────
 interface AlphaPosition {
@@ -958,7 +959,9 @@ function TabBar({
 
 // ── Main Page ─────────────────────────────────────────────────────
 export default function WalletTrackerPage() {
-  const { data: session } = useSession();
+  const { data: session, status: sessionStatus } = useSession();
+  const tier = getTier(session);
+  const isPremium = tier === "premium";
   const router = useRouter();
 
   const [wallets,   setWallets]   = useState<WalletEntry[]>([]);
@@ -1142,6 +1145,98 @@ export default function WalletTrackerPage() {
     (tab === "ts" && tsLoading);
 
   const activeTabConfig = TAB_CONFIG.find(t => t.key === tab);
+
+  // ── Premium gate ────────────────────────────────────────────────
+  if (sessionStatus !== "loading" && !isPremium) {
+    return (
+      <main className="flex-1 overflow-auto">
+        {/* Hero — same as premium, always visible */}
+        <div className="relative overflow-hidden border-b border-gray-800/60 bg-gray-950">
+          <div className="absolute inset-0 opacity-[0.04]"
+            style={{
+              backgroundImage: "linear-gradient(rgba(139,92,246,0.6) 1px, transparent 1px), linear-gradient(90deg, rgba(139,92,246,0.6) 1px, transparent 1px)",
+              backgroundSize: "40px 40px",
+            }}
+          />
+          <div className="absolute -top-20 -left-20 w-64 h-64 rounded-full bg-green-600/10 blur-3xl pointer-events-none" />
+          <div className="absolute -top-10 right-1/4 w-48 h-48 rounded-full bg-cyan-500/8 blur-3xl pointer-events-none" />
+          <div className="relative max-w-[1400px] mx-auto px-4 md:px-8 py-7">
+            <div className="flex items-center gap-2 mb-2.5">
+              <span className="inline-flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-1 rounded-full bg-green-500/15 text-green-400 border border-green-500/25 uppercase tracking-wider">
+                <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
+                Live · Wallet Tracker
+              </span>
+              <span className="text-xs bg-yellow-900/50 text-yellow-400 border border-yellow-800/40 rounded-full px-2 py-0.5 font-medium">Premium</span>
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
+              <span className="bg-gradient-to-r from-white via-gray-100 to-gray-300 bg-clip-text text-transparent">Wallet Tracker</span>
+            </h1>
+            <p className="text-sm text-gray-500 mt-1.5 max-w-lg">
+              Follow the biggest TAO wallets — see their full portfolio, track their moves, and get Telegram alerts when they stake or unstake.
+            </p>
+            <div className="flex flex-wrap gap-2 mt-3">
+              <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold px-2.5 py-1 rounded-full bg-green-500/10 text-green-400 border border-green-500/20">👛 View whale portfolios &amp; performance</span>
+              <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold px-2.5 py-1 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20">🚨 Custom Telegram alerts on moves</span>
+              <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">🔍 Paste any wallet address to analyze</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Blurred preview + upgrade CTA */}
+        <div className="relative max-w-[1400px] mx-auto px-4 md:px-8 py-6">
+          {/* Fake wallet rows — blurred */}
+          <div className="relative rounded-2xl overflow-hidden border border-gray-800/60">
+            <div className="blur-sm pointer-events-none select-none opacity-60">
+              {[
+                { addr: "5GH2aU…8R54n", tokens: "115 tokens", staked: "274.7K τ staked", change: "-587.6 τ", neg: true },
+                { addr: "5CXGPMnq…CCwK", tokens: "97 tokens",  staked: "40.8K τ staked",  change: "+126.3 τ", neg: false },
+                { addr: "5F6D1y…TyQD",  tokens: "1 tokens",   staked: "33.0K τ staked",  change: "+26.6 τ",  neg: false },
+                { addr: "5F6tnx…xbhZ",  tokens: "3 tokens",   staked: "27.3K τ staked",  change: "-14.2 τ",  neg: true },
+                { addr: "5GuRLE…sMQs",  tokens: "17 tokens",  staked: "23.4K τ staked",  change: "+202.4 τ", neg: false },
+                { addr: "5Hd2ze…6pg4N", tokens: "1 tokens",   staked: "0.0 τ staked",    change: "",         neg: false },
+              ].map((w, i) => (
+                <div key={i} className="flex items-center gap-3 px-4 py-3.5 border-b border-gray-800/30">
+                  <div className="w-7 text-center text-xs text-gray-600 font-mono">#{i + 1}</div>
+                  <div className="flex-1">
+                    <div className="font-mono text-xs text-gray-400">{w.addr}</div>
+                    <div className="flex gap-2 mt-1">
+                      <span className="text-[10px] font-bold bg-green-500/15 text-green-400 px-1.5 py-0.5 rounded-md">{w.tokens}</span>
+                      <span className="text-[10px] text-gray-500">{w.staked}</span>
+                    </div>
+                  </div>
+                  {w.change && (
+                    <span className={`text-sm font-semibold tabular-nums px-2 py-0.5 rounded-lg border text-xs ${w.neg ? "text-red-400 bg-red-500/10 border-red-500/20" : "text-emerald-400 bg-emerald-500/10 border-emerald-500/20"}`}>{w.change}</span>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* Upgrade overlay */}
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-b from-transparent via-gray-950/80 to-gray-950/95 px-6 text-center">
+              <div className="bg-gray-900/90 border border-gray-700/60 rounded-2xl px-8 py-8 max-w-sm shadow-2xl backdrop-blur-sm">
+                <div className="text-3xl mb-3">🐋</div>
+                <h2 className="text-lg font-bold text-white mb-2">Premium Feature</h2>
+                <p className="text-sm text-gray-400 mb-5 leading-relaxed">
+                  Unlock Wallet Tracker to follow the top 200 TAO whales, view their full alpha portfolios, and get Telegram alerts when they move.
+                </p>
+                <a
+                  href="/upgrade"
+                  className="block w-full py-2.5 px-5 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-400 hover:to-emerald-400 text-black font-bold rounded-xl text-sm transition-all duration-150 shadow-lg shadow-green-500/20"
+                >
+                  Upgrade to Premium
+                </a>
+                {!session && (
+                  <a href="/login" className="block mt-3 text-xs text-gray-500 hover:text-gray-300 transition-colors">
+                    Already premium? Sign in →
+                  </a>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+    );
+  }
 
   // ── Render ──────────────────────────────────────────────────────
   return (
