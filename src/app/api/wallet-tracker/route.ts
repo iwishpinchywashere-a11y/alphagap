@@ -30,7 +30,7 @@ const MAIN_CACHE_TTL_MS = 45 * 60 * 1000; // 45 min (expensive to compute)
 const WIN_CACHE_KEY     = "wallet-tracker-winners.json";
 
 const SR_CACHE_KEY      = "wallet-tracker-sr-whales.json";
-const SR_CACHE_TTL_MS   = 5 * 60 * 1000; // 5 min (live SR data)
+const SR_CACHE_TTL_MS   = 10 * 60 * 1000; // 10 min (live SR data)
 const WIN_CACHE_TTL_MS  = 20 * 60 * 1000; // 20 min
 
 // ── Known labeled wallets ─────────────────────────────────────────
@@ -441,40 +441,69 @@ async function buildTSWhales(): Promise<TSWhaleWallet[]> {
   }
 
   // Sort by total USD deployed (largest alpha investors first)
-  const sorted = result.sort((a, b) => b.total_usd - a.total_usd).slice(0, 200);
-
-  // Drop any wallet that currently holds zero alpha positions
-  const alphaSet = await filterToAlphaHolders(sorted.map(w => w.address));
-  return sorted.filter(w => alphaSet.has(w.address));
+  // NOTE: No filterToAlphaHolders — TS data is already filtered to netuid > 0 delegation
+  //       events. Adding that filter caused massive extra latency (100+ API calls).
+  return result.sort((a, b) => b.total_usd - a.total_usd).slice(0, 200);
 }
 
 // ── Build SubnetRadar whale wallet list ───────────────────────────
 async function buildSRWhales(): Promise<SRWhaleWallet[]> {
-  const r = await fetch("https://subnetradar.com/api/whales", {
-    signal: AbortSignal.timeout(10000),
-    headers: {
-      "User-Agent": "Mozilla/5.0 AppleWebKit/537.36",
-      "Accept":     "application/json",
-      "Referer":    "https://subnetradar.com/",
-    },
-    next: { revalidate: 0 },
-  });
-  if (!r.ok) throw new Error(`Whale data fetch failed (${r.status})`);
-  const data = await r.json() as {
-    moves?: SRWhaleMoveRaw[];
-    whaleData?: { moves?: SRWhaleMoveRaw[] } | SRWhaleMoveRaw[];
-  };
+  // Try multiple endpoint variants — SR has changed its API shape over time
+  const endpoints = [
+    "https://subnetradar.com/api/whales",
+    "https://subnetradar.com/api/whale-activity",
+  ];
 
-  // whaleData is { moves: [], pressure: [], ... } — pull nested moves array
-  const whaleDataMoves = Array.isArray(data.whaleData)
-    ? data.whaleData
-    : (data.whaleData as { moves?: SRWhaleMoveRaw[] } | undefined)?.moves ?? [];
-  const moves: SRWhaleMoveRaw[] = whaleDataMoves.length ? whaleDataMoves : (data.moves ?? []);
+  let raw: unknown = null;
+  let lastErr = "";
+  for (const url of endpoints) {
+    try {
+      const r = await fetch(url, {
+        signal: AbortSignal.timeout(12000),
+        headers: {
+          "User-Agent": "Mozilla/5.0 (compatible; AlphaGap/1.0)",
+          "Accept":     "application/json",
+          "Referer":    "https://subnetradar.com/",
+        },
+        next: { revalidate: 0 },
+      });
+      if (r.ok) { raw = await r.json(); break; }
+      lastErr = `HTTP ${r.status}`;
+    } catch (e) { lastErr = String(e); }
+  }
 
-  // Only care about stake/unstake moves with a from address
+  if (raw == null) throw new Error(`SubnetRadar unavailable: ${lastErr}`);
+
+  // Robust response shape extraction — handles any nesting
+  function extractMoves(obj: unknown): SRWhaleMoveRaw[] {
+    if (Array.isArray(obj)) return obj as SRWhaleMoveRaw[];
+    if (obj && typeof obj === "object") {
+      const o = obj as Record<string, unknown>;
+      // Try common top-level keys
+      for (const key of ["moves", "whaleData", "data", "results", "transactions", "activity"]) {
+        const val = o[key];
+        if (Array.isArray(val) && val.length > 0) return val as SRWhaleMoveRaw[];
+        if (val && typeof val === "object") {
+          const inner = extractMoves(val);
+          if (inner.length > 0) return inner;
+        }
+      }
+    }
+    return [];
+  }
+
+  const moves = extractMoves(raw);
+  console.log(`[sr-whales] Extracted ${moves.length} raw moves`);
+
+  // Only care about stake/unstake moves with a from address and positive amount
   const stakeMoves = moves.filter(
-    m => (m.type === "stake" || m.type === "unstake") && m.from && m.amount > 0
+    m => m && (m.type === "stake" || m.type === "unstake") && m.from && (m.amount ?? 0) > 0
   );
+  console.log(`[sr-whales] ${stakeMoves.length} valid stake/unstake moves`);
+
+  if (stakeMoves.length === 0) {
+    throw new Error(`No stake moves found in SR response (${moves.length} raw records)`);
+  }
 
   // Aggregate per wallet
   const walletMap = new Map<string, {
@@ -490,7 +519,7 @@ async function buildSRWhales(): Promise<SRWhaleWallet[]> {
         staked: 0, unstaked: 0, moveCount: 0,
         lastAction: m.type as "stake" | "unstake",
         lastNetuid: m.netuid, lastAmount: m.amount,
-        lastTs: m.timestamp, subnets: new Set(),
+        lastTs: m.timestamp ?? "", subnets: new Set(),
       });
     }
     const w = walletMap.get(addr)!;
@@ -499,8 +528,9 @@ async function buildSRWhales(): Promise<SRWhaleWallet[]> {
     w.moveCount++;
     if (m.netuid != null) w.subnets.add(m.netuid);
     // Track most recent
-    if (m.timestamp >= w.lastTs) {
-      w.lastTs     = m.timestamp;
+    const ts = m.timestamp ?? "";
+    if (ts >= w.lastTs) {
+      w.lastTs     = ts;
       w.lastAction = m.type as "stake" | "unstake";
       w.lastNetuid = m.netuid;
       w.lastAmount = m.amount;
@@ -529,13 +559,11 @@ async function buildSRWhales(): Promise<SRWhaleWallet[]> {
   }
 
   // Sort by total volume (staked + unstaked), most active first
-  const sorted = result
+  // NOTE: No filterToAlphaHolders here — SR data IS already staking activity on alpha
+  //       subnets. Adding that filter caused 20-30s extra latency (100+ extra API calls).
+  return result
     .sort((a, b) => (b.total_staked + b.total_unstaked) - (a.total_staked + a.total_unstaked))
     .slice(0, 150);
-
-  // Drop any wallet that currently holds zero alpha positions
-  const alphaSet = await filterToAlphaHolders(sorted.map(w => w.address));
-  return sorted.filter(w => alphaSet.has(w.address));
 }
 
 // ── Main handler ──────────────────────────────────────────────────
@@ -554,16 +582,22 @@ export async function GET(request: NextRequest) {
     }
     try {
       const whales = await buildTSWhales();
+      // Guard: never overwrite a valid cache with an empty result
+      if (whales.length === 0 && cached) {
+        console.warn("[ts-whales] Rebuilt 0 whales — serving stale cache");
+        return NextResponse.json(cached);
+      }
       const result: TSCache = { whales, updatedAt: new Date().toISOString() };
       await writeBlob(TS_CACHE_KEY, result);
       return NextResponse.json(result);
     } catch (e) {
+      console.error("[ts-whales] Build error:", String(e));
       if (cached) return NextResponse.json(cached);
       return NextResponse.json({ error: String(e) }, { status: 500 });
     }
   }
 
-  // ── SR Whales mode (live SubnetRadar data, 5-min cache) ──────
+  // ── SR Whales mode (live SubnetRadar data, 10-min cache) ──────
   if (mode === "sr-whales") {
     const cached = await readBlob<SRCache>(SR_CACHE_KEY);
     if (cached && Date.now() - new Date(cached.updatedAt).getTime() < SR_CACHE_TTL_MS) {
@@ -571,10 +605,16 @@ export async function GET(request: NextRequest) {
     }
     try {
       const whales = await buildSRWhales();
+      // Guard: never overwrite a valid cache with an empty result (upstream outage)
+      if (whales.length === 0 && cached) {
+        console.warn("[sr-whales] Rebuilt 0 whales — serving stale cache");
+        return NextResponse.json(cached);
+      }
       const result: SRCache = { whales, updatedAt: new Date().toISOString() };
       await writeBlob(SR_CACHE_KEY, result);
       return NextResponse.json(result);
     } catch (e) {
+      console.error("[sr-whales] Build error:", String(e));
       if (cached) return NextResponse.json(cached);
       return NextResponse.json({ error: String(e) }, { status: 500 });
     }
@@ -608,10 +648,9 @@ export async function GET(request: NextRequest) {
         })
         .slice(0, 80);
 
-      // Drop wallets with zero current alpha positions, then sort by biggest 24h gain first
-      const alphaSet = await filterToAlphaHolders(candidates.map(w => w.address));
-      const winners  = candidates
-        .filter(w => alphaSet.has(w.address))
+      // Sort by biggest 24h gain first — already pre-filtered to tao_staked > 0
+      // (filterToAlphaHolders removed: it added 20s+ latency with 80+ extra API calls)
+      const winners = candidates
         .sort((a, b) => b.change_24h_tao - a.change_24h_tao)
         .slice(0, 50);
 
