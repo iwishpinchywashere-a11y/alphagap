@@ -301,9 +301,28 @@ function AlertSettingsPanel({ trackedWallets }: { trackedWallets: string[] }) {
                 </>
               ) : (
                 <div className="space-y-3">
-                  <p className="text-sm text-gray-300">Open Telegram and send this to <strong className="text-white">@AlphaGapBot</strong>:</p>
+                  <ol className="space-y-2 text-sm">
+                    <li className="flex items-start gap-2">
+                      <span className="flex-shrink-0 w-5 h-5 rounded-full bg-blue-500/20 border border-blue-500/30 text-blue-400 text-[10px] flex items-center justify-center font-bold">1</span>
+                      <span className="text-gray-300 pt-0.5">
+                        Open Telegram and search for{" "}
+                        <a
+                          href="https://t.me/alphagapalertsbot"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-400 hover:text-blue-300 underline"
+                        >
+                          @alphagapalertsbot
+                        </a>
+                      </span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="flex-shrink-0 w-5 h-5 rounded-full bg-blue-500/20 border border-blue-500/30 text-blue-400 text-[10px] flex items-center justify-center font-bold">2</span>
+                      <span className="text-gray-300 pt-0.5">Copy and send this message:</span>
+                    </li>
+                  </ol>
                   <div className="flex items-center gap-2 bg-gray-900/80 border border-gray-700/60 rounded-xl px-4 py-3">
-                    <code className="text-sm font-mono text-green-300 flex-1">/start {code}</code>
+                    <code className="text-sm font-mono flex-1"><span className="text-gray-400">/start </span><span className="text-green-400 font-bold tracking-widest">{code}</span></code>
                     <button
                       onClick={() => navigator.clipboard.writeText(`/start ${code}`).catch(() => {})}
                       className="text-[10px] text-gray-600 hover:text-gray-400 transition-colors"
