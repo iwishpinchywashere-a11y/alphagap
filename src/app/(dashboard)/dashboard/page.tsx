@@ -112,6 +112,18 @@ export default function LeaderboardPage() {
   const [hoveredSub, setHoveredSub] = useState<SubnetScore | null>(null);
   const [hoverAnchor, setHoverAnchor] = useState<DOMRect | null>(null);
   const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const scheduleClose = () => {
+    if (closeTimer.current) clearTimeout(closeTimer.current);
+    closeTimer.current = setTimeout(() => {
+      setHoveredSub(null);
+      setHoverAnchor(null);
+    }, 120);
+  };
+  const cancelClose = () => {
+    if (closeTimer.current) clearTimeout(closeTimer.current);
+  };
 
   // Sticky header: show a fixed clone of the thead once the real one scrolls off screen
   const theadRef = useRef<HTMLTableSectionElement>(null);
@@ -561,17 +573,17 @@ export default function LeaderboardPage() {
                       onClick={() => !isLocked && router.push(`/subnets/${sub.netuid}`)}
                       onMouseEnter={(e) => {
                         if (isLocked || window.innerWidth < 1024) return;
+                        cancelClose();
                         if (hoverTimer.current) clearTimeout(hoverTimer.current);
                         const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
                         hoverTimer.current = setTimeout(() => {
                           setHoveredSub(sub);
                           setHoverAnchor(rect);
-                        }, 280);
+                        }, 260);
                       }}
                       onMouseLeave={() => {
                         if (hoverTimer.current) clearTimeout(hoverTimer.current);
-                        setHoveredSub(null);
-                        setHoverAnchor(null);
+                        scheduleClose();
                       }}
                     >
                       <td className="py-2 px-3 text-white text-xs tabular-nums font-medium">{i + 1}</td>
@@ -695,13 +707,14 @@ export default function LeaderboardPage() {
         )}
       </div>
 
-      {/* Hover card — desktop only, shown after 280ms hover delay */}
+      {/* Hover card — desktop only, shown after 260ms hover delay */}
       {hoveredSub && hoverAnchor && (
         <SubnetHoverCard
           sub={hoveredSub}
           anchorRect={hoverAnchor}
           taoPrice={taoPrice}
-          onClose={() => { setHoveredSub(null); setHoverAnchor(null); }}
+          onKeepAlive={cancelClose}
+          onClose={scheduleClose}
         />
       )}
 

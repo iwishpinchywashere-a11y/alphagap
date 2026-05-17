@@ -143,10 +143,11 @@ interface Props {
   sub: SubnetScore;
   anchorRect: DOMRect;
   taoPrice: number | null;
-  onClose: () => void;
+  onKeepAlive: () => void;   // called when mouse enters card — cancels the close timer
+  onClose: () => void;       // called when mouse leaves card
 }
 
-export default function SubnetHoverCard({ sub, anchorRect, taoPrice, onClose }: Props) {
+export default function SubnetHoverCard({ sub, anchorRect, taoPrice, onKeepAlive, onClose }: Props) {
   const [detail, setDetail] = useState<DetailData | null>(null);
   const [loading, setLoading] = useState(true);
   const cardRef = useRef<HTMLDivElement>(null);
@@ -224,16 +225,13 @@ export default function SubnetHoverCard({ sub, anchorRect, taoPrice, onClose }: 
                                  "#f87171";
 
   return (
-    <>
-      {/* Invisible overlay to capture outside clicks/hover-leave */}
-      <div className="fixed inset-0 z-[299]" onMouseMove={onClose} />
-
-      <div
-        ref={cardRef}
-        className="fixed z-[300] pointer-events-none"
-        style={{ left, top, width: CARD_W }}
-        onMouseEnter={(e) => e.stopPropagation()}
-      >
+    <div
+      ref={cardRef}
+      className="fixed z-[300]"
+      style={{ left, top, width: CARD_W }}
+      onMouseEnter={onKeepAlive}
+      onMouseLeave={onClose}
+    >
         <div
           className="rounded-2xl border border-gray-700/60 bg-[#0c0c14]/95 backdrop-blur-xl shadow-2xl overflow-hidden"
           style={{
@@ -422,7 +420,6 @@ export default function SubnetHoverCard({ sub, anchorRect, taoPrice, onClose }: 
             )}
           </div>
         </div>
-      </div>
-    </>
+    </div>
   );
 }
