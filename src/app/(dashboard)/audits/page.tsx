@@ -706,16 +706,38 @@ export default function AuditsPage() {
     );
 
     return (
-      <main className="flex-1 overflow-auto p-4 md:p-6">
-        <div className="max-w-screen-2xl mx-auto space-y-5">
+      <main className="flex-1 overflow-auto">
 
-          {/* Header */}
-          <div>
-            <h1 className="text-xl font-bold text-white">Subnet Audits</h1>
-            <p className="text-sm text-gray-500 mt-1">
-              Operational health across every active subnet — decentralisation, miner economics, validator freshness, liquidity and adoption.
+        {/* ── Hero header ─────────────────────────────────────────── */}
+        <div className="relative overflow-hidden border-b border-gray-800/50">
+          <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: "linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)", backgroundSize: "40px 40px" }} />
+          <div className="absolute -top-20 left-1/4 w-96 h-96 bg-green-600/10 rounded-full blur-3xl pointer-events-none" />
+          <div className="relative max-w-screen-2xl mx-auto px-4 md:px-6 pt-10 pb-7">
+            <div className="flex items-center gap-3 mb-2">
+              <h1 className="text-3xl font-bold bg-gradient-to-r from-green-400 via-emerald-300 to-white bg-clip-text text-transparent">
+                🔍 Subnet Audits
+              </h1>
+              <span className="text-xs bg-yellow-900/50 text-yellow-400 border border-yellow-800/40 rounded-full px-2 py-0.5 font-medium">Premium</span>
+            </div>
+            <p className="text-gray-500 text-sm max-w-2xl mb-5">
+              Deep operational health across every active subnet — decentralisation scores, miner burn economics, validator freshness, liquidity, and adoption. On-chain data you can't get anywhere else.
             </p>
+            <div className="flex flex-wrap items-center gap-2">
+              {[
+                { label: "Decentralisation", icon: "🌐" },
+                { label: "Miner Economics", icon: "⛏️" },
+                { label: "Validator Health", icon: "✅" },
+                { label: "Liquidity", icon: "💧" },
+              ].map(({ label, icon }) => (
+                <span key={label} className="text-xs bg-gray-800/60 border border-gray-700/40 rounded-full px-3 py-1.5 text-gray-400">
+                  {icon} {label}
+                </span>
+              ))}
+            </div>
           </div>
+        </div>
+
+        <div className="max-w-screen-2xl mx-auto px-4 md:px-6 py-6 space-y-5">
 
           {/* Blurred preview + overlay */}
           <div className="relative">
@@ -767,23 +789,43 @@ export default function AuditsPage() {
           </div>
 
         </div>
+        </div>
       </main>
     );
   }
 
   return (
-    <main className="flex-1 overflow-auto p-4 md:p-6">
-      <div className="max-w-screen-2xl mx-auto space-y-5">
+    <main className="flex-1 overflow-auto">
 
-        {/* Header */}
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h1 className="text-xl font-bold text-white">Subnet Audits</h1>
-            <p className="text-sm text-gray-500 mt-1">
-              Composite operational health across every active subnet — decentralisation, miner economics, validator freshness, liquidity and adoption. Click any column to sort.
-            </p>
+      {/* ── Hero header ─────────────────────────────────────────── */}
+      <div className="relative overflow-hidden border-b border-gray-800/50">
+        <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: "linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)", backgroundSize: "40px 40px" }} />
+        <div className="absolute -top-20 left-1/4 w-96 h-96 bg-green-600/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="relative max-w-screen-2xl mx-auto px-4 md:px-6 pt-10 pb-7">
+          <div className="flex items-center gap-3 mb-2">
+            <h1 className="text-3xl font-bold bg-gradient-to-r from-green-400 via-emerald-300 to-white bg-clip-text text-transparent">
+              🔍 Subnet Audits
+            </h1>
+          </div>
+          <p className="text-gray-500 text-sm max-w-2xl mb-5">
+            Deep operational health across every active subnet — decentralisation, miner burn economics, validator freshness, liquidity and adoption. Click any column header to sort.
+          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            {[
+              { label: "Decentralisation", icon: "🌐" },
+              { label: "Miner Economics", icon: "⛏️" },
+              { label: "Validator Health", icon: "✅" },
+              { label: "Liquidity", icon: "💧" },
+            ].map(({ label, icon }) => (
+              <span key={label} className="text-xs bg-gray-800/60 border border-gray-700/40 rounded-full px-3 py-1.5 text-gray-400">
+                {icon} {label}
+              </span>
+            ))}
           </div>
         </div>
+      </div>
+
+      <div className="max-w-screen-2xl mx-auto px-4 md:px-6 py-6 space-y-5">
 
         {pageContent}
 

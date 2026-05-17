@@ -478,19 +478,45 @@ export default function AnalyticsPage() {
     .map(s => ({ netuid: s.netuid, name: s.name, x: s.social_score, y: s.market_cap!, agap: s.composite_score }));
 
   return (
-    <main className="flex-1 overflow-auto p-4 md:p-6">
-      <div className="max-w-screen-xl mx-auto space-y-6">
+    <main className="flex-1 overflow-auto">
 
-        {/* Header */}
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h1 className="text-xl font-bold text-white">Analytics</h1>
-            <p className="text-sm text-gray-500 mt-1">
-              Scatter plots across all {n} subnets. <span className="text-green-400">Bottom-right quadrant</span> = the alpha zone — high activity, low valuation.
-              Click any dot to open the subnet.
-            </p>
+      {/* ── Hero header ───────────────────────────────────────────── */}
+      <div className="relative overflow-hidden border-b border-gray-800/50">
+        <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: "linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)", backgroundSize: "40px 40px" }} />
+        <div className="absolute -top-20 right-1/3 w-96 h-96 bg-green-600/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -top-10 left-1/4 w-64 h-64 bg-emerald-500/5 rounded-full blur-3xl pointer-events-none" />
+
+        <div className="relative max-w-screen-xl mx-auto px-4 md:px-6 pt-10 pb-7">
+          <div className="flex items-center gap-3 mb-2">
+            <h1 className="text-3xl font-bold bg-gradient-to-r from-green-400 via-emerald-300 to-white bg-clip-text text-transparent">
+              📊 Analytics
+            </h1>
+            <span className="text-xs bg-green-900/40 text-green-400 border border-green-800/40 rounded-full px-2.5 py-0.5 font-semibold uppercase tracking-wide">
+              {n} Subnets
+            </span>
+          </div>
+          <p className="text-gray-500 text-sm max-w-2xl mb-5">
+            Scatter plots revealing where alpha is hiding. The <span className="text-green-400 font-medium">bottom-right quadrant</span> is the alpha zone — high signal, low market cap. Click any dot to open the subnet.
+          </p>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs bg-gray-800/60 border border-gray-700/40 rounded-full px-3 py-1.5 text-gray-300">
+              <span className="font-bold text-white">{n}</span> subnets plotted
+            </span>
+            <span className="text-gray-700">·</span>
+            <span className="text-xs bg-green-900/30 border border-green-800/30 rounded-full px-3 py-1.5 text-gray-300">
+              <span className="font-bold text-green-400">4</span> signal charts
+            </span>
+            <span className="text-gray-700">·</span>
+            <span className="text-xs bg-gray-800/60 border border-gray-700/40 rounded-full px-3 py-1.5 text-gray-400">
+              🔵 Watchlisted · 🟢 High aGap · 🟡 Mid
+            </span>
           </div>
         </div>
+      </div>
+
+      {/* ── Charts ────────────────────────────────────────────────── */}
+      <div className="max-w-screen-xl mx-auto px-4 md:px-6 py-8 space-y-6">
 
         {/* Chart 1: aGap Score vs Market Cap — SIGNATURE */}
         <div>
@@ -582,6 +608,7 @@ export default function AnalyticsPage() {
           </BlurGate>
         </div>
 
+      </div>
       </div>
     </main>
   );

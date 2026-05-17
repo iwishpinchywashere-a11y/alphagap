@@ -1166,7 +1166,7 @@ export default function WalletTrackerPage() {
               <div className="flex items-center gap-2 mb-2.5">
                 <span className="inline-flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-1 rounded-full bg-green-500/15 text-green-400 border border-green-500/25 uppercase tracking-wider">
                   <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
-                  Live · Whale Radar
+                  Live · Wallet Tracker
                 </span>
                 <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400/80 border border-amber-500/20 uppercase tracking-wide">
                   Alpha Intelligence
@@ -1176,12 +1176,25 @@ export default function WalletTrackerPage() {
               {/* Title */}
               <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
                 <span className="bg-gradient-to-r from-white via-gray-100 to-gray-300 bg-clip-text text-transparent">
-                  Whale Tracker
+                  Wallet Tracker
                 </span>
               </h1>
               <p className="text-sm text-gray-500 mt-1.5 max-w-lg">
-                Top TAO wallets actively holding multiple alpha tokens.
+                Follow the biggest TAO wallets — see their full portfolio, track their moves, and get Telegram alerts when they stake or unstake.
               </p>
+
+              {/* Feature chips */}
+              <div className="flex flex-wrap gap-2 mt-3">
+                <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold px-2.5 py-1 rounded-full bg-green-500/10 text-green-400 border border-green-500/20">
+                  👛 View whale portfolios &amp; performance
+                </span>
+                <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold px-2.5 py-1 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                  🚨 Custom Telegram alerts on moves
+                </span>
+                <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                  🔍 Paste any wallet address to analyze
+                </span>
+              </div>
             </div>
 
             {/* Quick stats */}
