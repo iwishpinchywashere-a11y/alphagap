@@ -715,9 +715,9 @@ function AutopsyCard({ autopsy, onRemove }: { autopsy: Autopsy; onRemove: () => 
     <div className="bg-gray-950/70 border border-gray-800/50 rounded-2xl overflow-hidden backdrop-blur-sm">
 
       {/* Card header */}
-      <div className="relative flex items-center justify-between px-5 py-4 bg-gradient-to-r from-violet-950/40 via-indigo-950/20 to-transparent border-b border-gray-800/50">
+      <div className="relative flex items-center justify-between px-5 py-4 bg-gradient-to-r from-green-950/30 via-emerald-950/10 to-transparent border-b border-gray-800/50">
         {/* Left accent bar */}
-        <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-violet-500 to-indigo-600 rounded-l-2xl" />
+        <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-green-500 to-emerald-600 rounded-l-2xl" />
 
         {/* Left: name + meta */}
         <div className="pl-3">
@@ -726,7 +726,7 @@ function AutopsyCard({ autopsy, onRemove }: { autopsy: Autopsy; onRemove: () => 
             {pumper.netuid != null && (
               <Link
                 href={`/subnets/${pumper.netuid}`}
-                className="text-[11px] text-violet-400 bg-violet-900/40 border border-violet-800/40 rounded-md px-2 py-0.5 hover:text-violet-300 hover:bg-violet-900/60 transition-colors"
+                className="text-[11px] text-green-400 bg-green-900/40 border border-green-800/40 rounded-md px-2 py-0.5 hover:text-green-300 hover:bg-green-900/60 transition-colors"
               >
                 SN{pumper.netuid}
               </Link>
@@ -953,7 +953,7 @@ function AutopsyCard({ autopsy, onRemove }: { autopsy: Autopsy; onRemove: () => 
                               <span className="font-mono text-gray-600 flex-shrink-0 w-12 text-right">
                                 −{c.daysBeforePump}d
                               </span>
-                              <span className="font-mono text-purple-400/70 flex-shrink-0">{c.sha}</span>
+                              <span className="font-mono text-green-400/70 flex-shrink-0">{c.sha}</span>
                               <span className="text-gray-400 truncate">{c.message}</span>
                             </div>
                           ))}
@@ -1032,7 +1032,7 @@ function AutopsyCard({ autopsy, onRemove }: { autopsy: Autopsy; onRemove: () => 
           <h3 className="text-[11px] font-semibold text-gray-500 uppercase tracking-widest mb-2">
             🔍 Analysis
           </h3>
-          <blockquote className="bg-gray-900/60 border-l-4 border-violet-500/50 rounded-r-xl px-4 py-3 text-sm text-gray-300 leading-relaxed italic">
+          <blockquote className="bg-gray-900/60 border-l-4 border-green-500/50 rounded-r-xl px-4 py-3 text-sm text-gray-300 leading-relaxed italic">
             {narrative}
           </blockquote>
           <div className="mt-2 text-xs text-gray-600">
@@ -1072,11 +1072,13 @@ export default function TestingPage() {
     loadedRef.current = true;
 
     async function saveToCache(name: string, autopsy: { pumpEvent: PumpEvent | null; findings: SignalFinding[]; narrative: string; research: ResearchResult | null }) {
-      fetch("/api/testing", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, autopsy }),
-      }).catch(() => {});
+      try {
+        await fetch("/api/testing", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name, autopsy }),
+        });
+      } catch { /* non-critical */ }
     }
 
     async function loadAll() {
@@ -1175,14 +1177,15 @@ export default function TestingPage() {
         .filter(({ stub }) => stub.loading); // loading=true means no cache
 
       for (let ci = 0; ci < uncached.length; ci++) {
-        const { stub, i } = uncached[ci];
+        const { stub } = uncached[ci];
+        const stubName = stub.pumper.name;
         const netuid = stub.pumper.netuid;
         if (netuid == null) {
-          setAutopsies(prev => prev.map((a, idx) => idx === i ? { ...a, loading: false } : a));
+          setAutopsies(prev => prev.map((a) => a.pumper.name === stubName ? { ...a, loading: false } : a));
           continue;
         }
 
-        if (ci > 0) await new Promise((r) => setTimeout(r, ci * 300));
+        if (ci > 0) await new Promise((r) => setTimeout(r, Math.min(ci * 200, 1000)));
 
         try {
           const res = await fetch(`/api/subnets/${netuid}`);
@@ -1199,22 +1202,22 @@ export default function TestingPage() {
             fetch("/api/testing", {
               method: "DELETE",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ name: stub.pumper.name }),
+              body: JSON.stringify({ name: stubName }),
             }).catch(() => {});
-            setAutopsies((prev) => prev.filter((_, idx) => idx !== i));
+            setAutopsies((prev) => prev.filter((a) => a.pumper.name !== stubName));
             continue;
           }
 
           const researchPumpDate = pumpEvent?.startDate ?? null;
 
           setAutopsies((prev) =>
-            prev.map((a, idx) =>
-              idx === i ? { ...a, detail, pumpEvent, findings, narrative, loading: false, researchLoading: researchPumpDate != null } : a
+            prev.map((a) =>
+              a.pumper.name === stubName ? { ...a, detail, pumpEvent, findings, narrative, loading: false, researchLoading: researchPumpDate != null } : a
             )
           );
 
           // Save to cache immediately (without research — research updates it again below)
-          saveToCache(stub.pumper.name, { pumpEvent, findings, narrative, research: null });
+          await saveToCache(stubName, { pumpEvent, findings, narrative, research: null });
 
           if (researchPumpDate) {
             try {
@@ -1241,8 +1244,8 @@ export default function TestingPage() {
 
               let finalFindings = findings;
               setAutopsies((prev) =>
-                prev.map((a, idx) => {
-                  if (idx !== i) return a;
+                prev.map((a) => {
+                  if (a.pumper.name !== stubName) return a;
                   let updatedFindings = a.findings;
                   if (research.github && research.github.totalCommits > 0) {
                     const gh = research.github;
@@ -1277,19 +1280,19 @@ export default function TestingPage() {
               );
 
               // Update cache with research included
-              saveToCache(stub.pumper.name, { pumpEvent, findings: finalFindings, narrative, research });
+              await saveToCache(stubName, { pumpEvent, findings: finalFindings, narrative, research });
             } catch {
               setAutopsies((prev) =>
-                prev.map((a, idx) =>
-                  idx === i ? { ...a, researchLoading: false } : a
+                prev.map((a) =>
+                  a.pumper.name === stubName ? { ...a, researchLoading: false } : a
                 )
               );
             }
           }
         } catch (e) {
           setAutopsies((prev) =>
-            prev.map((a, idx) =>
-              idx === i ? { ...a, loading: false, researchLoading: false, error: String(e) } : a
+            prev.map((a) =>
+              a.pumper.name === stubName ? { ...a, loading: false, researchLoading: false, error: String(e) } : a
             )
           );
         }
@@ -1339,12 +1342,12 @@ export default function TestingPage() {
             backgroundSize: "40px 40px",
           }}
         />
-        {/* Violet glow orb */}
-        <div className="absolute -top-20 left-1/3 w-96 h-96 bg-violet-600/10 rounded-full blur-3xl pointer-events-none" />
+        {/* Green glow orb */}
+        <div className="absolute -top-20 left-1/3 w-96 h-96 bg-green-600/10 rounded-full blur-3xl pointer-events-none" />
 
         <div className="relative max-w-screen-xl mx-auto px-4 md:px-6 pt-10 pb-7">
           <div className="flex items-center gap-3 mb-2">
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-violet-400 via-indigo-300 to-white bg-clip-text text-transparent">
+            <h1 className="text-3xl font-bold bg-gradient-to-r from-green-400 via-emerald-300 to-white bg-clip-text text-transparent">
               🔬 Pump Autopsy Lab
             </h1>
             <span className="text-xs bg-yellow-900/50 text-yellow-400 border border-yellow-800/40 rounded-full px-2 py-0.5 font-medium">BETA</span>
