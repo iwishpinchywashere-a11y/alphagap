@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useDashboard } from "@/components/dashboard/DashboardProvider";
 import SubnetDetailPanel from "@/components/dashboard/SubnetDetailPanel";
+import SubnetHoverCard from "@/components/dashboard/SubnetHoverCard";
 import SubnetLogo from "@/components/dashboard/SubnetLogo";
 import { scoreColor, flowColor, formatNum } from "@/lib/formatters";
 import { getTier, canAccessPro, canAccessPremium } from "@/lib/subscription";
@@ -106,6 +107,11 @@ export default function LeaderboardPage() {
   const isPremium = canAccessPremium(tier);
   const { isWatched, watchlist } = useWatchlist();
   const [watchlistOnly, setWatchlistOnly] = useState(false);
+
+  // ── Hover card (desktop only) ─────────────────────────────────────
+  const [hoveredSub, setHoveredSub] = useState<SubnetScore | null>(null);
+  const [hoverAnchor, setHoverAnchor] = useState<DOMRect | null>(null);
+  const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Sticky header: show a fixed clone of the thead once the real one scrolls off screen
   const theadRef = useRef<HTMLTableSectionElement>(null);
@@ -553,6 +559,20 @@ export default function LeaderboardPage() {
                       }`}
                       style={isLocked ? { filter: "blur(3px)" } : undefined}
                       onClick={() => !isLocked && router.push(`/subnets/${sub.netuid}`)}
+                      onMouseEnter={(e) => {
+                        if (isLocked || window.innerWidth < 1024) return;
+                        if (hoverTimer.current) clearTimeout(hoverTimer.current);
+                        const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                        hoverTimer.current = setTimeout(() => {
+                          setHoveredSub(sub);
+                          setHoverAnchor(rect);
+                        }, 280);
+                      }}
+                      onMouseLeave={() => {
+                        if (hoverTimer.current) clearTimeout(hoverTimer.current);
+                        setHoveredSub(null);
+                        setHoverAnchor(null);
+                      }}
                     >
                       <td className="py-2 px-3 text-white text-xs tabular-nums font-medium">{i + 1}</td>
                       <td className="py-2 px-3">
@@ -674,6 +694,16 @@ export default function LeaderboardPage() {
           </div>
         )}
       </div>
+
+      {/* Hover card — desktop only, shown after 280ms hover delay */}
+      {hoveredSub && hoverAnchor && (
+        <SubnetHoverCard
+          sub={hoveredSub}
+          anchorRect={hoverAnchor}
+          taoPrice={taoPrice}
+          onClose={() => { setHoveredSub(null); setHoverAnchor(null); }}
+        />
+      )}
 
       <SubnetDetailPanel />
 
