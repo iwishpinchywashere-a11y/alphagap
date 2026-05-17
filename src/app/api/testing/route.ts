@@ -23,11 +23,12 @@ export interface PumpTrackerData {
 
 // Stored autopsy result — everything the page needs to render, no refetch required
 export interface CachedAutopsy {
-  pumpEvent:  unknown | null;   // PumpEvent — keep as unknown to avoid cross-file type issues
-  findings:   unknown[];        // SignalFinding[]
-  narrative:  string;
-  research:   unknown | null;   // ResearchResult
-  cachedAt:   string;
+  pumpEvent:    unknown | null;   // PumpEvent — keep as unknown to avoid cross-file type issues
+  findings:     unknown[];        // SignalFinding[]
+  narrative:    string;
+  research:     unknown | null;   // ResearchResult
+  priceHistory: unknown[];        // PricePoint[] — needed to render the chart without re-fetching
+  cachedAt:     string;
 }
 
 export type AutopsyCache = Record<string, CachedAutopsy>; // key = pumper.name

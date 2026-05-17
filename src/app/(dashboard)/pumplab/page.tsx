@@ -1071,7 +1071,7 @@ export default function TestingPage() {
     if (loadedRef.current) return;
     loadedRef.current = true;
 
-    async function saveToCache(name: string, autopsy: { pumpEvent: PumpEvent | null; findings: SignalFinding[]; narrative: string; research: ResearchResult | null }) {
+    async function saveToCache(name: string, autopsy: { pumpEvent: PumpEvent | null; findings: SignalFinding[]; narrative: string; research: ResearchResult | null; priceHistory: PricePoint[] }) {
       try {
         await fetch("/api/testing", {
           method: "PATCH",
@@ -1084,7 +1084,7 @@ export default function TestingPage() {
     async function loadAll() {
       // 1) Fetch tracked list + autopsy cache in one call
       const trackerRes = await fetch("/api/testing");
-      const { tracked, cache = {} }: { tracked: TrackedPumper[]; cache: Record<string, { pumpEvent: PumpEvent | null; findings: SignalFinding[]; narrative: string; research: ResearchResult | null }> } = await trackerRes.json();
+      const { tracked, cache = {} }: { tracked: TrackedPumper[]; cache: Record<string, { pumpEvent: PumpEvent | null; findings: SignalFinding[]; narrative: string; research: ResearchResult | null; priceHistory?: PricePoint[] }> } = await trackerRes.json();
 
       // 2) Fetch leaderboard (for name→netuid resolution + current scores)
       const scanRes = await fetch("/api/cached-scan");
@@ -1142,10 +1142,22 @@ export default function TestingPage() {
 
         if (cached && cached.findings.length > 0) {
           // Serve instantly from cache — no network fetch needed
+          // Build a minimal SubnetDetail from cached price history so the chart renders immediately
+          const cachedDetail: SubnetDetail | null = cached.priceHistory?.length
+            ? {
+                netuid: resolvedNetuid ?? 0,
+                name: p.name,
+                identity: null,
+                scoreHistory: [],
+                priceHistory: cached.priceHistory as PricePoint[],
+                signals: [],
+                marketStats: null,
+              }
+            : null;
           return {
             pumper: { ...p, netuid: resolvedNetuid },
             current: current ?? null,
-            detail: null,
+            detail: cachedDetail,
             pumpEvent: cached.pumpEvent,
             findings: cached.findings,
             narrative: cached.narrative,
@@ -1217,7 +1229,7 @@ export default function TestingPage() {
           );
 
           // Save to cache immediately (without research — research updates it again below)
-          await saveToCache(stubName, { pumpEvent, findings, narrative, research: null });
+          await saveToCache(stubName, { pumpEvent, findings, narrative, research: null, priceHistory: detail.priceHistory });
 
           if (researchPumpDate) {
             try {
@@ -1280,7 +1292,7 @@ export default function TestingPage() {
               );
 
               // Update cache with research included
-              await saveToCache(stubName, { pumpEvent, findings: finalFindings, narrative, research });
+              await saveToCache(stubName, { pumpEvent, findings: finalFindings, narrative, research, priceHistory: detail.priceHistory });
             } catch {
               setAutopsies((prev) =>
                 prev.map((a) =>
