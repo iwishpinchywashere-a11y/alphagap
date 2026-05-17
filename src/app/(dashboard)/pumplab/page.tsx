@@ -49,7 +49,8 @@ interface Autopsy {
   pumpEvent: PumpEvent | null;
   findings: SignalFinding[];
   narrative: string;
-  loading: boolean;
+  loading: boolean;      // full compute pending
+  chartLoading: boolean; // cached entry but priceHistory not yet fetched
   error?: string;
 }
 
@@ -282,14 +283,21 @@ function buildFindings(
 
 // ── Mini SVG price chart ───────────────────────────────────────────────────
 
-function MiniPriceChart({ prices, pump }: { prices: PricePoint[]; pump: PumpEvent | null }) {
+function MiniPriceChart({ prices, pump, chartLoading }: { prices: PricePoint[]; pump: PumpEvent | null; chartLoading?: boolean }) {
   const W = 600; const H = 160;
   const PAD = { top: 16, right: 16, bottom: 32, left: 56 };
 
   if (prices.length < 2) {
     return (
-      <div className="flex items-center justify-center h-[160px] text-gray-700 text-xs italic">
-        No price data
+      <div className="flex items-center justify-center h-[160px] text-xs gap-2">
+        {chartLoading ? (
+          <>
+            <div className="w-3 h-3 border-2 border-green-500/30 border-t-green-400 rounded-full animate-spin" />
+            <span className="text-gray-600">Loading chart…</span>
+          </>
+        ) : (
+          <span className="text-gray-700 italic">No price data</span>
+        )}
       </div>
     );
   }
@@ -394,7 +402,7 @@ function fmtUsd(v: number): string {
 // ── Autopsy Card ──────────────────────────────────────────────────────────
 
 function AutopsyCard({ autopsy, onRemove }: { autopsy: Autopsy; onRemove: () => void }) {
-  const { pumper, current, detail, pumpEvent, findings, loading, error } = autopsy;
+  const { pumper, current, detail, pumpEvent, findings, loading, chartLoading, error } = autopsy;
 
   const ms = detail?.marketStats ?? null;
   const priceUsd = current?.alpha_price ?? ms?.priceUsd ?? null;
@@ -475,7 +483,7 @@ function AutopsyCard({ autopsy, onRemove }: { autopsy: Autopsy; onRemove: () => 
           {pumpEvent && <><span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-yellow-400 inline-block" />pump start</span><span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-400 inline-block" />pump peak</span></>}
         </div>
         <div className="bg-gray-900/40 rounded-xl p-3 border border-gray-800/30">
-          <MiniPriceChart prices={detail?.priceHistory ?? []} pump={pumpEvent} />
+          <MiniPriceChart prices={detail?.priceHistory ?? []} pump={pumpEvent} chartLoading={chartLoading} />
         </div>
         {pumpEvent && (
           <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-xs text-gray-500">
@@ -659,9 +667,9 @@ export default function PumpLabPage() {
         const cached = cachedKey ? cache[cachedKey] : null;
 
         if (cached && cached.findings.length > 0) {
-          // Build detail with cached price history (may be empty for old entries)
-          const cachedDetail: SubnetDetail | null = cached.priceHistory?.length
-            ? { netuid: resolvedNetuid ?? 0, name: p.name, identity: null, scoreHistory: [], priceHistory: cached.priceHistory, signals: [], marketStats: null }
+          const hasPriceHistory = (cached.priceHistory?.length ?? 0) >= 2;
+          const cachedDetail: SubnetDetail | null = hasPriceHistory
+            ? { netuid: resolvedNetuid ?? 0, name: p.name, identity: null, scoreHistory: [], priceHistory: cached.priceHistory!, signals: [], marketStats: null }
             : null;
           return {
             pumper: { ...p, netuid: resolvedNetuid },
@@ -671,6 +679,7 @@ export default function PumpLabPage() {
             findings: cached.findings,
             narrative: "",
             loading: false,
+            chartLoading: !hasPriceHistory && resolvedNetuid != null,
           };
         }
 
@@ -682,45 +691,53 @@ export default function PumpLabPage() {
           findings: [],
           narrative: "",
           loading: resolvedNetuid != null,
+          chartLoading: false,
         };
       });
 
       setAutopsies(stubs);
 
-      // 4) For cached entries MISSING price history — fetch in background to fill chart
-      const needsChart = stubs.filter(s => !s.loading && s.detail === null && s.pumper.netuid != null);
-      // Process these alongside uncached entries below
+      // 4) Fetch price history for cached entries that are missing it — parallel, awaited
+      const needsChart = stubs.filter(s => s.chartLoading && s.pumper.netuid != null);
 
-      // 5) Fetch detail for uncached entries (and for cached-but-no-chart)
-      const uncached = stubs
-        .map((stub) => ({ stub }))
-        .filter(({ stub }) => stub.loading);
-
-      // Background chart-fills (no stagger, just chart data)
-      for (const stub of needsChart) {
+      await Promise.all(needsChart.map(async (stub) => {
         const stubName = stub.pumper.name;
         const netuid = stub.pumper.netuid!;
-        (async () => {
-          try {
-            const res = await fetch(`/api/subnets/${netuid}`);
-            if (!res.ok) return;
-            const detail: SubnetDetail = await res.json();
-            setAutopsies(prev => prev.map(a => a.pumper.name === stubName ? { ...a, detail } : a));
-            // Re-save cache with price history
+        try {
+          const res = await fetch(`/api/subnets/${netuid}`);
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const detail: SubnetDetail = await res.json();
+          if (detail.priceHistory?.length >= 2) {
+            setAutopsies(prev => prev.map(a =>
+              a.pumper.name === stubName ? { ...a, detail, chartLoading: false } : a
+            ));
+            // Re-save cache with priceHistory so next load is instant
             const cachedKey = Object.keys(cache).find(k => k.toLowerCase() === stubName.toLowerCase());
-            const cached = cachedKey ? cache[cachedKey] : null;
-            if (cached) {
-              await saveToCache(stubName, {
-                pumpEvent: stub.pumpEvent,
+            if (cachedKey) {
+              saveToCache(stubName, {
+                pumpEvent: stub.pumpEvent as PumpEvent | null,
                 findings: stub.findings as SignalFinding[],
                 narrative: "",
                 research: null,
                 priceHistory: detail.priceHistory,
-              });
+              }).catch(() => {});
             }
-          } catch { /* ignore */ }
-        })();
-      }
+          } else {
+            setAutopsies(prev => prev.map(a =>
+              a.pumper.name === stubName ? { ...a, chartLoading: false } : a
+            ));
+          }
+        } catch {
+          setAutopsies(prev => prev.map(a =>
+            a.pumper.name === stubName ? { ...a, chartLoading: false } : a
+          ));
+        }
+      }));
+
+      // 5) Full compute for uncached entries
+      const uncached = stubs
+        .map((stub) => ({ stub }))
+        .filter(({ stub }) => stub.loading);
 
       // Full compute for truly uncached entries
       for (let ci = 0; ci < uncached.length; ci++) {
@@ -759,14 +776,14 @@ export default function PumpLabPage() {
           }
 
           setAutopsies((prev) =>
-            prev.map((a) => a.pumper.name === stubName ? { ...a, detail, pumpEvent, findings, narrative: "", loading: false } : a)
+            prev.map((a) => a.pumper.name === stubName ? { ...a, detail, pumpEvent, findings, narrative: "", loading: false, chartLoading: false } : a)
           );
 
           await saveToCache(stubName, { pumpEvent, findings, narrative: "", research: null, priceHistory: detail.priceHistory });
 
         } catch (e) {
           setAutopsies((prev) =>
-            prev.map((a) => a.pumper.name === stubName ? { ...a, loading: false, error: String(e) } : a)
+            prev.map((a) => a.pumper.name === stubName ? { ...a, loading: false, chartLoading: false, error: String(e) } : a)
           );
         }
       }
