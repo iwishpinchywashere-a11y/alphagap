@@ -120,7 +120,13 @@ export default function FlowPage() {
 
     for (const sub of leaderboard) {
       // ── Whale accumulation ─────────────────────────────────
-      if (sub.whale_signal === "accumulating" && sub.whale_ratio != null) {
+      // Require whale_ratio >= 2 in display (tighter than scan's 2.5 floor)
+      // AND skip if miner_burn_pct > 50 — high-burn subnets' "buy volume" is
+      // driven by emission chain-buy recycling, not actual whale conviction.
+      if (
+        sub.whale_signal === "accumulating" && sub.whale_ratio != null &&
+        sub.whale_ratio >= 2 && (sub.miner_burn_pct ?? 0) <= 50
+      ) {
         const flowUsd = sub.net_flow_24h != null && taoPrice != null
           ? sub.net_flow_24h * taoPrice : null;
         const strength = Math.min(95, 50 + (sub.whale_ratio - 2) * 15);
@@ -143,20 +149,53 @@ export default function FlowPage() {
         });
       }
 
+      // ── Emission chain buys (miner burn recycling) ──────────
+      // High miner burn subnets generate automated buy-side flow that looks
+      // like whale accumulation but isn't genuine smart money. Show separately.
+      if (
+        sub.whale_signal === "accumulating" &&
+        (sub.miner_burn_pct ?? 0) > 50 &&
+        sub.net_flow_24h != null && sub.net_flow_24h > 0
+      ) {
+        const flowUsd = taoPrice != null ? sub.net_flow_24h * taoPrice : null;
+        out.push({
+          netuid: sub.netuid,
+          name: sub.name,
+          type: "volume_surge", // group with vol events, not whale buys
+          strength: 40,
+          headline: `Emission chain buys driving buy-side volume (${sub.miner_burn_pct?.toFixed(0)}% miner burn)`,
+          detail: flowUsd != null
+            ? `+$${formatNum(Math.abs(Math.round(flowUsd)))} 24h net flow — primarily automated emission recycling, not whale buying. Miner burn rate: ${sub.miner_burn_pct?.toFixed(0)}%.`
+            : `Miner burn recycled as on-chain buys — ${sub.miner_burn_pct?.toFixed(0)}% of miner emissions burned and re-spent.`,
+          badge: "🔥 CHAIN BUY",
+          badgeColor: "bg-orange-500/20 text-orange-400 border-orange-500/30",
+          netFlow: sub.net_flow_24h ?? undefined,
+          price: sub.alpha_price ?? undefined,
+          change24h: sub.price_change_24h ?? undefined,
+          signalDate: TODAY_ISO,
+        });
+      }
+
       // ── Whale distribution ─────────────────────────────────
-      if (sub.whale_signal === "distributing" && sub.whale_ratio != null) {
+      // Require whale_ratio <= 0.33 (sells 3x buys) — tighter than scan's 0.4
+      // to filter out weak or noise sell signals
+      if (
+        sub.whale_signal === "distributing" && sub.whale_ratio != null &&
+        sub.whale_ratio <= 0.33
+      ) {
         const flowUsd = sub.net_flow_24h != null && taoPrice != null
           ? sub.net_flow_24h * taoPrice : null;
-        const strength = Math.min(85, 50 + (1 / sub.whale_ratio - 2) * 10);
+        const sellRatio = sub.whale_ratio > 0 ? (1 / sub.whale_ratio).toFixed(1) : "?";
+        const strength = Math.min(85, 50 + (1 / sub.whale_ratio - 3) * 10);
         out.push({
           netuid: sub.netuid,
           name: sub.name,
           type: "distributing",
           strength: Math.round(Math.max(30, strength)),
-          headline: `${sub.whale_ratio}x sell pressure — smart money exiting`,
+          headline: `${sellRatio}x avg sell size vs buys — smart money exiting`,
           detail: flowUsd != null
-            ? `Net ${flowUsd > 0 ? "+" : "-"}$${formatNum(Math.abs(Math.round(flowUsd)))} in 24h · ${sub.whale_ratio}x whale sell/buy ratio`
-            : `${sub.whale_ratio}x whale sell-side pressure`,
+            ? `Net ${flowUsd >= 0 ? "+" : ""}$${formatNum(Math.round(flowUsd))} in 24h · avg sells ${sellRatio}x larger than buys`
+            : `Avg sells ${sellRatio}x larger than buys — significant distribution pressure`,
           badge: "🔻 WHALE SELL",
           badgeColor: "bg-red-500/20 text-red-400 border-red-500/30",
           netFlow: sub.net_flow_24h ?? undefined,
@@ -169,6 +208,8 @@ export default function FlowPage() {
 
       // ── Volume surge ───────────────────────────────────────
       if (sub.volume_surge && sub.volume_surge_ratio != null) {
+        const burnPct = sub.miner_burn_pct ?? 0;
+        const isEmissionDriven = burnPct > 50;
         const buyVolUsd = sub.net_flow_24h != null && taoPrice != null && sub.net_flow_24h > 0
           ? sub.net_flow_24h * taoPrice : null;
         const strength = Math.min(95,
@@ -181,13 +222,19 @@ export default function FlowPage() {
           netuid: sub.netuid,
           name: sub.name,
           type: "volume_surge",
-          strength,
-          headline: `${sub.volume_surge_ratio}x unusual buy volume vs 5-day average`,
-          detail: buyVolUsd != null
+          strength: isEmissionDriven ? Math.round(strength * 0.6) : strength,
+          headline: isEmissionDriven
+            ? `${sub.volume_surge_ratio}x volume spike — likely emission chain buys (${burnPct.toFixed(0)}% burn rate)`
+            : `${sub.volume_surge_ratio}x unusual buy volume vs 5-day average`,
+          detail: isEmissionDriven
+            ? `Volume spike driven by emission recycling, not organic demand. ${burnPct.toFixed(0)}% of miner emissions are burned and re-entered as chain buys.${buyVolUsd != null ? ` Net: +$${formatNum(Math.round(buyVolUsd))}.` : ""}`
+            : buyVolUsd != null
             ? `+$${formatNum(Math.round(buyVolUsd))} net buying · ${sub.volume_surge_ratio}x rolling avg volume`
             : `${sub.volume_surge_ratio}x rolling average buy volume`,
-          badge: "🤑 VOL SURGE",
-          badgeColor: "bg-yellow-500/20 text-yellow-300 border-yellow-500/30",
+          badge: isEmissionDriven ? "🔥 CHAIN BUY" : "🤑 VOL SURGE",
+          badgeColor: isEmissionDriven
+            ? "bg-orange-500/20 text-orange-400 border-orange-500/30"
+            : "bg-yellow-500/20 text-yellow-300 border-yellow-500/30",
           volumeRatio: sub.volume_surge_ratio,
           netFlow: sub.net_flow_24h ?? undefined,
           price: sub.alpha_price ?? undefined,
@@ -339,32 +386,70 @@ export default function FlowPage() {
       }));
 
     // Convert Const wallet events to FlowEvents
-    const constAsFlowEvents: FlowEvent[] = constEvents.map(ev => {
-      const sub = leaderboard.find(s => s.netuid === ev.netuid);
-      const usdStr = ev.amountUsd > 0 ? ` (~$${(ev.amountUsd/1000).toFixed(0)}k)` : "";
-      const amtStr = ev.amountTao >= 1000 ? `${(ev.amountTao/1000).toFixed(1)}k TAO` : `${ev.amountTao.toFixed(0)} TAO`;
-      return {
-        netuid: ev.netuid,
-        name: ev.subnetName ?? `SN${ev.netuid}`,
-        type: ev.type === "buy" ? "accumulating" : "distributing",
-        strength: ev.type === "buy" ? 95 : 70,
-        headline: ev.type === "buy"
-          ? `Const staked ${amtStr}${usdStr} — founder conviction`
-          : `Const unstaked ${amtStr}${usdStr}`,
-        detail: ev.type === "buy"
-          ? `Bittensor founder added ${amtStr} to ${ev.subnetName ?? `SN${ev.netuid}`}. Const's buys are historically significant signals.`
-          : `Bittensor founder withdrew ${amtStr} from ${ev.subnetName ?? `SN${ev.netuid}`}.`,
-        badge: ev.type === "buy" ? "👑 CONST BUY" : "👑 CONST SELL",
-        badgeColor: ev.type === "buy"
-          ? "bg-yellow-500/20 text-yellow-300 border-yellow-500/30"
-          : "bg-orange-500/20 text-orange-400 border-orange-500/30",
-        price: sub?.alpha_price,
-        change24h: sub?.price_change_24h,
-        signalDate: ev.detectedAt,
-        isConstEvent: true,
-        constType: ev.type,
-      };
-    });
+    // Group by netuid to detect validator swap pairs (buy + sell on same subnet)
+    const constByNetuid = new Map<number, typeof constEvents>();
+    for (const ev of constEvents) {
+      if (!constByNetuid.has(ev.netuid)) constByNetuid.set(ev.netuid, []);
+      constByNetuid.get(ev.netuid)!.push(ev);
+    }
+
+    const constAsFlowEvents: FlowEvent[] = [];
+    for (const [netuid, evs] of constByNetuid.entries()) {
+      const sub = leaderboard.find(s => s.netuid === netuid);
+      const buyEv  = evs.find(e => e.type === "buy");
+      const sellEv = evs.find(e => e.type === "sell");
+
+      // ── Both buy + sell on same subnet → validator re-delegation swap ──────
+      if (buyEv && sellEv) {
+        const buyAmt  = buyEv.amountTao >= 1000  ? `${(buyEv.amountTao/1000).toFixed(1)}k TAO`  : `${buyEv.amountTao.toFixed(0)} TAO`;
+        const sellAmt = sellEv.amountTao >= 1000 ? `${(sellEv.amountTao/1000).toFixed(1)}k TAO` : `${sellEv.amountTao.toFixed(0)} TAO`;
+        const subName = buyEv.subnetName ?? sellEv.subnetName ?? `SN${netuid}`;
+        // Use the later of the two timestamps
+        const signalDate = buyEv.detectedAt > sellEv.detectedAt ? buyEv.detectedAt : sellEv.detectedAt;
+        constAsFlowEvents.push({
+          netuid,
+          name: subName,
+          type: "accumulating", // neutral but show in accumulating group — not a real sell signal
+          strength: 50,
+          headline: `Const re-delegated stake on ${subName} — validator swap, not exit`,
+          detail: `Const unstaked ${sellAmt} and re-staked ${buyAmt} on ${subName}. This is a validator re-delegation (moving stake between validators), not a position change. No buy/sell signal.`,
+          badge: "🔄 CONST SWAP",
+          badgeColor: "bg-blue-500/20 text-blue-300 border-blue-500/30",
+          price: sub?.alpha_price,
+          change24h: sub?.price_change_24h,
+          signalDate,
+          isConstEvent: true,
+        });
+        continue;
+      }
+
+      // ── Single buy or sell event ────────────────────────────────────────────
+      for (const ev of evs) {
+        const usdStr = ev.amountUsd > 0 ? ` (~$${(ev.amountUsd/1000).toFixed(0)}k)` : "";
+        const amtStr = ev.amountTao >= 1000 ? `${(ev.amountTao/1000).toFixed(1)}k TAO` : `${ev.amountTao.toFixed(0)} TAO`;
+        constAsFlowEvents.push({
+          netuid: ev.netuid,
+          name: ev.subnetName ?? `SN${ev.netuid}`,
+          type: ev.type === "buy" ? "accumulating" : "distributing",
+          strength: ev.type === "buy" ? 95 : 70,
+          headline: ev.type === "buy"
+            ? `Const staked ${amtStr}${usdStr} — founder conviction`
+            : `Const unstaked ${amtStr}${usdStr}`,
+          detail: ev.type === "buy"
+            ? `Bittensor founder added ${amtStr} to ${ev.subnetName ?? `SN${ev.netuid}`}. Const's buys are historically significant signals.`
+            : `Bittensor founder withdrew ${amtStr} from ${ev.subnetName ?? `SN${ev.netuid}`}.`,
+          badge: ev.type === "buy" ? "👑 CONST BUY" : "👑 CONST SELL",
+          badgeColor: ev.type === "buy"
+            ? "bg-yellow-500/20 text-yellow-300 border-yellow-500/30"
+            : "bg-orange-500/20 text-orange-400 border-orange-500/30",
+          price: sub?.alpha_price,
+          change24h: sub?.price_change_24h,
+          signalDate: ev.detectedAt,
+          isConstEvent: true,
+          constType: ev.type,
+        });
+      }
+    }
 
     const all = [...liveEvents, ...historicalAsFlowEvents, ...constAsFlowEvents];
 
