@@ -572,7 +572,7 @@ export default function LeaderboardPage() {
                       style={isLocked ? { filter: "blur(3px)" } : undefined}
                       onClick={() => !isLocked && router.push(`/subnets/${sub.netuid}`)}
                       onMouseEnter={(e) => {
-                        if (isLocked || window.innerWidth < 1024) return;
+                        if (isLocked || window.innerWidth < 768) return;
                         cancelClose();
                         if (hoverTimer.current) clearTimeout(hoverTimer.current);
                         const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();

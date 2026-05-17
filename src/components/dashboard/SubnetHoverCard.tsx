@@ -152,21 +152,18 @@ export default function SubnetHoverCard({ sub, anchorRect, taoPrice, onKeepAlive
   const [loading, setLoading] = useState(true);
   const cardRef = useRef<HTMLDivElement>(null);
 
-  // Position the card: right of row if space, otherwise left
+  // Position the card: always anchored to the right edge of the viewport
+  // (table rows are full-width so left/right of row doesn't work)
   const CARD_W = 300;
-  const CARD_H = 380;
-  const viewport = typeof window !== "undefined" ? { w: window.innerWidth, h: window.innerHeight } : { w: 1200, h: 800 };
+  const CARD_H = 420;
+  const vw = typeof window !== "undefined" ? window.innerWidth : 1200;
+  const vh = typeof window !== "undefined" ? window.innerHeight : 800;
 
-  // Prefer right of table row; if not enough space, go left
-  let left = anchorRect.right + 8;
-  if (left + CARD_W > viewport.w - 8) {
-    left = anchorRect.left - CARD_W - 8;
-  }
-  // Vertical: align to row top, clamp to viewport
-  let top = anchorRect.top;
-  if (top + CARD_H > viewport.h - 8) {
-    top = viewport.h - CARD_H - 8;
-  }
+  // Horizontal: fixed 16px from right viewport edge
+  const left = Math.max(8, vw - CARD_W - 16);
+  // Vertical: centre on the hovered row, clamp to viewport
+  let top = anchorRect.top + anchorRect.height / 2 - CARD_H / 2;
+  if (top + CARD_H > vh - 8) top = vh - CARD_H - 8;
   if (top < 8) top = 8;
 
   useEffect(() => {
