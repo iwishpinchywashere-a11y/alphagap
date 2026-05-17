@@ -24,7 +24,7 @@ const TMC_API_KEY  = process.env.TMC_API_KEY || "";
 const RAO_PER_TAO  = 1_000_000_000;
 const ROOT_NETUID  = 0; // subnet 0 = root/legacy — NOT an alpha token
 
-const MAIN_CACHE_KEY    = "wallet-tracker-v8.json";
+const MAIN_CACHE_KEY    = "wallet-tracker-v9.json";
 const MAIN_CACHE_TTL_MS = 60 * 60 * 1000; // 60 min (expensive to compute)
 
 const WIN_CACHE_KEY     = "wallet-tracker-winners.json";
@@ -287,84 +287,113 @@ async function filterToAlphaHolders(addresses: string[]): Promise<Set<string>> {
 }
 
 // ── Build the main filtered wallet list ───────────────────────────
+// Strategy: seed candidates from TaoStats delegation events (confirmed alpha
+// holders) instead of scanning random TMC wallets. TaoStats delegation events
+// with netuid > 0 ARE alpha staking events, so every address is guaranteed to
+// be a real alpha investor. Enrich with TMC detail for current positions.
 async function buildMainList(): Promise<WalletEntry[]> {
-  // Fetch top wallets sorted by alpha stake (tao_staked) — these are the most
-  // likely to hold alpha tokens. Keep the list small to avoid TMC rate limits.
-  // Sequential fetches (not parallel) to stay within rate limits.
-  const [byStaked, subnetNames, taoPrice] = await Promise.all([
-    fetchTMCList("tao_staked", 400),
+  const TAOSTATS_KEY = process.env.TAOSTATS_API_KEY || "";
+  const sixtyDaysAgo = Math.floor((Date.now() - 60 * 86400_000) / 1000);
+
+  // Fetch in parallel:
+  //  1. TaoStats delegations — confirmed alpha investor addresses
+  //  2. TMC top 100 — provides rank + 24h change data for known wallets
+  //  3. Subnet names + TAO price
+  interface TSDelegationLite { nominator: { ss58: string }; netuid: number | null; }
+  const [tsResult, tmcTop, subnetNames, taoPrice] = await Promise.all([
+    fetch(
+      `https://api.taostats.io/api/delegation/v1?limit=1000&order=amount_desc&timestamp_start=${sixtyDaysAgo}`,
+      { headers: { Authorization: TAOSTATS_KEY }, signal: AbortSignal.timeout(15000), next: { revalidate: 0 } }
+    ).then(r => r.ok ? r.json() as Promise<{ data?: TSDelegationLite[] }> : { data: [] }).catch(() => ({ data: [] })),
+    fetchTMCList("tao_staked", 100).catch(() => [] as TMCColdkey[]),
     fetchSubnetNames(),
     getTaoPrice().catch(() => 0),
   ]);
 
-  console.log(`[wallet-tracker] ${byStaked.length} wallets, ${subnetNames.size} subnets, TAO=$${taoPrice}`);
+  // Collect confirmed alpha investor addresses from TaoStats (netuid > 0 only)
+  const tsAddresses = new Set<string>();
+  for (const d of (tsResult.data ?? [])) {
+    if (d.netuid != null && d.netuid > 0 && d.nominator?.ss58) {
+      tsAddresses.add(d.nominator.ss58);
+    }
+  }
+  console.log(`[wallet-tracker] ${tsAddresses.size} alpha investors from TaoStats, ${tmcTop.length} from TMC top, TAO=$${taoPrice}`);
 
-  // Only fetch detail for wallets with tao_staked > 0 (alpha investors)
-  // Top 300 by tao_staked should yield 50-150 qualifying alpha wallets
-  const candidates = byStaked.filter(w => (w.tao_staked ?? 0) > 0).slice(0, 300);
+  // Build TMC lookup for rank + 24h change enrichment
+  const tmcMap = new Map<string, TMCColdkey>();
+  for (const w of tmcTop) tmcMap.set(w.id, w);
+
+  // Merge: TaoStats addresses first (confirmed alpha holders),
+  // then any TMC top wallets with stake not already included.
+  const allAddresses: string[] = [...tsAddresses];
+  for (const w of tmcTop) {
+    if (!tsAddresses.has(w.id) && (w.tao_staked ?? 0) > 0) allAddresses.push(w.id);
+  }
+  const candidates = allAddresses.slice(0, 500);
   console.log(`[wallet-tracker] ${candidates.length} candidates to detail-fetch`);
 
-  // Batch-fetch per-wallet detail at 20 concurrent max to avoid rate limits
-  const BATCH = 20;
+  // Batch-fetch TMC detail (25 concurrent, 250ms pause between batches)
+  const BATCH = 25;
   const details: (TMCWalletDetail | null)[] = [];
   for (let i = 0; i < candidates.length; i += BATCH) {
     const batch   = candidates.slice(i, i + BATCH);
-    const results = await Promise.allSettled(batch.map(w => fetchDetail(w.id)));
+    const results = await Promise.allSettled(batch.map(addr => fetchDetail(addr)));
     for (const r of results) details.push(r.status === "fulfilled" ? r.value : null);
-    // Small pause between batches to avoid rate-limit cascade
-    if (i + BATCH < candidates.length) await new Promise(res => setTimeout(res, 300));
+    if (i + BATCH < candidates.length) await new Promise(res => setTimeout(res, 250));
   }
-
   console.log(`[wallet-tracker] Fetched ${details.filter(Boolean).length}/${candidates.length} details`);
 
   const enriched: WalletEntry[] = [];
 
   for (let i = 0; i < candidates.length; i++) {
-    const w      = candidates[i];
+    const addr   = candidates[i];
     const detail = details[i];
     if (!detail?.hotkeys?.length) continue;
 
     // Aggregate tao_staked per subnet, EXCLUDING root network (SN0)
-    const posMap = new Map<number, number>(); // netuid → total tao_staked rao
+    const posMap = new Map<number, number>();
     for (const hk of detail.hotkeys) {
       if (hk.subnet == null || hk.subnet === ROOT_NETUID) continue;
       posMap.set(hk.subnet, (posMap.get(hk.subnet) ?? 0) + (hk.tao_staked ?? 0));
     }
-
-    // Must hold ≥ 1 distinct alpha token (not counting root)
     if (posMap.size < 1) continue;
 
     const positions: AlphaPosition[] = [...posMap.entries()]
       .map(([netuid, taoRao]) => {
         const staked_tao = Math.round(taoRao / RAO_PER_TAO * 100) / 100;
-        return {
-          netuid,
-          name:       subnetNames.get(netuid) ?? `SN${netuid}`,
-          staked_tao,
-          staked_usd: Math.round(staked_tao * taoPrice * 100) / 100,
-        };
+        return { netuid, name: subnetNames.get(netuid) ?? `SN${netuid}`, staked_tao,
+                 staked_usd: Math.round(staked_tao * taoPrice * 100) / 100 };
       })
       .sort((a, b) => b.staked_tao - a.staked_tao);
 
-    const known = KNOWN_WALLETS[w.id];
+    const staked_tao = positions.reduce((s, p) => s + p.staked_tao, 0);
+    const tmc        = tmcMap.get(addr);
+    const total_tao  = tmc
+      ? Math.round(tmc.total / RAO_PER_TAO * 100) / 100
+      : Math.round((detail.total ?? 0) / RAO_PER_TAO * 100) / 100;
+    const free_tao   = tmc
+      ? Math.round(tmc.free  / RAO_PER_TAO * 100) / 100
+      : Math.round((detail.free  ?? 0) / RAO_PER_TAO * 100) / 100;
+
+    const known = KNOWN_WALLETS[addr];
     enriched.push({
-      address:        w.id,
+      address:        addr,
       label:          known?.label,
       emoji:          known?.emoji,
       category:       known?.category,
       is_known:       !!known,
-      total_tao:      Math.round(w.total          / RAO_PER_TAO * 100) / 100,
-      free_tao:       Math.round(w.free           / RAO_PER_TAO * 100) / 100,
-      staked_tao:     Math.round((w.tao_staked ?? 0) / RAO_PER_TAO * 100) / 100,
-      change_24h_tao: Math.round(w.tao_change_24h / RAO_PER_TAO * 100) / 100,
-      change_24h_pct: Math.round(w.percent_change_24h * 100) / 100,
-      rank:           w.rank ?? i + 1,
+      total_tao,
+      free_tao,
+      staked_tao,
+      change_24h_tao: tmc ? Math.round(tmc.tao_change_24h     / RAO_PER_TAO * 100) / 100 : 0,
+      change_24h_pct: tmc ? Math.round(tmc.percent_change_24h * 100) / 100 : 0,
+      rank:           tmc?.rank ?? (i + 1),
       alpha_count:    posMap.size,
       positions,
     });
   }
 
-  // Sort by staked_tao (most active alpha investors first), take top 200 qualified wallets
+  // Sort by alpha staked — most active alpha investors first
   return enriched.sort((a, b) => b.staked_tao - a.staked_tao).slice(0, 200);
 }
 
@@ -871,7 +900,7 @@ export async function GET(request: NextRequest) {
     // On rate-limit or transient error, serve stale cache rather than showing error
     if (cached) return NextResponse.json(cached);
     // Last-resort: try reading the previous cache version
-    const prev = await readBlob<MainCache>("wallet-tracker-v7.json");
+    const prev = await readBlob<MainCache>("wallet-tracker-v8.json");
     if (prev?.wallets?.length) return NextResponse.json(prev);
     return NextResponse.json({ error: String(e) }, { status: 500 });
   }
