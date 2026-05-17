@@ -463,12 +463,15 @@ function TrackButton({ tracked, onToggle }: { tracked: boolean; onToggle: () => 
 
 // wallet label chip
 function LabelChip({ label, category }: { label: string; category?: string }) {
+  const cls =
+    category === "founder"   ? "bg-amber-500/15 text-amber-400 border-amber-500/25" :
+    category === "otf"       ? "bg-purple-500/15 text-purple-400 border-purple-500/25" :
+    category === "vc"        ? "bg-blue-500/15 text-blue-400 border-blue-500/25" :
+    category === "team"      ? "bg-cyan-500/15 text-cyan-400 border-cyan-500/25" :
+    category === "validator" ? "bg-green-500/15 text-green-400 border-green-500/25" :
+                               "bg-gray-500/15 text-gray-400 border-gray-500/25";
   return (
-    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full whitespace-nowrap ${
-      category === "founder"
-        ? "bg-amber-500/15 text-amber-400 border border-amber-500/25"
-        : "bg-green-500/15 text-green-400 border border-green-500/25"
-    }`}>{label}</span>
+    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full whitespace-nowrap border ${cls}`}>{label}</span>
   );
 }
 

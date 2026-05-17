@@ -35,8 +35,50 @@ const WIN_CACHE_TTL_MS  = 20 * 60 * 1000; // 20 min
 
 // ── Known labeled wallets ─────────────────────────────────────────
 export const KNOWN_WALLETS: Record<string, { label: string; emoji: string; category: string }> = {
-  "5G62K98tpNqsaffgyJmTvDSTCEFzva8WkmMqB2CEFSDgawrS": { label: "Const",    emoji: "👑", category: "founder" },
-  "5GH2aUTMRUh1RprCgH4x3tRyCaKeUi5BfmYCfs1NARA8R54n": { label: "Const #2", emoji: "👑", category: "founder" },
+
+  // ── Founders ──────────────────────────────────────────────────────
+  "5G62K98tpNqsaffgyJmTvDSTCEFzva8WkmMqB2CEFSDgawrS": { label: "Const",        emoji: "👑", category: "founder" },
+  "5GH2aUTMRUh1RprCgH4x3tRyCaKeUi5BfmYCfs1NARA8R54n": { label: "Const #2",     emoji: "👑", category: "founder" },
+
+  // ── Opentensor Foundation ─────────────────────────────────────────
+  "5HBtpwxuGNL1gwzwomwR7sjwUt8WXYSuWcLYN6f9KpTZkP4k": { label: "OTF",          emoji: "🏛️", category: "otf" },
+
+  // ── VCs & Institutional ───────────────────────────────────────────
+  "5E9fVY1jexCNVMjd2rdBsAxeamFGEMfzHcyTn2fHgdHeYc5p": { label: "DCG / Foundry", emoji: "🏦", category: "vc" },
+  "5GP8N57T2oja6qR9y3FQDYjrEFxnhmx3ZuiadE64yw6h5For": { label: "Polychain",     emoji: "🔗", category: "vc" },
+  "5EJAqczgzCMvWcmXhKMZH4vMS5gPy8BjeuHjz5o5yN6RYzX2": { label: "dao5",          emoji: "🦉", category: "vc" },
+
+  // ── Subnet Owners ─────────────────────────────────────────────────
+  "5HCFWvRqzSHWRPecN7q8J6c7aKQnrCZTMHstPv39xL1wgDHh": { label: "Macrocosmos (SN1)",  emoji: "🌌", category: "team" },
+  "5G26HqQg8M6hfw9q84gM3udYHHymThmswRKgSGtwdcduBSos": { label: "Templar (SN3)",       emoji: "⚔️",  category: "team" },
+  "5F6tnxzAAxbhaWRmeUmB63JEM3VXBNSmqb3AwYJVDStQjw8y": { label: "PTX (SN8)",           emoji: "📈", category: "team" },
+  "5FsbubeciqtB5Nik3umL2iD4fG8FcC9GbT9nHJfXMj4mJJZ9": { label: "Macrocosmos (SN9)",  emoji: "🧠", category: "team" },
+  "5HBswBt1A9Ahx6U76abXXGd7VmabmCNBGhSK2vrP71GSxtgZ": { label: "Macrocosmos (SN13)", emoji: "🗄️",  category: "team" },
+  "5G9FYbXLvGTvGEgYF9tm56oW7RzkSFRCduhJeQq8EML54BXs": { label: "Cortex.t (SN18)",    emoji: "🧬", category: "team" },
+  "5CFJNoUYbdw9NvU2MuvQuxG88BWBKYbEQPxg1sVieck16TRq": { label: "Nineteen (SN19)",     emoji: "👁️",  category: "team" },
+  "5CMEwRYLefRmtJg7zzRyJtcXrQqmspr9B1r1nKySDReA37Z1": { label: "Rizzo / BitAgent (SN20)", emoji: "🎸", category: "team" },
+  "5Cyfk5Jjee6uCafjZyUUjtKd7Q4qh1yJ48Ts7bkT9xXaDqe1": { label: "Neural Internet (SN27)", emoji: "🕸️", category: "team" },
+  "5DXqqdrvu5FK3dASRVTCdGPZKx4Q9nkAZZSmibKG6PEEeW4j": { label: "Macrocosmos (SN37)", emoji: "🎛️", category: "team" },
+  "5G77DNXrfAxbvi53p3mh88kRMySBcJsv9j9cH4KU6ALWXgQF": { label: "Rayon Labs (SN56)",  emoji: "🎓", category: "team" },
+  "5DyV8a62E2t2C4FoSqjihdV5USVXPEZYvZtUjXxZq1Mnvwwg": { label: "Chutes / Rayon (SN64)", emoji: "🚀", category: "team" },
+
+  // ── Validators ────────────────────────────────────────────────────
+  "5GcCZ2BPXBjgG88tXJCEtkbdg2hNrPbL4EFfbiVRvBZdSQDC": { label: "Taostats",       emoji: "📊", category: "validator" },
+  "5FRXwb2qsEhqDQQKcm5m2MF26xTWwW65MHTEtKFFydypuqjG": { label: "Macrocosmos",    emoji: "🌌", category: "validator" },
+  "5DkwfxC9mZTTCsRUt6nrnwQEWVrhsmY13SBRparj6cpAVxVY": { label: "Datura",         emoji: "🌵", category: "validator" },
+  "5GZSAgaVGQqegjhEkxpJjpSVLVmNnE2vx2PFLzr7kBBMKpGQ": { label: "RoundTable21",   emoji: "🔄", category: "validator" },
+  "5CAwB3dSiMC5jJfpvVU47zT3Gyz5ZDoiyHMaYZUuNs5hFh2P": { label: "TAO.com",        emoji: "🧙", category: "validator" },
+  "5HJvTnicbUEyKHE8pu3tWVhECRiqgDmxKE3AcG4H4djeyRK8": { label: "TAO-Validator",  emoji: "✅", category: "validator" },
+  "5G1KeLg1rda5kBZ9pWVnpAe3y4RwRRphcVxuY5mukLFStJhj": { label: "FirstTensor",    emoji: "1️⃣",  category: "validator" },
+  "5DSsZGwBuYHRDA7HzdZUVBhKKpZpJKcf7rTd9y5Gz1SQyo9V": { label: "Tensorplex",     emoji: "⚡", category: "validator" },
+  "5GsbTgfvgCH4xdqSkiPb7EaBBFLHjWH5vfEALhJaewSFpZX9": { label: "tao.bot",        emoji: "🤖", category: "validator" },
+  "5FHxxe8ZKYaNmGcSLdG5ekxXeZDhQnk9cbpHdsJW8RunGpSs": { label: "Kraken",         emoji: "🦑", category: "validator" },
+  "5GRPcZ7L6cmCshSTiHPUUHFWFP8Go9gt6ndZZerF1R4fx7AZ": { label: "TaoStation",     emoji: "🛸", category: "validator" },
+  "5EsyFEexqVRqaYymJmkmjDg55Lvr6ucbB22ZYDuSD9oVQgq1": { label: "Bittensor.Exchange", emoji: "💱", category: "validator" },
+  "5EqnBs8XTFKqkA7B3xmzY6rWQGcBEqXYKebP7EhMtFrUKcrL": { label: "NorthTensor",   emoji: "🧭", category: "validator" },
+  "5GyAMYSxde6x5hG8AHksoPHZZeum8GXk8sXisgADNn6CSi7Y": { label: "PRvalidator",    emoji: "📰", category: "validator" },
+  "5CrBAGHUxUdj91kJZw8FAqA2USvksttNFgcMbfSfmqPcTu8t": { label: "Giga Corp",      emoji: "💪", category: "validator" },
+  "5DALJz7mndb2b4bAaxtokVSrKpd9PS48qYPyYerb4xFs7KDb": { label: "Miners Union",   emoji: "⛏️",  category: "validator" },
 };
 
 // ── Types ─────────────────────────────────────────────────────────
