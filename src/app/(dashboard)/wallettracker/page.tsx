@@ -615,16 +615,36 @@ function WalletRow({
 
       {/* Address + label */}
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-1.5 flex-wrap">
-          {wallet.emoji && <span className="text-sm leading-none">{wallet.emoji}</span>}
-          {wallet.label && <LabelChip label={wallet.label} category={wallet.category} />}
-          <span className="font-mono text-xs text-gray-400 group-hover:text-gray-200 transition-colors truncate">
-            {shortAddr(wallet.address)}
-          </span>
-          {highlightName && wallet.positions?.some(p => p.name.toLowerCase().includes(highlightName)) && (
-            <span className="text-[9px] font-bold text-emerald-400">✓</span>
-          )}
-        </div>
+        {wallet.label ? (
+          /* Known wallet — name is the hero, address is secondary */
+          <>
+            <div className="flex items-center gap-2 flex-wrap">
+              {wallet.emoji && <span className="text-base leading-none">{wallet.emoji}</span>}
+              <span className="text-sm font-bold text-white group-hover:text-green-300 transition-colors truncate">
+                {wallet.label}
+              </span>
+              <LabelChip label={wallet.category ?? ""} category={wallet.category} />
+              {highlightName && wallet.positions?.some(p => p.name.toLowerCase().includes(highlightName)) && (
+                <span className="text-[9px] font-bold text-emerald-400">✓</span>
+              )}
+            </div>
+            <div className="flex items-center gap-2 mt-0.5">
+              <span className="font-mono text-[10px] text-gray-600 truncate">{shortAddr(wallet.address)}</span>
+            </div>
+          </>
+        ) : (
+          /* Unknown wallet — address is primary */
+          <>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="font-mono text-xs text-gray-300 group-hover:text-white transition-colors font-semibold truncate">
+                {shortAddr(wallet.address)}
+              </span>
+              {highlightName && wallet.positions?.some(p => p.name.toLowerCase().includes(highlightName)) && (
+                <span className="text-[9px] font-bold text-emerald-400">✓</span>
+              )}
+            </div>
+          </>
+        )}
         <div className="flex items-center gap-2 mt-1">
           <span className="text-[10px] font-semibold text-green-400/80 bg-green-500/10 px-1.5 py-0.5 rounded-md border border-green-500/15">
             {wallet.alpha_count} tokens
@@ -678,13 +698,20 @@ function WinnerRow({
       </div>
 
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-1.5 flex-wrap">
-          {wallet.emoji && <span className="text-sm leading-none">{wallet.emoji}</span>}
-          {wallet.label && <LabelChip label={wallet.label} category={wallet.category} />}
-          <span className="font-mono text-xs text-gray-400 group-hover:text-gray-200 transition-colors">
-            {shortAddr(wallet.address)}
-          </span>
-        </div>
+        {wallet.label ? (
+          <>
+            <div className="flex items-center gap-2 flex-wrap">
+              {wallet.emoji && <span className="text-base leading-none">{wallet.emoji}</span>}
+              <span className="text-sm font-bold text-white group-hover:text-green-300 transition-colors truncate">{wallet.label}</span>
+              <LabelChip label={wallet.category ?? ""} category={wallet.category} />
+            </div>
+            <span className="font-mono text-[10px] text-gray-600">{shortAddr(wallet.address)}</span>
+          </>
+        ) : (
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="font-mono text-xs text-gray-300 group-hover:text-white transition-colors font-semibold">{shortAddr(wallet.address)}</span>
+          </div>
+        )}
         {wallet.staked_tao > 0 && (
           <span className="text-[10px] text-gray-600 mt-1 block">{fmtTao(wallet.staked_tao)} staked</span>
         )}
@@ -734,13 +761,20 @@ function TSWhaleRow({
       </div>
 
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-1.5 flex-wrap">
-          {wallet.emoji && <span className="text-sm leading-none">{wallet.emoji}</span>}
-          {wallet.label && <LabelChip label={wallet.label} category={wallet.category} />}
-          <span className="font-mono text-xs text-gray-400 group-hover:text-gray-200 transition-colors">
-            {shortAddr(wallet.address)}
-          </span>
-        </div>
+        {wallet.label ? (
+          <>
+            <div className="flex items-center gap-2 flex-wrap">
+              {wallet.emoji && <span className="text-base leading-none">{wallet.emoji}</span>}
+              <span className="text-sm font-bold text-white group-hover:text-green-300 transition-colors truncate">{wallet.label}</span>
+              <LabelChip label={wallet.category ?? ""} category={wallet.category} />
+            </div>
+            <span className="font-mono text-[10px] text-gray-600">{shortAddr(wallet.address)}</span>
+          </>
+        ) : (
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="font-mono text-xs text-gray-300 group-hover:text-white transition-colors font-semibold">{shortAddr(wallet.address)}</span>
+          </div>
+        )}
         <div className="flex items-center gap-2 mt-1 flex-wrap">
           <span className={`text-[10px] font-bold ${wallet.last_action === "DELEGATE" ? "text-emerald-400" : "text-red-400"}`}>
             {wallet.last_action === "DELEGATE" ? "▲" : "▼"} {wallet.last_action === "DELEGATE" ? "STAKED" : "UNSTAKED"}
@@ -797,13 +831,20 @@ function SRWhaleRow({
       </div>
 
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-1.5 flex-wrap">
-          {wallet.emoji && <span className="text-sm leading-none">{wallet.emoji}</span>}
-          {wallet.label && <LabelChip label={wallet.label} category={wallet.category} />}
-          <span className="font-mono text-xs text-gray-400 group-hover:text-gray-200 transition-colors">
-            {shortAddr(wallet.address)}
-          </span>
-        </div>
+        {wallet.label ? (
+          <>
+            <div className="flex items-center gap-2 flex-wrap">
+              {wallet.emoji && <span className="text-base leading-none">{wallet.emoji}</span>}
+              <span className="text-sm font-bold text-white group-hover:text-green-300 transition-colors truncate">{wallet.label}</span>
+              <LabelChip label={wallet.category ?? ""} category={wallet.category} />
+            </div>
+            <span className="font-mono text-[10px] text-gray-600">{shortAddr(wallet.address)}</span>
+          </>
+        ) : (
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="font-mono text-xs text-gray-300 group-hover:text-white transition-colors font-semibold">{shortAddr(wallet.address)}</span>
+          </div>
+        )}
         <div className="flex items-center gap-2 mt-1 flex-wrap">
           <span className={`text-[10px] font-bold ${wallet.last_action === "stake" ? "text-emerald-400" : "text-red-400"}`}>
             {wallet.last_action === "stake" ? "▲" : "▼"} {wallet.last_action === "stake" ? "STAKED" : "UNSTAKED"}
