@@ -24,8 +24,8 @@ const TMC_API_KEY  = process.env.TMC_API_KEY || "";
 const RAO_PER_TAO  = 1_000_000_000;
 const ROOT_NETUID  = 0; // subnet 0 = root/legacy — NOT an alpha token
 
-const MAIN_CACHE_KEY    = "wallet-tracker-v7.json";
-const MAIN_CACHE_TTL_MS = 45 * 60 * 1000; // 45 min (expensive to compute)
+const MAIN_CACHE_KEY    = "wallet-tracker-v8.json";
+const MAIN_CACHE_TTL_MS = 60 * 60 * 1000; // 60 min (expensive to compute)
 
 const WIN_CACHE_KEY     = "wallet-tracker-winners.json";
 
@@ -192,24 +192,39 @@ async function writeBlob(key: string, data: unknown): Promise<void> {
 // ── TMC fetch helpers ─────────────────────────────────────────────
 async function fetchTMCList(orderBy: string, limit: number): Promise<TMCColdkey[]> {
   const url = `https://api.taomarketcap.com/public/v1/accounts/coldkeys/?limit=${limit}&order_by=${orderBy}&order=desc`;
-  const r = await fetch(url, {
-    headers: { Authorization: TMC_API_KEY },
-    signal: AbortSignal.timeout(15000),
-    next: { revalidate: 0 },
-  });
-  if (!r.ok) throw new Error(`Wallet list fetch failed (${r.status})`);
-  const j = await r.json();
-  return (j?.results ?? j?.data ?? j ?? []) as TMCColdkey[];
+  // Retry up to 3 times with exponential back-off on 429
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if (attempt > 0) await new Promise(res => setTimeout(res, attempt * 2000));
+    const r = await fetch(url, {
+      headers: { Authorization: TMC_API_KEY },
+      signal: AbortSignal.timeout(20000),
+      next: { revalidate: 0 },
+    });
+    if (r.status === 429) {
+      console.warn(`[wallet-tracker] Rate limited on list fetch (attempt ${attempt + 1})`);
+      continue;
+    }
+    if (!r.ok) throw new Error(`Wallet list fetch failed (${r.status})`);
+    const j = await r.json();
+    return (j?.results ?? j?.data ?? j ?? []) as TMCColdkey[];
+  }
+  throw new Error("Wallet list fetch failed (429 after retries)");
 }
 
 async function fetchDetail(address: string): Promise<TMCWalletDetail | null> {
   try {
-    const r = await fetch(
-      `https://api.taomarketcap.com/public/v1/accounts/coldkeys/${address}/`,
-      { headers: { Authorization: TMC_API_KEY }, signal: AbortSignal.timeout(8000), next: { revalidate: 0 } }
-    );
-    if (!r.ok) return null;
-    return await r.json() as TMCWalletDetail;
+    // Retry once on 429
+    for (let attempt = 0; attempt < 2; attempt++) {
+      if (attempt > 0) await new Promise(res => setTimeout(res, 1500));
+      const r = await fetch(
+        `https://api.taomarketcap.com/public/v1/accounts/coldkeys/${address}/`,
+        { headers: { Authorization: TMC_API_KEY }, signal: AbortSignal.timeout(10000), next: { revalidate: 0 } }
+      );
+      if (r.status === 429) continue;
+      if (!r.ok) return null;
+      return await r.json() as TMCWalletDetail;
+    }
+    return null;
   } catch { return null; }
 }
 
@@ -273,40 +288,31 @@ async function filterToAlphaHolders(addresses: string[]): Promise<Set<string>> {
 
 // ── Build the main filtered wallet list ───────────────────────────
 async function buildMainList(): Promise<WalletEntry[]> {
-  // Fetch by tao_staked (direct alpha investors) AND by total (big fish) in parallel.
-  // Sorting by tao_staked gives us wallets actively holding alpha tokens — far more
-  // likely to pass the ≥2 alpha filter than sorting by total TAO (which is dominated
-  // by validators and root-only stakers).
-  const [byStaked, byTotal, subnetNames, taoPrice] = await Promise.all([
-    fetchTMCList("tao_staked", 2000),
-    fetchTMCList("total",      500),
+  // Fetch top wallets sorted by alpha stake (tao_staked) — these are the most
+  // likely to hold alpha tokens. Keep the list small to avoid TMC rate limits.
+  // Sequential fetches (not parallel) to stay within rate limits.
+  const [byStaked, subnetNames, taoPrice] = await Promise.all([
+    fetchTMCList("tao_staked", 400),
     fetchSubnetNames(),
     getTaoPrice().catch(() => 0),
   ]);
 
-  // Deduplicate: tao_staked list first (higher signal), total list fills gaps
-  const seen = new Set<string>();
-  const merged: TMCColdkey[] = [];
-  for (const w of [...byStaked, ...byTotal]) {
-    if (!seen.has(w.id)) { seen.add(w.id); merged.push(w); }
-  }
+  console.log(`[wallet-tracker] ${byStaked.length} wallets, ${subnetNames.size} subnets, TAO=$${taoPrice}`);
 
-  console.log(`[wallet-tracker] ${merged.length} unique wallets, ${subnetNames.size} subnets, TAO=$${taoPrice}`);
-
-  // Pre-filter: only fetch detail for wallets with tao_staked > 0
-  // (pure root-network validators have tao_staked=0 and will never qualify)
-  // Cap at 1500: list is already sorted tao_staked desc so top wallets come first.
-  // 1500 candidates × 60 concurrent ≈ 25 batches × ~2s each = ~50s, fits in 120s limit.
-  const candidates = merged.filter(w => (w.tao_staked ?? 0) > 0).slice(0, 1500);
+  // Only fetch detail for wallets with tao_staked > 0 (alpha investors)
+  // Top 300 by tao_staked should yield 50-150 qualifying alpha wallets
+  const candidates = byStaked.filter(w => (w.tao_staked ?? 0) > 0).slice(0, 300);
   console.log(`[wallet-tracker] ${candidates.length} candidates to detail-fetch`);
 
-  // Batch-fetch per-wallet detail (60 concurrent at a time)
-  const BATCH = 60;
+  // Batch-fetch per-wallet detail at 20 concurrent max to avoid rate limits
+  const BATCH = 20;
   const details: (TMCWalletDetail | null)[] = [];
   for (let i = 0; i < candidates.length; i += BATCH) {
     const batch   = candidates.slice(i, i + BATCH);
     const results = await Promise.allSettled(batch.map(w => fetchDetail(w.id)));
     for (const r of results) details.push(r.status === "fulfilled" ? r.value : null);
+    // Small pause between batches to avoid rate-limit cascade
+    if (i + BATCH < candidates.length) await new Promise(res => setTimeout(res, 300));
   }
 
   console.log(`[wallet-tracker] Fetched ${details.filter(Boolean).length}/${candidates.length} details`);
@@ -852,12 +858,21 @@ export async function GET(request: NextRequest) {
 
   try {
     const wallets = await buildMainList();
+    // Guard: never overwrite a valid cache with empty results
+    if (wallets.length === 0 && cached) {
+      console.warn("[wallet-tracker] Built 0 wallets — serving stale cache");
+      return NextResponse.json(cached);
+    }
     const result: MainCache = { wallets, updatedAt: new Date().toISOString() };
     await writeBlob(MAIN_CACHE_KEY, result);
     return NextResponse.json(result);
   } catch (e) {
-    // On rate-limit or transient error, serve stale cache rather than erroring
+    console.error("[wallet-tracker] Build error:", String(e));
+    // On rate-limit or transient error, serve stale cache rather than showing error
     if (cached) return NextResponse.json(cached);
+    // Last-resort: try reading the previous cache version
+    const prev = await readBlob<MainCache>("wallet-tracker-v7.json");
+    if (prev?.wallets?.length) return NextResponse.json(prev);
     return NextResponse.json({ error: String(e) }, { status: 500 });
   }
 }
