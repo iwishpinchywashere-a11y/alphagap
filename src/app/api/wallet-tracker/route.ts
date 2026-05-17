@@ -24,7 +24,7 @@ const TMC_API_KEY  = process.env.TMC_API_KEY || "";
 const RAO_PER_TAO  = 1_000_000_000;
 const ROOT_NETUID  = 0; // subnet 0 = root/legacy — NOT an alpha token
 
-const MAIN_CACHE_KEY    = "wallet-tracker-v10.json";
+const MAIN_CACHE_KEY    = "wallet-tracker-v11.json";
 const MAIN_CACHE_TTL_MS = 60 * 60 * 1000; // 60 min (expensive to compute)
 
 const WIN_CACHE_KEY     = "wallet-tracker-winners.json";
@@ -372,12 +372,18 @@ async function buildMainList(): Promise<WalletEntry[]> {
   for (const w of tmcTop) tmcMap.set(w.id, w);
 
   // Merge: TaoStats addresses first (confirmed alpha holders),
-  // then any TMC top wallets with stake not already included.
+  // then any TMC top wallets with stake not already included,
+  // then ALL known wallet addresses (always fetched, shown in the Known tab).
   const allAddresses: string[] = [...tsAddresses];
   for (const w of tmcTop) {
     if (!tsAddresses.has(w.id) && (w.tao_staked ?? 0) > 0) allAddresses.push(w.id);
   }
-  const candidates = allAddresses.slice(0, 500);
+  // Ensure every KNOWN_WALLETS address is always in the fetch set
+  const knownAddresses = Object.keys(KNOWN_WALLETS);
+  for (const addr of knownAddresses) {
+    if (!allAddresses.includes(addr)) allAddresses.push(addr);
+  }
+  const candidates = allAddresses.slice(0, 550);
   console.log(`[wallet-tracker] ${candidates.length} candidates to detail-fetch`);
 
   // Batch-fetch TMC detail (25 concurrent, 250ms pause between batches)
@@ -396,15 +402,17 @@ async function buildMainList(): Promise<WalletEntry[]> {
   for (let i = 0; i < candidates.length; i++) {
     const addr   = candidates[i];
     const detail = details[i];
-    if (!detail?.hotkeys?.length) continue;
+    const isKnown = !!KNOWN_WALLETS[addr];
+    if (!detail?.hotkeys?.length && !isKnown) continue;
 
     // Aggregate tao_staked per subnet, EXCLUDING root network (SN0)
     const posMap = new Map<number, number>();
-    for (const hk of detail.hotkeys) {
+    for (const hk of (detail?.hotkeys ?? [])) {
       if (hk.subnet == null || hk.subnet === ROOT_NETUID) continue;
       posMap.set(hk.subnet, (posMap.get(hk.subnet) ?? 0) + (hk.tao_staked ?? 0));
     }
-    if (posMap.size < 1) continue;
+    // Regular wallets need ≥1 alpha position; known wallets always shown
+    if (posMap.size < 1 && !isKnown) continue;
 
     const positions: AlphaPosition[] = [...posMap.entries()]
       .map(([netuid, taoRao]) => {
@@ -418,10 +426,10 @@ async function buildMainList(): Promise<WalletEntry[]> {
     const tmc        = tmcMap.get(addr);
     const total_tao  = tmc
       ? Math.round(tmc.total / RAO_PER_TAO * 100) / 100
-      : Math.round((detail.total ?? 0) / RAO_PER_TAO * 100) / 100;
+      : Math.round(((detail?.total) ?? 0) / RAO_PER_TAO * 100) / 100;
     const free_tao   = tmc
       ? Math.round(tmc.free  / RAO_PER_TAO * 100) / 100
-      : Math.round((detail.free  ?? 0) / RAO_PER_TAO * 100) / 100;
+      : Math.round(((detail?.free) ?? 0) / RAO_PER_TAO * 100) / 100;
 
     const known = KNOWN_WALLETS[addr];
     enriched.push({
@@ -441,8 +449,17 @@ async function buildMainList(): Promise<WalletEntry[]> {
     });
   }
 
-  // Sort by alpha staked — most active alpha investors first
-  return enriched.sort((a, b) => b.staked_tao - a.staked_tao).slice(0, 200);
+  // Sort by alpha staked — most active alpha investors first.
+  // Known wallets are always included (not subject to the 200-wallet cap).
+  const sorted = enriched.sort((a, b) => b.staked_tao - a.staked_tao);
+  const knownSet = new Set(knownAddresses);
+  const topRegular = sorted.filter(w => !knownSet.has(w.address)).slice(0, 200);
+  const knownEntries = sorted.filter(w => knownSet.has(w.address));
+  // Merge: known wallets that are also in the top 200 stay in their position;
+  // any known wallets outside the top 200 are appended at the end.
+  const topRegularAddrs = new Set(topRegular.map(w => w.address));
+  const knownOnly = knownEntries.filter(w => !topRegularAddrs.has(w.address));
+  return [...topRegular, ...knownOnly];
 }
 
 // ── Build TaoStats whale wallet list (recent large dTAO stakers) ─
