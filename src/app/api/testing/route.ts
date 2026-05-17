@@ -3,7 +3,8 @@ import { put, get as blobGet } from "@vercel/blob";
 
 export const dynamic = "force-dynamic";
 
-const BLOB_NAME = "pump-tracker.json";
+const TRACKER_BLOB  = "pump-tracker.json";
+const CACHE_BLOB    = "pump-autopsies-cache.json";
 
 export interface TrackedPumper {
   name: string;
@@ -20,12 +21,25 @@ export interface PumpTrackerData {
   blocklist: string[];
 }
 
-// ── Blob helpers — private access, same pattern as scan-latest.json ─────────
+// Stored autopsy result — everything the page needs to render, no refetch required
+export interface CachedAutopsy {
+  pumpEvent:  unknown | null;   // PumpEvent — keep as unknown to avoid cross-file type issues
+  findings:   unknown[];        // SignalFinding[]
+  narrative:  string;
+  research:   unknown | null;   // ResearchResult
+  cachedAt:   string;
+}
 
-async function readData(token: string): Promise<PumpTrackerData> {
+export type AutopsyCache = Record<string, CachedAutopsy>; // key = pumper.name
+
+// ── Blob helpers ──────────────────────────────────────────────────────────────
+
+const token = () => process.env.BLOB_READ_WRITE_TOKEN || "";
+
+async function readBlob<T>(name: string, fallback: T): Promise<T> {
   try {
-    const result = await blobGet(BLOB_NAME, { token, access: "private" });
-    if (!result?.stream) return { tracked: [], blocklist: [] };
+    const result = await blobGet(name, { token: token(), access: "private" });
+    if (!result?.stream) return fallback;
     const reader = result.stream.getReader();
     const chunks: Uint8Array[] = [];
     while (true) {
@@ -33,49 +47,58 @@ async function readData(token: string): Promise<PumpTrackerData> {
       if (done) break;
       chunks.push(value);
     }
-    const json = JSON.parse(Buffer.concat(chunks).toString("utf-8"));
-    if (Array.isArray(json)) return { tracked: json, blocklist: [] };
-    return { tracked: json.tracked ?? [], blocklist: json.blocklist ?? [] };
+    return JSON.parse(Buffer.concat(chunks).toString("utf-8")) as T;
   } catch {
-    return { tracked: [], blocklist: [] };
+    return fallback;
   }
 }
 
-async function writeData(token: string, data: PumpTrackerData) {
-  // Use "private" access — same as how scan-latest.json is stored.
-  // The store does not permit public blobs.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await put(BLOB_NAME, JSON.stringify(data, null, 2), {
-    access: "private" as any, // eslint-disable-line @typescript-eslint/no-explicit-any
-    token,
+async function writeBlob(name: string, data: unknown) {
+  await put(name, JSON.stringify(data, null, 2), {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    access: "private" as any,
+    token: token(),
     addRandomSuffix: false,
     allowOverwrite: true,
     contentType: "application/json",
   });
 }
 
-// ── GET — return tracked list ─────────────────────────────────────────────────
-
-export async function GET() {
-  const token = process.env.BLOB_READ_WRITE_TOKEN || "";
-  if (!token) return NextResponse.json({ tracked: [], blocklist: [] });
-  const data = await readData(token);
-  return NextResponse.json(data);
+function parseTrackerData(json: unknown): PumpTrackerData {
+  if (Array.isArray(json)) return { tracked: json as TrackedPumper[], blocklist: [] };
+  const j = json as Record<string, unknown>;
+  return {
+    tracked:   (j.tracked   as TrackedPumper[] | undefined) ?? [],
+    blocklist: (j.blocklist as string[]        | undefined) ?? [],
+  };
 }
 
-// ── POST — add a new pumper (or force-reset with _reset flag) ─────────────────
+// ── GET — return tracked list + full autopsy cache ────────────────────────────
+
+export async function GET() {
+  if (!token()) return NextResponse.json({ tracked: [], blocklist: [], cache: {} });
+
+  const [raw, cache] = await Promise.all([
+    readBlob<unknown>(TRACKER_BLOB, { tracked: [], blocklist: [] }),
+    readBlob<AutopsyCache>(CACHE_BLOB, {}),
+  ]);
+
+  const data = parseTrackerData(raw);
+  return NextResponse.json({ ...data, cache });
+}
+
+// ── POST — add new pumper ─────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
-  const token = process.env.BLOB_READ_WRITE_TOKEN || "";
-  if (!token) return NextResponse.json({ error: "no token" }, { status: 500 });
+  if (!token()) return NextResponse.json({ error: "no token" }, { status: 500 });
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const body = await req.json() as any;
 
-  // Secret reset: POST { _reset: true, _data: {...} } to force-write exact state
+  // Secret force-reset
   if (body._reset === true && body._data) {
     try {
-      await writeData(token, body._data as PumpTrackerData);
+      await writeBlob(TRACKER_BLOB, body._data as PumpTrackerData);
       return NextResponse.json({ ok: true, reset: true });
     } catch (e) {
       return NextResponse.json({ error: String(e) }, { status: 500 });
@@ -85,43 +108,70 @@ export async function POST(req: NextRequest) {
   const name: string | undefined = body.name;
   if (!name) return NextResponse.json({ error: "name required" }, { status: 400 });
 
-  const data = await readData(token);
+  const raw = await readBlob<unknown>(TRACKER_BLOB, { tracked: [], blocklist: [] });
+  const data = parseTrackerData(raw);
 
   if (data.blocklist.some((b) => b.toLowerCase() === name.toLowerCase())) {
     return NextResponse.json({ error: "blocklisted" }, { status: 409 });
   }
-
-  const exists = data.tracked.some((p) => p.name.toLowerCase() === name.toLowerCase());
-  if (exists) return NextResponse.json({ error: "already tracked" }, { status: 409 });
+  if (data.tracked.some((p) => p.name.toLowerCase() === name.toLowerCase())) {
+    return NextResponse.json({ error: "already tracked" }, { status: 409 });
+  }
 
   const newEntry: TrackedPumper = {
     name,
     searchName: body.searchName || name.toLowerCase(),
-    netuid: body.netuid ?? null,
-    added_at: new Date().toISOString().split("T")[0],
-    reason: body.reason || "manual add",
-    pump_pct: body.pump_pct,
-    pump_date: body.pump_date,
+    netuid:     body.netuid ?? null,
+    added_at:   new Date().toISOString().split("T")[0],
+    reason:     body.reason || "manual add",
+    pump_pct:   body.pump_pct,
+    pump_date:  body.pump_date,
   };
   data.tracked.push(newEntry);
+
   try {
-    await writeData(token, data);
+    await writeBlob(TRACKER_BLOB, data);
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 });
   }
   return NextResponse.json({ ok: true, entry: newEntry });
 }
 
-// ── DELETE — remove a pumper and blocklist it ─────────────────────────────────
+// ── PATCH — save computed autopsy to cache ────────────────────────────────────
+
+export async function PATCH(req: NextRequest) {
+  if (!token()) return NextResponse.json({ error: "no token" }, { status: 500 });
+
+  const body = await req.json() as { name: string; autopsy: CachedAutopsy };
+  if (!body.name || !body.autopsy) {
+    return NextResponse.json({ error: "name + autopsy required" }, { status: 400 });
+  }
+
+  const cache = await readBlob<AutopsyCache>(CACHE_BLOB, {});
+  cache[body.name] = { ...body.autopsy, cachedAt: new Date().toISOString() };
+
+  try {
+    await writeBlob(CACHE_BLOB, cache);
+  } catch (e) {
+    return NextResponse.json({ error: String(e) }, { status: 500 });
+  }
+  return NextResponse.json({ ok: true });
+}
+
+// ── DELETE — remove pumper + blocklist + clear cache entry ───────────────────
 
 export async function DELETE(req: NextRequest) {
-  const token = process.env.BLOB_READ_WRITE_TOKEN || "";
-  if (!token) return NextResponse.json({ error: "no token" }, { status: 500 });
+  if (!token()) return NextResponse.json({ error: "no token" }, { status: 500 });
 
   const { name } = await req.json() as { name: string };
   if (!name) return NextResponse.json({ error: "name required" }, { status: 400 });
 
-  const data = await readData(token);
+  const [raw, cache] = await Promise.all([
+    readBlob<unknown>(TRACKER_BLOB, { tracked: [], blocklist: [] }),
+    readBlob<AutopsyCache>(CACHE_BLOB, {}),
+  ]);
+
+  const data = parseTrackerData(raw);
   const filtered = data.tracked.filter((p) => p.name.toLowerCase() !== name.toLowerCase());
   if (filtered.length === data.tracked.length) {
     return NextResponse.json({ error: "not found" }, { status: 404 });
@@ -132,8 +182,15 @@ export async function DELETE(req: NextRequest) {
     data.blocklist.push(name.toLowerCase());
   }
 
+  // Remove from cache too
+  const cacheKey = Object.keys(cache).find(k => k.toLowerCase() === name.toLowerCase());
+  if (cacheKey) delete cache[cacheKey];
+
   try {
-    await writeData(token, data);
+    await Promise.all([
+      writeBlob(TRACKER_BLOB, data),
+      writeBlob(CACHE_BLOB, cache),
+    ]);
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 });
   }

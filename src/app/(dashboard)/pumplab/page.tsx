@@ -1071,10 +1071,18 @@ export default function TestingPage() {
     if (loadedRef.current) return;
     loadedRef.current = true;
 
+    async function saveToCache(name: string, autopsy: { pumpEvent: PumpEvent | null; findings: SignalFinding[]; narrative: string; research: ResearchResult | null }) {
+      fetch("/api/testing", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, autopsy }),
+      }).catch(() => {});
+    }
+
     async function loadAll() {
-      // 1) Fetch tracked list
+      // 1) Fetch tracked list + autopsy cache in one call
       const trackerRes = await fetch("/api/testing");
-      const { tracked }: { tracked: TrackedPumper[] } = await trackerRes.json();
+      const { tracked, cache = {} }: { tracked: TrackedPumper[]; cache: Record<string, { pumpEvent: PumpEvent | null; findings: SignalFinding[]; narrative: string; research: ResearchResult | null }> } = await trackerRes.json();
 
       // 2) Fetch leaderboard (for name→netuid resolution + current scores)
       const scanRes = await fetch("/api/cached-scan");
@@ -1091,9 +1099,8 @@ export default function TestingPage() {
             !tracked.some((t) => s.name.toLowerCase().includes((t.searchName || t.name).toLowerCase()))
         )
         .sort((a, b) => (b.price_change_7d ?? 0) - (a.price_change_7d ?? 0))
-        .slice(0, 8); // cap at 8 per run
+        .slice(0, 8);
 
-      // Auto-add them — fire-and-forget, 409 if already exists is fine
       const autoAdded: TrackedPumper[] = [];
       for (const sub of newPumpers) {
         try {
@@ -1111,20 +1118,42 @@ export default function TestingPage() {
           if (res.ok) {
             const { entry } = await res.json();
             autoAdded.push(entry);
-            tracked.push(entry); // add to local list so stubs include it
+            tracked.push(entry);
             trackedNames.add(sub.name.toLowerCase());
           }
         } catch { /* skip */ }
       }
-      setAutoDetected(autoAdded); // just track what was newly added this session
+      setAutoDetected(autoAdded);
 
-      // 3) Initialise autopsy stubs — sort newest first
+      // 3) Build stubs — use cache where available (instant render), queue fetches for the rest
       tracked.sort((a, b) => new Date(b.added_at).getTime() - new Date(a.added_at).getTime());
+
       const stubs: Autopsy[] = tracked.map((p) => {
         const current = p.netuid != null
           ? leaderboard.find((s) => s.netuid === p.netuid) ?? resolveName(p, leaderboard)
           : resolveName(p, leaderboard);
         const resolvedNetuid = current?.netuid ?? p.netuid ?? null;
+
+        // Check cache — key can be the name with any case
+        const cachedKey = Object.keys(cache).find(k => k.toLowerCase() === p.name.toLowerCase());
+        const cached = cachedKey ? cache[cachedKey] : null;
+
+        if (cached && cached.findings.length > 0) {
+          // Serve instantly from cache — no network fetch needed
+          return {
+            pumper: { ...p, netuid: resolvedNetuid },
+            current: current ?? null,
+            detail: null,
+            pumpEvent: cached.pumpEvent,
+            findings: cached.findings,
+            narrative: cached.narrative,
+            research: cached.research,
+            researchLoading: false,
+            loading: false,
+          };
+        }
+
+        // No cache — will fetch below
         return {
           pumper: { ...p, netuid: resolvedNetuid },
           current: current ?? null,
@@ -1137,15 +1166,23 @@ export default function TestingPage() {
           loading: resolvedNetuid != null,
         };
       });
+
       setAutopsies(stubs);
 
-      // 4) Load subnet detail for each resolved netuid (staggered to avoid hammering)
-      for (let i = 0; i < stubs.length; i++) {
-        const stub = stubs[i];
-        const netuid = stub.pumper.netuid;
-        if (netuid == null) continue;
+      // 4) Fetch detail only for uncached entries — staggered to avoid hammering
+      const uncached = stubs
+        .map((stub, i) => ({ stub, i }))
+        .filter(({ stub }) => stub.loading); // loading=true means no cache
 
-        await new Promise((r) => setTimeout(r, i * 200)); // stagger
+      for (let ci = 0; ci < uncached.length; ci++) {
+        const { stub, i } = uncached[ci];
+        const netuid = stub.pumper.netuid;
+        if (netuid == null) {
+          setAutopsies(prev => prev.map((a, idx) => idx === i ? { ...a, loading: false } : a));
+          continue;
+        }
+
+        if (ci > 0) await new Promise((r) => setTimeout(r, ci * 300));
 
         try {
           const res = await fetch(`/api/subnets/${netuid}`);
@@ -1156,7 +1193,7 @@ export default function TestingPage() {
           const findings = buildFindings(pumpEvent, detail.scoreHistory, detail.signals, stub.current);
           const narrative = buildNarrative(stub.pumper.name, pumpEvent, findings, detail.scoreHistory, stub.current);
 
-          // Auto-purge: if 0 signals fired, remove from blob and skip showing this case
+          // Auto-purge 0-signal cases
           const firedCount = findings.filter((f) => f.fired).length;
           if (firedCount === 0) {
             fetch("/api/testing", {
@@ -1168,7 +1205,6 @@ export default function TestingPage() {
             continue;
           }
 
-          // Only show research loading spinner if we have a pump date to research
           const researchPumpDate = pumpEvent?.startDate ?? null;
 
           setAutopsies((prev) =>
@@ -1177,9 +1213,11 @@ export default function TestingPage() {
             )
           );
 
+          // Save to cache immediately (without research — research updates it again below)
+          saveToCache(stub.pumper.name, { pumpEvent, findings, narrative, research: null });
+
           if (researchPumpDate) {
             try {
-              // Pass current AlphaGap scores so research route can identify what we predicted
               const currentScores = stub.current ? {
                 composite_score: stub.current.composite_score,
                 dev_score: stub.current.dev_score,
@@ -1200,42 +1238,46 @@ export default function TestingPage() {
               });
               if (!rRes.ok) throw new Error(`Research API ${rRes.status}`);
               const research: ResearchResult = await rRes.json();
+
+              let finalFindings = findings;
               setAutopsies((prev) =>
                 prev.map((a, idx) => {
                   if (idx !== i) return a;
-                  // If GitHub research found commits, override the Dev Spike finding
-                  // (buildFindings uses sparse SQLite history; GitHub API is ground truth)
                   let updatedFindings = a.findings;
                   if (research.github && research.github.totalCommits > 0) {
                     const gh = research.github;
                     updatedFindings = a.findings.map(f => {
                       if (f.label !== "Dev Spike") return f;
-                      let detail: string;
+                      let det: string;
                       let strength: "strong" | "moderate" | "weak";
                       if (gh.spikeMultiplier >= 3) {
-                        detail = `${gh.totalCommits} commits in 30d — ${gh.spikeWindow.toFixed(1)}/day pre-pump vs ${gh.baselineAvgPerDay.toFixed(1)}/day baseline (${gh.spikeMultiplier.toFixed(1)}× spike 🔥)`;
+                        det = `${gh.totalCommits} commits in 30d — ${gh.spikeWindow.toFixed(1)}/day pre-pump vs ${gh.baselineAvgPerDay.toFixed(1)}/day baseline (${gh.spikeMultiplier.toFixed(1)}× spike 🔥)`;
                         strength = "strong";
                       } else if (gh.spikeMultiplier >= 1.5) {
-                        detail = `${gh.totalCommits} commits in 30d — ${gh.spikeMultiplier.toFixed(1)}× acceleration above baseline in pre-pump window`;
+                        det = `${gh.totalCommits} commits in 30d — ${gh.spikeMultiplier.toFixed(1)}× acceleration above baseline in pre-pump window`;
                         strength = "moderate";
                       } else if (gh.totalCommits >= 5) {
-                        detail = `${gh.totalCommits} commits in 30d with steady activity in the pre-pump window`;
+                        det = `${gh.totalCommits} commits in 30d with steady activity in the pre-pump window`;
                         strength = "moderate";
                       } else {
-                        detail = `${gh.totalCommits} commits in 30d — low dev activity before pump`;
+                        det = `${gh.totalCommits} commits in 30d — low dev activity before pump`;
                         strength = "weak";
                       }
                       if (gh.hasRelease && gh.releaseInfo) {
                         const pumpMs2 = a.pumpEvent ? new Date(a.pumpEvent.startDate).getTime() : Date.now();
-                        detail += ` · Release "${gh.releaseInfo.name}" dropped ${Math.round((pumpMs2 - new Date(gh.releaseInfo.date).getTime()) / 86400000)}d before pump`;
+                        det += ` · Release "${gh.releaseInfo.name}" dropped ${Math.round((pumpMs2 - new Date(gh.releaseInfo.date).getTime()) / 86400000)}d before pump`;
                         strength = "strong";
                       }
-                      return { ...f, detail, strength, fired: strength !== "weak" };
+                      return { ...f, detail: det, strength, fired: strength !== "weak" };
                     });
+                    finalFindings = updatedFindings;
                   }
                   return { ...a, research, researchLoading: false, findings: updatedFindings };
                 })
               );
+
+              // Update cache with research included
+              saveToCache(stub.pumper.name, { pumpEvent, findings: finalFindings, narrative, research });
             } catch {
               setAutopsies((prev) =>
                 prev.map((a, idx) =>
