@@ -24,7 +24,7 @@ const TMC_API_KEY  = process.env.TMC_API_KEY || "";
 const RAO_PER_TAO  = 1_000_000_000;
 const ROOT_NETUID  = 0; // subnet 0 = root/legacy — NOT an alpha token
 
-const MAIN_CACHE_KEY    = "wallet-tracker-v6.json";
+const MAIN_CACHE_KEY    = "wallet-tracker-v7.json";
 const MAIN_CACHE_TTL_MS = 45 * 60 * 1000; // 45 min (expensive to compute)
 
 const WIN_CACHE_KEY     = "wallet-tracker-winners.json";
@@ -295,9 +295,9 @@ async function buildMainList(): Promise<WalletEntry[]> {
 
   // Pre-filter: only fetch detail for wallets with tao_staked > 0
   // (pure root-network validators have tao_staked=0 and will never qualify)
-  // Cap at 1200: list is already sorted tao_staked desc so top wallets come first.
-  // 1200 candidates × 60 concurrent ≈ 20 batches × ~2s each = ~40s, fits in 60s limit.
-  const candidates = merged.filter(w => (w.tao_staked ?? 0) > 0).slice(0, 1200);
+  // Cap at 1500: list is already sorted tao_staked desc so top wallets come first.
+  // 1500 candidates × 60 concurrent ≈ 25 batches × ~2s each = ~50s, fits in 120s limit.
+  const candidates = merged.filter(w => (w.tao_staked ?? 0) > 0).slice(0, 1500);
   console.log(`[wallet-tracker] ${candidates.length} candidates to detail-fetch`);
 
   // Batch-fetch per-wallet detail (60 concurrent at a time)
@@ -325,8 +325,8 @@ async function buildMainList(): Promise<WalletEntry[]> {
       posMap.set(hk.subnet, (posMap.get(hk.subnet) ?? 0) + (hk.tao_staked ?? 0));
     }
 
-    // Must hold ≥ 2 distinct alpha tokens (not counting root)
-    if (posMap.size < 2) continue;
+    // Must hold ≥ 1 distinct alpha token (not counting root)
+    if (posMap.size < 1) continue;
 
     const positions: AlphaPosition[] = [...posMap.entries()]
       .map(([netuid, taoRao]) => {
@@ -358,8 +358,8 @@ async function buildMainList(): Promise<WalletEntry[]> {
     });
   }
 
-  // Sort by total TAO, take top 200 qualified wallets
-  return enriched.sort((a, b) => b.total_tao - a.total_tao).slice(0, 200);
+  // Sort by staked_tao (most active alpha investors first), take top 200 qualified wallets
+  return enriched.sort((a, b) => b.staked_tao - a.staked_tao).slice(0, 200);
 }
 
 // ── Build TaoStats whale wallet list (recent large dTAO stakers) ─

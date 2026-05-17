@@ -1382,7 +1382,7 @@ export default function WalletTrackerPage() {
         {/* Footer hints */}
         {!loading && !error && (
           <div className="flex flex-wrap gap-x-6 gap-y-1 text-[10px] text-gray-700 px-1 pb-2">
-            <span>🐋 Holding ≥2 alpha tokens · refreshes every 45 min</span>
+            <span>🐋 Holding alpha tokens · sorted by alpha stake · refreshes every 45 min</span>
             <span>💡 Click any row to view full wallet profile</span>
             <span>🔔 Tracking is saved locally in your browser</span>
             {session?.user && <span className="text-green-700/60">🔒 Alerts are private to your account</span>}
