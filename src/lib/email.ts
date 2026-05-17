@@ -379,3 +379,141 @@ export async function sendPasswordResetEmail(name: string, email: string, resetT
     html,
   });
 }
+
+/** Wallet Tracker launch announcement — two versions: premium (you have it) vs free/pro (upgrade) */
+export async function sendWalletTrackerAnnouncementEmail(
+  name: string,
+  email: string,
+  tier: "free" | "pro" | "premium",
+) {
+  const firstName = name?.split(" ")[0] || "there";
+  const isPremium = tier === "premium";
+
+  const ctaHref  = isPremium ? `${BASE_URL}/wallettracker` : `${BASE_URL}/pricing`;
+  const ctaLabel = isPremium ? "Open Wallet Tracker →" : "Upgrade to Premium →";
+  const ctaNote  = isPremium
+    ? "Your Wallet Tracker is live right now at alphagap.io/wallettracker"
+    : "Premium plan · $49/mo · Cancel anytime · Includes everything in Pro";
+
+  const subject = isPremium
+    ? "Your new superpower: track what TAO whales are doing in real time 🐋"
+    : "We just added a whale tracker — here's why it matters 🐋";
+
+  const features = [
+    { icon: "🎯", label: "Top 200 Alpha Whale Wallets", desc: "The biggest alpha portfolio holders ranked by TAO staked across all subnets — updated every hour. See exactly who has the most skin in the game." },
+    { icon: "🚀", label: "Big Winners (24h)", desc: "Which wallets made the most TAO in the last 24 hours? Smart money leaves footprints. Follow them here." },
+    { icon: "🌊", label: "Active Movers (Live)", desc: "Real-time SubnetRadar data — see who is staking and unstaking RIGHT NOW, across every alpha subnet." },
+    { icon: "🏗️", label: "Big Deployers (30d)", desc: "The largest capital deployments of the last 30 days. Spot conviction before price does." },
+    { icon: "👛", label: "Full Portfolio View", desc: "Click any wallet to see every subnet they hold, position size, full trade history, P&L, and avg hold time." },
+    { icon: "🔔", label: "Telegram Alerts on Moves", desc: "Track a whale and get pinged the moment they stake or unstake. Set your own USD threshold to cut out the noise." },
+    { icon: "👑", label: "Const & Known Wallets Labeled", desc: "Bittensor founder Const's wallet is tracked and labeled. Historically one of the strongest on-chain signals in the entire ecosystem." },
+  ];
+
+  const featureRows = features.map(f => `
+    <tr>
+      <td style="padding:14px 0;border-bottom:1px solid #1a2235;vertical-align:top;">
+        <table cellpadding="0" cellspacing="0" width="100%">
+          <tr>
+            <td style="width:36px;vertical-align:top;padding-top:2px;">
+              <span style="font-size:20px;line-height:1;">${f.icon}</span>
+            </td>
+            <td style="vertical-align:top;">
+              <p style="color:#ffffff;font-size:13px;font-weight:700;margin:0 0 3px 0;">${f.label}</p>
+              <p style="color:#6b7280;font-size:12px;line-height:1.6;margin:0;">${f.desc}</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  `).join("");
+
+  const html = baseTemplate(`
+    <!-- Hero -->
+    <div style="text-align:center;margin:0 0 36px 0;">
+      <div style="display:inline-block;background:linear-gradient(135deg,#0d1f2b,#0a1a0d);border:1px solid #10b98130;border-radius:16px;padding:28px 32px;margin-bottom:24px;">
+        <div style="font-size:52px;line-height:1;margin-bottom:12px;">🐋</div>
+        <div style="display:inline-block;background:#10b98115;border:1px solid #10b98130;border-radius:20px;padding:4px 14px;margin-bottom:16px;">
+          <span style="color:#10b981;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;">${isPremium ? "Now Live for You" : "New Premium Feature"}</span>
+        </div>
+        <h1 style="color:#ffffff;font-size:26px;font-weight:800;margin:0 0 8px 0;line-height:1.2;">
+          Introducing:<br>AlphaGap Wallet Tracker
+        </h1>
+        <p style="color:#9ca3af;font-size:14px;margin:0;line-height:1.6;">Follow the whales. See the money move. Get there first.</p>
+      </div>
+    </div>
+
+    <!-- Intro -->
+    <p style="color:#d1d5db;font-size:15px;line-height:1.8;margin:0 0 12px 0;">
+      Hey ${firstName},
+    </p>
+    ${isPremium ? `
+    <p style="color:#9ca3af;font-size:15px;line-height:1.8;margin:0 0 16px 0;">
+      We just shipped something that changes how you track alpha on Bittensor — and as a Premium member, it&apos;s live in your account right now.
+    </p>
+    <p style="color:#9ca3af;font-size:15px;line-height:1.8;margin:0 0 32px 0;">
+      <strong style="color:#ffffff;">Wallet Tracker</strong> lets you see the top 200 TAO whale wallets, their complete alpha portfolios, and exactly what they&apos;re staking or unstaking in real time — then get Telegram alerts the moment they move.
+    </p>
+    ` : `
+    <p style="color:#9ca3af;font-size:15px;line-height:1.8;margin:0 0 16px 0;">
+      In Bittensor, the smartest alpha investors move before the crowd. They stake into subnets early, build positions quietly, and by the time it&apos;s in the feed — it&apos;s already priced in.
+    </p>
+    <p style="color:#9ca3af;font-size:15px;line-height:1.8;margin:0 0 16px 0;">
+      Today we&apos;re launching <strong style="color:#ffffff;">Wallet Tracker</strong> — a live feed of the top 200 TAO whale wallets, their full alpha portfolios, and exactly what they&apos;re doing right now.
+    </p>
+    <p style="color:#9ca3af;font-size:15px;line-height:1.8;margin:0 0 32px 0;">
+      This is a Premium feature. Here&apos;s everything it includes:
+    </p>
+    `}
+
+    <!-- Feature list -->
+    <div style="background:#0a0f1a;border:1px solid #1f2937;border-radius:14px;padding:24px 28px;margin:0 0 28px 0;">
+      <p style="color:#10b981;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;margin:0 0 4px 0;">7 features, all live</p>
+      <p style="color:#4b5563;font-size:12px;margin:0 0 20px 0;">Updated hourly. Real-time where it counts.</p>
+      <table width="100%" cellpadding="0" cellspacing="0">
+        ${featureRows}
+      </table>
+    </div>
+
+    ${isPremium ? `
+    <!-- Premium: already have access -->
+    <div style="background:#0d2b1f;border:1px solid #10b98130;border-radius:14px;padding:20px 28px;margin:0 0 28px 0;">
+      <p style="color:#10b981;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;margin:0 0 8px 0;">&#10003; Already in your account</p>
+      <p style="color:#9ca3af;font-size:13px;line-height:1.7;margin:0;">
+        Find it in the navigation menu under <strong style="color:#ffffff;">Wallet Tracker</strong>, or go straight to
+        <a href="${BASE_URL}/wallettracker" style="color:#10b981;text-decoration:none;">alphagap.io/wallettracker</a>.
+        Track any whale and connect your Telegram to get alerts when they move.
+      </p>
+    </div>
+    ` : `
+    <!-- Free/Pro: upgrade prompt -->
+    <div style="background:#0a0f1a;border:1px solid #1f2937;border-radius:14px;padding:20px 28px;margin:0 0 28px 0;">
+      <p style="color:#9ca3af;font-size:13px;line-height:1.7;margin:0;">
+        Wallet Tracker is available on the <strong style="color:#ffffff;">Premium plan ($49/mo)</strong>.
+        You&apos;ll keep everything you have now and unlock Wallet Tracker, Pump Lab, Alerts, Analytics, and every other Premium feature — all in one upgrade.
+      </p>
+    </div>
+    `}
+
+    <!-- CTA -->
+    <div style="text-align:center;margin:0 0 32px 0;">
+      <a href="${ctaHref}"
+         style="display:inline-block;background:linear-gradient(135deg,#10b981,#059669);color:#000000;font-weight:800;font-size:15px;padding:16px 44px;border-radius:12px;text-decoration:none;letter-spacing:-0.2px;">
+        ${ctaLabel}
+      </a>
+      <p style="color:#4b5563;font-size:11px;margin:12px 0 0 0;">${ctaNote}</p>
+    </div>
+
+    <!-- Sign-off -->
+    <p style="color:#6b7280;font-size:13px;line-height:1.7;margin:0;border-top:1px solid #1a1a2e;padding-top:24px;">
+      Excited for you to use this one,<br>
+      <strong style="color:#9ca3af;">— The AlphaGap Team</strong>
+    </p>
+  `);
+
+  return resend.emails.send({
+    from: FROM,
+    to: email,
+    subject,
+    html,
+  });
+}

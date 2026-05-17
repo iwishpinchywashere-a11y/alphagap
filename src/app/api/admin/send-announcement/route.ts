@@ -7,7 +7,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { getUserList } from "@/lib/users";
-import { sendTelegramAnnouncementEmail } from "@/lib/email";
+import { sendTelegramAnnouncementEmail, sendWalletTrackerAnnouncementEmail } from "@/lib/email";
 
 const ADMIN_EMAIL = "iwishpinchywashere@gmail.com";
 
@@ -30,13 +30,21 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json().catch(() => ({}));
 
+  const emailType: string = body.type || "telegram"; // "telegram" | "wallet-tracker"
+
+  function getSendFn(tier: "free" | "pro" | "premium") {
+    return emailType === "wallet-tracker"
+      ? (n: string, e: string) => sendWalletTrackerAnnouncementEmail(n, e, tier)
+      : (n: string, e: string) => sendTelegramAnnouncementEmail(n, e, tier);
+  }
+
   // ── Test send ─────────────────────────────────────────────────────────────
   if (body.test === true) {
     const testEmail: string = body.testEmail || ADMIN_EMAIL;
     const tier: "free" | "pro" | "premium" = body.tier || "premium";
     try {
-      await sendTelegramAnnouncementEmail("Shane", testEmail, tier);
-      return NextResponse.json({ ok: true, sent: 1, to: testEmail });
+      await getSendFn(tier)("Shane", testEmail);
+      return NextResponse.json({ ok: true, sent: 1, to: testEmail, type: emailType, tier });
     } catch (err) {
       return NextResponse.json({ error: String(err) }, { status: 500 });
     }
@@ -50,16 +58,14 @@ export async function POST(req: NextRequest) {
     const errors: string[] = [];
 
     for (const u of users) {
-      // Determine tier for personalisation
       const tier: "free" | "pro" | "premium" =
         u.subscriptionTier === "premium" ? "premium"
         : u.subscriptionTier === "pro" ? "pro"
         : "free";
 
       try {
-        await sendTelegramAnnouncementEmail(u.name, u.email, tier);
+        await getSendFn(tier)(u.name, u.email);
         sent++;
-        // Pace at ~2/sec to stay within Resend rate limits (100/min free tier)
         await new Promise(r => setTimeout(r, 500));
       } catch (err) {
         failed++;
