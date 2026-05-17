@@ -55,6 +55,44 @@ interface Autopsy {
 
 // ── Analysis helpers ───────────────────────────────────────────────────────
 
+// For portfolio-sourced cases: measure from the aGap signal date to the peak since then
+function pumpFromSignalDate(prices: PricePoint[], signalDate: string): PumpEvent | null {
+  if (prices.length < 2) return null;
+
+  const signalMs = new Date(signalDate).getTime();
+
+  // Find the price point closest to the signal date
+  let startIdx = 0;
+  let minDiff = Infinity;
+  for (let i = 0; i < prices.length; i++) {
+    const diff = Math.abs(new Date(prices[i].timestamp).getTime() - signalMs);
+    if (diff < minDiff) { minDiff = diff; startIdx = i; }
+  }
+
+  // Find peak price from signal date onwards
+  let peakIdx = startIdx;
+  for (let i = startIdx; i < prices.length; i++) {
+    if (prices[i].price > prices[peakIdx].price) peakIdx = i;
+  }
+
+  const startPrice = prices[startIdx].price;
+  if (startPrice <= 0) return null;
+  const gain = ((prices[peakIdx].price - startPrice) / startPrice) * 100;
+  if (gain <= 10) return null;
+
+  return {
+    gain,
+    startDate: prices[startIdx].timestamp,
+    endDate: prices[peakIdx].timestamp,
+    startIdx,
+    endIdx: peakIdx,
+    startPrice,
+    peakPrice: prices[peakIdx].price,
+    daysAgo: Math.round((Date.now() - new Date(prices[startIdx].timestamp).getTime()) / 86400000),
+  };
+}
+
+// For short-window pumps: find the best 7-day gain in the price history
 function findBestPump(prices: PricePoint[], targetDate?: string | null): PumpEvent | null {
   if (prices.length < 8) return null;
   let bestGain = -Infinity;
@@ -476,8 +514,12 @@ function AutopsyCard({ autopsy, onRemove }: { autopsy: Autopsy; onRemove: () => 
               );
             })}
           </div>
-          <div className="mt-3 text-xs text-gray-600">
-            Added {pumper.added_at} · {pumper.reason ?? "manual"}{pumper.netuid != null && <> · <Link href={`/subnets/${pumper.netuid}`} className="hover:text-gray-400 transition-colors">Full subnet →</Link></>}
+          <div className="mt-3 text-xs text-gray-600 flex items-center gap-2 flex-wrap">
+            {pumper.reason && pumper.reason.includes("aGap score") && (
+              <span className="bg-green-950/40 border border-green-800/30 text-green-500 rounded-md px-2 py-0.5 text-[10px] font-semibold">🎯 {pumper.reason.split("→")[0].trim()}</span>
+            )}
+            <span>Added {pumper.added_at}</span>
+            {pumper.netuid != null && <Link href={`/subnets/${pumper.netuid}`} className="hover:text-gray-400 transition-colors">Full subnet →</Link>}
           </div>
         </div>
       )}
@@ -516,31 +558,71 @@ export default function PumpLabPage() {
     }
 
     async function loadAll() {
-      // 1) Fetch tracked list + cache
-      const trackerRes = await fetch("/api/testing");
+      // 1) Fetch tracked list + cache, leaderboard, and portfolio in parallel
+      const [trackerRes, scanRes, portfolioRes] = await Promise.all([
+        fetch("/api/testing"),
+        fetch("/api/cached-scan"),
+        fetch("/api/portfolio"),
+      ]);
       const { tracked, cache = {} }: {
         tracked: TrackedPumper[];
         cache: Record<string, { pumpEvent: PumpEvent | null; findings: SignalFinding[]; narrative: string; priceHistory?: PricePoint[] }>
       } = await trackerRes.json();
-
-      // 2) Fetch leaderboard
-      const scanRes = await fetch("/api/cached-scan");
       const scanData = await scanRes.json();
       const leaderboard: SubnetScore[] = scanData.leaderboard ?? [];
+      const portfolioData = portfolioRes.ok ? await portfolioRes.json() : null;
+      const positions: Array<{ netuid: number; name: string; buyDate: string; buyAGapScore: number; buyPriceUsd: number; totalPnlPct: number }> =
+        portfolioData?.positions ?? [];
 
-      // Auto-detect: subnets with >20% 7D pump not yet tracked
+      // 2) Auto-detect candidates
       const trackedNames = new Set(tracked.map((t) => (t.searchName || t.name).toLowerCase()));
-      const newPumpers = leaderboard
+
+      // Source A: portfolio positions with aGap score ≥ 70 that have pumped ≥ 15% since the signal
+      // This is the "Ditto" case — we had a high score, and the price followed
+      const portfolioPumps = positions.filter((p) =>
+        p.buyAGapScore >= 70 &&
+        p.totalPnlPct >= 15 &&
+        !trackedNames.has(p.name.toLowerCase())
+      ).sort((a, b) => b.totalPnlPct - a.totalPnlPct).slice(0, 10);
+
+      // Source B: leaderboard subnets with strong 7D pump (catches fast movers)
+      const leaderboardPumps = leaderboard
         .filter((s) =>
           (s.price_change_7d ?? 0) >= 20 &&
           !trackedNames.has(s.name.toLowerCase()) &&
-          !tracked.some((t) => s.name.toLowerCase().includes((t.searchName || t.name).toLowerCase()))
+          !positions.some((p) => p.netuid === s.netuid) // don't double-add portfolio entries
         )
         .sort((a, b) => (b.price_change_7d ?? 0) - (a.price_change_7d ?? 0))
-        .slice(0, 8);
+        .slice(0, 6);
 
       const autoAdded: TrackedPumper[] = [];
-      for (const sub of newPumpers) {
+
+      // Add portfolio pumps first (these are the highest-quality cases)
+      for (const pos of portfolioPumps) {
+        try {
+          const res = await fetch("/api/testing", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              name: pos.name,
+              searchName: pos.name.toLowerCase(),
+              netuid: pos.netuid,
+              reason: `aGap score ${pos.buyAGapScore} on ${pos.buyDate} → +${pos.totalPnlPct.toFixed(0)}%`,
+              pump_pct: pos.totalPnlPct,
+              pump_date: pos.buyDate,  // signal date — pumpFromSignalDate will use this
+            }),
+          });
+          if (res.ok) {
+            const { entry } = await res.json();
+            autoAdded.push(entry);
+            tracked.push(entry);
+            trackedNames.add(pos.name.toLowerCase());
+          }
+        } catch { /* skip */ }
+      }
+
+      // Add leaderboard fast-movers
+      for (const sub of leaderboardPumps) {
         try {
           const res = await fetch("/api/testing", {
             method: "POST",
@@ -549,7 +631,7 @@ export default function PumpLabPage() {
               name: sub.name,
               searchName: sub.name.toLowerCase(),
               netuid: sub.netuid,
-              reason: `Auto-detected: +${(sub.price_change_7d ?? 0).toFixed(0)}% 7D`,
+              reason: `7D pump: +${(sub.price_change_7d ?? 0).toFixed(0)}%`,
               pump_pct: sub.price_change_7d ?? 0,
             }),
           });
@@ -561,6 +643,7 @@ export default function PumpLabPage() {
           }
         } catch { /* skip */ }
       }
+
       setAutoDetected(autoAdded);
 
       // 3) Build stubs — cache-first
@@ -656,7 +739,11 @@ export default function PumpLabPage() {
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
           const detail: SubnetDetail = await res.json();
 
-          const pumpEvent = findBestPump(detail.priceHistory, stub.pumper.pump_date);
+          // Portfolio-sourced entries use pumpFromSignalDate (signal date → peak)
+          // Fast-movers use findBestPump (best 7-day window)
+          const pumpEvent = stub.pumper.pump_date
+            ? (pumpFromSignalDate(detail.priceHistory, stub.pumper.pump_date) ?? findBestPump(detail.priceHistory))
+            : findBestPump(detail.priceHistory);
           const findings = buildFindings(pumpEvent, detail.scoreHistory, detail.signals, stub.current);
 
           // Auto-purge 0-signal cases
