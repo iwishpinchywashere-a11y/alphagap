@@ -494,29 +494,29 @@ function AutopsyCard({ autopsy, onRemove }: { autopsy: Autopsy; onRemove: () => 
         )}
       </div>
 
-      {/* Fired signals — simple chips */}
+      {/* Fired signals */}
       {firedFindings.length > 0 && (
         <div className="px-5 pb-5 pt-2">
-          <div className="text-[10px] font-semibold text-gray-600 uppercase tracking-widest mb-2">Pre-Pump Signals</div>
-          <div className="flex flex-wrap gap-2">
+          <div className="text-[10px] font-semibold text-gray-600 uppercase tracking-widest mb-3">Pre-Pump Signals</div>
+          <div className="space-y-2">
             {firedFindings.map((f) => {
               const isStrong = f.strength === "strong" || f.strength === "high";
               return (
-                <div key={f.label} className={`flex items-center gap-2 rounded-xl px-3 py-2 border text-xs ${
+                <div key={f.label} className={`flex items-start gap-3 rounded-xl px-4 py-3 border ${
                   isStrong ? "border-green-800/40 bg-green-950/20" : "border-yellow-800/30 bg-yellow-950/10"
                 }`}>
-                  <span>{f.icon}</span>
-                  <div>
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-gray-200 font-medium">{f.label}</span>
-                      <span className={`text-[9px] font-bold rounded-full px-1.5 py-0.5 border ${
+                  <span className="text-xl leading-none mt-0.5 flex-shrink-0">{f.icon}</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap mb-1">
+                      <span className="text-white font-bold text-sm">{f.label}</span>
+                      <span className={`text-xs font-bold rounded-full px-2 py-0.5 border ${
                         isStrong ? "bg-green-900/60 text-green-400 border-green-800/40" : "bg-yellow-900/50 text-yellow-400 border-yellow-800/40"
                       }`}>
                         {f.strength === "strong" ? "STRONG" : f.strength === "high" ? "HIGH" : "MOD"}
                       </span>
-                      {f.daysBeforePump > 0 && <span className="text-gray-600">−{f.daysBeforePump}d before pump</span>}
+                      {f.daysBeforePump > 0 && <span className="text-gray-500 text-xs">−{f.daysBeforePump}d before pump</span>}
                     </div>
-                    <div className="text-gray-500 text-[10px] mt-0.5">{f.detail}</div>
+                    <div className="text-gray-300 text-xs leading-relaxed">{f.detail}</div>
                   </div>
                 </div>
               );
@@ -607,19 +607,36 @@ export default function PumpLabPage() {
 
       // Add portfolio pumps first (these are the highest-quality cases)
       for (const pos of portfolioPumps) {
+        const payload = {
+          name: pos.name,
+          searchName: pos.name.toLowerCase(),
+          netuid: pos.netuid,
+          reason: `aGap score ${pos.buyAGapScore} on ${pos.buyDate} → +${pos.totalPnlPct.toFixed(0)}%`,
+          pump_pct: pos.totalPnlPct,
+          pump_date: pos.buyDate,
+        };
         try {
-          const res = await fetch("/api/testing", {
+          let res = await fetch("/api/testing", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              name: pos.name,
-              searchName: pos.name.toLowerCase(),
-              netuid: pos.netuid,
-              reason: `aGap score ${pos.buyAGapScore} on ${pos.buyDate} → +${pos.totalPnlPct.toFixed(0)}%`,
-              pump_pct: pos.totalPnlPct,
-              pump_date: pos.buyDate,  // signal date — pumpFromSignalDate will use this
-            }),
+            body: JSON.stringify(payload),
           });
+          // If blocklisted (was previously auto-purged incorrectly), unblock and retry
+          if (!res.ok) {
+            const body = await res.json().catch(() => ({})) as { error?: string };
+            if (body.error === "blocklisted") {
+              await fetch("/api/testing", {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ name: pos.name }),
+              });
+              res = await fetch("/api/testing", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload),
+              });
+            }
+          }
           if (res.ok) {
             const { entry } = await res.json();
             autoAdded.push(entry);
@@ -763,14 +780,32 @@ export default function PumpLabPage() {
             : findBestPump(detail.priceHistory);
           const findings = buildFindings(pumpEvent, detail.scoreHistory, detail.signals, stub.current);
 
-          // Auto-purge 0-signal cases
+          // Portfolio-sourced entries: force the aGap finding to fired=true using the score stored in reason
+          const isPortfolioCase = !!(stub.pumper.pump_date && stub.pumper.reason?.includes("aGap score"));
+          if (isPortfolioCase) {
+            const scoreMatch = stub.pumper.reason?.match(/aGap score (\d+)/);
+            const portfolioScore = scoreMatch ? parseInt(scoreMatch[1]) : 75;
+            const aGapIdx = findings.findIndex((f) => f.label === "AlphaGap Score");
+            if (aGapIdx >= 0 && !findings[aGapIdx].fired) {
+              findings[aGapIdx] = {
+                ...findings[aGapIdx],
+                fired: true,
+                strength: portfolioScore >= 85 ? "strong" : portfolioScore >= 70 ? "high" : "moderate",
+                detail: `aGap score ${portfolioScore}/100 on ${stub.pumper.pump_date} — AlphaGap flagged this subnet before the pump`,
+              };
+            }
+          }
+
+          // Auto-purge 0-signal cases — but never delete portfolio entries (they have confirmed aGap signals)
           const firedCount = findings.filter((f) => f.fired).length;
           if (firedCount === 0) {
-            fetch("/api/testing", {
-              method: "DELETE",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ name: stubName }),
-            }).catch(() => {});
+            if (!isPortfolioCase) {
+              fetch("/api/testing", {
+                method: "DELETE",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ name: stubName }),
+              }).catch(() => {});
+            }
             setAutopsies((prev) => prev.filter((a) => a.pumper.name !== stubName));
             continue;
           }
