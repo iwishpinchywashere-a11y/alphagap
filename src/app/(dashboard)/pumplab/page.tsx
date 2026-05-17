@@ -23,14 +23,14 @@ interface SubnetDetail {
 }
 
 interface PumpEvent {
-  gain: number;          // % gain
+  gain: number;
   startDate: string;
   endDate: string;
   startIdx: number;
   endIdx: number;
   startPrice: number;
   peakPrice: number;
-  daysAgo: number;       // days since pump started
+  daysAgo: number;
 }
 
 interface SignalFinding {
@@ -38,32 +38,8 @@ interface SignalFinding {
   label: string;
   detail: string;
   strength: "strong" | "high" | "moderate" | "weak";
-  daysBeforePump: number;  // positive = before pump
+  daysBeforePump: number;
   fired: boolean;
-}
-
-interface DailyCommitCount { date: string; count: number; daysBeforePump: number }
-interface CommitSummary { sha: string; message: string; author: string; date: string; daysBeforePump: number }
-interface GitHubResearch {
-  owner: string; repo: string; repoUrl: string;
-  totalCommits: number; uniqueContributors: number;
-  commitsByDay: DailyCommitCount[];
-  peakDay: string; peakCount: number;
-  baselineAvgPerDay: number; spikeWindow: number; spikeMultiplier: number;
-  topCommits: CommitSummary[];
-  hasRelease: boolean;
-  releaseInfo?: { tag: string; name: string; date: string };
-  finding: string;
-}
-interface EmissionResearch {
-  trend: "rising" | "falling" | "flat";
-  prePumpVolume: number; pumpWindowVolume: number; volumeMultiplier: number;
-  finding: string;
-}
-interface ResearchResult {
-  github: GitHubResearch | null;
-  emission: EmissionResearch | null;
-  overallFindings: string[];
 }
 
 interface Autopsy {
@@ -73,8 +49,6 @@ interface Autopsy {
   pumpEvent: PumpEvent | null;
   findings: SignalFinding[];
   narrative: string;
-  research: ResearchResult | null;
-  researchLoading: boolean;
   loading: boolean;
   error?: string;
 }
@@ -88,13 +62,10 @@ function findBestPump(prices: PricePoint[], targetDate?: string | null): PumpEve
   let bestEnd = 7;
   const WINDOW = 7;
 
-  // If a target pump date is given, only search within ±12 days of it so we
-  // don't accidentally surface an older/larger pump and miss the right event.
   const targetMs = targetDate ? new Date(targetDate).getTime() : null;
   const WINDOW_MS = 12 * 86400000;
 
   for (let i = 0; i <= prices.length - WINDOW - 1; i++) {
-    // If a target date was given, skip windows that start too far from it
     if (targetMs !== null) {
       const windowStartMs = new Date(prices[i].timestamp).getTime();
       if (Math.abs(windowStartMs - targetMs) > WINDOW_MS) continue;
@@ -105,22 +76,13 @@ function findBestPump(prices: PricePoint[], targetDate?: string | null): PumpEve
     const g = ((ep - sp) / sp) * 100;
     if (g > bestGain) { bestGain = g; bestStart = i; bestEnd = i + WINDOW; }
   }
-  if (bestGain <= 10) return null; // not a meaningful pump
+  if (bestGain <= 10) return null;
 
   const startDate = prices[bestStart].timestamp;
   const endDate = prices[bestEnd].timestamp;
   const daysAgo = Math.round((Date.now() - new Date(startDate).getTime()) / 86400000);
 
-  return {
-    gain: bestGain,
-    startDate,
-    endDate,
-    startIdx: bestStart,
-    endIdx: bestEnd,
-    startPrice: prices[bestStart].price,
-    peakPrice: prices[bestEnd].price,
-    daysAgo,
-  };
+  return { gain: bestGain, startDate, endDate, startIdx: bestStart, endIdx: bestEnd, startPrice: prices[bestStart].price, peakPrice: prices[bestEnd].price, daysAgo };
 }
 
 function getWindow(scores: ScoreRow[], anchorDate: string, daysBack: number): ScoreRow[] {
@@ -149,36 +111,28 @@ function buildFindings(
   const pre14 = getWindow(scores, pumpEvent.startDate, 14);
   const pre7  = getWindow(scores, pumpEvent.startDate, 7);
 
-  // ── AlphaGap Composite Score ──────────────────────────────────────
-  // This is the #1 signal: if AlphaGap's own score was high before the pump,
-  // that means our algo detected it. Check current scores + recent scoreHistory.
+  // AlphaGap Score
   const agapNow = current?.composite_score ?? 0;
-  // Look at scores just before the pump — or fall back to current score
   const prePumpScores = pre7.length > 0 ? pre7 : pre14;
-  const agapAtPump = prePumpScores.length > 0
-    ? prePumpScores[prePumpScores.length - 1].agap
-    : agapNow;
+  const agapAtPump = prePumpScores.length > 0 ? prePumpScores[prePumpScores.length - 1].agap : agapNow;
   const effectiveAgap = Math.max(agapAtPump, agapNow);
   const agapFired = effectiveAgap >= 65;
   findings.push({
     icon: "🎯",
-    label: "AlphaGap Score (Primary Signal)",
+    label: "AlphaGap Score",
     detail: effectiveAgap >= 80
-      ? `aGap score was ${effectiveAgap}/100 before the pump — top-tier rating. AlphaGap actively flagged this subnet as HIGH VALUE. Sub-scores → Dev: ${current?.dev_score ?? "?"}, Social: ${current?.social_score ?? "?"}, Product: ${current?.product_score ?? "?"}`
+      ? `aGap score ${effectiveAgap}/100 before pump — top-tier signal`
       : effectiveAgap >= 65
-      ? `aGap score was ${effectiveAgap}/100 going into the pump — above-average signal. AlphaGap detected meaningful activity on this subnet.`
-      : effectiveAgap > 0
-      ? `aGap score was ${effectiveAgap}/100 at pump time — below threshold for a strong call. Pump may have been external catalyst.`
-      : "No aGap score data available for the pre-pump window.",
+      ? `aGap score ${effectiveAgap}/100 — above-average signal`
+      : `aGap score ${effectiveAgap}/100 — below threshold`,
     strength: effectiveAgap >= 80 ? "strong" : effectiveAgap >= 65 ? "high" : "weak",
     daysBeforePump: prePumpScores.length > 0 ? Math.min(7, prePumpScores.length) : 0,
     fired: agapFired,
   });
 
-  // ── Dev spike ──────────────────────────────────────────────────────
-  const devTrend14 = trend(pre14.map((s) => s.dev));
+  // Dev spike
   const devTrend7  = trend(pre7.map((s) => s.dev));
-  const devFired = devTrend7 > 15 || devTrend14 > 20;
+  const devTrend14 = trend(pre14.map((s) => s.dev));
   const devSignals = signals.filter((s) => s.signal_type === "dev_spike");
   const devPrePump = devSignals.filter((s) => {
     const t = new Date(s.signal_date || s.created_at).getTime();
@@ -188,32 +142,32 @@ function buildFindings(
     icon: "⚡",
     label: "Dev Spike",
     detail: devPrePump.length > 0
-      ? `${devPrePump.length} dev-spike signal${devPrePump.length > 1 ? "s" : ""} fired in pre-pump window`
+      ? `${devPrePump.length} dev-spike signal${devPrePump.length > 1 ? "s" : ""} fired before pump`
       : devTrend14 > 10
-      ? `Dev score rose ${devTrend14 > 0 ? "+" : ""}${devTrend14.toFixed(0)} pts in 14d before pump`
-      : "No significant dev activity detected before pump",
+      ? `Dev score +${devTrend14.toFixed(0)} pts in 14d window`
+      : "No significant dev activity",
     strength: devPrePump.length > 0 ? "strong" : devTrend14 > 10 ? "moderate" : "weak",
     daysBeforePump: devPrePump.length > 0
       ? Math.round((pumpMs - new Date(devPrePump[0].signal_date || devPrePump[0].created_at).getTime()) / 86400000)
       : 7,
-    fired: devFired || devPrePump.length > 0,
+    fired: devTrend7 > 15 || devTrend14 > 20 || devPrePump.length > 0,
   });
 
-  // ── Social spike ───────────────────────────────────────────────────
+  // Social spike
   const socialTrend14 = trend(pre14.map((s) => s.social));
   const socialSignals = signals.filter((s) => ["social_spike", "kol_mention", "twitter_spike"].includes(s.signal_type));
   const socialPrePump = socialSignals.filter((s) => {
     const t = new Date(s.signal_date || s.created_at).getTime();
-    return t < pumpMs + 86400000 && t > pumpMs - 10 * 86400000; // allow pump day +1
+    return t < pumpMs + 86400000 && t > pumpMs - 10 * 86400000;
   });
   findings.push({
     icon: "📢",
-    label: "Social / KOL Activity",
+    label: "Social / KOL",
     detail: socialPrePump.length > 0
       ? `${socialPrePump.length} social signal${socialPrePump.length > 1 ? "s" : ""} — KOLs active pre-pump`
       : socialTrend14 > 10
-      ? `Social score climbed ${socialTrend14.toFixed(0)} pts in pre-pump window`
-      : "No notable social signals detected before pump",
+      ? `Social score +${socialTrend14.toFixed(0)} pts in pre-pump window`
+      : "No notable social signals",
     strength: socialPrePump.length >= 2 ? "strong" : socialPrePump.length === 1 || socialTrend14 > 10 ? "moderate" : "weak",
     daysBeforePump: socialPrePump.length > 0
       ? Math.round((pumpMs - new Date(socialPrePump[0].signal_date || socialPrePump[0].created_at).getTime()) / 86400000)
@@ -221,53 +175,49 @@ function buildFindings(
     fired: socialPrePump.length > 0 || socialTrend14 > 10,
   });
 
-  // ── Volume surge ───────────────────────────────────────────────────
+  // Volume surge
   const volSignals = signals.filter((s) => s.signal_type === "volume_surge");
   const volPrePump = volSignals.filter((s) => {
     const t = new Date(s.signal_date || s.created_at).getTime();
     return t < pumpMs + 2 * 86400000 && t > pumpMs - 7 * 86400000;
   });
-  const volFired = volPrePump.length > 0 || (current?.volume_surge && current.volume_surge_ratio && current.volume_surge_ratio > 2);
   findings.push({
     icon: "📊",
     label: "Volume Surge",
     detail: volPrePump.length > 0
-      ? `Volume spike detected ${volPrePump.length > 1 ? `${volPrePump.length}×` : ""} around pump start`
+      ? `Volume spike detected around pump start`
       : current?.volume_surge
-      ? `Current vol surge ${current.volume_surge_ratio?.toFixed(1) ?? ""}× normal — possibly still active`
-      : "No clear volume surge detected in data window",
+      ? `Vol surge ${current.volume_surge_ratio?.toFixed(1) ?? ""}× normal`
+      : "No clear volume surge",
     strength: volPrePump.length > 0 ? "strong" : current?.volume_surge ? "high" : "weak",
     daysBeforePump: volPrePump.length > 0
       ? Math.round((pumpMs - new Date(volPrePump[0].signal_date || volPrePump[0].created_at).getTime()) / 86400000)
       : 1,
-    fired: !!volFired,
+    fired: volPrePump.length > 0 || !!(current?.volume_surge && (current.volume_surge_ratio ?? 0) > 2),
   });
 
-  // ── Whale accumulation ─────────────────────────────────────────────
+  // Whale accumulation
   const whaleSignals = signals.filter((s) => s.signal_type === "whale_accumulation" || (s.title || "").toLowerCase().includes("whale"));
   const whalePrePump = whaleSignals.filter((s) => {
     const t = new Date(s.signal_date || s.created_at).getTime();
     return t < pumpMs + 86400000 && t > pumpMs - 14 * 86400000;
   });
-  const whaleFired = whalePrePump.length > 0 || current?.whale_signal === "accumulating";
   findings.push({
     icon: "🐋",
     label: "Whale Accumulation",
     detail: whalePrePump.length > 0
-      ? `Whale accumulation signal detected ~${whalePrePump[0] ? Math.round((pumpMs - new Date(whalePrePump[0].signal_date || whalePrePump[0].created_at).getTime() / 86400000)) : "?"} days before pump`
+      ? `Whale accumulation signal detected before pump`
       : current?.whale_signal === "accumulating"
-      ? `Currently accumulating (ratio ${current.whale_ratio?.toFixed(1) ?? "?"}×) — may precede next move`
-      : current?.whale_signal === "distributing"
-      ? "Whales distributing — pump may be ending"
-      : "No whale accumulation signal detected",
+      ? `Currently accumulating (${current.whale_ratio?.toFixed(1) ?? "?"}×)`
+      : "No whale signal detected",
     strength: whalePrePump.length > 0 ? "strong" : current?.whale_signal === "accumulating" ? "moderate" : "weak",
     daysBeforePump: whalePrePump.length > 0
       ? Math.round((pumpMs - new Date(whalePrePump[0].signal_date || whalePrePump[0].created_at).getTime()) / 86400000)
       : 5,
-    fired: whaleFired,
+    fired: whalePrePump.length > 0 || current?.whale_signal === "accumulating",
   });
 
-  // ── Emission momentum ──────────────────────────────────────────────
+  // Emission
   const emTrend14 = trend(pre14.map((s) => s.emission_pct));
   const emSignals = signals.filter((s) => ["emission_spike", "emission_rising"].includes(s.signal_type));
   const emPrePump = emSignals.filter((s) => {
@@ -280,8 +230,8 @@ function buildFindings(
     detail: emPrePump.length > 0
       ? `Emission rising signal fired ${emPrePump.length}× before pump`
       : emTrend14 > 0.3
-      ? `Emission share rose +${emTrend14.toFixed(2)}% in pre-pump window`
-      : "Emission trend flat/declining before pump",
+      ? `Emission share +${emTrend14.toFixed(2)}% in pre-pump window`
+      : "Emission flat/declining",
     strength: emPrePump.length > 0 ? "moderate" : emTrend14 > 0.3 ? "moderate" : "weak",
     daysBeforePump: emPrePump.length > 0
       ? Math.round((pumpMs - new Date(emPrePump[0].signal_date || emPrePump[0].created_at).getTime()) / 86400000)
@@ -289,101 +239,19 @@ function buildFindings(
     fired: emPrePump.length > 0 || emTrend14 > 0.3,
   });
 
-  // ── HuggingFace / product update ──────────────────────────────────
-  const hfSignals = signals.filter((s) => s.signal_type === "hf_update" || s.signal_type === "product_update");
-  const hfPrePump = hfSignals.filter((s) => {
-    const t = new Date(s.signal_date || s.created_at).getTime();
-    return t < pumpMs + 86400000 && t > pumpMs - 21 * 86400000;
-  });
-  findings.push({
-    icon: "🤗",
-    label: "HuggingFace / Product Update",
-    detail: hfPrePump.length > 0
-      ? `${hfPrePump.length} product/HF update${hfPrePump.length > 1 ? "s" : ""} published before pump`
-      : "No product or HF updates detected in pre-pump window",
-    strength: hfPrePump.length >= 2 ? "strong" : hfPrePump.length === 1 ? "moderate" : "weak",
-    daysBeforePump: hfPrePump.length > 0
-      ? Math.round((pumpMs - new Date(hfPrePump[0].signal_date || hfPrePump[0].created_at).getTime()) / 86400000)
-      : 14,
-    fired: hfPrePump.length > 0,
-  });
-
   return findings;
-}
-
-function buildNarrative(
-  name: string,
-  pumpEvent: PumpEvent | null,
-  findings: SignalFinding[],
-  scores: ScoreRow[],
-  current: SubnetScore | null,
-): string {
-  if (!pumpEvent) {
-    return `${name} hasn't shown a clear pump event in available price history. Monitoring for future moves — current aGap score is ${current?.composite_score ?? "?"}/100.`;
-  }
-
-  const firedSignals = findings.filter((f) => f.fired).map((f) => f.label);
-  const strongSignals = findings.filter((f) => f.fired && f.strength === "strong").map((f) => f.label);
-  const pre14 = getWindow(scores, pumpEvent.startDate, 14);
-
-  const gainStr = `+${pumpEvent.gain.toFixed(0)}%`;
-  const daysAgoStr = pumpEvent.daysAgo <= 3 ? "recently" : pumpEvent.daysAgo <= 10 ? `~${pumpEvent.daysAgo} days ago` : `~${Math.round(pumpEvent.daysAgo / 7)} weeks ago`;
-
-  let narrative = `${name} pumped ${gainStr} over 7 days, starting ${daysAgoStr}. `;
-
-  // If AlphaGap score was the primary signal, lead with that
-  const agapFinding = findings.find(f => f.label.includes("AlphaGap Score") && f.fired);
-  if (agapFinding && current?.composite_score != null && current.composite_score >= 65) {
-    narrative += `AlphaGap's composite score was ${current.composite_score}/100 — our algorithm was actively flagging this subnet as high-value before the move. `;
-    if (strongSignals.length > 1) {
-      narrative += `Combined with ${strongSignals.filter(s => !s.includes("AlphaGap")).join(" and ")}, the signal stack was strong. `;
-    }
-  } else if (strongSignals.length > 0) {
-    narrative += `The strongest pre-pump indicators were ${strongSignals.join(" and ")}. `;
-  } else if (firedSignals.length > 0) {
-    narrative += `Pre-pump signals included ${firedSignals.slice(0, 3).join(", ")}. `;
-  } else {
-    narrative += `Historical signal data is limited — the move may have been driven by market-wide rotation or external catalysts not yet captured. `;
-  }
-
-  if (pre14.length >= 3) {
-    const devStart = pre14[0].dev;
-    const devEnd = pre14[pre14.length - 1].dev;
-    const socialEnd = pre14[pre14.length - 1].social;
-    if (devEnd - devStart > 15) {
-      narrative += `Dev score rose ${devStart}→${devEnd} in the two weeks before the pump — a classic leading indicator. `;
-    }
-    if (socialEnd > 60) {
-      narrative += `Social momentum was elevated (score ${socialEnd}) going into the move. `;
-    }
-  }
-
-  if (current?.whale_signal === "accumulating") {
-    narrative += `Whale wallets are currently still accumulating, suggesting the move may have more room. `;
-  } else if (current?.whale_signal === "distributing") {
-    narrative += `Whale wallets are now distributing — the smart money may be taking profit. `;
-  }
-
-  narrative += `Current aGap score: ${current?.composite_score ?? "?"}/100.`;
-  return narrative;
 }
 
 // ── Mini SVG price chart ───────────────────────────────────────────────────
 
-function MiniPriceChart({
-  prices,
-  pump,
-}: {
-  prices: PricePoint[];
-  pump: PumpEvent | null;
-}) {
+function MiniPriceChart({ prices, pump }: { prices: PricePoint[]; pump: PumpEvent | null }) {
   const W = 600; const H = 160;
   const PAD = { top: 16, right: 16, bottom: 32, left: 56 };
 
   if (prices.length < 2) {
     return (
-      <div className="flex items-center justify-center h-[160px] text-gray-600 text-xs">
-        Loading price data…
+      <div className="flex items-center justify-center h-[160px] text-gray-700 text-xs italic">
+        No price data
       </div>
     );
   }
@@ -406,304 +274,97 @@ function MiniPriceChart({
   const x = (i: number) => PAD.left + (i / (prices.length - 1)) * cW;
   const y = (v: number) => PAD.top + cH - ((v - minV) / range) * cH;
 
-  // Path
   const path = prices.map((p, i) => `${i === 0 ? "M" : "L"} ${x(i).toFixed(1)} ${y(p.price).toFixed(1)}`).join(" ");
-
-  // Fill path (close to bottom)
   const areaBottom = PAD.top + cH;
   const fill = path + ` L ${x(prices.length - 1).toFixed(1)} ${areaBottom.toFixed(1)} L ${PAD.left} ${areaBottom.toFixed(1)} Z`;
 
-  // Pump region highlight
-  const pumpRect =
-    pump && pump.startIdx < prices.length && pump.endIdx < prices.length
-      ? {
-          x1: x(pump.startIdx),
-          x2: x(Math.min(pump.endIdx, prices.length - 1)),
-        }
-      : null;
+  const pumpRect = pump && pump.startIdx < prices.length && pump.endIdx < prices.length
+    ? { x1: x(pump.startIdx), x2: x(Math.min(pump.endIdx, prices.length - 1)) }
+    : null;
 
   const isUp = prices[prices.length - 1].price >= prices[0].price;
   const lineColor = pump && pump.gain > 0 ? "#4ade80" : isUp ? "#4ade80" : "#f87171";
-  const gradId = isUp ? "chartFillGreen" : "chartFillRed";
+  const gradId = `chartFill_${pump?.startDate ?? "up"}`;
 
-  // Y-axis: 4 labels
-  const yLabels = [0, 1, 2, 3].map((i) => {
-    const val = minV + (i / 3) * range;
-    const yPos = y(val);
-    return { val, yPos };
-  });
-
-  // X-axis: 4-5 evenly spaced date labels
-  const xLabelCount = 4;
-  const xLabels = Array.from({ length: xLabelCount }, (_, i) => {
-    const idx = Math.round((i / (xLabelCount - 1)) * (prices.length - 1));
-    return {
-      idx,
-      xPos: x(idx),
-      label: new Date(prices[idx].timestamp).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
-    };
+  const yLabels = [0, 1, 2, 3].map((i) => ({ val: minV + (i / 3) * range, yPos: y(minV + (i / 3) * range) }));
+  const xLabels = [0, 1, 2, 3].map((i) => {
+    const idx = Math.round((i / 3) * (prices.length - 1));
+    return { idx, xPos: x(idx), label: new Date(prices[idx].timestamp).toLocaleDateString("en-US", { month: "short", day: "numeric" }) };
   });
 
   const pumpPeakIdx = pump && pump.endIdx < prices.length ? pump.endIdx : null;
-  const pumpPeakX = pumpPeakIdx != null ? x(pumpPeakIdx) : null;
-  const pumpPeakY = pumpPeakIdx != null ? y(prices[pumpPeakIdx].price) : null;
 
   return (
-    <svg
-      viewBox={`0 0 ${W} ${H}`}
-      className="w-full"
-      style={{ height: "160px" }}
-      preserveAspectRatio="xMidYMid meet"
-    >
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: "160px" }} preserveAspectRatio="xMidYMid meet">
       <defs>
         <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={lineColor} stopOpacity="0.3" />
+          <stop offset="0%" stopColor={lineColor} stopOpacity="0.25" />
           <stop offset="100%" stopColor={lineColor} stopOpacity="0.02" />
         </linearGradient>
       </defs>
 
-      {/* Horizontal gridlines */}
       {yLabels.map(({ yPos }, i) => (
-        <line
-          key={i}
-          x1={PAD.left} y1={yPos.toFixed(1)}
-          x2={W - PAD.right} y2={yPos.toFixed(1)}
-          stroke="rgba(55,65,81,0.4)"
-          strokeWidth="1"
-        />
+        <line key={i} x1={PAD.left} y1={yPos.toFixed(1)} x2={W - PAD.right} y2={yPos.toFixed(1)} stroke="rgba(55,65,81,0.4)" strokeWidth="1" />
       ))}
-
-      {/* Y-axis price labels */}
       {yLabels.map(({ val, yPos }, i) => (
-        <text
-          key={i}
-          x={PAD.left - 4}
-          y={(yPos + 3).toFixed(1)}
-          fill="#6b7280"
-          fontSize="9"
-          textAnchor="end"
-        >
-          {fmtPrice(val)}
-        </text>
+        <text key={i} x={PAD.left - 4} y={(yPos + 3).toFixed(1)} fill="#6b7280" fontSize="9" textAnchor="end">{fmtPrice(val)}</text>
       ))}
 
-      {/* Pump region */}
+      {/* Pump region highlight */}
       {pumpRect && (
-        <rect
-          x={pumpRect.x1} y={PAD.top}
-          width={Math.max(pumpRect.x2 - pumpRect.x1, 2)}
-          height={cH}
-          fill="rgba(250,204,21,0.08)"
-          stroke="rgba(250,204,21,0.3)"
-          strokeWidth="1"
-          rx="2"
-        />
+        <rect x={pumpRect.x1} y={PAD.top} width={Math.max(pumpRect.x2 - pumpRect.x1, 2)} height={cH}
+          fill="rgba(74,222,128,0.08)" stroke="rgba(74,222,128,0.25)" strokeWidth="1" rx="2" />
       )}
 
-      {/* Fill under line */}
       <path d={fill} fill={`url(#${gradId})`} />
-
-      {/* Price line */}
       <path d={path} fill="none" stroke={lineColor} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
 
-      {/* Pump start dot */}
       {pump && pump.startIdx < prices.length && (
         <circle cx={x(pump.startIdx).toFixed(1)} cy={y(prices[pump.startIdx].price).toFixed(1)} r="4" fill="#facc15" />
       )}
-
-      {/* Pump peak dot + label */}
-      {pumpPeakX != null && pumpPeakY != null && pump != null && (
+      {pumpPeakIdx != null && pump != null && (
         <>
-          <circle cx={pumpPeakX.toFixed(1)} cy={pumpPeakY.toFixed(1)} r="4" fill="#4ade80" />
-          <text
-            x={(pumpPeakX + 6).toFixed(1)}
-            y={(pumpPeakY - 6).toFixed(1)}
-            fill="#4ade80"
-            fontSize="10"
-            fontWeight="bold"
-          >
+          <circle cx={x(pumpPeakIdx).toFixed(1)} cy={y(prices[pumpPeakIdx].price).toFixed(1)} r="4" fill="#4ade80" />
+          <text x={(x(pumpPeakIdx) + 6).toFixed(1)} y={(y(prices[pumpPeakIdx].price) - 6).toFixed(1)} fill="#4ade80" fontSize="10" fontWeight="bold">
             ▲ +{pump.gain.toFixed(0)}%
           </text>
         </>
       )}
 
-      {/* X-axis date labels */}
       {xLabels.map(({ xPos, label }, i) => (
-        <text
-          key={i}
-          x={xPos.toFixed(1)}
-          y={(H - 6).toFixed(1)}
-          fill="#4b5563"
-          fontSize="9"
-          textAnchor="middle"
-        >
-          {label}
-        </text>
+        <text key={i} x={xPos.toFixed(1)} y={(H - 6).toFixed(1)} fill="#4b5563" fontSize="9" textAnchor="middle">{label}</text>
       ))}
     </svg>
   );
 }
 
-// ── Formatters ────────────────────────────────────────────────────────────
+// ── Formatters ─────────────────────────────────────────────────────────────
 
-function fmtTao(v: number): string {
-  if (v <= 0) return "—";
-  if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M τ`;
-  if (v >= 1_000) return `${(v / 1_000).toFixed(1)}K τ`;
-  return `${v.toFixed(1)} τ`;
+function fmtPrice(v: number): string {
+  if (v < 0.0001) return `$${v.toFixed(8)}`;
+  if (v < 0.01)   return `$${v.toFixed(5)}`;
+  if (v < 1)      return `$${v.toFixed(4)}`;
+  return `$${v.toFixed(2)}`;
 }
-
-// ── Commit bar chart ───────────────────────────────────────────────────────
-
-function CommitBarChart({ days, pumpDay }: { days: DailyCommitCount[]; pumpDay: number }) {
-  if (days.length === 0) return null;
-  const maxCount = Math.max(...days.map(d => d.count), 1);
-  // Show up to 30 bars
-  const visible = days.slice(-30);
-  return (
-    <div className="flex items-end gap-0.5 h-12">
-      {visible.map((d) => {
-        const height = Math.max((d.count / maxCount) * 100, 4);
-        const isSpike = d.daysBeforePump <= 7;
-        const isRecent = d.daysBeforePump <= 3;
-        return (
-          <div
-            key={d.date}
-            title={`${d.date}: ${d.count} commit${d.count !== 1 ? "s" : ""} (${d.daysBeforePump}d before pump)`}
-            style={{ height: `${height}%` }}
-            className={`flex-1 rounded-sm min-w-[4px] cursor-help transition-opacity hover:opacity-100 ${
-              isRecent ? "bg-green-400 opacity-90" :
-              isSpike  ? "bg-yellow-400 opacity-70" :
-                         "bg-gray-600 opacity-50"
-            }`}
-          />
-        );
-      })}
-    </div>
-  );
-}
-
-// ── Score history mini table ───────────────────────────────────────────────
-
-function ScoreTable({ scores, pump }: { scores: ScoreRow[]; pump: PumpEvent | null }) {
-  if (scores.length === 0) {
-    return (
-      <div className="text-xs text-gray-600 italic py-2">
-        Score history not yet available — builds over time with each scan.
-      </div>
-    );
-  }
-
-  // Pick 4 snapshots: -30d, -14d, -7d, closest to pump start
-  // Returns null if no snapshot is within 4 days of the target — avoids
-  // repeating stale values when we simply don't have historical data.
-  const pumpMs = pump ? new Date(pump.startDate).getTime() : Date.now();
-  const snap = (daysBack: number): ScoreRow | null => {
-    const target = pumpMs - daysBack * 86400000;
-    const best = scores.reduce(
-      (best, s) => {
-        const diff = Math.abs(new Date(s.date).getTime() - target);
-        return diff < Math.abs(new Date(best.date).getTime() - target) ? s : best;
-      },
-      scores[0]
-    );
-    const bestDiff = Math.abs(new Date(best.date).getTime() - target);
-    return bestDiff <= 4 * 86400000 ? best : null;
-  };
-  const cols = pump
-    ? [
-        { label: "−30d", row: snap(30) },
-        { label: "−14d", row: snap(14) },
-        { label: "−7d",  row: snap(7) },
-        { label: "Pump", row: snap(0) },
-      ]
-    : [
-        { label: scores[0] ? new Date(scores[0].date).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "oldest", row: scores[0] },
-        { label: "mid",  row: scores[Math.floor(scores.length / 2)] },
-        { label: "recent", row: scores[scores.length - 1] },
-      ];
-  const missingHistory = pump && cols.some(c => c.row === null);
-
-  const scoreColor = (v: number) =>
-    v >= 70 ? "text-green-400" : v >= 45 ? "text-yellow-400" : "text-red-400";
-
-  const rows: { key: string; label: string; fn: (r: ScoreRow) => number }[] = [
-    { key: "agap",    label: "aGap",    fn: (r) => r.agap },
-    { key: "dev",     label: "Dev",     fn: (r) => r.dev },
-    { key: "social",  label: "Social",  fn: (r) => r.social },
-    { key: "flow",    label: "Flow",    fn: (r) => r.flow },
-    { key: "eval",    label: "Eval",    fn: (r) => r.eval },
-  ];
-
-  return (
-    <div className="overflow-x-auto">
-      <table className="text-xs w-full">
-        <thead>
-          <tr>
-            <th className="text-left text-gray-600 font-normal pb-1 pr-4">Metric</th>
-            {cols.map((c) => (
-              <th key={c.label} className="text-right text-gray-500 font-mono pb-1 px-2">{c.label}</th>
-            ))}
-            <th className="text-right text-gray-500 font-normal pb-1 pl-2">Δ</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map(({ key, label, fn }) => {
-            const vals = cols.map((c) => c.row ? fn(c.row) : null);
-            const first = vals[0] ?? 0;
-            const last = vals[vals.length - 1] ?? 0;
-            const delta = last - first;
-            return (
-              <tr key={key} className="border-t border-gray-800/40">
-                <td className="text-gray-500 py-1 pr-4">{label}</td>
-                {vals.map((v, i) => (
-                  <td key={i} className={`text-right font-mono py-1 px-2 ${v != null ? scoreColor(v) : "text-gray-700"}`}>
-                    {v != null ? v.toFixed(0) : "—"}
-                  </td>
-                ))}
-                <td className={`text-right font-mono py-1 pl-2 text-xs ${delta > 0 ? "text-green-400" : delta < 0 ? "text-red-400" : "text-gray-600"}`}>
-                  {delta !== 0 ? `${delta > 0 ? "+" : ""}${delta.toFixed(0)}` : "—"}
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-      {missingHistory && (
-        <div className="mt-2 text-[10px] text-gray-600 italic">
-          — = no AlphaGap score snapshot available for that period. History only goes back to when this subnet was first tracked.
-        </div>
-      )}
-    </div>
-  );
+function fmtUsd(v: number): string {
+  if (v >= 1e9) return `$${(v / 1e9).toFixed(2)}B`;
+  if (v >= 1e6) return `$${(v / 1e6).toFixed(2)}M`;
+  if (v >= 1e3) return `$${(v / 1e3).toFixed(1)}K`;
+  return `$${v.toFixed(4)}`;
 }
 
 // ── Autopsy Card ──────────────────────────────────────────────────────────
 
 function AutopsyCard({ autopsy, onRemove }: { autopsy: Autopsy; onRemove: () => void }) {
-  const { pumper, current, detail, pumpEvent, findings, narrative, loading, error } = autopsy;
-
-  const fmtUsd = (v: number) => {
-    if (v >= 1e9) return `$${(v / 1e9).toFixed(2)}B`;
-    if (v >= 1e6) return `$${(v / 1e6).toFixed(2)}M`;
-    if (v >= 1e3) return `$${(v / 1e3).toFixed(1)}K`;
-    return `$${v.toFixed(4)}`;
-  };
-  const fmtPrice = (v: number) => {
-    if (v < 0.0001) return `$${v.toFixed(8)}`;
-    if (v < 0.01)   return `$${v.toFixed(5)}`;
-    if (v < 1)      return `$${v.toFixed(4)}`;
-    return `$${v.toFixed(2)}`;
-  };
-  const pctColor = (v: number) => v >= 0 ? "text-green-400" : "text-red-400";
+  const { pumper, current, detail, pumpEvent, findings, loading, error } = autopsy;
 
   const ms = detail?.marketStats ?? null;
-  const price7d = current?.price_change_7d ?? ms?.priceChangePct7d ?? null;
   const priceUsd = current?.alpha_price ?? ms?.priceUsd ?? null;
   const mcap = current?.market_cap ?? ms?.marketCapUsd ?? null;
+  const price7d = current?.price_change_7d ?? ms?.priceChangePct7d ?? null;
 
-  const firedCount = findings.filter((f) => f.fired).length;
   const firedFindings = findings.filter((f) => f.fired);
+  const firedCount = firedFindings.length;
 
   const signalBubbleColor = firedCount >= 3
     ? "bg-green-900/60 border-green-700/50 text-green-400"
@@ -711,357 +372,130 @@ function AutopsyCard({ autopsy, onRemove }: { autopsy: Autopsy; onRemove: () => 
     ? "bg-yellow-900/60 border-yellow-700/50 text-yellow-400"
     : "bg-orange-900/60 border-orange-700/50 text-orange-400";
 
+  if (loading) {
+    return (
+      <div className="bg-gray-950/70 border border-gray-800/40 rounded-2xl overflow-hidden animate-pulse">
+        <div className="px-5 py-4 flex items-center justify-between border-b border-gray-800/40">
+          <div className="h-5 w-32 bg-gray-800 rounded-lg" />
+          <div className="h-8 w-16 bg-gray-800 rounded-lg" />
+        </div>
+        <div className="h-[160px] mx-5 my-4 bg-gray-900/50 rounded-xl" />
+      </div>
+    );
+  }
+
   return (
     <div className="bg-gray-950/70 border border-gray-800/50 rounded-2xl overflow-hidden backdrop-blur-sm">
 
-      {/* Card header */}
+      {/* Header */}
       <div className="relative flex items-center justify-between px-5 py-4 bg-gradient-to-r from-green-950/30 via-emerald-950/10 to-transparent border-b border-gray-800/50">
-        {/* Left accent bar */}
         <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-green-500 to-emerald-600 rounded-l-2xl" />
 
-        {/* Left: name + meta */}
-        <div className="pl-3">
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-white font-bold text-xl">{pumper.name}</span>
-            {pumper.netuid != null && (
-              <Link
-                href={`/subnets/${pumper.netuid}`}
-                className="text-[11px] text-green-400 bg-green-900/40 border border-green-800/40 rounded-md px-2 py-0.5 hover:text-green-300 hover:bg-green-900/60 transition-colors"
-              >
-                SN{pumper.netuid}
-              </Link>
-            )}
-            {loading && <span className="text-xs text-gray-600 animate-pulse">Loading…</span>}
-            {error && <span className="text-xs text-red-500">{error}</span>}
-          </div>
-          <div className="flex items-center gap-3 text-xs">
-            {priceUsd != null && <span className="text-gray-300 font-mono">{fmtPrice(priceUsd)}</span>}
-            {mcap != null && <span className="text-gray-500">MCap {fmtUsd(mcap)}</span>}
-            {price7d != null && (
-              <span className={`font-medium ${pctColor(price7d)}`}>
-                7D {price7d >= 0 ? "+" : ""}{price7d.toFixed(1)}%
-              </span>
-            )}
-          </div>
-        </div>
-
-        {/* Right: pump badge + signal count + remove */}
-        <div className="flex items-center gap-4">
-          {pumpEvent && (
-            <div className="text-center">
-              <div className="text-green-400 font-bold text-2xl leading-none tabular-nums">
-                +{pumpEvent.gain.toFixed(0)}%
-              </div>
-              <div className="text-gray-500 text-[11px] mt-0.5">peak pump</div>
-            </div>
-          )}
-
-          <div className={`flex flex-col items-center justify-center w-12 h-12 rounded-xl border ${signalBubbleColor}`}>
-            <span className="font-bold text-lg leading-none">{firedCount}</span>
-            <span className="text-[9px] leading-none mt-0.5 opacity-70">signals</span>
-          </div>
-
-          <button
-            onClick={onRemove}
-            className="text-gray-700 hover:text-red-500 transition-colors text-xs px-2 py-1 rounded-lg hover:bg-gray-800/60"
-            title="Remove from tracker"
-          >
-            ✕
-          </button>
-        </div>
-      </div>
-
-      {/* Card body — always expanded */}
-      <div className="px-5 pb-5 pt-4 space-y-5">
-
-        {/* Price chart */}
-        <div>
-          <div className="flex items-center gap-2 mb-2">
-            <h3 className="text-[11px] font-semibold text-gray-500 uppercase tracking-widest">90-Day Price</h3>
-            {pumpEvent && (
-              <span className="text-[11px] text-gray-600">
-                🟡 pump start &nbsp; 🟢 pump peak
-              </span>
-            )}
-          </div>
-          <div className="bg-gray-900/50 rounded-xl p-3 border border-gray-800/30">
-            <MiniPriceChart prices={detail?.priceHistory ?? []} pump={pumpEvent} />
-          </div>
-          {pumpEvent && (
-            <div className="flex flex-wrap gap-4 mt-2 text-xs text-gray-500">
-              <span>{new Date(pumpEvent.startDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })} → {new Date(pumpEvent.endDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
-              <span className="text-green-400">+{pumpEvent.gain.toFixed(1)}% ({fmtPrice(pumpEvent.startPrice)} → {fmtPrice(pumpEvent.peakPrice)})</span>
-              <span className={pumpEvent.daysAgo <= 7 ? "text-yellow-400" : ""}>{pumpEvent.daysAgo <= 3 ? "🔥 Recent!" : pumpEvent.daysAgo <= 7 ? "Recent" : `~${pumpEvent.daysAgo}d ago`}</span>
-            </div>
-          )}
-        </div>
-
-        {/* Signal findings — fired only */}
-        {firedFindings.length > 0 && (
+        <div className="pl-3 flex items-center gap-3 min-w-0">
           <div>
-            <h3 className="text-[11px] font-semibold text-gray-500 uppercase tracking-widest mb-3">
-              Pre-Pump Signals Detected
-            </h3>
-            <div className="space-y-2">
-              {firedFindings.map((f) => {
-                const isStrong = f.strength === "strong" || f.strength === "high";
-                const borderColor = isStrong ? "border-l-green-500" : "border-l-yellow-500/70";
-                const bgColor = isStrong ? "bg-green-950/20" : "bg-yellow-950/10";
-                const badgeColor = isStrong
-                  ? "bg-green-900/60 text-green-400 border-green-800/40"
-                  : "bg-yellow-900/50 text-yellow-400 border-yellow-800/40";
-                const badgeLabel = f.strength === "strong" ? "STRONG" : f.strength === "high" ? "HIGH" : "MODERATE";
-
-                return (
-                  <div
-                    key={f.label}
-                    className={`flex items-start gap-3 rounded-xl px-4 py-3 border border-gray-800/30 border-l-4 ${borderColor} ${bgColor}`}
-                  >
-                    <span className="text-base leading-none mt-0.5 flex-shrink-0">{f.icon}</span>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="text-sm font-semibold text-gray-200">{f.label}</span>
-                        <span className={`text-[10px] border rounded-full px-1.5 py-0.5 font-bold tracking-wide ${badgeColor}`}>
-                          {badgeLabel}
-                        </span>
-                      </div>
-                      <p className="text-xs text-gray-400 leading-snug">{f.detail}</p>
-                    </div>
-                    {f.daysBeforePump > 0 && (
-                      <div className="text-right flex-shrink-0 bg-gray-800/50 rounded-lg px-2.5 py-1.5">
-                        <div className="text-xs font-bold text-gray-300 tabular-nums">−{f.daysBeforePump}d</div>
-                        <div className="text-[9px] text-gray-600">before pump</div>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+            <div className="flex items-center gap-2 mb-0.5">
+              <span className="text-white font-bold text-lg">{pumper.name}</span>
+              {pumper.netuid != null && (
+                <Link href={`/subnets/${pumper.netuid}`}
+                  className="text-[11px] text-green-400 bg-green-900/40 border border-green-800/40 rounded-md px-2 py-0.5 hover:text-green-300 transition-colors">
+                  SN{pumper.netuid}
+                </Link>
+              )}
+              {error && <span className="text-xs text-red-500">{error}</span>}
             </div>
-          </div>
-        )}
-
-        {/* Recent signals list */}
-        {detail && detail.signals.length > 0 && (
-          <div>
-            <h3 className="text-[11px] font-semibold text-gray-500 uppercase tracking-widest mb-3">
-              Recent Signals ({detail.signals.length} captured)
-            </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {detail.signals.slice(0, 8).map((sig, i) => (
-                <div key={i} className={`flex items-start gap-2 rounded-xl px-3 py-2 border text-xs ${
-                  sig.strength >= 80 ? "border-green-800/40 bg-green-950/20" :
-                  sig.strength >= 50 ? "border-yellow-800/30 bg-yellow-950/10" :
-                  "border-gray-800/30 bg-gray-950/60"
-                }`}>
-                  <span className={`font-bold tabular-nums flex-shrink-0 ${
-                    sig.strength >= 80 ? "text-green-400" : sig.strength >= 50 ? "text-yellow-400" : "text-gray-500"
-                  }`}>{sig.strength}</span>
-                  <div className="min-w-0">
-                    <div className="text-gray-300 truncate">{sig.title}</div>
-                    <div className="text-gray-600 text-[10px]">{sig.signal_type} · {new Date(sig.signal_date || sig.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* ── Retroactive Research ────────────────────────────── */}
-        {(autopsy.researchLoading || autopsy.research) && (
-          <div className="border-t border-gray-800/40 pt-4 space-y-4">
-            <h3 className="text-[11px] font-semibold text-gray-500 uppercase tracking-widest flex items-center gap-2">
-              🔭 Retroactive Research
-              {autopsy.researchLoading && (
-                <span className="text-gray-600 font-normal normal-case animate-pulse text-xs">
-                  Fetching GitHub + on-chain data…
+            <div className="flex items-center gap-3 text-xs">
+              {priceUsd != null && <span className="text-gray-300 font-mono">{fmtPrice(priceUsd)}</span>}
+              {mcap != null && <span className="text-gray-500">MCap {fmtUsd(mcap)}</span>}
+              {price7d != null && (
+                <span className={`font-medium ${price7d >= 0 ? "text-green-400" : "text-red-400"}`}>
+                  7D {price7d >= 0 ? "+" : ""}{price7d.toFixed(1)}%
                 </span>
               )}
-            </h3>
-
-            {autopsy.research && (
-              <div className="space-y-4">
-
-                {/* GitHub commit analysis */}
-                {autopsy.research.github && (
-                  <div className="bg-gray-950/60 border border-gray-800/40 rounded-2xl p-4">
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-xs font-semibold text-gray-300 flex items-center gap-1.5">
-                        <span>⎇</span>
-                        GitHub Commit History (30d before pump)
-                      </span>
-                      <a
-                        href={`https://github.com/${autopsy.research.github.owner}/${autopsy.research.github.repo}/commits`}
-                        target="_blank" rel="noopener noreferrer"
-                        className="text-[10px] text-gray-600 hover:text-gray-400"
-                      >
-                        {autopsy.research.github.owner}/{autopsy.research.github.repo} ↗
-                      </a>
-                    </div>
-
-                    {/* Stats row */}
-                    <div className="grid grid-cols-4 gap-3 mb-3">
-                      {[
-                        { label: "Total commits", val: autopsy.research.github.totalCommits },
-                        { label: "Contributors", val: autopsy.research.github.uniqueContributors },
-                        { label: "Peak day", val: autopsy.research.github.peakCount > 0 ? `${autopsy.research.github.peakCount} commits` : "—" },
-                        {
-                          label: "Spike vs baseline",
-                          val: autopsy.research.github.baselineAvgPerDay > 0
-                            ? `${autopsy.research.github.spikeMultiplier.toFixed(1)}×`
-                            : "no baseline",
-                          color: autopsy.research.github.spikeMultiplier >= 3 ? "text-green-400"
-                            : autopsy.research.github.spikeMultiplier >= 1.5 ? "text-yellow-400"
-                            : "text-gray-400",
-                        },
-                      ].map(({ label, val, color }) => (
-                        <div key={label} className="text-center">
-                          <div className={`text-base font-bold font-mono ${color ?? "text-white"}`}>{val}</div>
-                          <div className="text-[10px] text-gray-600">{label}</div>
-                        </div>
-                      ))}
-                    </div>
-
-                    {/* Commit bar chart (commits per day) */}
-                    {autopsy.research.github.commitsByDay.length > 0 && (
-                      <div className="mb-3">
-                        <div className="text-[10px] text-gray-600 mb-1">Commits/day (oldest → pump date)</div>
-                        <CommitBarChart
-                          days={autopsy.research.github.commitsByDay}
-                          pumpDay={0}
-                        />
-                      </div>
-                    )}
-
-                    {/* Release badge */}
-                    {autopsy.research.github.hasRelease && autopsy.research.github.releaseInfo && (
-                      <div className="mb-3 inline-flex items-center gap-2 bg-blue-950/40 border border-blue-800/30 rounded-lg px-3 py-1.5 text-xs">
-                        <span>🚀</span>
-                        <span className="text-blue-300 font-medium">Release: {autopsy.research.github.releaseInfo.name}</span>
-                        <span className="text-gray-500">
-                          {new Date(autopsy.research.github.releaseInfo.date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                        </span>
-                      </div>
-                    )}
-
-                    {/* Top commits */}
-                    {autopsy.research.github.topCommits.length > 0 && (
-                      <div>
-                        <div className="text-[10px] text-gray-600 mb-1.5">Notable commits before pump</div>
-                        <div className="space-y-1.5">
-                          {autopsy.research.github.topCommits.slice(0, 6).map((c) => (
-                            <div key={c.sha} className="flex items-start gap-2 text-xs">
-                              <span className="font-mono text-gray-600 flex-shrink-0 w-12 text-right">
-                                −{c.daysBeforePump}d
-                              </span>
-                              <span className="font-mono text-green-400/70 flex-shrink-0">{c.sha}</span>
-                              <span className="text-gray-400 truncate">{c.message}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Finding */}
-                    <div className="mt-3 pt-3 border-t border-gray-800/30 text-xs text-gray-400 leading-relaxed">
-                      {autopsy.research.github.finding}
-                    </div>
-                  </div>
-                )}
-
-                {/* No GitHub repo */}
-                {!autopsy.research.github && autopsy.detail?.identity?.github_repo == null && (
-                  <div className="bg-gray-950/60 border border-gray-800/40 rounded-2xl px-4 py-3 text-xs text-gray-600 flex items-center gap-2">
-                    <span>⎇</span>
-                    No GitHub repo linked to this subnet — dev activity can&apos;t be researched retroactively.
-                  </div>
-                )}
-
-                {/* Emission / volume analysis */}
-                {autopsy.research.emission && (
-                  <div className="bg-gray-950/60 border border-gray-800/40 rounded-2xl p-4">
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-xs font-semibold text-gray-300">📊 On-Chain Volume (pre-pump vs pump window)</span>
-                      <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-                        autopsy.research.emission.trend === "rising" ? "bg-green-900/40 text-green-400" :
-                        autopsy.research.emission.trend === "falling" ? "bg-red-900/40 text-red-400" :
-                        "bg-gray-800 text-gray-500"
-                      }`}>
-                        {autopsy.research.emission.trend === "rising" ? "↑ RISING" :
-                         autopsy.research.emission.trend === "falling" ? "↓ FALLING" : "→ FLAT"}
-                      </span>
-                    </div>
-                    <div className="grid grid-cols-3 gap-3 mb-3">
-                      {[
-                        { label: "Pre-pump avg vol", val: fmtTao(autopsy.research.emission.prePumpVolume) },
-                        { label: "Pump window avg", val: fmtTao(autopsy.research.emission.pumpWindowVolume) },
-                        {
-                          label: "Volume multiplier",
-                          val: autopsy.research.emission.volumeMultiplier > 0 ? `${autopsy.research.emission.volumeMultiplier.toFixed(1)}×` : "—",
-                          color: autopsy.research.emission.volumeMultiplier >= 3 ? "text-green-400" :
-                                 autopsy.research.emission.volumeMultiplier >= 1.5 ? "text-yellow-400" : "text-gray-400",
-                        },
-                      ].map(({ label, val, color }) => (
-                        <div key={label} className="text-center">
-                          <div className={`text-base font-bold font-mono ${color ?? "text-white"}`}>{val}</div>
-                          <div className="text-[10px] text-gray-600">{label}</div>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="text-xs text-gray-400 leading-relaxed">{autopsy.research.emission.finding}</div>
-                  </div>
-                )}
-
-                {/* Overall findings */}
-                {(autopsy.research.overallFindings?.length ?? 0) > 0 && (
-                  <div className="bg-yellow-950/10 border border-yellow-800/20 rounded-2xl px-4 py-3">
-                    <div className="text-xs font-semibold text-yellow-400/80 mb-2">🔑 Key Retroactive Findings</div>
-                    <ul className="space-y-1">
-                      {autopsy.research.overallFindings.map((f, i) => (
-                        <li key={i} className="text-xs text-gray-400 leading-relaxed">{f}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Narrative */}
-        <div className="border-t border-gray-800/40 pt-4">
-          <h3 className="text-[11px] font-semibold text-gray-500 uppercase tracking-widest mb-2">
-            🔍 Analysis
-          </h3>
-          <blockquote className="bg-gray-900/60 border-l-4 border-green-500/50 rounded-r-xl px-4 py-3 text-sm text-gray-300 leading-relaxed italic">
-            {narrative}
-          </blockquote>
-          <div className="mt-2 text-xs text-gray-600">
-            Added: {pumper.added_at} · Reason: {pumper.reason ?? "manual"} ·
-            {pumper.netuid != null && (
-              <Link href={`/subnets/${pumper.netuid}`} className="ml-1 text-gray-500 hover:text-gray-300">
-                Full subnet page →
-              </Link>
-            )}
+            </div>
           </div>
         </div>
+
+        <div className="flex items-center gap-3 flex-shrink-0">
+          {pumpEvent && (
+            <div className="text-right">
+              <div className="text-green-400 font-bold text-2xl leading-none tabular-nums">+{pumpEvent.gain.toFixed(0)}%</div>
+              <div className="text-gray-600 text-[10px] mt-0.5">peak pump</div>
+            </div>
+          )}
+          <div className={`flex flex-col items-center justify-center w-11 h-11 rounded-xl border ${signalBubbleColor}`}>
+            <span className="font-bold text-base leading-none">{firedCount}</span>
+            <span className="text-[9px] leading-none mt-0.5 opacity-70">signals</span>
+          </div>
+          <button onClick={onRemove} className="text-gray-700 hover:text-red-500 transition-colors p-1 rounded-lg hover:bg-gray-800/60" title="Remove">✕</button>
+        </div>
       </div>
+
+      {/* Chart */}
+      <div className="px-5 pt-4 pb-2">
+        <div className="flex items-center gap-3 mb-2 text-[10px] text-gray-600">
+          <span className="uppercase tracking-widest font-semibold">90-Day Price</span>
+          {pumpEvent && <><span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-yellow-400 inline-block" />pump start</span><span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-400 inline-block" />pump peak</span></>}
+        </div>
+        <div className="bg-gray-900/40 rounded-xl p-3 border border-gray-800/30">
+          <MiniPriceChart prices={detail?.priceHistory ?? []} pump={pumpEvent} />
+        </div>
+        {pumpEvent && (
+          <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-xs text-gray-500">
+            <span>{new Date(pumpEvent.startDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })} → {new Date(pumpEvent.endDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
+            <span className="text-green-400 font-medium">+{pumpEvent.gain.toFixed(1)}% ({fmtPrice(pumpEvent.startPrice)} → {fmtPrice(pumpEvent.peakPrice)})</span>
+            <span className={pumpEvent.daysAgo <= 7 ? "text-yellow-400" : ""}>{pumpEvent.daysAgo <= 3 ? "🔥 Recent!" : pumpEvent.daysAgo <= 7 ? "Recent" : `~${pumpEvent.daysAgo}d ago`}</span>
+          </div>
+        )}
+      </div>
+
+      {/* Fired signals — simple chips */}
+      {firedFindings.length > 0 && (
+        <div className="px-5 pb-5 pt-2">
+          <div className="text-[10px] font-semibold text-gray-600 uppercase tracking-widest mb-2">Pre-Pump Signals</div>
+          <div className="flex flex-wrap gap-2">
+            {firedFindings.map((f) => {
+              const isStrong = f.strength === "strong" || f.strength === "high";
+              return (
+                <div key={f.label} className={`flex items-center gap-2 rounded-xl px-3 py-2 border text-xs ${
+                  isStrong ? "border-green-800/40 bg-green-950/20" : "border-yellow-800/30 bg-yellow-950/10"
+                }`}>
+                  <span>{f.icon}</span>
+                  <div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-gray-200 font-medium">{f.label}</span>
+                      <span className={`text-[9px] font-bold rounded-full px-1.5 py-0.5 border ${
+                        isStrong ? "bg-green-900/60 text-green-400 border-green-800/40" : "bg-yellow-900/50 text-yellow-400 border-yellow-800/40"
+                      }`}>
+                        {f.strength === "strong" ? "STRONG" : f.strength === "high" ? "HIGH" : "MOD"}
+                      </span>
+                      {f.daysBeforePump > 0 && <span className="text-gray-600">−{f.daysBeforePump}d before pump</span>}
+                    </div>
+                    <div className="text-gray-500 text-[10px] mt-0.5">{f.detail}</div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <div className="mt-3 text-xs text-gray-600">
+            Added {pumper.added_at} · {pumper.reason ?? "manual"}{pumper.netuid != null && <> · <Link href={`/subnets/${pumper.netuid}`} className="hover:text-gray-400 transition-colors">Full subnet →</Link></>}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
 // ── Main page ──────────────────────────────────────────────────────────────
 
-export default function TestingPage() {
+export default function PumpLabPage() {
   const { data: session } = useSession();
   const tier = getTier(session);
   const [autopsies, setAutopsies] = useState<Autopsy[]>([]);
   const [autoDetected, setAutoDetected] = useState<TrackedPumper[]>([]);
   const loadedRef = useRef(false);
 
-  // Match a tracked pumper to a subnet in the leaderboard by name
   function resolveName(tracked: TrackedPumper, leaderboard: SubnetScore[]): SubnetScore | null {
     const search = (tracked.searchName || tracked.name).toLowerCase();
-    // Exact match first
     let match = leaderboard.find((s) => s.name.toLowerCase() === search);
     if (!match) match = leaderboard.find((s) => s.name.toLowerCase().includes(search) || search.includes(s.name.toLowerCase().split(" ")[0]));
     return match ?? null;
@@ -1071,34 +505,36 @@ export default function TestingPage() {
     if (loadedRef.current) return;
     loadedRef.current = true;
 
-    async function saveToCache(name: string, autopsy: { pumpEvent: PumpEvent | null; findings: SignalFinding[]; narrative: string; research: ResearchResult | null; priceHistory: PricePoint[] }) {
+    async function saveToCache(name: string, data: { pumpEvent: PumpEvent | null; findings: SignalFinding[]; narrative: string; research: null; priceHistory: PricePoint[] }) {
       try {
         await fetch("/api/testing", {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name, autopsy }),
+          body: JSON.stringify({ name, autopsy: data }),
         });
       } catch { /* non-critical */ }
     }
 
     async function loadAll() {
-      // 1) Fetch tracked list + autopsy cache in one call
+      // 1) Fetch tracked list + cache
       const trackerRes = await fetch("/api/testing");
-      const { tracked, cache = {} }: { tracked: TrackedPumper[]; cache: Record<string, { pumpEvent: PumpEvent | null; findings: SignalFinding[]; narrative: string; research: ResearchResult | null; priceHistory?: PricePoint[] }> } = await trackerRes.json();
+      const { tracked, cache = {} }: {
+        tracked: TrackedPumper[];
+        cache: Record<string, { pumpEvent: PumpEvent | null; findings: SignalFinding[]; narrative: string; priceHistory?: PricePoint[] }>
+      } = await trackerRes.json();
 
-      // 2) Fetch leaderboard (for name→netuid resolution + current scores)
+      // 2) Fetch leaderboard
       const scanRes = await fetch("/api/cached-scan");
       const scanData = await scanRes.json();
       const leaderboard: SubnetScore[] = scanData.leaderboard ?? [];
 
-      // Auto-detect AND auto-add: subnets with >30% 7D pump not yet tracked
+      // Auto-detect: subnets with >20% 7D pump not yet tracked
       const trackedNames = new Set(tracked.map((t) => (t.searchName || t.name).toLowerCase()));
       const newPumpers = leaderboard
-        .filter(
-          (s) =>
-            (s.price_change_7d ?? 0) >= 20 &&
-            !trackedNames.has(s.name.toLowerCase()) &&
-            !tracked.some((t) => s.name.toLowerCase().includes((t.searchName || t.name).toLowerCase()))
+        .filter((s) =>
+          (s.price_change_7d ?? 0) >= 20 &&
+          !trackedNames.has(s.name.toLowerCase()) &&
+          !tracked.some((t) => s.name.toLowerCase().includes((t.searchName || t.name).toLowerCase()))
         )
         .sort((a, b) => (b.price_change_7d ?? 0) - (a.price_change_7d ?? 0))
         .slice(0, 8);
@@ -1127,7 +563,7 @@ export default function TestingPage() {
       }
       setAutoDetected(autoAdded);
 
-      // 3) Build stubs — use cache where available (instant render), queue fetches for the rest
+      // 3) Build stubs — cache-first
       tracked.sort((a, b) => new Date(b.added_at).getTime() - new Date(a.added_at).getTime());
 
       const stubs: Autopsy[] = tracked.map((p) => {
@@ -1136,23 +572,13 @@ export default function TestingPage() {
           : resolveName(p, leaderboard);
         const resolvedNetuid = current?.netuid ?? p.netuid ?? null;
 
-        // Check cache — key can be the name with any case
         const cachedKey = Object.keys(cache).find(k => k.toLowerCase() === p.name.toLowerCase());
         const cached = cachedKey ? cache[cachedKey] : null;
 
         if (cached && cached.findings.length > 0) {
-          // Serve instantly from cache — no network fetch needed
-          // Build a minimal SubnetDetail from cached price history so the chart renders immediately
+          // Build detail with cached price history (may be empty for old entries)
           const cachedDetail: SubnetDetail | null = cached.priceHistory?.length
-            ? {
-                netuid: resolvedNetuid ?? 0,
-                name: p.name,
-                identity: null,
-                scoreHistory: [],
-                priceHistory: cached.priceHistory as PricePoint[],
-                signals: [],
-                marketStats: null,
-              }
+            ? { netuid: resolvedNetuid ?? 0, name: p.name, identity: null, scoreHistory: [], priceHistory: cached.priceHistory, signals: [], marketStats: null }
             : null;
           return {
             pumper: { ...p, netuid: resolvedNetuid },
@@ -1160,14 +586,11 @@ export default function TestingPage() {
             detail: cachedDetail,
             pumpEvent: cached.pumpEvent,
             findings: cached.findings,
-            narrative: cached.narrative,
-            research: cached.research,
-            researchLoading: false,
+            narrative: "",
             loading: false,
           };
         }
 
-        // No cache — will fetch below
         return {
           pumper: { ...p, netuid: resolvedNetuid },
           current: current ?? null,
@@ -1175,29 +598,58 @@ export default function TestingPage() {
           pumpEvent: null,
           findings: [],
           narrative: "",
-          research: null,
-          researchLoading: false,
           loading: resolvedNetuid != null,
         };
       });
 
       setAutopsies(stubs);
 
-      // 4) Fetch detail only for uncached entries — staggered to avoid hammering
-      const uncached = stubs
-        .map((stub, i) => ({ stub, i }))
-        .filter(({ stub }) => stub.loading); // loading=true means no cache
+      // 4) For cached entries MISSING price history — fetch in background to fill chart
+      const needsChart = stubs.filter(s => !s.loading && s.detail === null && s.pumper.netuid != null);
+      // Process these alongside uncached entries below
 
+      // 5) Fetch detail for uncached entries (and for cached-but-no-chart)
+      const uncached = stubs
+        .map((stub) => ({ stub }))
+        .filter(({ stub }) => stub.loading);
+
+      // Background chart-fills (no stagger, just chart data)
+      for (const stub of needsChart) {
+        const stubName = stub.pumper.name;
+        const netuid = stub.pumper.netuid!;
+        (async () => {
+          try {
+            const res = await fetch(`/api/subnets/${netuid}`);
+            if (!res.ok) return;
+            const detail: SubnetDetail = await res.json();
+            setAutopsies(prev => prev.map(a => a.pumper.name === stubName ? { ...a, detail } : a));
+            // Re-save cache with price history
+            const cachedKey = Object.keys(cache).find(k => k.toLowerCase() === stubName.toLowerCase());
+            const cached = cachedKey ? cache[cachedKey] : null;
+            if (cached) {
+              await saveToCache(stubName, {
+                pumpEvent: stub.pumpEvent,
+                findings: stub.findings as SignalFinding[],
+                narrative: "",
+                research: null,
+                priceHistory: detail.priceHistory,
+              });
+            }
+          } catch { /* ignore */ }
+        })();
+      }
+
+      // Full compute for truly uncached entries
       for (let ci = 0; ci < uncached.length; ci++) {
         const { stub } = uncached[ci];
         const stubName = stub.pumper.name;
         const netuid = stub.pumper.netuid;
         if (netuid == null) {
-          setAutopsies(prev => prev.map((a) => a.pumper.name === stubName ? { ...a, loading: false } : a));
+          setAutopsies(prev => prev.map(a => a.pumper.name === stubName ? { ...a, loading: false } : a));
           continue;
         }
 
-        if (ci > 0) await new Promise((r) => setTimeout(r, Math.min(ci * 200, 1000)));
+        if (ci > 0) await new Promise((r) => setTimeout(r, Math.min(ci * 200, 800)));
 
         try {
           const res = await fetch(`/api/subnets/${netuid}`);
@@ -1206,7 +658,6 @@ export default function TestingPage() {
 
           const pumpEvent = findBestPump(detail.priceHistory, stub.pumper.pump_date);
           const findings = buildFindings(pumpEvent, detail.scoreHistory, detail.signals, stub.current);
-          const narrative = buildNarrative(stub.pumper.name, pumpEvent, findings, detail.scoreHistory, stub.current);
 
           // Auto-purge 0-signal cases
           const firedCount = findings.filter((f) => f.fired).length;
@@ -1220,92 +671,15 @@ export default function TestingPage() {
             continue;
           }
 
-          const researchPumpDate = pumpEvent?.startDate ?? null;
-
           setAutopsies((prev) =>
-            prev.map((a) =>
-              a.pumper.name === stubName ? { ...a, detail, pumpEvent, findings, narrative, loading: false, researchLoading: researchPumpDate != null } : a
-            )
+            prev.map((a) => a.pumper.name === stubName ? { ...a, detail, pumpEvent, findings, narrative: "", loading: false } : a)
           );
 
-          // Save to cache immediately (without research — research updates it again below)
-          await saveToCache(stubName, { pumpEvent, findings, narrative, research: null, priceHistory: detail.priceHistory });
+          await saveToCache(stubName, { pumpEvent, findings, narrative: "", research: null, priceHistory: detail.priceHistory });
 
-          if (researchPumpDate) {
-            try {
-              const currentScores = stub.current ? {
-                composite_score: stub.current.composite_score,
-                dev_score: stub.current.dev_score,
-                social_score: stub.current.social_score,
-                product_score: stub.current.product_score,
-                emission_pct: stub.current.emission_pct ?? 0,
-              } : undefined;
-
-              const rRes = await fetch("/api/testing/research", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  netuid,
-                  github_repo: detail.identity?.github_repo,
-                  pump_start_date: researchPumpDate,
-                  current_scores: currentScores,
-                }),
-              });
-              if (!rRes.ok) throw new Error(`Research API ${rRes.status}`);
-              const research: ResearchResult = await rRes.json();
-
-              let finalFindings = findings;
-              setAutopsies((prev) =>
-                prev.map((a) => {
-                  if (a.pumper.name !== stubName) return a;
-                  let updatedFindings = a.findings;
-                  if (research.github && research.github.totalCommits > 0) {
-                    const gh = research.github;
-                    updatedFindings = a.findings.map(f => {
-                      if (f.label !== "Dev Spike") return f;
-                      let det: string;
-                      let strength: "strong" | "moderate" | "weak";
-                      if (gh.spikeMultiplier >= 3) {
-                        det = `${gh.totalCommits} commits in 30d — ${gh.spikeWindow.toFixed(1)}/day pre-pump vs ${gh.baselineAvgPerDay.toFixed(1)}/day baseline (${gh.spikeMultiplier.toFixed(1)}× spike 🔥)`;
-                        strength = "strong";
-                      } else if (gh.spikeMultiplier >= 1.5) {
-                        det = `${gh.totalCommits} commits in 30d — ${gh.spikeMultiplier.toFixed(1)}× acceleration above baseline in pre-pump window`;
-                        strength = "moderate";
-                      } else if (gh.totalCommits >= 5) {
-                        det = `${gh.totalCommits} commits in 30d with steady activity in the pre-pump window`;
-                        strength = "moderate";
-                      } else {
-                        det = `${gh.totalCommits} commits in 30d — low dev activity before pump`;
-                        strength = "weak";
-                      }
-                      if (gh.hasRelease && gh.releaseInfo) {
-                        const pumpMs2 = a.pumpEvent ? new Date(a.pumpEvent.startDate).getTime() : Date.now();
-                        det += ` · Release "${gh.releaseInfo.name}" dropped ${Math.round((pumpMs2 - new Date(gh.releaseInfo.date).getTime()) / 86400000)}d before pump`;
-                        strength = "strong";
-                      }
-                      return { ...f, detail: det, strength, fired: strength !== "weak" };
-                    });
-                    finalFindings = updatedFindings;
-                  }
-                  return { ...a, research, researchLoading: false, findings: updatedFindings };
-                })
-              );
-
-              // Update cache with research included
-              await saveToCache(stubName, { pumpEvent, findings: finalFindings, narrative, research, priceHistory: detail.priceHistory });
-            } catch {
-              setAutopsies((prev) =>
-                prev.map((a) =>
-                  a.pumper.name === stubName ? { ...a, researchLoading: false } : a
-                )
-              );
-            }
-          }
         } catch (e) {
           setAutopsies((prev) =>
-            prev.map((a) =>
-              a.pumper.name === stubName ? { ...a, loading: false, researchLoading: false, error: String(e) } : a
-            )
+            prev.map((a) => a.pumper.name === stubName ? { ...a, loading: false, error: String(e) } : a)
           );
         }
       }
@@ -1325,7 +699,6 @@ export default function TestingPage() {
 
   const loading = autopsies.some((a) => a.loading);
 
-  // Sort autopsies by fired signal count DESC, still-loading at bottom
   const sortedAutopsies = [...autopsies]
     .filter((a) => a.loading || a.findings.filter((f) => f.fired).length > 0)
     .sort((a, b) => {
@@ -1344,17 +717,9 @@ export default function TestingPage() {
   return (
     <div className="min-h-screen bg-[#0a0a0f] text-white">
 
-      {/* Page hero header */}
+      {/* Hero header */}
       <div className="relative overflow-hidden border-b border-gray-800/50">
-        {/* Subtle grid pattern */}
-        <div
-          className="absolute inset-0 opacity-[0.03]"
-          style={{
-            backgroundImage: "linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)",
-            backgroundSize: "40px 40px",
-          }}
-        />
-        {/* Green glow orb */}
+        <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: "linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)", backgroundSize: "40px 40px" }} />
         <div className="absolute -top-20 left-1/3 w-96 h-96 bg-green-600/10 rounded-full blur-3xl pointer-events-none" />
 
         <div className="relative max-w-screen-xl mx-auto px-4 md:px-6 pt-10 pb-7">
@@ -1364,11 +729,10 @@ export default function TestingPage() {
             </h1>
             <span className="text-xs bg-yellow-900/50 text-yellow-400 border border-yellow-800/40 rounded-full px-2 py-0.5 font-medium">BETA</span>
           </div>
-          <p className="text-gray-400 text-sm max-w-2xl mb-5">
-            Backtesting which signals fire before price pumps. Tracks subnets that have pumped strongly on the 7D timeframe and audits what indicators preceded the move — to sharpen the AlphaGap algo.
+          <p className="text-gray-500 text-sm max-w-2xl mb-5">
+            Which signals fired before each pump? Backtesting the AlphaGap algo against real price moves.
           </p>
 
-          {/* Summary stats as horizontal chips */}
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-xs bg-gray-800/60 border border-gray-700/40 rounded-full px-3 py-1.5 text-gray-300">
               <span className="font-bold text-white">{totalCases}</span> cases
@@ -1378,27 +742,17 @@ export default function TestingPage() {
               <span className="font-bold text-green-400">{totalStrong}</span> strong signals
             </span>
             {avgPump && (
-              <>
-                <span className="text-gray-700">·</span>
-                <span className="text-xs bg-gray-800/60 border border-gray-700/40 rounded-full px-3 py-1.5 text-gray-300">
-                  avg <span className="font-bold text-green-400">+{avgPump}%</span> pump
-                </span>
-              </>
+              <><span className="text-gray-700">·</span>
+              <span className="text-xs bg-gray-800/60 border border-gray-700/40 rounded-full px-3 py-1.5 text-gray-300">
+                avg <span className="font-bold text-green-400">+{avgPump}%</span> pump
+              </span></>
             )}
             {loading && (
-              <>
-                <span className="text-gray-700">·</span>
-                <span className="text-xs bg-gray-800/60 border border-gray-700/40 rounded-full px-3 py-1.5 text-gray-500 animate-pulse">
-                  Loading {autopsies.filter((a) => a.loading).length} remaining…
-                </span>
-              </>
+              <><span className="text-gray-700">·</span>
+              <span className="text-xs bg-gray-800/60 border border-gray-700/40 rounded-full px-3 py-1.5 text-gray-500 animate-pulse">
+                Computing {autopsies.filter((a) => a.loading).length} new…
+              </span></>
             )}
-          </div>
-
-          <div className="flex items-center gap-2 mt-4 text-xs text-gray-600">
-            <Link href="/dashboard" className="hover:text-gray-400 transition-colors">Dashboard</Link>
-            <span>/</span>
-            <span className="text-gray-500">Pump Autopsy</span>
           </div>
         </div>
       </div>
@@ -1406,34 +760,27 @@ export default function TestingPage() {
       <BlurGate tier={tier} required="premium" minHeight="500px">
         <div className="max-w-screen-xl mx-auto px-4 md:px-6 py-8 space-y-6">
 
-          {/* Auto-added pumpers banner */}
           {autoDetected.length > 0 && (
             <div className="bg-green-950/20 border border-green-800/30 rounded-2xl p-4">
               <div className="flex items-center gap-2 mb-3">
                 <span className="text-green-400 font-semibold text-sm">🚀 Auto-added {autoDetected.length} new pumper{autoDetected.length > 1 ? "s" : ""}</span>
-                <span className="text-xs text-gray-500">Detected &gt;30% 7D gain — added automatically for study</span>
+                <span className="text-xs text-gray-500">Detected &gt;20% 7D gain</span>
               </div>
-              <div className="flex flex-wrap gap-3">
+              <div className="flex flex-wrap gap-2">
                 {autoDetected.map((p) => (
                   <div key={p.netuid ?? p.name} className="flex items-center gap-2 bg-green-950/30 border border-green-800/20 rounded-xl px-3 py-2">
                     <span className="text-white font-medium text-sm">{p.name}</span>
                     {p.netuid != null && <span className="text-xs text-gray-500">SN{p.netuid}</span>}
                     {p.pump_pct != null && <span className="text-green-400 font-bold text-sm">+{p.pump_pct.toFixed(0)}%</span>}
-                    <span className="text-xs text-green-600">✓ added</span>
                   </div>
                 ))}
               </div>
             </div>
           )}
 
-          {/* Autopsy cards — sorted by signal count DESC */}
           <div className="space-y-4">
             {sortedAutopsies.map((a) => (
-              <AutopsyCard
-                key={a.pumper.name}
-                autopsy={a}
-                onRemove={() => handleRemove(a.pumper.name)}
-              />
+              <AutopsyCard key={a.pumper.name} autopsy={a} onRemove={() => handleRemove(a.pumper.name)} />
             ))}
             {autopsies.length === 0 && !loading && (
               <div className="text-center py-12 text-gray-600">No pumpers tracked yet.</div>
