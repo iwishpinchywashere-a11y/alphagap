@@ -24,7 +24,7 @@ const TMC_API_KEY  = process.env.TMC_API_KEY || "";
 const RAO_PER_TAO  = 1_000_000_000;
 const ROOT_NETUID  = 0; // subnet 0 = root/legacy — NOT an alpha token
 
-const MAIN_CACHE_KEY    = "wallet-tracker-v11.json";
+const MAIN_CACHE_KEY    = "wallet-tracker-v12.json";
 const MAIN_CACHE_TTL_MS = 60 * 60 * 1000; // 60 min (expensive to compute)
 
 const WIN_CACHE_KEY     = "wallet-tracker-winners.json";
@@ -371,17 +371,17 @@ async function buildMainList(): Promise<WalletEntry[]> {
   const tmcMap = new Map<string, TMCColdkey>();
   for (const w of tmcTop) tmcMap.set(w.id, w);
 
-  // Merge: TaoStats addresses first (confirmed alpha holders),
-  // then any TMC top wallets with stake not already included,
-  // then ALL known wallet addresses (always fetched, shown in the Known tab).
-  const allAddresses: string[] = [...tsAddresses];
-  for (const w of tmcTop) {
-    if (!tsAddresses.has(w.id) && (w.tao_staked ?? 0) > 0) allAddresses.push(w.id);
-  }
-  // Ensure every KNOWN_WALLETS address is always in the fetch set
+  // Known wallets go FIRST so they're always in the first fetch batch
+  // (avoids rate-limit nulls that happen when they're queued at position 400+)
   const knownAddresses = Object.keys(KNOWN_WALLETS);
-  for (const addr of knownAddresses) {
-    if (!allAddresses.includes(addr)) allAddresses.push(addr);
+  const knownSet = new Set(knownAddresses);
+
+  const allAddresses: string[] = [...knownAddresses]; // known first
+  for (const addr of tsAddresses) {
+    if (!knownSet.has(addr)) allAddresses.push(addr);
+  }
+  for (const w of tmcTop) {
+    if (!knownSet.has(w.id) && !tsAddresses.has(w.id) && (w.tao_staked ?? 0) > 0) allAddresses.push(w.id);
   }
   const candidates = allAddresses.slice(0, 550);
   console.log(`[wallet-tracker] ${candidates.length} candidates to detail-fetch`);
@@ -452,7 +452,6 @@ async function buildMainList(): Promise<WalletEntry[]> {
   // Sort by alpha staked — most active alpha investors first.
   // Known wallets are always included (not subject to the 200-wallet cap).
   const sorted = enriched.sort((a, b) => b.staked_tao - a.staked_tao);
-  const knownSet = new Set(knownAddresses);
   const topRegular = sorted.filter(w => !knownSet.has(w.address)).slice(0, 200);
   const knownEntries = sorted.filter(w => knownSet.has(w.address));
   // Merge: known wallets that are also in the top 200 stay in their position;
