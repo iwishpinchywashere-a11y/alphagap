@@ -1,7 +1,12 @@
 "use client";
 
 import { useEffect } from "react";
-import { COOKIE_NAME, COOKIE_DAYS } from "@/lib/referral";
+
+// Inline constants — do NOT import from @/lib/referral here.
+// referral.ts imports db.ts (better-sqlite3) which is Node-only and
+// cannot be bundled into client components.
+const COOKIE_NAME = "ag_ref";
+const COOKIE_DAYS = 90;
 
 /**
  * ReferralTracker — invisible component that reads the `?ref=` URL param,
