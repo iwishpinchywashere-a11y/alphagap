@@ -1,7 +1,7 @@
 import { getDb } from "@/lib/db";
 
-export const COMMISSION_RATE = 0.20; // 20%
-export const COMMISSION_DURATION_MONTHS = 12;
+export const COMMISSION_RATE = 0.20;          // 20%
+export const COMMISSION_LIFETIME = true;      // commissions never expire
 export const COOKIE_NAME = "ag_ref";
 export const COOKIE_DAYS = 90;
 
@@ -272,15 +272,15 @@ export function recordCommission(
     return;
   }
 
-  // If no expiry set yet, this is the first payment — set it now
-  if (!attribution.commission_expires_at) {
-    const expiresAt = new Date();
-    expiresAt.setMonth(expiresAt.getMonth() + COMMISSION_DURATION_MONTHS);
+  // Record first payment date if not set yet
+  if (!attribution.first_payment_at) {
     db.prepare(
-      "UPDATE referral_attributions SET first_payment_at = datetime('now'), commission_expires_at = ? WHERE id = ?",
-    ).run(expiresAt.toISOString(), attributionId);
-  } else {
-    // Check if within window
+      "UPDATE referral_attributions SET first_payment_at = datetime('now') WHERE id = ?",
+    ).run(attributionId);
+  }
+
+  // Lifetime commissions — never expire. commission_expires_at left null.
+  if (!COMMISSION_LIFETIME && attribution.commission_expires_at) {
     const expires = new Date(attribution.commission_expires_at);
     if (new Date() > expires) {
       console.log(`[referral] Commission window expired for attribution ${attributionId}`);
