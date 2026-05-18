@@ -400,6 +400,37 @@ export default function ReferralPage() {
           </div>
         </div>
 
+        {/* ── Dashboard / CTA ── */}
+        {status === "loading" ? (
+          <div className="flex justify-center py-8">
+            <div className="w-8 h-8 border-2 border-green-500 border-t-transparent rounded-full animate-spin" />
+          </div>
+        ) : status === "authenticated" ? (
+          <AffiliateDashboard userId={userId} userEmail={userEmail} />
+        ) : (
+          /* Logged-out CTA */
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-8 text-center space-y-5">
+            <div className="space-y-2">
+              <h3 className="text-xl font-semibold text-white">Ready to start earning?</h3>
+              <p className="text-gray-400 text-sm">Sign in to generate your referral link and connect your bank for payouts.</p>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <Link
+                href="/login"
+                className="inline-flex items-center justify-center px-6 py-3 rounded-xl text-sm font-semibold bg-green-500/15 hover:bg-green-500/25 border border-green-500/40 text-green-300 transition-colors"
+              >
+                Sign in to get started
+              </Link>
+              <Link
+                href="/signup"
+                className="inline-flex items-center justify-center px-6 py-3 rounded-xl text-sm font-semibold bg-white/10 hover:bg-white/15 border border-white/20 text-white transition-colors"
+              >
+                Create an account
+              </Link>
+            </div>
+          </div>
+        )}
+
         {/* ── Earnings calculator ── */}
         <EarningsCalc />
 
@@ -460,37 +491,6 @@ export default function ReferralPage() {
             ))}
           </div>
         </div>
-
-        {/* ── Dashboard / CTA ── */}
-        {status === "loading" ? (
-          <div className="flex justify-center py-8">
-            <div className="w-8 h-8 border-2 border-green-500 border-t-transparent rounded-full animate-spin" />
-          </div>
-        ) : status === "authenticated" ? (
-          <AffiliateDashboard userId={userId} userEmail={userEmail} />
-        ) : (
-          /* Logged-out CTA */
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-8 text-center space-y-5">
-            <div className="space-y-2">
-              <h3 className="text-xl font-semibold text-white">Ready to start earning?</h3>
-              <p className="text-gray-400 text-sm">Sign in to generate your referral link and connect your bank for payouts.</p>
-            </div>
-            <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <Link
-                href="/login"
-                className="inline-flex items-center justify-center px-6 py-3 rounded-xl text-sm font-semibold bg-green-500/15 hover:bg-green-500/25 border border-green-500/40 text-green-300 transition-colors"
-              >
-                Sign in to get started
-              </Link>
-              <Link
-                href="/signup"
-                className="inline-flex items-center justify-center px-6 py-3 rounded-xl text-sm font-semibold bg-white/10 hover:bg-white/15 border border-white/20 text-white transition-colors"
-              >
-                Create an account
-              </Link>
-            </div>
-          </div>
-        )}
 
         {/* ── Fine print ── */}
         <p className="text-xs text-gray-600 text-center leading-relaxed">
