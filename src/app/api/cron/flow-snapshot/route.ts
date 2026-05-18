@@ -97,6 +97,8 @@ export interface PersistedFlowEvent {
   netFlow?: number;
   whaleRatio?: number;
   volumeRatio?: number;
+  /** TAO burned — only present on registration_spike events, used for client-side threshold filtering */
+  regsTao?: number;
   price?: number;
   change24h?: number;
   apy_7d?: number;
@@ -115,9 +117,10 @@ interface FlowEventsStore {
 
 // ── Thresholds (mirror flow/page.tsx) ────────────────────────────
 
-const YIELD_SPIKE_THRESHOLD = 1.25;
-const YIELD_DIP_THRESHOLD   = 0.75;
-const MIN_30D_APY           = 0.10;
+const YIELD_SPIKE_THRESHOLD = 1.50;  // 50%+ above 30d baseline (was 1.25)
+const YIELD_DIP_THRESHOLD   = 0.60;  // 40%+ below 30d baseline (was 0.75)
+const MIN_30D_APY           = 0.20;  // min 20% 30d APY to qualify (was 0.10)
+const MIN_MINER_RUSH_TAO    = 5.0;   // min TAO burned to show MINER RUSH (was 0.5)
 
 // ── Number formatter ──────────────────────────────────────────────
 
@@ -288,14 +291,14 @@ function buildEvents(
     }
 
     // ── Registration spike ─────────────────────────────────────
-    if (sub.regs_burned_24h != null && sub.regs_burned_24h >= 0.5) {
+    if (sub.regs_burned_24h != null && sub.regs_burned_24h >= MIN_MINER_RUSH_TAO) {
       const tao = sub.regs_burned_24h;
       const usd = taoPrice != null ? tao * taoPrice : null;
-      // strength scales: 0.5 TAO = 55, 2 TAO = 70, 5 TAO = 85, 10+ TAO = 95
+      // strength scales: 5 TAO = 55, 10 TAO = 70, 20 TAO = 85, 50+ TAO = 95
       const strength = Math.round(
-        Math.min(95, 50 + Math.log10(tao / 0.5 + 1) * 40)
+        Math.min(95, 50 + Math.log10(tao / MIN_MINER_RUSH_TAO + 1) * 40)
       );
-      const level = tao >= 5 ? "heavy" : tao >= 2 ? "significant" : "notable";
+      const level = tao >= 20 ? "heavy" : tao >= 10 ? "significant" : "notable";
       out.push({
         netuid: sub.netuid,
         name,
@@ -307,6 +310,7 @@ function buildEvents(
           : `${tao.toFixed(2)} TAO burned on neuron registrations · New miners joining = active network demand. ${level.charAt(0).toUpperCase() + level.slice(1)} registration activity.`,
         badge: "⛏️ MINER RUSH",
         badgeColor: "bg-purple-500/20 text-purple-300 border-purple-500/30",
+        regsTao: tao,
         price: sub.alpha_price ?? undefined,
         change24h: sub.price_change_24h ?? undefined,
         dayKey,

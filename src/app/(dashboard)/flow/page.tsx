@@ -43,6 +43,7 @@ interface FlowEvent {
   netFlow?: number;
   whaleRatio?: number;
   volumeRatio?: number;
+  regsTao?: number;
   price?: number;
   change24h?: number;
   signalDate?: string;
@@ -72,10 +73,11 @@ function timeAgoShort(iso: string): string {
 const TODAY_ISO = new Date().toISOString();
 const TODAY_KEY = TODAY_ISO.slice(0, 10);
 
-// Yield divergence thresholds
-const YIELD_SPIKE_THRESHOLD = 1.25;
-const YIELD_DIP_THRESHOLD   = 0.75;
-const MIN_30D_APY = 0.10;
+// Yield divergence thresholds (tightened for signal quality)
+const YIELD_SPIKE_THRESHOLD = 1.50;  // 50%+ above 30d baseline (was 1.25)
+const YIELD_DIP_THRESHOLD   = 0.60;  // 40%+ below 30d baseline (was 0.75)
+const MIN_30D_APY = 0.20;            // min 20% 30d APY to qualify (was 0.10)
+const MIN_MINER_RUSH_TAO    = 5.0;   // min TAO burned to show MINER RUSH (was 0.5)
 
 export default function FlowPage() {
   const { leaderboard, signals, taoPrice, scanning } = useDashboard();
@@ -362,6 +364,9 @@ export default function FlowPage() {
       .filter(h => {
         // Skip if the live scan already shows this subnet+type today
         if (liveKeys.has(`${h.netuid}:${h.type}`)) return false;
+        // Drop stale MINER RUSH events from before the threshold was raised —
+        // old events won't have regsTao, so they'll be filtered out too
+        if (h.type === "registration_spike" && (h.regsTao ?? 0) < MIN_MINER_RUSH_TAO) return false;
         return true;
       })
       .map(h => ({
