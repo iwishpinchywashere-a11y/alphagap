@@ -132,16 +132,20 @@ Rules:
 }
 
 // ── Analyze all pending signals ──────────────────────────────────
-export async function analyzePendingSignals(maxBatch: number = 200): Promise<number> {
+export async function analyzePendingSignals(maxBatch: number = 30): Promise<number> {
   const db = getDb();
 
-  // Get signals that need analysis
+  // Get signals that need analysis.
+  // Minimum strength 35 (was 20) — scores below this are routine noise
+  // (version bumps, CI fixes, dep updates) not worth an AI call.
+  // Also skip anything already analyzed in the last 24h to prevent
+  // re-queueing the same signal after a score recalibration wipe.
   const pending = db
     .prepare(
       `SELECT s.* FROM signals s
        WHERE (s.analysis IS NULL OR s.analysis = '')
        AND s.analysis_status != 'failed'
-       AND s.strength >= 20
+       AND s.strength >= 35
        ORDER BY s.strength DESC
        LIMIT ?`
     )

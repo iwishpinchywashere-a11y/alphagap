@@ -1063,10 +1063,18 @@ export async function GET() {
   // IMPORTANT: Only use subnets confirmed active by our direct GitHub scanner.
   // Never trust TaoStats commits_1d alone — it's a stale daily snapshot that
   // could make yesterday's (or last week's) commits appear as "today" signals.
+  //
+  // QUALITY GATE: require ≥2 commits OR a new release OR ≥1 commit + ≥1 merged PR.
+  // Single-commit activity (CI fixes, version bumps, README edits) is noise —
+  // not worth an AI call. This filters out ~30-40% of borderline repos.
   const allActiveDevSubnets = [...devMap.values()]
     .filter(a => {
       const ghResult = githubScanMap.get(a.netuid);
-      return ghResult && (ghResult.commits24h > 0 || ghResult.hasNewRelease);
+      if (!ghResult) return false;
+      if (ghResult.hasNewRelease) return true;              // always analyze releases
+      if (ghResult.commits24h >= 2) return true;            // 2+ commits = real activity
+      if (ghResult.commits24h >= 1 && a.prs_merged_1d >= 1) return true; // commit + PR
+      return false;                                         // single-commit noise — skip
     })
     .sort((a, b) => (b.commits_1d + b.prs_merged_1d * 5) - (a.commits_1d + a.prs_merged_1d * 5));
 
@@ -1138,13 +1146,25 @@ export async function GET() {
   async function analyzeDevActivity(ctx: DevContext): Promise<{ description: string; score: number; headline: string | null }> {
     if (!ANTHROPIC_KEY) return { description: buildFallbackDescription(ctx), score: fallbackScore(ctx), headline: null };
 
-    // Cache check — skip Claude if the commit set hasn't changed.
-    // Version suffix forces re-score when the scoring prompt changes.
+    // Cache check — two-tier dedup to limit API costs:
+    // 1. Exact match: same commits + same prompt version → always use cache
+    // 2. Time-based: if analyzed <4h ago, reuse even if commits changed.
+    //    Active repos pushing commits every 30min would otherwise re-burn haiku
+    //    on every scan run (144×/day). 4h cap = max 6 analyses/subnet/day.
     const PROMPT_VERSION = "v4"; // bump this when scoring calibration changes
+    const MIN_REANALYZE_MS = 4 * 60 * 60 * 1000; // 4 hours
     const cacheKey = `${ctx.commits[0] ?? `release:${ctx.release?.tag ?? "none"}`}:${PROMPT_VERSION}`;
     const cached = devAnalysisCache[ctx.act.netuid];
-    if (cached && cached.cacheKey === cacheKey) {
-      return { description: cached.description, score: cached.score, headline: cached.headline };
+    if (cached) {
+      // Exact cache hit — commits haven't changed
+      if (cached.cacheKey === cacheKey) {
+        return { description: cached.description, score: cached.score, headline: cached.headline };
+      }
+      // Time-based dedup — new commits landed but last analysis is fresh enough
+      const cacheAgeMs = Date.now() - new Date(cached.cachedAt).getTime();
+      if (cacheAgeMs < MIN_REANALYZE_MS) {
+        return { description: cached.description, score: cached.score, headline: cached.headline };
+      }
     }
 
     const name = identityMap.get(ctx.act.netuid)?.subnet_name || `SN${ctx.act.netuid}`;
