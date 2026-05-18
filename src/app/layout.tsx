@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import AuthSessionProvider from "@/components/auth/SessionProvider";
+import { ReferralTracker } from "@/components/ReferralTracker";
 import "./globals.css";
 
 // Clean, readable sans-serif for body text and analysis writeups
@@ -74,7 +75,10 @@ export default function RootLayout({
         />
       </head>
       <body className="font-sans bg-[#0a0a0f] text-gray-100 min-h-full flex flex-col" style={{ fontFamily: "var(--font-inter), system-ui, sans-serif" }}>
-        <AuthSessionProvider>{children}</AuthSessionProvider>
+        <AuthSessionProvider>
+          {process.env.REFERRAL_ENABLED && <ReferralTracker />}
+          {children}
+        </AuthSessionProvider>
       </body>
     </html>
   );

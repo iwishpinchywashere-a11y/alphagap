@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { encode } from "next-auth/jwt";
 import { getUserByEmail, createUser } from "@/lib/users";
+import { COOKIE_NAME, validateCode, createAttribution } from "@/lib/referral";
 
 export const dynamic = "force-dynamic";
 
@@ -64,8 +65,24 @@ export async function POST(req: Request) {
 
     await createUser(user);
 
-    // TODO: wire up referral attribution from ag_ref cookie
-    // Read cookies.get(COOKIE_NAME) from the request, call createAttribution(code, userId, cleanEmail)
+    // ── Referral attribution ────────────────────────────────────────
+    // Read ag_ref cookie set by ReferralTracker when the user landed via a ref link.
+    // Non-blocking — never fail signup if referral logic errors.
+    if (process.env.REFERRAL_ENABLED) {
+      try {
+        const cookieHeader = req.headers.get("cookie") ?? "";
+        const refMatch = cookieHeader.match(new RegExp(`(?:^|;\\s*)${COOKIE_NAME}=([^;]+)`));
+        const refCode = refMatch ? decodeURIComponent(refMatch[1]) : null;
+        if (refCode) {
+          const { valid } = validateCode(refCode);
+          if (valid) {
+            createAttribution(refCode, userId, cleanEmail);
+          }
+        }
+      } catch (e) {
+        console.error("[signup] referral attribution error (non-fatal):", e);
+      }
+    }
 
     // ── Create session cookie right here, same request, same instance ──
     // The user blob was just written above — no cross-instance propagation needed.
