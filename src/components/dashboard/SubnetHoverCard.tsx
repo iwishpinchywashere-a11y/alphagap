@@ -141,28 +141,31 @@ function ChangeChip({ label, value }: { label: string; value: number | null | un
 
 interface Props {
   sub: SubnetScore;
-  anchorRect: DOMRect;
+  mouseX: number;
+  mouseY: number;
   taoPrice: number | null;
-  onKeepAlive: () => void;   // called when mouse enters card — cancels the close timer
-  onClose: () => void;       // called when mouse leaves card
+  onKeepAlive: () => void;
+  onClose: () => void;
 }
 
-export default function SubnetHoverCard({ sub, anchorRect, taoPrice, onKeepAlive, onClose }: Props) {
+export default function SubnetHoverCard({ sub, mouseX, mouseY, taoPrice, onKeepAlive, onClose }: Props) {
   const [detail, setDetail] = useState<DetailData | null>(null);
   const [loading, setLoading] = useState(true);
   const cardRef = useRef<HTMLDivElement>(null);
 
-  // Position the card: always anchored to the right edge of the viewport
-  // (table rows are full-width so left/right of row doesn't work)
   const CARD_W = 300;
   const CARD_H = 420;
   const vw = typeof window !== "undefined" ? window.innerWidth : 1200;
   const vh = typeof window !== "undefined" ? window.innerHeight : 800;
+  const OFFSET = 16; // gap between cursor and card edge
 
-  // Horizontal: fixed 16px from right viewport edge
-  const left = Math.max(8, vw - CARD_W - 16);
-  // Vertical: centre on the hovered row, clamp to viewport
-  let top = anchorRect.top + anchorRect.height / 2 - CARD_H / 2;
+  // Prefer right of cursor; flip left if it would overflow
+  let left = mouseX + OFFSET;
+  if (left + CARD_W > vw - 8) left = mouseX - CARD_W - OFFSET;
+  left = Math.max(8, left);
+
+  // Centre vertically on cursor; clamp to viewport
+  let top = mouseY - CARD_H / 2;
   if (top + CARD_H > vh - 8) top = vh - CARD_H - 8;
   if (top < 8) top = 8;
 

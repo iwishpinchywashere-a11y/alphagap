@@ -110,7 +110,7 @@ export default function LeaderboardPage() {
 
   // ── Hover card (desktop only) ─────────────────────────────────────
   const [hoveredSub, setHoveredSub] = useState<SubnetScore | null>(null);
-  const [hoverAnchor, setHoverAnchor] = useState<DOMRect | null>(null);
+  const [hoverPos, setHoverPos] = useState<{ x: number; y: number } | null>(null);
   const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -118,7 +118,7 @@ export default function LeaderboardPage() {
     if (closeTimer.current) clearTimeout(closeTimer.current);
     closeTimer.current = setTimeout(() => {
       setHoveredSub(null);
-      setHoverAnchor(null);
+      setHoverPos(null);
     }, 120);
   };
   const cancelClose = () => {
@@ -575,10 +575,11 @@ export default function LeaderboardPage() {
                         if (isLocked || window.innerWidth < 768) return;
                         cancelClose();
                         if (hoverTimer.current) clearTimeout(hoverTimer.current);
-                        const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                        const mx = e.clientX;
+                        const my = e.clientY;
                         hoverTimer.current = setTimeout(() => {
                           setHoveredSub(sub);
-                          setHoverAnchor(rect);
+                          setHoverPos({ x: mx, y: my });
                         }, 260);
                       }}
                       onMouseLeave={() => {
@@ -708,10 +709,11 @@ export default function LeaderboardPage() {
       </div>
 
       {/* Hover card — desktop only, shown after 260ms hover delay */}
-      {hoveredSub && hoverAnchor && (
+      {hoveredSub && hoverPos && (
         <SubnetHoverCard
           sub={hoveredSub}
-          anchorRect={hoverAnchor}
+          mouseX={hoverPos.x}
+          mouseY={hoverPos.y}
           taoPrice={taoPrice}
           onKeepAlive={cancelClose}
           onClose={scheduleClose}
