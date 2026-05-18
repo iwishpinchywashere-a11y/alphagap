@@ -431,9 +431,6 @@ export default function ReferralPage() {
           </div>
         )}
 
-        {/* ── Earnings calculator ── */}
-        <EarningsCalc />
-
         {/* ── How it works ── */}
         <div className="space-y-5">
           <h2 className="text-xl font-semibold text-white text-center">How it works</h2>
@@ -491,6 +488,9 @@ export default function ReferralPage() {
             ))}
           </div>
         </div>
+
+        {/* ── Earnings calculator ── */}
+        <EarningsCalc />
 
         {/* ── Fine print ── */}
         <p className="text-xs text-gray-600 text-center leading-relaxed">
