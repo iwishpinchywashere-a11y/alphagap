@@ -19,7 +19,7 @@ export async function POST(req: Request): Promise<NextResponse> {
     return NextResponse.json({ error: "code is required" }, { status: 400 });
   }
 
-  const result = validateCode(body.code);
+  const result = await validateCode(body.code);
   if (!result.valid) {
     return NextResponse.json({ tracked: false, reason: "invalid_code" });
   }

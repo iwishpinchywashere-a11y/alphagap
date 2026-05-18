@@ -16,7 +16,7 @@ export async function GET(req: Request): Promise<NextResponse> {
     return NextResponse.json({ valid: false });
   }
 
-  const result = validateCode(code);
+  const result = await validateCode(code);
   if (!result.valid) {
     return NextResponse.json({ valid: false });
   }

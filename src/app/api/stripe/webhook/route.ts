@@ -118,12 +118,12 @@ export async function POST(req: Request) {
           if (!customerId) break;
           const referredUser = await getUserByStripeCustomerId(customerId);
           if (!referredUser) break;
-          const attribution = getAttributionByReferredUser(referredUser.id);
+          const attribution = await getAttributionByReferredUser(referredUser.id);
           if (!attribution) break;
           const chargeId = typeof (invoice as unknown as { charge: string | null }).charge === "string"
             ? ((invoice as unknown as { charge: string }).charge)
             : "";
-          recordCommission(attribution.id, invoice.id, chargeId, amountPaid);
+          await recordCommission(referredUser.id, invoice.id, chargeId, amountPaid);
           await payPendingCommissions();
         } catch (e) {
           console.error("[webhook] Referral commission handling error:", e);

@@ -1,59 +1,69 @@
-import { getDb } from "@/lib/db";
+/**
+ * Referral system — Vercel Blob backed.
+ *
+ * Blob keys:
+ *   referral/codes/{CODE}.json        → ReferralCode  (code → user lookup)
+ *   referral/users/{userId}.json      → { code }       (user → code lookup)
+ *   referral/attributions/{referredUserId}.json → ReferralAttribution
+ *   referral/affiliates/{userId}.json → AffiliateAccount
+ *   referral/commissions/{invoiceId}.json → CommissionEntry
+ *   referral/stats/{userId}.json      → cached AffiliateStats (updated on write)
+ */
 
-export const COMMISSION_RATE = 0.20;          // 20%
-export const COMMISSION_LIFETIME = true;      // commissions never expire
-export const COOKIE_NAME = "ag_ref";
-export const COOKIE_DAYS = 90;
+import { put, get as blobGet, list as blobList } from "@vercel/blob";
 
-// ── DB row types ──────────────────────────────────────────────────────────────
+export const COMMISSION_RATE    = 0.20;   // 20%
+export const COMMISSION_LIFETIME = true;  // commissions never expire
+export const COOKIE_NAME        = "ag_ref";
+export const COOKIE_DAYS        = 90;
 
-interface ReferralCodeRow {
-  id: number;
+const TOKEN = () => process.env.BLOB_READ_WRITE_TOKEN ?? "";
+
+// ── Blob types ────────────────────────────────────────────────────────────────
+
+interface ReferralCode {
   code: string;
-  user_id: string;
-  user_email: string;
-  created_at: string;
-  is_active: number;
+  userId: string;
+  userEmail: string;
+  isActive: boolean;
+  createdAt: string;
 }
 
-export interface ReferralAttributionRow {
-  id: number;
-  ref_code: string;
-  referrer_user_id: string;
-  referrer_email: string;
-  referred_user_id: string;
-  referred_email: string;
-  stripe_customer_id: string | null;
-  signed_up_at: string;
-  first_payment_at: string | null;
-  commission_expires_at: string | null;
+export interface ReferralAttribution {
+  refCode: string;
+  referrerUserId: string;
+  referrerEmail: string;
+  referredUserId: string;
+  referredEmail: string;
+  stripeCustomerId?: string;
+  signedUpAt: string;
+  firstPaymentAt?: string;
 }
 
-interface AffiliateAccountRow {
-  id: number;
-  user_id: string;
-  user_email: string;
-  stripe_connect_account_id: string | null;
-  onboarded_at: string | null;
-  payouts_enabled: number;
-  created_at: string;
+interface AffiliateAccount {
+  userId: string;
+  userEmail: string;
+  stripeConnectAccountId?: string;
+  onboardedAt?: string;
+  payoutsEnabled: boolean;
+  createdAt: string;
 }
 
-interface CommissionLedgerRow {
-  id: number;
-  attribution_id: number;
-  stripe_invoice_id: string;
-  stripe_charge_id: string | null;
-  gross_amount: number;
-  commission_amount: number;
+interface CommissionEntry {
+  invoiceId: string;
+  attributionReferredUserId: string; // FK to attribution
+  referrerUserId: string;
+  stripeChargeId?: string;
+  grossAmount: number;
+  commissionAmount: number;
   currency: string;
-  status: string;
-  created_at: string;
-  paid_at: string | null;
-  stripe_transfer_id: string | null;
+  status: "pending" | "paid" | "reversed";
+  createdAt: string;
+  paidAt?: string;
+  stripeTransferId?: string;
 }
 
-// ── Public stats type ─────────────────────────────────────────────────────────
+// ── Public types ──────────────────────────────────────────────────────────────
 
 export interface AffiliateStats {
   totalReferrals: number;
@@ -73,9 +83,41 @@ export interface RecentReferral {
   commissionEarned: number;
 }
 
+// ── Blob helpers ──────────────────────────────────────────────────────────────
+
+async function readBlob<T>(key: string): Promise<T | null> {
+  try {
+    const result = await blobGet(key, { token: TOKEN(), access: "private" });
+    if (!result?.stream) return null;
+    const reader = result.stream.getReader();
+    const chunks: Uint8Array[] = [];
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (value) chunks.push(value);
+    }
+    const bytes = chunks.reduce((a, b) => {
+      const c = new Uint8Array(a.length + b.length);
+      c.set(a); c.set(b, a.length); return c;
+    }, new Uint8Array(0));
+    return JSON.parse(Buffer.from(bytes).toString("utf-8")) as T;
+  } catch {
+    return null;
+  }
+}
+
+async function writeBlob(key: string, data: unknown): Promise<void> {
+  await put(key, JSON.stringify(data), {
+    token: TOKEN(),
+    access: "private",
+    allowOverwrite: true,
+  });
+}
+
 // ── Code generation ───────────────────────────────────────────────────────────
 
 const CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+const CUSTOM_CODE_RE = /^[A-Za-z0-9-]{3,20}$/;
 
 function randomCode(length = 6): string {
   let code = "";
@@ -85,130 +127,110 @@ function randomCode(length = 6): string {
   return code;
 }
 
-export function generateCode(userId: string): string {
-  const db = getDb();
-  for (let attempt = 0; attempt < 20; attempt++) {
-    const code = randomCode(6);
-    const existing = db
-      .prepare("SELECT id FROM referral_codes WHERE code = ? COLLATE NOCASE")
-      .get(code) as { id: number } | undefined;
-    if (!existing) return code;
-  }
-  // Fallback: use userId prefix + random suffix to guarantee uniqueness
-  return (userId.slice(0, 4) + randomCode(4)).toUpperCase();
+async function isCodeTaken(code: string): Promise<boolean> {
+  const existing = await readBlob<ReferralCode>(`referral/codes/${code.toUpperCase()}.json`);
+  return existing !== null;
 }
 
 // ── Code management ───────────────────────────────────────────────────────────
 
-const CUSTOM_CODE_RE = /^[A-Za-z0-9-]{3,20}$/;
-
-export function createReferralCode(
-  userId: string,
-  userEmail: string,
-  customCode?: string,
-): { code: string } | { error: string } {
-  const db = getDb();
-
-  // Only one active code per user — check if they already have one
-  const existingForUser = db
-    .prepare("SELECT code FROM referral_codes WHERE user_id = ? AND is_active = 1")
-    .get(userId) as { code: string } | undefined;
-  if (existingForUser) return { code: existingForUser.code };
-
-  let code: string;
-  if (customCode) {
-    if (!CUSTOM_CODE_RE.test(customCode)) {
-      return { error: "Custom code must be 3–20 alphanumeric characters or hyphens" };
-    }
-    const taken = db
-      .prepare("SELECT id FROM referral_codes WHERE code = ? COLLATE NOCASE")
-      .get(customCode) as { id: number } | undefined;
-    if (taken) return { error: "That code is already taken" };
-    code = customCode.toUpperCase();
-  } else {
-    code = generateCode(userId);
-  }
-
-  db.prepare(
-    "INSERT INTO referral_codes (code, user_id, user_email) VALUES (?, ?, ?)",
-  ).run(code, userId, userEmail);
-
-  return { code };
+export async function getUserReferralCode(userId: string): Promise<string | null> {
+  const data = await readBlob<{ code: string }>(`referral/users/${userId}.json`);
+  return data?.code ?? null;
 }
 
-export function getUserReferralCode(userId: string): string | null {
-  const db = getDb();
-  const row = db
-    .prepare("SELECT code FROM referral_codes WHERE user_id = ? AND is_active = 1 ORDER BY created_at DESC LIMIT 1")
-    .get(userId) as { code: string } | undefined;
-  return row?.code ?? null;
-}
-
-export function getOrCreateReferralCode(userId: string, userEmail: string): string {
-  const existing = getUserReferralCode(userId);
+export async function getOrCreateReferralCode(userId: string, userEmail: string): Promise<string> {
+  const existing = await getUserReferralCode(userId);
   if (existing) return existing;
-  const result = createReferralCode(userId, userEmail);
-  if ("error" in result) {
-    // Shouldn't happen on auto-create, but fall back
-    throw new Error(`Failed to create referral code: ${result.error}`);
+
+  // Auto-generate a unique code
+  let code = randomCode(6);
+  let attempts = 0;
+  while (await isCodeTaken(code) && attempts < 20) {
+    code = randomCode(6);
+    attempts++;
   }
-  return result.code;
+
+  const entry: ReferralCode = {
+    code,
+    userId,
+    userEmail,
+    isActive: true,
+    createdAt: new Date().toISOString(),
+  };
+
+  await Promise.all([
+    writeBlob(`referral/codes/${code}.json`, entry),
+    writeBlob(`referral/users/${userId}.json`, { code }),
+  ]);
+
+  return code;
 }
 
-export function setCustomCode(
+export async function setCustomCode(
   userId: string,
   userEmail: string,
   customCode: string,
-): { code: string } | { error: string } {
+): Promise<{ code: string } | { error: string }> {
   if (!CUSTOM_CODE_RE.test(customCode)) {
     return { error: "Custom code must be 3–20 alphanumeric characters or hyphens" };
   }
 
-  const db = getDb();
   const normalized = customCode.toUpperCase();
 
-  const taken = db
-    .prepare("SELECT user_id FROM referral_codes WHERE code = ? COLLATE NOCASE")
-    .get(normalized) as { user_id: string } | undefined;
-  if (taken && taken.user_id !== userId) return { error: "That code is already taken" };
-  if (taken && taken.user_id === userId) return { code: normalized }; // already theirs
+  // Check if taken by someone else
+  const existing = await readBlob<ReferralCode>(`referral/codes/${normalized}.json`);
+  if (existing && existing.userId !== userId) {
+    return { error: "That code is already taken" };
+  }
+  if (existing && existing.userId === userId) {
+    return { code: normalized }; // already theirs
+  }
 
-  // Deactivate old codes for this user
-  db.prepare("UPDATE referral_codes SET is_active = 0 WHERE user_id = ?").run(userId);
-  // Insert new code
-  db.prepare("INSERT INTO referral_codes (code, user_id, user_email) VALUES (?, ?, ?)").run(
-    normalized,
+  // Deactivate old code
+  const oldCode = await getUserReferralCode(userId);
+  if (oldCode) {
+    const oldEntry = await readBlob<ReferralCode>(`referral/codes/${oldCode}.json`);
+    if (oldEntry) {
+      await writeBlob(`referral/codes/${oldCode}.json`, { ...oldEntry, isActive: false });
+    }
+  }
+
+  const entry: ReferralCode = {
+    code: normalized,
     userId,
     userEmail,
-  );
+    isActive: true,
+    createdAt: new Date().toISOString(),
+  };
+
+  await Promise.all([
+    writeBlob(`referral/codes/${normalized}.json`, entry),
+    writeBlob(`referral/users/${userId}.json`, { code: normalized }),
+  ]);
 
   return { code: normalized };
 }
 
 // ── Validation ────────────────────────────────────────────────────────────────
 
-export function validateCode(
+export async function validateCode(
   code: string,
-): { valid: boolean; referrerUserId?: string; referrerEmail?: string } {
-  const db = getDb();
-  const row = db
-    .prepare(
-      "SELECT user_id, user_email FROM referral_codes WHERE code = ? COLLATE NOCASE AND is_active = 1",
-    )
-    .get(code) as ReferralCodeRow | undefined;
-  if (!row) return { valid: false };
-  return { valid: true, referrerUserId: row.user_id, referrerEmail: row.user_email };
+): Promise<{ valid: boolean; referrerUserId?: string; referrerEmail?: string }> {
+  const entry = await readBlob<ReferralCode>(`referral/codes/${code.toUpperCase()}.json`);
+  if (!entry || !entry.isActive) return { valid: false };
+  return { valid: true, referrerUserId: entry.userId, referrerEmail: entry.userEmail };
 }
 
 // ── Attribution ───────────────────────────────────────────────────────────────
 
-export function createAttribution(
+export async function createAttribution(
   refCode: string,
   referredUserId: string,
   referredEmail: string,
   stripeCustomerId?: string,
-): void {
-  const validation = validateCode(refCode);
+): Promise<void> {
+  const validation = await validateCode(refCode);
   if (!validation.valid || !validation.referrerUserId || !validation.referrerEmail) {
     console.warn(`[referral] createAttribution: invalid code ${refCode}`);
     return;
@@ -220,217 +242,228 @@ export function createAttribution(
     return;
   }
 
-  const db = getDb();
-
   // Only one attribution per referred user
-  const existing = db
-    .prepare("SELECT id FROM referral_attributions WHERE referred_user_id = ?")
-    .get(referredUserId) as { id: number } | undefined;
+  const existing = await readBlob<ReferralAttribution>(
+    `referral/attributions/${referredUserId}.json`,
+  );
   if (existing) return;
 
-  db.prepare(
-    `INSERT INTO referral_attributions
-       (ref_code, referrer_user_id, referrer_email, referred_user_id, referred_email, stripe_customer_id)
-     VALUES (?, ?, ?, ?, ?, ?)`,
-  ).run(
-    refCode.toUpperCase(),
-    validation.referrerUserId,
-    validation.referrerEmail,
+  const attribution: ReferralAttribution = {
+    refCode: refCode.toUpperCase(),
+    referrerUserId: validation.referrerUserId,
+    referrerEmail: validation.referrerEmail,
     referredUserId,
     referredEmail,
-    stripeCustomerId ?? null,
-  );
+    stripeCustomerId,
+    signedUpAt: new Date().toISOString(),
+  };
+
+  await writeBlob(`referral/attributions/${referredUserId}.json`, attribution);
+  console.log(`[referral] Attribution created: ${refCode} → ${referredEmail}`);
 }
 
-export function getAttributionByReferredUser(
+export async function getAttributionByReferredUser(
   referredUserId: string,
-): ReferralAttributionRow | null {
-  const db = getDb();
-  return (
-    (db
-      .prepare("SELECT * FROM referral_attributions WHERE referred_user_id = ? LIMIT 1")
-      .get(referredUserId) as ReferralAttributionRow | undefined) ?? null
-  );
+): Promise<ReferralAttribution | null> {
+  return readBlob<ReferralAttribution>(`referral/attributions/${referredUserId}.json`);
 }
 
 // ── Commission recording ──────────────────────────────────────────────────────
 
-export function recordCommission(
-  attributionId: number,
+export async function recordCommission(
+  referredUserId: string,
   invoiceId: string,
   chargeId: string,
   grossAmount: number,
-): void {
-  const db = getDb();
-
-  // Get attribution to check expiry window
-  const attribution = db
-    .prepare("SELECT * FROM referral_attributions WHERE id = ?")
-    .get(attributionId) as ReferralAttributionRow | undefined;
+): Promise<void> {
+  const attribution = await getAttributionByReferredUser(referredUserId);
   if (!attribution) {
-    console.warn(`[referral] recordCommission: attribution ${attributionId} not found`);
+    console.warn(`[referral] recordCommission: no attribution for user ${referredUserId}`);
     return;
   }
 
   // Record first payment date if not set yet
-  if (!attribution.first_payment_at) {
-    db.prepare(
-      "UPDATE referral_attributions SET first_payment_at = datetime('now') WHERE id = ?",
-    ).run(attributionId);
+  if (!attribution.firstPaymentAt) {
+    await writeBlob(`referral/attributions/${referredUserId}.json`, {
+      ...attribution,
+      firstPaymentAt: new Date().toISOString(),
+    });
   }
 
-  // Lifetime commissions — never expire. commission_expires_at left null.
-  if (!COMMISSION_LIFETIME && attribution.commission_expires_at) {
-    const expires = new Date(attribution.commission_expires_at);
-    if (new Date() > expires) {
-      console.log(`[referral] Commission window expired for attribution ${attributionId}`);
-      return;
-    }
-  }
-
-  const commissionAmount = Math.floor(grossAmount * COMMISSION_RATE);
-
-  try {
-    db.prepare(
-      `INSERT INTO commission_ledger
-         (attribution_id, stripe_invoice_id, stripe_charge_id, gross_amount, commission_amount, status)
-       VALUES (?, ?, ?, ?, ?, 'pending')`,
-    ).run(attributionId, invoiceId, chargeId ?? null, grossAmount, commissionAmount);
-    console.log(
-      `[referral] Commission recorded: $${(commissionAmount / 100).toFixed(2)} for attribution ${attributionId}`,
-    );
-  } catch (e) {
-    // UNIQUE constraint on invoice_id — already recorded, skip
+  // Check for duplicate
+  const existing = await readBlob<CommissionEntry>(`referral/commissions/${invoiceId}.json`);
+  if (existing) {
     console.log(`[referral] Invoice ${invoiceId} already recorded, skipping`);
+    return;
   }
+
+  const commission: CommissionEntry = {
+    invoiceId,
+    attributionReferredUserId: referredUserId,
+    referrerUserId: attribution.referrerUserId,
+    stripeChargeId: chargeId,
+    grossAmount,
+    commissionAmount: Math.floor(grossAmount * COMMISSION_RATE),
+    currency: "usd",
+    status: "pending",
+    createdAt: new Date().toISOString(),
+  };
+
+  await writeBlob(`referral/commissions/${invoiceId}.json`, commission);
+  console.log(
+    `[referral] Commission recorded: $${(commission.commissionAmount / 100).toFixed(2)} for ${attribution.referrerEmail}`,
+  );
 }
 
 // ── Payout processing ─────────────────────────────────────────────────────────
 
 export async function payPendingCommissions(): Promise<number> {
-  const db = getDb();
+  // List all pending commission blobs
+  const { blobs } = await blobList({ prefix: "referral/commissions/", token: TOKEN() });
+  if (!blobs.length) return 0;
 
-  // Get pending ledger entries where affiliate has payouts enabled
-  const pendingRows = db
-    .prepare(
-      `SELECT cl.*, ra.referrer_user_id, aa.stripe_connect_account_id
-       FROM commission_ledger cl
-       JOIN referral_attributions ra ON ra.id = cl.attribution_id
-       JOIN affiliate_accounts aa ON aa.user_id = ra.referrer_user_id
-       WHERE cl.status = 'pending' AND aa.payouts_enabled = 1 AND aa.stripe_connect_account_id IS NOT NULL`,
-    )
-    .all() as (CommissionLedgerRow & {
-    referrer_user_id: string;
-    stripe_connect_account_id: string;
-  })[];
-
-  if (pendingRows.length === 0) return 0;
-
-  // Lazy import to avoid pulling Stripe into edge contexts
   const { createTransfer } = await import("@/lib/stripe-connect");
-
   let paid = 0;
-  for (const row of pendingRows) {
+
+  for (const blob of blobs) {
+    const commission = await readBlob<CommissionEntry>(blob.pathname);
+    if (!commission || commission.status !== "pending") continue;
+
+    // Get affiliate account
+    const affiliate = await readBlob<AffiliateAccount>(
+      `referral/affiliates/${commission.referrerUserId}.json`,
+    );
+    if (!affiliate?.payoutsEnabled || !affiliate.stripeConnectAccountId) continue;
+
     try {
       const transferId = await createTransfer(
-        row.commission_amount,
-        row.currency,
-        row.stripe_connect_account_id,
-        `AlphaGap affiliate commission — invoice ${row.stripe_invoice_id}`,
+        commission.commissionAmount,
+        commission.currency,
+        affiliate.stripeConnectAccountId,
+        `AlphaGap affiliate commission — invoice ${commission.invoiceId}`,
       );
-      db.prepare(
-        "UPDATE commission_ledger SET status = 'paid', paid_at = datetime('now'), stripe_transfer_id = ? WHERE id = ?",
-      ).run(transferId, row.id);
+      await writeBlob(`referral/commissions/${commission.invoiceId}.json`, {
+        ...commission,
+        status: "paid",
+        paidAt: new Date().toISOString(),
+        stripeTransferId: transferId,
+      });
       paid++;
-      console.log(`[referral] Paid commission ${row.id} → transfer ${transferId}`);
+      console.log(`[referral] Paid commission ${commission.invoiceId} → transfer ${transferId}`);
     } catch (e) {
-      console.error(`[referral] Failed to pay commission ${row.id}:`, e);
+      console.error(`[referral] Failed to pay commission ${commission.invoiceId}:`, e);
     }
   }
 
   return paid;
 }
 
+// ── Affiliate account ─────────────────────────────────────────────────────────
+
+export async function getOrCreateAffiliateAccount(
+  userId: string,
+  userEmail: string,
+): Promise<AffiliateAccount> {
+  const existing = await readBlob<AffiliateAccount>(`referral/affiliates/${userId}.json`);
+  if (existing) return existing;
+  const account: AffiliateAccount = {
+    userId,
+    userEmail,
+    payoutsEnabled: false,
+    createdAt: new Date().toISOString(),
+  };
+  await writeBlob(`referral/affiliates/${userId}.json`, account);
+  return account;
+}
+
+export async function updateAffiliateAccount(
+  userId: string,
+  updates: Partial<AffiliateAccount>,
+): Promise<void> {
+  const existing = await readBlob<AffiliateAccount>(`referral/affiliates/${userId}.json`);
+  if (!existing) return;
+  await writeBlob(`referral/affiliates/${userId}.json`, { ...existing, ...updates });
+}
+
 // ── Stats ─────────────────────────────────────────────────────────────────────
 
-export function getAffiliateStats(userId: string): AffiliateStats {
-  const db = getDb();
+export async function getAffiliateStats(userId: string, userEmail: string): Promise<AffiliateStats> {
+  // Get or create referral code
+  const referralCode = await getOrCreateReferralCode(userId, userEmail);
 
-  // Get the existing code; auto-create only if there's already one or fallback
-  const existingCode = getUserReferralCode(userId);
-  const referralCode = existingCode ?? "";
+  // Get affiliate account
+  const affiliate = await readBlob<AffiliateAccount>(`referral/affiliates/${userId}.json`);
 
-  const affiliateAccount = db
-    .prepare("SELECT * FROM affiliate_accounts WHERE user_id = ?")
-    .get(userId) as AffiliateAccountRow | undefined;
+  // List all commission blobs to find ones belonging to this referrer
+  const { blobs: commissionBlobs } = await blobList({
+    prefix: "referral/commissions/",
+    token: TOKEN(),
+  });
 
-  const totalReferralsRow = db
-    .prepare("SELECT COUNT(*) as cnt FROM referral_attributions WHERE referrer_user_id = ?")
-    .get(userId) as { cnt: number };
+  // List all attribution blobs to find ones from this referrer
+  const { blobs: attributionBlobs } = await blobList({
+    prefix: "referral/attributions/",
+    token: TOKEN(),
+  });
 
-  // "Active" = referred users who have a paid commission
-  const activeReferralsRow = db
-    .prepare(
-      `SELECT COUNT(DISTINCT ra.id) as cnt
-       FROM referral_attributions ra
-       JOIN commission_ledger cl ON cl.attribution_id = ra.id
-       WHERE ra.referrer_user_id = ?`,
-    )
-    .get(userId) as { cnt: number };
+  // Read all attributions for this referrer
+  const myAttributions: ReferralAttribution[] = [];
+  await Promise.all(
+    attributionBlobs.map(async (blob) => {
+      const a = await readBlob<ReferralAttribution>(blob.pathname);
+      if (a && a.referrerUserId === userId) myAttributions.push(a);
+    }),
+  );
 
-  const totalEarnedRow = db
-    .prepare(
-      `SELECT COALESCE(SUM(cl.commission_amount), 0) as total
-       FROM commission_ledger cl
-       JOIN referral_attributions ra ON ra.id = cl.attribution_id
-       WHERE ra.referrer_user_id = ? AND cl.status = 'paid'`,
-    )
-    .get(userId) as { total: number };
+  // Read all commissions for this referrer
+  const myCommissions: CommissionEntry[] = [];
+  await Promise.all(
+    commissionBlobs.map(async (blob) => {
+      const c = await readBlob<CommissionEntry>(blob.pathname);
+      if (c && c.referrerUserId === userId) myCommissions.push(c);
+    }),
+  );
 
-  const pendingEarnedRow = db
-    .prepare(
-      `SELECT COALESCE(SUM(cl.commission_amount), 0) as total
-       FROM commission_ledger cl
-       JOIN referral_attributions ra ON ra.id = cl.attribution_id
-       WHERE ra.referrer_user_id = ? AND cl.status = 'pending'`,
-    )
-    .get(userId) as { total: number };
+  const totalEarned = myCommissions
+    .filter((c) => c.status === "paid")
+    .reduce((sum, c) => sum + c.commissionAmount, 0);
 
-  // Recent referrals (last 20)
-  const recentRows = db
-    .prepare(
-      `SELECT ra.referred_email, ra.signed_up_at,
-              COALESCE(SUM(CASE WHEN cl.status IN ('paid','pending') THEN cl.commission_amount ELSE 0 END), 0) as commission_earned,
-              COUNT(cl.id) as payment_count
-       FROM referral_attributions ra
-       LEFT JOIN commission_ledger cl ON cl.attribution_id = ra.id
-       WHERE ra.referrer_user_id = ?
-       GROUP BY ra.id
-       ORDER BY ra.signed_up_at DESC
-       LIMIT 20`,
-    )
-    .all(userId) as {
-    referred_email: string;
-    signed_up_at: string;
-    commission_earned: number;
-    payment_count: number;
-  }[];
+  const pendingEarned = myCommissions
+    .filter((c) => c.status === "pending")
+    .reduce((sum, c) => sum + c.commissionAmount, 0);
 
-  const recentReferrals: RecentReferral[] = recentRows.map((row) => ({
-    email: maskEmail(row.referred_email),
-    signedUpAt: row.signed_up_at,
-    status: row.payment_count > 0 ? "subscribed" : "free",
-    commissionEarned: row.commission_earned,
-  }));
+  // Build recent referrals (last 20, newest first)
+  const sorted = [...myAttributions].sort(
+    (a, b) => new Date(b.signedUpAt).getTime() - new Date(a.signedUpAt).getTime(),
+  );
+
+  const recentReferrals: RecentReferral[] = sorted.slice(0, 20).map((attr) => {
+    const earned = myCommissions
+      .filter((c) => c.attributionReferredUserId === attr.referredUserId)
+      .reduce((sum, c) => sum + c.commissionAmount, 0);
+    const hasPayment = myCommissions.some(
+      (c) => c.attributionReferredUserId === attr.referredUserId,
+    );
+    return {
+      email: maskEmail(attr.referredEmail),
+      signedUpAt: attr.signedUpAt,
+      status: hasPayment ? "subscribed" : "free",
+      commissionEarned: earned,
+    };
+  });
+
+  const activeReferrals = new Set(
+    myCommissions.map((c) => c.attributionReferredUserId),
+  ).size;
 
   return {
-    totalReferrals: totalReferralsRow.cnt,
-    activeReferrals: activeReferralsRow.cnt,
-    totalEarned: totalEarnedRow.total,
-    pendingEarned: pendingEarnedRow.total,
+    totalReferrals: myAttributions.length,
+    activeReferrals,
+    totalEarned,
+    pendingEarned,
     referralCode,
-    connectOnboarded: !!affiliateAccount?.stripe_connect_account_id,
-    payoutsEnabled: affiliateAccount?.payouts_enabled === 1,
+    connectOnboarded: !!affiliate?.stripeConnectAccountId,
+    payoutsEnabled: affiliate?.payoutsEnabled === true,
     recentReferrals,
   };
 }

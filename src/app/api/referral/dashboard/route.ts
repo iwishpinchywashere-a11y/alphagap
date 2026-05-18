@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { getAffiliateStats, getOrCreateReferralCode } from "@/lib/referral";
+import { getAffiliateStats } from "@/lib/referral";
 
 export const dynamic = "force-dynamic";
 
@@ -16,11 +16,10 @@ export async function GET(): Promise<NextResponse> {
   }
 
   const userId = (session.user as { id: string }).id;
+  const userEmail = session.user.email;
 
   try {
-    // Ensure user has a referral code before fetching stats
-    getOrCreateReferralCode(userId, session.user.email!);
-    const stats = getAffiliateStats(userId);
+    const stats = await getAffiliateStats(userId, userEmail);
     return NextResponse.json(stats);
   } catch (e) {
     console.error("[referral] dashboard error:", e);

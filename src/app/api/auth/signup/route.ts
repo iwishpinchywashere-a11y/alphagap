@@ -74,9 +74,9 @@ export async function POST(req: Request) {
         const refMatch = cookieHeader.match(new RegExp(`(?:^|;\\s*)${COOKIE_NAME}=([^;]+)`));
         const refCode = refMatch ? decodeURIComponent(refMatch[1]) : null;
         if (refCode) {
-          const { valid } = validateCode(refCode);
+          const { valid } = await validateCode(refCode);
           if (valid) {
-            createAttribution(refCode, userId, cleanEmail);
+            await createAttribution(refCode, userId, cleanEmail);
           }
         }
       } catch (e) {

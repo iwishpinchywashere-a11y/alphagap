@@ -18,7 +18,7 @@ export async function GET(): Promise<NextResponse> {
   const userId = (session.user as { id: string }).id;
   const userEmail = session.user.email;
 
-  const code = getOrCreateReferralCode(userId, userEmail);
+  const code = await getOrCreateReferralCode(userId, userEmail);
   return NextResponse.json({ code });
 }
 
@@ -46,7 +46,7 @@ export async function POST(req: Request): Promise<NextResponse> {
     return NextResponse.json({ error: "customCode is required" }, { status: 400 });
   }
 
-  const result = setCustomCode(userId, userEmail, body.customCode);
+  const result = await setCustomCode(userId, userEmail, body.customCode);
   if ("error" in result) {
     return NextResponse.json({ error: result.error }, { status: 400 });
   }
