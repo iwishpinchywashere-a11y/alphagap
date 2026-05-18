@@ -226,6 +226,63 @@ function initSchema(db: Database.Database) {
     CREATE INDEX IF NOT EXISTS idx_social_posts_netuid ON social_posts(netuid, posted_at);
     CREATE INDEX IF NOT EXISTS idx_social_accounts_netuid ON social_accounts(netuid, platform);
   `);
+  initReferralSchema(db);
+}
+
+function initReferralSchema(db: Database.Database) {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS referral_codes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      code TEXT NOT NULL UNIQUE COLLATE NOCASE,
+      user_id TEXT NOT NULL,
+      user_email TEXT NOT NULL,
+      created_at TEXT DEFAULT (datetime('now')),
+      is_active INTEGER DEFAULT 1
+    );
+    CREATE INDEX IF NOT EXISTS idx_referral_codes_user ON referral_codes(user_id);
+
+    CREATE TABLE IF NOT EXISTS referral_attributions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      ref_code TEXT NOT NULL,
+      referrer_user_id TEXT NOT NULL,
+      referrer_email TEXT NOT NULL,
+      referred_user_id TEXT NOT NULL,
+      referred_email TEXT NOT NULL,
+      stripe_customer_id TEXT,
+      signed_up_at TEXT DEFAULT (datetime('now')),
+      first_payment_at TEXT,
+      commission_expires_at TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_attributions_referrer ON referral_attributions(referrer_user_id);
+    CREATE INDEX IF NOT EXISTS idx_attributions_referred ON referral_attributions(referred_user_id);
+
+    CREATE TABLE IF NOT EXISTS affiliate_accounts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id TEXT NOT NULL UNIQUE,
+      user_email TEXT NOT NULL,
+      stripe_connect_account_id TEXT UNIQUE,
+      onboarded_at TEXT,
+      payouts_enabled INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS commission_ledger (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      attribution_id INTEGER NOT NULL,
+      stripe_invoice_id TEXT NOT NULL UNIQUE,
+      stripe_charge_id TEXT,
+      gross_amount INTEGER NOT NULL,
+      commission_amount INTEGER NOT NULL,
+      currency TEXT DEFAULT 'usd',
+      status TEXT DEFAULT 'pending',
+      created_at TEXT DEFAULT (datetime('now')),
+      paid_at TEXT,
+      stripe_transfer_id TEXT,
+      FOREIGN KEY (attribution_id) REFERENCES referral_attributions(id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_ledger_attribution ON commission_ledger(attribution_id);
+    CREATE INDEX IF NOT EXISTS idx_ledger_status ON commission_ledger(status);
+  `);
 }
 
 function runMigrations(db: Database.Database) {

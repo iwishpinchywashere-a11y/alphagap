@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type Stripe from "stripe";
 import { getStripe } from "@/lib/stripe-client";
 import { getUserByStripeCustomerId, updateUser, updateUserListEntry } from "@/lib/users";
+import { getAttributionByReferredUser, recordCommission, payPendingCommissions } from "@/lib/referral";
 import { sendSubscriptionConfirmationEmail } from "@/lib/email";
 
 /** Detect tier from subscription price amount (in cents) */
@@ -104,6 +105,32 @@ export async function POST(req: Request) {
         }
         break;
       }
+
+      // ── Referral commissions ──────────────────────────────────────────────
+      case "invoice.payment_succeeded": {
+        if (!process.env.REFERRAL_ENABLED) break;
+        const invoice = event.data.object as Stripe.Invoice;
+        const amountPaid = (invoice as unknown as { amount_paid: number }).amount_paid ?? 0;
+        // Skip free / $0 invoices (trials, etc.)
+        if (amountPaid <= 0) break;
+        try {
+          const customerId = typeof invoice.customer === "string" ? invoice.customer : invoice.customer?.id;
+          if (!customerId) break;
+          const referredUser = await getUserByStripeCustomerId(customerId);
+          if (!referredUser) break;
+          const attribution = getAttributionByReferredUser(referredUser.id);
+          if (!attribution) break;
+          const chargeId = typeof (invoice as unknown as { charge: string | null }).charge === "string"
+            ? ((invoice as unknown as { charge: string }).charge)
+            : "";
+          recordCommission(attribution.id, invoice.id, chargeId, amountPaid);
+          await payPendingCommissions();
+        } catch (e) {
+          console.error("[webhook] Referral commission handling error:", e);
+        }
+        break;
+      }
+      // ─────────────────────────────────────────────────────────────────────
 
       case "checkout.session.completed": {
         const checkoutSession = event.data.object as Stripe.Checkout.Session;

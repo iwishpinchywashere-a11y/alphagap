@@ -159,6 +159,27 @@ export async function PATCH(req: NextRequest) {
   return NextResponse.json({ ok: true });
 }
 
+// ── PUT — remove a name from the blocklist (allows re-adding) ────────────────
+
+export async function PUT(req: NextRequest) {
+  if (!token()) return NextResponse.json({ error: "no token" }, { status: 500 });
+
+  const { name } = await req.json() as { name: string };
+  if (!name) return NextResponse.json({ error: "name required" }, { status: 400 });
+
+  const raw = await readBlob<unknown>(TRACKER_BLOB, { tracked: [], blocklist: [] });
+  const data = parseTrackerData(raw);
+  const before = data.blocklist.length;
+  data.blocklist = data.blocklist.filter(b => b.toLowerCase() !== name.toLowerCase());
+
+  try {
+    await writeBlob(TRACKER_BLOB, data);
+  } catch (e) {
+    return NextResponse.json({ error: String(e) }, { status: 500 });
+  }
+  return NextResponse.json({ ok: true, removed: before - data.blocklist.length });
+}
+
 // ── DELETE — remove pumper + blocklist + clear cache entry ───────────────────
 
 export async function DELETE(req: NextRequest) {

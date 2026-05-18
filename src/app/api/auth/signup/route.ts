@@ -64,6 +64,9 @@ export async function POST(req: Request) {
 
     await createUser(user);
 
+    // TODO: wire up referral attribution from ag_ref cookie
+    // Read cookies.get(COOKIE_NAME) from the request, call createAttribution(code, userId, cleanEmail)
+
     // ── Create session cookie right here, same request, same instance ──
     // The user blob was just written above — no cross-instance propagation needed.
     const adminEmails = (process.env.ADMIN_EMAILS || "")
