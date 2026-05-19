@@ -11,6 +11,7 @@
  */
 
 import { put, get as blobGet, list as blobList } from "@vercel/blob";
+import { getUserByEmail } from "@/lib/users";
 
 export const COMMISSION_RATE    = 0.20;   // 20%
 export const COMMISSION_LIFETIME = true;  // commissions never expire
@@ -80,6 +81,7 @@ export interface RecentReferral {
   email: string;
   signedUpAt: string;
   status: "subscribed" | "free";
+  tier: "pro" | "premium" | null;
   commissionEarned: number;
 }
 
@@ -437,24 +439,44 @@ export async function getAffiliateStats(userId: string, userEmail: string): Prom
     (a, b) => new Date(b.signedUpAt).getTime() - new Date(a.signedUpAt).getTime(),
   );
 
-  const recentReferrals: RecentReferral[] = sorted.slice(0, 20).map((attr) => {
+  // Look up actual subscription status for each referred user — this is the
+  // source of truth so the status badge reflects reality, not just whether a
+  // commission was recorded (commission recording can lag or fail).
+  const referredUsers = await Promise.all(
+    sorted.slice(0, 20).map(async (attr) => {
+      try {
+        const u = await getUserByEmail(attr.referredEmail);
+        const isActive = u?.subscriptionStatus === "active" || u?.subscriptionStatus === "trialing";
+        return {
+          userId: attr.referredUserId,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          tier: isActive ? ((u as any)?.subscriptionTier ?? "pro") as "pro" | "premium" : null,
+          isSubscribed: isActive,
+        };
+      } catch {
+        return { userId: attr.referredUserId, tier: null as null, isSubscribed: false };
+      }
+    }),
+  );
+
+  const recentReferrals: RecentReferral[] = sorted.slice(0, 20).map((attr, i) => {
     const earned = myCommissions
       .filter((c) => c.attributionReferredUserId === attr.referredUserId)
       .reduce((sum, c) => sum + c.commissionAmount, 0);
-    const hasPayment = myCommissions.some(
-      (c) => c.attributionReferredUserId === attr.referredUserId,
-    );
+    const userInfo = referredUsers[i];
     return {
       email: maskEmail(attr.referredEmail),
       signedUpAt: attr.signedUpAt,
-      status: hasPayment ? "subscribed" : "free",
+      // Use actual subscription status as source of truth, not commission existence
+      status: userInfo?.isSubscribed ? "subscribed" : "free",
+      tier: userInfo?.tier ?? null,
       commissionEarned: earned,
     };
   });
 
-  const activeReferrals = new Set(
-    myCommissions.map((c) => c.attributionReferredUserId),
-  ).size;
+  // Active referrals = referred users currently on a paid plan
+  // (commission-based count can be stale if commissions were never recorded)
+  const activeReferrals = referredUsers.filter(u => u.isSubscribed).length;
 
   return {
     totalReferrals: myAttributions.length,

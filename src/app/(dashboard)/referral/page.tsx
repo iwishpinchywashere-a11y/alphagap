@@ -323,13 +323,24 @@ function AffiliateDashboard({ userId, userEmail }: { userId: string; userEmail: 
                     <td className="px-4 py-3 font-mono text-gray-300 text-xs">{r.email}</td>
                     <td className="px-4 py-3 text-gray-400 text-xs">{formatDate(r.signedUpAt)}</td>
                     <td className="px-4 py-3">
-                      <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${
-                        r.status === "subscribed"
-                          ? "bg-green-500/10 text-green-400 border border-green-500/20"
-                          : "bg-white/5 text-gray-500 border border-white/10"
-                      }`}>
-                        {r.status}
-                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${
+                          r.status === "subscribed"
+                            ? "bg-green-500/10 text-green-400 border border-green-500/20"
+                            : "bg-white/5 text-gray-500 border border-white/10"
+                        }`}>
+                          {r.status === "subscribed" ? "active" : "free"}
+                        </span>
+                        {r.status === "subscribed" && (r as { tier?: string | null }).tier && (
+                          <span className={`inline-flex px-1.5 py-0.5 rounded-full text-xs font-bold border ${
+                            (r as { tier?: string | null }).tier === "premium"
+                              ? "bg-purple-500/10 text-purple-400 border-purple-500/20"
+                              : "bg-green-500/10 text-green-400 border-green-500/20"
+                          }`}>
+                            {(r as { tier?: string | null }).tier === "premium" ? "Premium" : "Pro"}
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-4 py-3 text-right text-gray-300 text-xs">
                       {r.commissionEarned > 0 ? (
