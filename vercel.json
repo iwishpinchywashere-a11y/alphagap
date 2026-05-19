@@ -39,6 +39,10 @@
     {
       "path": "/api/cron/yield-collector",
       "schedule": "0 */2 * * *"
+    },
+    {
+      "path": "/api/cron/pay-commissions",
+      "schedule": "0 9 * * *"
     }
   ]
 }
