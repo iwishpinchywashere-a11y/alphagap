@@ -3781,9 +3781,9 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
       }
 
       // ── One entry per HOUR (not per scan) to prevent blob size explosion ──
-      // 10-min scans × ~13KB/snapshot × 30 days = ~57 MB which fails JSON.parse.
-      // Hourly keys: 24 × 90d = 2160 entries max ≈ 28 MB ceiling that never grows.
-      // Velo still works — nearest snapshot to 24h-ago is within the ±18h tolerance.
+      // Hourly keys: 24 × 30d = 720 entries max. VELO only needs 24h + 7d windows
+      // so 30-day retention is plenty. Trimming to 90d with 120+ subnets was
+      // pushing the blob past the 40MB parse threshold and silently resetting history.
       const _d = new Date(); _d.setMinutes(0, 0, 0);
       const scanTs = _d.toISOString(); // e.g. "2026-05-05T14:00:00.000Z"
       scoreHistory[scanTs] = {};
@@ -3800,9 +3800,9 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
         };
       }
 
-      // Trim to last 90 days (keep all intraday entries within that window)
-      const cutoff90 = new Date(Date.now() - 90 * 86400000).toISOString();
-      for (const d of Object.keys(scoreHistory)) { if (d < cutoff90) delete scoreHistory[d]; }
+      // Trim to last 30 days — keeps blob well under 40MB limit
+      const cutoff30 = new Date(Date.now() - 30 * 86400000).toISOString();
+      for (const d of Object.keys(scoreHistory)) { if (d < cutoff30) delete scoreHistory[d]; }
 
       await put("subnet-scores-history.json", JSON.stringify(scoreHistory), { access: "private", addRandomSuffix: false, allowOverwrite: true, token: process.env.BLOB_READ_WRITE_TOKEN });
       console.log(`[scan] Subnet score history: ${Object.keys(scoreHistory).length} snapshots stored`);
