@@ -124,7 +124,7 @@ export default async function CheckoutPage({
           await stripe.coupons.retrieve(COUPON_ID);
         } catch {
           await stripe.coupons.create({
-            id: COUPON_ID, percent_off: 10, duration: "forever", name: "10% Referral Discount",
+            id: COUPON_ID, percent_off: 10, duration: "once", name: "10% Referral Discount",
           });
         }
         discountOptions = { discounts: [{ coupon: COUPON_ID }] };

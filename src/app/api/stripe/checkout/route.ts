@@ -17,7 +17,7 @@ async function getReferralCouponId(): Promise<string> {
     await stripe.coupons.create({
       id:          REFERRAL_COUPON_ID,
       percent_off: 10,
-      duration:    "forever",
+      duration:    "once",
       name:        "10% Referral Discount",
     });
     return REFERRAL_COUPON_ID;
