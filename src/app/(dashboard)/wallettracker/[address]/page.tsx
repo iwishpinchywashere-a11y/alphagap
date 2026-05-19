@@ -14,12 +14,13 @@ interface AlphaPosition {
 }
 
 interface TradeEntry {
-  action:      "DELEGATE" | "UNDELEGATE";
-  netuid:      number | null;
-  subnet_name: string;
-  amount_tao:  number;
-  amount_usd:  number;
-  timestamp:   string;
+  action:             "DELEGATE" | "UNDELEGATE";
+  netuid:             number | null;
+  subnet_name:        string;
+  amount_tao:         number;
+  amount_usd:         number;
+  timestamp:          string;
+  is_validator_swap?: boolean;
 }
 
 interface WalletProfile {
@@ -481,6 +482,11 @@ export default function WalletProfilePage() {
                       )}
                       <span className="text-[9px] text-gray-600 font-mono flex-shrink-0">SN{trade.netuid ?? "—"}</span>
                       <span className="text-xs text-gray-300 truncate">{trade.subnet_name}</span>
+                      {trade.is_validator_swap && (
+                        <span className="flex-shrink-0 inline-flex items-center gap-0.5 text-[9px] font-semibold px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                          ⇄ Validator Swap
+                        </span>
+                      )}
                     </div>
 
                     {/* Amount */}

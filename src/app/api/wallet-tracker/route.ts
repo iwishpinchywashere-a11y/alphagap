@@ -798,7 +798,7 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // ── Single wallet PROFILE (positions + trade history + P&L) ──
+  // ── Single wallet PROFILE (positions + P&L only — trades are fetched separately) ──
   if (mode === "wallet-profile") {
     const address = request.nextUrl.searchParams.get("address");
     if (!address) return NextResponse.json({ error: "Missing address" }, { status: 400 });
@@ -810,16 +810,20 @@ export async function GET(request: NextRequest) {
         fetchDetail(address),
         fetchSubnetNames(),
         getTaoPrice().catch(() => 0),
-        fetch(
-          // correct param is "nominator" (not "nominator_ss58" which is silently ignored)
-          // 500 records desc → display recent 50, reverse for chronological P&L calc
-          `https://api.taostats.io/api/delegation/v1?nominator=${encodeURIComponent(address)}&limit=500&order=timestamp_desc`,
-          {
-            headers: { Authorization: TAOSTATS_KEY },
-            signal: AbortSignal.timeout(12000),
-            next: { revalidate: 0 },
+        // Retry once on timeout — 20s per attempt
+        (async () => {
+          for (let attempt = 0; attempt < 2; attempt++) {
+            if (attempt > 0) await new Promise(res => setTimeout(res, 2000));
+            try {
+              const r = await fetch(
+                `https://api.taostats.io/api/delegation/v1?nominator=${encodeURIComponent(address)}&limit=500&order=timestamp_desc`,
+                { headers: { Authorization: TAOSTATS_KEY }, signal: AbortSignal.timeout(20000), next: { revalidate: 0 } }
+              );
+              if (r.ok) return r;
+            } catch { /* retry */ }
           }
-        ).catch(() => null),
+          return null;
+        })(),
       ]);
 
       // Build positions
@@ -838,19 +842,23 @@ export async function GET(request: NextRequest) {
         .sort((a, b) => b.staked_tao - a.staked_tao);
 
       interface TSDelegationRaw { action: "DELEGATE" | "UNDELEGATE"; timestamp: string; amount: string; usd: string | null; netuid: number | null; }
-      interface TradeEntry { action: "DELEGATE" | "UNDELEGATE"; netuid: number | null; subnet_name: string; amount_tao: number; amount_usd: number; timestamp: string; }
+      interface TradeEntry { action: "DELEGATE" | "UNDELEGATE"; netuid: number | null; subnet_name: string; amount_tao: number; amount_usd: number; timestamp: string; is_validator_swap?: boolean; }
 
       let rawRows: TSDelegationRaw[] = [];
-      let historyComplete = true; // false when wallet has >500 total delegation events
+      let historyComplete = true;
+      let trades_failed   = false;
       if (tradesRes?.ok) {
         const j = await tradesRes.json() as { data?: TSDelegationRaw[]; pagination?: { total_items?: number } };
         rawRows = j.data ?? [];
         const totalItems = j.pagination?.total_items ?? rawRows.length;
         historyComplete = totalItems <= 500;
+      } else {
+        trades_failed = true;
+        console.warn(`[wallet-profile] Trades fetch failed for ${address} — returning empty trades with flag`);
       }
 
       // Build display trades (most recent first, only alpha subnets)
-      const trades: TradeEntry[] = rawRows
+      const rawDisplayRows = rawRows
         .filter(d => d.netuid != null && d.netuid > 0)
         .slice(0, 50)
         .map(d => ({
@@ -860,16 +868,41 @@ export async function GET(request: NextRequest) {
           amount_tao:  Math.round(parseInt(d.amount || "0") / RAO_PER_TAO * 100) / 100,
           amount_usd:  Math.round((parseFloat(d.usd ?? "0") || 0) * 100) / 100,
           timestamp:   d.timestamp,
+          is_validator_swap: false,
         }));
 
+      // Detect validator swaps: DELEGATE + UNDELEGATE for the same subnet,
+      // same amount (within 1%), within 10 minutes of each other.
+      const SWAP_WINDOW_MS = 10 * 60 * 1000;
+      for (let a = 0; a < rawDisplayRows.length; a++) {
+        if (rawDisplayRows[a].is_validator_swap) continue;
+        const ra = rawDisplayRows[a];
+        for (let b = a + 1; b < rawDisplayRows.length; b++) {
+          const rb = rawDisplayRows[b];
+          if (rb.netuid !== ra.netuid) continue;
+          const timeDiff = Math.abs(new Date(ra.timestamp).getTime() - new Date(rb.timestamp).getTime());
+          if (timeDiff > SWAP_WINDOW_MS) break;
+          if (ra.action !== rb.action) {
+            const amtA = ra.amount_tao, amtB = rb.amount_tao;
+            const pct = amtA > 0 ? Math.abs(amtA - amtB) / amtA : 1;
+            if (pct < 0.01) {
+              rawDisplayRows[a].is_validator_swap = true;
+              rawDisplayRows[b].is_validator_swap = true;
+              break;
+            }
+          }
+        }
+      }
+
+      const trades: TradeEntry[] = rawDisplayRows;
+
       // ── P&L engine (FIFO per subnet, chronological order) ──────
-      // Only alpha subnets, process oldest-first
       const chronoRows = [...rawRows]
         .filter(d => d.netuid != null && d.netuid > 0)
         .reverse();
 
       const buyQueues = new Map<number, Array<{ tao: number; ts: number }>>();
-      let total_invested = 0; // sum of all DELEGATE TAO
+      let total_invested = 0;
       let realized_pnl   = 0;
       const hold_days: number[] = [];
 
@@ -885,7 +918,6 @@ export async function GET(request: NextRequest) {
           total_invested += tao;
           queue.push({ tao, ts });
         } else {
-          // Match sell against buy lots FIFO
           let sell_remaining = tao;
           let cost_matched   = 0;
           while (sell_remaining > 0.001 && queue.length > 0) {
@@ -901,23 +933,19 @@ export async function GET(request: NextRequest) {
         }
       }
 
-      // Remaining buy queue = cost basis of open positions (raw, may be inflated by incomplete history)
       let cost_basis_open_raw = 0;
       for (const q of buyQueues.values()) cost_basis_open_raw += q.reduce((s, l) => s + l.tao, 0);
 
-      const current_staked = positions.reduce((s, p) => s + p.staked_tao, 0);
-
-      // Cap cost basis at actual current holdings. When history is incomplete (>500 records),
-      // UNDELEGATEs that closed earlier positions fall outside our window, leaving "orphaned"
-      // buy lots that produce phantom losses. Capping prevents this.
+      const current_staked  = positions.reduce((s, p) => s + p.staked_tao, 0);
       const cost_basis_open = Math.min(cost_basis_open_raw, current_staked);
       const unrealized_pnl  = current_staked - cost_basis_open;
       const total_pnl       = Math.round((realized_pnl + unrealized_pnl) * 100) / 100;
-      // ROI is only meaningful when we have complete history (≤500 total delegation events)
-      const roi_pct         = (historyComplete && total_invested > 0)
+      const roi_pct         = (historyComplete && !trades_failed && total_invested > 0)
         ? Math.round((total_pnl / total_invested) * 10000) / 100
         : null;
-      const avg_hold_days   = hold_days.length > 0 ? Math.round(hold_days.reduce((s, d) => s + d, 0) / hold_days.length * 10) / 10 : null;
+      const avg_hold_days   = hold_days.length > 0
+        ? Math.round(hold_days.reduce((s, d) => s + d, 0) / hold_days.length * 10) / 10
+        : null;
 
       const known     = KNOWN_WALLETS[address];
       const total_tao = detail ? Math.round(detail.total / RAO_PER_TAO * 100) / 100 : 0;
@@ -935,7 +963,6 @@ export async function GET(request: NextRequest) {
         total_usd:  Math.round(total_tao * taoPrice * 100) / 100,
         alpha_count: posMap.size,
         tao_price:  taoPrice,
-        // P&L metrics
         total_pnl,
         realized_pnl:   Math.round(realized_pnl   * 100) / 100,
         unrealized_pnl: Math.round(unrealized_pnl * 100) / 100,
@@ -943,10 +970,65 @@ export async function GET(request: NextRequest) {
         avg_hold_days,
         positions,
         trades,
+        trades_failed,  // true when TaoStats was unreachable — UI shows retry button
       });
     } catch (e) {
       return NextResponse.json({ error: String(e) }, { status: 500 });
     }
+  }
+
+  // ── Trades-only refresh (called by UI retry button) ───────────────
+  if (mode === "wallet-trades") {
+    const address = request.nextUrl.searchParams.get("address");
+    if (!address) return NextResponse.json({ error: "Missing address" }, { status: 400 });
+
+    const TAOSTATS_KEY = process.env.TAOSTATS_API_KEY || "";
+
+    // 3 attempts, 2s apart, 25s timeout each
+    for (let attempt = 0; attempt < 3; attempt++) {
+      if (attempt > 0) await new Promise(res => setTimeout(res, 2000));
+      try {
+        const r = await fetch(
+          `https://api.taostats.io/api/delegation/v1?nominator=${encodeURIComponent(address)}&limit=500&order=timestamp_desc`,
+          { headers: { Authorization: TAOSTATS_KEY }, signal: AbortSignal.timeout(25000), next: { revalidate: 0 } }
+        );
+        if (!r.ok) continue;
+
+        const subnetNames = await fetchSubnetNames();
+        interface TSDelegationRaw { action: "DELEGATE" | "UNDELEGATE"; timestamp: string; amount: string; usd: string | null; netuid: number | null; }
+        const j = await r.json() as { data?: TSDelegationRaw[] };
+        const rawRows = j.data ?? [];
+        const rawDisplayRows2 = rawRows
+          .filter(d => d.netuid != null && d.netuid > 0)
+          .slice(0, 50)
+          .map(d => ({
+            action:      d.action,
+            netuid:      d.netuid,
+            subnet_name: subnetNames.get(d.netuid!) ?? `SN${d.netuid}`,
+            amount_tao:  Math.round(parseInt(d.amount || "0") / RAO_PER_TAO * 100) / 100,
+            amount_usd:  Math.round((parseFloat(d.usd ?? "0") || 0) * 100) / 100,
+            timestamp:   d.timestamp,
+            is_validator_swap: false,
+          }));
+        const SWAP_WIN = 10 * 60 * 1000;
+        for (let a = 0; a < rawDisplayRows2.length; a++) {
+          if (rawDisplayRows2[a].is_validator_swap) continue;
+          const ra = rawDisplayRows2[a];
+          for (let b = a + 1; b < rawDisplayRows2.length; b++) {
+            const rb = rawDisplayRows2[b];
+            if (rb.netuid !== ra.netuid) continue;
+            const timeDiff = Math.abs(new Date(ra.timestamp).getTime() - new Date(rb.timestamp).getTime());
+            if (timeDiff > SWAP_WIN) break;
+            if (ra.action !== rb.action) {
+              const pct = ra.amount_tao > 0 ? Math.abs(ra.amount_tao - rb.amount_tao) / ra.amount_tao : 1;
+              if (pct < 0.01) { rawDisplayRows2[a].is_validator_swap = true; rawDisplayRows2[b].is_validator_swap = true; break; }
+            }
+          }
+        }
+        return NextResponse.json({ trades: rawDisplayRows2 });
+      } catch { /* retry */ }
+    }
+    return NextResponse.json({ error: "TaoStats unavailable after 3 attempts" }, { status: 503 });
   }
 
   // ── Single wallet detail (on-demand positions for other tabs) ──
