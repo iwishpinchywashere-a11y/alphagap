@@ -3191,19 +3191,29 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     if (constBuy > 0) aGap = Math.min(100, aGap + Math.min(13, 7 + constBuy / 150));
     if (constSell > 0) aGap = Math.max(1, aGap - Math.min(10, 3 + constSell / 200));
 
-    // ── INVESTING aGap (PILLAR-CAPPED + REVENUE-ANCHORED formula, v20) ──────────
-    // Monthly horizon. Moderately raised pillar caps — still conservative enough
-    // to filter but no longer crushing strong subnets without confirmed ARR.
+    // ── INVESTING aGap (PILLAR-CAPPED + REVENUE-ANCHORED formula, v21) ──────────
+    // Monthly horizon. Redesigned to weight on-chain conviction and structural
+    // health far more heavily — the signals that actually predict long-term returns.
     //
-    // Architecture: 5 pillars + RevTraction + MktVal + Synergy + GrowthPotential + Revenue Floor
-    //   Dev(25) + Product(31) + Network(12) + Money(9) + Health(11)
+    // Architecture: 6 pillars + RevTraction + MktVal + Synergy + GrowthPotential + Revenue Floor
+    //   Conviction(24) + AuditDecen(20) + Dev(12) + Product(20) + Network(10) + GrowthTiming(10)
     //   + RevTraction(20) + MktVal(5) + Synergy(5) + GrowthPotential(10)
-    //   Max theoretical = 103 → always clamped to 100.
+    //   Max theoretical = ~136 → always clamped to 100.
+    //
+    // Key changes from v20:
+    //   • CONVICTION pillar (was Smart Money 9 → now 24) — whale sustained accumulation,
+    //     staking lock %, trend, and founder buy conviction all weighted for long horizon
+    //   • AUDIT + DECENTRALIZATION (was Health 11 → now 20) — structural safety is a
+    //     hard gate for long-term investing; bad audit = elevated structural risk penalty
+    //   • DEV compressed (25 → 12) — commit frequency matters less than shipping product
+    //   • PRODUCT tightened (31 → 20) — adds user growth & partnership adoption sub-signals
+    //   • NETWORK trimmed (12 → 10) — still present but not overweighted
+    //   • NEW GROWTH TIMING pillar (0 → 10) — quality projects undervalued vs fundamentals
     //
     // Revenue floors: confirmed ARR guarantees a minimum score so network penalties
     // can't bury a subnet that's generating real fiat revenue.
 
-    // ── NETWORK HEALTH (used by Pillar 3) ────────────────────────────────────
+    // ── NETWORK HEALTH (used by Pillar 5) ────────────────────────────────────
     let investNetworkHealth = 0;
     const iVals = d.validatorCount;
     if      (iVals >= 64) investNetworkHealth += 8;
@@ -3216,12 +3226,12 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     else if (iBurnPct >= 40) investNetworkHealth -=  2;
     else if (iBurnPct <= 10 && iVals >= 16) investNetworkHealth += 3;
 
-    // ── PRE-LAUNCH STEALTH (used by Pillar 2) ────────────────────────────────
+    // ── PRE-LAUNCH STEALTH (used by Pillar 4) ────────────────────────────────
     let investPreLaunch = 0;
     const hasWebPresence = productSource === "website" || productSource === "heuristic";
-    if      (hasWebPresence && devScore >= 55 && socialScore <= 20 && productScore >= 35) investPreLaunch = 18;
-    else if (hasWebPresence && devScore >= 45 && socialScore <= 30 && productScore >= 30) investPreLaunch = 12;
-    else if (devScore >= 65 && socialScore <= 15) investPreLaunch = 8;
+    if      (hasWebPresence && devScore >= 55 && socialScore <= 20 && productScore >= 35) investPreLaunch = 14;
+    else if (hasWebPresence && devScore >= 45 && socialScore <= 30 && productScore >= 30) investPreLaunch = 9;
+    else if (devScore >= 65 && socialScore <= 15) investPreLaunch = 6;
 
     // ── REVENUE TRACTION BONUS (0–20 pts) ────────────────────────────────────
     // THE core investing differentiator — completely absent from trading formula.
@@ -3246,84 +3256,146 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     else if (productSource === "benchmark" && confirmedArr >          0) marketValidationBonus = 2;
     else if (productSource === "benchmark")                              marketValidationBonus = 1;
 
-    // ── PILLAR 1: DEV (max 25) ────────────────────────────────────────────────
-    const rawDevPillar = (buildingPts * 1.0) + (consistentBuilderBonus * 2.2) + (devSpikeBonus * 0.10);
-    const pillarDev = Math.min(25, Math.round(rawDevPillar));
+    // ── PILLAR 1: CONVICTION (max 24) — was Smart Money max 9 ────────────────
+    // For a monthly investing lens, SUSTAINED whale accumulation + staking lock
+    // conviction matter far more than any 24h snapshot signal.
+    // Components:
+    //   • Whale spot: positive whaleBoost dampened (snapshot only, 24h window)
+    //   • Whale velocity: amplified (sustained multi-scan accumulation is the real signal)
+    //   • Staking lock: alphaStakedPct as a capital-commitment proxy
+    //   • Staking trend: direction of conviction (rising = locking in, falling = exiting)
+    //   • TAO locked: absolute capital committed to subnet pool
+    //   • Founder conviction: Const buy signal (founder holding = aligned incentives)
+    const investWhaleSpot  = Math.max(0, whaleBoost) * 0.35;        // 0–7 pts (dampened)
+    const investWhaleVelo  = whaleVelocityBonus * 0.7;              // 0–10.5 pts (amplified)
+    const investStakingLock =
+      d.alphaStakedPct >= 75 ? 6 :
+      d.alphaStakedPct >= 65 ? 4 :
+      d.alphaStakedPct >= 55 ? 2 : 0;
+    const investStakingTrend = Math.max(-4, Math.min(4, stakingTrendBonus * 0.45));
+    // TAO locked: total capital committed (conviction lock proxy)
+    const investTaoLock =
+      d.taoLocked >= 50_000 ? 3 :
+      d.taoLocked >= 20_000 ? 2 :
+      d.taoLocked >=  5_000 ? 1 : 0;
+    // Founder conviction: Const buying = founder deploying own capital
+    let investConstConviction = 0;
+    if      (constBuy  > 0) investConstConviction = Math.min(4,  1 + constBuy  / 300);
+    else if (constSell > 0) investConstConviction = Math.max(-2, -constSell / 500);
+    const rawConvictionPillar = investWhaleSpot + investWhaleVelo + investStakingLock
+                               + investStakingTrend + investTaoLock + investConstConviction;
+    const pillarConviction = Math.min(24, Math.round(rawConvictionPillar));
 
-    // ── PILLAR 2: PRODUCT (max 31) ────────────────────────────────────────────
-    const iProductSourceMult = productSource === "benchmark" ? 1.5 :
-                               productSource === "website"   ? 1.3 :
-                               productSource === "milestone" ? 1.1 :
-                                                               0.9;
-    const rawProductPillar = (productAGapPts * iProductSourceMult)
-                           + (productAwarenessGap * 2.0)
-                           + (productVsPriceBonus  * 2.0)
-                           + (investPreLaunch       * 0.9);
-    const pillarProduct = Math.min(31, Math.round(rawProductPillar));
+    // ── PILLAR 2: AUDIT + DECENTRALIZATION (max 20) — was Health max 11 ──────
+    // Centralisation is an existential risk for long-term holders.
+    // High audit = meaningful bonus. Very centralised = hard structural penalty.
+    // Decentralisation (rootProp) added as second sub-signal.
+    let investAuditPts = 0;
+    if (auditScore == null)    investAuditPts = 3;  // unknown → neutral
+    else if (auditScore >= 90) investAuditPts = 15;
+    else if (auditScore >= 80) investAuditPts = 12;
+    else if (auditScore >= 65) investAuditPts =  8;
+    else if (auditScore >= 50) investAuditPts =  4;
+    else if (auditScore >= 30) investAuditPts =  1;
+    else                       investAuditPts = -7; // highly centralised = structural risk
+    let investDecen = 0;
+    if      (d.rootProp >= 0.35) investDecen = 5;
+    else if (d.rootProp >= 0.25) investDecen = 3;
+    else if (d.rootProp >= 0.15) investDecen = 1;
+    const pillarAuditDecen = Math.min(20, Math.round(investAuditPts + investDecen));
 
-    // ── PILLAR 3: NETWORK (max 12) ────────────────────────────────────────────
+    // ── PILLAR 3: DEV (max 12) — compressed from 25 ──────────────────────────
+    // Consistent shipping matters. Raw commit frequency matters less for
+    // long-term thesis — sustained consistent output > spike/burst activity.
+    const rawDevPillarV21 = (buildingPts * 0.62) + (consistentBuilderBonus * 1.4) + (devSpikeBonus * 0.04);
+    const pillarDev = Math.min(12, Math.round(rawDevPillarV21));
+
+    // ── PILLAR 4: PRODUCT + ADOPTION (max 20) — was Product max 31 ───────────
+    // Tightened ceiling. Adds user growth trajectory and partnership/adoption
+    // signals that were previously buried in the social sub-score.
+    const iProductSourceMult = productSource === "benchmark" ? 1.3 :
+                               productSource === "website"   ? 1.1 :
+                               productSource === "milestone" ? 1.0 :
+                                                               0.8;
+    // User growth proxy: socialVelocityBonus = accelerating organic attention;
+    //                    starVelocityBonus    = developer/builder adoption (GitHub stars)
+    const investUserGrowth = Math.min(5, Math.round((socialVelocityBonus * 0.4) + (starVelocityBonus * 0.3)));
+    // Partnership/adoption signal: meaningful social score + growth trajectory
+    let investPartnership = 0;
+    if      (socialScore >= 70 && socialVelocityBonus >= 5) investPartnership = 3;
+    else if (socialScore >= 50 && starVelocityBonus  >= 4) investPartnership = 2;
+    else if (socialScore >= 40 && (socialVelocityBonus >= 3 || starVelocityBonus >= 2)) investPartnership = 1;
+    const rawProductPillarV21 = (productAGapPts      * iProductSourceMult)
+                               + (productAwarenessGap * 1.5)
+                               + (investPreLaunch     * 0.7)
+                               + investUserGrowth
+                               + investPartnership;
+    const pillarProduct = Math.min(20, Math.round(rawProductPillarV21));
+
+    // ── PILLAR 5: NETWORK (max 10) — trimmed from 12 ─────────────────────────
     // Eval/emissions are weekly signals. A subnet can be a great long-term
-    // investment with moderate on-chain metrics.
-    const rawNetworkPillar = (evalBoost            * 0.45)
-                           + (evalVsPriceBonus      * 1.0)
-                           + (Math.max(0, emissionBoost) * 0.28)
-                           + (stakingBoost          * 0.5)
-                           + (rootPropBonus         * 0.6)
-                           + Math.max(0, investNetworkHealth);
-    const pillarNetwork = Math.min(12, Math.round(rawNetworkPillar));
+    // investment with moderate on-chain metrics — don't over-penalise.
+    const rawNetworkPillarV21 = (evalBoost               * 0.40)
+                               + (evalVsPriceBonus        * 0.8)
+                               + (Math.max(0, emissionBoost) * 0.25)
+                               + Math.max(0, investNetworkHealth);
+    const pillarNetwork = Math.min(10, Math.round(rawNetworkPillarV21));
 
-    // ── PILLAR 4: SMART MONEY (max 9) ────────────────────────────────────────
-    const rawMoneyPillar = (Math.max(0, whaleBoost) * 0.6) + (Math.max(0, volBoost) * 0.02);
-    const pillarMoney = Math.min(9, Math.round(rawMoneyPillar));
+    // ── PILLAR 6: GROWTH TIMING (max 10) — NEW ───────────────────────────────
+    // Fires for quality projects the market hasn't priced in yet.
+    // Strong fundamentals + price down = the best risk/reward setup for investors.
+    // Only meaningful when the underlying project is genuinely strong.
+    const fundamentalStrength = pillarDev + pillarProduct; // 0–32
+    let investGrowthTiming = 0;
+    if      (fundamentalStrength >= 24 && pch30d <= -20) investGrowthTiming += 6;
+    else if (fundamentalStrength >= 18 && pch30d <= -15) investGrowthTiming += 4;
+    else if (fundamentalStrength >= 12 && pch30d <= -10) investGrowthTiming += 2;
+    // Pre-revenue early-stage boost (undiscovered + strong fundamentals)
+    if (confirmedArr === 0 && estimatedArr === 0 && fundamentalStrength >= 22) {
+      investGrowthTiming = Math.min(10, investGrowthTiming + 4);
+    } else if (confirmedArr === 0 && estimatedArr > 0 && fundamentalStrength >= 18) {
+      investGrowthTiming = Math.min(10, investGrowthTiming + 2);
+    }
+    const pillarGrowthTiming = Math.min(10, Math.round(investGrowthTiming));
 
-    // ── CROSS-PILLAR SYNERGY (max 5) ─────────────────────────────────────────
+    // ── CROSS-PILLAR SYNERGY (max 5) — thresholds updated for v21 ────────────
     let investSynergy = 0;
-    if      (pillarDev >= 20 && pillarProduct >= 26) investSynergy = 5;
-    else if (pillarDev >= 14 && pillarProduct >= 20) investSynergy = 3;
-    else if (pillarDev >=  8 && pillarProduct >= 14) investSynergy = 1;
+    if      (pillarDev >= 10 && pillarProduct >= 16) investSynergy = 5;
+    else if (pillarDev >=  7 && pillarProduct >= 11) investSynergy = 3;
+    else if (pillarDev >=  4 && pillarProduct >=  7) investSynergy = 1;
 
-    // ── PILLAR 5: HEALTH (max 11, min −5) ────────────────────────────────────
-    // Long-term investors care far more about decentralisation than traders.
-    // Good health → additive bonus. Very centralised → structural risk penalty.
-    // null data (new/unscanned subnet) → small neutral contribution.
-    const pillarHealth = auditScore == null ? 3   // unknown → neutral
-      : auditScore >= 80 ? 11
-      : auditScore >= 65 ?  7
-      : auditScore >= 50 ?  4
-      : auditScore >= 30 ?  1
-      : -5; // highly centralised = long-term structural risk
-
-    // ── GROWTH POTENTIAL BONUS (0–10 pts) ────────────────────────────────────
+    // ── GROWTH POTENTIAL BONUS (0–10 pts) — thresholds updated for v21 ───────
     // Only fires when confirmedArr === 0 (no verified revenue data).
     // Strong dev + strong product + no ARR = undiscovered gem.
     // Subnets WITH confirmed revenue already get RevTraction + MktVal instead.
     let growthPotentialBonus = 0;
     if (confirmedArr === 0) {
-      if      (pillarDev >= 21 && pillarProduct >= 26) growthPotentialBonus = 10;
-      else if (pillarDev >= 17 && pillarProduct >= 21) growthPotentialBonus = 7;
-      else if (pillarDev >= 13 && pillarProduct >= 16) growthPotentialBonus = 4;
-      else if (pillarDev >=  9 && pillarProduct >= 11) growthPotentialBonus = 2;
+      if      (pillarDev >= 10 && pillarProduct >= 16) growthPotentialBonus = 10;
+      else if (pillarDev >=  8 && pillarProduct >= 12) growthPotentialBonus = 7;
+      else if (pillarDev >=  6 && pillarProduct >=  8) growthPotentialBonus = 4;
+      else if (pillarDev >=  4 && pillarProduct >=  5) growthPotentialBonus = 2;
     }
 
-    // ── PENALTIES (reduced severity — on-chain noise shouldn't bury real products) ──
+    // ── PENALTIES ─────────────────────────────────────────────────────────────
     const emissionPenalty      = Math.round(Math.min(0, emissionBoost) * 0.45);
     const networkHealthPenalty = Math.round(Math.min(0, investNetworkHealth) * 0.5);
-    const whalePenalty         = Math.round(Math.min(0, whaleBoost) * 0.7);
+    // Whale distributing penalty — reduced multiplier (conviction pillar already
+    // excludes negative whale from the positive accumulation score)
+    const whalePenalty         = Math.round(Math.min(0, whaleBoost) * 0.5);
     const investDeregPenalty   = d.deregRisk ? -18 : 0;
 
     // ── ZERO-EMISSION PENALTY ────────────────────────────────────────────────
     // A subnet with 0 emissions is at de-registration risk by definition.
     // This is a long-term structural threat that product quality cannot override.
-    // deregRisk (from SubnetRadar) may not flag a subnet until it's already gone —
-    // zero emissionPct is the direct on-chain signal we can always measure.
     const isZeroEmission = d.emissionPct === 0;
     const investZeroEmissionPenalty = isZeroEmission ? -20 : 0;
 
-    const rawInvestAGap = pillarDev + pillarProduct + pillarNetwork + pillarMoney
+    const rawInvestAGap = pillarConviction + pillarAuditDecen + pillarDev + pillarProduct
+                        + pillarNetwork + pillarGrowthTiming
                         + revTractionBonus + marketValidationBonus + investSynergy
                         + growthPotentialBonus
                         + emissionPenalty + networkHealthPenalty + whalePenalty
-                        + viability + investDeregPenalty + investZeroEmissionPenalty + pillarHealth;
+                        + viability + investDeregPenalty + investZeroEmissionPenalty;
 
     const clampedInvestAGap = Math.max(1, Math.min(100, Math.round(rawInvestAGap)));
 
