@@ -24,7 +24,7 @@ const TMC_API_KEY  = process.env.TMC_API_KEY || "";
 const RAO_PER_TAO  = 1_000_000_000;
 const ROOT_NETUID  = 0; // subnet 0 = root/legacy — NOT an alpha token
 
-const MAIN_CACHE_KEY    = "wallet-tracker-v12.json";
+const MAIN_CACHE_KEY    = "wallet-tracker-v13.json";
 const MAIN_CACHE_TTL_MS = 60 * 60 * 1000; // 60 min (expensive to compute)
 
 const WIN_CACHE_KEY     = "wallet-tracker-winners.json";
@@ -328,49 +328,78 @@ async function filterToAlphaHolders(addresses: string[]): Promise<Set<string>> {
   return result;
 }
 
+// ── Parse TaoStats delegation responses robustly ──────────────────
+// TaoStats has shipped multiple response shapes over time:
+//   { data: [...] }   (v1 original)
+//   { results: [...] } (some versions)
+//   [...] direct array (rare)
+// This helper extracts alpha investor addresses regardless of shape.
+function extractTSAlphaAddresses(raw: unknown): Set<string> {
+  const result = new Set<string>();
+  let rows: unknown[] = [];
+  if (Array.isArray(raw)) {
+    rows = raw;
+  } else if (raw && typeof raw === "object") {
+    const r = raw as Record<string, unknown>;
+    if (Array.isArray(r.data))    rows = r.data;
+    else if (Array.isArray(r.results)) rows = r.results;
+  }
+  for (const d of rows) {
+    if (!d || typeof d !== "object") continue;
+    const row = d as Record<string, unknown>;
+    const netuid = row.netuid as number | null;
+    if (netuid == null || netuid <= 0) continue;
+    // Handle both nominator.ss58, nominator.address, and nominator as plain string
+    const nom = row.nominator;
+    let addr: string | undefined;
+    if (typeof nom === "string") addr = nom;
+    else if (nom && typeof nom === "object") {
+      const n = nom as Record<string, unknown>;
+      addr = (n.ss58 ?? n.address ?? n.coldkey ?? n.id) as string | undefined;
+    }
+    if (addr && typeof addr === "string") result.add(addr);
+  }
+  return result;
+}
+
 // ── Build the main filtered wallet list ───────────────────────────
 // Strategy: seed candidates from TaoStats delegation events (confirmed alpha
 // holders). Sort by timestamp_desc to get diverse recent stakers, and fetch
 // 5 pages in parallel to collect 300+ unique alpha wallet addresses.
+// Fallback: TMC top 400 by tao_staked + top 200 by tao_change_24h for broader coverage.
 async function buildMainList(): Promise<WalletEntry[]> {
   const TAOSTATS_KEY = process.env.TAOSTATS_API_KEY || "";
   const thirtyDaysAgo = Math.floor((Date.now() - 30 * 86400_000) / 1000);
 
   // Fetch in parallel:
   //  1. TaoStats delegations pages 1-5 (timestamp_desc = most recent + diverse)
-  //  2. TMC top 100 — rank + 24h change data for known wallets
-  //  3. Subnet names + TAO price
-  interface TSDelegationLite { nominator: { ss58: string }; netuid: number | null; }
-  type TSResult = { data?: TSDelegationLite[] };
-
+  //  2. TMC top 400 by tao_staked — rank + 24h change data
+  //  3. TMC top 200 by tao_change_24h — most actively trading wallets
+  //  4. Subnet names + TAO price
   const tsFetch = (page: number) =>
     fetch(
       `https://api.taostats.io/api/delegation/v1?limit=200&page=${page}&order=timestamp_desc&timestamp_start=${thirtyDaysAgo}`,
       { headers: { Authorization: TAOSTATS_KEY }, signal: AbortSignal.timeout(15000), next: { revalidate: 0 } }
-    ).then(r => r.ok ? r.json() as Promise<TSResult> : { data: [] }).catch(() => ({ data: [] }));
+    ).then(r => r.ok ? r.json() : null).catch(() => null);
 
-  const [ts1, ts2, ts3, ts4, ts5, tmcTop, subnetNames, taoPrice] = await Promise.all([
+  const [ts1, ts2, ts3, ts4, ts5, tmcTop, tmcRecent, subnetNames, taoPrice] = await Promise.all([
     tsFetch(1), tsFetch(2), tsFetch(3), tsFetch(4), tsFetch(5),
-    fetchTMCList("tao_staked", 100).catch(() => [] as TMCColdkey[]),
+    fetchTMCList("tao_staked",     400).catch(() => [] as TMCColdkey[]),
+    fetchTMCList("tao_change_24h", 200).catch(() => [] as TMCColdkey[]),
     fetchSubnetNames(),
     getTaoPrice().catch(() => 0),
   ]);
 
-  // Collect confirmed alpha investor addresses from TaoStats (netuid > 0 only)
+  // Collect confirmed alpha investor addresses from TaoStats (format-resilient)
   const tsAddresses = new Set<string>();
   for (const page of [ts1, ts2, ts3, ts4, ts5]) {
-    for (const d of (page.data ?? [])) {
-      if (d.netuid != null && d.netuid > 0 && d.nominator?.ss58) {
-        tsAddresses.add(d.nominator.ss58);
-      }
-    }
+    for (const addr of extractTSAlphaAddresses(page)) tsAddresses.add(addr);
   }
-  console.log(`[wallet-tracker] ${tsAddresses.size} alpha investors from TaoStats (5 pages), ${tmcTop.length} from TMC top, TAO=$${taoPrice}`);
+  console.log(`[wallet-tracker] ${tsAddresses.size} alpha investors from TaoStats (5 pages), ${tmcTop.length} from TMC top-400, ${tmcRecent.length} from TMC recent-200, TAO=$${taoPrice}`);
 
-  // Build TMC lookup for rank + 24h change enrichment
+  // Build TMC lookup for rank + 24h change enrichment (merge both TMC lists)
   const tmcMap = new Map<string, TMCColdkey>();
-  for (const w of tmcTop) tmcMap.set(w.id, w);
-
+  for (const w of [...tmcTop, ...tmcRecent]) tmcMap.set(w.id, w);
   // Known wallets go FIRST so they're always in the first fetch batch
   // (avoids rate-limit nulls that happen when they're queued at position 400+)
   const knownAddresses = Object.keys(KNOWN_WALLETS);
@@ -380,10 +409,15 @@ async function buildMainList(): Promise<WalletEntry[]> {
   for (const addr of tsAddresses) {
     if (!knownSet.has(addr)) allAddresses.push(addr);
   }
-  for (const w of tmcTop) {
-    if (!knownSet.has(w.id) && !tsAddresses.has(w.id) && (w.tao_staked ?? 0) > 0) allAddresses.push(w.id);
+  // Fallback: add TMC wallets that have any staked TAO (both lists)
+  const seen = new Set([...knownAddresses, ...tsAddresses]);
+  for (const w of [...tmcTop, ...tmcRecent]) {
+    if (!seen.has(w.id) && (w.tao_staked ?? 0) > 0) {
+      seen.add(w.id);
+      allAddresses.push(w.id);
+    }
   }
-  const candidates = allAddresses.slice(0, 550);
+  const candidates = allAddresses.slice(0, 700);
   console.log(`[wallet-tracker] ${candidates.length} candidates to detail-fetch`);
 
   // Batch-fetch TMC detail (25 concurrent, 250ms pause between batches)
