@@ -198,13 +198,57 @@ function ExpandedDetail({ audit }: { audit: SubnetAudit }) {
 type SortKey =
   | "score" | "agap" | "marketCap" | "nakamoto" | "hhi" | "top10" | "burn"
   | "holders" | "chainBuy"
-  | "taoPool" | "staleVal" | "ziMiners" | "loc30d";
+  | "taoPool" | "staleVal" | "ziMiners" | "loc30d" | "conviction";
 
 const SORT_DEFAULTS: Record<SortKey, "asc" | "desc"> = {
   score: "desc", agap: "desc", marketCap: "desc", nakamoto: "desc", hhi: "asc", top10: "asc", burn: "asc",
   holders: "desc", chainBuy: "desc",
-  taoPool: "desc", staleVal: "asc", ziMiners: "asc", loc30d: "desc",
+  taoPool: "desc", staleVal: "asc", ziMiners: "asc", loc30d: "desc", conviction: "desc",
 };
+
+/**
+ * Conviction Score (0–100) — BIT-0011 on-chain commitment signal.
+ * Built from signals already in the leaderboard:
+ *   • alpha_staked_pct  → 0–50 pts  (primary: % of supply locked, not in DEX)
+ *   • tao_locked        → 0–30 pts  (capital depth / liquidity confidence)
+ *   • const_buy/sell    → –10–20 pts (team skin-in-the-game)
+ */
+function convictionScore(
+  alphaStakedPct: number | undefined,
+  taoLocked: number | undefined,
+  constBuy: number | undefined,
+  constSell: number | undefined,
+): number {
+  // 1. Alpha staked %
+  const staked = alphaStakedPct ?? 0;
+  const stakedPts =
+    staked >= 75 ? 50 :
+    staked >= 65 ? 40 :
+    staked >= 55 ? 30 :
+    staked >= 45 ? 20 :
+    staked >= 35 ? 10 : 0;
+
+  // 2. TAO in pool (liquidity conviction)
+  const locked = taoLocked ?? 0;
+  const lockedPts =
+    locked >= 15_000 ? 30 :
+    locked >= 8_000  ? 22 :
+    locked >= 3_000  ? 15 :
+    locked >= 1_000  ? 8  :
+    locked >= 200    ? 3  : 0;
+
+  // 3. Team (Const) net buy/sell
+  const netConst = (constBuy ?? 0) - (constSell ?? 0);
+  const constPts =
+    netConst >= 2_000 ? 20 :
+    netConst >= 1_000 ? 15 :
+    netConst >= 300   ? 10 :
+    netConst > 0      ? 5  :
+    netConst <= -500  ? -10 :
+    netConst <= -200  ? -5  : 0;
+
+  return Math.max(0, Math.min(100, stakedPts + lockedPts + constPts));
+}
 
 // Small LOC-based adjustment to audit score (+4 to −3)
 function locAuditAdj(loc30d: number | undefined): number {
@@ -217,24 +261,24 @@ function locAuditAdj(loc30d: number | undefined): number {
   return 0;
 }
 
-// sortValue needs the agap + marketCap + loc30d maps passed in
-function sortValue(a: SubnetAudit, key: SortKey, agapMap: Map<number, number>, mcapMap: Map<number, number | undefined>, loc30dMap: Map<number, number | undefined>): number {
+// sortValue needs the agap + marketCap + loc30d + conviction maps passed in
+function sortValue(a: SubnetAudit, key: SortKey, agapMap: Map<number, number>, mcapMap: Map<number, number | undefined>, loc30dMap: Map<number, number | undefined>, convMap: Map<number, number>): number {
   switch (key) {
-    case "score":     return a.operationalScore + locAuditAdj(loc30dMap.get(a.netuid));
-    case "agap":      return agapMap.get(a.netuid) ?? -1;
-    case "marketCap": return mcapMap.get(a.netuid) ?? -1;
-    case "nakamoto": return a.nakamotoCoefficient;
-    case "hhi":      return a.hhiNormalized;
-    case "top10":    return a.top10Share;
-    case "burn":     return a.burnedEmissionPct;
-    case "holders":  return a.holdersCount ?? -1;
-    case "chainBuy": return a.emissionChainBuysPct ?? -1;
-
-    case "taoPool":  return a.taoInPool ?? -1;
-    case "staleVal": return a.staleValidatorPct;
-    case "ziMiners": return a.zeroIncentiveMinerPct;
-    case "loc30d":   return loc30dMap.get(a.netuid) ?? -1;
-    default:         return 0;
+    case "score":      return a.operationalScore + locAuditAdj(loc30dMap.get(a.netuid));
+    case "agap":       return agapMap.get(a.netuid) ?? -1;
+    case "marketCap":  return mcapMap.get(a.netuid) ?? -1;
+    case "nakamoto":   return a.nakamotoCoefficient;
+    case "hhi":        return a.hhiNormalized;
+    case "top10":      return a.top10Share;
+    case "burn":       return a.burnedEmissionPct;
+    case "holders":    return a.holdersCount ?? -1;
+    case "chainBuy":   return a.emissionChainBuysPct ?? -1;
+    case "taoPool":    return a.taoInPool ?? -1;
+    case "staleVal":   return a.staleValidatorPct;
+    case "ziMiners":   return a.zeroIncentiveMinerPct;
+    case "loc30d":     return loc30dMap.get(a.netuid) ?? -1;
+    case "conviction": return convMap.get(a.netuid) ?? -1;
+    default:           return 0;
   }
 }
 
@@ -262,6 +306,15 @@ export default function AuditsPage() {
   // Build netuid → loc_30d from leaderboard (lines of code added+deleted in past 30 days)
   const loc30dMap = useMemo(
     () => new Map(leaderboard.map(s => [s.netuid, s.loc_30d])),
+    [leaderboard]
+  );
+
+  // Build netuid → conviction score from leaderboard signals
+  const convictionMap = useMemo(
+    () => new Map(leaderboard.map(s => [
+      s.netuid,
+      convictionScore(s.alpha_staked_pct, s.tao_locked, s.const_buy_tao, s.const_sell_tao),
+    ])),
     [leaderboard]
   );
 
@@ -317,7 +370,7 @@ export default function AuditsPage() {
       return true;
     });
     list = [...list].sort((a, b) => {
-      const diff = sortValue(a, sortKey, agapMap, marketCapUsdMap, loc30dMap) - sortValue(b, sortKey, agapMap, marketCapUsdMap, loc30dMap);
+      const diff = sortValue(a, sortKey, agapMap, marketCapUsdMap, loc30dMap, convictionMap) - sortValue(b, sortKey, agapMap, marketCapUsdMap, loc30dMap, convictionMap);
       return sortDir === "desc" ? -diff : diff;
     });
     return list;
@@ -430,6 +483,11 @@ export default function AuditsPage() {
                     onClick={() => handleSort("ziMiners")} sorted={sortKey === "ziMiners"} />
                   <ColHeader label="VTrust" sub="validator align"
                     tooltip="Average validator trust score (0–1.0) across all validators. Measures how aligned each validator's weight-setting is with the honest stake-weighted majority. 1.0 = perfect consensus. Low VTrust means validators disagree on which miners are good — often a sign of manipulation, spam, or poor coordination." />
+
+                  {/* Conviction */}
+                  <ColHeader label="Conviction" sub="BIT-0011"
+                    tooltip="On-chain commitment score (0–100) based on BIT-0011 Conviction mechanics. Scores alpha staked % (locked supply not in DEX), TAO pool depth, and team net-buy activity. High conviction = more capital locked, harder to exit silently."
+                    onClick={() => handleSort("conviction")} sorted={sortKey === "conviction"} />
 
                 </tr>
               </thead>
@@ -614,6 +672,25 @@ export default function AuditsPage() {
                         ) : (
                           <span className="text-gray-600 text-sm">—</span>
                         )}
+                      </td>
+
+                      {/* Conviction score */}
+                      <td className="px-2.5 py-3 text-right">
+                        {(() => {
+                          const cv = convictionMap.get(audit.netuid);
+                          if (cv == null) return <span className="text-gray-600 text-sm">—</span>;
+                          const label = cv >= 70 ? "HIGH" : cv >= 40 ? "MED" : "LOW";
+                          const cls =
+                            cv >= 70 ? "text-emerald-400" :
+                            cv >= 40 ? "text-yellow-400" :
+                            "text-red-400";
+                          return (
+                            <div className="flex flex-col items-end gap-0.5">
+                              <span className={`tabular-nums font-bold text-sm ${cls}`}>{cv}</span>
+                              <span className={`text-[9px] font-semibold uppercase tracking-wide ${cls} opacity-70`}>{label}</span>
+                            </div>
+                          );
+                        })()}
                       </td>
 
                     </tr>
