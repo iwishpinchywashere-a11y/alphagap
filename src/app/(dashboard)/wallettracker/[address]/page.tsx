@@ -42,6 +42,7 @@ interface WalletProfile {
   avg_hold_days:  number | null;
   positions:      AlphaPosition[];
   trades:         TradeEntry[];
+  trades_failed?: boolean;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────
@@ -169,10 +170,11 @@ export default function WalletProfilePage() {
     setBackHref(`/wallettracker?tab=${from}`);
   }, []);
 
-  const [profile, setProfile] = useState<WalletProfile | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error,   setError]   = useState<string | null>(null);
-  const [copied,  setCopied]  = useState(false);
+  const [profile,        setProfile]        = useState<WalletProfile | null>(null);
+  const [loading,        setLoading]        = useState(true);
+  const [error,          setError]          = useState<string | null>(null);
+  const [copied,         setCopied]         = useState(false);
+  const [tradesRetrying, setTradesRetrying] = useState(false);
 
   const load = useCallback(() => {
     if (!address) return;
@@ -189,6 +191,20 @@ export default function WalletProfilePage() {
   }, [address]);
 
   useEffect(() => { load(); }, [load]);
+
+  const retryTrades = useCallback(() => {
+    if (!address || tradesRetrying) return;
+    setTradesRetrying(true);
+    fetch(`/api/wallet-tracker?mode=wallet-trades&address=${encodeURIComponent(address)}`)
+      .then(r => r.json())
+      .then((d: { trades?: TradeEntry[]; error?: string }) => {
+        if (d.trades && d.trades.length >= 0) {
+          setProfile(prev => prev ? { ...prev, trades: d.trades!, trades_failed: false } : prev);
+        }
+      })
+      .catch(() => { /* leave trades_failed as-is */ })
+      .finally(() => setTradesRetrying(false));
+  }, [address, tradesRetrying]);
 
   function copyAddress() {
     navigator.clipboard.writeText(address).catch(() => {});
@@ -394,62 +410,98 @@ export default function WalletProfilePage() {
       )}
 
       {/* ── Recent Trades table ──────────────────────────────────── */}
-      {profile.trades.length > 0 && (
+      {(profile.trades.length > 0 || profile.trades_failed) && (
         <section className="space-y-2">
-          <h2 className="text-sm font-semibold text-white">Recent Trades</h2>
-
-          <div className="bg-[#111318] border border-gray-800/80 rounded-xl overflow-hidden">
-            {/* Header */}
-            <div className="grid grid-cols-[5rem_1fr_auto] sm:grid-cols-[5rem_1fr_auto_auto] items-center gap-3 px-4 py-2.5 border-b border-gray-800 text-[9px] font-bold uppercase tracking-widest text-gray-600">
-              <div>Action</div>
-              <div>Subnet</div>
-              <div className="text-right w-24">Amount</div>
-              <div className="hidden sm:block text-right w-14">When</div>
-            </div>
-
-            {profile.trades.map((trade, i) => {
-              const isBuy = trade.action === "DELEGATE";
-              return (
-                <div
-                  key={i}
-                  className="grid grid-cols-[5rem_1fr_auto] sm:grid-cols-[5rem_1fr_auto_auto] items-center gap-3 px-4 py-2.5 border-b border-gray-800/40 last:border-0 hover:bg-white/[0.02] transition-colors"
-                >
-                  {/* Badge */}
-                  <div className={`inline-flex items-center gap-1 text-[9px] font-bold px-2 py-1 rounded-md w-fit ${
-                    isBuy
-                      ? "bg-green-500/10 text-green-400 border border-green-500/20"
-                      : "bg-red-500/10 text-red-400 border border-red-500/20"
-                  }`}>
-                    {isBuy ? "▲" : "▼"} {isBuy ? "STAKE" : "UNSTAKE"}
-                  </div>
-
-                  {/* Subnet */}
-                  <div className="flex items-center gap-2 min-w-0">
-                    {trade.netuid != null && trade.netuid > 0 && (
-                      <SubnetLogo netuid={trade.netuid} name={trade.subnet_name} size={16} />
-                    )}
-                    <span className="text-[9px] text-gray-600 font-mono flex-shrink-0">SN{trade.netuid ?? "—"}</span>
-                    <span className="text-xs text-gray-300 truncate">{trade.subnet_name}</span>
-                  </div>
-
-                  {/* Amount */}
-                  <div className="text-right w-24">
-                    <div className={`text-xs font-semibold tabular-nums ${isBuy ? "text-green-400" : "text-red-400"}`}>
-                      {fmtTao(trade.amount_tao)}
-                    </div>
-                    {trade.amount_usd > 0 && (
-                      <div className="text-[10px] text-gray-600 tabular-nums">{fmtUsd(trade.amount_usd)}</div>
-                    )}
-                  </div>
-
-                  {/* Time */}
-                  <div className="hidden sm:block text-right w-14 text-[10px] text-gray-600 tabular-nums">
-                    {timeAgo(trade.timestamp)}
-                  </div>
-                </div>
-              );
-            })}
+          <div className="flex items-center gap-3">
+            <h2 className="text-sm font-semibold text-white">Recent Trades</h2>
+            {profile.trades_failed && (
+              <button
+                onClick={retryTrades}
+                disabled={tradesRetrying}
+                className="inline-flex items-center gap-1.5 text-[10px] font-medium px-2.5 py-1 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20 hover:bg-amber-500/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {tradesRetrying ? (
+                  <>
+                    <span className="w-2.5 h-2.5 border border-amber-400/40 border-t-amber-400 rounded-full animate-spin" />
+                    Loading…
+                  </>
+                ) : (
+                  <>
+                    ↺ Retry
+                  </>
+                )}
+              </button>
+            )}
           </div>
+
+          {profile.trades_failed && !tradesRetrying ? (
+            <div className="bg-[#111318] border border-gray-800/80 rounded-xl px-6 py-10 flex flex-col items-center gap-3 text-center">
+              <svg className="w-8 h-8 text-amber-500/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                  d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+              </svg>
+              <p className="text-sm text-gray-500">Trade history couldn&apos;t be loaded right now.</p>
+              <button
+                onClick={retryTrades}
+                className="text-xs text-amber-400 hover:text-amber-300 underline underline-offset-2 transition-colors"
+              >
+                Try again
+              </button>
+            </div>
+          ) : profile.trades.length > 0 && (
+            <div className="bg-[#111318] border border-gray-800/80 rounded-xl overflow-hidden">
+              {/* Header */}
+              <div className="grid grid-cols-[5rem_1fr_auto] sm:grid-cols-[5rem_1fr_auto_auto] items-center gap-3 px-4 py-2.5 border-b border-gray-800 text-[9px] font-bold uppercase tracking-widest text-gray-600">
+                <div>Action</div>
+                <div>Subnet</div>
+                <div className="text-right w-24">Amount</div>
+                <div className="hidden sm:block text-right w-14">When</div>
+              </div>
+
+              {profile.trades.map((trade, i) => {
+                const isBuy = trade.action === "DELEGATE";
+                return (
+                  <div
+                    key={i}
+                    className="grid grid-cols-[5rem_1fr_auto] sm:grid-cols-[5rem_1fr_auto_auto] items-center gap-3 px-4 py-2.5 border-b border-gray-800/40 last:border-0 hover:bg-white/[0.02] transition-colors"
+                  >
+                    {/* Badge */}
+                    <div className={`inline-flex items-center gap-1 text-[9px] font-bold px-2 py-1 rounded-md w-fit ${
+                      isBuy
+                        ? "bg-green-500/10 text-green-400 border border-green-500/20"
+                        : "bg-red-500/10 text-red-400 border border-red-500/20"
+                    }`}>
+                      {isBuy ? "▲" : "▼"} {isBuy ? "STAKE" : "UNSTAKE"}
+                    </div>
+
+                    {/* Subnet */}
+                    <div className="flex items-center gap-2 min-w-0">
+                      {trade.netuid != null && trade.netuid > 0 && (
+                        <SubnetLogo netuid={trade.netuid} name={trade.subnet_name} size={16} />
+                      )}
+                      <span className="text-[9px] text-gray-600 font-mono flex-shrink-0">SN{trade.netuid ?? "—"}</span>
+                      <span className="text-xs text-gray-300 truncate">{trade.subnet_name}</span>
+                    </div>
+
+                    {/* Amount */}
+                    <div className="text-right w-24">
+                      <div className={`text-xs font-semibold tabular-nums ${isBuy ? "text-green-400" : "text-red-400"}`}>
+                        {fmtTao(trade.amount_tao)}
+                      </div>
+                      {trade.amount_usd > 0 && (
+                        <div className="text-[10px] text-gray-600 tabular-nums">{fmtUsd(trade.amount_usd)}</div>
+                      )}
+                    </div>
+
+                    {/* Time */}
+                    <div className="hidden sm:block text-right w-14 text-[10px] text-gray-600 tabular-nums">
+                      {timeAgo(trade.timestamp)}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </section>
       )}
 
