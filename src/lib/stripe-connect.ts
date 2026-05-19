@@ -11,13 +11,15 @@ export async function createConnectAccount(
   userId: string,
 ): Promise<string> {
   const stripe = getStripe();
+  // Do NOT pre-set country or capabilities — Stripe's hosted onboarding will
+  // ask the affiliate to choose their country and will configure the correct
+  // capabilities for that country automatically. Pre-setting capabilities
+  // causes Stripe to default to the platform's home country (CA) for Express
+  // accounts, which locks out affiliates in the US, EU, Asia, etc.
   const account = await stripe.accounts.create({
     type: "express",
     email,
     metadata: { userId },
-    capabilities: {
-      transfers: { requested: true },
-    },
   });
   return account.id;
 }
