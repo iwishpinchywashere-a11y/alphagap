@@ -6,9 +6,13 @@ export const dynamic = "force-dynamic";
 const TOKEN = () => process.env.BLOB_READ_WRITE_TOKEN ?? "";
 
 export async function POST(req: Request): Promise<NextResponse> {
-  // Simple secret guard
-  const { secret } = await req.json().catch(() => ({}));
-  if (!secret || secret !== process.env.ADMIN_SECRET) {
+  // Auth: matches pattern used by other admin routes
+  const adminSecret = (process.env.ADMIN_SECRET || process.env.CRON_SECRET || "").trim();
+  const authHeader = req.headers.get("authorization") || "";
+  const url = new URL(req.url);
+  const querySecret = url.searchParams.get("secret") || "";
+  const ok = !adminSecret || authHeader === `Bearer ${adminSecret}` || querySecret === adminSecret;
+  if (!ok) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
