@@ -77,7 +77,7 @@ export default function SignalsPage() {
             <div className="flex items-start justify-between gap-4 mb-4">
               <div>
                 <h1 className="text-3xl font-bold bg-gradient-to-r from-green-400 via-emerald-300 to-white bg-clip-text text-transparent leading-tight mb-1">
-                  ⚡ Intelligence Feed
+                  ⚡ Development Intelligence Feed
                 </h1>
                 <p className="text-sm text-gray-400 max-w-xl">
                   AI-scored developer activity across every active subnet — commits, model releases, and protocol upgrades ranked by signal strength.
