@@ -208,9 +208,15 @@ function AffiliateDashboard({ userId, userEmail }: { userId: string; userEmail: 
         </div>
 
         {refLink ? (
-          <div className="flex items-center gap-2 bg-black/40 rounded-xl px-4 py-3 border border-white/10">
-            <span className="text-sm text-gray-300 flex-1 truncate font-mono">{refLink}</span>
-            <CopyButton text={refLink} />
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 bg-black/40 rounded-xl px-4 py-3 border border-white/10">
+              <span className="text-sm text-gray-300 flex-1 truncate font-mono">{refLink}</span>
+              <CopyButton text={refLink} />
+            </div>
+            <p className="text-xs text-purple-400/80 flex items-center gap-1.5">
+              <span>🎁</span>
+              Anyone who clicks this link gets <span className="font-semibold">10% off their first month</span> — automatically at checkout
+            </p>
           </div>
         ) : (
           <p className="text-sm text-gray-500">Generating your link…</p>
@@ -382,7 +388,7 @@ export default function ReferralPage() {
         <div className="text-center space-y-5">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-green-500/10 border border-green-500/20 text-green-400 text-xs font-medium uppercase tracking-wider">
             <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
-            Referral Program
+            Founder&apos;s Affiliate Program
           </div>
 
           <h1 className="text-4xl sm:text-5xl font-bold tracking-tight leading-tight">
@@ -395,6 +401,15 @@ export default function ReferralPage() {
             Share AlphaGap with your network. When someone subscribes through your link,
             you get 20% of every payment they make — forever.
           </p>
+
+          {/* Referral bonus callout */}
+          <div className="inline-flex items-center gap-2.5 px-4 py-2.5 rounded-xl bg-purple-500/10 border border-purple-500/25 text-sm">
+            <span className="text-lg">🎁</span>
+            <span className="text-purple-300">
+              <span className="font-semibold text-purple-200">Your referrals get 10% off their first month</span>
+              {" "}— automatically applied at checkout
+            </span>
+          </div>
 
           {/* Key badges */}
           <div className="flex flex-wrap justify-center gap-3 pt-1">
@@ -457,7 +472,7 @@ export default function ReferralPage() {
                 step: "02",
                 icon: "📣",
                 title: "Share it anywhere",
-                desc: "Post it on X/Twitter, Discord, Telegram, your newsletter — anywhere the Bittensor community lives.",
+                desc: "Post it on X/Twitter, Discord, Telegram, your newsletter — anywhere the Bittensor community lives. Anyone who clicks your link gets 10% off their first month, automatically.",
               },
               {
                 step: "03",
@@ -506,6 +521,7 @@ export default function ReferralPage() {
         {/* ── Fine print ── */}
         <p className="text-xs text-gray-600 text-center leading-relaxed">
           20% commission on every payment made by referred subscribers · Commissions are lifetime — they never expire ·
+          Referred users receive 10% off their first month, automatically applied at checkout ·
           Payouts via Stripe Connect direct to your bank · 90-day attribution window · Self-referrals are not eligible ·
           AlphaGap reserves the right to modify or terminate the program with 30 days notice
         </p>
