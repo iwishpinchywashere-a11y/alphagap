@@ -3391,22 +3391,15 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     const investZeroEmissionPenalty = isZeroEmission ? -20 : 0;
 
     // ── INVEST VIABILITY (replaces trading viability for investing formula) ──
-    // The investing formula is explicitly for blue-chip quality subnets.
-    // Small caps below $4M are too illiquid, too risky, and too volatile to be
-    // legitimately ranked highly as an investment thesis — not a trading call.
-    // Large caps get a quality bonus: size signals market consensus and liquidity.
+    // The investing formula is for quality subnets. Small caps below $4M are
+    // too illiquid and speculative to rank highly on a monthly investing thesis.
     let investViability = 0;
     if      (mcap < 100_000)   investViability = -50; // ghost subnet
     else if (mcap < 500_000)   investViability = -40; // effectively uninvestable
     else if (mcap < 1_000_000) investViability = -32; // extreme illiquidity
     else if (mcap < 2_000_000) investViability = -24; // very illiquid
-    else if (mcap < 3_000_000) investViability = -16; // below blue-chip threshold
-    else if (mcap < 4_000_000) investViability = -10; // borderline — near cutoff
-    // $4M+ = investable; no penalty. Large caps get a quality signal bonus.
-    else if (mcap >= 100_000_000) investViability =  8; // top-tier blue chip
-    else if (mcap >=  50_000_000) investViability =  6;
-    else if (mcap >=  20_000_000) investViability =  4;
-    else if (mcap >=  10_000_000) investViability =  2;
+    else if (mcap < 3_000_000) investViability = -16; // below threshold
+    else if (mcap < 4_000_000) investViability = -10; // borderline
 
     const rawInvestAGap = pillarConviction + pillarAuditDecen + pillarDev + pillarProduct
                         + pillarNetwork + pillarGrowthTiming
