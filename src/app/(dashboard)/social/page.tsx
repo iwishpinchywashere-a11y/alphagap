@@ -347,16 +347,6 @@ export default function SocialPage() {
           </button>
         </div>
 
-        {/* ── Stat Cards ── */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-          <StatCard icon="🔥" label="Hot Events"        value={stats.totalHotEvents}          sub="last 72h" />
-          <StatCard icon="⚡" label="Subnets Buzzing"   value={stats.subnetsWithHeat}          sub="with KOL heat" />
-          <StatCard icon="🎯" label="KOLs Tracked"      value={stats.kolsTracked}              sub={`T1: ${stats.tier1Count} · T2: ${stats.tier2Count}`} />
-          <StatCard icon="💬" label="Channels Scanned"  value={stats.discordChannelsScanned}   sub="subnet Discords" />
-          <StatCard icon="🟢" label="Alpha Signals"     value={stats.discordAlphaCount}        sub="channels signalling" />
-          <StatCard icon="📶" label="Discord Active"    value={stats.discordActiveCount}       sub="channels engaged" />
-        </div>
-
         {/* ── Founder Signal ── */}
         {(() => {
           const founderEntries = rawDiscordLeaderboard.filter(d => d.founderPost);
