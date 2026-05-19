@@ -559,6 +559,11 @@ export default function FlowPage() {
         </div>
       </div>
 
+      {/* ── Mini Flow Leaderboard ───────────────────────────────── */}
+      {leaderboard.length > 0 && (
+        <FlowMiniLeaderboard leaderboard={leaderboard} taoPrice={taoPrice} />
+      )}
+
       <main className="flex-1 overflow-auto p-4 md:p-6">
         {/* Filter + sort bar */}
         <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
@@ -642,6 +647,97 @@ export default function FlowPage() {
           </div>
         )}
       </main>
+    </div>
+  );
+}
+
+function FlowMiniLeaderboard({
+  leaderboard,
+  taoPrice,
+}: {
+  leaderboard: SubnetScore[];
+  taoPrice: number | null;
+}) {
+  const withFlow = leaderboard.filter(s => s.net_flow_24h != null);
+
+  const top5 = [...withFlow]
+    .sort((a, b) => (b.net_flow_24h ?? 0) - (a.net_flow_24h ?? 0))
+    .slice(0, 5);
+
+  const bottom5 = [...withFlow]
+    .sort((a, b) => (a.net_flow_24h ?? 0) - (b.net_flow_24h ?? 0))
+    .slice(0, 5);
+
+  if (top5.length === 0) return null;
+
+  function fmtFlow(tao: number) {
+    if (taoPrice != null) {
+      const usd = Math.abs(tao * taoPrice);
+      if (usd >= 1_000_000) return `$${(usd / 1_000_000).toFixed(1)}M`;
+      if (usd >= 1_000) return `$${(usd / 1_000).toFixed(0)}k`;
+      return `$${usd.toFixed(0)}`;
+    }
+    const abs = Math.abs(tao);
+    if (abs >= 1000) return `${(abs / 1000).toFixed(1)}k τ`;
+    return `${abs.toFixed(1)} τ`;
+  }
+
+  return (
+    <div className="border-b border-gray-800/50 px-4 md:px-6 py-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+
+        {/* Top 5 — most inflow */}
+        <div>
+          <div className="flex items-center gap-2 mb-2">
+            <div className="w-1.5 h-1.5 rounded-full bg-green-400" />
+            <span className="text-[11px] font-bold uppercase tracking-widest text-green-500/80">Top Inflow</span>
+            <span className="text-[10px] text-gray-600">24h net buy flow</span>
+          </div>
+          <div className="space-y-1">
+            {top5.map((s, i) => {
+              const flow = s.net_flow_24h ?? 0;
+              const isPositive = flow >= 0;
+              return (
+                <div key={s.netuid} className="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-green-500/5 border border-green-500/15 hover:bg-green-500/10 transition-colors">
+                  <span className="text-[10px] font-bold text-gray-600 tabular-nums w-4 flex-shrink-0">#{i + 1}</span>
+                  <SubnetLogo netuid={s.netuid} name={s.name} size={22} />
+                  <span className="flex-1 text-xs font-semibold text-white truncate min-w-0">{s.name}</span>
+                  <span className="text-[10px] text-gray-500 font-mono flex-shrink-0">SN{s.netuid}</span>
+                  <span className="text-xs font-bold text-green-400 tabular-nums flex-shrink-0">
+                    +{fmtFlow(flow)}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Bottom 5 — most outflow */}
+        <div>
+          <div className="flex items-center gap-2 mb-2">
+            <div className="w-1.5 h-1.5 rounded-full bg-red-400" />
+            <span className="text-[11px] font-bold uppercase tracking-widest text-red-500/80">Top Outflow</span>
+            <span className="text-[10px] text-gray-600">24h net sell flow</span>
+          </div>
+          <div className="space-y-1">
+            {bottom5.map((s, i) => {
+              const flow = s.net_flow_24h ?? 0;
+              return (
+                <div key={s.netuid} className="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-red-500/5 border border-red-500/15 hover:bg-red-500/10 transition-colors">
+                  <span className="text-[10px] font-bold text-gray-600 tabular-nums w-4 flex-shrink-0">#{i + 1}</span>
+                  <SubnetLogo netuid={s.netuid} name={s.name} size={22} />
+                  <span className="flex-1 text-xs font-semibold text-white truncate min-w-0">{s.name}</span>
+                  <span className="text-[10px] text-gray-500 font-mono flex-shrink-0">SN{s.netuid}</span>
+                  <span className="text-xs font-bold text-red-400 tabular-nums flex-shrink-0">
+                    -{fmtFlow(flow)}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+      </div>
     </div>
   );
 }
