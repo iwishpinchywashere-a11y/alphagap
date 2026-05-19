@@ -171,7 +171,7 @@ export const SUBNET_PLAIN_ENGLISH: Record<number, { blurb: string; analogy: stri
     analogy: "Like outsourcing a complex routing puzzle to thousands of computers competing for the best path.",
   },
   44: {
-    blurb: "Manako is an enterprise physical AI platform — real-time camera intelligence with automated dispatch. PwC France partner.",
+    blurb: "Manako turns enterprise cameras into real-time operations systems. PwC France partner.",
     analogy: "Like giving every security camera in a factory a brain that tells the right person what to do.",
   },
   45: {
