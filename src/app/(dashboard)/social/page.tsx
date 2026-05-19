@@ -6,6 +6,7 @@ import { useSession } from "next-auth/react";
 import BlurGate from "@/components/BlurGate";
 import { getTier } from "@/lib/subscription";
 import { useWatchlist } from "@/components/dashboard/WatchlistProvider";
+import SubnetLogo from "@/components/dashboard/SubnetLogo";
 
 // ── Types ──────────────────────────────────────────────────────────
 interface HotTweet {
@@ -305,6 +306,14 @@ export default function SocialPage() {
           </div>
         </div>
       </div>
+
+      {/* ── Top 5 Most Buzzing ── */}
+      <SocialBuzzLeaderboard
+        xLeaderboard={rawXLeaderboard}
+        discordLeaderboard={rawDiscordLeaderboard}
+        hotTweets={rawHotTweets}
+        onNavigate={(netuid) => router.push(`/subnets/${netuid}`)}
+      />
 
       <main className="max-w-screen-xl mx-auto px-4 md:px-6 py-6 space-y-5">
 
@@ -642,6 +651,146 @@ export default function SocialPage() {
         </div>
 
       </main>
+    </div>
+  );
+}
+
+// ── Social Buzz Leaderboard ───────────────────────────────────────
+function SocialBuzzLeaderboard({
+  xLeaderboard,
+  discordLeaderboard,
+  hotTweets,
+  onNavigate,
+}: {
+  xLeaderboard: XEntry[];
+  discordLeaderboard: DiscordEntry[];
+  hotTweets: HotTweet[];
+  onNavigate: (netuid: number) => void;
+}) {
+  // Build composite buzz score per subnet
+  const buzzMap = new Map<number, {
+    netuid: number;
+    name: string;
+    xScore: number;
+    discordScore: number;
+    tweetCount: number;
+    topKol: string | null;
+    topDiscordSignal: "alpha" | "active" | null;
+    buzzScore: number;
+  }>();
+
+  // Seed from X leaderboard
+  for (const x of xLeaderboard) {
+    buzzMap.set(x.netuid, {
+      netuid: x.netuid,
+      name: x.name,
+      xScore: x.social_score ?? 0,
+      discordScore: 0,
+      tweetCount: x.tweet_count ?? 0,
+      topKol: x.top_kol,
+      topDiscordSignal: null,
+      buzzScore: 0,
+    });
+  }
+
+  // Merge Discord alpha scores
+  for (const d of discordLeaderboard) {
+    const existing = buzzMap.get(d.netuid);
+    const discScore = d.alphaScore ?? 0;
+    if (existing) {
+      existing.discordScore = discScore;
+      if (d.signal === "alpha" || d.signal === "active") {
+        existing.topDiscordSignal = d.signal;
+      }
+    } else {
+      buzzMap.set(d.netuid, {
+        netuid: d.netuid,
+        name: d.name ?? d.subnetName ?? `SN${d.netuid}`,
+        xScore: 0,
+        discordScore: discScore,
+        tweetCount: 0,
+        topKol: null,
+        topDiscordSignal: d.signal,
+        buzzScore: 0,
+      });
+    }
+  }
+
+  // Add heat boost from hot tweets (unique subnets → more tweets = higher buzz)
+  for (const t of hotTweets) {
+    const existing = buzzMap.get(t.netuid);
+    if (existing) {
+      existing.tweetCount = Math.max(existing.tweetCount, 1);
+    }
+  }
+
+  // Compute final buzz score: X (40%) + Discord (40%) + tweet heat bonus (20%)
+  const tweetHeatBySubnet = new Map<number, number>();
+  for (const t of hotTweets) {
+    tweetHeatBySubnet.set(t.netuid, Math.max(tweetHeatBySubnet.get(t.netuid) ?? 0, t.heat_score ?? 0));
+  }
+
+  const ranked = [...buzzMap.values()]
+    .map(e => ({
+      ...e,
+      buzzScore: e.xScore * 0.4 + e.discordScore * 0.4 + (tweetHeatBySubnet.get(e.netuid) ?? 0) * 0.2,
+    }))
+    .filter(e => e.buzzScore > 0)
+    .sort((a, b) => b.buzzScore - a.buzzScore)
+    .slice(0, 5);
+
+  if (ranked.length === 0) return null;
+
+  const rankColors = ["text-yellow-400", "text-gray-300", "text-orange-400", "text-gray-500", "text-gray-600"];
+
+  return (
+    <div className="border-b border-gray-800/50 px-4 md:px-6 py-4 max-w-screen-xl mx-auto">
+      <div className="flex items-center gap-2 mb-3">
+        <div className="w-1 h-5 bg-gradient-to-b from-green-500 to-emerald-600 rounded-full" />
+        <span className="text-xs font-bold uppercase tracking-widest text-green-500/80">Most Buzzing Right Now</span>
+        <span className="text-[10px] text-gray-600">combined X + Discord heat</span>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-5 gap-1.5">
+        {ranked.map((entry, i) => {
+          const hasX = entry.xScore > 0;
+          const hasDiscord = entry.discordScore > 0;
+          const tweetHeat = tweetHeatBySubnet.get(entry.netuid) ?? 0;
+
+          return (
+            <button
+              key={entry.netuid}
+              onClick={() => onNavigate(entry.netuid)}
+              className="flex sm:flex-col items-center sm:items-start gap-2.5 sm:gap-2 px-3 py-2.5 rounded-xl bg-gray-900/60 border border-gray-700/50 hover:border-green-500/30 hover:bg-gray-800/60 transition-all text-left group"
+            >
+              {/* Rank + logo + name */}
+              <div className="flex items-center gap-2 w-full">
+                <span className={`text-xs font-black tabular-nums flex-shrink-0 ${rankColors[i]}`}>#{i + 1}</span>
+                <SubnetLogo netuid={entry.netuid} name={entry.name} size={24} />
+                <span className="font-semibold text-white text-xs truncate min-w-0 flex-1 group-hover:text-green-300 transition-colors">{entry.name}</span>
+                <span className="text-[10px] text-gray-600 font-mono flex-shrink-0 sm:hidden">SN{entry.netuid}</span>
+              </div>
+
+              {/* Signal badges + score */}
+              <div className="flex items-center gap-1.5 flex-wrap w-full sm:w-auto">
+                {hasX && (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-800 border border-gray-700 text-gray-400 flex-shrink-0">
+                    𝕏 {entry.xScore}
+                  </span>
+                )}
+                {hasDiscord && entry.topDiscordSignal && (
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded border flex-shrink-0 ${entry.topDiscordSignal === "alpha" ? "bg-green-500/15 border-green-500/30 text-green-400" : "bg-blue-500/15 border-blue-500/30 text-blue-400"}`}>
+                    💬 {entry.topDiscordSignal}
+                  </span>
+                )}
+                {tweetHeat >= 60 && (
+                  <span className="text-[10px] flex-shrink-0">{heatFlame(tweetHeat)}</span>
+                )}
+              </div>
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
