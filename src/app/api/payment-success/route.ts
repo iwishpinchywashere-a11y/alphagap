@@ -104,7 +104,7 @@ export async function GET(req: Request) {
           subscriptionTier: tier,
           subscriptionPeriodEnd: periodEnd,
         }),
-        updateUserListEntry(email, { subscriptionStatus: status }),
+        updateUserListEntry(email, { subscriptionStatus: status, subscriptionTier: tier }),
         setStripeCustomerLookup(email, customerId),
       ]).catch((e) => console.error("[payment-success] blob updates failed:", e));
     }
