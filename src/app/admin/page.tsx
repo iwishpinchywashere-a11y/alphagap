@@ -188,6 +188,12 @@ export default function AdminPage() {
           </div>
           <div className="flex items-center gap-3">
             <Link
+              href="/admin/affiliates"
+              className="flex items-center gap-2 px-4 py-2 bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/25 text-purple-400 rounded-lg text-sm font-medium transition-colors"
+            >
+              🤝 Affiliates
+            </Link>
+            <Link
               href="/admin/reviews"
               className="flex items-center gap-2 px-4 py-2 bg-yellow-500/10 hover:bg-yellow-500/20 border border-yellow-500/25 text-yellow-400 rounded-lg text-sm font-medium transition-colors"
             >
