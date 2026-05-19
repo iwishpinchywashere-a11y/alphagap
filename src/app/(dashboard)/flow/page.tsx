@@ -507,12 +507,12 @@ export default function FlowPage() {
           }}
         />
         {/* Glow blob */}
-        <div className="absolute top-0 left-1/3 w-96 h-40 bg-cyan-600/8 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute top-0 left-1/3 w-96 h-40 bg-green-600/8 rounded-full blur-3xl pointer-events-none" />
 
         <div className="relative px-4 md:px-6 py-8">
           <div className="flex items-start justify-between gap-4 mb-4">
             <div>
-              <h1 className="text-3xl font-bold bg-gradient-to-r from-cyan-400 via-emerald-300 to-white bg-clip-text text-transparent leading-tight mb-1">
+              <h1 className="text-3xl font-bold bg-gradient-to-r from-green-400 via-emerald-300 to-white bg-clip-text text-transparent leading-tight mb-1">
                 🌊 Flow &amp; Smart Money
               </h1>
               <p className="text-sm text-gray-400 max-w-xl">
