@@ -8,7 +8,7 @@
  */
 export const SUBNET_PLAIN_ENGLISH: Record<number, { blurb: string; analogy: string }> = {
   1: {
-    blurb: "Agentic reasoning competition — miners build LLM workflows with tool use; top outputs feed fine-tuning data to SN37.",
+    blurb: "Apex (Macrocosmos) runs Bittensor's flagship LLM arena — miners run open-source models with live web search and code execution, generating millions of high-quality reasoning tokens daily that feed fine-tuning on SN37.",
     analogy: "Like a decentralized Olympics for AI assistants, where only the smartest and most capable agents win.",
   },
   2: {
@@ -36,7 +36,7 @@ export const SUBNET_PLAIN_ENGLISH: Record<number, { blurb: string; analogy: stri
     analogy: "Like the backbone routers of the internet, but decentralized and paid in crypto for staying online.",
   },
   8: {
-    blurb: "Vanta is a decentralized trading signal network — miners submit live signals across forex, crypto, and metals; top performers share a $30M+ annual rewards pool.",
+    blurb: "Vanta is a decentralized trading signal network — miners submit live signals across crypto, forex, and commodities; top performers share a $30M+ annual rewards pool. Launched VantaTrading prop accounts and GlitchFinancial automated trading platform in early 2026.",
     analogy: "Like a trading tournament where the best strategies win, but the prize pool is paid in cryptocurrency.",
   },
   9: {
@@ -48,7 +48,7 @@ export const SUBNET_PLAIN_ENGLISH: Record<number, { blurb: string; analogy: stri
     analogy: "Like Uniswap but built specifically for trading Bittensor's subnet tokens.",
   },
   11: {
-    blurb: "TrajectoryRL runs a prompt optimization tournament — miners write AI agent policy packs that minimize inference cost while passing safety gates.",
+    blurb: "TrajectoryRL runs a reinforcement learning agent competition — miners submit plain-text policy packs evaluated on ClawBench real-world tasks like email triage and client escalation, optimizing for cost and accuracy in production AI workflows.",
     analogy: "Like a cost-cutting competition for AI instructions: the cheapest prompt that still works correctly wins.",
   },
   12: {
@@ -64,8 +64,8 @@ export const SUBNET_PLAIN_ENGLISH: Record<number, { blurb: string; analogy: stri
     analogy: "Like joining a Bitcoin mining cooperative where all profits are used to buy and destroy the pool's own token.",
   },
   15: {
-    blurb: "BitQuant answers plain-English questions about crypto markets and DeFi — AI agents compete on accuracy, every answer signed on-chain.",
-    analogy: "Like a financial analyst on call who bets their reputation on every answer being correct.",
+    blurb: "ORO is a decentralized benchmark for AI commerce agents — miners submit Python agents that autonomously search, compare, and purchase products across 2.5M real items, targeting the agentic AI layer for online retail and DeFAI automation.",
+    analogy: "Like a driving test for AI shopping bots: they get a task, navigate real product listings, and are graded on whether they actually buy the right thing.",
   },
   16: {
     blurb: "BitKoop crowdsources and validates promotional discount codes — miners find and verify working promo codes, replacing the need for centralized coupon sites.",
@@ -108,8 +108,8 @@ export const SUBNET_PLAIN_ENGLISH: Record<number, { blurb: string; analogy: stri
     analogy: "Like Folding@home but with financial incentives for accurate simulations instead of volunteer altruism.",
   },
   26: {
-    blurb: "Kinitro runs a decentralized robotics AI competition — validators post embodied AI tasks, miners submit policies evaluated in NVIDIA Isaac Sim.",
-    analogy: "Like a robot Olympics where AI policies that perform best in simulation win ongoing prize money.",
+    blurb: "Perturb is a decentralized adversarial AI robustness network — miners continuously probe production models 24/7 using black-box, white-box, and transfer attacks, delivering vulnerability heatmaps and hardening datasets to teams shipping AI to production.",
+    analogy: "Like a red team that never sleeps: constantly probing AI systems to find weaknesses before attackers do.",
   },
   27: {
     blurb: "NeuralInternet is a permissionless GPU compute marketplace — validators verify hardware, allocate resources, and dispatch AI workloads to miners worldwide.",
@@ -136,7 +136,7 @@ export const SUBNET_PLAIN_ENGLISH: Record<number, { blurb: string; analogy: stri
     analogy: "Like a document processing factory that turns messy PDFs into clean, labeled training data at machine speed.",
   },
   34: {
-    blurb: "BitMind detects AI-generated images and video — 25%+ accuracy improvement since launch; V3 runs 3x faster; iOS/Android app released.",
+    blurb: "BitMind is Bittensor's dedicated deepfake detection subnet — Chrome extension crossed 150K weekly detections, ElizaOS plugin enables autonomous content verification on X; highest-performing open-source AI image detection available, targeting a $40B fraud prevention market.",
     analogy: "Like a spam filter for deepfakes: it looks at an image and tells you if a real camera or an AI generator created it.",
   },
   35: {
@@ -172,8 +172,8 @@ export const SUBNET_PLAIN_ENGLISH: Record<number, { blurb: string; analogy: stri
     analogy: "Like outsourcing a complex routing puzzle to thousands of computers that compete to find the best solution.",
   },
   44: {
-    blurb: "Score Vision analyzes soccer matches with decentralized computer vision — mines bounding boxes and keypoints from match footage; targeting the $600B football industry.",
-    analogy: "Like having thousands of AI cameras analyze every second of every match, splitting the work across the network.",
+    blurb: "Manako (Score Technologies) converts any enterprise camera network into a real-time action system — its Business Operations World Model reads physical environments through existing CCTV and triggers automated alerts, dispatch orders, and audit reports across retail, logistics, manufacturing, and energy. PwC France signed as a strategic partner for global deployment; enterprise customers include Reading FC and a major European petroleum company.",
+    analogy: "Like giving every security camera in a factory a brain that not only sees what's happening but automatically tells the right person what to do about it.",
   },
   45: {
     blurb: "SWE-Rizzo (Gen42) is a decentralized software engineering agent subnet — competes on Princeton's SWE-Bench; miners fix bugs and write code on real GitHub issues.",
@@ -184,7 +184,7 @@ export const SUBNET_PLAIN_ENGLISH: Record<number, { blurb: string; analogy: stri
     analogy: "Like a Zillow estimate built by a global competition of AI models instead of one company's algorithm.",
   },
   47: {
-    blurb: "Condense AI compresses long token sequences into compact soft-tokens — accelerates LLM inference on long-context prompts while preserving meaning.",
+    blurb: "Condenses AI compresses long natural language sequences into compact soft-tokens, cutting token costs by up to 40% with no loss in output quality — miners compete to produce the most efficient compression for high-volume AI applications.",
     analogy: "Like a zip file for AI prompts: the model reads a compressed version of a long document as fast as a short one.",
   },
   48: {
@@ -200,7 +200,7 @@ export const SUBNET_PLAIN_ENGLISH: Record<number, { blurb: string; analogy: stri
     analogy: "Like a weather forecast for asset prices: instead of one prediction, you get a full range of possible futures with probabilities.",
   },
   51: {
-    blurb: "Lium is a decentralized GPU rental marketplace — up to 90% cheaper than AWS; generates ~$600/hr in verified usage revenue, the highest among active Bittensor subnets.",
+    blurb: "lium.io is a permissionless GPU marketplace — no KYC, up to 90% cheaper than AWS for H100-equivalent compute; scaled to 500+ H100s within months of launch and consistently among the strongest-performing subnets by market momentum.",
     analogy: "Like Airbnb for high-end graphics cards, connecting AI researchers directly to GPU owners without a middleman.",
   },
   52: {
@@ -216,7 +216,7 @@ export const SUBNET_PLAIN_ENGLISH: Record<number, { blurb: string; analogy: stri
     analogy: "Like a red team for identity verification systems: generates fake identities to find gaps in fraud detection.",
   },
   55: {
-    blurb: "NIOME (Genomes.io) generates privacy-safe synthetic human DNA — statistically indistinguishable from real genomes; targets drug discovery and personalized medicine.",
+    blurb: "NIOME (GenomesDAO) generates AI-powered synthetic human DNA that is statistically indistinguishable from real genomes — enabling pharma drug discovery and personalized medicine research without real patient data or legal barriers. Incubated by Yuma Group; mainnet emissions live Q1 2026.",
     analogy: "Like creating fictional patients for medical research: the data is realistic enough to train AI but protects real people's privacy.",
   },
   56: {
@@ -244,7 +244,7 @@ export const SUBNET_PLAIN_ENGLISH: Record<number, { blurb: string; analogy: stri
     analogy: "Like a decentralized bug bounty platform where AI hunters get paid for every real security flaw they find.",
   },
   62: {
-    blurb: "Ridges builds autonomous software engineering agents — miners fix real GitHub issues and write production-ready code; competing on SWE-Bench leaderboard.",
+    blurb: "Ridges is a decentralized SWE agent marketplace — miners compete to fix real GitHub bugs and write production-ready code, hitting 80% on SWE-Bench in 45 days on under $1M in miner rewards. Ships as a Cursor/VS Code extension at ~$12/mo.",
     analogy: "Like a global freelance marketplace for AI coders, where the best ones win ongoing cryptocurrency rewards.",
   },
   63: {
@@ -260,15 +260,15 @@ export const SUBNET_PLAIN_ENGLISH: Record<number, { blurb: string; analogy: stri
     analogy: "Like NordVPN but owned by thousands of individuals instead of one company, with crypto payments for node operators.",
   },
   66: {
-    blurb: "AlphaCore runs a decentralized AI coding agent competition — agents patch open-source repositories and compete in paired duels using statistical testing.",
-    analogy: "Like a fighting game for AI programmers: two agents go head-to-head fixing the same bug and the better fix wins.",
+    blurb: "ninja is a king-of-the-hill coding agent arena — miners submit agents that fix real bugs from live open-source GitHub projects, scored by code similarity and LLM judging. Built by the same team as distil (SN97); launched March 2026.",
+    analogy: "Like a fighting game for AI programmers: agents go head-to-head fixing the same real bug and the better fix wins.",
   },
   67: {
-    blurb: "Tenex enables up to 10x leveraged long positions on Bittensor subnet alpha tokens using TAO as collateral — mainnet launched Sept 2025.",
-    analogy: "Like a margin trading desk for Bittensor's internal token market.",
+    blurb: "Harnyx is a deep research API for AI agents — submit a query, receive synthesized multi-source analysis with citations in seconds; drop-in for LangChain, CrewAI, and n8n. Priced between shallow search APIs and expensive proprietary research at $1.83–$3.68/query.",
+    analogy: "Like hiring a research analyst who reads a hundred sources and sends you a cited summary — but it takes seconds instead of days.",
   },
   68: {
-    blurb: "NOVA (Metanova Labs) screens 65B drug molecule-target combinations — 11M+ molecules screened across 9 disease targets; partners doing wet-lab validation.",
+    blurb: "NOVA (Metanova Labs) is the world's first decentralized virtual drug screening platform — miners screen 4.8M+ molecules across 7,000 protein targets covering 65B possible combinations, with partner labs doing real wet-lab validation on the top candidates.",
     analogy: "Like a drug discovery factory that tests billions of potential medicines simultaneously using AI instead of chemistry.",
   },
   70: {
@@ -276,7 +276,7 @@ export const SUBNET_PLAIN_ENGLISH: Record<number, { blurb: string; analogy: stri
     analogy: "Like a developer who reads your codebase overnight and shows up with the next three things you would have written.",
   },
   71: {
-    blurb: "LeadPoet sources, validates, and scores B2B sales leads using decentralized AI — miners scrape and score prospects; validators reach consensus each epoch.",
+    blurb: "Leadpoet is a decentralized B2B lead generation subnet — miners source and submit leads scored for email validity, domain legitimacy, and intent signals. Crossed 2 million verified leads in the first 10 weeks; roadmap points toward fully autonomous sales scheduling.",
     analogy: "Like a sales intelligence platform where AI agents do the prospecting work and get paid per verified lead.",
   },
   72: {
@@ -304,12 +304,16 @@ export const SUBNET_PLAIN_ENGLISH: Record<number, { blurb: string; analogy: stri
     analogy: "Like a community-governed liquidity fund where token holders vote on where to deploy the capital.",
   },
   79: {
-    blurb: "τaos is an agent-based simulation of automated trading strategies — miners submit risk-managed trading logic that validators run in a shared market simulation.",
+    blurb: "MVTRX is a live exchange for dTAO alpha token trading — features a Dynamic Incentive Structure that adjusts fees and rebates in real time, with miners competing on limit-order book simulation strategies. Targets quant traders and decentralized market-making.",
     analogy: "Like a trading simulator where AI strategies compete in a realistic market environment before anyone risks real money.",
   },
   80: {
     blurb: "AI Factory is a decentralized AI model development marketplace — miners compete to build customized AI models and solutions; community workshop shares research.",
     analogy: "Like a factory that produces custom AI models on demand, run by a network of competing developers.",
+  },
+  82: {
+    blurb: "Compelle is a decentralized data processing and AI task marketplace — miners perform data cleaning, annotation, aggregation, and model inference while validators score output quality for TAO rewards.",
+    analogy: "Like Amazon Mechanical Turk but run by AI and paid in crypto, with validators ensuring the work is actually correct.",
   },
   83: {
     blurb: "Distributes large-scale graph analysis across miners — social networks, drug interactions, and supply chains at supercomputer scale.",
@@ -364,7 +368,7 @@ export const SUBNET_PLAIN_ENGLISH: Record<number, { blurb: string; analogy: stri
     analogy: "Like a certified AI service: you get a receipt proving exactly which model answered your question.",
   },
   97: {
-    blurb: "Arbos runs competitive model distillation — miners create sub-5.25B models distilled from a 35B Qwen base; only the best performing model earns rewards.",
+    blurb: "distil (Arbos) runs competitive model distillation — miners compress Qwen3-35B into sub-5.25B student models, evaluated across a 17-axis benchmark covering math, code, reasoning, tool-use, and long-context tasks. Validators run KL-divergence scoring on B200 GPUs.",
     analogy: "Like a weight-loss competition for AI models: make it smaller without making it dumber, or don't get paid.",
   },
   98: {
@@ -374,6 +378,10 @@ export const SUBNET_PLAIN_ENGLISH: Record<number, { blurb: string; analogy: stri
   99: {
     blurb: "Trains specialized creative AI models that understand aesthetic style, visual hierarchy, and brand coherence.",
     analogy: "Like the difference between a printer and an art director — one copies, the other understands.",
+  },
+  102: {
+    blurb: "ConnitoAI is a decentralized Mixture-of-Experts training platform — splits large language models into expert groups distributed across miners, letting mid-tier GPUs participate in training domain-specific AI without catastrophic forgetting.",
+    analogy: "Like breaking a massive construction project into specialist crews — each team handles their part, and together they build something none could alone.",
   },
   103: {
     blurb: "DJINN runs a decentralized sports prediction signal marketplace — analysts post encrypted predictions; cryptographic track records verified via TLSNotary proofs.",
@@ -392,7 +400,7 @@ export const SUBNET_PLAIN_ENGLISH: Record<number, { blurb: string; analogy: stri
     analogy: "Like a travel aggregator for crypto swaps: searches every exchange simultaneously to find the best price for your trade.",
   },
   114: {
-    blurb: "SOMA brings MCP servers into Bittensor — miners provide production-ready Model Context Protocol services scored on latency, uptime, and quality.",
+    blurb: "SOMA is the MCP infrastructure layer for Bittensor — miners compete to provide the best Model Context Protocol servers, with SOMARIZER handling context compression to cut token costs in multi-agent pipelines. Built by Dendrite (50+ engineers); hit 280% 30-day growth targeting subnet builders needing production-grade agent coordination.",
     analogy: "Like an App Store for AI tools: developers publish plugins that let AI models interact with real-world systems.",
   },
   115: {
@@ -412,8 +420,8 @@ export const SUBNET_PLAIN_ENGLISH: Record<number, { blurb: string; analogy: stri
     analogy: "Like a Bloomberg Terminal analyst who answers questions in normal language.",
   },
   120: {
-    blurb: "Many independent teams evaluate AI models simultaneously — more trustworthy than any single lab's self-reported benchmarks.",
-    analogy: "Like a panel of independent film critics instead of one studio's own review.",
+    blurb: "Affine is a decentralized reinforcement learning environment — miners earn for incremental performance improvements on coding, program synthesis, and reasoning benchmarks. Joined Project Rubicon's first liquid staking cohort on Base chain; $69M market cap as of May 2026.",
+    analogy: "Like a continuous exam where AI models keep retraining until they score higher, and every improvement earns a reward.",
   },
   121: {
     blurb: "Businesses post problems, developers build AI bots to solve them, community votes — winners get deployed and earn ongoing rewards.",
