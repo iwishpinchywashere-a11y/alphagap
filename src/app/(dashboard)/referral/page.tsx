@@ -416,13 +416,13 @@ export default function ReferralPage() {
             </div>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <Link
-                href="/login"
+                href="/auth/signin"
                 className="inline-flex items-center justify-center px-6 py-3 rounded-xl text-sm font-semibold bg-green-500/15 hover:bg-green-500/25 border border-green-500/40 text-green-300 transition-colors"
               >
                 Sign in to get started
               </Link>
               <Link
-                href="/signup"
+                href="/auth/signup"
                 className="inline-flex items-center justify-center px-6 py-3 rounded-xl text-sm font-semibold bg-white/10 hover:bg-white/15 border border-white/20 text-white transition-colors"
               >
                 Create an account
