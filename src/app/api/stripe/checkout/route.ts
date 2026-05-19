@@ -3,6 +3,37 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { getStripe, PLANS, type PlanKey } from "@/lib/stripe-client";
 import { getUserByEmail, setStripeCustomerLookup, updateUser } from "@/lib/users";
+import { validateCode } from "@/lib/referral";
+
+const REFERRAL_COUPON_ID = "ALPHAGAP_REFERRAL_10PCT";
+
+/** Get or create the 10%-off-forever referral coupon. Returns the coupon ID. */
+async function getReferralCouponId(): Promise<string> {
+  const stripe = getStripe();
+  try {
+    await stripe.coupons.retrieve(REFERRAL_COUPON_ID);
+    return REFERRAL_COUPON_ID;
+  } catch {
+    await stripe.coupons.create({
+      id:          REFERRAL_COUPON_ID,
+      percent_off: 10,
+      duration:    "forever",
+      name:        "10% Referral Discount",
+    });
+    return REFERRAL_COUPON_ID;
+  }
+}
+
+/** Read the ag_ref cookie from the request and return the referral code if valid. */
+async function getValidatedRefCode(req: Request): Promise<string | null> {
+  if (!process.env.REFERRAL_ENABLED) return null;
+  const cookie = req.headers.get("cookie") ?? "";
+  const match  = cookie.match(/(?:^|;\s*)ag_ref=([^;]+)/);
+  if (!match) return null;
+  const code = decodeURIComponent(match[1]).toUpperCase();
+  const result = await validateCode(code).catch(() => ({ valid: false }));
+  return result.valid ? code : null;
+}
 
 export const dynamic = "force-dynamic";
 
@@ -15,6 +46,8 @@ export async function POST(req: Request) {
   try {
     const body = await req.json().catch(() => ({}));
     const planKey: PlanKey = body.plan === "premium" ? "premium" : "pro";
+    // Check for a valid referral code in cookie — used to apply 10% discount
+    const refCode = await getValidatedRefCode(req);
     const plan = PLANS[planKey];
 
     const stripe = getStripe();
@@ -116,6 +149,15 @@ export async function POST(req: Request) {
       return NextResponse.json({ url: `${baseUrl}/api/stripe/upgrade-success?plan=${planKey}` });
     }
 
+    // Apply referral 10% discount if the user landed via a valid referral link.
+    // `discounts` and `allow_promotion_codes` are mutually exclusive in Stripe —
+    // when we auto-apply the referral coupon we disable the manual promo code box.
+    const discountOptions = refCode
+      ? { discounts: [{ coupon: await getReferralCouponId() }] }
+      : { allow_promotion_codes: true };
+
+    if (refCode) console.log(`[checkout] Applying referral discount for code ${refCode}`);
+
     const checkoutSession = await stripe.checkout.sessions.create({
       customer: customerId,
       mode: "subscription",
@@ -134,7 +176,7 @@ export async function POST(req: Request) {
       }],
       success_url: `${baseUrl}/api/payment-success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${baseUrl}/subscribe?canceled=true`,
-      allow_promotion_codes: true,
+      ...discountOptions,
       subscription_data: {
         metadata: { userEmail: user.email, userId: user.id, plan: planKey },
       },

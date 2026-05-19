@@ -14,9 +14,11 @@
  */
 import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
+import { cookies } from "next/headers";
 import { authOptions } from "@/lib/auth";
 import { getStripe, PLANS, type PlanKey } from "@/lib/stripe-client";
 import { getUserByEmail, setStripeCustomerLookup, updateUser } from "@/lib/users";
+import { validateCode } from "@/lib/referral";
 
 export const dynamic = "force-dynamic";
 
@@ -107,6 +109,29 @@ export default async function CheckoutPage({
       }
     }
 
+    // Check for a referral cookie to auto-apply 10% discount
+    const cookieStore = await cookies();
+    const rawRef = cookieStore.get("ag_ref")?.value;
+    let discountOptions: { discounts: { coupon: string }[] } | { allow_promotion_codes: true } =
+      { allow_promotion_codes: true };
+
+    if (rawRef && process.env.REFERRAL_ENABLED) {
+      const refCode = decodeURIComponent(rawRef).toUpperCase();
+      const validation = await validateCode(refCode).catch(() => ({ valid: false }));
+      if (validation.valid) {
+        const COUPON_ID = "ALPHAGAP_REFERRAL_10PCT";
+        try {
+          await stripe.coupons.retrieve(COUPON_ID);
+        } catch {
+          await stripe.coupons.create({
+            id: COUPON_ID, percent_off: 10, duration: "forever", name: "10% Referral Discount",
+          });
+        }
+        discountOptions = { discounts: [{ coupon: COUPON_ID }] };
+        console.log(`[checkout/page] Applying referral discount for code ${refCode}`);
+      }
+    }
+
     const checkoutSession = await stripe.checkout.sessions.create({
       customer: customerId,
       mode: "subscription",
@@ -123,7 +148,7 @@ export default async function CheckoutPage({
       ],
       success_url: `${baseUrl}/api/payment-success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${baseUrl}/pricing?canceled=true`,
-      allow_promotion_codes: true,
+      ...discountOptions,
       subscription_data: {
         metadata: {
           userEmail: email,
