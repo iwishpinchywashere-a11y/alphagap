@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useDashboard } from "@/components/dashboard/DashboardProvider";
 import SubnetDetailPanel from "@/components/dashboard/SubnetDetailPanel";
+import SubnetLogo from "@/components/dashboard/SubnetLogo";
 import { signalColor, signalIcon, timeAgo, formatMcap } from "@/lib/formatters";
 import BlurGate from "@/components/BlurGate";
 import { getTier, canAccessPro } from "@/lib/subscription";
@@ -108,6 +109,11 @@ export default function SignalsPage() {
             </div>
           </div>
         </div>
+
+        {/* ── Top 5 Most Active Subnets ─────────────────────────── */}
+        {signals.length > 0 && (
+          <TopDeveloperSubnets signals={signals} leaderboard={leaderboard} onNavigate={(netuid) => router.push(`/subnets/${netuid}`)} />
+        )}
 
         <div className="p-4 md:p-6">
           {scanning && signals.length === 0 && (
@@ -314,5 +320,146 @@ export default function SignalsPage() {
 
       <SubnetDetailPanel />
     </main>
+  );
+}
+
+// ── Top Developer Subnets ─────────────────────────────────────────
+
+const WHALES_TYPES = new Set(["flow_inflection", "flow_spike", "flow_warning", "whale_buy", "whale_sell"]);
+
+function TopDeveloperSubnets({
+  signals,
+  leaderboard,
+  onNavigate,
+}: {
+  signals: ReturnType<typeof useDashboard>["signals"];
+  leaderboard: ReturnType<typeof useDashboard>["leaderboard"];
+  onNavigate: (netuid: number) => void;
+}) {
+  // Only dev-related signals (exclude flow/whale types)
+  const devSignals = signals.filter(s => !WHALES_TYPES.has(s.signal_type));
+
+  // Group by subnet: track best strength, signal count, latest signal date, best signal type
+  const bySubnet = new Map<number, {
+    netuid: number;
+    name: string;
+    bestStrength: number;
+    bestType: string;
+    count: number;
+    latestDate: string;
+  }>();
+
+  for (const sig of devSignals) {
+    const existing = bySubnet.get(sig.netuid);
+    const sigDate = sig.signal_date || sig.created_at || "";
+    if (!existing) {
+      bySubnet.set(sig.netuid, {
+        netuid: sig.netuid,
+        name: sig.subnet_name || `SN${sig.netuid}`,
+        bestStrength: sig.strength,
+        bestType: sig.signal_type,
+        count: 1,
+        latestDate: sigDate,
+      });
+    } else {
+      existing.count++;
+      if (sig.strength > existing.bestStrength) {
+        existing.bestStrength = sig.strength;
+        existing.bestType = sig.signal_type;
+      }
+      if (sigDate > existing.latestDate) existing.latestDate = sigDate;
+    }
+  }
+
+  // Score = best strength * 0.7 + recency bonus (within 3 days = +20, within 7 days = +10) + count bonus (capped at +10)
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+
+  const ranked = [...bySubnet.values()]
+    .map(entry => {
+      const recency = entry.latestDate >= threeDaysAgo ? 20 : entry.latestDate >= sevenDaysAgo ? 10 : 0;
+      const countBonus = Math.min(10, (entry.count - 1) * 2);
+      const score = entry.bestStrength * 0.7 + recency + countBonus;
+      return { ...entry, score };
+    })
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 5);
+
+  if (ranked.length === 0) return null;
+
+  const rankColors = [
+    "text-yellow-400",  // #1
+    "text-gray-300",    // #2
+    "text-orange-400",  // #3
+    "text-gray-500",    // #4
+    "text-gray-600",    // #5
+  ];
+
+  const strengthColor = (s: number) =>
+    s >= 80 ? "bg-green-400" : s >= 60 ? "bg-emerald-500" : s >= 40 ? "bg-yellow-400" : "bg-gray-600";
+
+  function timeAgoShort(iso: string): string {
+    if (!iso) return "";
+    const diffMs = Date.now() - new Date(iso).getTime();
+    const diffH = diffMs / 3_600_000;
+    const diffD = diffMs / 86_400_000;
+    if (diffH < 1) return "just now";
+    if (diffH < 24) return `${Math.floor(diffH)}h ago`;
+    if (diffD < 2) return "yesterday";
+    if (diffD < 7) return `${Math.floor(diffD)}d ago`;
+    return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  }
+
+  return (
+    <div className="border-b border-gray-800/50 px-4 md:px-6 py-4">
+      <div className="flex items-center gap-2 mb-3">
+        <div className="w-1 h-5 bg-gradient-to-b from-green-500 to-emerald-600 rounded-full" />
+        <span className="text-xs font-bold uppercase tracking-widest text-green-500/80">Most Active This Week</span>
+        <span className="text-[10px] text-gray-600">ranked by signal strength + recency</span>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-5 gap-1.5">
+        {ranked.map((entry, i) => {
+          const lb = leaderboard.find(s => s.netuid === entry.netuid);
+          return (
+            <button
+              key={entry.netuid}
+              onClick={() => onNavigate(entry.netuid)}
+              className="flex sm:flex-col items-center sm:items-start gap-2.5 sm:gap-2 px-3 py-2.5 rounded-xl bg-gray-900/60 border border-gray-700/50 hover:border-green-500/30 hover:bg-gray-800/60 transition-all text-left group"
+            >
+              {/* Rank + logo row */}
+              <div className="flex items-center gap-2 w-full">
+                <span className={`text-xs font-black tabular-nums flex-shrink-0 ${rankColors[i]}`}>#{i + 1}</span>
+                <SubnetLogo netuid={entry.netuid} name={entry.name} size={24} />
+                <span className="font-semibold text-white text-xs truncate min-w-0 flex-1 group-hover:text-green-300 transition-colors">{entry.name}</span>
+                <span className="text-[10px] text-gray-600 font-mono flex-shrink-0 sm:hidden">SN{entry.netuid}</span>
+              </div>
+
+              {/* Signal bar + count */}
+              <div className="flex sm:flex-col items-center sm:items-start gap-2 sm:gap-1 w-full sm:w-auto">
+                <div className="flex items-center gap-1.5 w-full sm:w-auto">
+                  <div className="flex-1 sm:w-full h-1 bg-gray-800 rounded-full overflow-hidden" style={{ minWidth: 40 }}>
+                    <div
+                      className={`h-full rounded-full ${strengthColor(entry.bestStrength)}`}
+                      style={{ width: `${entry.bestStrength}%` }}
+                    />
+                  </div>
+                  <span className={`text-xs font-bold tabular-nums flex-shrink-0 ${entry.bestStrength >= 80 ? "text-green-400" : entry.bestStrength >= 60 ? "text-emerald-400" : "text-yellow-400"}`}>
+                    {entry.bestStrength}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5 flex-shrink-0 sm:flex-shrink">
+                  <span className="text-[10px] text-gray-500">
+                    {entry.count} signal{entry.count !== 1 ? "s" : ""}
+                  </span>
+                  <span className="text-[10px] text-gray-600">·</span>
+                  <span className="text-[10px] text-gray-500">{timeAgoShort(entry.latestDate)}</span>
+                </div>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    </div>
   );
 }
