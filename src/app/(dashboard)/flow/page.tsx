@@ -122,9 +122,6 @@ export default function FlowPage() {
 
     for (const sub of leaderboard) {
       // ── Whale accumulation ─────────────────────────────────
-      // Require whale_ratio >= 2 in display (tighter than scan's 2.5 floor)
-      // AND skip if miner_burn_pct > 50 — high-burn subnets' "buy volume" is
-      // driven by emission chain-buy recycling, not actual whale conviction.
       if (
         sub.whale_signal === "accumulating" && sub.whale_ratio != null &&
         sub.whale_ratio >= 2 && (sub.miner_burn_pct ?? 0) <= 50
@@ -152,8 +149,6 @@ export default function FlowPage() {
       }
 
       // ── Emission chain buys (miner burn recycling) ──────────
-      // High miner burn subnets generate automated buy-side flow that looks
-      // like whale accumulation but isn't genuine smart money. Show separately.
       if (
         sub.whale_signal === "accumulating" &&
         (sub.miner_burn_pct ?? 0) > 50 &&
@@ -163,7 +158,7 @@ export default function FlowPage() {
         out.push({
           netuid: sub.netuid,
           name: sub.name,
-          type: "volume_surge", // group with vol events, not whale buys
+          type: "volume_surge",
           strength: 40,
           headline: `Emission chain buys driving buy-side volume (${sub.miner_burn_pct?.toFixed(0)}% miner burn)`,
           detail: flowUsd != null
@@ -179,8 +174,6 @@ export default function FlowPage() {
       }
 
       // ── Whale distribution ─────────────────────────────────
-      // Require whale_ratio <= 0.33 (sells 3x buys) — tighter than scan's 0.4
-      // to filter out weak or noise sell signals
       if (
         sub.whale_signal === "distributing" && sub.whale_ratio != null &&
         sub.whale_ratio <= 0.33
@@ -301,7 +294,6 @@ export default function FlowPage() {
     const flowTypes = ["flow_inflection", "flow_spike", "flow_warning", "whale_sell"];
     for (const sig of signals) {
       if (!flowTypes.includes(sig.signal_type)) continue;
-      // Skip signals older than 3 days
       const sigDate = sig.signal_date || sig.created_at;
       if (sigDate && sigDate < threeDaysAgo) continue;
       const alreadyType =
@@ -356,16 +348,11 @@ export default function FlowPage() {
 
   // ── Merge live + historical, then filter + sort ───────────────
   const events = useMemo<FlowEvent[]>(() => {
-    // Build set of "live" keys so we don't double-show with history
     const liveKeys = new Set(liveEvents.map(e => `${e.netuid}:${e.type}`));
 
-    // Convert persisted events that are NOT already shown live
     const historicalAsFlowEvents: FlowEvent[] = historicalEvents
       .filter(h => {
-        // Skip if the live scan already shows this subnet+type today
         if (liveKeys.has(`${h.netuid}:${h.type}`)) return false;
-        // Drop stale MINER RUSH events from before the threshold was raised —
-        // old events won't have regsTao, so they'll be filtered out too
         if (h.type === "registration_spike" && (h.regsTao ?? 0) < MIN_MINER_RUSH_TAO) return false;
         return true;
       })
@@ -390,8 +377,6 @@ export default function FlowPage() {
         isHistorical: true,
       }));
 
-    // Convert Const wallet events to FlowEvents
-    // Group by netuid to detect validator swap pairs (buy + sell on same subnet)
     const constByNetuid = new Map<number, typeof constEvents>();
     for (const ev of constEvents) {
       if (!constByNetuid.has(ev.netuid)) constByNetuid.set(ev.netuid, []);
@@ -404,17 +389,15 @@ export default function FlowPage() {
       const buyEv  = evs.find(e => e.type === "buy");
       const sellEv = evs.find(e => e.type === "sell");
 
-      // ── Both buy + sell on same subnet → validator re-delegation swap ──────
       if (buyEv && sellEv) {
         const buyAmt  = buyEv.amountTao >= 1000  ? `${(buyEv.amountTao/1000).toFixed(1)}k TAO`  : `${buyEv.amountTao.toFixed(0)} TAO`;
         const sellAmt = sellEv.amountTao >= 1000 ? `${(sellEv.amountTao/1000).toFixed(1)}k TAO` : `${sellEv.amountTao.toFixed(0)} TAO`;
         const subName = buyEv.subnetName ?? sellEv.subnetName ?? `SN${netuid}`;
-        // Use the later of the two timestamps
         const signalDate = buyEv.detectedAt > sellEv.detectedAt ? buyEv.detectedAt : sellEv.detectedAt;
         constAsFlowEvents.push({
           netuid,
           name: subName,
-          type: "accumulating", // neutral but show in accumulating group — not a real sell signal
+          type: "accumulating",
           strength: 50,
           headline: `Const re-delegated stake on ${subName} — validator swap, not exit`,
           detail: `Const unstaked ${sellAmt} and re-staked ${buyAmt} on ${subName}. This is a validator re-delegation (moving stake between validators), not a position change. No buy/sell signal.`,
@@ -428,7 +411,6 @@ export default function FlowPage() {
         continue;
       }
 
-      // ── Single buy or sell event ────────────────────────────────────────────
       for (const ev of evs) {
         const usdStr = ev.amountUsd > 0 ? ` (~$${(ev.amountUsd/1000).toFixed(0)}k)` : "";
         const amtStr = ev.amountTao >= 1000 ? `${(ev.amountTao/1000).toFixed(1)}k TAO` : `${ev.amountTao.toFixed(0)} TAO`;
@@ -458,7 +440,6 @@ export default function FlowPage() {
 
     const all = [...liveEvents, ...historicalAsFlowEvents, ...constAsFlowEvents];
 
-    // ── Apply filter ─────────────────────────────────────────
     const filtered =
       filter === "const"         ? [...constAsFlowEvents, ...all.filter(e => e.isConstEvent && !constAsFlowEvents.includes(e))] :
       filter === "all" ? all :
@@ -472,8 +453,8 @@ export default function FlowPage() {
       if (sortBy === "date") {
         const ta = new Date(a.signalDate ?? 0).getTime();
         const tb = new Date(b.signalDate ?? 0).getTime();
-        if (tb !== ta) return tb - ta;            // newest first
-        return b.strength - a.strength;           // tiebreak by strength
+        if (tb !== ta) return tb - ta;
+        return b.strength - a.strength;
       }
       if (sortBy === "strength") return b.strength - a.strength;
       if (sortBy === "flow") return Math.abs(b.netFlow ?? 0) - Math.abs(a.netFlow ?? 0);
@@ -514,130 +495,154 @@ export default function FlowPage() {
   ];
 
   return (
-    <main className="flex-1 overflow-auto p-4 md:p-6">
-      {/* Header */}
-      <div className="mb-6">
-        <div className="flex items-center gap-3 mb-1">
-          <h2 className="text-xl font-bold text-white">Flow &amp; Smart Money Tracker</h2>
-          {scanning && (
-            <span className="text-xs text-gray-500 animate-pulse">refreshing…</span>
-          )}
-        </div>
-        <p className="text-sm text-gray-500">Whale movements, smart money flows, unusual volume, and staking yield anomalies — live and from the last 72 hours.</p>
-      </div>
+    <div className="min-h-screen bg-[#0a0a0f] text-white">
+      {/* ── Hero ───────────────────────────────────────────────── */}
+      <div className="relative border-b border-gray-800/50 overflow-hidden">
+        {/* Grid texture */}
+        <div
+          className="absolute inset-0 opacity-[0.03]"
+          style={{
+            backgroundImage: "linear-gradient(rgba(255,255,255,0.8) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.8) 1px,transparent 1px)",
+            backgroundSize: "32px 32px",
+          }}
+        />
+        {/* Glow blob */}
+        <div className="absolute top-0 left-1/3 w-96 h-40 bg-cyan-600/8 rounded-full blur-3xl pointer-events-none" />
 
-      {/* Stats strip */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-        <div className="bg-cyan-500/10 border border-cyan-500/20 rounded-xl p-4">
-          <div className="text-2xl font-bold text-cyan-300">{stats.accumCount}</div>
-          <div className="text-xs text-gray-500 mt-0.5">Subnets whales buying</div>
-        </div>
-        <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4">
-          <div className="text-2xl font-bold text-red-400">{stats.distCount}</div>
-          <div className="text-xs text-gray-500 mt-0.5">Subnets whales selling</div>
-        </div>
-        <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-xl p-4">
-          <div className="text-2xl font-bold text-yellow-300">{stats.surgeCount}</div>
-          <div className="text-xs text-gray-500 mt-0.5">Volume surges detected</div>
-        </div>
-        <div className={`border rounded-xl p-4 ${
-          (stats.totalUsd ?? stats.totalNetFlow) >= 0
-            ? "bg-green-500/10 border-green-500/20"
-            : "bg-red-500/10 border-red-500/20"
-        }`}>
-          <div className={`text-2xl font-bold tabular-nums ${
-            (stats.totalUsd ?? stats.totalNetFlow) >= 0 ? "text-green-400" : "text-red-400"
-          }`}>
-            {stats.totalUsd != null
-              ? `${stats.totalUsd >= 0 ? "+" : ""}$${formatNum(Math.abs(Math.round(stats.totalUsd)))}`
-              : `${stats.totalNetFlow >= 0 ? "+" : ""}${formatNum(Math.abs(stats.totalNetFlow), 1)} τ`}
-          </div>
-          <div className="text-xs text-gray-500 mt-0.5">Total 24h net flow</div>
-        </div>
-      </div>
-
-      {/* Filter + sort bar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-        <div className="flex flex-wrap gap-1.5">
-          {FILTERS.map(f => (
-            <button
-              key={f.key}
-              onClick={() => setFilter(f.key)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
-                filter === f.key
-                  ? "bg-green-500/20 border-green-500/40 text-green-400"
-                  : "bg-gray-800/60 border-gray-700 text-gray-400 hover:text-gray-200 hover:border-gray-600"
-              }`}
-            >
-              {f.label}{f.count != null ? ` · ${f.count}` : ""}
-            </button>
-          ))}
-          <button
-            onClick={() => setWatchlistOnly(v => !v)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-              watchlistOnly
-                ? "bg-blue-600 text-white"
-                : "bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white"
-            }`}
-          >
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
-            </svg>
-            My Watchlist
-          </button>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-gray-600">Sort:</span>
-          {(["date", "strength", "flow", "volume"] as const).map(s => (
-            <button
-              key={s}
-              onClick={() => setSortBy(s)}
-              className={`px-2.5 py-1 rounded-md text-xs border transition-colors ${
-                sortBy === s
-                  ? "bg-gray-700 border-gray-600 text-gray-200"
-                  : "border-gray-800 text-gray-600 hover:text-gray-400"
-              }`}
-            >
-              {s === "date" ? "🕐 Latest" : s === "strength" ? "Signal strength" : s === "flow" ? "Net flow" : "Volume"}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Event feed */}
-      {visibleEvents.length === 0 ? (
-        <div className="flex flex-col items-center justify-center h-64 text-center">
-          <div className="text-4xl mb-3">🌊</div>
-          <p className="text-gray-500 text-sm">No flow activity detected right now.</p>
-          <p className="text-gray-600 text-xs mt-1">Scanning.</p>
-        </div>
-      ) : (
-        <div className="flex flex-col gap-2">
-          <FlowCard
-            key={`${visibleEvents[0].netuid}-${visibleEvents[0].type}-0`}
-            event={visibleEvents[0]}
-            taoPrice={taoPrice}
-            watched={isWatched(visibleEvents[0].netuid)}
-            onClick={() => router.push(`/subnets/${visibleEvents[0].netuid}`)}
-          />
-          {visibleEvents.length > 1 && (
-            <BlurGate tier={tier} required="premium" minHeight="300px">
-              <div className="flex flex-col gap-2">
-                {visibleEvents.slice(1).map((ev, i) => (
-                  <FlowCard
-                    key={`${ev.netuid}-${ev.type}-${i + 1}`}
-                    event={ev}
-                    taoPrice={taoPrice}
-                    watched={isWatched(ev.netuid)}
-                    onClick={() => router.push(`/subnets/${ev.netuid}`)}
-                  />
-                ))}
+        <div className="relative px-4 md:px-6 py-8">
+          <div className="flex items-start justify-between gap-4 mb-4">
+            <div>
+              <h1 className="text-3xl font-bold bg-gradient-to-r from-cyan-400 via-emerald-300 to-white bg-clip-text text-transparent leading-tight mb-1">
+                🌊 Flow &amp; Smart Money
+              </h1>
+              <p className="text-sm text-gray-400 max-w-xl">
+                Whale movements, smart money flows, unusual volume, and staking yield anomalies — live and from the last 72 hours.
+              </p>
+            </div>
+            {scanning && (
+              <div className="flex items-center gap-2 mt-1 flex-shrink-0">
+                <div className="w-4 h-4 border-2 border-green-500/30 border-t-green-400 rounded-full animate-spin" />
+                <span className="text-xs text-gray-500">scanning</span>
               </div>
-            </BlurGate>
-          )}
+            )}
+          </div>
+
+          {/* Stat chips */}
+          <div className="flex flex-wrap gap-2">
+            <div className="flex items-center gap-2 bg-cyan-500/10 border border-cyan-500/25 rounded-full px-3 py-1.5">
+              <span className="text-lg font-bold text-cyan-300 tabular-nums">{stats.accumCount}</span>
+              <span className="text-xs text-gray-400">Whale buys</span>
+            </div>
+            <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/25 rounded-full px-3 py-1.5">
+              <span className="text-lg font-bold text-red-400 tabular-nums">{stats.distCount}</span>
+              <span className="text-xs text-gray-400">Whale sells</span>
+            </div>
+            <div className="flex items-center gap-2 bg-yellow-500/10 border border-yellow-500/25 rounded-full px-3 py-1.5">
+              <span className="text-lg font-bold text-yellow-300 tabular-nums">{stats.surgeCount}</span>
+              <span className="text-xs text-gray-400">Vol surges</span>
+            </div>
+            <div className={`flex items-center gap-2 rounded-full px-3 py-1.5 border ${
+              (stats.totalUsd ?? stats.totalNetFlow) >= 0
+                ? "bg-green-500/10 border-green-500/25"
+                : "bg-red-500/10 border-red-500/25"
+            }`}>
+              <span className={`text-lg font-bold tabular-nums ${
+                (stats.totalUsd ?? stats.totalNetFlow) >= 0 ? "text-green-400" : "text-red-400"
+              }`}>
+                {stats.totalUsd != null
+                  ? `${stats.totalUsd >= 0 ? "+" : ""}$${formatNum(Math.abs(Math.round(stats.totalUsd)))}`
+                  : `${stats.totalNetFlow >= 0 ? "+" : ""}${formatNum(Math.abs(stats.totalNetFlow), 1)}τ`}
+              </span>
+              <span className="text-xs text-gray-400">24h net flow</span>
+            </div>
+          </div>
         </div>
-      )}
-    </main>
+      </div>
+
+      <main className="flex-1 overflow-auto p-4 md:p-6">
+        {/* Filter + sort bar */}
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
+          <div className="flex flex-wrap gap-1.5">
+            {FILTERS.map(f => (
+              <button
+                key={f.key}
+                onClick={() => setFilter(f.key)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                  filter === f.key
+                    ? "bg-green-500/20 border-green-500/40 text-green-400"
+                    : "bg-gray-800/60 border-gray-700 text-gray-400 hover:text-gray-200 hover:border-gray-600"
+                }`}
+              >
+                {f.label}{f.count != null ? ` · ${f.count}` : ""}
+              </button>
+            ))}
+            <button
+              onClick={() => setWatchlistOnly(v => !v)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border ${
+                watchlistOnly
+                  ? "bg-blue-600 border-blue-500 text-white"
+                  : "bg-gray-800/60 border-gray-700 text-gray-400 hover:text-white"
+              }`}
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+              </svg>
+              My Watchlist
+            </button>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-gray-600 mr-1">Sort:</span>
+            {(["date", "strength", "flow", "volume"] as const).map(s => (
+              <button
+                key={s}
+                onClick={() => setSortBy(s)}
+                className={`px-2.5 py-1 rounded-md text-xs border transition-colors ${
+                  sortBy === s
+                    ? "bg-gray-700 border-gray-600 text-gray-200"
+                    : "border-gray-800 text-gray-600 hover:text-gray-400"
+                }`}
+              >
+                {s === "date" ? "🕐 Latest" : s === "strength" ? "Signal strength" : s === "flow" ? "Net flow" : "Volume"}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Event feed */}
+        {visibleEvents.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-64 text-center">
+            <div className="text-4xl mb-3">🌊</div>
+            <p className="text-gray-500 text-sm">No flow activity detected right now.</p>
+            <p className="text-gray-600 text-xs mt-1">Scanning.</p>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-2">
+            <FlowCard
+              key={`${visibleEvents[0].netuid}-${visibleEvents[0].type}-0`}
+              event={visibleEvents[0]}
+              taoPrice={taoPrice}
+              watched={isWatched(visibleEvents[0].netuid)}
+              onClick={() => router.push(`/subnets/${visibleEvents[0].netuid}`)}
+            />
+            {visibleEvents.length > 1 && (
+              <BlurGate tier={tier} required="premium" minHeight="300px">
+                <div className="flex flex-col gap-2">
+                  {visibleEvents.slice(1).map((ev, i) => (
+                    <FlowCard
+                      key={`${ev.netuid}-${ev.type}-${i + 1}`}
+                      event={ev}
+                      taoPrice={taoPrice}
+                      watched={isWatched(ev.netuid)}
+                      onClick={() => router.push(`/subnets/${ev.netuid}`)}
+                    />
+                  ))}
+                </div>
+              </BlurGate>
+            )}
+          </div>
+        )}
+      </main>
+    </div>
   );
 }
 
