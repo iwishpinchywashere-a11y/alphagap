@@ -24,7 +24,7 @@ const TMC_API_KEY  = process.env.TMC_API_KEY || "";
 const RAO_PER_TAO  = 1_000_000_000;
 const ROOT_NETUID  = 0; // subnet 0 = root/legacy — NOT an alpha token
 
-const MAIN_CACHE_KEY    = "wallet-tracker-v13.json";
+const MAIN_CACHE_KEY    = "wallet-tracker-v14.json";
 const MAIN_CACHE_TTL_MS = 60 * 60 * 1000; // 60 min (expensive to compute)
 
 const WIN_CACHE_KEY     = "wallet-tracker-winners.json";
@@ -363,29 +363,30 @@ function extractTSAlphaAddresses(raw: unknown): Set<string> {
 }
 
 // ── Build the main filtered wallet list ───────────────────────────
-// Strategy: seed candidates from TaoStats delegation events (confirmed alpha
-// holders). Sort by timestamp_desc to get diverse recent stakers, and fetch
-// 5 pages in parallel to collect 300+ unique alpha wallet addresses.
-// Fallback: TMC top 400 by tao_staked + top 200 by tao_change_24h for broader coverage.
+// Strategy:
+//   Primary:  TaoStats delegation events (5 pages × 200, timestamp_desc) →
+//             confirmed alpha investors (netuid > 0 only). Typically gives 250-350
+//             unique addresses covering the most active recent dTAO stakers.
+//   Fallback: Previously-built TSWhales cache (same alpha-staker pool, avoids
+//             a blank list when TaoStats is temporarily slow/down).
+//   Enrichment: TMC top-200 list for rank + 24h change data only (NOT used
+//             as candidate source — TMC top-by-tao_staked are mostly validators
+//             with root-network stake and zero alpha positions).
 async function buildMainList(): Promise<WalletEntry[]> {
   const TAOSTATS_KEY = process.env.TAOSTATS_API_KEY || "";
   const thirtyDaysAgo = Math.floor((Date.now() - 30 * 86400_000) / 1000);
 
-  // Fetch in parallel:
-  //  1. TaoStats delegations pages 1-5 (timestamp_desc = most recent + diverse)
-  //  2. TMC top 400 by tao_staked — rank + 24h change data
-  //  3. TMC top 200 by tao_change_24h — most actively trading wallets
-  //  4. Subnet names + TAO price
   const tsFetch = (page: number) =>
     fetch(
       `https://api.taostats.io/api/delegation/v1?limit=200&page=${page}&order=timestamp_desc&timestamp_start=${thirtyDaysAgo}`,
       { headers: { Authorization: TAOSTATS_KEY }, signal: AbortSignal.timeout(15000), next: { revalidate: 0 } }
     ).then(r => r.ok ? r.json() : null).catch(() => null);
 
-  const [ts1, ts2, ts3, ts4, ts5, tmcTop, tmcRecent, subnetNames, taoPrice] = await Promise.all([
+  // Fetch TaoStats pages + enrichment data + TSWhales cache (fallback seed) in parallel
+  const [ts1, ts2, ts3, ts4, ts5, tmcTop, tsWhalesCache, subnetNames, taoPrice] = await Promise.all([
     tsFetch(1), tsFetch(2), tsFetch(3), tsFetch(4), tsFetch(5),
-    fetchTMCList("tao_staked",     400).catch(() => [] as TMCColdkey[]),
-    fetchTMCList("tao_change_24h", 200).catch(() => [] as TMCColdkey[]),
+    fetchTMCList("tao_staked", 200).catch(() => [] as TMCColdkey[]),
+    readBlob<TSCache>(TS_CACHE_KEY),   // previously built by the TSWhales tab
     fetchSubnetNames(),
     getTaoPrice().catch(() => 0),
   ]);
@@ -395,13 +396,21 @@ async function buildMainList(): Promise<WalletEntry[]> {
   for (const page of [ts1, ts2, ts3, ts4, ts5]) {
     for (const addr of extractTSAlphaAddresses(page)) tsAddresses.add(addr);
   }
-  console.log(`[wallet-tracker] ${tsAddresses.size} alpha investors from TaoStats (5 pages), ${tmcTop.length} from TMC top-400, ${tmcRecent.length} from TMC recent-200, TAO=$${taoPrice}`);
 
-  // Build TMC lookup for rank + 24h change enrichment (merge both TMC lists)
+  // Supplement with any addresses from the TSWhales cache (robust fallback)
+  // These are already confirmed alpha stakers, so they're ideal candidates.
+  const cachedWhaleCount = (tsWhalesCache?.whales ?? []).length;
+  for (const w of (tsWhalesCache?.whales ?? [])) {
+    tsAddresses.add(w.address);
+  }
+
+  console.log(`[wallet-tracker] ${tsAddresses.size} alpha investor candidates (TaoStats + ${cachedWhaleCount} TSWhales cache), TAO=$${taoPrice}`);
+
+  // TMC data for enrichment only (rank + 24h change)
   const tmcMap = new Map<string, TMCColdkey>();
-  for (const w of [...tmcTop, ...tmcRecent]) tmcMap.set(w.id, w);
+  for (const w of tmcTop) tmcMap.set(w.id, w);
+
   // Known wallets go FIRST so they're always in the first fetch batch
-  // (avoids rate-limit nulls that happen when they're queued at position 400+)
   const knownAddresses = Object.keys(KNOWN_WALLETS);
   const knownSet = new Set(knownAddresses);
 
@@ -409,15 +418,7 @@ async function buildMainList(): Promise<WalletEntry[]> {
   for (const addr of tsAddresses) {
     if (!knownSet.has(addr)) allAddresses.push(addr);
   }
-  // Fallback: add TMC wallets that have any staked TAO (both lists)
-  const seen = new Set([...knownAddresses, ...tsAddresses]);
-  for (const w of [...tmcTop, ...tmcRecent]) {
-    if (!seen.has(w.id) && (w.tao_staked ?? 0) > 0) {
-      seen.add(w.id);
-      allAddresses.push(w.id);
-    }
-  }
-  const candidates = allAddresses.slice(0, 700);
+  const candidates = allAddresses.slice(0, 550);
   console.log(`[wallet-tracker] ${candidates.length} candidates to detail-fetch`);
 
   // Batch-fetch TMC detail (25 concurrent, 250ms pause between batches)
@@ -985,7 +986,13 @@ export async function GET(request: NextRequest) {
 
   try {
     const wallets = await buildMainList();
-    // Guard: never overwrite a valid cache with empty results
+    // Guard: never overwrite a valid cache with empty / known-only results
+    const nonKnownCount = wallets.filter(w => !w.is_known).length;
+    const cachedNonKnown = (cached?.wallets ?? []).filter(w => !w.is_known).length;
+    if (nonKnownCount === 0 && cachedNonKnown > 0) {
+      console.warn(`[wallet-tracker] Built ${wallets.length} wallets (0 non-known) — serving stale cache with ${cachedNonKnown} non-known wallets`);
+      return NextResponse.json(cached);
+    }
     if (wallets.length === 0 && cached) {
       console.warn("[wallet-tracker] Built 0 wallets — serving stale cache");
       return NextResponse.json(cached);
