@@ -18,6 +18,30 @@ function statusDot(payouts: boolean, hasConnect: boolean) {
   return           <span className="inline-flex items-center gap-1 text-xs font-medium text-gray-500"><span className="w-1.5 h-1.5 rounded-full bg-gray-600 inline-block" />No Connect</span>;
 }
 
+interface DiagRow {
+  referredEmail: string;
+  referredBy: string;
+  signedUpAt: string;
+  hasStripeCustomer: boolean;
+  customerId: string | null;
+  paidInvoices: number;
+  missedCommissions: number;
+  existingCommissions: number;
+}
+interface WebhookStatus {
+  url?: string | null;
+  status?: string;
+  events?: string[];
+  hasInvoiceEvent?: boolean;
+  error?: string;
+}
+interface DiagReport {
+  attributions: DiagRow[];
+  commissions: { invoiceId: string; status: string; amount: number }[];
+  webhookStatus: WebhookStatus;
+  totalMissed: number;
+}
+
 export default function AdminAffiliatesPage() {
   const { data: session, status } = useSession();
   const [affiliates, setAffiliates] = useState<AdminAffiliateEntry[]>([]);
@@ -25,10 +49,40 @@ export default function AdminAffiliatesPage() {
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<"signups" | "earned" | "monthly" | "joined">("signups");
+  const [diag, setDiag] = useState<DiagReport | null>(null);
+  const [diagLoading, setDiagLoading] = useState(false);
+  const [repairLoading, setRepairLoading] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [repairResult, setRepairResult] = useState<any>(null);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const isAdmin = (session?.user as any)?.isAdmin ||
     process.env.NEXT_PUBLIC_ADMIN_CHECK === "true";
+
+  function runDiag() {
+    setDiagLoading(true);
+    fetch("/api/admin/repair-commissions")
+      .then(r => r.json())
+      .then(d => setDiag(d))
+      .catch(e => setError(String(e)))
+      .finally(() => setDiagLoading(false));
+  }
+
+  function runRepair() {
+    setRepairLoading(true);
+    setRepairResult(null);
+    fetch("/api/admin/repair-commissions", { method: "POST" })
+      .then(r => r.json())
+      .then(d => {
+        setRepairResult(d);
+        // Refresh affiliate list to show updated earnings
+        fetch("/api/admin/affiliates").then(r => r.json()).then(d2 => {
+          if (!d2.error) setAffiliates(d2.affiliates ?? []);
+        }).catch(() => {});
+      })
+      .catch(e => setError(String(e)))
+      .finally(() => setRepairLoading(false));
+  }
 
   useEffect(() => {
     if (status === "loading") return;
@@ -144,6 +198,108 @@ export default function AdminAffiliatesPage() {
           <span className="text-xs font-medium bg-pink-500/10 border border-pink-500/20 text-pink-400 px-3 py-1 rounded-full">
             {affiliates.reduce((s, a) => s + a.premiumSubs, 0)} Premium subs referred
           </span>
+        </div>
+
+        {/* Commission Health Panel */}
+        <div className="mb-6 bg-gray-900/60 border border-gray-800 rounded-2xl overflow-hidden">
+          <div className="px-5 py-4 border-b border-gray-800 flex items-center justify-between flex-wrap gap-3">
+            <div>
+              <h2 className="font-semibold text-white text-sm">Commission Health</h2>
+              <p className="text-xs text-gray-500 mt-0.5">Diagnose missed commissions & replay Stripe invoices</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={runDiag}
+                disabled={diagLoading}
+                className="flex items-center gap-2 px-3 py-2 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/25 text-blue-400 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+              >
+                {diagLoading ? <span className="animate-spin">⟳</span> : "🔍"} Diagnose
+              </button>
+              <button
+                onClick={runRepair}
+                disabled={repairLoading}
+                className="flex items-center gap-2 px-3 py-2 bg-green-500/15 hover:bg-green-500/25 border border-green-500/30 text-green-400 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+              >
+                {repairLoading ? <span className="animate-spin">⟳</span> : "🔧"} Repair & Pay
+              </button>
+            </div>
+          </div>
+
+          {/* Repair result */}
+          {repairResult && (
+            <div className="px-5 py-4 border-b border-gray-800 bg-green-500/5">
+              <div className="flex items-start gap-3 flex-wrap">
+                <div className="text-sm text-green-400 font-medium">✅ Repair complete</div>
+                <div className="flex flex-wrap gap-3 text-xs text-gray-400">
+                  <span><span className="text-white font-semibold">{repairResult.commissionsAdded}</span> commissions added</span>
+                  <span><span className="text-white font-semibold">{repairResult.payoutsPaid}</span> payouts triggered</span>
+                  <span><span className="text-white font-semibold">{repairResult.attributionsScanned}</span> attributions scanned</span>
+                </div>
+              </div>
+              {repairResult.errors?.length > 0 && (
+                <div className="mt-2 text-xs text-red-400">{repairResult.errors.join(" · ")}</div>
+              )}
+              {repairResult.usersChecked?.map((u: { email: string; referredBy: string; commissionsAdded: number; invoicesFound: number; issue?: string }, i: number) => (
+                <div key={i} className="mt-2 text-xs text-gray-400 font-mono">
+                  {u.email} (via {u.referredBy}) — {u.invoicesFound} invoice(s), {u.commissionsAdded} commission(s) added
+                  {u.issue && <span className="text-yellow-500"> ⚠ {u.issue}</span>}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Diagnostic result */}
+          {diag && (
+            <div className="px-5 py-4">
+              {/* Webhook status */}
+              <div className={`inline-flex items-center gap-2 text-xs font-medium px-3 py-1.5 rounded-full border mb-4 ${
+                diag.webhookStatus?.hasInvoiceEvent
+                  ? "bg-green-500/10 border-green-500/25 text-green-400"
+                  : "bg-red-500/10 border-red-500/25 text-red-400"
+              }`}>
+                {diag.webhookStatus?.hasInvoiceEvent ? "✅" : "❌"}
+                {diag.webhookStatus?.hasInvoiceEvent
+                  ? `Webhook OK · invoice.payment_succeeded enabled · ${diag.webhookStatus.url}`
+                  : diag.webhookStatus?.error
+                    ? `Webhook check failed: ${diag.webhookStatus.error}`
+                    : `invoice.payment_succeeded NOT in webhook events — commissions will never fire! Add it in Stripe Dashboard.`
+                }
+              </div>
+
+              {/* Attribution rows */}
+              <div className="space-y-2">
+                {diag.attributions.map((a, i) => (
+                  <div key={i} className="flex items-center gap-4 text-xs flex-wrap">
+                    <span className="text-gray-300 font-medium">{a.referredEmail}</span>
+                    <span className="text-gray-600">via {a.referredBy}</span>
+                    <span className={a.hasStripeCustomer ? "text-green-400" : "text-red-400"}>
+                      {a.hasStripeCustomer ? `✓ Stripe customer ${a.customerId?.slice(0,14)}…` : "✗ No Stripe customer"}
+                    </span>
+                    <span className="text-gray-500">{a.paidInvoices} paid invoice(s)</span>
+                    {a.missedCommissions > 0
+                      ? <span className="text-yellow-400 font-semibold">⚠ {a.missedCommissions} missed commission(s)</span>
+                      : <span className="text-green-400">✓ Commissions OK</span>
+                    }
+                  </div>
+                ))}
+              </div>
+
+              {diag.totalMissed > 0 && (
+                <p className="mt-3 text-sm text-yellow-400">
+                  Found {diag.totalMissed} attribution(s) with missed commissions — click <strong>Repair & Pay</strong> to backfill them.
+                </p>
+              )}
+              {diag.totalMissed === 0 && diag.attributions.length > 0 && (
+                <p className="mt-3 text-sm text-green-400">All commissions are up to date ✓</p>
+              )}
+            </div>
+          )}
+
+          {!diag && !repairResult && (
+            <div className="px-5 py-4 text-xs text-gray-600">
+              Click <strong className="text-gray-400">Diagnose</strong> to check if any commissions are missing, or <strong className="text-gray-400">Repair & Pay</strong> to scan all Stripe invoices and backfill + pay any missed commissions in one shot.
+            </div>
+          )}
         </div>
 
         {/* Filter / search bar */}
