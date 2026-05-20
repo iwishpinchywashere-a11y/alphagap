@@ -463,7 +463,7 @@ export default function AuditsPage() {
                     onClick={() => handleSort("top10")} sorted={sortKey === "top10"} />
 
                   {/* Emission economics */}
-                  <ColHeader label="Miner Burn" sub="% emiss burned"
+                  <ColHeader label="M Burn" sub="% emiss burned"
                     tooltip="Percentage of miner emissions that are burned instead of paid out. Very high burn (80%+) means miners are net losers and may leave. 0% is ideal — miners keep all rewards."
                     onClick={() => handleSort("burn")} sorted={sortKey === "burn"} />
                   <ColHeader label="Chain Buy%" sub="emiss recycled"
@@ -881,7 +881,7 @@ export default function AuditsPage() {
         </div>
       </div>
 
-      <div className="w-full px-4 md:px-8 py-6 space-y-5">
+      <div className="max-w-[1600px] mx-auto px-6 py-6 space-y-5">
 
         {pageContent}
 
