@@ -3737,10 +3737,14 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
 
         // d7: delta from the long-term snapshot, normalised to per-day by ACTUAL elapsed days
         // (may be 8+ days if bridging a data gap, not assumed to always be exactly 7).
+        // IMPORTANT: require ≥2 days old — prevents fresh-blob case where snap7d resolves
+        // to the same snapshot as snap24h, doubling the extreme 24h delta into dailyAvg7d.
         let dailyAvg7d: number | null = null;
         if (snap7d && snap7d.data[key] != null) {
-          const actualDays = Math.max((now24 - snap7d.actualMs) / 86400000, 1);
-          dailyAvg7d = (cur - snap7d.data[key].agap) / actualDays;
+          const actualDays = (now24 - snap7d.actualMs) / 86400000;
+          if (actualDays >= 2) {
+            dailyAvg7d = (cur - snap7d.data[key].agap) / Math.max(actualDays, 1);
+          }
         }
 
         if (d24 !== null || dailyAvg7d !== null) {
@@ -3757,6 +3761,15 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
             ? d24 * 0.15 + dailyAvg7d * 0.85
             : (d24 ?? dailyAvg7d!);
 
+          // History confidence: dampen velo toward 50 when history is thin (<3 days).
+          // After a blob reset, scores from day 1 may differ wildly from steady-state
+          // (fresh calibration), producing extreme d24 values. historyWeight ramps 0→1
+          // over 72 hourly snapshots (3 days), so velo gradually regains full range.
+          // At 24 snapshots (1 day)  → historyWeight ≈ 0.33 → velo range ~33-67
+          // At 48 snapshots (2 days) → historyWeight ≈ 0.67 → velo range ~17-83
+          // At 72+ snapshots (3 days)→ historyWeight = 1.0  → full normal range
+          const historyWeight = Math.min(allTs.length / 72, 1.0);
+
           // Neutral baseline = 50. tanh compresses extreme values gracefully.
           // Divisor=2 gives wide variance — rocketing subnets reach 90-100,
           // declining subnets fall to 30-40, flat sits near 50.
@@ -3769,7 +3782,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
           //   velocity=-1/day      → velo≈33  (declining)
           //   velocity=-2/day      → velo≈20  (clear decline)
           const velo = Math.max(0, Math.min(100, Math.round(
-            50 + Math.tanh(velocity * levelMult / 2) * 50
+            50 + Math.tanh(velocity * levelMult / 2) * 50 * historyWeight
           )));
           entry.agap_velo = velo;
         }
