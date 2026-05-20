@@ -441,6 +441,11 @@ export default function AuditsPage() {
                     tooltip="Total market capitalisation of this subnet's alpha token in USD. Calculated as token price × circulating supply."
                     onClick={() => handleSort("marketCap")} sorted={sortKey === "marketCap"} />
 
+                  {/* Conviction */}
+                  <ColHeader label="Conviction" sub="BIT-0011"
+                    tooltip="On-chain commitment score (0–100) based on BIT-0011 Conviction mechanics. Scores alpha staked % (locked supply not in DEX), TAO pool depth, and team net-buy activity. High conviction = more capital locked, harder to exit silently."
+                    onClick={() => handleSort("conviction")} sorted={sortKey === "conviction"} />
+
                   {/* Holders */}
                   <ColHeader label="Holders" sub="unique addrs"
                     tooltip="Number of unique wallet addresses holding this subnet's alpha token. A rough proxy for community size and real-world adoption."
@@ -480,10 +485,6 @@ export default function AuditsPage() {
                   <ColHeader label="VTrust" sub="validator align"
                     tooltip="Average validator trust score (0–1.0) across all validators. Measures how aligned each validator's weight-setting is with the honest stake-weighted majority. 1.0 = perfect consensus. Low VTrust means validators disagree on which miners are good — often a sign of manipulation, spam, or poor coordination." />
 
-                  {/* Conviction */}
-                  <ColHeader label="Conviction" sub="BIT-0011"
-                    tooltip="On-chain commitment score (0–100) based on BIT-0011 Conviction mechanics. Scores alpha staked % (locked supply not in DEX), TAO pool depth, and team net-buy activity. High conviction = more capital locked, harder to exit silently."
-                    onClick={() => handleSort("conviction")} sorted={sortKey === "conviction"} />
 
                 </tr>
               </thead>
@@ -549,6 +550,25 @@ export default function AuditsPage() {
                           const mcap = marketCapUsdMap.get(audit.netuid);
                           if (mcap == null) return <span className="text-gray-600 text-sm">—</span>;
                           return <span className="text-gray-300 tabular-nums text-sm">${formatNum(mcap)}</span>;
+                        })()}
+                      </td>
+
+                      {/* Conviction score */}
+                      <td className="px-2.5 py-3 text-right">
+                        {(() => {
+                          const cv = convictionMap.get(audit.netuid);
+                          if (cv == null) return <span className="text-gray-600 text-sm">—</span>;
+                          const label = cv >= 70 ? "HIGH" : cv >= 40 ? "MED" : "LOW";
+                          const cls =
+                            cv >= 70 ? "text-emerald-400" :
+                            cv >= 40 ? "text-yellow-400" :
+                            "text-red-400";
+                          return (
+                            <div className="flex flex-col items-end gap-0.5">
+                              <span className={`tabular-nums font-bold text-sm ${cls}`}>{cv}</span>
+                              <span className={`text-[9px] font-semibold uppercase tracking-wide ${cls} opacity-70`}>{label}</span>
+                            </div>
+                          );
                         })()}
                       </td>
 
@@ -652,24 +672,6 @@ export default function AuditsPage() {
                         )}
                       </td>
 
-                      {/* Conviction score */}
-                      <td className="px-2.5 py-3 text-right">
-                        {(() => {
-                          const cv = convictionMap.get(audit.netuid);
-                          if (cv == null) return <span className="text-gray-600 text-sm">—</span>;
-                          const label = cv >= 70 ? "HIGH" : cv >= 40 ? "MED" : "LOW";
-                          const cls =
-                            cv >= 70 ? "text-emerald-400" :
-                            cv >= 40 ? "text-yellow-400" :
-                            "text-red-400";
-                          return (
-                            <div className="flex flex-col items-end gap-0.5">
-                              <span className={`tabular-nums font-bold text-sm ${cls}`}>{cv}</span>
-                              <span className={`text-[9px] font-semibold uppercase tracking-wide ${cls} opacity-70`}>{label}</span>
-                            </div>
-                          );
-                        })()}
-                      </td>
 
                     </tr>
                   );
@@ -879,7 +881,7 @@ export default function AuditsPage() {
         </div>
       </div>
 
-      <div className="max-w-screen-2xl mx-auto px-4 md:px-6 py-6 space-y-5">
+      <div className="w-full px-2 md:px-3 py-6 space-y-5">
 
         {pageContent}
 
