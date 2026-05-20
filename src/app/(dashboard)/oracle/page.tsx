@@ -83,7 +83,7 @@ function InputBar({
         disabled={loading}
         placeholder={placeholder}
         rows={1}
-        className={`flex-1 bg-transparent text-white placeholder-gray-500 resize-none focus:outline-none disabled:opacity-50 leading-relaxed ${large ? "text-base" : "text-[15px]"}`}
+        className={`flex-1 bg-transparent text-white placeholder-gray-500 resize-none focus:outline-none disabled:opacity-50 leading-relaxed ${large ? "text-base text-center" : "text-[15px]"}`}
         style={{ maxHeight: "200px" }}
       />
       <button
@@ -288,7 +288,6 @@ export default function OraclePage() {
       <div className="pointer-events-none absolute inset-0 flex items-center justify-center" aria-hidden>
         <div className="w-[600px] h-[600px] rounded-full bg-green-500/[0.04] blur-[100px]" />
       </div>
-      <div className="pointer-events-none absolute top-0 left-1/2 -translate-x-1/2 w-px h-40 bg-gradient-to-b from-green-500/20 to-transparent" aria-hidden />
 
       {/* Top bar */}
       <div className="flex-shrink-0 px-5 pt-5 pb-0 relative">
