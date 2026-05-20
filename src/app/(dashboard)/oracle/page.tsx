@@ -13,12 +13,12 @@ interface Message {
 const DAILY_LIMIT = 25;
 
 const STARTER_QUESTIONS = [
-  { emoji: "📈", text: "Which subnets have the highest investing score right now?" },
-  { emoji: "🐋", text: "Show me subnets where whales are accumulating" },
+  { emoji: "😴", text: "Which subnets are being slept on right now?" },
+  { emoji: "🐋", text: "Show me subnets whales are accumulating" },
+  { emoji: "🔐", text: "Which subnets are showing the most \"Conviction\"?" },
   { emoji: "🚨", text: "What are the biggest red flags across all subnets?" },
-  { emoji: "🏆", text: "Best long-term hold — top 3 with reasoning" },
-  { emoji: "⚡", text: "Which subnets have the fastest rising aGap velocity?" },
-  { emoji: "🔐", text: "High conviction scores but low audit scores?" },
+  { emoji: "🏆", text: "Best long-term holds — top 3 with reasoning" },
+  { emoji: "⚡", text: "Which subnets have been very active with new developments lately?" },
 ];
 
 function AssistantMessage({ content }: { content: string }) {
