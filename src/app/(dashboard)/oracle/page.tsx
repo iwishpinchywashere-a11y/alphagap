@@ -22,26 +22,50 @@ const STARTER_QUESTIONS = [
 ];
 
 function AssistantMessage({ content }: { content: string }) {
-  const lines = content.split("\n");
+  // Strip markdown table rows (lines full of | and ---) and excessive dashes
+  const cleaned = content
+    .split("\n")
+    .filter(line => {
+      const t = line.trim();
+      if (/^\|[-\s|]+\|$/.test(t)) return false;   // separator rows |---|---|
+      if (/^\|.*\|$/.test(t) && (t.match(/\|/g) ?? []).length > 3) return false; // wide table rows
+      if (/^-{3,}$/.test(t)) return false;           // --- dividers
+      return true;
+    })
+    .join("\n");
+
+  const lines = cleaned.split("\n");
   return (
     <div className="space-y-2">
       {lines.map((line, i) => {
+        // Bold: **text**
         const parts = line.split(/\*\*(.*?)\*\*/g);
         const rendered = parts.map((p, j) =>
           j % 2 === 1 ? <strong key={j} className="text-white font-semibold">{p}</strong> : p
         );
-        if (line.trim().startsWith("- ") || line.trim().startsWith("• ")) {
+        // Bullet points
+        if (line.trim().startsWith("- ") || line.trim().startsWith("• ") || line.trim().startsWith("* ")) {
+          const bulletText = line.trim().replace(/^[-•*]\s+/, "");
+          const bParts = bulletText.split(/\*\*(.*?)\*\*/g);
+          const bRendered = bParts.map((p, j) =>
+            j % 2 === 1 ? <strong key={j} className="text-white font-semibold">{p}</strong> : p
+          );
           return (
             <div key={i} className="flex gap-2.5 pl-1">
-              <span className="text-green-400 flex-shrink-0 mt-0.5 text-base leading-relaxed">▸</span>
-              <span className="text-[15px] leading-relaxed">{rendered}</span>
+              <span className="text-green-400 flex-shrink-0 mt-0.5">▸</span>
+              <span className="text-[15px] leading-relaxed">{bRendered}</span>
             </div>
           );
         }
-        if (line.trim().startsWith("#")) {
-          return <p key={i} className="text-white font-bold text-base mt-3">{line.replace(/^#+\s*/, "")}</p>;
+        // Numbered lists
+        if (/^\d+\.\s/.test(line.trim())) {
+          return <p key={i} className="text-[15px] leading-relaxed pl-1">{rendered}</p>;
         }
-        if (!line.trim()) return <div key={i} className="h-1.5" />;
+        // Headings
+        if (line.trim().startsWith("#")) {
+          return <p key={i} className="text-white font-bold text-base mt-3 mb-1">{line.replace(/^#+\s*/, "")}</p>;
+        }
+        if (!line.trim()) return <div key={i} className="h-1" />;
         return <p key={i} className="text-[15px] leading-relaxed">{rendered}</p>;
       })}
     </div>
@@ -114,14 +138,20 @@ export default function OraclePage() {
   const [remaining, setRemaining]     = useState<number | null>(null);
   const [rateLimited, setRateLimited] = useState(false);
   const [error, setError]             = useState<string | null>(null);
+  const [streamingIdx, setStreamingIdx] = useState<number | null>(null);
   const bottomRef                     = useRef<HTMLDivElement>(null);
   const inputRef                      = useRef<HTMLTextAreaElement>(null);
+  const responseStartRef              = useRef<HTMLDivElement>(null);
 
   const hasMessages = messages.length > 0;
 
+  // When the response starts generating, scroll to the TOP of the new message
+  // so the user can read from the beginning as it streams in.
   useEffect(() => {
-    if (hasMessages) bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, loading, hasMessages]);
+    if (loading && streamingIdx !== null) {
+      responseStartRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [streamingIdx, loading]);
 
   // Lock body scroll when in chat mode so the dashboard layout can't scroll
   // and drag the viewport down to the footer on mobile.
@@ -148,7 +178,11 @@ export default function OraclePage() {
     setInput("");
     if (inputRef.current) inputRef.current.style.height = "auto";
     setLoading(true);
-    setMessages(prev => [...prev, { role: "assistant", content: "" }]);
+    setMessages(prev => {
+      const next: Message[] = [...prev, { role: "assistant", content: "" }];
+      setStreamingIdx(next.length - 1);
+      return next;
+    });
 
     try {
       const res = await fetch("/api/oracle", {
@@ -187,6 +221,7 @@ export default function OraclePage() {
       setMessages(prev => prev.slice(0, -1));
     } finally {
       setLoading(false);
+      setStreamingIdx(null);
       setTimeout(() => inputRef.current?.focus(), 50);
     }
   }, [messages, loading]);
@@ -238,7 +273,7 @@ export default function OraclePage() {
         <div className="flex-1 overflow-y-auto">
           <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 space-y-6">
             {messages.map((msg, i) => (
-              <div key={i} className={`flex gap-3 ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+              <div key={i} ref={i === streamingIdx ? responseStartRef : undefined} className={`flex gap-3 ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
                 {msg.role === "assistant" && (
                   <div className="flex-shrink-0 w-7 h-7 rounded-lg bg-green-500/15 border border-green-500/25 flex items-center justify-center mt-0.5 shadow-sm shadow-green-500/10">
                     <Image src="/alphagap_icon.svg" alt="" width={15} height={15} />
