@@ -156,15 +156,25 @@ function buildSystemPrompt(loaded: Record<string, any>): string {
   }
 
   // ── Signals ─────────────────────────────────────────────────────
+  // signals-history.json is a flat ScanSignal[] array.
+  // scan-latest.json also has a .signals array with the freshest scan's signals.
+  // We merge both, deduplicate by id, and show all of them.
+  // Actual signal_type values: dev_spike | hf_update | hf_drop | flow_inflection |
+  //   flow_spike | flow_warning | buy_pressure | sell_pressure | price_surge |
+  //   price_drop | social_buzz
   if (loaded["signals-history.json"]) {
-    // Actual signal types stored in the blob:
-    // dev: "dev_spike", "hf_update", "hf_drop"
-    // flow: "flow_inflection", "flow_spike", "flow_warning"
-    // price: "price_surge", "price_drop", "buy_pressure", "sell_pressure"
-    // social: "social_buzz"
     const DEV = new Set(["dev_spike", "hf_update", "hf_drop"]);
-    // Use 7d window (not 72h) so we don't miss dev events on quiet weeks
-    const sigs = safeArr(loaded["signals-history.json"], "signals")
+    const histSigs: any[] = safeArr(loaded["signals-history.json"]); // flat array
+    const latestSigs: any[] = safeArr(loaded["scan-latest.json"]?.signals ?? []); // from scan
+    // Merge + deduplicate by id
+    const seen = new Set<number>();
+    const all: any[] = [];
+    for (const s of [...latestSigs, ...histSigs]) {
+      if (!s || seen.has(s.id)) continue;
+      seen.add(s.id);
+      all.push(s);
+    }
+    const sigs = all
       .filter((s: any) => new Date(s.signal_date ?? s.created_at ?? 0).getTime() >= cutoff7d)
       .sort((a: any, b: any) => (b.strength ?? 0) - (a.strength ?? 0))
       .slice(0, 60)
@@ -174,19 +184,30 @@ function buildSystemPrompt(loaded: Record<string, any>): string {
         date: (s.signal_date ?? s.created_at ?? "").slice(0, 10),
         dev: DEV.has(s.signal_type),
       }));
-    sections.push(`RECENT SIGNALS — last 7d (dev=true means dev_spike/hf_update/hf_drop):\n${sigs.length ? JSON.stringify(sigs) : "None in last 7d."}`);
+    sections.push(`RECENT SIGNALS — last 7d (${sigs.length} total; dev=true = dev_spike/hf_update/hf_drop):\n${sigs.length ? JSON.stringify(sigs) : "None in last 7d."}`);
   }
 
   // ── Whale tracker ───────────────────────────────────────────────
+  // Shape: { entries: WhaleSignalEntry[], currentSignals: Record<number, "accumulating"|"distributing"|null>, lastUpdatedAt: string }
+  // WhaleSignalEntry fields: id, netuid, subnetName, signal, entryPrice, entryAt, status ("active"|"closed")
   if (loaded["whale-tracker.json"]) {
-    const whales = safeArr(loaded["whale-tracker.json"], "whales", "subnets")
-      .filter(Boolean).slice(0, 40)
+    const raw = loaded["whale-tracker.json"];
+    // currentSignals: the live per-subnet signal map
+    const currentSigs = raw?.currentSignals ?? {};
+    const activeSignals = Object.entries(currentSigs)
+      .filter(([, v]) => v != null)
+      .map(([sn, sig]) => ({ sn: Number(sn), signal: sig }));
+    // entries: historical + active signal entries
+    const entries = safeArr(raw, "entries")
+      .filter((w: any) => w?.status === "active")
+      .slice(0, 30)
       .map((w: any) => ({
-        sn: w.netuid, name: w.name ?? w.subnet_name,
-        signal: w.signal ?? w.whale_signal, buy_ratio: w.buy_ratio,
-        net_tao_7d: w.net_tao_7d, updated: (w.updated_at ?? "").slice(0, 10),
+        sn: w.netuid, name: w.subnetName,
+        signal: w.signal, entry_price: w.entryPrice,
+        since: (w.entryAt ?? "").slice(0, 10),
       }));
-    sections.push(`WHALE TRACKER:\n${whales.length ? JSON.stringify(whales) : "No data."}`);
+    const out = { active_signals: activeSignals, active_entries: entries, updated: (raw?.lastUpdatedAt ?? "").slice(0, 10) };
+    sections.push(`WHALE TRACKER:\n${activeSignals.length || entries.length ? JSON.stringify(out) : "No active whale signals."}`);
   }
 
   // ── Flow events ─────────────────────────────────────────────────
@@ -202,38 +223,55 @@ function buildSystemPrompt(loaded: Record<string, any>): string {
   }
 
   // ── Social / KOL ────────────────────────────────────────────────
+  // social-hot.json shape: { events: HeatEvent[], seen_ids, last_pulse }
+  // HeatEvent fields: netuid, subnet_name, kol_handle, kol_name, kol_tier,
+  //   tweet_text, heat_score, engagement, detected_at
+  // benchmark-alerts.json: flat array with fields:
+  //   netuid, subnet_name, handle, tweet_text, engagement, detected_at
   if (loaded["social-hot.json"] || loaded["benchmark-alerts.json"]) {
     const hot = safeArr(loaded["social-hot.json"], "events")
-      .filter((e: any) => new Date(e?.timestamp ?? e?.created_at ?? 0).getTime() >= cutoff7d)
+      .filter((e: any) => new Date(e?.detected_at ?? 0).getTime() >= cutoff7d)
+      .sort((a: any, b: any) => (b.heat_score ?? 0) - (a.heat_score ?? 0))
       .slice(0, 20)
       .map((e: any) => ({
-        sn: e.netuid, name: e.subnet_name ?? e.name, kol: e.kol ?? e.username,
-        heat: e.heat_score ?? e.score, text: (e.text ?? e.content ?? "").slice(0, 90),
-        date: (e.timestamp ?? e.created_at ?? "").slice(0, 10),
+        sn: e.netuid, name: e.subnet_name,
+        kol: e.kol_handle, tier: e.kol_tier,
+        heat: e.heat_score, text: (e.tweet_text ?? "").slice(0, 100),
+        date: (e.detected_at ?? "").slice(0, 10),
       }));
-    const bench = safeArr(loaded["benchmark-alerts.json"], "alerts")
-      .filter((e: any) => new Date(e?.timestamp ?? e?.created_at ?? 0).getTime() >= cutoff7d)
+    const bench = safeArr(loaded["benchmark-alerts.json"]) // flat array
+      .filter((e: any) => new Date(e?.detected_at ?? 0).getTime() >= cutoff7d)
+      .sort((a: any, b: any) => (b.engagement ?? 0) - (a.engagement ?? 0))
       .slice(0, 15)
       .map((e: any) => ({
-        sn: e.netuid, name: e.subnet_name ?? e.name, kol: e.username ?? e.kol,
-        likes: e.likes ?? e.like_count, text: (e.text ?? e.content ?? "").slice(0, 90),
-        date: (e.timestamp ?? e.created_at ?? "").slice(0, 10),
+        sn: e.netuid, name: e.subnet_name,
+        kol: e.handle, engagement: e.engagement,
+        text: (e.tweet_text ?? "").slice(0, 100),
+        date: (e.detected_at ?? "").slice(0, 10),
       }));
-    if (hot.length) sections.push(`KOL HOT EVENTS — last 72h:\n${JSON.stringify(hot)}`);
+    if (hot.length) sections.push(`KOL HOT EVENTS — last 7d (sorted by heat_score):\n${JSON.stringify(hot)}`);
     if (bench.length) sections.push(`HIGH-ENGAGEMENT KOL TWEETS — last 7d:\n${JSON.stringify(bench)}`);
+    if (!hot.length && !bench.length) sections.push(`KOL/SOCIAL: No events in last 7d.`);
   }
 
   // ── Discord ─────────────────────────────────────────────────────
+  // Shape: { scannedAt, channelsScanned, results: DiscordResult[] }
+  // DiscordResult fields: netuid, subnetName, channelName, signal ("alpha"|"active"|"quiet"|"noise"),
+  //   alphaScore, summary, keyInsights: string[], messageCount, scannedAt
   if (loaded["discord-latest.json"]) {
-    const disc = safeArr(loaded["discord-latest.json"], "signals")
-      .filter((e: any) => new Date(e?.timestamp ?? e?.created_at ?? 0).getTime() >= cutoff7d)
+    const raw = loaded["discord-latest.json"];
+    const scannedAt = (raw?.scannedAt ?? "").slice(0, 10);
+    const disc = safeArr(raw, "results")
+      .filter((e: any) => e?.signal === "alpha" || e?.signal === "active")
+      .sort((a: any, b: any) => (b.alphaScore ?? 0) - (a.alphaScore ?? 0))
       .slice(0, 15)
       .map((e: any) => ({
-        sn: e.netuid, name: e.subnet_name ?? e.name, channel: e.channel,
-        text: (e.text ?? e.content ?? "").slice(0, 90),
-        date: (e.timestamp ?? e.created_at ?? "").slice(0, 10),
+        sn: e.netuid, name: e.subnetName, signal: e.signal,
+        score: e.alphaScore, summary: (e.summary ?? "").slice(0, 120),
+        insights: (e.keyInsights ?? []).slice(0, 3),
+        msgs: e.messageCount,
       }));
-    sections.push(`DISCORD SIGNALS — last 72h:\n${disc.length ? JSON.stringify(disc) : "None."}`);
+    sections.push(`DISCORD SCAN (as of ${scannedAt}):\n${disc.length ? JSON.stringify(disc) : "No alpha or active channels in latest scan."}`);
   }
 
   // ── Pump lab ────────────────────────────────────────────────────
