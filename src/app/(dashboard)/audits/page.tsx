@@ -452,7 +452,7 @@ export default function AuditsPage() {
                     onClick={() => handleSort("holders")} sorted={sortKey === "holders"} />
 
                   {/* Decentralisation */}
-                  <ColHeader label="Nakamoto" sub="higher=safer"
+                  <ColHeader label="Naka" sub="higher=safer"
                     tooltip="Minimum number of validators needed to collude and control 51% of the network. Higher means more decentralised and harder to attack. Anything below 3 is a critical risk."
                     onClick={() => handleSort("nakamoto")} sorted={sortKey === "nakamoto"} />
                   <ColHeader label="HHI" sub="lower=better"
