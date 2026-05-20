@@ -135,122 +135,89 @@ function buildSystemPrompt(blobs: {
       is_dev: DEV_TYPES.has(s.signal_type),
     }));
 
-  // ── Flow events ──────────────────────────────────────────────────
-  const flowEvents: any[] = [];
-  const rawFlow = blobs.flowEvents;
-  if (rawFlow) {
-    // flowEvents blob may be { events: [...] } or an array
-    const evts = Array.isArray(rawFlow) ? rawFlow : (rawFlow.events ?? rawFlow.flowEvents ?? []);
-    for (const e of evts) {
-      if (new Date(e.timestamp ?? e.created_at ?? 0).getTime() >= cutoff7d) {
-        flowEvents.push({
-          sn: e.netuid,
-          name: e.subnet_name ?? e.name,
-          type: e.event_type ?? e.type,
-          net_tao: e.net_tao ?? e.netTao,
-          date: (e.timestamp ?? e.created_at ?? "").slice(0, 10),
-        });
-      }
+  // ── Safe array extractor ─────────────────────────────────────────
+  function safeArray(raw: any, ...keys: string[]): any[] {
+    if (!raw) return [];
+    if (Array.isArray(raw)) return raw;
+    for (const k of keys) {
+      if (Array.isArray(raw[k])) return raw[k];
     }
+    try { const v = Object.values(raw); return Array.isArray(v) ? v.filter(Boolean) : []; }
+    catch { return []; }
   }
 
+  // ── Flow events ──────────────────────────────────────────────────
+  const flowEvents = safeArray(blobs.flowEvents, "events", "flowEvents", "flow")
+    .filter((e: any) => new Date(e?.timestamp ?? e?.created_at ?? 0).getTime() >= cutoff7d)
+    .slice(0, 30)
+    .map((e: any) => ({
+      sn: e.netuid, name: e.subnet_name ?? e.name,
+      type: e.event_type ?? e.type, net_tao: e.net_tao ?? e.netTao,
+      date: (e.timestamp ?? e.created_at ?? "").slice(0, 10),
+    }));
+
   // ── Whale tracker state ──────────────────────────────────────────
-  const whaleState: any[] = [];
-  const rawWhale = blobs.whaleTracker;
-  if (rawWhale) {
-    const entries = Array.isArray(rawWhale) ? rawWhale : Object.values(rawWhale);
-    for (const w of entries as any[]) {
-      if (!w) continue;
-      whaleState.push({
-        sn: w.netuid,
-        name: w.name ?? w.subnet_name,
-        signal: w.signal ?? w.whale_signal,
-        buy_ratio: w.buy_ratio,
-        net_tao_7d: w.net_tao_7d,
-        updated: (w.updated_at ?? "").slice(0, 10),
-      });
-    }
-  }
+  const whaleState = safeArray(blobs.whaleTracker, "whales", "subnets")
+    .filter(Boolean)
+    .slice(0, 40)
+    .map((w: any) => ({
+      sn: w.netuid, name: w.name ?? w.subnet_name,
+      signal: w.signal ?? w.whale_signal, buy_ratio: w.buy_ratio,
+      net_tao_7d: w.net_tao_7d, updated: (w.updated_at ?? "").slice(0, 10),
+    }));
 
   // ── Social / KOL hot events (last 72h) ──────────────────────────
   const socialHot = blobs.socialHot
-    .filter(e => new Date(e.timestamp ?? e.created_at ?? 0).getTime() >= cutoff72h)
-    .slice(0, 40)
-    .map(e => ({
-      sn: e.netuid,
-      name: e.subnet_name ?? e.name,
-      kol: e.kol ?? e.username,
-      heat: e.heat_score ?? e.score,
-      text: (e.text ?? e.content ?? "").slice(0, 120),
+    .filter((e: any) => new Date(e?.timestamp ?? e?.created_at ?? 0).getTime() >= cutoff72h)
+    .slice(0, 25)
+    .map((e: any) => ({
+      sn: e.netuid, name: e.subnet_name ?? e.name,
+      kol: e.kol ?? e.username, heat: e.heat_score ?? e.score,
+      text: (e.text ?? e.content ?? "").slice(0, 100),
       date: (e.timestamp ?? e.created_at ?? "").slice(0, 10),
     }));
 
   // ── Benchmark alerts / high-engagement KOL tweets ────────────────
   const benchmarks = blobs.benchmarkAlerts
-    .filter(e => new Date(e.timestamp ?? e.created_at ?? 0).getTime() >= cutoff7d)
-    .slice(0, 30)
-    .map(e => ({
-      sn: e.netuid,
-      name: e.subnet_name ?? e.name,
-      kol: e.username ?? e.kol,
-      likes: e.likes ?? e.like_count,
-      text: (e.text ?? e.content ?? "").slice(0, 100),
+    .filter((e: any) => new Date(e?.timestamp ?? e?.created_at ?? 0).getTime() >= cutoff7d)
+    .slice(0, 20)
+    .map((e: any) => ({
+      sn: e.netuid, name: e.subnet_name ?? e.name,
+      kol: e.username ?? e.kol, likes: e.likes ?? e.like_count,
+      text: (e.text ?? e.content ?? "").slice(0, 90),
       date: (e.timestamp ?? e.created_at ?? "").slice(0, 10),
     }));
 
   // ── Subnet Twitter/social activity ──────────────────────────────
-  const subnetSocial: any[] = [];
-  const rawActivity = blobs.subnetActivity;
-  if (rawActivity) {
-    const entries = Array.isArray(rawActivity) ? rawActivity : Object.values(rawActivity);
-    for (const a of entries as any[]) {
-      if (!a) continue;
-      subnetSocial.push({ sn: a.netuid, name: a.name ?? a.subnet_name, posts_7d: a.posts_7d ?? a.post_count, score: a.score ?? a.activity_score });
-    }
-  }
+  const subnetSocial = safeArray(blobs.subnetActivity, "subnets", "activity")
+    .filter(Boolean).slice(0, 60)
+    .map((a: any) => ({ sn: a.netuid, name: a.name ?? a.subnet_name, posts_7d: a.posts_7d ?? a.post_count, score: a.score ?? a.activity_score }));
 
   // ── Discord signals (last 72h) ───────────────────────────────────
   const discordSignals = blobs.discordLatest
-    .filter(e => new Date(e.timestamp ?? e.created_at ?? 0).getTime() >= cutoff72h)
-    .slice(0, 20)
-    .map(e => ({
-      sn: e.netuid,
-      name: e.subnet_name ?? e.name,
-      channel: e.channel,
-      text: (e.text ?? e.content ?? "").slice(0, 100),
+    .filter((e: any) => new Date(e?.timestamp ?? e?.created_at ?? 0).getTime() >= cutoff72h)
+    .slice(0, 15)
+    .map((e: any) => ({
+      sn: e.netuid, name: e.subnet_name ?? e.name, channel: e.channel,
+      text: (e.text ?? e.content ?? "").slice(0, 90),
       date: (e.timestamp ?? e.created_at ?? "").slice(0, 10),
     }));
 
   // ── Pump lab signals ─────────────────────────────────────────────
-  const pumpSignals: any[] = [];
-  const rawPump = blobs.pumpTracker;
-  if (rawPump) {
-    const entries = Array.isArray(rawPump) ? rawPump : (rawPump.entries ?? rawPump.subnets ?? Object.values(rawPump));
-    for (const p of entries as any[]) {
-      if (!p) continue;
-      const ts = new Date(p.updated_at ?? p.timestamp ?? p.detected_at ?? 0).getTime();
-      if (ts >= cutoff7d) {
-        pumpSignals.push({
-          sn: p.netuid,
-          name: p.name ?? p.subnet_name,
-          pump_score: p.pump_score ?? p.score,
-          signals: p.signals ?? p.signal_tags,
-          date: (p.updated_at ?? p.timestamp ?? "").slice(0, 10),
-        });
-      }
-    }
-  }
+  const pumpSignals = safeArray(blobs.pumpTracker, "entries", "subnets", "pumps")
+    .filter((p: any) => p && new Date(p.updated_at ?? p.timestamp ?? p.detected_at ?? 0).getTime() >= cutoff7d)
+    .slice(0, 20)
+    .map((p: any) => ({
+      sn: p.netuid, name: p.name ?? p.subnet_name,
+      pump_score: p.pump_score ?? p.score,
+      signals: p.signals ?? p.signal_tags,
+      date: (p.updated_at ?? p.timestamp ?? "").slice(0, 10),
+    }));
 
   // ── Yield / APY ─────────────────────────────────────────────────
-  const yieldData: any[] = [];
-  const rawYield = blobs.yieldLatest;
-  if (rawYield) {
-    const entries = Array.isArray(rawYield) ? rawYield : (rawYield.subnets ?? Object.values(rawYield));
-    for (const y of entries as any[]) {
-      if (!y) continue;
-      yieldData.push({ sn: y.netuid, name: y.name ?? y.subnet_name, apy_7d: y.apy_7d, apy_30d: y.apy_30d });
-    }
-  }
+  const yieldData = safeArray(blobs.yieldLatest, "subnets", "yields")
+    .filter(Boolean).slice(0, 40)
+    .map((y: any) => ({ sn: y.netuid, name: y.name ?? y.subnet_name, apy_7d: y.apy_7d, apy_30d: y.apy_30d }));
 
   return `You are the AlphaGap Oracle — an expert AI analyst for the Bittensor (TAO) ecosystem.
 You have access to REAL-TIME data for every active Bittensor subnet as of ${today}.
@@ -380,19 +347,33 @@ export async function POST(req: NextRequest) {
     loadBlob<unknown>("yield-latest.json"),
   ]);
 
-  const systemPrompt = buildSystemPrompt({
-    leaderboard: (scanData as any)?.leaderboard ?? [],
-    audits: auditData,
-    signals: (signalsData as any)?.signals ?? [],
-    flowEvents: flowEventsData,
-    whaleTracker: whaleTrackerData,
-    socialHot: Array.isArray(socialHotData) ? socialHotData : ((socialHotData as any)?.events ?? []),
-    benchmarkAlerts: Array.isArray(benchmarkAlertsData) ? benchmarkAlertsData : ((benchmarkAlertsData as any)?.alerts ?? []),
-    subnetActivity: subnetActivityData,
-    discordLatest: Array.isArray(discordLatestData) ? discordLatestData : ((discordLatestData as any)?.signals ?? []),
-    pumpTracker: pumpTrackerData,
-    yieldLatest: yieldLatestData,
-  });
+  let systemPrompt: string;
+  try {
+    systemPrompt = buildSystemPrompt({
+      leaderboard: (scanData as any)?.leaderboard ?? [],
+      audits: auditData,
+      signals: (signalsData as any)?.signals ?? [],
+      flowEvents: flowEventsData,
+      whaleTracker: whaleTrackerData,
+      socialHot: Array.isArray(socialHotData) ? socialHotData : ((socialHotData as any)?.events ?? []),
+      benchmarkAlerts: Array.isArray(benchmarkAlertsData) ? benchmarkAlertsData : ((benchmarkAlertsData as any)?.alerts ?? []),
+      subnetActivity: subnetActivityData,
+      discordLatest: Array.isArray(discordLatestData) ? discordLatestData : ((discordLatestData as any)?.signals ?? []),
+      pumpTracker: pumpTrackerData,
+      yieldLatest: yieldLatestData,
+    });
+  } catch (e) {
+    console.error("[oracle] buildSystemPrompt failed:", e);
+    return NextResponse.json({ error: "Failed to build Oracle context. Please try again." }, { status: 500 });
+  }
+
+  // Safety cap: Haiku 200K context window. Keep system prompt under ~180K chars (~45K tokens).
+  const PROMPT_CHAR_LIMIT = 180_000;
+  if (systemPrompt.length > PROMPT_CHAR_LIMIT) {
+    console.warn(`[oracle] prompt too large (${systemPrompt.length} chars), truncating`);
+    systemPrompt = systemPrompt.slice(0, PROMPT_CHAR_LIMIT) + "\n\n[Data truncated due to size limit]";
+  }
+  console.log(`[oracle] prompt_chars=${systemPrompt.length} user=${email}`);
 
   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -418,9 +399,10 @@ export async function POST(req: NextRequest) {
             controller.enqueue(new TextEncoder().encode(chunk.delta.text));
           }
         }
-      } catch (e) {
-        console.error("[oracle]", e);
-        controller.enqueue(new TextEncoder().encode("\n\n[Oracle error — please try again]"));
+      } catch (e: any) {
+        console.error("[oracle] stream error:", e?.status, e?.message ?? e);
+        const msg = e?.message ? `\n\n[Oracle error: ${e.message}]` : "\n\n[Oracle error — please try again]";
+        controller.enqueue(new TextEncoder().encode(msg));
       } finally {
         controller.close();
       }
