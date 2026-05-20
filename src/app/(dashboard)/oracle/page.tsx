@@ -74,7 +74,7 @@ function InputBar({
   };
 
   return (
-    <div className={`flex gap-3 items-end bg-[#111118] border-2 border-green-500/25 hover:border-green-500/40 focus-within:border-green-400/60 focus-within:shadow-[0_0_24px_rgba(34,197,94,0.12)] rounded-2xl transition-all duration-200 ${large ? "px-5 py-4" : "px-4 py-3"}`}>
+    <div className={`flex gap-3 bg-[#111118] border-2 border-green-500/25 hover:border-green-500/40 focus-within:border-green-400/60 focus-within:shadow-[0_0_24px_rgba(34,197,94,0.12)] rounded-2xl transition-all duration-200 ${large ? "items-center px-5 py-4" : "items-end px-4 py-3"}`}>
       <textarea
         ref={inputRef}
         value={input}
@@ -89,7 +89,7 @@ function InputBar({
       <button
         onClick={() => onSend(input)}
         disabled={loading || !input.trim()}
-        className={`flex-shrink-0 rounded-xl bg-gradient-to-br from-green-400 to-emerald-500 hover:from-green-300 hover:to-emerald-400 text-black flex items-center justify-center transition-all shadow-lg shadow-green-500/30 disabled:opacity-25 disabled:cursor-not-allowed disabled:shadow-none active:scale-95 ${large ? "w-11 h-11 mb-0.5" : "w-9 h-9 mb-0.5"}`}
+        className={`flex-shrink-0 rounded-xl bg-gradient-to-br from-green-400 to-emerald-500 hover:from-green-300 hover:to-emerald-400 text-black flex items-center justify-center transition-all shadow-lg shadow-green-500/30 disabled:opacity-25 disabled:cursor-not-allowed disabled:shadow-none active:scale-95 ${large ? "w-11 h-11" : "w-9 h-9 mb-0.5"}`}
       >
         {loading ? (
           <div className={`border-2 border-black/30 border-t-black rounded-full animate-spin ${large ? "w-4 h-4" : "w-3.5 h-3.5"}`} />
@@ -364,7 +364,7 @@ export default function OraclePage() {
                   setInput={setInput}
                   loading={loading}
                   onSend={sendMessage}
-                  placeholder={`Ask anything — e.g. "Which subnets should I watch right now?"`}
+                  placeholder="Ask me anything about Bittensor"
                   large
                 />
                 <p className="text-xs text-gray-600 text-center mt-2.5">Enter to send · Shift+Enter for new line</p>
