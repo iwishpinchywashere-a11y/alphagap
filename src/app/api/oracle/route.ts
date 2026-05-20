@@ -102,8 +102,8 @@ function classifyIntent(messages: { role: string; content: string }[]): Set<stri
   if (match(/yield|apy|return|staking reward|passive/))
     needs.add("yield-latest.json");
 
-  // General investing / hold / best / top — add audit for fuller picture
-  if (match(/invest|long.term|hold|best subnet|top subnet|recommend|slept on|undervalued|conviction/))
+  // General investing / hold / best / top / revenue — add audit for fuller picture
+  if (match(/invest|long.term|hold|best subnet|top subnet|recommend|slept on|undervalued|conviction|revenue|earn|profit|monetiz/))
     needs.add("audit-data.json");
 
   // Broad / open-ended questions — default to leaderboard + audit + signals
@@ -157,18 +157,24 @@ function buildSystemPrompt(loaded: Record<string, any>): string {
 
   // ── Signals ─────────────────────────────────────────────────────
   if (loaded["signals-history.json"]) {
-    const DEV = new Set(["github_commit","github_pr","github_release","huggingface_model","huggingface_dataset","huggingface_space","dev_spike","dev_activity"]);
+    // Actual signal types stored in the blob:
+    // dev: "dev_spike", "hf_update", "hf_drop"
+    // flow: "flow_inflection", "flow_spike", "flow_warning"
+    // price: "price_surge", "price_drop", "buy_pressure", "sell_pressure"
+    // social: "social_buzz"
+    const DEV = new Set(["dev_spike", "hf_update", "hf_drop"]);
+    // Use 7d window (not 72h) so we don't miss dev events on quiet weeks
     const sigs = safeArr(loaded["signals-history.json"], "signals")
-      .filter((s: any) => new Date(s.signal_date ?? s.created_at ?? 0).getTime() >= cutoff72h)
+      .filter((s: any) => new Date(s.signal_date ?? s.created_at ?? 0).getTime() >= cutoff7d)
       .sort((a: any, b: any) => (b.strength ?? 0) - (a.strength ?? 0))
-      .slice(0, 50)
+      .slice(0, 60)
       .map((s: any) => ({
         sn: s.netuid, name: s.subnet_name, type: s.signal_type, strength: s.strength,
         title: s.title, desc: s.description?.slice(0, 120),
         date: (s.signal_date ?? s.created_at ?? "").slice(0, 10),
         dev: DEV.has(s.signal_type),
       }));
-    sections.push(`RECENT SIGNALS — last 72h (dev=true means code/model shipped):\n${sigs.length ? JSON.stringify(sigs) : "None."}`);
+    sections.push(`RECENT SIGNALS — last 7d (dev=true means dev_spike/hf_update/hf_drop):\n${sigs.length ? JSON.stringify(sigs) : "None in last 7d."}`);
   }
 
   // ── Whale tracker ───────────────────────────────────────────────
@@ -198,7 +204,7 @@ function buildSystemPrompt(loaded: Record<string, any>): string {
   // ── Social / KOL ────────────────────────────────────────────────
   if (loaded["social-hot.json"] || loaded["benchmark-alerts.json"]) {
     const hot = safeArr(loaded["social-hot.json"], "events")
-      .filter((e: any) => new Date(e?.timestamp ?? e?.created_at ?? 0).getTime() >= cutoff72h)
+      .filter((e: any) => new Date(e?.timestamp ?? e?.created_at ?? 0).getTime() >= cutoff7d)
       .slice(0, 20)
       .map((e: any) => ({
         sn: e.netuid, name: e.subnet_name ?? e.name, kol: e.kol ?? e.username,
@@ -220,7 +226,7 @@ function buildSystemPrompt(loaded: Record<string, any>): string {
   // ── Discord ─────────────────────────────────────────────────────
   if (loaded["discord-latest.json"]) {
     const disc = safeArr(loaded["discord-latest.json"], "signals")
-      .filter((e: any) => new Date(e?.timestamp ?? e?.created_at ?? 0).getTime() >= cutoff72h)
+      .filter((e: any) => new Date(e?.timestamp ?? e?.created_at ?? 0).getTime() >= cutoff7d)
       .slice(0, 15)
       .map((e: any) => ({
         sn: e.netuid, name: e.subnet_name ?? e.name, channel: e.channel,
@@ -259,10 +265,34 @@ Loaded data sources for this query: ${loadedKeys}
 RULES:
 - Direct, data-driven. No filler. Cite subnet names, numbers, dates.
 - Use τ for TAO. Flag risks clearly.
-- Answer from the data below. Never say you don't have data you can see above.
-- Scores: agap 70+=strong, 50-70=watch, <50=weak. velo=rising/falling momentum. dev=build activity. flow=buy pressure.
-- Signal types: github_pr/release/commit=code, huggingface_*=AI model, dev_spike=unusual burst, whale_buy/sell=large wallet.
-- nakamoto<3=red flag. hhi>0.5=red flag. burn_pct high=miners leaving.
+- Answer from the data you have. If a specific data source shows "None" or is missing, say so briefly then immediately pivot to answer using related data you DO have. Never dwell on missing data.
+- For "revenue" / "earnings" questions: Bittensor subnets don't have P&L. Answer using emission_pct (share of TAO emissions = closest proxy for revenue), tao_locked (liquidity depth), and market_cap from the leaderboard.
+- For "dev activity" / "shipped" questions: look at signals with dev=true AND the leaderboard dev_score field. If no dev signals in the window, rank by dev_score.
+- For "discord" questions: if discord-latest shows no data, say monitoring is active but nothing notable was flagged, then use social/KOL data if available.
+- For any question where data appears empty, always fall back to the leaderboard data which has scores for every subnet.
+
+SCORES:
+- agap: composite score. 70+=strong, 50-70=watch, <50=weak.
+- dev: build activity (higher = more active development).
+- flow: on-chain buy pressure. High = accumulation.
+- velo: momentum — rising or falling score velocity.
+- social: community/social activity.
+- emission_pct: share of total TAO emission this subnet earns (revenue proxy).
+- staked_pct: % of alpha locked by holders (conviction signal).
+- tao_locked: TAO in liquidity pool (market depth).
+- const_buy/sell: TAO moved by Const (Bittensor co-founder) — major signal.
+- audit (nakamoto<3=red flag, hhi>0.5=red flag, burn_pct high=miners may leave).
+
+SIGNAL TYPES (actual values):
+- dev_spike: unusual burst of GitHub/development activity
+- hf_update: HuggingFace model or dataset updated
+- hf_drop: new HuggingFace model/dataset published
+- flow_inflection: buy/sell trend reversal
+- flow_spike: sudden surge in buy volume
+- flow_warning: sell pressure detected
+- buy_pressure / sell_pressure: sustained directional flow
+- price_surge / price_drop: significant price move
+- social_buzz: spike in social media mentions
 
 ${sections.join("\n\n")}`;
 }
