@@ -54,18 +54,33 @@ async function loadBlob<T>(name: string): Promise<T | null> {
   } catch { return null; }
 }
 
-// ── Build compact system prompt from live data ───────────────────────
-function buildSystemPrompt(leaderboard: unknown[], audits: unknown, signals: unknown[]): string {
+// ── Build compact system prompt from all live data ───────────────────
+function buildSystemPrompt(blobs: {
+  leaderboard: any[];
+  audits: any;
+  signals: any[];
+  flowEvents: any;
+  whaleTracker: any;
+  socialHot: any[];
+  benchmarkAlerts: any[];
+  subnetActivity: any;
+  discordLatest: any[];
+  pumpTracker: any;
+  yieldLatest: any;
+}): string {
   const today = new Date().toISOString().slice(0, 10);
+  const cutoff72h = Date.now() - 72 * 3600 * 1000;
+  const cutoff7d  = Date.now() - 7  * 24 * 3600 * 1000;
 
-  // Compact leaderboard — key fields only
-  const lb = (leaderboard as any[]).map(s => ({
+  // ── Leaderboard ──────────────────────────────────────────────────
+  const lb = blobs.leaderboard.map(s => ({
     sn: s.netuid,
     name: s.name,
     agap: s.composite_score,
     invest: s.invest_agap,
     flow: s.flow_score,
     dev: s.dev_score,
+    social: s.social_score,
     mcap_usd: s.market_cap ? Math.round(s.market_cap) : null,
     price: s.alpha_price,
     chg_24h: s.price_change_24h,
@@ -83,37 +98,32 @@ function buildSystemPrompt(leaderboard: unknown[], audits: unknown, signals: unk
     audit: s.audit_score,
   }));
 
-  // Compact audit data
+  // ── Audit ────────────────────────────────────────────────────────
   const auditMap: Record<string, unknown> = {};
-  if (audits && typeof audits === "object" && (audits as any).subnets) {
-    for (const [id, a] of Object.entries((audits as any).subnets)) {
-      const au = a as any;
+  if (blobs.audits?.subnets) {
+    for (const [id, a] of Object.entries(blobs.audits.subnets as Record<string, any>)) {
       auditMap[id] = {
-        nakamoto: au.nakamotoCoefficient,
-        hhi: au.hhiNormalized,
-        top10: au.top10Share,
-        burn_pct: au.burnedEmissionPct,
-        chain_buy: au.emissionChainBuysPct,
-        stale_val_pct: au.staleValidatorPct,
-        zi_miner_pct: au.zeroIncentiveMinerPct,
-        vtrust: au.avgVTrust,
-        holders: au.holdersCount,
-        tao_pool: au.taoInPool,
-        flags: au.flags?.map((f: any) => f.message) ?? [],
+        nakamoto: a.nakamotoCoefficient,
+        hhi: a.hhiNormalized,
+        top10: a.top10Share,
+        burn_pct: a.burnedEmissionPct,
+        chain_buy: a.emissionChainBuysPct,
+        stale_val_pct: a.staleValidatorPct,
+        zi_miner_pct: a.zeroIncentiveMinerPct,
+        vtrust: a.avgVTrust,
+        holders: a.holdersCount,
+        tao_pool: a.taoInPool,
+        flags: a.flags?.map((f: any) => f.message) ?? [],
       };
     }
   }
 
-  // Compact recent signals — dev signals only, last 72h, sorted by strength desc
-  const cutoff = Date.now() - 72 * 3600 * 1000;
+  // ── Signals (dev + all types, last 72h) ──────────────────────────
   const DEV_TYPES = new Set(["github_commit", "github_pr", "github_release", "huggingface_model", "huggingface_dataset", "huggingface_space", "dev_spike", "dev_activity"]);
-  const recentSignals = (signals as any[])
-    .filter(s => {
-      const ts = new Date(s.signal_date ?? s.created_at).getTime();
-      return ts >= cutoff;
-    })
+  const recentSignals = blobs.signals
+    .filter(s => new Date(s.signal_date ?? s.created_at).getTime() >= cutoff72h)
     .sort((a, b) => (b.strength ?? 0) - (a.strength ?? 0))
-    .slice(0, 60) // top 60 signals max to keep prompt lean
+    .slice(0, 80)
     .map(s => ({
       sn: s.netuid,
       name: s.subnet_name,
@@ -125,43 +135,189 @@ function buildSystemPrompt(leaderboard: unknown[], audits: unknown, signals: unk
       is_dev: DEV_TYPES.has(s.signal_type),
     }));
 
+  // ── Flow events ──────────────────────────────────────────────────
+  const flowEvents: any[] = [];
+  const rawFlow = blobs.flowEvents;
+  if (rawFlow) {
+    // flowEvents blob may be { events: [...] } or an array
+    const evts = Array.isArray(rawFlow) ? rawFlow : (rawFlow.events ?? rawFlow.flowEvents ?? []);
+    for (const e of evts) {
+      if (new Date(e.timestamp ?? e.created_at ?? 0).getTime() >= cutoff7d) {
+        flowEvents.push({
+          sn: e.netuid,
+          name: e.subnet_name ?? e.name,
+          type: e.event_type ?? e.type,
+          net_tao: e.net_tao ?? e.netTao,
+          date: (e.timestamp ?? e.created_at ?? "").slice(0, 10),
+        });
+      }
+    }
+  }
+
+  // ── Whale tracker state ──────────────────────────────────────────
+  const whaleState: any[] = [];
+  const rawWhale = blobs.whaleTracker;
+  if (rawWhale) {
+    const entries = Array.isArray(rawWhale) ? rawWhale : Object.values(rawWhale);
+    for (const w of entries as any[]) {
+      if (!w) continue;
+      whaleState.push({
+        sn: w.netuid,
+        name: w.name ?? w.subnet_name,
+        signal: w.signal ?? w.whale_signal,
+        buy_ratio: w.buy_ratio,
+        net_tao_7d: w.net_tao_7d,
+        updated: (w.updated_at ?? "").slice(0, 10),
+      });
+    }
+  }
+
+  // ── Social / KOL hot events (last 72h) ──────────────────────────
+  const socialHot = blobs.socialHot
+    .filter(e => new Date(e.timestamp ?? e.created_at ?? 0).getTime() >= cutoff72h)
+    .slice(0, 40)
+    .map(e => ({
+      sn: e.netuid,
+      name: e.subnet_name ?? e.name,
+      kol: e.kol ?? e.username,
+      heat: e.heat_score ?? e.score,
+      text: (e.text ?? e.content ?? "").slice(0, 120),
+      date: (e.timestamp ?? e.created_at ?? "").slice(0, 10),
+    }));
+
+  // ── Benchmark alerts / high-engagement KOL tweets ────────────────
+  const benchmarks = blobs.benchmarkAlerts
+    .filter(e => new Date(e.timestamp ?? e.created_at ?? 0).getTime() >= cutoff7d)
+    .slice(0, 30)
+    .map(e => ({
+      sn: e.netuid,
+      name: e.subnet_name ?? e.name,
+      kol: e.username ?? e.kol,
+      likes: e.likes ?? e.like_count,
+      text: (e.text ?? e.content ?? "").slice(0, 100),
+      date: (e.timestamp ?? e.created_at ?? "").slice(0, 10),
+    }));
+
+  // ── Subnet Twitter/social activity ──────────────────────────────
+  const subnetSocial: any[] = [];
+  const rawActivity = blobs.subnetActivity;
+  if (rawActivity) {
+    const entries = Array.isArray(rawActivity) ? rawActivity : Object.values(rawActivity);
+    for (const a of entries as any[]) {
+      if (!a) continue;
+      subnetSocial.push({ sn: a.netuid, name: a.name ?? a.subnet_name, posts_7d: a.posts_7d ?? a.post_count, score: a.score ?? a.activity_score });
+    }
+  }
+
+  // ── Discord signals (last 72h) ───────────────────────────────────
+  const discordSignals = blobs.discordLatest
+    .filter(e => new Date(e.timestamp ?? e.created_at ?? 0).getTime() >= cutoff72h)
+    .slice(0, 20)
+    .map(e => ({
+      sn: e.netuid,
+      name: e.subnet_name ?? e.name,
+      channel: e.channel,
+      text: (e.text ?? e.content ?? "").slice(0, 100),
+      date: (e.timestamp ?? e.created_at ?? "").slice(0, 10),
+    }));
+
+  // ── Pump lab signals ─────────────────────────────────────────────
+  const pumpSignals: any[] = [];
+  const rawPump = blobs.pumpTracker;
+  if (rawPump) {
+    const entries = Array.isArray(rawPump) ? rawPump : (rawPump.entries ?? rawPump.subnets ?? Object.values(rawPump));
+    for (const p of entries as any[]) {
+      if (!p) continue;
+      const ts = new Date(p.updated_at ?? p.timestamp ?? p.detected_at ?? 0).getTime();
+      if (ts >= cutoff7d) {
+        pumpSignals.push({
+          sn: p.netuid,
+          name: p.name ?? p.subnet_name,
+          pump_score: p.pump_score ?? p.score,
+          signals: p.signals ?? p.signal_tags,
+          date: (p.updated_at ?? p.timestamp ?? "").slice(0, 10),
+        });
+      }
+    }
+  }
+
+  // ── Yield / APY ─────────────────────────────────────────────────
+  const yieldData: any[] = [];
+  const rawYield = blobs.yieldLatest;
+  if (rawYield) {
+    const entries = Array.isArray(rawYield) ? rawYield : (rawYield.subnets ?? Object.values(rawYield));
+    for (const y of entries as any[]) {
+      if (!y) continue;
+      yieldData.push({ sn: y.netuid, name: y.name ?? y.subnet_name, apy_7d: y.apy_7d, apy_30d: y.apy_30d });
+    }
+  }
+
   return `You are the AlphaGap Oracle — an expert AI analyst for the Bittensor (TAO) ecosystem.
-You have access to real-time data for every active Bittensor subnet as of ${today}.
+You have access to REAL-TIME data for every active Bittensor subnet as of ${today}.
+You are connected to ALL AlphaGap data sources: leaderboard, audit, signals, flow, whale tracker, social/KOL intel, Discord, pump lab, and yield data.
 
 PERSONALITY:
 - Direct, confident, data-driven. Like a sharp analyst, not a chatbot.
-- Always cite specific subnet names, numbers, and scores.
+- Always cite specific subnet names, numbers, scores, and dates from the data.
 - If something looks risky, say so clearly.
 - Use τ for TAO amounts.
-- When asked about recent developments or "what shipped lately", lead with the highest-strength dev signals from RECENT SIGNALS data, summarise the title/description in plain English, and note when it happened.
+- When asked about recent developments, lead with the highest-strength dev signals and explain what was shipped in plain English.
+- When asked about social buzz, use KOL heat events and benchmark alerts.
+- When asked about pump signals, use the pump lab data.
+- When asked about flow/accumulation, use both the leaderboard flow_score and flow events data.
+- Never say you don't have access to data — you have all of it.
 
 SCORING GUIDE:
-- aGap score (0-100): AlphaGap composite quality score. 70+ = strong, 50-70 = watch, <50 = weak.
-- invest_agap: Long-term investing score. Higher = better hold candidate.
-- flow_score: On-chain buy/sell flow signal. High = accumulation.
-- dev_score: Development activity. High = active builders.
-- audit_score: Operational health (decentralisation, validator/miner quality).
-- velo: aGap Velocity — how fast the score is rising or falling.
+- agap (0-100): composite quality score. 70+ = strong, 50-70 = watch, <50 = weak.
+- invest: long-term hold score.
+- flow: on-chain buy/sell flow. High = accumulation.
+- dev: development activity. High = active builders.
+- social: social/community activity score.
+- audit: operational health (decentralisation, validator/miner quality).
+- velo: aGap velocity — how fast score is rising/falling.
 - whale: "accumulating" or "distributing" — smart money signal.
-- alpha_staked_pct: % of supply locked (not in DEX). High = conviction from holders.
-- tao_locked: TAO locked in liquidity pool. Higher = deeper market.
-- const_buy/const_sell: TAO amounts bought/sold by Const (Bittensor co-founder). Significant signal.
-- nakamoto: Decentralisation score. Higher = safer. <3 = red flag.
-- hhi: Stake concentration. Lower = more competitive. >0.5 = red flag.
-- burn_pct: % of miner emissions burned. 0% = healthy. High = miners may leave.
-- Signal strength (0-100): how significant the signal event is.
-- Signal types: github_pr = pull request merged, github_release = new version shipped, github_commit = commits, huggingface_model/dataset/space = AI model published, dev_spike = unusual dev activity burst.
+- alpha_staked_pct: % locked (not in DEX) = holder conviction.
+- tao_locked: TAO in liquidity pool. Higher = deeper market.
+- const_buy/const_sell: TAO bought/sold by Const (Bittensor co-founder). Major signal.
+- nakamoto: decentralisation. <3 = red flag.
+- hhi: stake concentration. >0.5 = red flag.
+- burn_pct: % of miner emissions burned. 0% = healthy.
+- Signal types: github_pr/release/commit = code shipped, huggingface_* = AI model published, dev_spike = unusual burst, whale_buy/sell = large wallet moves, flow_inflection = trend change, kol_mention = influencer post.
 
-LIVE LEADERBOARD DATA (${lb.length} subnets):
+LIVE LEADERBOARD (${lb.length} subnets):
 ${JSON.stringify(lb)}
 
-LIVE AUDIT DATA:
+AUDIT DATA:
 ${JSON.stringify(auditMap)}
 
-RECENT SIGNALS — last 72h (sorted by strength, is_dev=true means development event):
-${recentSignals.length > 0 ? JSON.stringify(recentSignals) : "No signals in the last 72h."}
+RECENT SIGNALS — last 72h, sorted by strength (is_dev=true = development event):
+${recentSignals.length > 0 ? JSON.stringify(recentSignals) : "None in last 72h."}
 
-Answer questions using this data directly. Be specific. If asked for top N subnets by some criteria, compute it from the data above. Never say you don't have access to the data — you do.`;
+FLOW EVENTS — last 7d:
+${flowEvents.length > 0 ? JSON.stringify(flowEvents) : "None."}
+
+WHALE TRACKER STATE (per subnet):
+${whaleState.length > 0 ? JSON.stringify(whaleState) : "No data."}
+
+SOCIAL / KOL HOT EVENTS — last 72h (heat_score = engagement strength):
+${socialHot.length > 0 ? JSON.stringify(socialHot) : "None."}
+
+HIGH-ENGAGEMENT KOL TWEETS — last 7d:
+${benchmarks.length > 0 ? JSON.stringify(benchmarks) : "None."}
+
+SUBNET SOCIAL ACTIVITY (Twitter posts per subnet):
+${subnetSocial.length > 0 ? JSON.stringify(subnetSocial) : "No data."}
+
+DISCORD SIGNALS — last 72h:
+${discordSignals.length > 0 ? JSON.stringify(discordSignals) : "None."}
+
+PUMP LAB — active pump signals, last 7d:
+${pumpSignals.length > 0 ? JSON.stringify(pumpSignals) : "None."}
+
+YIELD / APY DATA:
+${yieldData.length > 0 ? JSON.stringify(yieldData) : "No data."}
+
+Answer every question using the relevant data above. Be specific — cite subnet names, numbers, dates. Compute rankings from the data when asked. Never make up data.`;
 }
 
 // ── Main handler ────────────────────────────────────────────────────
@@ -194,19 +350,49 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "No messages" }, { status: 400 });
   }
 
-  // Increment rate limit (fire and forget — don't block the stream)
+  // Increment rate limit (fire and forget)
   incrementRateLimit(email, { date: today, count: count + 1 }).catch(() => {});
 
-  // Load live data
-  const [scanData, auditData, signalsData] = await Promise.all([
+  // Load ALL data sources in parallel
+  const [
+    scanData,
+    auditData,
+    signalsData,
+    flowEventsData,
+    whaleTrackerData,
+    socialHotData,
+    benchmarkAlertsData,
+    subnetActivityData,
+    discordLatestData,
+    pumpTrackerData,
+    yieldLatestData,
+  ] = await Promise.all([
     loadBlob<{ leaderboard?: unknown[] }>("scan-latest.json"),
     loadBlob<unknown>("audit-data.json"),
     loadBlob<{ signals?: unknown[] }>("signals-history.json"),
+    loadBlob<unknown>("flow-events.json"),
+    loadBlob<unknown>("whale-tracker.json"),
+    loadBlob<unknown>("social-hot.json"),
+    loadBlob<unknown>("benchmark-alerts.json"),
+    loadBlob<unknown>("subnet-activity.json"),
+    loadBlob<unknown>("discord-latest.json"),
+    loadBlob<unknown>("pump-tracker.json"),
+    loadBlob<unknown>("yield-latest.json"),
   ]);
 
-  const leaderboard = scanData?.leaderboard ?? [];
-  const signals = signalsData?.signals ?? [];
-  const systemPrompt = buildSystemPrompt(leaderboard, auditData, signals);
+  const systemPrompt = buildSystemPrompt({
+    leaderboard: (scanData as any)?.leaderboard ?? [],
+    audits: auditData,
+    signals: (signalsData as any)?.signals ?? [],
+    flowEvents: flowEventsData,
+    whaleTracker: whaleTrackerData,
+    socialHot: Array.isArray(socialHotData) ? socialHotData : ((socialHotData as any)?.events ?? []),
+    benchmarkAlerts: Array.isArray(benchmarkAlertsData) ? benchmarkAlertsData : ((benchmarkAlertsData as any)?.alerts ?? []),
+    subnetActivity: subnetActivityData,
+    discordLatest: Array.isArray(discordLatestData) ? discordLatestData : ((discordLatestData as any)?.signals ?? []),
+    pumpTracker: pumpTrackerData,
+    yieldLatest: yieldLatestData,
+  });
 
   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -216,7 +402,7 @@ export async function POST(req: NextRequest) {
       try {
         const anthropicStream = anthropic.messages.stream({
           model: "claude-haiku-4-5",
-          max_tokens: 1024,
+          max_tokens: 1500,
           system: systemPrompt,
           messages: messages.map(m => ({
             role: m.role as "user" | "assistant",
