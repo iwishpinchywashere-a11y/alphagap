@@ -143,7 +143,7 @@ function ColHeader({ label, sub, tooltip, onClick, sorted }: {
 }) {
   return (
     <th
-      className={`px-2.5 py-2 text-right whitespace-nowrap cursor-pointer select-none ${sorted ? "text-green-400" : "text-gray-500 hover:text-gray-300"} transition-colors`}
+      className={`px-1.5 py-2 text-right whitespace-nowrap cursor-pointer select-none ${sorted ? "text-green-400" : "text-gray-500 hover:text-gray-300"} transition-colors`}
       onClick={onClick}
     >
       <div className="flex items-center justify-end gap-1">
@@ -419,12 +419,12 @@ export default function AuditsPage() {
       ) : (
         <div className="bg-gray-900/60 border border-gray-800 rounded-xl overflow-x-auto">
           <div>
-            <table className="w-full text-sm min-w-[1560px]">
+            <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-800 bg-gray-950/40">
                   {/* Fixed left: rank + subnet */}
-                  <th className="px-3 py-2.5 text-left w-8 text-xs text-gray-600 uppercase tracking-wide">#</th>
-                  <th className="px-3 py-2.5 text-left text-xs text-gray-600 uppercase tracking-wide min-w-[160px]">Subnet</th>
+                  <th className="px-2 py-2 text-left w-6 text-xs text-gray-600 uppercase tracking-wide">#</th>
+                  <th className="px-2 py-2 text-left text-xs text-gray-600 uppercase tracking-wide min-w-[130px]">Subnet</th>
 
                   {/* Audit Score */}
                   <ColHeader label="Audit Score" sub="0-100"
@@ -505,10 +505,10 @@ export default function AuditsPage() {
                       }`}
                     >
                       {/* Rank */}
-                      <td className="px-3 py-3 text-gray-600 text-sm tabular-nums text-center">{i + 1}</td>
+                      <td className="px-2 py-2 text-gray-600 text-sm tabular-nums text-center">{i + 1}</td>
 
                       {/* Subnet name */}
-                      <td className="px-3 py-3">
+                      <td className="px-2 py-2">
                         <div className="flex items-center gap-2">
                           <SubnetLogo netuid={audit.netuid} name={audit.name} size={24} />
                           <div>
@@ -525,14 +525,14 @@ export default function AuditsPage() {
                       </td>
 
                       {/* Audit Score (includes small LOC adjustment) */}
-                      <td className="px-2.5 py-3 text-right">
+                      <td className="px-1.5 py-2 text-right">
                         <div className="flex justify-end">
                           <ScoreBadge score={Math.max(0, Math.min(100, audit.operationalScore + locAuditAdj(loc30dMap.get(audit.netuid))))} />
                         </div>
                       </td>
 
                       {/* aGap Score */}
-                      <td className="px-2.5 py-3 text-right">
+                      <td className="px-1.5 py-2 text-right">
                         {(() => {
                           const agap = agapMap.get(audit.netuid);
                           if (agap == null) return <span className="text-gray-600">—</span>;
@@ -545,7 +545,7 @@ export default function AuditsPage() {
                       </td>
 
                       {/* Market Cap */}
-                      <td className="px-2.5 py-3 text-right">
+                      <td className="px-1.5 py-2 text-right">
                         {(() => {
                           const mcap = marketCapUsdMap.get(audit.netuid);
                           if (mcap == null) return <span className="text-gray-600 text-sm">—</span>;
@@ -554,7 +554,7 @@ export default function AuditsPage() {
                       </td>
 
                       {/* Conviction score */}
-                      <td className="px-2.5 py-3 text-right">
+                      <td className="px-1.5 py-2 text-right">
                         {(() => {
                           const cv = convictionMap.get(audit.netuid);
                           if (cv == null) return <span className="text-gray-600 text-sm">—</span>;
@@ -573,7 +573,7 @@ export default function AuditsPage() {
                       </td>
 
                       {/* Holders */}
-                      <td className="px-2.5 py-3 text-right">
+                      <td className="px-1.5 py-2 text-right">
                         <CellVal
                           value={fmtK(audit.holdersCount)}
                           raw={audit.holdersCount}
@@ -583,7 +583,7 @@ export default function AuditsPage() {
                       </td>
 
                       {/* Nakamoto */}
-                      <td className="px-2.5 py-3 text-right">
+                      <td className="px-1.5 py-2 text-right">
                         <CellVal
                           value={audit.nakamotoCoefficient > 0 ? String(audit.nakamotoCoefficient) : "—"}
                           raw={audit.nakamotoCoefficient}
@@ -593,7 +593,7 @@ export default function AuditsPage() {
                       </td>
 
                       {/* HHI */}
-                      <td className="px-2.5 py-3 text-right">
+                      <td className="px-1.5 py-2 text-right">
                         <CellVal
                           value={num(audit.hhiNormalized)}
                           raw={audit.hhiNormalized}
@@ -603,7 +603,7 @@ export default function AuditsPage() {
                       </td>
 
                       {/* Top 10% */}
-                      <td className="px-2.5 py-3 text-right">
+                      <td className="px-1.5 py-2 text-right">
                         <CellVal
                           value={pct(audit.top10Share * 100, 1)}
                           raw={audit.top10Share * 100}
@@ -613,7 +613,7 @@ export default function AuditsPage() {
                       </td>
 
                       {/* Miner burn % */}
-                      <td className="px-2.5 py-3 text-right">
+                      <td className="px-1.5 py-2 text-right">
                         <CellVal
                           value={pct(audit.burnedEmissionPct, 1)}
                           raw={audit.burnedEmissionPct}
@@ -623,7 +623,7 @@ export default function AuditsPage() {
                       </td>
 
                       {/* Chain buy % */}
-                      <td className="px-2.5 py-3 text-right">
+                      <td className="px-1.5 py-2 text-right">
                         <CellVal
                           value={pct(audit.emissionChainBuysPct, 1)}
                           raw={audit.emissionChainBuysPct ?? 0}
@@ -634,12 +634,12 @@ export default function AuditsPage() {
 
 
                       {/* TAO Pool */}
-                      <td className="px-2.5 py-3 text-right">
+                      <td className="px-1.5 py-2 text-right">
                         <span className="text-gray-300 tabular-nums text-sm">{fmtTao(audit.taoInPool)}</span>
                       </td>
 
                       {/* Stale validators % */}
-                      <td className="px-2.5 py-3 text-right">
+                      <td className="px-1.5 py-2 text-right">
                         <CellVal
                           value={pct(audit.staleValidatorPct, 0)}
                           raw={audit.staleValidatorPct}
@@ -649,7 +649,7 @@ export default function AuditsPage() {
                       </td>
 
                       {/* Zero-incentive miners % */}
-                      <td className="px-2.5 py-3 text-right">
+                      <td className="px-1.5 py-2 text-right">
                         <CellVal
                           value={pct(audit.zeroIncentiveMinerPct, 0)}
                           raw={audit.zeroIncentiveMinerPct}
@@ -659,7 +659,7 @@ export default function AuditsPage() {
                       </td>
 
                       {/* VTrust — avg validator trust alignment */}
-                      <td className="px-2.5 py-3 text-right">
+                      <td className="px-1.5 py-2 text-right">
                         {audit.avgVTrust != null ? (
                           <CellVal
                             value={audit.avgVTrust.toFixed(2)}
@@ -730,8 +730,8 @@ export default function AuditsPage() {
                 const mcap = marketCapUsdMap.get(audit.netuid);
                 return (
                   <tr key={audit.netuid} className="hover:bg-gray-800/20">
-                    <td className="px-3 py-3 text-gray-600 text-sm tabular-nums text-center">{i + 1}</td>
-                    <td className="px-3 py-3">
+                    <td className="px-2 py-2 text-gray-600 text-sm tabular-nums text-center">{i + 1}</td>
+                    <td className="px-2 py-2">
                       <div className="flex items-center gap-2">
                         <SubnetLogo netuid={audit.netuid} name={audit.name} size={24} />
                         <div>
@@ -740,19 +740,19 @@ export default function AuditsPage() {
                         </div>
                       </div>
                     </td>
-                    <td className="px-2.5 py-3 text-right"><div className="flex justify-end"><ScoreBadge score={audit.operationalScore} /></div></td>
-                    <td className="px-2.5 py-3 text-right">
+                    <td className="px-1.5 py-2 text-right"><div className="flex justify-end"><ScoreBadge score={audit.operationalScore} /></div></td>
+                    <td className="px-1.5 py-2 text-right">
                       {agap != null ? <span className={`tabular-nums font-semibold text-sm ${agap >= 70 ? "text-emerald-400" : agap >= 40 ? "text-yellow-400" : "text-red-400"}`}>{Math.round(agap)}</span> : <span className="text-gray-600">—</span>}
                     </td>
-                    <td className="px-2.5 py-3 text-right">
+                    <td className="px-1.5 py-2 text-right">
                       {mcap != null ? <span className="text-gray-300 tabular-nums text-sm">${formatNum(mcap)}</span> : <span className="text-gray-600 text-sm">—</span>}
                     </td>
-                    <td className="px-2.5 py-3 text-right"><CellVal value={fmtK(audit.holdersCount)} raw={audit.holdersCount} dir="high_good" thresholds={[500, 2000]} /></td>
-                    <td className="px-2.5 py-3 text-right"><CellVal value={String(audit.nakamotoCoefficient)} raw={audit.nakamotoCoefficient} dir="high_good" thresholds={[5, 10]} /></td>
-                    <td className="px-2.5 py-3 text-right"><CellVal value={num(audit.hhiNormalized)} raw={audit.hhiNormalized} dir="low_good" thresholds={[0.20, 0.50]} /></td>
-                    <td className="px-2.5 py-3 text-right"><CellVal value={pct(audit.burnedEmissionPct, 1)} raw={audit.burnedEmissionPct} dir="low_good" thresholds={[30, 70]} /></td>
-                    <td className="px-2.5 py-3 text-right"><CellVal value={pct(audit.staleValidatorPct, 0)} raw={audit.staleValidatorPct} dir="low_good" thresholds={[30, 70]} /></td>
-                    <td className="px-2.5 py-3 text-right"><CellVal value={pct(audit.zeroIncentiveMinerPct, 0)} raw={audit.zeroIncentiveMinerPct} dir="low_good" thresholds={[40, 80]} /></td>
+                    <td className="px-1.5 py-2 text-right"><CellVal value={fmtK(audit.holdersCount)} raw={audit.holdersCount} dir="high_good" thresholds={[500, 2000]} /></td>
+                    <td className="px-1.5 py-2 text-right"><CellVal value={String(audit.nakamotoCoefficient)} raw={audit.nakamotoCoefficient} dir="high_good" thresholds={[5, 10]} /></td>
+                    <td className="px-1.5 py-2 text-right"><CellVal value={num(audit.hhiNormalized)} raw={audit.hhiNormalized} dir="low_good" thresholds={[0.20, 0.50]} /></td>
+                    <td className="px-1.5 py-2 text-right"><CellVal value={pct(audit.burnedEmissionPct, 1)} raw={audit.burnedEmissionPct} dir="low_good" thresholds={[30, 70]} /></td>
+                    <td className="px-1.5 py-2 text-right"><CellVal value={pct(audit.staleValidatorPct, 0)} raw={audit.staleValidatorPct} dir="low_good" thresholds={[30, 70]} /></td>
+                    <td className="px-1.5 py-2 text-right"><CellVal value={pct(audit.zeroIncentiveMinerPct, 0)} raw={audit.zeroIncentiveMinerPct} dir="low_good" thresholds={[40, 80]} /></td>
                   </tr>
                 );
               })}
@@ -881,7 +881,7 @@ export default function AuditsPage() {
         </div>
       </div>
 
-      <div className="w-full px-2 md:px-3 py-6 space-y-5">
+      <div className="w-full px-4 md:px-8 py-6 space-y-5">
 
         {pageContent}
 
