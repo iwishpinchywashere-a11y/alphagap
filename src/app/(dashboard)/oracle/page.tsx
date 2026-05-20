@@ -123,6 +123,17 @@ export default function OraclePage() {
     if (hasMessages) bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading, hasMessages]);
 
+  // Lock body scroll when in chat mode so the dashboard layout can't scroll
+  // and drag the viewport down to the footer on mobile.
+  useEffect(() => {
+    if (hasMessages) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => { document.body.style.overflow = ""; };
+  }, [hasMessages]);
+
   useEffect(() => {
     if (isPremium) setTimeout(() => inputRef.current?.focus(), 150);
   }, [isPremium]);
@@ -193,7 +204,7 @@ export default function OraclePage() {
   ───────────────────────────────────────────── */
   if (hasMessages) {
     return (
-      <div className="flex flex-col h-screen bg-[#080810] overflow-hidden">
+      <div className="fixed inset-0 flex flex-col bg-[#080810] overflow-hidden z-50">
 
         {/* Header */}
         <div className="flex-shrink-0 border-b border-white/5 bg-[#080810]/95 backdrop-blur-md">
