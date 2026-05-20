@@ -55,7 +55,7 @@ async function loadBlob<T>(name: string): Promise<T | null> {
 }
 
 // ── Build compact system prompt from live data ───────────────────────
-function buildSystemPrompt(leaderboard: unknown[], audits: unknown): string {
+function buildSystemPrompt(leaderboard: unknown[], audits: unknown, signals: unknown[]): string {
   const today = new Date().toISOString().slice(0, 10);
 
   // Compact leaderboard — key fields only
@@ -104,6 +104,27 @@ function buildSystemPrompt(leaderboard: unknown[], audits: unknown): string {
     }
   }
 
+  // Compact recent signals — dev signals only, last 72h, sorted by strength desc
+  const cutoff = Date.now() - 72 * 3600 * 1000;
+  const DEV_TYPES = new Set(["github_commit", "github_pr", "github_release", "huggingface_model", "huggingface_dataset", "huggingface_space", "dev_spike", "dev_activity"]);
+  const recentSignals = (signals as any[])
+    .filter(s => {
+      const ts = new Date(s.signal_date ?? s.created_at).getTime();
+      return ts >= cutoff;
+    })
+    .sort((a, b) => (b.strength ?? 0) - (a.strength ?? 0))
+    .slice(0, 60) // top 60 signals max to keep prompt lean
+    .map(s => ({
+      sn: s.netuid,
+      name: s.subnet_name,
+      type: s.signal_type,
+      strength: s.strength,
+      title: s.title,
+      desc: s.description,
+      date: (s.signal_date ?? s.created_at ?? "").slice(0, 10),
+      is_dev: DEV_TYPES.has(s.signal_type),
+    }));
+
   return `You are the AlphaGap Oracle — an expert AI analyst for the Bittensor (TAO) ecosystem.
 You have access to real-time data for every active Bittensor subnet as of ${today}.
 
@@ -112,6 +133,7 @@ PERSONALITY:
 - Always cite specific subnet names, numbers, and scores.
 - If something looks risky, say so clearly.
 - Use τ for TAO amounts.
+- When asked about recent developments or "what shipped lately", lead with the highest-strength dev signals from RECENT SIGNALS data, summarise the title/description in plain English, and note when it happened.
 
 SCORING GUIDE:
 - aGap score (0-100): AlphaGap composite quality score. 70+ = strong, 50-70 = watch, <50 = weak.
@@ -127,12 +149,17 @@ SCORING GUIDE:
 - nakamoto: Decentralisation score. Higher = safer. <3 = red flag.
 - hhi: Stake concentration. Lower = more competitive. >0.5 = red flag.
 - burn_pct: % of miner emissions burned. 0% = healthy. High = miners may leave.
+- Signal strength (0-100): how significant the signal event is.
+- Signal types: github_pr = pull request merged, github_release = new version shipped, github_commit = commits, huggingface_model/dataset/space = AI model published, dev_spike = unusual dev activity burst.
 
 LIVE LEADERBOARD DATA (${lb.length} subnets):
 ${JSON.stringify(lb)}
 
 LIVE AUDIT DATA:
 ${JSON.stringify(auditMap)}
+
+RECENT SIGNALS — last 72h (sorted by strength, is_dev=true means development event):
+${recentSignals.length > 0 ? JSON.stringify(recentSignals) : "No signals in the last 72h."}
 
 Answer questions using this data directly. Be specific. If asked for top N subnets by some criteria, compute it from the data above. Never say you don't have access to the data — you do.`;
 }
@@ -171,13 +198,15 @@ export async function POST(req: NextRequest) {
   incrementRateLimit(email, { date: today, count: count + 1 }).catch(() => {});
 
   // Load live data
-  const [scanData, auditData] = await Promise.all([
+  const [scanData, auditData, signalsData] = await Promise.all([
     loadBlob<{ leaderboard?: unknown[] }>("scan-latest.json"),
     loadBlob<unknown>("audit-data.json"),
+    loadBlob<{ signals?: unknown[] }>("signals-history.json"),
   ]);
 
   const leaderboard = scanData?.leaderboard ?? [];
-  const systemPrompt = buildSystemPrompt(leaderboard, auditData);
+  const signals = signalsData?.signals ?? [];
+  const systemPrompt = buildSystemPrompt(leaderboard, auditData, signals);
 
   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
