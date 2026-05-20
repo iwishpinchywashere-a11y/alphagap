@@ -8,7 +8,7 @@ import Anthropic from "@anthropic-ai/sdk";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-const DAILY_LIMIT = 25;
+const DAILY_LIMIT = 9999; // TEST MODE — remove limit
 const TOKEN = () => process.env.BLOB_READ_WRITE_TOKEN || "";
 
 // ── Rate limit helpers ───────────────────────────────────────────────
