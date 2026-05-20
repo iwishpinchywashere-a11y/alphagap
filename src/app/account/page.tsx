@@ -18,6 +18,9 @@ export default function AccountPage() {
   const [cancelConfirm, setCancelConfirm] = useState(false);
   const [cancelLoading, setCancelLoading] = useState(false);
   const [cancelDate, setCancelDate] = useState<string | null>(null);
+  const [showSaveOffer, setShowSaveOffer] = useState(false);
+  const [discountLoading, setDiscountLoading] = useState(false);
+  const [discountApplied, setDiscountApplied] = useState(false);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const user = session?.user as any;
@@ -56,6 +59,24 @@ export default function AccountPage() {
       alert("Failed to cancel. Please contact hello@getbeanstock.com");
     } finally {
       setCancelLoading(false);
+    }
+  }
+
+  async function claimDiscount() {
+    setDiscountLoading(true);
+    try {
+      const res = await fetch("/api/stripe/apply-discount", { method: "POST" });
+      const data = await res.json();
+      if (data.ok) {
+        setDiscountApplied(true);
+        setShowSaveOffer(false);
+      } else {
+        alert(data.error || "Failed to apply discount. Please contact hello@getbeanstock.com");
+      }
+    } catch {
+      alert("Failed to apply discount. Please contact hello@getbeanstock.com");
+    } finally {
+      setDiscountLoading(false);
     }
   }
 
@@ -193,14 +214,46 @@ export default function AccountPage() {
 
               {/* Cancel subscription */}
               <div className="border-t border-gray-800 mt-5 pt-5">
-                {cancelDate ? (
+                {discountApplied ? (
+                  /* ── Discount claimed ── */
+                  <div className="bg-green-500/5 border border-green-500/20 rounded-lg px-4 py-4 text-center">
+                    <p className="text-lg mb-1">🎉</p>
+                    <p className="text-sm text-green-400 font-semibold">40% discount applied!</p>
+                    <p className="text-xs text-gray-500 mt-1">Your next 3 invoices will be 40% off. Thanks for staying.</p>
+                  </div>
+                ) : cancelDate ? (
+                  /* ── Already cancelled ── */
                   <div className="bg-yellow-500/5 border border-yellow-500/20 rounded-lg px-4 py-3 text-center">
                     <p className="text-sm text-yellow-400 font-medium">Subscription cancelled</p>
                     <p className="text-xs text-gray-500 mt-1">
                       You&apos;ll keep full access until <span className="text-gray-300">{cancelDate}</span>
                     </p>
                   </div>
+                ) : showSaveOffer ? (
+                  /* ── Save offer ── */
+                  <div className="bg-gradient-to-b from-purple-950/40 to-gray-900/60 border border-purple-500/30 rounded-xl px-4 py-5">
+                    <p className="text-xs text-purple-400 font-semibold uppercase tracking-widest mb-2 text-center">Before you go</p>
+                    <p className="text-base font-bold text-white text-center mb-1">Get 40% off for 3 months</p>
+                    <p className="text-xs text-gray-400 text-center mb-4">
+                      Stay on AlphaGap at a discount — applied instantly to your next 3 invoices. No strings attached.
+                    </p>
+                    <button
+                      onClick={claimDiscount}
+                      disabled={discountLoading}
+                      className="w-full bg-gradient-to-r from-purple-500 to-violet-600 hover:from-purple-400 hover:to-violet-500 text-white font-bold rounded-lg py-2.5 text-sm transition-all shadow-lg shadow-purple-500/20 disabled:opacity-50 mb-2"
+                    >
+                      {discountLoading ? "Applying…" : "Claim 40% off →"}
+                    </button>
+                    <button
+                      onClick={() => { setShowSaveOffer(false); setCancelConfirm(true); }}
+                      disabled={discountLoading}
+                      className="w-full text-xs text-gray-600 hover:text-gray-400 transition-colors py-1"
+                    >
+                      No thanks, cancel anyway
+                    </button>
+                  </div>
                 ) : cancelConfirm ? (
+                  /* ── Final cancel confirm ── */
                   <div className="bg-red-500/5 border border-red-500/20 rounded-lg px-4 py-4">
                     <p className="text-sm text-red-400 font-medium mb-1">Are you sure?</p>
                     <p className="text-xs text-gray-500 mb-4">
@@ -224,8 +277,9 @@ export default function AccountPage() {
                     </div>
                   </div>
                 ) : (
+                  /* ── Idle cancel link ── */
                   <button
-                    onClick={() => setCancelConfirm(true)}
+                    onClick={() => setShowSaveOffer(true)}
                     className="w-full text-sm text-gray-600 hover:text-red-400 transition-colors py-1"
                   >
                     Cancel subscription
