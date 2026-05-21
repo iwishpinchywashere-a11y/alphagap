@@ -125,24 +125,27 @@ export async function GET(req: NextRequest) {
   await writeLock(slotKey);
 
   // Load all data blobs in parallel now that the slot is claimed
+  // Actual blob names and shapes (corrected from original stale names):
+  //   signals-history.json  → flat ScanSignal[]  (not {signals:[]} wrapper)
+  //   social-hot.json       → { events: HeatEvent[] }  (not {trending:[]})
+  //   benchmark-alerts.json → flat array of KOL alert objects  (not {benchmarks:[]})
+  //   portfolio.json        → { positions: PortfolioPosition[] }  (not {gains:[]})
+  //   analytics-latest.json → DOES NOT EXIST; derived from scan-latest.json leaderboard
+  //   performance-latest.json → DOES NOT EXIST; derived from portfolio.json + scan prices
   const [
     postedLog,
     scanRaw,
     discordRaw,
-    signalsRaw,
-    socialRaw,
-    analyticsRaw,
-    benchmarksRaw,
-    performanceRaw,
+    signalsHistoryRaw,   // flat ScanSignal[]
+    socialHotRaw,        // { events: HeatEvent[] }
+    portfolioRaw,        // { positions: PortfolioPosition[] }
   ] = await Promise.all([
     loadPostedLog(),
-    readBlob<{ leaderboard: unknown[] }>("scan-latest.json"),
+    readBlob<{ leaderboard: Array<Record<string, unknown>> }>("scan-latest.json"),
     readBlob<{ results: unknown[] }>("discord-latest.json"),
-    readBlob<{ signals: unknown[] }>("signals-latest.json"),
-    readBlob<{ trending: unknown[]; results?: unknown[] }>("social-latest.json"),
-    readBlob<{ ratios: unknown[] }>("analytics-latest.json"),
-    readBlob<{ benchmarks: unknown[] }>("benchmarks-latest.json"),
-    readBlob<{ gains: unknown[] }>("performance-latest.json"),
+    readBlob<Array<Record<string, unknown>>>("signals-history.json"),
+    readBlob<{ events: Array<Record<string, unknown>> }>("social-hot.json"),
+    readBlob<{ positions: Array<Record<string, unknown>> }>("portfolio.json"),
   ]);
 
   // ── 3-hour cooldown (belt-and-suspenders) ────────────────────────
@@ -164,15 +167,154 @@ export async function GET(req: NextRequest) {
       .map((p) => p.id)
   );
 
+  // ── Map leaderboard fields to SubnetScore interface ────────────────
+  // scan-latest.json uses agap_velo (not velo_score) and score_delta_24h
+  // (not composite_score_change). Map them here so the content generators work.
+  const leaderboard = (scanRaw?.leaderboard ?? []).map((e) => ({
+    ...e,
+    // field name aliases
+    composite_score_change: e.score_delta_24h,
+    velo_score:             e.agap_velo,
+  })) as BotData["leaderboard"];
+
+  // ── Map signals-history.json (flat ScanSignal[]) → DevSignal[] ────
+  // ScanSignal fields: netuid, signal_type, strength, title, description,
+  //   source, created_at, signal_date, subnet_name, analysis
+  // DevSignal fields: name, netuid, title, description, score, created_at
+  const devSignals: BotData["devSignals"] = (Array.isArray(signalsHistoryRaw) ? signalsHistoryRaw : [])
+    .filter((s) => s.signal_type === "dev_activity" || s.signal_type === "dev_signal" || String(s.signal_type).startsWith("dev"))
+    .map((s) => ({
+      name:        String(s.subnet_name ?? s.name ?? "Unknown"),
+      netuid:      Number(s.netuid),
+      title:       String(s.title ?? ""),
+      description: String(s.description ?? s.analysis ?? ""),
+      score:       Number(s.strength ?? 0),
+      created_at:  String(s.signal_date ?? s.created_at ?? ""),
+    }));
+
+  // ── Map social-hot.json HeatEvents → SocialTrendEntry[] ────────────
+  // HeatEvent fields: tweet_id, netuid, subnet_name, kol_handle, kol_name,
+  //   kol_weight, kol_tier, tweet_url, engagement, heat_score, detected_at
+  // Group by subnet, surface top subnets with mention count + top insight
+  const hotEvents = Array.isArray(socialHotRaw?.events) ? socialHotRaw!.events : [];
+  const cutoff48h = Date.now() - 48 * 3600000;
+  const recentHot = hotEvents.filter((e) => new Date(String(e.detected_at ?? 0)).getTime() > cutoff48h);
+  const subnetHotMap = new Map<number, { subnetName: string; tweetCount: number; topHeat: number; topInsight: string; scannedAt: string }>();
+  for (const e of recentHot) {
+    const uid = Number(e.netuid);
+    const existing = subnetHotMap.get(uid);
+    const heat = Number(e.heat_score ?? 0);
+    if (!existing) {
+      subnetHotMap.set(uid, {
+        subnetName: String(e.subnet_name ?? ""),
+        tweetCount: 1,
+        topHeat: heat,
+        topInsight: String(e.kol_handle ? `@${e.kol_handle}` : ""),
+        scannedAt: String(e.detected_at ?? ""),
+      });
+    } else {
+      existing.tweetCount++;
+      if (heat > existing.topHeat) {
+        existing.topHeat = heat;
+        existing.topInsight = String(e.kol_handle ? `@${e.kol_handle}` : "");
+        existing.scannedAt = String(e.detected_at ?? existing.scannedAt);
+      }
+    }
+  }
+  const socialTrending: BotData["socialTrending"] = [...subnetHotMap.entries()]
+    .sort((a, b) => b[1].topHeat - a[1].topHeat)
+    .map(([netuid, v]) => ({
+      netuid,
+      subnetName: v.subnetName,
+      tweetCount: v.tweetCount,
+      topInsight: v.topInsight,
+      scannedAt: v.scannedAt,
+    }));
+
+  // ── Derive analytics ratios from leaderboard ───────────────────────
+  // Use emission% / (market_cap / totalMcap) as the efficiency ratio.
+  // Higher means the subnet earns more emissions per dollar of market cap.
+  const totalMcap = leaderboard.reduce((sum, s) => sum + (s.market_cap ?? 0), 0);
+  const analyticsRatios: BotData["analyticsRatios"] = leaderboard
+    .filter((s) => s.emission_pct && s.emission_pct > 0 && s.market_cap && s.market_cap > 0 && totalMcap > 0)
+    .map((s) => {
+      const emitShare = Number(s.emission_pct) * 100;          // fraction → %
+      const mcapShare = (Number(s.market_cap) / totalMcap) * 100;
+      const ratio = emitShare / Math.max(mcapShare, 0.0001);   // emission% per mcap%
+      return {
+        netuid:          Number(s.netuid),
+        name:            String(s.name),
+        ratio:           Math.round(ratio * 100) / 100,
+        ratioLabel:      "emission/mcap efficiency",
+        composite_score: Number(s.composite_score ?? 0),
+      };
+    })
+    .sort((a, b) => b.ratio - a.ratio)
+    .slice(0, 10);
+
+  // ── Derive benchmarkUpdates from raw leaderboard (subnets with benchmark scores) ─
+  // Uses scanRaw?.leaderboard (untyped) so we can access benchmark-specific fields:
+  //   product_source, benchmark_score, benchmark_category, cost_saving_pct,
+  //   vs_provider, benchmark_summary, product_score
+  const rawLeaderboard = scanRaw?.leaderboard ?? [];
+  const lastScanTs = String((scanRaw as Record<string, unknown> | null)?.lastScan ?? new Date().toISOString());
+  const benchmarkUpdates: BotData["benchmarkUpdates"] = rawLeaderboard
+    .filter((s) => s.product_source === "benchmark" && s.benchmark_score != null)
+    .map((s) => ({
+      netuid:           Number(s.netuid),
+      subnetName:       String(s.name),
+      taskName:         String(s.benchmark_category ?? "AI benchmark"),
+      score:            Number(s.benchmark_score ?? s.product_score ?? 0),
+      centralizedScore: s.cost_saving_pct != null ? Number(s.benchmark_score ?? 0) - Number(s.cost_saving_pct ?? 0) : undefined,
+      centralizedName:  s.vs_provider ? String(s.vs_provider) : undefined,
+      delta:            s.cost_saving_pct != null ? Number(s.cost_saving_pct) : undefined,
+      updatedAt:        lastScanTs,
+      isNew:            false,
+    }))
+    .sort((a, b) => (b.delta ?? 0) - (a.delta ?? 0))
+    .slice(0, 10);
+
+  // ── Derive performanceGains from portfolio.json + current scan prices ──
+  // PortfolioPosition fields: netuid, name, buyDate, buyAGapScore, buyPriceUsd,
+  //   amountUsd, alphaTokens, peakPrice, manualPeakPrice
+  const priceMap = new Map<number, number>(
+    leaderboard
+      .filter((s) => s.alpha_price != null)
+      .map((s) => [Number(s.netuid), Number(s.alpha_price)])
+  );
+  const performanceGains: BotData["performanceGains"] = (portfolioRaw?.positions ?? [])
+    .filter((p) => p.buyPriceUsd != null && Number(p.buyPriceUsd) > 0)
+    .map((p) => {
+      const uid = Number(p.netuid);
+      const buyPrice = Number(p.buyPriceUsd);
+      const priceNow = priceMap.get(uid) ?? buyPrice;
+      const peakPrice = Number(p.manualPeakPrice ?? p.peakPrice ?? priceNow);
+      const maxGainPct = ((peakPrice - buyPrice) / buyPrice) * 100;
+      const currentGainPct = ((priceNow - buyPrice) / buyPrice) * 100;
+      return {
+        netuid:           uid,
+        name:             String(p.name ?? ""),
+        agapScoreAtSignal: Number(p.buyAGapScore ?? 0),
+        priceAtSignal:    buyPrice,
+        priceNow,
+        maxPrice:         peakPrice,
+        maxGainPct:       Math.round(maxGainPct * 10) / 10,
+        currentGainPct:   Math.round(currentGainPct * 10) / 10,
+        signalDate:       String(p.buyDate ?? ""),
+      };
+    })
+    .filter((p) => p.maxGainPct >= 15)   // only include meaningful gainers
+    .sort((a, b) => b.maxGainPct - a.maxGainPct);
+
   // Assemble bot data
   const botData: BotData = {
-    leaderboard:      (scanRaw?.leaderboard       ?? []) as BotData["leaderboard"],
-    discordAlpha:     (discordRaw?.results         ?? []) as BotData["discordAlpha"],
-    devSignals:       (signalsRaw?.signals         ?? []) as BotData["devSignals"],
-    socialTrending:   (socialRaw?.trending ?? socialRaw?.results ?? []) as BotData["socialTrending"],
-    analyticsRatios:  (analyticsRaw?.ratios        ?? []) as BotData["analyticsRatios"],
-    benchmarkUpdates: (benchmarksRaw?.benchmarks   ?? []) as BotData["benchmarkUpdates"],
-    performanceGains: (performanceRaw?.gains       ?? []) as BotData["performanceGains"],
+    leaderboard,
+    discordAlpha:     (discordRaw?.results ?? []) as BotData["discordAlpha"],
+    devSignals,
+    socialTrending,
+    analyticsRatios,
+    benchmarkUpdates,
+    performanceGains,
     alreadyPostedIds,
   };
 
