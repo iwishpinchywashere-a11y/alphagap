@@ -3766,9 +3766,14 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
       const target7d  = now24 - 7 * 24 * 3600 * 1000;
       const allTs = Object.keys(scoreHistory).sort(); // ascending ISO strings sort correctly
 
-      // Find the timestamp closest to a target epoch, within the given tolerance (ms).
-      // Returns data + the actual timestamp epoch so callers can normalise by real elapsed time.
-      function bestSnapshot(targetMs: number, toleranceMs: number): { data: Record<string, ScoreRow>; actualMs: number } | null {
+      // Find the snapshot closest to a target epoch.
+      // NO tolerance gate — we always return the closest available snapshot.
+      // The old ±18h / ±5d tolerance gates caused VELO to show "—" for hours after
+      // any history reset (transient blob read failure, deploy, etc.) because all fresh
+      // snapshots were too recent to fall inside the window. historyWeight (0→1 over 72
+      // snapshots) already dampens the signal when history is thin — the tolerance gate
+      // was redundant and harmful. Removing it makes VELO permanently stable.
+      function bestSnapshot(targetMs: number): { data: Record<string, ScoreRow>; actualMs: number } | null {
         if (allTs.length === 0) return null;
         let best = allTs[0];
         let bestDiff = Math.abs(new Date(allTs[0]).getTime() - targetMs);
@@ -3776,15 +3781,14 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
           const diff = Math.abs(new Date(ts).getTime() - targetMs);
           if (diff < bestDiff) { best = ts; bestDiff = diff; }
         }
-        if (bestDiff > toleranceMs) return null;
         return { data: scoreHistory[best], actualMs: new Date(best).getTime() };
       }
 
-      // Tolerances: 24h ±18h,  7d ±5 days (bridges multi-day gaps in history).
-      // Velocity is always normalised to per-day rate using the ACTUAL elapsed time,
-      // so a snapshot that is 9 h old produces the same per-day score as one 25 h old.
-      const snap24h = bestSnapshot(target24h, 18 * 3600 * 1000);
-      const snap7d  = bestSnapshot(target7d,  5 * 24 * 3600 * 1000);
+      // Always resolves to the closest available snapshot — never null when history exists.
+      // Velocity is normalised to per-day rate using ACTUAL elapsed time, so a 2h-old
+      // snapshot vs a 26h-old snapshot produce correctly-scaled velocity values.
+      const snap24h = bestSnapshot(target24h);
+      const snap7d  = bestSnapshot(target7d);
 
       console.log(`[scan] Velo: ${allTs.length} history snapshots, snap24h=${snap24h ? `found(${((now24 - snap24h.actualMs)/3600000).toFixed(1)}h ago)` : "null"}, snap7d=${snap7d ? `found(${((now24 - snap7d.actualMs)/3600000).toFixed(1)}h ago)` : "null"}, oldest=${allTs[0] ?? "none"}, newest=${allTs[allTs.length - 1] ?? "none"}`);
 
@@ -3855,6 +3859,10 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
             50 + Math.tanh(velocity * levelMult / 2) * 50 * historyWeight
           )));
           entry.agap_velo = velo;
+        } else {
+          // Zero history in blob (first scan after fresh deploy or hard reset).
+          // Show neutral 50 so the column is never blank "—".
+          entry.agap_velo = 50;
         }
 
         // Always store the raw 24h delta for Today's Movers widget
