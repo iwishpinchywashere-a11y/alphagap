@@ -3524,7 +3524,10 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
       name: d.name,
       composite_score: aGap,
       flow_score: Math.round(flowScore),
-      dev_score: Math.round(devScore),
+      // SN93 Bitcast: not dev-focused (influencer marketing platform), so raw GitHub
+      // activity understates their real effort. Floor at 40 so they don't rank unfairly
+      // low, but still allows upside if they ever ship meaningful code changes.
+      dev_score: d.netuid === 93 ? Math.max(40, Math.round(devScore)) : Math.round(devScore),
       eval_score: Math.round(evalScore),
       social_score: socialScore,
       signal_count: signalCountMap.get(d.netuid) || 0,
