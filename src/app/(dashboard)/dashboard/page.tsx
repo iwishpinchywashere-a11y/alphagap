@@ -254,10 +254,67 @@ export default function LeaderboardPage() {
 
         {leaderboard.length > 0 && (
           <div>
-            {/* Title row */}
-            <h2 className="text-lg font-bold mb-2">Alpha Leaderboard</h2>
-            {/* Search + Filters row */}
-            <div className="flex items-center gap-2 mb-4 flex-wrap">
+            {/* ── Hero Header ──────────────────────────────────────────── */}
+            <div className="relative -mx-4 md:-mx-6 -mt-4 md:-mt-6 mb-6 border-b border-gray-800/50 overflow-hidden">
+              {/* subtle grid dot pattern */}
+              <div
+                className="absolute inset-0 opacity-[0.025] pointer-events-none"
+                style={{
+                  backgroundImage: "linear-gradient(rgba(255,255,255,0.8) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.8) 1px,transparent 1px)",
+                  backgroundSize: "32px 32px",
+                }}
+              />
+              {/* ambient glow orbs */}
+              <div className="absolute -top-12 left-1/4 w-96 h-48 bg-green-600/10 rounded-full blur-3xl pointer-events-none" />
+              <div className="absolute top-0 right-1/4 w-64 h-40 bg-emerald-500/6 rounded-full blur-3xl pointer-events-none" />
+
+              <div className="relative px-4 md:px-6 pt-7 pb-5">
+                {/* Title + subtitle */}
+                <div className="flex items-start justify-between gap-4 mb-3">
+                  <div>
+                    <h1 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-green-400 via-emerald-300 to-white bg-clip-text text-transparent leading-tight mb-1">
+                      🏆 Alpha Leaderboard
+                    </h1>
+                    <p className="text-sm text-gray-500 max-w-xl">
+                      AI-scored intelligence across every active Bittensor subnet — ranked by opportunity gap.
+                    </p>
+                  </div>
+                  {scanning && (
+                    <div className="flex-shrink-0 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-green-500/10 border border-green-500/20">
+                      <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
+                      <span className="text-[10px] text-green-400 font-medium">Live</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Stat chips */}
+                <div className="flex flex-wrap items-center gap-2 mb-5">
+                  <div className="flex items-center gap-1.5 bg-gray-800/60 border border-gray-700/40 rounded-full px-3 py-1.5">
+                    <span className="text-sm font-bold text-green-400 tabular-nums">{leaderboard.length}</span>
+                    <span className="text-xs text-gray-400">subnets tracked</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 bg-gray-800/60 border border-gray-700/40 rounded-full px-3 py-1.5">
+                    <span className="text-sm font-bold text-blue-400 tabular-nums">{signals.length}</span>
+                    <span className="text-xs text-gray-400">dev signals</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 bg-gray-800/60 border border-gray-700/40 rounded-full px-3 py-1.5">
+                    <span className="text-sm font-bold text-yellow-400 tabular-nums">{leaderboard.filter(s => s.whale_signal === "accumulating").length}</span>
+                    <span className="text-xs text-gray-400">🐋 whale buys</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 bg-gray-800/60 border border-gray-700/40 rounded-full px-3 py-1.5">
+                    <span className="text-sm font-bold text-purple-400 tabular-nums">{leaderboard.filter(s => s.volume_surge).length}</span>
+                    <span className="text-xs text-gray-400">⚡ vol surges</span>
+                  </div>
+                  {taoPrice != null && taoPrice > 0 && (
+                    <div className="flex items-center gap-1.5 bg-gray-800/60 border border-gray-700/40 rounded-full px-3 py-1.5">
+                      <span className="text-xs text-gray-500">τ</span>
+                      <span className="text-sm font-bold text-white tabular-nums">${(taoPrice as number).toFixed(2)}</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Controls row */}
+                <div className="flex items-center gap-2 flex-wrap">
               <input
                 type="text"
                 placeholder="Search subnets..."
@@ -457,7 +514,9 @@ export default function LeaderboardPage() {
                 </svg>
                 My Watchlist
               </button>
-            </div>
+                </div>{/* end controls row */}
+              </div>{/* end hero inner padding */}
+            </div>{/* end hero container */}
 
             {/* Mobile-only sticky CTA — sits above the horizontally-scrolling table */}
             {!isPro && (
