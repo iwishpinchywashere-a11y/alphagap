@@ -2695,13 +2695,13 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     // For a trading lens (hours/days), slow-moving fundamentals should be secondary to
     // fresh activity signals. evalScore is already heavily weighted in the Investing formula.
     let evalBoost = 0;
-    if (evalScore >= 80) evalBoost = 6;
-    else if (evalScore >= 60) evalBoost = 5;
-    else if (evalScore >= 45) evalBoost = 3;
-    else if (evalScore >= 30) evalBoost = 2;
+    if (evalScore >= 80) evalBoost = 9;
+    else if (evalScore >= 60) evalBoost = 7;
+    else if (evalScore >= 45) evalBoost = 5;
+    else if (evalScore >= 30) evalBoost = 3;
     else if (evalScore >= 15) evalBoost = 1;
     // Net inflow = money flowing in alongside good eval = stronger signal
-    if (d.netFlow24h && d.netFlow24h > 0) evalBoost = Math.min(6, evalBoost + 1);
+    if (d.netFlow24h && d.netFlow24h > 0) evalBoost = Math.min(9, evalBoost + 2);
 
     // EVAL VS PRICE BONUS (0-6 pts) — THE REAL EVAL GAP SIGNAL
     // High validator quality score + price still underwater = market hasn't caught up to
@@ -2736,9 +2736,9 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     // were permanently locked at max stakingBoost regardless of any recent activity.
     // The TREND (stakingTrendBonus) is kept at full weight — that's the fresh signal.
     let stakingBoost = 0;
-    if (d.alphaStakedPct >= 75) stakingBoost = 6;
-    else if (d.alphaStakedPct >= 65) stakingBoost = 4;
-    else if (d.alphaStakedPct >= 55) stakingBoost = 2;
+    if (d.alphaStakedPct >= 75) stakingBoost = 9;
+    else if (d.alphaStakedPct >= 65) stakingBoost = 6;
+    else if (d.alphaStakedPct >= 55) stakingBoost = 3;
 
     // ── STAKING TREND BONUS (±10 pts) ──────────────────────────────────────────
     // Level tells us the float constraint. TREND tells us conviction is building or fading.
@@ -3414,25 +3414,27 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     }
 
     // ── EMISSION DOMINANCE BONUS (0–10 pts) ──────────────────────────────────
-    // Capturing ≥5–10% of Bittensor emissions while maintaining a clean audit
-    // score is one of the strongest long-term investment fundamentals: validators
-    // have committed serious capital AND the network structure is sound.
+    // Capturing ≥3–10% of Bittensor emissions while maintaining a clean audit
+    // score is one of the strongest long-term investment fundamentals.
     // Audit gate matters — emission share with a centralised structure is a risk.
-    // Directly rewards: NOVA (10.3% EM, AUD 72), Score (8.7% EM, AUD 73).
+    // Directly rewards: NOVA (10.9% EM, AUD 72), Score (9.2% EM, AUD 78).
     let emissionDominanceBonus = 0;
     if      (d.emissionPct >= 10 && (auditScore ?? 0) >= 70) emissionDominanceBonus = 10;
-    else if (d.emissionPct >=  5 && (auditScore ?? 0) >= 65) emissionDominanceBonus =  6;
-    else if (d.emissionPct >=  3 && (auditScore ?? 0) >= 60) emissionDominanceBonus =  3;
+    else if (d.emissionPct >=  5 && (auditScore ?? 0) >= 65) emissionDominanceBonus =  7;
+    else if (d.emissionPct >=  2 && (auditScore ?? 0) >= 60) emissionDominanceBonus =  4;
+    else if (d.emissionPct >=  1 && (auditScore ?? 0) >= 60) emissionDominanceBonus =  2;
 
     // ── PROVEN QUALITY BONUS (0–12 pts) ──────────────────────────────────────
-    // Fires when a subnet is excellent across THREE dimensions simultaneously:
-    // clean audit structure + real product traction + meaningful emissions.
-    // No single pillar captures this — it rewards broad-based excellence that is
-    // the hallmark of a genuinely strong long-term investment.
+    // Fires when a subnet is excellent across multiple dimensions simultaneously.
+    // Two tiers: with emissions (full bonus) or without (partial — product+audit alone
+    // is still quality, just not as deep a long-term fundamental as having network weight).
+    // Directly rewards Affine (AUD 82, PROD 78), Chutes (AUD 86, PROD 100), Leadpoet (PROD 88).
     let provenQualityBonus = 0;
     if      (pillarAuditDecen >= 15 && productScore >= 80 && d.emissionPct >= 5)  provenQualityBonus = 12;
-    else if (pillarAuditDecen >= 12 && productScore >= 65 && d.emissionPct >= 3)  provenQualityBonus =  7;
-    else if (pillarAuditDecen >= 12 && productScore >= 60 && d.emissionPct >= 2)  provenQualityBonus =  3;
+    else if (pillarAuditDecen >= 12 && productScore >= 65 && d.emissionPct >= 2)  provenQualityBonus =  8;
+    else if (pillarAuditDecen >= 15 && productScore >= 75)                         provenQualityBonus =  8; // strong audit+product, no emissions
+    else if (pillarAuditDecen >= 12 && productScore >= 65)                         provenQualityBonus =  5; // solid audit+product
+    else if (pillarAuditDecen >= 12 && productScore >= 55)                         provenQualityBonus =  3;
 
     // ── PENALTIES ─────────────────────────────────────────────────────────────
     const emissionPenalty      = Math.round(Math.min(0, emissionBoost) * 0.45);
