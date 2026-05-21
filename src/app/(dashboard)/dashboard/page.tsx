@@ -287,32 +287,6 @@ export default function LeaderboardPage() {
                   )}
                 </div>
 
-                {/* Stat chips */}
-                <div className="flex flex-wrap items-center gap-2 mb-5">
-                  <div className="flex items-center gap-1.5 bg-gray-800/60 border border-gray-700/40 rounded-full px-3 py-1.5">
-                    <span className="text-sm font-bold text-green-400 tabular-nums">{leaderboard.length}</span>
-                    <span className="text-xs text-gray-400">subnets tracked</span>
-                  </div>
-                  <div className="flex items-center gap-1.5 bg-gray-800/60 border border-gray-700/40 rounded-full px-3 py-1.5">
-                    <span className="text-sm font-bold text-blue-400 tabular-nums">{signals.length}</span>
-                    <span className="text-xs text-gray-400">dev signals</span>
-                  </div>
-                  <div className="flex items-center gap-1.5 bg-gray-800/60 border border-gray-700/40 rounded-full px-3 py-1.5">
-                    <span className="text-sm font-bold text-yellow-400 tabular-nums">{leaderboard.filter(s => s.whale_signal === "accumulating").length}</span>
-                    <span className="text-xs text-gray-400">🐋 whale buys</span>
-                  </div>
-                  <div className="flex items-center gap-1.5 bg-gray-800/60 border border-gray-700/40 rounded-full px-3 py-1.5">
-                    <span className="text-sm font-bold text-purple-400 tabular-nums">{leaderboard.filter(s => s.volume_surge).length}</span>
-                    <span className="text-xs text-gray-400">⚡ vol surges</span>
-                  </div>
-                  {taoPrice != null && taoPrice > 0 && (
-                    <div className="flex items-center gap-1.5 bg-gray-800/60 border border-gray-700/40 rounded-full px-3 py-1.5">
-                      <span className="text-xs text-gray-500">τ</span>
-                      <span className="text-sm font-bold text-white tabular-nums">${(taoPrice as number).toFixed(2)}</span>
-                    </div>
-                  )}
-                </div>
-
                 {/* Controls row */}
                 <div className="flex items-center gap-2 flex-wrap">
               <input
