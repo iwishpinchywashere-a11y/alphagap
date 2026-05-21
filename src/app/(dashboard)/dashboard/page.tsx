@@ -414,17 +414,17 @@ export default function LeaderboardPage() {
                   shield:   <svg width="10" height="11" viewBox="0 0 11 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5.5 1L1 3.5v3c0 2.5 2 4 4.5 5 2.5-1 4.5-2.5 4.5-5v-3L5.5 1z"/><path d="M5.5 5v1.5M5.5 8.5v.3"/></svg>,
                 };
                 const FILTERS = [
-                  { icon: IC.cap,      label: ">$5M MCap",          active: filterMinCap,          set: setFilterMinCap },
-                  { icon: IC.emit,     label: "Has Emissions",       active: filterHasEmissions,    set: setFilterHasEmissions },
-                  { icon: IC.whale,    label: "Whales Buying",       active: filterWhaleAccum,      set: setFilterWhaleAccum },
-                  { icon: IC.rising,   label: "Emissions Rising",    active: filterEmissionsRising, set: setFilterEmissionsRising },
-                  { icon: IC.oversold, label: "Oversold Quality",    active: filterOversoldQuality, set: setFilterOversoldQuality },
-                  { icon: IC.kol,      label: "KOL Active",          active: filterKolActive,       set: setFilterKolActive },
-                  { icon: IC.inflow,   label: "Net Inflow",          active: filterNetInflow,       set: setFilterNetInflow },
-                  { icon: IC.target,   label: "High Conviction",     active: filterHighConviction,  set: setFilterHighConviction },
-                  { icon: IC.surge,    label: "Volume Surge",        active: filterVolumeSurge,     set: setFilterVolumeSurge },
-                  { icon: IC.shield,   label: "Dereg Watch",         active: filterDeregWatch,      set: setFilterDeregWatch },
-                ] as { icon: React.ReactNode; label: string; active: boolean; set: React.Dispatch<React.SetStateAction<boolean>> }[];
+                  { icon: IC.cap,      color: "text-yellow-400",  label: ">$5M MCap",          active: filterMinCap,          set: setFilterMinCap },
+                  { icon: IC.emit,     color: "text-cyan-400",    label: "Has Emissions",       active: filterHasEmissions,    set: setFilterHasEmissions },
+                  { icon: IC.whale,    color: "text-blue-400",    label: "Whales Buying",       active: filterWhaleAccum,      set: setFilterWhaleAccum },
+                  { icon: IC.rising,   color: "text-green-400",   label: "Emissions Rising",    active: filterEmissionsRising, set: setFilterEmissionsRising },
+                  { icon: IC.oversold, color: "text-violet-400",  label: "Oversold Quality",    active: filterOversoldQuality, set: setFilterOversoldQuality },
+                  { icon: IC.kol,      color: "text-orange-400",  label: "KOL Active",          active: filterKolActive,       set: setFilterKolActive },
+                  { icon: IC.inflow,   color: "text-emerald-400", label: "Net Inflow",          active: filterNetInflow,       set: setFilterNetInflow },
+                  { icon: IC.target,   color: "text-red-400",     label: "High Conviction",     active: filterHighConviction,  set: setFilterHighConviction },
+                  { icon: IC.surge,    color: "text-amber-400",   label: "Volume Surge",        active: filterVolumeSurge,     set: setFilterVolumeSurge },
+                  { icon: IC.shield,   color: "text-rose-400",    label: "Dereg Watch",         active: filterDeregWatch,      set: setFilterDeregWatch },
+                ] as { icon: React.ReactNode; color: string; label: string; active: boolean; set: React.Dispatch<React.SetStateAction<boolean>> }[];
                 const activeCount = FILTERS.filter(f => f.active).length + (filterCategory ? 1 : 0);
                 // Collect unique categories from leaderboard for the category picker
                 const allCategories = [...new Set(leaderboard.map(s => s.category).filter(Boolean) as string[])].sort();
@@ -469,7 +469,7 @@ export default function LeaderboardPage() {
                             )}
                           </div>
                           <div className="flex flex-col gap-0.5">
-                            {FILTERS.map(({ icon, label, active, set }) => (
+                            {FILTERS.map(({ icon, color, label, active, set }) => (
                               <button
                                 key={label}
                                 onClick={() => set(v => !v)}
@@ -478,7 +478,7 @@ export default function LeaderboardPage() {
                                 <span className={`w-3.5 h-3.5 rounded border flex-shrink-0 flex items-center justify-center ${active ? "bg-green-500 border-green-500" : "border-gray-600"}`}>
                                   {active && <svg width="8" height="8" viewBox="0 0 8 8" fill="none" stroke="black" strokeWidth="2" strokeLinecap="round"><path d="M1 4l2 2 4-4"/></svg>}
                                 </span>
-                                <span className={`flex-shrink-0 ${active ? "text-green-400" : "text-gray-500"}`}>{icon}</span>
+                                <span className={`flex-shrink-0 ${active ? "text-green-400" : color}`}>{icon}</span>
                                 {label}
                               </button>
                             ))}
