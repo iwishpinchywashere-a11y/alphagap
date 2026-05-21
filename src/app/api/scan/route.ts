@@ -3191,24 +3191,28 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     if (constBuy > 0) aGap = Math.min(100, aGap + Math.min(13, 7 + constBuy / 150));
     if (constSell > 0) aGap = Math.max(1, aGap - Math.min(10, 3 + constSell / 200));
 
-    // ── INVESTING aGap (PILLAR-CAPPED + REVENUE-ANCHORED formula, v21) ──────────
-    // Monthly horizon. Redesigned to weight on-chain conviction and structural
-    // health far more heavily — the signals that actually predict long-term returns.
+    // ── INVESTING aGap (PILLAR-CAPPED + REVENUE-ANCHORED formula, v22) ──────────
+    // Monthly horizon. Rewards broad-based quality: real product, clean audit,
+    // emission health, and founder conviction — not just cheap price + staking lock.
     //
-    // Architecture: 6 pillars + RevTraction + MktVal + Synergy + GrowthPotential + Revenue Floor
+    // Architecture: 6 pillars + RevTraction + MktVal + Synergy + GrowthBonuses + Quality Bonuses + Revenue Floor
     //   Conviction(24) + AuditDecen(20) + Dev(12) + Product(20) + Network(10) + GrowthTiming(10)
-    //   + RevTraction(20) + MktVal(5) + Synergy(5) + GrowthPotential(10)
-    //   Max theoretical = ~136 → always clamped to 100.
+    //   + RevTraction(20) + MktVal(5) + Synergy(5) + CombinedGrowth(max 10 total)
+    //   + ProvenProduct(15) + EmissionDominance(10) + ProvenQuality(12)
+    //   Max theoretical = ~163 → always clamped to 100.
     //
-    // Key changes from v20:
-    //   • CONVICTION pillar (was Smart Money 9 → now 24) — whale sustained accumulation,
-    //     staking lock %, trend, and founder buy conviction all weighted for long horizon
-    //   • AUDIT + DECENTRALIZATION (was Health 11 → now 20) — structural safety is a
-    //     hard gate for long-term investing; bad audit = elevated structural risk penalty
-    //   • DEV compressed (25 → 12) — commit frequency matters less than shipping product
-    //   • PRODUCT tightened (31 → 20) — adds user growth & partnership adoption sub-signals
-    //   • NETWORK trimmed (12 → 10) — still present but not overweighted
-    //   • NEW GROWTH TIMING pillar (0 → 10) — quality projects undervalued vs fundamentals
+    // Key changes from v21:
+    //   • CONST CONVICTION tripled (max 4 → 12) — founder buying is the #1 long-term signal
+    //   • GROWTH BONUS CAP — pillarGrowthTiming + growthPotentialBonus capped at 10 combined
+    //     (they represent the same thesis; was double-counting for cheap no-revenue subnets)
+    //   • BROAD BASE SOFT CAP — pillarDev + pillarProduct < 15 → score capped at 70
+    //     (prevents weak-fundamentals subnets from reaching elite scores via staking alone)
+    //   • NEW PROVEN PRODUCT BONUS (0–15 pts) — benchmarked productScore tiers
+    //     directly reward Chutes (100), Score (91), Targon (79)
+    //   • NEW EMISSION DOMINANCE BONUS (0–10 pts) — emissionPct + auditScore combo
+    //     rewards NOVA (10.3%, AUD 72), Score (8.7%, AUD 73)
+    //   • NEW PROVEN QUALITY BONUS (0–12 pts) — high audit + high product + positive emissions
+    //     rewards broad-based excellence that no single pillar captures alone
     //
     // Revenue floors: confirmed ARR guarantees a minimum score so network penalties
     // can't bury a subnet that's generating real fiat revenue.
@@ -3248,13 +3252,16 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     else if (estimatedArr >=    100_000) revTractionBonus = arrIsEstimated ?  3 :  4;
     else if (estimatedArr >           0) revTractionBonus = arrIsEstimated ?  1 :  2;
 
+    // ── BENCHMARK STATUS (used by market validation, proven product, revenue floor) ──
+    const isBenchmarked = productSource === "benchmark";
+
     // ── MARKET VALIDATION BONUS (0–5 pts) ────────────────────────────────────
     // Formally benchmarked AND generating revenue = proven PMF.
     let marketValidationBonus = 0;
-    if      (productSource === "benchmark" && confirmedArr >= 1_000_000) marketValidationBonus = 5;
-    else if (productSource === "benchmark" && confirmedArr >=   100_000) marketValidationBonus = 3;
-    else if (productSource === "benchmark" && confirmedArr >          0) marketValidationBonus = 2;
-    else if (productSource === "benchmark")                              marketValidationBonus = 1;
+    if      (isBenchmarked && confirmedArr >= 1_000_000) marketValidationBonus = 5;
+    else if (isBenchmarked && confirmedArr >=   100_000) marketValidationBonus = 3;
+    else if (isBenchmarked && confirmedArr >          0) marketValidationBonus = 2;
+    else if (isBenchmarked)                              marketValidationBonus = 1;
 
     // ── PILLAR 1: CONVICTION (max 24) — was Smart Money max 9 ────────────────
     // For a monthly investing lens, SUSTAINED whale accumulation + staking lock
@@ -3278,10 +3285,13 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
       d.taoLocked >= 50_000 ? 3 :
       d.taoLocked >= 20_000 ? 2 :
       d.taoLocked >=  5_000 ? 1 : 0;
-    // Founder conviction: Const buying = founder deploying own capital
+    // Founder conviction: Const buying = founder deploying own capital.
+    // Tripled from v21 (max 4 → 12): founder buying is the #1 long-term investment
+    // signal in Bittensor — a team eating their own cooking means aligned incentives.
+    // Sell conviction also strengthened (max -2 → -8) — founders exiting is a red flag.
     let investConstConviction = 0;
-    if      (constBuy  > 0) investConstConviction = Math.min(4,  1 + constBuy  / 300);
-    else if (constSell > 0) investConstConviction = Math.max(-2, -constSell / 500);
+    if      (constBuy  > 0) investConstConviction = Math.min(12,  1 + constBuy  / 100);
+    else if (constSell > 0) investConstConviction = Math.max(-8, -constSell / 200);
     const rawConvictionPillar = investWhaleSpot + investWhaleVelo + investStakingLock
                                + investStakingTrend + investTaoLock + investConstConviction;
     const pillarConviction = Math.min(24, Math.round(rawConvictionPillar));
@@ -3376,6 +3386,47 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
       else if (pillarDev >=  4 && pillarProduct >=  5) growthPotentialBonus = 2;
     }
 
+    // ── GROWTH BONUS CAP (v22) ────────────────────────────────────────────────
+    // pillarGrowthTiming and growthPotentialBonus both represent the same thesis:
+    // "undiscovered, no revenue, strong fundamentals at a discount." Letting both
+    // fire at full strength double-counted the discount thesis for cheap subnets.
+    // Combined cap = 10 pts — same as either bonus alone at max.
+    const combinedGrowthBonus = Math.min(10, pillarGrowthTiming + growthPotentialBonus);
+    // Use combinedGrowthBonus in rawInvestAGap instead of both individually.
+
+    // ── PROVEN PRODUCT BONUS (0–15 pts) ──────────────────────────────────────
+    // Benchmarked subnets with high product scores have been manually verified
+    // to have real, working products. This is one of the strongest long-term
+    // investing signals — a great product that's formally evaluated.
+    // Directly rewards: Chutes (PROD 100), Score (PROD 91), Targon (PROD 79).
+    let provenProductBonus = 0;
+    if (isBenchmarked) {
+      if      (productScore >= 90) provenProductBonus = 15;
+      else if (productScore >= 78) provenProductBonus = 10;
+      else if (productScore >= 65) provenProductBonus =  5;
+    }
+
+    // ── EMISSION DOMINANCE BONUS (0–10 pts) ──────────────────────────────────
+    // Capturing ≥5–10% of Bittensor emissions while maintaining a clean audit
+    // score is one of the strongest long-term investment fundamentals: validators
+    // have committed serious capital AND the network structure is sound.
+    // Audit gate matters — emission share with a centralised structure is a risk.
+    // Directly rewards: NOVA (10.3% EM, AUD 72), Score (8.7% EM, AUD 73).
+    let emissionDominanceBonus = 0;
+    if      (d.emissionPct >= 10 && (auditScore ?? 0) >= 70) emissionDominanceBonus = 10;
+    else if (d.emissionPct >=  5 && (auditScore ?? 0) >= 65) emissionDominanceBonus =  6;
+    else if (d.emissionPct >=  3 && (auditScore ?? 0) >= 60) emissionDominanceBonus =  3;
+
+    // ── PROVEN QUALITY BONUS (0–12 pts) ──────────────────────────────────────
+    // Fires when a subnet is excellent across THREE dimensions simultaneously:
+    // clean audit structure + real product traction + meaningful emissions.
+    // No single pillar captures this — it rewards broad-based excellence that is
+    // the hallmark of a genuinely strong long-term investment.
+    let provenQualityBonus = 0;
+    if      (pillarAuditDecen >= 15 && productScore >= 80 && d.emissionPct >= 5)  provenQualityBonus = 12;
+    else if (pillarAuditDecen >= 12 && productScore >= 65 && d.emissionPct >= 3)  provenQualityBonus =  7;
+    else if (pillarAuditDecen >= 12 && productScore >= 60 && d.emissionPct >= 2)  provenQualityBonus =  3;
+
     // ── PENALTIES ─────────────────────────────────────────────────────────────
     const emissionPenalty      = Math.round(Math.min(0, emissionBoost) * 0.45);
     const networkHealthPenalty = Math.round(Math.min(0, investNetworkHealth) * 0.5);
@@ -3402,13 +3453,24 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     else if (mcap < 4_000_000) investViability = -10; // borderline
 
     const rawInvestAGap = pillarConviction + pillarAuditDecen + pillarDev + pillarProduct
-                        + pillarNetwork + pillarGrowthTiming
+                        + pillarNetwork
+                        + combinedGrowthBonus          // replaces pillarGrowthTiming + growthPotentialBonus (capped at 10)
                         + revTractionBonus + marketValidationBonus + investSynergy
-                        + growthPotentialBonus
+                        + provenProductBonus + emissionDominanceBonus + provenQualityBonus
                         + emissionPenalty + networkHealthPenalty + whalePenalty
                         + investViability + investDeregPenalty + investZeroEmissionPenalty;
 
-    const clampedInvestAGap = Math.max(1, Math.min(100, Math.round(rawInvestAGap)));
+    let clampedInvestAGap = Math.max(1, Math.min(100, Math.round(rawInvestAGap)));
+
+    // ── BROAD BASE SOFT CAP (v22) ─────────────────────────────────────────────
+    // A subnet with weak dev AND weak product fundamentals should not reach elite
+    // scores purely through staking lock, whale conviction, or cheap price signals.
+    // If combined dev+product pillars < 15 (out of 32 max), cap score at 70.
+    // This prevents distil-style stacking where mediocre fundamentals + cheap price
+    // + heavy staking pushes a subnet to #1 on the long-term investing leaderboard.
+    if (pillarDev + pillarProduct < 15) {
+      clampedInvestAGap = Math.min(clampedInvestAGap, 70);
+    }
 
     // ── REVENUE FLOOR ────────────────────────────────────────────────────────
     // A subnet generating real fiat revenue can't be buried below a minimum by
@@ -3419,7 +3481,6 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     // EXCEPTION: zero-emission subnets are at de-registration risk — the product
     // thesis only matters if the subnet survives. Revenue floors are capped at 50
     // for zero-emission subnets so the structural risk is always reflected.
-    const isBenchmarked = productSource === "benchmark";
     const floorBenchBonus = isBenchmarked ? 4 : 0;
     let investRevFloor = 0;
     if      (confirmedArr >= 10_000_000) investRevFloor = 80 + floorBenchBonus;
