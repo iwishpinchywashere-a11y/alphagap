@@ -255,18 +255,21 @@ export default function LeaderboardPage() {
         {leaderboard.length > 0 && (
           <div>
             {/* ── Hero Header ──────────────────────────────────────────── */}
-            <div className="relative -mx-4 md:-mx-6 -mt-4 md:-mt-6 mb-6 border-b border-gray-800/50 overflow-hidden">
-              {/* subtle grid dot pattern */}
-              <div
-                className="absolute inset-0 opacity-[0.025] pointer-events-none"
-                style={{
-                  backgroundImage: "linear-gradient(rgba(255,255,255,0.8) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.8) 1px,transparent 1px)",
-                  backgroundSize: "32px 32px",
-                }}
-              />
-              {/* ambient glow orbs */}
-              <div className="absolute -top-12 left-1/4 w-96 h-48 bg-green-600/10 rounded-full blur-3xl pointer-events-none" />
-              <div className="absolute top-0 right-1/4 w-64 h-40 bg-emerald-500/6 rounded-full blur-3xl pointer-events-none" />
+            {/* NOTE: no overflow-hidden on the outer shell — it clips the filter dropdown. */}
+            {/* Decorative elements are scoped inside their own overflow-hidden child instead. */}
+            <div className="relative -mx-4 md:-mx-6 -mt-4 md:-mt-6 mb-6 border-b border-gray-800/50">
+              {/* decorative layer — overflow-hidden scoped here only */}
+              <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                <div
+                  className="absolute inset-0 opacity-[0.025]"
+                  style={{
+                    backgroundImage: "linear-gradient(rgba(255,255,255,0.8) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.8) 1px,transparent 1px)",
+                    backgroundSize: "32px 32px",
+                  }}
+                />
+                <div className="absolute -top-12 left-1/4 w-96 h-48 bg-green-600/10 rounded-full blur-3xl" />
+                <div className="absolute top-0 right-1/4 w-64 h-40 bg-emerald-500/6 rounded-full blur-3xl" />
+              </div>
 
               <div className="relative px-4 md:px-6 pt-7 pb-5">
                 {/* Title + subtitle */}
@@ -305,7 +308,10 @@ export default function LeaderboardPage() {
                       className="absolute left-0 top-full mt-2 z-50 w-64 p-3.5 bg-gray-900 border border-purple-500/40 rounded-xl shadow-2xl text-xs leading-relaxed"
                       onClick={(e) => e.stopPropagation()}
                     >
-                      <div className="font-semibold text-purple-400 mb-1.5">📈 Investing Analysis</div>
+                      <div className="flex items-center gap-1.5 font-semibold text-purple-400 mb-1.5">
+                        <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M6 11V5.5"/><path d="M6 5.5C6 3 3.5 1.5 1.5 2C2 4.5 4 5.5 6 5.5z" fill="currentColor" strokeWidth="1"/><path d="M6 5.5C6 3 8.5 1.5 10.5 2C10 4.5 8 5.5 6 5.5z" fill="currentColor" strokeWidth="1"/></svg>
+                        Investing Analysis
+                      </div>
                       <p className="text-gray-400 mb-3 leading-relaxed">Long-term aGap scoring designed for serious investors. Weights real product development, smart money positioning, and fundamental conviction — not short-term noise.</p>
                       <p className="text-gray-600 text-[10px] mb-3">Available on Premium only.</p>
                       <a
@@ -320,14 +326,17 @@ export default function LeaderboardPage() {
                 <div className="flex items-center rounded-lg border border-gray-700 bg-gray-800/60 p-0.5">
                   <button
                     onClick={() => { setTimeHorizon("trading"); setShowInvestingGate(false); }}
-                    className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors whitespace-nowrap ${
+                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-colors whitespace-nowrap ${
                       timeHorizon === "trading"
                         ? "bg-green-500/20 border border-green-500/40 text-green-400"
                         : "text-gray-500 hover:text-gray-300"
                     }`}
                     title="Trading (Short-Term): aGap optimised for 1–5 day price movements — rewards price lag, social buzz, and short-term reversal patterns."
                   >
-                    ⚡ Trading
+                    <svg width="10" height="12" viewBox="0 0 10 13" fill="currentColor" className="flex-shrink-0">
+                      <path d="M6.5 0.5L1 7.5h3.5L3 12.5l6-7H5.5L6.5 0.5z" strokeLinejoin="round"/>
+                    </svg>
+                    Trading
                   </button>
                   <button
                     onClick={() => {
@@ -338,7 +347,7 @@ export default function LeaderboardPage() {
                         setShowInvestingGate(false);
                       }
                     }}
-                    className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors whitespace-nowrap ${
+                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-colors whitespace-nowrap ${
                       timeHorizon === "investing"
                         ? "bg-purple-500/20 border border-purple-500/40 text-purple-400"
                         : !isPremium
@@ -347,7 +356,12 @@ export default function LeaderboardPage() {
                     }`}
                     title={isPremium ? "Investing (Long-Term): aGap optimised for 1–6 month horizon — weights sustained development, real product utility, smart money positioning, and network emissions." : "Investing Analysis — Premium feature"}
                   >
-                    📈 Investing{!isPremium && <span className="ml-1 text-purple-500/70">✦</span>}
+                    <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0">
+                      <path d="M6 11V5.5"/>
+                      <path d="M6 5.5C6 3 3.5 1.5 1.5 2C2 4.5 4 5.5 6 5.5z" fill="currentColor" strokeWidth="1"/>
+                      <path d="M6 5.5C6 3 8.5 1.5 10.5 2C10 4.5 8 5.5 6 5.5z" fill="currentColor" strokeWidth="1"/>
+                    </svg>
+                    Investing{!isPremium && <span className="ml-1 text-purple-500/70">✦</span>}
                   </button>
                 </div>
               </div>
@@ -370,11 +384,11 @@ export default function LeaderboardPage() {
                       >
                         <div className="font-semibold text-green-400 mb-2">Time Horizon</div>
                         <div className="mb-2">
-                          <span className="text-white font-medium">⚡ Trading</span>
+                          <span className="inline-flex items-center gap-1 text-white font-medium"><svg width="9" height="11" viewBox="0 0 10 13" fill="currentColor"><path d="M6.5 0.5L1 7.5h3.5L3 12.5l6-7H5.5L6.5 0.5z"/></svg>Trading</span>
                           <p className="text-gray-400 mt-0.5">Scores subnets on a daily or weekly timeframe. Best for active traders looking to capitalise on near-term catalysts and momentum.</p>
                         </div>
                         <div className="mb-3">
-                          <span className="text-purple-400 font-medium">📈 Investing</span>
+                          <span className="inline-flex items-center gap-1 text-purple-400 font-medium"><svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M6 11V5.5"/><path d="M6 5.5C6 3 3.5 1.5 1.5 2C2 4.5 4 5.5 6 5.5z" fill="currentColor" strokeWidth="1"/><path d="M6 5.5C6 3 8.5 1.5 10.5 2C10 4.5 8 5.5 6 5.5z" fill="currentColor" strokeWidth="1"/></svg>Investing</span>
                           <p className="text-gray-400 mt-0.5">Scores subnets on a monthly timeframe — prioritising real product development, network health, smart money positioning, and fundamental conviction over short-term price noise.</p>
                         </div>
                         <p className="text-gray-600 text-[10px] leading-relaxed border-t border-gray-800 pt-2">For educational purposes only. Not financial advice. Scores do not predict prices or future returns. Always do your own research.</p>
@@ -386,18 +400,31 @@ export default function LeaderboardPage() {
 
               {/* Filters popover */}
               {(() => {
+                // Custom SVG icons — no stock emojis
+                const IC = {
+                  cap:      <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><circle cx="6" cy="6" r="4.5"/><path d="M4.5 7c0 .8.7 1.2 1.5 1.2s1.5-.4 1.5-1.2c0-.7-.5-1-1.5-1.4S4.5 4.9 4.5 4.2C4.5 3.4 5.2 3 6 3s1.5.4 1.5 1.2"/><path d="M6 2.5V3M6 9v.5"/></svg>,
+                  emit:     <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M6 1v2M6 9v2M1 6h2M9 6h2M2.9 2.9l1.4 1.4M7.7 7.7l1.4 1.4M2.9 9.1l1.4-1.4M7.7 4.3l1.4-1.4"/><circle cx="6" cy="6" r="2"/></svg>,
+                  whale:    <svg width="12" height="11" viewBox="0 0 13 11" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M1 8c1-1.5 2.5-2.5 4-2.5s3 1 4 1c1.5 0 3-1 3-2.5 0-1.2-1-2-2.5-2-1 0-1.5.5-2 1"/><path d="M11.5 8.5c-1 .8-2 1.2-3 1.2-1.2 0-2.5-.5-3.5-.5"/><path d="M4 5.5L5 3.5"/><path d="M7 5.5L8 3.5"/></svg>,
+                  rising:   <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M1 9.5l3-3.5 2.5 2L10 3"/><path d="M7.5 3H10v2.5"/></svg>,
+                  oversold: <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M6 1.5L9.5 7H2.5L6 1.5z"/><path d="M6 5v1.5M6 8.5v.5"/><path d="M3 9.5h6"/></svg>,
+                  kol:      <svg width="12" height="11" viewBox="0 0 13 11" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M1.5 7.5V3.5L6.5 2v8L1.5 7.5z"/><rect x="6.5" y="3.5" width="2" height="5" rx=".5"/><path d="M9.5 4.5c.8.4 1 1 1 1.5s-.2 1.1-1 1.5"/></svg>,
+                  inflow:   <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M6 1.5v6M3.5 5l2.5 2.5L8.5 5"/><path d="M2 9.5h8"/></svg>,
+                  target:   <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><circle cx="6" cy="6" r="4.5"/><circle cx="6" cy="6" r="2"/><circle cx="6" cy="6" r=".5" fill="currentColor"/></svg>,
+                  surge:    <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M1 7.5l2-3 2 1.5 2-4 2 2.5 1.5-2"/></svg>,
+                  shield:   <svg width="10" height="11" viewBox="0 0 11 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5.5 1L1 3.5v3c0 2.5 2 4 4.5 5 2.5-1 4.5-2.5 4.5-5v-3L5.5 1z"/><path d="M5.5 5v1.5M5.5 8.5v.3"/></svg>,
+                };
                 const FILTERS = [
-                  { label: "💰 >$5M MCap",             active: filterMinCap,          set: setFilterMinCap },
-                  { label: "⛽ Has Emissions",          active: filterHasEmissions,    set: setFilterHasEmissions },
-                  { label: "🐋 Whales Buying",          active: filterWhaleAccum,      set: setFilterWhaleAccum },
-                  { label: "📈 Emissions Rising",       active: filterEmissionsRising, set: setFilterEmissionsRising },
-                  { label: "📉 Oversold Quality",       active: filterOversoldQuality, set: setFilterOversoldQuality },
-                  { label: "🔥 KOL Active",             active: filterKolActive,       set: setFilterKolActive },
-                  { label: "💸 Net Inflow",              active: filterNetInflow,       set: setFilterNetInflow },
-                  { label: "🎯 High Conviction",         active: filterHighConviction,  set: setFilterHighConviction },
-                  { label: "🤑 Volume Surge",            active: filterVolumeSurge,     set: setFilterVolumeSurge },
-                  { label: "⚠️ Deregistration Watch",   active: filterDeregWatch,      set: setFilterDeregWatch },
-                ] as { label: string; active: boolean; set: React.Dispatch<React.SetStateAction<boolean>> }[];
+                  { icon: IC.cap,      label: ">$5M MCap",          active: filterMinCap,          set: setFilterMinCap },
+                  { icon: IC.emit,     label: "Has Emissions",       active: filterHasEmissions,    set: setFilterHasEmissions },
+                  { icon: IC.whale,    label: "Whales Buying",       active: filterWhaleAccum,      set: setFilterWhaleAccum },
+                  { icon: IC.rising,   label: "Emissions Rising",    active: filterEmissionsRising, set: setFilterEmissionsRising },
+                  { icon: IC.oversold, label: "Oversold Quality",    active: filterOversoldQuality, set: setFilterOversoldQuality },
+                  { icon: IC.kol,      label: "KOL Active",          active: filterKolActive,       set: setFilterKolActive },
+                  { icon: IC.inflow,   label: "Net Inflow",          active: filterNetInflow,       set: setFilterNetInflow },
+                  { icon: IC.target,   label: "High Conviction",     active: filterHighConviction,  set: setFilterHighConviction },
+                  { icon: IC.surge,    label: "Volume Surge",        active: filterVolumeSurge,     set: setFilterVolumeSurge },
+                  { icon: IC.shield,   label: "Dereg Watch",         active: filterDeregWatch,      set: setFilterDeregWatch },
+                ] as { icon: React.ReactNode; label: string; active: boolean; set: React.Dispatch<React.SetStateAction<boolean>> }[];
                 const activeCount = FILTERS.filter(f => f.active).length + (filterCategory ? 1 : 0);
                 // Collect unique categories from leaderboard for the category picker
                 const allCategories = [...new Set(leaderboard.map(s => s.category).filter(Boolean) as string[])].sort();
@@ -407,11 +434,16 @@ export default function LeaderboardPage() {
                       onClick={() => setFiltersOpen(v => !v)}
                       className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors whitespace-nowrap ${activeCount > 0 ? "bg-green-500/20 border-green-500/50 text-green-400" : "bg-gray-800/60 border-gray-700 text-gray-400 hover:text-gray-200 hover:border-gray-600"}`}
                     >
+                      <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                        <path d="M1 2.5h10M3 6h6M5 9.5h2"/>
+                      </svg>
                       <span>Filters</span>
                       {activeCount > 0 && (
                         <span className="bg-green-500 text-black text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center leading-none">{activeCount}</span>
                       )}
-                      <span className="text-[10px] opacity-60">{filtersOpen ? "▲" : "▼"}</span>
+                      <svg width="7" height="5" viewBox="0 0 8 5" fill="currentColor" className="opacity-50">
+                        {filtersOpen ? <path d="M4 0L8 5H0L4 0z"/> : <path d="M4 5L0 0h8L4 5z"/>}
+                      </svg>
                     </button>
                     {filtersOpen && (
                       <>
@@ -421,8 +453,8 @@ export default function LeaderboardPage() {
                         {/* Mobile: fixed bottom sheet. Desktop: absolute dropdown. */}
                         <div className="
                           fixed bottom-0 left-0 right-0 z-40 rounded-t-2xl
-                          sm:absolute sm:bottom-auto sm:left-auto sm:right-0 sm:top-full sm:mt-1 sm:rounded-xl sm:w-56
-                          bg-gray-900 border border-gray-700 shadow-2xl p-3
+                          sm:absolute sm:bottom-auto sm:left-auto sm:right-0 sm:top-full sm:mt-1 sm:rounded-xl sm:w-52
+                          bg-gray-900 border border-gray-700/80 shadow-2xl p-3
                           max-h-[70vh] overflow-y-auto
                         ">
                           <div className="flex items-center justify-between mb-2 px-1">
@@ -436,16 +468,17 @@ export default function LeaderboardPage() {
                               </button>
                             )}
                           </div>
-                          <div className="flex flex-col gap-1">
-                            {FILTERS.map(({ label, active, set }) => (
+                          <div className="flex flex-col gap-0.5">
+                            {FILTERS.map(({ icon, label, active, set }) => (
                               <button
                                 key={label}
                                 onClick={() => set(v => !v)}
-                                className={`flex items-center gap-2 w-full px-3 py-2 rounded-lg text-xs font-medium text-left transition-colors ${active ? "bg-green-500/20 border border-green-500/40 text-green-400" : "hover:bg-gray-800 text-gray-300 border border-transparent"}`}
+                                className={`flex items-center gap-2.5 w-full px-2.5 py-2 rounded-lg text-xs font-medium text-left transition-colors ${active ? "bg-green-500/15 border border-green-500/40 text-green-400" : "hover:bg-gray-800/80 text-gray-300 border border-transparent"}`}
                               >
-                                <span className={`w-3 h-3 rounded-sm border flex-shrink-0 flex items-center justify-center ${active ? "bg-green-500 border-green-500" : "border-gray-600"}`}>
-                                  {active && <span className="text-black text-[8px] font-bold">✓</span>}
+                                <span className={`w-3.5 h-3.5 rounded border flex-shrink-0 flex items-center justify-center ${active ? "bg-green-500 border-green-500" : "border-gray-600"}`}>
+                                  {active && <svg width="8" height="8" viewBox="0 0 8 8" fill="none" stroke="black" strokeWidth="2" strokeLinecap="round"><path d="M1 4l2 2 4-4"/></svg>}
                                 </span>
+                                <span className={`flex-shrink-0 ${active ? "text-green-400" : "text-gray-500"}`}>{icon}</span>
                                 {label}
                               </button>
                             ))}
