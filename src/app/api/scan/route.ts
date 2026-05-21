@@ -2688,17 +2688,20 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     else if (socialScore >= 40) socialMomentum = 8;
     else if (socialScore >= 20) socialMomentum = 3;
 
-    // 4. EMISSION VALUE GAP (0-12 pts) — network paying more than market realizes
-    // Reduced from 22 → 12 max: high eval for well-known subnets is already priced in.
-    // The REAL gap signal is high eval + LOW price (see evalVsPriceBonus below).
+    // 4. EMISSION VALUE GAP (0-6 pts) — network paying more than market realizes
+    // Reduced from 12 → 6 max: evalScore changes very slowly (weekly at best) so it
+    // was acting as a permanent structural floor for high-eval subnets, keeping them at
+    // the top of the trading leaderboard even when there was no fresh catalyst.
+    // For a trading lens (hours/days), slow-moving fundamentals should be secondary to
+    // fresh activity signals. evalScore is already heavily weighted in the Investing formula.
     let evalBoost = 0;
-    if (evalScore >= 80) evalBoost = 12;
-    else if (evalScore >= 60) evalBoost = 9;
-    else if (evalScore >= 45) evalBoost = 6;
-    else if (evalScore >= 30) evalBoost = 4;
-    else if (evalScore >= 15) evalBoost = 2;
+    if (evalScore >= 80) evalBoost = 6;
+    else if (evalScore >= 60) evalBoost = 5;
+    else if (evalScore >= 45) evalBoost = 3;
+    else if (evalScore >= 30) evalBoost = 2;
+    else if (evalScore >= 15) evalBoost = 1;
     // Net inflow = money flowing in alongside good eval = stronger signal
-    if (d.netFlow24h && d.netFlow24h > 0) evalBoost = Math.min(12, evalBoost + 2);
+    if (d.netFlow24h && d.netFlow24h > 0) evalBoost = Math.min(6, evalBoost + 1);
 
     // EVAL VS PRICE BONUS (0-6 pts) — THE REAL EVAL GAP SIGNAL
     // High validator quality score + price still underwater = market hasn't caught up to
@@ -2728,10 +2731,14 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     // Note: no large/mid-cap bonus. Large caps are well-known and have the least gap upside.
 
     // ALPHA STAKING RATIO — high staked% = thin float = price sensitive to buy pressure
+    // Reduced from 12 → 6 max: alphaStakedPct changes very slowly, making it a structural
+    // floor rather than a fresh signal. Subnets with persistently high APY (e.g. 109%)
+    // were permanently locked at max stakingBoost regardless of any recent activity.
+    // The TREND (stakingTrendBonus) is kept at full weight — that's the fresh signal.
     let stakingBoost = 0;
-    if (d.alphaStakedPct >= 75) stakingBoost = 12;
-    else if (d.alphaStakedPct >= 65) stakingBoost = 8;
-    else if (d.alphaStakedPct >= 55) stakingBoost = 4;
+    if (d.alphaStakedPct >= 75) stakingBoost = 6;
+    else if (d.alphaStakedPct >= 65) stakingBoost = 4;
+    else if (d.alphaStakedPct >= 55) stakingBoost = 2;
 
     // ── STAKING TREND BONUS (±10 pts) ──────────────────────────────────────────
     // Level tells us the float constraint. TREND tells us conviction is building or fading.
