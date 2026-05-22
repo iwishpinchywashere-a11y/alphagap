@@ -36,6 +36,7 @@ const PLANS = [
       "Discord scanner finds alpha in real time",
       "Subnet analytics & score history",
       "Portfolio performance tracker",
+      "🔍 Wallet Tracker — track any TAO wallet across all subnets",
       "Benchmark comparisons vs AWS/GCP",
       "Pump Autopsy Lab (backtesting)",
       "Early access to new features",

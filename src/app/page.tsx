@@ -212,6 +212,16 @@ export default function LandingPage() {
                 border: "group-hover:border-blue-400/30",
                 iconBg: "bg-blue-500/10",
               },
+              {
+                icon: (
+                  <svg viewBox="0 0 24 24" className="w-8 h-8 text-teal-400" fill="none" stroke="currentColor" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 15.803 7.5 7.5 0 0015.803 15.803z" /></svg>
+                ),
+                title: "Wallet Tracker",
+                desc: "Track any TAO wallet's positions",
+                glow: "group-hover:shadow-teal-500/20",
+                border: "group-hover:border-teal-400/30",
+                iconBg: "bg-teal-500/10",
+              },
             ].map((item) => (
               <div
                 key={item.title}
@@ -403,6 +413,12 @@ export default function LandingPage() {
                 title: "Early Trend Detection",
                 desc: "We monitor social campaigns, influencer activity, and marketing launches across the ecosystem. Get flagged when buzz is about to spike — before the crowd piles in.",
                 color: "from-orange-500/20 to-amber-500/20",
+              },
+              {
+                icon: "🔍",
+                title: "Wallet Tracker",
+                desc: "Track any TAO wallet across the entire network. See exactly who is staking where, monitor top wallets ranked by 24h movement, identify known wallets (validators, founders, whales), and look up any address to reveal their full subnet portfolio.",
+                color: "from-teal-500/20 to-cyan-500/20",
               },
             ].map((feature) => (
               <div

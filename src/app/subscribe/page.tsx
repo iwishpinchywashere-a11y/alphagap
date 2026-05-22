@@ -480,6 +480,7 @@ function SubscribeContent() {
                   "💬 Discord scanner finds alpha in real time",
                   "🧪 Pump Lab — early alpha detector",
                   "📈 Performance Tracker",
+                  "🔍 Wallet Tracker — track any TAO wallet across all subnets",
                   "📊 Analytics & Scatter Plots",
                   "🏆 Benchmark Rankings",
                   "Full access to every page",
@@ -796,6 +797,54 @@ function SubscribeContent() {
               </div>
             </FeatureCard>
 
+            {/* Feature 5d: Wallet Tracker */}
+            <FeatureCard icon="🔍" title="Wallet Tracker — Follow the Smart Money" badge="NEW">
+              <p className="text-sm text-gray-400 leading-relaxed mb-4">
+                Track <span className="text-white font-medium">any TAO wallet</span> across the entire Bittensor network.
+                See the top wallets ranked by 24h movement, their complete alpha positions across every subnet,
+                and whether they&apos;re staking or pulling out. Known wallets — validators, founders, whales — are
+                labelled automatically so you always know <span className="text-green-400 font-semibold">who&apos;s really moving the market</span>.
+              </p>
+              <div className="grid sm:grid-cols-3 gap-3 mb-4">
+                {[
+                  { icon: "🏆", label: "Top Wallets", desc: "Ranked by TAO balance & 24h movement with known wallet labels" },
+                  { icon: "📍", label: "Alpha Positions", desc: "See exactly which subnets a wallet is staked into and for how much" },
+                  { icon: "🔎", label: "Any Address", desc: "Look up any SS58 address instantly to reveal their full portfolio" },
+                ].map(f => (
+                  <div key={f.label} className="bg-gray-900/60 border border-gray-800 rounded-lg p-3">
+                    <div className="text-xl mb-1.5">{f.icon}</div>
+                    <div className="text-xs font-semibold text-gray-200 mb-0.5">{f.label}</div>
+                    <div className="text-[10px] text-gray-600">{f.desc}</div>
+                  </div>
+                ))}
+              </div>
+              <div className="bg-gray-950 rounded-xl border border-gray-800 divide-y divide-gray-800/60">
+                <div className="px-4 py-2 flex items-center justify-between border-b border-gray-800">
+                  <span className="text-[10px] text-gray-600 font-medium uppercase tracking-wide">Top Movers · Last 24h</span>
+                  <span className="text-[10px] text-gray-600">TAO staked</span>
+                </div>
+                {[
+                  { label: "🐋 const", address: "5CXs...9h4J", category: "Founder", tao: "24,812 τ", change: "+1,240 τ", pos: true, subnets: "SN1, SN9, SN64" },
+                  { label: "🏦 Opentensor Foundation", address: "5HZ9...2mWq", category: "Foundation", tao: "18,340 τ", change: "+890 τ", pos: true, subnets: "SN3, SN44, SN97" },
+                  { label: "⚡ Unknown Whale", address: "5EkQ...7rPx", category: "Whale", tao: "8,204 τ", change: "-2,100 τ", pos: false, subnets: "SN64, SN66" },
+                ].map(r => (
+                  <div key={r.address} className="flex items-center justify-between px-4 py-3">
+                    <div>
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <span className="text-sm font-semibold text-white">{r.label}</span>
+                        <span className="text-[9px] px-1.5 py-0.5 bg-gray-800 border border-gray-700 rounded text-gray-500">{r.category}</span>
+                      </div>
+                      <span className="text-[10px] text-gray-600">{r.subnets}</span>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-xs text-gray-300 font-medium">{r.tao}</div>
+                      <div className={`text-[10px] font-bold ${r.pos ? "text-green-400" : "text-red-400"}`}>{r.change}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </FeatureCard>
+
             {/* Feature 6: Performance */}
             <FeatureCard icon="📈" title="Performance Tracker — Signals That Actually Work">
               <p className="text-sm text-gray-400 leading-relaxed mb-4">
@@ -914,6 +963,7 @@ function SubscribeContent() {
                   "KOL activity tracked and heat-scored",
                   "eVal ratio calculated every scan",
                   "aGap Velocity score shows momentum at a glance",
+                  "Wallet Tracker reveals smart money positioning instantly",
                   "5 minutes to review your daily alpha",
                   "Never miss a major development again",
                 ].map(i => (
