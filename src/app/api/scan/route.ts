@@ -3556,7 +3556,8 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
       volume_surge: surgeRatioForAGap >= 2.5 && surgeIsNetPositive ? true : undefined,
       volume_surge_ratio: surgeRatioForAGap >= 2.5 && surgeIsNetPositive ? Math.round(surgeRatioForAGap * 10) / 10 : undefined,
       alpha_staked_pct: d.alphaStakedPct > 0 ? d.alphaStakedPct : undefined,
-      product_score: productScore > 0 ? productScore : undefined,
+      // SN62 Ridges: cap at 70 until they make more meaningful product progress.
+      product_score: productScore > 0 ? (d.netuid === 62 ? Math.min(70, productScore) : productScore) : undefined,
       utility_estimated: utilityEstimated && productScore > 0 ? true : undefined,
       product_source: productScore > 0 ? productSource : undefined,
       benchmark_score: BENCHMARK_MAP.get(d.netuid)?.benchmark_score,
