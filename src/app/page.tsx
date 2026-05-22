@@ -165,16 +165,6 @@ export default function LandingPage() {
                 border: "group-hover:border-purple-400/30",
                 iconBg: "bg-purple-500/10",
               },
-              {
-                icon: (
-                  <svg viewBox="0 0 24 24" className="w-8 h-8 text-red-400" fill="none" stroke="currentColor" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18L9 11.25l4.306 4.307a11.95 11.95 0 015.814-5.519l2.74-1.22m0 0l-5.94-2.28m5.94 2.28l-2.28 5.941" /></svg>
-                ),
-                title: "Price Lag",
-                desc: "When markets fall behind execution",
-                glow: "group-hover:shadow-red-500/20",
-                border: "group-hover:border-red-400/30",
-                iconBg: "bg-red-500/10",
-              },
               // Row 2: Social Velocity — Reddit Chatter — Discord Buzz — Whale Watching
               {
                 icon: (
@@ -389,12 +379,6 @@ export default function LandingPage() {
                 title: "AI Intelligence Feed",
                 desc: "Every GitHub push and HuggingFace deployment — analyzed by AI and broken down into 4 sections: What they built, Why it matters, In simple terms, and The AlphaGap take. No technical knowledge required.",
                 color: "from-blue-500/20 to-cyan-500/20",
-              },
-              {
-                icon: "📝",
-                title: "Daily Deep-Dive Reports",
-                desc: "Each day, we generate a comprehensive analysis of the top aGap subnet — covering tech, team, progress, market position, and investment thesis. Like having a crypto research analyst on your team.",
-                color: "from-purple-500/20 to-violet-500/20",
               },
               {
                 icon: "🐋",

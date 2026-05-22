@@ -608,7 +608,7 @@ function SubscribeContent() {
                       </tr>
                     </thead>
                     <tbody>
-                      <MockRow rank={1} name="Manako" netuid={44} agap={88} flow={84} dev={89} eval={82} velo={91} emPct="12.4%" emDelta="+4.1%" category="Vision AI" price="$0.412" change="+9.3%" whale={true} />
+                      <MockRow rank={1} name="Score" netuid={44} agap={88} flow={84} dev={89} eval={82} velo={91} emPct="12.4%" emDelta="+4.1%" category="Vision AI" price="$0.412" change="+9.3%" whale={true} />
                       <MockRow rank={2} name="Chutes" netuid={64} agap={82} flow={88} dev={91} eval={79} velo={85} emPct="8.6%" emDelta="+6.2%" category="Inference" price="$0.091" change="+14.1%" surge={true} />
                       <MockRow rank={3} name="ninja" netuid={66} agap={79} flow={76} dev={94} eval={71} velo={74} emPct="5.2%" emDelta="+1.8%" category="Agents" price="$0.057" change="+5.4%" whale={true} />
                       <MockRow rank={4} name="Affine" netuid={120} agap={75} flow={69} dev={83} eval={77} velo={68} emPct="9.1%" emDelta="-0.9%" category="Training" price="$0.238" change="-1.7%" />
@@ -633,7 +633,7 @@ function SubscribeContent() {
               <div className="grid sm:grid-cols-2 gap-3">
                 <MockSignal
                   type="github"
-                  subnet="Manako (SN44)"
+                  subnet="Score (SN44)"
                   title="Merged: Real-time dispatch pipeline v3.1"
                   insight="Cuts alert-to-action latency by 55% across enterprise camera networks. Fourth infra PR this sprint — team is in full shipping mode."
                   time="2h ago"
@@ -658,7 +658,7 @@ function SubscribeContent() {
               </p>
               <div className="bg-gray-950 rounded-xl border border-gray-800 p-4">
                 <div className="text-xs text-gray-600 mb-3 font-medium uppercase tracking-wide">🔥 Hot KOL Activity</div>
-                <MockKolEvent kol="const" tier={1} subnet="Manako" heat={97} text="SN44 Manako just signed PwC France as a strategic partner. Enterprise physical AI is the unlock — this is the real world use case we've been waiting for..." time="1h ago" />
+                <MockKolEvent kol="const" tier={1} subnet="Score" heat={97} text="SN44 Score just signed PwC France as a strategic partner. Enterprise physical AI is the unlock — this is the real world use case we've been waiting for..." time="1h ago" />
                 <MockKolEvent kol="taoshi_" tier={1} subnet="Chutes" heat={91} text="Chutes (SN64) just crossed 9 trillion tokens served. 85% cheaper than AWS and growing 40% month over month. The infra layer is won." time="2h ago" />
                 <MockKolEvent kol="jollygreenmoney" tier={2} subnet="ninja" heat={74} text="SN66 ninja's coding agent arena is undervalued. Miners fixing real GitHub bugs scored on quality — this is how you benchmark agents properly." time="4h ago" />
               </div>
@@ -676,7 +676,7 @@ function SubscribeContent() {
                 <div className="flex items-center justify-between mb-4">
                   <div>
                     <div className="text-xs text-gray-600 font-medium uppercase tracking-wide mb-1">Daily Report · May 19, 2026</div>
-                    <h4 className="font-bold text-white text-lg">Manako (SN44) — Deep Dive</h4>
+                    <h4 className="font-bold text-white text-lg">Score (SN44) — Deep Dive</h4>
                   </div>
                   <div className="text-right">
                     <div className="text-2xl font-bold text-green-400">91</div>
@@ -685,7 +685,7 @@ function SubscribeContent() {
                 </div>
                 <div className="space-y-3 text-sm">
                   {[
-                    { label: "What they&apos;re building", text: "Manako turns enterprise camera feeds into real-time operational intelligence — physical AI for logistics, retail, and security. PwC France signed as strategic partner." },
+                    { label: "What they&apos;re building", text: "Score turns enterprise camera feeds into real-time operational intelligence — physical AI for logistics, retail, and security. PwC France signed as strategic partner." },
                     { label: "Recent progress", text: "4 inference PRs merged this week. PwC France partnership announced. Emission share at 21.4% — 2nd highest in the network. Enterprise pilots up 3 new sites in 30 days." },
                     { label: "Market position", text: "Price up 12% since the PwC announcement but still massively undervalued vs the TAM. Real-world revenue + top-tier emissions not yet priced into current market cap." },
                     { label: "Investment thesis", text: "Enterprise partnership validation + highest conviction score on-chain + rising emissions = textbook AlphaGap setup. This is physical AI with paying customers." },
@@ -744,7 +744,7 @@ function SubscribeContent() {
               </div>
               <div className="bg-gray-950 rounded-xl border border-gray-800 divide-y divide-gray-800/60">
                 {[
-                  { netuid: 44, name: "Manako", badge: "🐋 WHALE BUY", badgeColor: "text-cyan-300", detail: "2.34x avg buy size vs sells · Net +$142K in 24h", velo: 91 },
+                  { netuid: 44, name: "Score", badge: "🐋 WHALE BUY", badgeColor: "text-cyan-300", detail: "2.34x avg buy size vs sells · Net +$142K in 24h", velo: 91 },
                   { netuid: 64, name: "Chutes", badge: "🤑 VOL SURGE", badgeColor: "text-yellow-300", detail: "5.2x rolling average buy volume · Net +$89K in 24h", velo: 88 },
                   { netuid: 66, name: "ninja", badge: "⚡ FLOW SPIKE", badgeColor: "text-purple-300", detail: "Flow spiked 3.1x vs yesterday · Accelerating inflows", velo: 76 },
                 ].map(r => (
@@ -776,7 +776,7 @@ function SubscribeContent() {
                   <span className="text-[10px] text-gray-600">Auto-detected · Updated every scan</span>
                 </div>
                 {[
-                  { netuid: 44, name: "Manako", signals: ["🐋 Whales buying", "📈 Emissions +21%", "🔥 KOL heat 97"], score: 91 },
+                  { netuid: 44, name: "Score", signals: ["🐋 Whales buying", "📈 Emissions +21%", "🔥 KOL heat 97"], score: 91 },
                   { netuid: 97, name: "distil", signals: ["🤑 5.2x vol surge", "⚡ Flow spiked 3x"], score: 82 },
                 ].map(r => (
                   <div key={r.netuid} className="px-4 py-3 border-b border-gray-800/60 last:border-0">
@@ -871,7 +871,7 @@ function SubscribeContent() {
                   </thead>
                   <tbody>
                     {[
-                      { name: "Manako", score: 88, inv: "$100", curr: "$156", pnl: "+56%", pos: true },
+                      { name: "Score", score: 88, inv: "$100", curr: "$156", pnl: "+56%", pos: true },
                       { name: "Chutes", score: 85, inv: "$100", curr: "$134", pnl: "+34%", pos: true },
                       { name: "ninja", score: 82, inv: "$100", curr: "$118", pnl: "+18%", pos: true },
                       { name: "distil", score: 80, inv: "$100", curr: "$91", pnl: "-9%", pos: false },
