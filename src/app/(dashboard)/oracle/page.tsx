@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { getTier } from "@/lib/subscription";
 import Image from "next/image";
@@ -12,13 +12,72 @@ interface Message {
 
 const DAILY_LIMIT = 25;
 
-const STARTER_QUESTIONS = [
-  { emoji: "😴", text: "Which subnets are being slept on right now?" },
-  { emoji: "🐋", text: "Show me subnets whales are accumulating" },
-  { emoji: "🔐", text: "Which subnets are showing the most \"Conviction\"?" },
-  { emoji: "🚨", text: "What are the biggest red flags across all subnets?" },
-  { emoji: "🏆", text: "Best long-term holds — top 3 with reasoning" },
-  { emoji: "⚡", text: "Which subnets have been very active with new developments lately?" },
+const STARTER_QUESTIONS: { icon: React.ReactNode; bg: string; color: string; text: string }[] = [
+  {
+    // Crescent moon — "slept on"
+    icon: (
+      <svg viewBox="0 0 20 20" className="w-4 h-4" fill="currentColor">
+        <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"/>
+      </svg>
+    ),
+    bg: "bg-indigo-500/20", color: "text-indigo-400",
+    text: "Which subnets are being slept on right now?",
+  },
+  {
+    // Whale tail above water line
+    icon: (
+      <svg viewBox="0 0 20 20" className="w-4 h-4" fill="currentColor">
+        <path d="M3 11c0-3.9 3.1-7 7-7a7 7 0 015.2 2.3l2.8-1v4.5h-4.5l1.7-1.7A5 5 0 0010 6C7.2 6 5 8.2 5 11s2.2 5 5 5h8v2H10C6.1 18 3 14.9 3 11z"/>
+      </svg>
+    ),
+    bg: "bg-cyan-500/20", color: "text-cyan-400",
+    text: "Show me subnets whales are accumulating",
+  },
+  {
+    // Diamond — conviction/holding strong
+    icon: (
+      <svg viewBox="0 0 20 20" className="w-4 h-4" fill="currentColor">
+        <path d="M10 2l3.5 4.5h-7L10 2zM5.8 7.5L10 17l4.2-9.5H5.8z" opacity="0.85"/>
+        <path d="M6.5 7.5h7L10 17 6.5 7.5z" opacity="0.5"/>
+        <path d="M2.5 7.5h4l3.5 4.5-7.5-4.5zm15 0h-4L10 12l7.5-4.5z" opacity="0.7"/>
+        <path d="M6.5 7.5L10 2l3.5 5.5H6.5z"/>
+      </svg>
+    ),
+    bg: "bg-amber-500/20", color: "text-amber-400",
+    text: "Which subnets are showing the most \"Conviction\"?",
+  },
+  {
+    // Warning triangle with exclamation — red flags
+    icon: (
+      <svg viewBox="0 0 20 20" className="w-4 h-4" fill="currentColor">
+        <path fillRule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd"/>
+      </svg>
+    ),
+    bg: "bg-rose-500/20", color: "text-rose-400",
+    text: "What are the biggest red flags across all subnets?",
+  },
+  {
+    // Rising bar chart — long-term holds
+    icon: (
+      <svg viewBox="0 0 20 20" className="w-4 h-4" fill="currentColor">
+        <path d="M2 14h3V8H2v6zm5 0h3V4H7v10zm5 0h3v-7h-3v7z" opacity="0.9"/>
+        <path d="M2 15.5h16" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+      </svg>
+    ),
+    bg: "bg-emerald-500/20", color: "text-emerald-400",
+    text: "Best long-term holds — top 3 with reasoning",
+  },
+  {
+    // Code commit / lightning bolt — dev activity
+    icon: (
+      <svg viewBox="0 0 20 20" className="w-4 h-4" fill="currentColor">
+        <path d="M11.3 2.5l-5 13 1.9.7 1.1-2.8h3.4l1.1 2.8 1.9-.7-5-13h-1.4zm-.5 2.8l1.3 3.4h-2.6l1.3-3.4z"/>
+        <path d="M5.5 7L2 10l3.5 3 1-1L4 10l2.5-2-1-1zm9 0l-1 1L16 10l-2.5 2 1 1L18 10l-3.5-3z" opacity="0.8"/>
+      </svg>
+    ),
+    bg: "bg-violet-500/20", color: "text-violet-400",
+    text: "Which subnets have been very active with new developments lately?",
+  },
 ];
 
 function AssistantMessage({ content }: { content: string }) {
@@ -425,13 +484,13 @@ export default function OraclePage() {
 
               {/* Starter chips */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {STARTER_QUESTIONS.map(({ emoji, text }) => (
+                {STARTER_QUESTIONS.map(({ icon, bg, color, text }) => (
                   <button
                     key={text}
                     onClick={() => sendMessage(text)}
                     className="group flex items-start gap-3 text-left bg-white/[0.03] hover:bg-green-500/[0.07] border border-white/8 hover:border-green-500/30 rounded-xl px-4 py-3.5 transition-all duration-150 active:scale-[0.98] shadow-sm"
                   >
-                    <span className="text-xl flex-shrink-0 mt-0.5">{emoji}</span>
+                    <span className={`w-7 h-7 rounded-lg ${bg} ${color} flex items-center justify-center flex-shrink-0 mt-0.5`}>{icon}</span>
                     <span className="text-sm text-gray-300 group-hover:text-white leading-relaxed transition-colors font-medium">{text}</span>
                   </button>
                 ))}
