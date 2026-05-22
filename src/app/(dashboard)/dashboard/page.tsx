@@ -278,9 +278,6 @@ export default function LeaderboardPage() {
                     <h1 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-green-400 via-emerald-300 to-white bg-clip-text text-transparent leading-tight mb-1">
                       🏆 Alpha Leaderboard
                     </h1>
-                    <p className="text-sm text-gray-500 max-w-xl">
-                      AI-scored intelligence across every active Bittensor subnet — ranked by opportunity gap.
-                    </p>
                   </div>
                   {scanning && (
                     <div className="flex-shrink-0 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-green-500/10 border border-green-500/20">
