@@ -3529,7 +3529,9 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
       // low, but still allows upside if they ever ship meaningful code changes.
       dev_score: d.netuid === 93 ? Math.max(40, Math.round(devScore)) : Math.round(devScore),
       eval_score: Math.round(evalScore),
-      social_score: socialScore,
+      // SN8 Vanta: two active accounts (@VantaTrading + @taoshiio), consistent posting,
+      // Consensus 2026 presence, KOL trader competitions. Floor at 60 to reflect real activity.
+      social_score: d.netuid === 8 ? Math.max(60, socialScore) : socialScore,
       signal_count: signalCountMap.get(d.netuid) || 0,
       top_signal: topSignalMap.get(d.netuid),
       alpha_price: d.alphaPriceUsd ?? undefined,
