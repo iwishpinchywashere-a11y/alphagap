@@ -1679,20 +1679,20 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     let score = 0;
 
     // ── 1. QUANTITY — weekly commits (0-35 pts) ───────────────────────
-    // Calibrated to real Bittensor subnet activity (most active teams: 20-60 commits/wk)
-    if      (commits7d >= 50) score += 35;
-    else if (commits7d >= 25) score += 28;
-    else if (commits7d >= 12) score += 22;
-    else if (commits7d >= 6)  score += 16;
-    else if (commits7d >= 2)  score += 10;
-    else if (commits7d >= 1)  score += 6;
+    // Calibrated to real Bittensor subnet activity. Most active teams ship
+    // 15-35 commits/wk — thresholds reflect that reality, not an ideal ceiling.
+    if      (commits7d >= 30) score += 35;
+    else if (commits7d >= 15) score += 28;
+    else if (commits7d >= 7)  score += 22;
+    else if (commits7d >= 3)  score += 16;
+    else if (commits7d >= 1)  score += 10;
     // NOTE: no points awarded for commits30d alone — TaoStats 30d data can be stale.
     // loc30d (direct scan) carries the "active but quiet week" signal instead.
 
     // ── 2. QUALITY SIGNAL — PRs merged (0-15 pts) ────────────────────
     // PRs = reviewed, intentional features — higher signal than raw commits
-    if      (prs7d >= 8) score += 15;
-    else if (prs7d >= 4) score += 11;
+    if      (prs7d >= 6) score += 15;
+    else if (prs7d >= 3) score += 11;
     else if (prs7d >= 2) score += 8;
     else if (prs7d >= 1) score += 4;
     // No fallback to prs30d — stale TaoStats data not trusted here
@@ -1700,22 +1700,22 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     // ── 3. TEAM SIZE — contributors (0-10 pts) ────────────────────────
     // Only awarded when there IS verified recent activity (to avoid stale inflation)
     if (hasVerifiedRecentActivity) {
-      if      (contrib30d >= 10) score += 10;
-      else if (contrib30d >= 5)  score += 8;
-      else if (contrib30d >= 3)  score += 6;
-      else if (contrib30d >= 2)  score += 4;
-      else if (contrib30d >= 1)  score += 2;
+      if      (contrib30d >= 8)  score += 10;
+      else if (contrib30d >= 4)  score += 8;
+      else if (contrib30d >= 2)  score += 6;
+      else if (contrib30d >= 1)  score += 3;
     }
 
     // ── 4. CODE VOLUME — lines of code in 30d (0-20 pts) ─────────────
-    // Direct GitHub scan — trustworthy source of truth for real code shipped
-    if      (loc30d >= 50_000) score += 20;
-    else if (loc30d >= 20_000) score += 16;
-    else if (loc30d >= 10_000) score += 13;
-    else if (loc30d >=  5_000) score += 10;
-    else if (loc30d >=  2_000) score += 7;
-    else if (loc30d >=    500) score += 4;
-    else if (loc30d >=    100) score += 2;
+    // Direct GitHub scan — trustworthy source of truth for real code shipped.
+    // Thresholds lowered to reflect that 10-30k LOC/month is genuinely strong.
+    if      (loc30d >= 30_000) score += 20;
+    else if (loc30d >= 12_000) score += 16;
+    else if (loc30d >=  6_000) score += 13;
+    else if (loc30d >=  2_500) score += 10;
+    else if (loc30d >=  1_000) score += 7;
+    else if (loc30d >=    300) score += 4;
+    else if (loc30d >=     50) score += 2;
     else if (loc30d >       0) score += 1;
 
     // ── 5. HUGGINGFACE — models / datasets / downloads (0-10 pts) ────
@@ -1731,9 +1731,11 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
       score += Math.min(10, hf);
     }
 
-    // Hard cap at 70 before quality & boost adjustments
-    // Quality and big events are what push a subnet into 80-100
-    score = Math.min(70, score);
+    // Hard cap at 75 before quality & boost adjustments.
+    // Quality and big events are what push a subnet into 80-100.
+    // Raised from 70 → 75 so genuinely high-velocity teams aren't artificially
+    // capped when the AI quality scan didn't fire for them on this particular run.
+    score = Math.min(75, score);
 
     // ── 6. AI QUALITY ADJUSTMENT (−10 to +25 pts) ────────────────────
     // Separates "committing a lot" from "shipping something important"
