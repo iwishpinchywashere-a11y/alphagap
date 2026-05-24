@@ -79,10 +79,10 @@ async function readLock(): Promise<PostLock | null> {
   return readBlob<PostLock>("twitter-post-lock.json");
 }
 
-async function writeLock(slotKey: string): Promise<void> {
+async function writeLock(slotKey: string, lockedAt: string): Promise<void> {
   await blobPut(
     "twitter-post-lock.json",
-    JSON.stringify({ slotKey, lockedAt: new Date().toISOString() } satisfies PostLock),
+    JSON.stringify({ slotKey, lockedAt } satisfies PostLock),
     { access: "private", addRandomSuffix: false, allowOverwrite: true, contentType: "application/json", token: BLOB_TOKEN }
   );
 }
@@ -120,9 +120,23 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: true, posted: false, reason: `locked (slot ${slotKey}, ${minutesSinceLock.toFixed(0)}m ago)` });
   }
 
-  // Claim the slot NOW — before loading any other data. Any concurrent
-  // invocation that reads the lock after this write will see slotKey and bail.
-  await writeLock(slotKey);
+  // Claim the slot NOW — before loading any other data.
+  // We store our own timestamp so we can verify ownership below.
+  const myLockedAt = new Date().toISOString();
+  await writeLock(slotKey, myLockedAt);
+
+  // ── Write-then-verify ownership ───────────────────────────────────
+  // Two Vercel serverless instances can both read a null lock within
+  // milliseconds of each other at the cron trigger, then both write their
+  // own lock (the second write overwrites the first). Waiting 300ms and
+  // re-reading the lock tells us which instance "won" — the one whose
+  // lockedAt is still present continues; the other bails out.
+  await new Promise(r => setTimeout(r, 300));
+  const verifyLock = await readLock();
+  if (!verifyLock || verifyLock.slotKey !== slotKey || verifyLock.lockedAt !== myLockedAt) {
+    console.log(`[twitter-bot] Lock verify failed — another invocation claimed slot ${slotKey} — bailing`);
+    return NextResponse.json({ ok: true, posted: false, reason: `lock verify failed — concurrent invocation owns slot ${slotKey}` });
+  }
 
   // Load all data blobs in parallel now that the slot is claimed
   // Actual blob names and shapes (corrected from original stale names):
