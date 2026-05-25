@@ -118,13 +118,11 @@ export default function AlphaGapIndexPage() {
 
       {/* ── HERO ─────────────────────────────────────────────────────────── */}
       <section className="relative overflow-hidden border-b border-white/5">
-        {/* Background layers */}
         <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse 80% 50% at 50% -10%, rgba(16,185,129,0.08) 0%, transparent 70%)" }} />
         <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse 40% 60% at 80% 50%, rgba(245,158,11,0.04) 0%, transparent 60%)" }} />
         <div className="absolute inset-0 opacity-[0.018]" style={{ backgroundImage: "linear-gradient(rgba(255,255,255,1) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,1) 1px,transparent 1px)", backgroundSize: "40px 40px" }} />
 
         <div className="relative px-6 md:px-12 pt-16 pb-14">
-          {/* Pill badges */}
           <div className="flex flex-wrap gap-2 mb-8">
             <span className="inline-flex items-center gap-1.5 text-[11px] font-bold tracking-widest uppercase px-3 py-1.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20">
               <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
@@ -146,15 +144,35 @@ export default function AlphaGapIndexPage() {
             <span className="block bg-gradient-to-r from-emerald-300 via-green-400 to-emerald-500 bg-clip-text text-transparent">Subnet Index</span>
           </h1>
 
-          <p className="text-gray-400 text-lg sm:text-xl max-w-xl leading-relaxed mb-10">
-            The top 10 Bittensor subnets — selected by our proprietary{" "}
-            <span className="text-emerald-400 font-semibold">aGap formula</span>, automatically deployed via TrustedStake, and rebalanced every Sunday.
+          <p className="text-white text-xl sm:text-2xl font-semibold max-w-2xl leading-snug mb-4">
+            Connect your wallet. Deploy your TAO.<br className="hidden sm:block" />
+            <span className="text-emerald-400">We do everything else.</span>
+          </p>
+          <p className="text-gray-400 text-base sm:text-lg max-w-xl leading-relaxed mb-10">
+            aGap picks the top 10 subnets. TrustedStake auto-buys the tokens, manages the portfolio, and rebalances every Sunday. You sit back, collect APY, and let the formula do the work.
           </p>
 
-          {/* Divider line */}
+          {/* 3-step visual */}
+          <div className="flex flex-wrap items-center gap-3 mb-10">
+            {[
+              { n: "1", label: "Connect wallet", icon: <IconShield className="w-4 h-4" />, color: "text-emerald-400 border-emerald-500/30 bg-emerald-500/10" },
+              { n: "2", label: "Deploy your TAO", icon: <IconZap className="w-4 h-4" />, color: "text-emerald-400 border-emerald-500/30 bg-emerald-500/10" },
+              { n: "3", label: "Collect APY & relax", icon: <IconTrend className="w-4 h-4" />, color: "text-emerald-400 border-emerald-500/30 bg-emerald-500/10" },
+            ].map((step, i) => (
+              <React.Fragment key={step.n}>
+                <div className={`flex items-center gap-2.5 px-4 py-2.5 rounded-xl border ${step.color} font-semibold text-sm`}>
+                  {step.icon}
+                  <span className="text-white/50 text-xs font-bold">{step.n}</span>
+                  <span>{step.label}</span>
+                </div>
+                {i < 2 && <IconArrow className="w-4 h-4 text-gray-700 hidden sm:block" />}
+              </React.Fragment>
+            ))}
+          </div>
+
           <div className="flex items-center gap-4">
             <div className="h-px flex-1 bg-gradient-to-r from-emerald-500/30 to-transparent" />
-            <span className="text-xs text-gray-400 font-medium tracking-widest uppercase">Fundamental. Systematic. Non-custodial.</span>
+            <span className="text-xs text-gray-500 font-medium tracking-widest uppercase">Fundamental · Systematic · Non-custodial</span>
             <div className="h-px flex-1 bg-gradient-to-l from-emerald-500/30 to-transparent" />
           </div>
         </div>
