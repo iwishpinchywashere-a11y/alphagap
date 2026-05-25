@@ -150,7 +150,7 @@ export default function AlphaGapIndexPage() {
           {/* Divider line */}
           <div className="flex items-center gap-4">
             <div className="h-px flex-1 bg-gradient-to-r from-emerald-500/30 to-transparent" />
-            <span className="text-xs text-gray-600 font-medium tracking-widest uppercase">Fundamental. Systematic. Non-custodial.</span>
+            <span className="text-xs text-gray-400 font-medium tracking-widest uppercase">Fundamental. Systematic. Non-custodial.</span>
             <div className="h-px flex-1 bg-gradient-to-l from-emerald-500/30 to-transparent" />
           </div>
         </div>
@@ -160,7 +160,7 @@ export default function AlphaGapIndexPage() {
 
         {/* ── THE PROBLEM ─────────────────────────────────────────────────── */}
         <section className="py-16 border-b border-white/5">
-          <p className="text-xs font-bold text-emerald-500/60 uppercase tracking-widest mb-4">Why This Exists</p>
+          <p className="text-xs font-bold text-emerald-400/80 uppercase tracking-widest mb-4">Why This Exists</p>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 items-start">
             <div>
               <h2 className="text-3xl sm:text-4xl font-black text-white leading-tight mb-5">
@@ -202,8 +202,8 @@ export default function AlphaGapIndexPage() {
                     {p.icon}
                   </div>
                   <div>
-                    <div className="font-semibold text-white text-sm mb-1">{p.title}</div>
-                    <p className="text-xs text-gray-500 leading-relaxed">{p.desc}</p>
+                    <div className="font-semibold text-white text-base mb-1">{p.title}</div>
+                    <p className="text-sm text-gray-300 leading-relaxed">{p.desc}</p>
                   </div>
                 </div>
               ))}
@@ -213,7 +213,7 @@ export default function AlphaGapIndexPage() {
 
         {/* ── HOW IT WORKS ─────────────────────────────────────────────────── */}
         <section className="py-16 border-b border-white/5">
-          <p className="text-xs font-bold text-emerald-500/60 uppercase tracking-widest mb-4">The System</p>
+          <p className="text-xs font-bold text-emerald-400/80 uppercase tracking-widest mb-4">The System</p>
           <h2 className="text-3xl font-black text-white mb-10">How it works</h2>
 
           <div className="relative">
@@ -258,10 +258,10 @@ export default function AlphaGapIndexPage() {
                     <div className={`w-9 h-9 rounded-xl border flex items-center justify-center ${s.color}`}>
                       {s.icon}
                     </div>
-                    <span className="text-xs font-black text-white/10 tabular-nums">{s.n}</span>
+                    <span className="text-xs font-black text-white/20 tabular-nums">{s.n}</span>
                   </div>
-                  <div className="font-bold text-white text-sm mb-2">{s.title}</div>
-                  <p className="text-xs text-gray-500 leading-relaxed">{s.body}</p>
+                  <div className="font-bold text-white text-base mb-2">{s.title}</div>
+                  <p className="text-sm text-gray-300 leading-relaxed">{s.body}</p>
                 </div>
               ))}
             </div>
@@ -272,10 +272,10 @@ export default function AlphaGapIndexPage() {
         <section className="py-16 border-b border-white/5">
           <div className="flex flex-wrap items-end justify-between gap-4 mb-8">
             <div>
-              <p className="text-xs font-bold text-emerald-500/60 uppercase tracking-widest mb-2">Live Portfolio</p>
+              <p className="text-xs font-bold text-emerald-400/80 uppercase tracking-widest mb-2">Live Portfolio</p>
               <h2 className="text-3xl font-black text-white">Current Index Holdings</h2>
             </div>
-            <div className="flex items-center gap-2 text-xs text-gray-600 border border-white/6 rounded-lg px-3 py-2">
+            <div className="flex items-center gap-2 text-xs text-gray-400 border border-white/6 rounded-lg px-3 py-2">
               <IconRefresh className="w-3 h-3" />
               Last rebalanced: <span className="text-gray-400 font-medium ml-1">May 25, 2026</span>
             </div>
@@ -295,13 +295,13 @@ export default function AlphaGapIndexPage() {
                   <table className="w-full">
                     <thead>
                       <tr className="border-b border-white/5">
-                        <th className="px-6 py-4 text-left text-[11px] font-bold text-gray-600 uppercase tracking-wider w-10">#</th>
-                        <th className="px-4 py-4 text-left text-[11px] font-bold text-gray-600 uppercase tracking-wider">Subnet</th>
-                        <th className="px-4 py-4 text-left text-[11px] font-bold text-gray-600 uppercase tracking-wider hidden md:table-cell">Category</th>
-                        <th className="px-4 py-4 text-left text-[11px] font-bold text-gray-600 uppercase tracking-wider hidden lg:table-cell">Revenue</th>
-                        <th className="px-4 py-4 text-right text-[11px] font-bold text-gray-600 uppercase tracking-wider">aGap</th>
-                        <th className="px-4 py-4 text-right text-[11px] font-bold text-gray-600 uppercase tracking-wider">Weight</th>
-                        <th className="px-4 py-4 text-right text-[11px] font-bold text-gray-600 uppercase tracking-wider">30d</th>
+                        <th className="px-6 py-4 text-left text-xs font-bold text-gray-400 uppercase tracking-wider w-10">#</th>
+                        <th className="px-4 py-4 text-left text-xs font-bold text-gray-400 uppercase tracking-wider">Subnet</th>
+                        <th className="px-4 py-4 text-left text-xs font-bold text-gray-400 uppercase tracking-wider hidden md:table-cell">Category</th>
+                        <th className="px-4 py-4 text-left text-xs font-bold text-gray-400 uppercase tracking-wider hidden lg:table-cell">Revenue</th>
+                        <th className="px-4 py-4 text-right text-xs font-bold text-gray-400 uppercase tracking-wider">aGap</th>
+                        <th className="px-4 py-4 text-right text-xs font-bold text-gray-400 uppercase tracking-wider">Weight</th>
+                        <th className="px-4 py-4 text-right text-xs font-bold text-gray-400 uppercase tracking-wider">30d</th>
                         <th className="px-4 py-4 w-8"></th>
                       </tr>
                     </thead>
@@ -315,7 +315,7 @@ export default function AlphaGapIndexPage() {
                               onClick={() => setExpandedRow(expandedRow === h.netuid ? null : h.netuid)}
                             >
                               <td className="px-6 py-4">
-                                <span className="text-xs font-bold text-gray-700 tabular-nums">{h.rank}</span>
+                                <span className="text-xs font-bold text-gray-500 tabular-nums">{h.rank}</span>
                               </td>
                               <td className="px-4 py-4">
                                 <div className="flex items-center gap-3">
@@ -333,7 +333,7 @@ export default function AlphaGapIndexPage() {
                                 </div>
                               </td>
                               <td className="px-4 py-4 hidden lg:table-cell">
-                                <span className="text-xs text-gray-500 font-medium">{h.rev}</span>
+                                <span className="text-sm text-gray-300 font-medium">{h.rev}</span>
                               </td>
                               <td className="px-4 py-4 text-right">
                                 <div className="flex items-center justify-end gap-2">
@@ -360,7 +360,7 @@ export default function AlphaGapIndexPage() {
                                 <td colSpan={8} className="px-6 py-3">
                                   <div className="flex items-start gap-3 pl-11">
                                     <div className="w-px h-full bg-emerald-500/30 self-stretch mx-1 flex-shrink-0" />
-                                    <p className="text-xs text-gray-400 leading-relaxed">
+                                    <p className="text-sm text-gray-300 leading-relaxed">
                                       <span className="font-semibold text-emerald-400">Why it&apos;s in: </span>{h.thesis}
                                     </p>
                                   </div>
@@ -374,8 +374,8 @@ export default function AlphaGapIndexPage() {
                   </table>
                 </div>
                 <div className="px-6 py-3 border-t border-white/5 flex flex-wrap items-center justify-between gap-2">
-                  <p className="text-[11px] text-gray-700">Click any row to expand the investment thesis. Weights are proportional to aGap scores.</p>
-                  <p className="text-[11px] text-gray-700 italic">Preview — live allocations update post-rebalance</p>
+                  <p className="text-xs text-gray-400">Click any row to expand the investment thesis. Weights are proportional to aGap scores.</p>
+                  <p className="text-xs text-gray-400 italic">Preview — live allocations update post-rebalance</p>
                 </div>
               </div>
 
@@ -387,7 +387,7 @@ export default function AlphaGapIndexPage() {
                       <svg className="w-6 h-6 text-amber-400" viewBox="0 0 24 24" fill="currentColor"><path d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" /></svg>
                     </div>
                     <p className="text-lg font-bold text-white mb-2">Ultra Members Only</p>
-                    <p className="text-sm text-gray-500 mb-6 leading-relaxed">Live holdings, investment thesis, and portfolio deployment are exclusive to Ultra subscribers.</p>
+                    <p className="text-base text-gray-300 mb-6 leading-relaxed">Live holdings, investment thesis, and portfolio deployment are exclusive to Ultra subscribers.</p>
                     <a href="/pricing" className="inline-block bg-gradient-to-r from-amber-400 to-orange-400 hover:from-amber-300 hover:to-orange-300 text-black text-sm font-bold px-8 py-3 rounded-xl transition-all shadow-lg shadow-amber-500/20 active:scale-95">
                       Upgrade to Ultra →
                     </a>
@@ -400,7 +400,7 @@ export default function AlphaGapIndexPage() {
 
         {/* ── aGAP METHODOLOGY ─────────────────────────────────────────────── */}
         <section className="py-16 border-b border-white/5">
-          <p className="text-xs font-bold text-emerald-500/60 uppercase tracking-widest mb-4">The Formula</p>
+          <p className="text-xs font-bold text-emerald-400/80 uppercase tracking-widest mb-4">The Formula</p>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 items-start mb-10">
             <div>
               <h2 className="text-3xl font-black text-white mb-4">aGap Investing Methodology</h2>
@@ -412,7 +412,7 @@ export default function AlphaGapIndexPage() {
               </p>
             </div>
             <div className="p-5 rounded-2xl border border-emerald-500/15 bg-emerald-500/5">
-              <p className="text-xs font-bold text-emerald-500/60 uppercase tracking-widest mb-4">Result</p>
+              <p className="text-xs font-bold text-emerald-400/80 uppercase tracking-widest mb-4">Result</p>
               <div className="space-y-3">
                 {[
                   ["Lower churn", "Rebalances only when fundamentals shift — not price"],
@@ -425,7 +425,7 @@ export default function AlphaGapIndexPage() {
                     </div>
                     <div>
                       <span className="text-sm font-semibold text-white">{title}</span>
-                      <span className="text-xs text-gray-500 ml-2">{sub}</span>
+                      <span className="text-sm text-gray-300 ml-2">{sub}</span>
                     </div>
                   </div>
                 ))}
@@ -465,8 +465,8 @@ export default function AlphaGapIndexPage() {
                   {f.icon}
                 </div>
                 <div>
-                  <div className="font-bold text-white text-sm mb-1.5">{f.label}</div>
-                  <p className="text-xs text-gray-500 leading-relaxed">{f.detail}</p>
+                  <div className="font-bold text-white text-base mb-1.5">{f.label}</div>
+                  <p className="text-sm text-gray-300 leading-relaxed">{f.detail}</p>
                 </div>
               </div>
             ))}
@@ -475,7 +475,7 @@ export default function AlphaGapIndexPage() {
           {/* Rules */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="p-5 rounded-xl border border-white/6 bg-white/[0.02]">
-              <p className="text-[11px] font-bold text-gray-600 uppercase tracking-widest mb-4">Inclusion Rules</p>
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">Inclusion Rules</p>
               <ul className="space-y-3">
                 {[
                   "Minimum aGap score of 65 for index eligibility",
@@ -484,7 +484,7 @@ export default function AlphaGapIndexPage() {
                   "No subnet with unverified or fabricated revenue",
                   "Active validator competition required — no monopoly",
                 ].map(r => (
-                  <li key={r} className="flex items-start gap-2.5 text-xs text-gray-400">
+                  <li key={r} className="flex items-start gap-2.5 text-sm text-gray-300">
                     <div className="w-4 h-4 rounded-full bg-emerald-500/10 flex items-center justify-center flex-shrink-0 mt-0.5">
                       <IconCheck className="w-2.5 h-2.5 text-emerald-500" />
                     </div>
@@ -494,7 +494,7 @@ export default function AlphaGapIndexPage() {
               </ul>
             </div>
             <div className="p-5 rounded-xl border border-white/6 bg-white/[0.02]">
-              <p className="text-[11px] font-bold text-gray-600 uppercase tracking-widest mb-4">Rebalance Rules</p>
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">Rebalance Rules</p>
               <ul className="space-y-3">
                 {[
                   "Rebalance only if top-10 composition changes — no churn",
@@ -503,7 +503,7 @@ export default function AlphaGapIndexPage() {
                   "Weights recalculated each rebalance from relative aGap scores",
                   "Emergency rebalance if a subnet is abandoned or exploited",
                 ].map(r => (
-                  <li key={r} className="flex items-start gap-2.5 text-xs text-gray-400">
+                  <li key={r} className="flex items-start gap-2.5 text-sm text-gray-300">
                     <div className="w-4 h-4 rounded-full bg-blue-500/10 flex items-center justify-center flex-shrink-0 mt-0.5">
                       <IconArrow className="w-2.5 h-2.5 text-blue-500" />
                     </div>
@@ -517,7 +517,7 @@ export default function AlphaGapIndexPage() {
 
         {/* ── TRUSTEDSTAKE ─────────────────────────────────────────────────── */}
         <section className="py-16 border-b border-white/5">
-          <p className="text-xs font-bold text-emerald-500/60 uppercase tracking-widest mb-4">Our Partner</p>
+          <p className="text-xs font-bold text-emerald-400/80 uppercase tracking-widest mb-4">Our Partner</p>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 items-start mb-10">
             <div>
               <h2 className="text-3xl font-black text-white mb-4">TrustedStake Infrastructure</h2>
@@ -532,7 +532,7 @@ export default function AlphaGapIndexPage() {
               </a>
             </div>
             <div className="p-5 rounded-2xl border border-white/6 bg-white/[0.025]">
-              <p className="text-[11px] font-bold text-gray-600 uppercase tracking-widest mb-4">The Yield Engine</p>
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">The Yield Engine</p>
               <div className="space-y-4">
                 {[
                   { icon: <IconRefresh className="w-4 h-4" />, color: "text-blue-400 bg-blue-500/10 border-blue-500/20", title: "Automated Rebalancing", desc: "When the AlphaGap Index rotates on Sunday, TrustedStake executes the full transition automatically — no manual action needed." },
@@ -542,8 +542,8 @@ export default function AlphaGapIndexPage() {
                   <div key={f.title} className="flex gap-3">
                     <div className={`w-7 h-7 rounded-lg border flex items-center justify-center flex-shrink-0 mt-0.5 ${f.color}`}>{f.icon}</div>
                     <div>
-                      <div className="text-sm font-semibold text-white mb-0.5">{f.title}</div>
-                      <p className="text-xs text-gray-500 leading-relaxed">{f.desc}</p>
+                      <div className="text-base font-semibold text-white mb-0.5">{f.title}</div>
+                      <p className="text-sm text-gray-300 leading-relaxed">{f.desc}</p>
                     </div>
                   </div>
                 ))}
@@ -563,8 +563,8 @@ export default function AlphaGapIndexPage() {
               <div key={f.title} className="flex flex-col gap-3 p-5 rounded-xl border border-white/6 bg-white/[0.02] hover:bg-white/[0.04] transition-colors">
                 <div className={`w-8 h-8 rounded-lg border flex items-center justify-center ${f.color}`}>{f.icon}</div>
                 <div>
-                  <div className="font-bold text-white text-sm mb-1">{f.title}</div>
-                  <p className="text-xs text-gray-500 leading-relaxed">{f.desc}</p>
+                  <div className="font-bold text-white text-base mb-1">{f.title}</div>
+                  <p className="text-sm text-gray-300 leading-relaxed">{f.desc}</p>
                 </div>
               </div>
             ))}
@@ -576,7 +576,7 @@ export default function AlphaGapIndexPage() {
             </div>
             <div>
               <span className="text-sm font-semibold text-blue-300">Integration status: </span>
-              <span className="text-sm text-gray-400">The AlphaGap × TrustedStake connection is in active development. The aGap formula is complete. TrustedStake&apos;s infrastructure is live and managing real assets. The dashboard integration is the final piece. Ultra subscribers get early access the moment it ships.</span>
+              <span className="text-base text-gray-200">The AlphaGap × TrustedStake connection is in active development. The aGap formula is complete. TrustedStake&apos;s infrastructure is live and managing real assets. The dashboard integration is the final piece. Ultra subscribers get early access the moment it ships.</span>
             </div>
           </div>
         </section>
@@ -587,7 +587,7 @@ export default function AlphaGapIndexPage() {
             <div className="absolute top-0 right-0 w-48 h-48 bg-emerald-500/5 rounded-full blur-3xl pointer-events-none" />
             <div className="relative grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
               <div>
-                <p className="text-xs font-bold text-emerald-500/60 uppercase tracking-widest mb-4">Intelligence Layer</p>
+                <p className="text-xs font-bold text-emerald-400/80 uppercase tracking-widest mb-4">Intelligence Layer</p>
                 <h2 className="text-3xl font-black text-white mb-4">The Oracle watches.<br />The Index acts.</h2>
                 <p className="text-gray-400 text-sm leading-relaxed mb-5">
                   The AlphaGap Index isn&apos;t a static formula run on a spreadsheet. The Oracle continuously reads live data, founder communications, whale movements, and benchmark results — keeping aGap scores current between every rebalance.
@@ -605,8 +605,8 @@ export default function AlphaGapIndexPage() {
                   <div key={f.title} className="flex gap-3 p-4 rounded-xl bg-emerald-500/[0.04] border border-emerald-500/10">
                     <div className="w-7 h-7 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center flex-shrink-0">{f.icon}</div>
                     <div>
-                      <div className="text-sm font-semibold text-white mb-0.5">{f.title}</div>
-                      <p className="text-xs text-gray-500 leading-relaxed">{f.desc}</p>
+                      <div className="text-base font-semibold text-white mb-0.5">{f.title}</div>
+                      <p className="text-sm text-gray-300 leading-relaxed">{f.desc}</p>
                     </div>
                   </div>
                 ))}
@@ -617,7 +617,7 @@ export default function AlphaGapIndexPage() {
 
         {/* ── FAQ ──────────────────────────────────────────────────────────── */}
         <section className="py-16 border-b border-white/5">
-          <p className="text-xs font-bold text-emerald-500/60 uppercase tracking-widest mb-4">Questions</p>
+          <p className="text-xs font-bold text-emerald-400/80 uppercase tracking-widest mb-4">Questions</p>
           <h2 className="text-3xl font-black text-white mb-8">Frequently asked</h2>
           <div className="space-y-2 max-w-3xl">
             {[
@@ -639,7 +639,7 @@ export default function AlphaGapIndexPage() {
                 </button>
                 {expandedFaq === i && (
                   <div className="px-5 pb-4 border-t border-white/5">
-                    <p className="text-sm text-gray-500 leading-relaxed pt-4">{faq.a}</p>
+                    <p className="text-base text-gray-300 leading-relaxed pt-4">{faq.a}</p>
                   </div>
                 )}
               </div>
