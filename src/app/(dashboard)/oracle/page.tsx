@@ -443,16 +443,13 @@ export default function OraclePage() {
               <div className="w-14 h-14 rounded-2xl bg-green-500/10 border border-green-500/20 flex items-center justify-center text-2xl mx-auto mb-5">
                 🔮
               </div>
-              <p className="text-xl font-bold text-white mb-2">Premium members only</p>
-              <p className="text-sm text-gray-500 mb-6">15 queries/day &nbsp;·&nbsp; Live data from every subnet</p>
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-                <a
-                  href="/checkout?plan=premium"
-                  className="inline-block bg-gradient-to-r from-green-400 to-emerald-500 hover:from-green-300 hover:to-emerald-400 text-black text-sm font-bold px-7 py-3 rounded-xl transition-all shadow-lg shadow-green-500/25 active:scale-95 w-full sm:w-auto"
-                >
-                  Upgrade to Premium →
-                </a>
-              </div>
+              <p className="text-xl font-bold text-white mb-6">Premium members only</p>
+              <a
+                href="/pricing"
+                className="inline-block bg-gradient-to-r from-green-400 to-emerald-500 hover:from-green-300 hover:to-emerald-400 text-black text-sm font-bold px-7 py-3 rounded-xl transition-all shadow-lg shadow-green-500/25 active:scale-95"
+              >
+                Upgrade Now →
+              </a>
             </div>
           ) : (
             <>
