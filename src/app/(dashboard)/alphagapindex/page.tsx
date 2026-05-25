@@ -323,7 +323,8 @@ export default function AlphaGapIndexPage() {
                         <th className="px-4 py-4 text-right text-xs font-bold text-gray-400 uppercase tracking-wider">aGap</th>
                         <th className="px-4 py-4 text-right text-xs font-bold text-gray-400 uppercase tracking-wider">Weight</th>
                         <th className="px-4 py-4 text-right text-xs font-bold text-gray-400 uppercase tracking-wider hidden sm:table-cell">24h</th>
-                        <th className="px-4 py-4 text-right text-xs font-bold text-gray-400 uppercase tracking-wider hidden lg:table-cell">Emissions</th>
+                        <th className="px-4 py-4 text-right text-xs font-bold text-gray-400 uppercase tracking-wider hidden md:table-cell">30d</th>
+                        <th className="px-4 py-4 text-right text-xs font-bold text-gray-400 uppercase tracking-wider hidden lg:table-cell">EM %</th>
                         <th className="px-4 py-4 text-right text-xs font-bold text-gray-400 uppercase tracking-wider hidden lg:table-cell">APY</th>
                         <th className="px-4 py-4 w-8"></th>
                       </tr>
@@ -331,13 +332,15 @@ export default function AlphaGapIndexPage() {
                     <tbody>
                       {holdings.length === 0 ? (
                         <tr>
-                          <td colSpan={9} className="px-6 py-12 text-center text-gray-500 text-sm">Loading index data…</td>
+                          <td colSpan={10} className="px-6 py-12 text-center text-gray-500 text-sm">Loading index data…</td>
                         </tr>
                       ) : holdings.map((h) => {
                         const s = h.subnet;
                         const change24h = s.price_change_24h ?? null;
-                        const emission = s.emission_pct ?? null;
-                        const apy = s.apy_7d ?? null;
+                        const change30d = s.price_change_30d ?? null;
+                        // emission_pct and apy_7d are stored as decimals (0–1), multiply by 100 for display
+                        const emission = s.emission_pct != null ? s.emission_pct * 100 : null;
+                        const apy = s.apy_7d != null ? s.apy_7d * 100 : null;
                         return (
                           <React.Fragment key={s.netuid}>
                             <tr
@@ -371,20 +374,23 @@ export default function AlphaGapIndexPage() {
                                 <span className="text-sm font-semibold text-gray-300 tabular-nums">{h.weight}%</span>
                               </td>
                               <td className="px-4 py-4 text-right hidden sm:table-cell">
-                                {change24h != null ? (
-                                  <span className={`text-sm font-bold tabular-nums ${change24h >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-                                    {change24h >= 0 ? "+" : ""}{change24h.toFixed(1)}%
-                                  </span>
-                                ) : <span className="text-gray-600 text-sm">—</span>}
+                                {change24h != null
+                                  ? <span className={`text-sm font-bold tabular-nums ${change24h >= 0 ? "text-emerald-400" : "text-red-400"}`}>{change24h >= 0 ? "+" : ""}{change24h.toFixed(1)}%</span>
+                                  : <span className="text-gray-600 text-sm">—</span>}
+                              </td>
+                              <td className="px-4 py-4 text-right hidden md:table-cell">
+                                {change30d != null
+                                  ? <span className={`text-sm font-bold tabular-nums ${change30d >= 0 ? "text-emerald-400" : "text-red-400"}`}>{change30d >= 0 ? "+" : ""}{change30d.toFixed(1)}%</span>
+                                  : <span className="text-gray-600 text-sm">—</span>}
                               </td>
                               <td className="px-4 py-4 text-right hidden lg:table-cell">
                                 <span className="text-sm text-gray-300 tabular-nums font-medium">
-                                  {emission != null ? `${emission.toFixed(2)}%` : "—"}
+                                  {emission != null ? `${emission.toFixed(1)}%` : "—"}
                                 </span>
                               </td>
                               <td className="px-4 py-4 text-right hidden lg:table-cell">
-                                <span className={`text-sm font-semibold tabular-nums ${apy != null && apy > 0 ? "text-emerald-400" : "text-gray-500"}`}>
-                                  {apy != null ? `${apy.toFixed(1)}%` : "—"}
+                                <span className={`text-sm font-semibold tabular-nums ${apy != null && apy >= 20 ? "text-emerald-400" : apy != null && apy >= 10 ? "text-yellow-400" : apy != null ? "text-orange-400" : "text-gray-600"}`}>
+                                  {apy != null ? `${apy.toFixed(0)}%` : "—"}
                                 </span>
                               </td>
                               <td className="px-4 py-4">
@@ -393,7 +399,7 @@ export default function AlphaGapIndexPage() {
                             </tr>
                             {expandedRow === s.netuid && (
                               <tr className="border-b border-white/[0.04] bg-emerald-500/[0.03]">
-                                <td colSpan={9} className="px-6 py-3">
+                                <td colSpan={10} className="px-6 py-3">
                                   <div className="flex items-start gap-3 pl-14">
                                     <p className="text-sm text-gray-300 leading-relaxed">
                                       <span className="font-semibold text-emerald-400">aGap Score: {h.score} · </span>
