@@ -122,7 +122,7 @@ export default function AlphaGapIndexPage() {
         <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse 40% 60% at 80% 50%, rgba(245,158,11,0.04) 0%, transparent 60%)" }} />
         <div className="absolute inset-0 opacity-[0.018]" style={{ backgroundImage: "linear-gradient(rgba(255,255,255,1) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,1) 1px,transparent 1px)", backgroundSize: "40px 40px" }} />
 
-        <div className="relative w-full px-6 md:px-16 lg:px-24 pt-16 pb-14 text-center flex flex-col items-center">
+        <div className="relative w-full px-6 md:px-16 lg:px-24 pt-12 pb-10 text-center flex flex-col items-center">
           <div className="flex flex-wrap justify-center gap-2 mb-8">
             <span className="inline-flex items-center gap-1.5 text-[11px] font-bold tracking-widest uppercase px-3 py-1.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20">
               <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
@@ -148,7 +148,7 @@ export default function AlphaGapIndexPage() {
             Connect your wallet. Deploy your TAO.<br />
             <span className="text-emerald-400">We do everything else.</span>
           </p>
-          <p className="text-gray-400 text-lg sm:text-xl max-w-3xl leading-relaxed mb-10">
+          <p className="text-gray-400 text-sm sm:text-base max-w-3xl leading-relaxed mb-8">
             aGap picks the top 10 subnets. TrustedStake auto-buys the tokens, manages the portfolio, and rebalances every Sunday. You sit back, collect APY, and let the formula do the work.
           </p>
 
