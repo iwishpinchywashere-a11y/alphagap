@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo } from "react";
 import { useSession } from "next-auth/react";
-import { getTier, canAccessUltra } from "@/lib/subscription";
+import { getTier, canAccessUltra, canAccessPremium } from "@/lib/subscription";
 import { useDashboard } from "@/components/dashboard/DashboardProvider";
 import SubnetLogo from "@/components/dashboard/SubnetLogo";
 
@@ -90,6 +90,7 @@ export default function AlphaGapIndexPage() {
   const { data: session } = useSession();
   const tier = getTier(session);
   const isUltra = canAccessUltra(tier);
+  const canViewHoldings = canAccessPremium(tier);
   const [expandedRow, setExpandedRow] = useState<number | null>(null);
   const [expandedFaq, setExpandedFaq] = useState<number | null>(null);
   const { leaderboard } = useDashboard();
@@ -211,6 +212,44 @@ export default function AlphaGapIndexPage() {
           </div>
         </section>
 
+        {/* ── APY SECTION ──────────────────────────────────────────────────── */}
+        <section className="py-16 border-b border-white/5">
+          <p className="text-xs font-bold text-emerald-400/80 uppercase tracking-widest mb-4">The Yield</p>
+          <h2 className="text-3xl sm:text-4xl font-black text-white mb-3">APY compounds fast.<br /><span className="text-emerald-400">Really fast.</span></h2>
+          <p className="text-gray-400 text-lg mb-10 max-w-2xl">Bittensor subnets pay out emissions continuously. When that yield is automatically reinvested — across 10 of the highest-performing subnets — it compounds in ways most TAO holders never experience.</p>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+            {[
+              { label: "1 TAO invested", apy: 25, years: 3, result: "~1.95 TAO", note: "at 25% APY, 3 years" },
+              { label: "10 TAO invested", apy: 30, years: 3, result: "~21.9 TAO", note: "at 30% APY, 3 years" },
+              { label: "100 TAO invested", apy: 35, years: 5, result: "~452 TAO", note: "at 35% APY, 5 years" },
+            ].map(c => (
+              <div key={c.label} className="p-6 rounded-2xl border border-emerald-500/15 bg-emerald-500/5 text-center">
+                <p className="text-gray-400 text-sm mb-2">{c.label}</p>
+                <p className="text-4xl font-black text-emerald-400 mb-1">{c.result}</p>
+                <p className="text-xs text-gray-500">{c.note}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {[
+              { icon: <IconTrend className="w-5 h-5" />, color: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20", title: "Emissions every block", desc: "Bittensor pays out emissions continuously — not monthly, not quarterly. Every block." },
+              { icon: <IconRefresh className="w-5 h-5" />, color: "text-blue-400 bg-blue-500/10 border-blue-500/20", title: "Auto-compounded", desc: "TrustedStake reinvests yield back into your positions automatically. No manual claiming." },
+              { icon: <IconDollar className="w-5 h-5" />, color: "text-amber-400 bg-amber-500/10 border-amber-500/20", title: "Spread across top 10", desc: "10 high-conviction subnets means your APY isn't riding on any single subnet's performance." },
+            ].map(f => (
+              <div key={f.title} className="flex gap-4 p-5 rounded-xl border border-white/6 bg-white/[0.02]">
+                <div className={`w-10 h-10 rounded-xl border flex items-center justify-center flex-shrink-0 ${f.color}`}>{f.icon}</div>
+                <div>
+                  <div className="font-bold text-white text-lg mb-1">{f.title}</div>
+                  <p className="text-base text-gray-400">{f.desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+          <p className="text-xs text-gray-600 mt-4">Illustrative projections only. APY varies by subnet and market conditions.</p>
+        </section>
+
         {/* ── HOW IT WORKS ─────────────────────────────────────────────────── */}
         <section className="py-16 border-b border-white/5">
           <p className="text-xs font-bold text-emerald-400/80 uppercase tracking-widest mb-4">The System</p>
@@ -247,7 +286,7 @@ export default function AlphaGapIndexPage() {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-white/6 bg-white/[0.02] overflow-hidden relative">
+          <div className="rounded-2xl border border-white/6 bg-white/[0.02] overflow-hidden relative" style={!canViewHoldings ? { pointerEvents: "none" } : {}}>
             {/* Weight spectrum bar */}
             <div className="flex h-[3px] w-full">
               {holdings.map((h, i) => (
@@ -411,6 +450,23 @@ export default function AlphaGapIndexPage() {
               </div>
 
             </div>
+
+            {/* ── Blur gate for free/pro ── */}
+            {!canViewHoldings && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center z-10 rounded-2xl overflow-hidden">
+                <div className="absolute inset-0 backdrop-blur-xl bg-[#080810]/60" />
+                <div className="relative z-10 text-center px-6 py-8">
+                  <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mx-auto mb-4">
+                    <IconShield className="w-5 h-5 text-amber-400" />
+                  </div>
+                  <p className="text-white font-bold text-xl mb-2">Premium &amp; Ultra only</p>
+                  <p className="text-gray-400 text-base mb-6 max-w-xs mx-auto">See exactly which 10 subnets aGap is backing right now.</p>
+                  <a href="/pricing" className="inline-flex items-center gap-2 px-7 py-3 bg-gradient-to-r from-amber-400 to-orange-400 hover:from-amber-300 hover:to-orange-300 text-black font-bold text-base rounded-xl transition-all shadow-lg shadow-amber-500/20 active:scale-95">
+                    Upgrade to unlock <IconArrow className="w-4 h-4" />
+                  </a>
+                </div>
+              </div>
+            )}
           </div>
         </section>
 
