@@ -251,112 +251,155 @@ export default function AlphaGapIndexPage() {
 
             <div className="relative">
               <div>
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b border-white/5">
-                        <th className="px-6 py-4 text-left text-xs font-bold text-gray-400 uppercase tracking-wider w-10">#</th>
-                        <th className="px-4 py-4 text-left text-xs font-bold text-gray-400 uppercase tracking-wider">Subnet</th>
-                        <th className="px-4 py-4 text-left text-xs font-bold text-gray-400 uppercase tracking-wider hidden md:table-cell">Category</th>
-                        <th className="px-4 py-4 text-right text-xs font-bold text-gray-400 uppercase tracking-wider">aGap</th>
-                        <th className="px-4 py-4 text-right text-xs font-bold text-gray-400 uppercase tracking-wider">Weight</th>
-                        <th className="px-4 py-4 text-right text-xs font-bold text-gray-400 uppercase tracking-wider hidden sm:table-cell">24h</th>
-                        <th className="px-4 py-4 text-right text-xs font-bold text-gray-400 uppercase tracking-wider hidden md:table-cell">30d</th>
-                        <th className="px-4 py-4 text-right text-xs font-bold text-gray-400 uppercase tracking-wider hidden lg:table-cell">EM %</th>
-                        <th className="px-4 py-4 text-right text-xs font-bold text-gray-400 uppercase tracking-wider hidden lg:table-cell">APY</th>
-                        <th className="px-4 py-4 w-8"></th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {holdings.length === 0 ? (
-                        <tr>
-                          <td colSpan={10} className="px-6 py-12 text-center text-gray-500 text-sm">Loading index data…</td>
+                {holdings.length === 0 ? (
+                  <p className="px-6 py-12 text-center text-gray-500 text-sm">Loading index data…</p>
+                ) : (<>
+
+                  {/* ── Mobile cards (< md) ── */}
+                  <div className="md:hidden divide-y divide-white/[0.04]">
+                    {holdings.map((h) => {
+                      const s = h.subnet;
+                      const change24h = s.price_change_24h ?? null;
+                      const change30d = s.price_change_30d ?? null;
+                      const emission = s.emission_pct != null ? s.emission_pct * 100 : null;
+                      const apy = s.apy_7d != null ? s.apy_7d * 100 : null;
+                      const isOpen = expandedRow === s.netuid;
+                      return (
+                        <div key={s.netuid}>
+                          <button
+                            className="w-full text-left px-4 py-4 flex items-center gap-3 hover:bg-white/[0.03] transition-colors"
+                            onClick={() => setExpandedRow(isOpen ? null : s.netuid)}
+                          >
+                            <span className="text-xs font-bold text-gray-600 w-5 tabular-nums flex-shrink-0">{h.rank}</span>
+                            <SubnetLogo netuid={s.netuid} name={s.name} size={36} />
+                            <div className="flex-1 min-w-0">
+                              <div className="font-semibold text-gray-100 text-base truncate">{s.name}</div>
+                              <div className="text-xs text-gray-500">SN{s.netuid} · {s.category ?? s.benchmark_category ?? "—"}</div>
+                            </div>
+                            <div className="flex flex-col items-end gap-0.5 flex-shrink-0">
+                              <span className={`text-sm font-bold tabular-nums ${scoreColor(h.score)}`}>{h.score}</span>
+                              <span className="text-xs text-gray-500">{h.weight}%</span>
+                            </div>
+                            <IconChevron className={`w-4 h-4 text-gray-600 flex-shrink-0 transition-transform ml-1 ${isOpen ? "rotate-180" : ""}`} />
+                          </button>
+                          {isOpen && (
+                            <div className="px-4 pb-4 bg-emerald-500/[0.03] border-t border-white/[0.04]">
+                              {/* Stats grid */}
+                              <div className="grid grid-cols-2 gap-2 pt-3 mb-3">
+                                {[
+                                  { label: "24h", value: change24h != null ? `${change24h >= 0 ? "+" : ""}${change24h.toFixed(1)}%` : "—", color: change24h != null ? (change24h >= 0 ? "text-emerald-400" : "text-red-400") : "text-gray-600" },
+                                  { label: "30d", value: change30d != null ? `${change30d >= 0 ? "+" : ""}${change30d.toFixed(1)}%` : "—", color: change30d != null ? (change30d >= 0 ? "text-emerald-400" : "text-red-400") : "text-gray-600" },
+                                  { label: "EM %", value: emission != null ? `${emission.toFixed(1)}%` : "—", color: "text-gray-300" },
+                                  { label: "APY", value: apy != null ? `${apy.toFixed(0)}%` : "—", color: apy != null && apy >= 20 ? "text-emerald-400" : apy != null && apy >= 10 ? "text-yellow-400" : apy != null ? "text-orange-400" : "text-gray-600" },
+                                ].map(stat => (
+                                  <div key={stat.label} className="bg-white/[0.03] rounded-lg px-3 py-2">
+                                    <div className="text-xs text-gray-500 mb-0.5">{stat.label}</div>
+                                    <div className={`text-sm font-bold tabular-nums ${stat.color}`}>{stat.value}</div>
+                                  </div>
+                                ))}
+                              </div>
+                              {/* Score bar */}
+                              <div className="flex items-center gap-2 mb-3">
+                                <span className="text-xs text-gray-500">aGap</span>
+                                <div className="flex-1 h-1.5 rounded-full bg-white/5 overflow-hidden">
+                                  <div className="h-full rounded-full bg-gradient-to-r from-emerald-600 to-emerald-400" style={{ width: `${h.score}%` }} />
+                                </div>
+                                <span className={`text-xs font-bold tabular-nums ${scoreColor(h.score)}`}>{h.score}</span>
+                              </div>
+                              {/* Thesis */}
+                              {s.benchmark_summary && (
+                                <p className="text-sm text-gray-400 leading-relaxed">{s.benchmark_summary.slice(0, 200)}{s.benchmark_summary.length > 200 ? "…" : ""}</p>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* ── Desktop table (md+) ── */}
+                  <div className="hidden md:block overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b border-white/5">
+                          <th className="px-6 py-4 text-left text-xs font-bold text-gray-400 uppercase tracking-wider w-10">#</th>
+                          <th className="px-4 py-4 text-left text-xs font-bold text-gray-400 uppercase tracking-wider">Subnet</th>
+                          <th className="px-4 py-4 text-left text-xs font-bold text-gray-400 uppercase tracking-wider hidden lg:table-cell">Category</th>
+                          <th className="px-4 py-4 text-right text-xs font-bold text-gray-400 uppercase tracking-wider">aGap</th>
+                          <th className="px-4 py-4 text-right text-xs font-bold text-gray-400 uppercase tracking-wider">Weight</th>
+                          <th className="px-4 py-4 text-right text-xs font-bold text-gray-400 uppercase tracking-wider">24h</th>
+                          <th className="px-4 py-4 text-right text-xs font-bold text-gray-400 uppercase tracking-wider hidden lg:table-cell">30d</th>
+                          <th className="px-4 py-4 text-right text-xs font-bold text-gray-400 uppercase tracking-wider hidden lg:table-cell">EM %</th>
+                          <th className="px-4 py-4 text-right text-xs font-bold text-gray-400 uppercase tracking-wider hidden lg:table-cell">APY</th>
+                          <th className="px-4 py-4 w-8"></th>
                         </tr>
-                      ) : holdings.map((h) => {
-                        const s = h.subnet;
-                        const change24h = s.price_change_24h ?? null;
-                        const change30d = s.price_change_30d ?? null;
-                        // emission_pct and apy_7d are stored as decimals (0–1), multiply by 100 for display
-                        const emission = s.emission_pct != null ? s.emission_pct * 100 : null;
-                        const apy = s.apy_7d != null ? s.apy_7d * 100 : null;
-                        return (
-                          <React.Fragment key={s.netuid}>
-                            <tr
-                              className="border-b border-white/[0.04] hover:bg-white/[0.03] transition-colors cursor-pointer group"
-                              onClick={() => setExpandedRow(expandedRow === s.netuid ? null : s.netuid)}
-                            >
-                              <td className="px-6 py-4">
-                                <span className="text-xs font-bold text-gray-500 tabular-nums">{h.rank}</span>
-                              </td>
-                              <td className="px-4 py-4">
-                                <div className="flex items-center gap-3">
-                                  <SubnetLogo netuid={s.netuid} name={s.name} size={32} />
-                                  <div>
-                                    <div className="font-semibold text-gray-100 text-sm">{s.name}</div>
-                                    <div className="text-xs text-gray-500">SN{s.netuid}</div>
-                                  </div>
-                                </div>
-                              </td>
-                              <td className="px-4 py-4 hidden md:table-cell">
-                                <span className="text-xs text-gray-400 font-medium">{s.category ?? s.benchmark_category ?? "—"}</span>
-                              </td>
-                              <td className="px-4 py-4 text-right">
-                                <div className="flex items-center justify-end gap-2">
-                                  <div className="w-14 h-1 rounded-full bg-white/5 overflow-hidden hidden sm:block">
-                                    <div className="h-full rounded-full bg-gradient-to-r from-emerald-600 to-emerald-400" style={{ width: `${h.score}%` }} />
-                                  </div>
-                                  <span className={`text-sm font-bold tabular-nums ${scoreColor(h.score)}`}>{h.score}</span>
-                                </div>
-                              </td>
-                              <td className="px-4 py-4 text-right">
-                                <span className="text-sm font-semibold text-gray-300 tabular-nums">{h.weight}%</span>
-                              </td>
-                              <td className="px-4 py-4 text-right hidden sm:table-cell">
-                                {change24h != null
-                                  ? <span className={`text-sm font-bold tabular-nums ${change24h >= 0 ? "text-emerald-400" : "text-red-400"}`}>{change24h >= 0 ? "+" : ""}{change24h.toFixed(1)}%</span>
-                                  : <span className="text-gray-600 text-sm">—</span>}
-                              </td>
-                              <td className="px-4 py-4 text-right hidden md:table-cell">
-                                {change30d != null
-                                  ? <span className={`text-sm font-bold tabular-nums ${change30d >= 0 ? "text-emerald-400" : "text-red-400"}`}>{change30d >= 0 ? "+" : ""}{change30d.toFixed(1)}%</span>
-                                  : <span className="text-gray-600 text-sm">—</span>}
-                              </td>
-                              <td className="px-4 py-4 text-right hidden lg:table-cell">
-                                <span className="text-sm text-gray-300 tabular-nums font-medium">
-                                  {emission != null ? `${emission.toFixed(1)}%` : "—"}
-                                </span>
-                              </td>
-                              <td className="px-4 py-4 text-right hidden lg:table-cell">
-                                <span className={`text-sm font-semibold tabular-nums ${apy != null && apy >= 20 ? "text-emerald-400" : apy != null && apy >= 10 ? "text-yellow-400" : apy != null ? "text-orange-400" : "text-gray-600"}`}>
-                                  {apy != null ? `${apy.toFixed(0)}%` : "—"}
-                                </span>
-                              </td>
-                              <td className="px-4 py-4">
-                                <IconChevron className={`w-4 h-4 text-gray-700 group-hover:text-gray-500 transition-all ${expandedRow === s.netuid ? "rotate-180" : ""}`} />
-                              </td>
-                            </tr>
-                            {expandedRow === s.netuid && (
-                              <tr className="border-b border-white/[0.04] bg-emerald-500/[0.03]">
-                                <td colSpan={10} className="px-6 py-3">
-                                  <div className="flex items-start gap-3 pl-14">
-                                    <p className="text-sm text-gray-300 leading-relaxed">
-                                      <span className="font-semibold text-emerald-400">aGap Score: {h.score} · </span>
-                                      {s.benchmark_summary
-                                        ? s.benchmark_summary.slice(0, 200) + (s.benchmark_summary.length > 200 ? "…" : "")
-                                        : "No summary available."}
-                                    </p>
+                      </thead>
+                      <tbody>
+                        {holdings.map((h) => {
+                          const s = h.subnet;
+                          const change24h = s.price_change_24h ?? null;
+                          const change30d = s.price_change_30d ?? null;
+                          const emission = s.emission_pct != null ? s.emission_pct * 100 : null;
+                          const apy = s.apy_7d != null ? s.apy_7d * 100 : null;
+                          return (
+                            <React.Fragment key={s.netuid}>
+                              <tr
+                                className="border-b border-white/[0.04] hover:bg-white/[0.03] transition-colors cursor-pointer group"
+                                onClick={() => setExpandedRow(expandedRow === s.netuid ? null : s.netuid)}
+                              >
+                                <td className="px-6 py-4"><span className="text-xs font-bold text-gray-500 tabular-nums">{h.rank}</span></td>
+                                <td className="px-4 py-4">
+                                  <div className="flex items-center gap-3">
+                                    <SubnetLogo netuid={s.netuid} name={s.name} size={32} />
+                                    <div>
+                                      <div className="font-semibold text-gray-100 text-sm">{s.name}</div>
+                                      <div className="text-xs text-gray-500">SN{s.netuid}</div>
+                                    </div>
                                   </div>
                                 </td>
+                                <td className="px-4 py-4 hidden lg:table-cell"><span className="text-xs text-gray-400 font-medium">{s.category ?? s.benchmark_category ?? "—"}</span></td>
+                                <td className="px-4 py-4 text-right">
+                                  <div className="flex items-center justify-end gap-2">
+                                    <div className="w-14 h-1 rounded-full bg-white/5 overflow-hidden">
+                                      <div className="h-full rounded-full bg-gradient-to-r from-emerald-600 to-emerald-400" style={{ width: `${h.score}%` }} />
+                                    </div>
+                                    <span className={`text-sm font-bold tabular-nums ${scoreColor(h.score)}`}>{h.score}</span>
+                                  </div>
+                                </td>
+                                <td className="px-4 py-4 text-right"><span className="text-sm font-semibold text-gray-300 tabular-nums">{h.weight}%</span></td>
+                                <td className="px-4 py-4 text-right">
+                                  {change24h != null ? <span className={`text-sm font-bold tabular-nums ${change24h >= 0 ? "text-emerald-400" : "text-red-400"}`}>{change24h >= 0 ? "+" : ""}{change24h.toFixed(1)}%</span> : <span className="text-gray-600 text-sm">—</span>}
+                                </td>
+                                <td className="px-4 py-4 text-right hidden lg:table-cell">
+                                  {change30d != null ? <span className={`text-sm font-bold tabular-nums ${change30d >= 0 ? "text-emerald-400" : "text-red-400"}`}>{change30d >= 0 ? "+" : ""}{change30d.toFixed(1)}%</span> : <span className="text-gray-600 text-sm">—</span>}
+                                </td>
+                                <td className="px-4 py-4 text-right hidden lg:table-cell"><span className="text-sm text-gray-300 tabular-nums font-medium">{emission != null ? `${emission.toFixed(1)}%` : "—"}</span></td>
+                                <td className="px-4 py-4 text-right hidden lg:table-cell">
+                                  <span className={`text-sm font-semibold tabular-nums ${apy != null && apy >= 20 ? "text-emerald-400" : apy != null && apy >= 10 ? "text-yellow-400" : apy != null ? "text-orange-400" : "text-gray-600"}`}>
+                                    {apy != null ? `${apy.toFixed(0)}%` : "—"}
+                                  </span>
+                                </td>
+                                <td className="px-4 py-4"><IconChevron className={`w-4 h-4 text-gray-700 group-hover:text-gray-500 transition-all ${expandedRow === s.netuid ? "rotate-180" : ""}`} /></td>
                               </tr>
-                            )}
-                          </React.Fragment>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-                <div className="px-6 py-3 border-t border-white/5 flex flex-wrap items-center justify-between gap-2">
-                  <p className="text-sm text-gray-400">Click any row to see the investment thesis.</p>
+                              {expandedRow === s.netuid && (
+                                <tr className="border-b border-white/[0.04] bg-emerald-500/[0.03]">
+                                  <td colSpan={10} className="px-6 py-3">
+                                    <p className="text-sm text-gray-300 leading-relaxed pl-10">
+                                      <span className="font-semibold text-emerald-400">aGap Score: {h.score} · </span>
+                                      {s.benchmark_summary ? s.benchmark_summary.slice(0, 200) + (s.benchmark_summary.length > 200 ? "…" : "") : "No summary available."}
+                                    </p>
+                                  </td>
+                                </tr>
+                              )}
+                            </React.Fragment>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </>)}
+                <div className="px-4 md:px-6 py-3 border-t border-white/5 flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-sm text-gray-400">Tap any row to see the investment thesis.</p>
                   <p className="text-sm text-gray-500 italic">Live allocations update post-rebalance</p>
                 </div>
               </div>
