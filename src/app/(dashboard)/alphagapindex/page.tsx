@@ -170,6 +170,12 @@ export default function AlphaGapIndexPage() {
             ))}
           </div>
 
+          {!isUltra && (
+            <a href="/pricing" className="inline-flex items-center gap-2 px-8 py-3.5 bg-gradient-to-r from-amber-400 to-orange-400 hover:from-amber-300 hover:to-orange-300 text-black font-bold text-base rounded-xl transition-all shadow-lg shadow-amber-500/20 active:scale-95 mb-8">
+              Subscribe to Ultra — $99/mo <IconArrow className="w-4 h-4" />
+            </a>
+          )}
+
           <div className="flex items-center gap-4 w-full max-w-lg">
             <div className="h-px flex-1 bg-gradient-to-r from-transparent to-emerald-500/30" />
             <span className="text-xs text-gray-500 font-medium tracking-widest uppercase whitespace-nowrap">Fundamental · Systematic · Non-custodial</span>
@@ -407,6 +413,19 @@ export default function AlphaGapIndexPage() {
             </div>
           </div>
         </section>
+
+        {/* ── MID-PAGE CTA ─────────────────────────────────────────────────── */}
+        {!isUltra && (
+          <div className="py-10 border-b border-white/5 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div>
+              <p className="text-white font-bold text-xl mb-1">Deploy your TAO into the top 10 subnets.</p>
+              <p className="text-gray-400 text-base">Automated. Non-custodial. Powered by aGap + TrustedStake.</p>
+            </div>
+            <a href="/pricing" className="flex-shrink-0 inline-flex items-center gap-2 px-7 py-3.5 bg-gradient-to-r from-amber-400 to-orange-400 hover:from-amber-300 hover:to-orange-300 text-black font-bold text-base rounded-xl transition-all shadow-lg shadow-amber-500/20 active:scale-95 whitespace-nowrap">
+              Subscribe to Ultra <IconArrow className="w-4 h-4" />
+            </a>
+          </div>
+        )}
 
         {/* ── aGAP METHODOLOGY ─────────────────────────────────────────────── */}
         <section className="py-16 border-b border-white/5">
