@@ -119,7 +119,7 @@ export default function AlphaGapIndexPage() {
         <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse 40% 60% at 80% 50%, rgba(245,158,11,0.04) 0%, transparent 60%)" }} />
         <div className="absolute inset-0 opacity-[0.018]" style={{ backgroundImage: "linear-gradient(rgba(255,255,255,1) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,1) 1px,transparent 1px)", backgroundSize: "40px 40px" }} />
 
-        <div className="relative px-6 md:px-12 pt-16 pb-14 max-w-5xl mx-auto">
+        <div className="relative px-6 md:px-12 pt-16 pb-14">
           {/* Pill badges */}
           <div className="flex flex-wrap gap-2 mb-8">
             <span className="inline-flex items-center gap-1.5 text-[11px] font-bold tracking-widest uppercase px-3 py-1.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20">
@@ -156,7 +156,7 @@ export default function AlphaGapIndexPage() {
         </div>
       </section>
 
-      <div className="px-6 md:px-12 max-w-5xl mx-auto">
+      <div className="px-6 md:px-12">
 
         {/* ── THE PROBLEM ─────────────────────────────────────────────────── */}
         <section className="py-16 border-b border-white/5">
