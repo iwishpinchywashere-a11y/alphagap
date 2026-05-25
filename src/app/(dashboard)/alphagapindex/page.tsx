@@ -473,8 +473,8 @@ export default function AlphaGapIndexPage() {
               {
                 icon: <IconDollar className="w-5 h-5" />,
                 color: "text-green-400 bg-green-500/10 border-green-500/20",
-                label: "Verified Revenue",
-                detail: "Product-market fit is proven by paying customers — not emissions. We only count revenue independently verified by SubnetRadar or TAO Institute. Subnets generating real fiat income score significantly higher.",
+                label: "Revenue Potential",
+                detail: "We look at a subnet's ability to generate real external income — existing customers, product traction, market size, and commercialisation progress. Verified revenue is the strongest signal, but early-stage subnets with clear monetisation paths score well too.",
               },
               {
                 icon: <IconTrend className="w-5 h-5" />,
