@@ -1,8 +1,10 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { useSession } from "next-auth/react";
 import { getTier, canAccessUltra } from "@/lib/subscription";
+import { useDashboard } from "@/components/dashboard/DashboardProvider";
+import SubnetLogo from "@/components/dashboard/SubnetLogo";
 
 /* ── SVG Icons ───────────────────────────────────────────────────────────── */
 const IconChart = ({ className }: { className?: string }) => (
@@ -76,30 +78,12 @@ const IconChevron = ({ className }: { className?: string }) => (
   </svg>
 );
 
-/* ── Data ────────────────────────────────────────────────────────────────── */
-const INDEX_HOLDINGS = [
-  { rank: 1,  netuid: 51,  name: "lium.io",       category: "AI Compute",    agap: 94, weight: 14.2, change: +8.3,  rev: "$5.2M ARR",  thesis: "Revenue exceeds emissions — one of the only subnets where external demand outpaces the TAO subsidy. B200 GPU access when other providers are sold out." },
-  { rank: 2,  netuid: 64,  name: "Chutes",         category: "AI Compute",    agap: 91, weight: 13.8, change: +5.1,  rev: "$4.2M ARR",  thesis: "#1 provider on OpenRouter by traffic. 9.1T tokens processed. 85% cheaper than AWS Lambda. TAO Institute verified ARR." },
-  { rank: 3,  netuid: 44,  name: "Score",          category: "Physical AI",   agap: 87, weight: 12.1, change: +12.4, rev: "$1.2M ARR",  thesis: "PwC France alliance confirmed. Paris Blockchain Week winner 2026. Physical AI computer vision with $150K/month client revenue." },
-  { rank: 4,  netuid: 1,   name: "Apex",           category: "Frontier LLM",  agap: 85, weight: 11.5, change: +3.2,  rev: "Emissions",  thesis: "The original Bittensor subnet. Pioneer network status. Foundational to the entire ecosystem's legitimacy and validator set." },
-  { rank: 5,  netuid: 9,   name: "Pretrain",       category: "Foundation",    agap: 82, weight: 10.8, change: -1.4,  rev: "Emissions",  thesis: "Core foundation model training layer. Infrastructure-level importance to Bittensor's long-term AI output quality." },
-  { rank: 6,  netuid: 4,   name: "Targon",         category: "AI Inference",  agap: 79, weight: 10.2, change: +6.7,  rev: "Growing",    thesis: "High-throughput inference with on-chain verified outputs. Growing developer adoption and API usage." },
-  { rank: 7,  netuid: 19,  name: "Nineteen.ai",    category: "AI Compute",    agap: 77, weight: 9.4,  change: +2.1,  rev: "Growing",    thesis: "Part of Rayon Labs trio alongside Chutes (SN64) and SN56. Coordinated compute layer with strategic synergies." },
-  { rank: 8,  netuid: 27,  name: "NI",             category: "Data",          agap: 74, weight: 8.3,  change: -0.8,  rev: "Active",     thesis: "Real-time web intelligence and structured data pipelines. Enterprise B2B use cases with recurring demand." },
-  { rank: 9,  netuid: 13,  name: "Data Universe",  category: "Data Storage",  agap: 71, weight: 5.4,  change: +4.5,  rev: "Active",     thesis: "Decentralised data storage with growing B2B pipeline. Early traction in the $200B+ cloud storage market." },
-  { rank: 10, netuid: 8,   name: "Vanta",          category: "AI Audio",      agap: 68, weight: 4.3,  change: +1.9,  rev: "$500K ARR",  thesis: "Audio AI processing launched Feb 2026. Early enterprise traction. Founder has 20+ years at Netflix, Disney, and Spotify." },
-];
-
-const CAT_STYLE: Record<string, { dot: string; text: string }> = {
-  "AI Compute":   { dot: "bg-blue-400",   text: "text-blue-400" },
-  "Physical AI":  { dot: "bg-violet-400", text: "text-violet-400" },
-  "Frontier LLM": { dot: "bg-indigo-400", text: "text-indigo-400" },
-  "Foundation":   { dot: "bg-teal-400",   text: "text-teal-400" },
-  "AI Inference": { dot: "bg-cyan-400",   text: "text-cyan-400" },
-  "Data":         { dot: "bg-amber-400",  text: "text-amber-400" },
-  "Data Storage": { dot: "bg-rose-400",   text: "text-rose-400" },
-  "AI Audio":     { dot: "bg-green-400",  text: "text-green-400" },
-};
+/* ── Helpers ─────────────────────────────────────────────────────────────── */
+function scoreColor(score: number): string {
+  if (score >= 80) return "text-emerald-400";
+  if (score >= 65) return "text-yellow-400";
+  return "text-orange-400";
+}
 
 /* ── Component ───────────────────────────────────────────────────────────── */
 export default function AlphaGapIndexPage() {
@@ -108,6 +92,26 @@ export default function AlphaGapIndexPage() {
   const isUltra = canAccessUltra(tier);
   const [expandedRow, setExpandedRow] = useState<number | null>(null);
   const [expandedFaq, setExpandedFaq] = useState<number | null>(null);
+  const { leaderboard } = useDashboard();
+
+  // Top 10 by invest_agap (the live aGap investing score)
+  const top10 = useMemo(() => {
+    return [...leaderboard]
+      .filter(s => (s.invest_agap ?? 0) > 0)
+      .sort((a, b) => (b.invest_agap ?? 0) - (a.invest_agap ?? 0))
+      .slice(0, 10)
+      .map((s, i) => {
+        const score = s.invest_agap ?? 0;
+        return { rank: i + 1, subnet: s, score };
+      });
+  }, [leaderboard]);
+
+  // Compute weights proportional to scores
+  const totalScore = top10.reduce((sum, h) => sum + h.score, 0);
+  const holdings = top10.map(h => ({
+    ...h,
+    weight: totalScore > 0 ? Math.round((h.score / totalScore) * 1000) / 10 : 0,
+  }));
 
   return (
     <main className="flex-1 overflow-auto bg-[#080810]">
@@ -284,8 +288,8 @@ export default function AlphaGapIndexPage() {
           <div className="rounded-2xl border border-white/6 bg-white/[0.02] overflow-hidden relative">
             {/* Weight spectrum bar */}
             <div className="flex h-[3px] w-full">
-              {INDEX_HOLDINGS.map((h, i) => (
-                <div key={h.netuid} style={{ width: `${h.weight}%`, background: `hsl(${150 - i * 10}, 65%, ${52 - i * 1.5}%)` }} />
+              {holdings.map((h, i) => (
+                <div key={h.subnet.netuid} style={{ width: `${h.weight}%`, background: `hsl(${150 - i * 10}, 65%, ${52 - i * 1.5}%)` }} />
               ))}
             </div>
 
@@ -306,62 +310,72 @@ export default function AlphaGapIndexPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {INDEX_HOLDINGS.map((h) => {
-                        const cat = CAT_STYLE[h.category] ?? { dot: "bg-gray-500", text: "text-gray-400" };
+                      {holdings.length === 0 ? (
+                        <tr>
+                          <td colSpan={7} className="px-6 py-12 text-center text-gray-500 text-sm">Loading index data…</td>
+                        </tr>
+                      ) : holdings.map((h) => {
+                        const s = h.subnet;
+                        const change30d = s.price_change_30d ?? null;
                         return (
-                          <React.Fragment key={h.netuid}>
+                          <React.Fragment key={s.netuid}>
                             <tr
                               className="border-b border-white/[0.04] hover:bg-white/[0.03] transition-colors cursor-pointer group"
-                              onClick={() => setExpandedRow(expandedRow === h.netuid ? null : h.netuid)}
+                              onClick={() => setExpandedRow(expandedRow === s.netuid ? null : s.netuid)}
                             >
                               <td className="px-6 py-4">
                                 <span className="text-xs font-bold text-gray-500 tabular-nums">{h.rank}</span>
                               </td>
                               <td className="px-4 py-4">
                                 <div className="flex items-center gap-3">
-                                  <div className="w-8 h-8 rounded-lg bg-white/5 border border-white/8 flex items-center justify-center text-[11px] font-black text-gray-400 flex-shrink-0 tabular-nums">{h.netuid}</div>
+                                  <SubnetLogo netuid={s.netuid} name={s.name} size={32} />
                                   <div>
-                                    <div className="font-semibold text-gray-100 text-sm">{h.name}</div>
-                                    <div className="text-[11px] text-gray-600">SN{h.netuid}</div>
+                                    <div className="font-semibold text-gray-100 text-sm">{s.name}</div>
+                                    <div className="text-xs text-gray-500">SN{s.netuid}</div>
                                   </div>
                                 </div>
                               </td>
                               <td className="px-4 py-4 hidden md:table-cell">
-                                <div className="flex items-center gap-1.5">
-                                  <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${cat.dot}`} />
-                                  <span className={`text-xs font-medium ${cat.text}`}>{h.category}</span>
-                                </div>
+                                <span className="text-xs text-gray-400 font-medium">{s.category ?? s.benchmark_category ?? "—"}</span>
                               </td>
                               <td className="px-4 py-4 hidden lg:table-cell">
-                                <span className="text-sm text-gray-300 font-medium">{h.rev}</span>
+                                <span className="text-sm text-gray-300 font-medium tabular-nums">
+                                  {s.annual_revenue_usd && s.annual_revenue_usd > 0
+                                    ? `$${(s.annual_revenue_usd / 1_000_000).toFixed(1)}M ARR`
+                                    : "—"}
+                                </span>
                               </td>
                               <td className="px-4 py-4 text-right">
                                 <div className="flex items-center justify-end gap-2">
                                   <div className="w-16 h-1 rounded-full bg-white/5 overflow-hidden">
-                                    <div className="h-full rounded-full bg-gradient-to-r from-emerald-600 to-emerald-400" style={{ width: `${h.agap}%` }} />
+                                    <div className="h-full rounded-full bg-gradient-to-r from-emerald-600 to-emerald-400" style={{ width: `${h.score}%` }} />
                                   </div>
-                                  <span className="text-sm font-bold text-emerald-400 tabular-nums">{h.agap}</span>
+                                  <span className={`text-sm font-bold tabular-nums ${scoreColor(h.score)}`}>{h.score}</span>
                                 </div>
                               </td>
                               <td className="px-4 py-4 text-right">
                                 <span className="text-sm font-semibold text-gray-300 tabular-nums">{h.weight}%</span>
                               </td>
                               <td className="px-4 py-4 text-right">
-                                <span className={`text-sm font-bold tabular-nums ${h.change >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-                                  {h.change >= 0 ? "+" : ""}{h.change}%
-                                </span>
+                                {change30d != null ? (
+                                  <span className={`text-sm font-bold tabular-nums ${change30d >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                                    {change30d >= 0 ? "+" : ""}{change30d.toFixed(1)}%
+                                  </span>
+                                ) : <span className="text-gray-600 text-sm">—</span>}
                               </td>
                               <td className="px-4 py-4">
-                                <IconChevron className={`w-4 h-4 text-gray-700 group-hover:text-gray-500 transition-all ${expandedRow === h.netuid ? "rotate-180" : ""}`} />
+                                <IconChevron className={`w-4 h-4 text-gray-700 group-hover:text-gray-500 transition-all ${expandedRow === s.netuid ? "rotate-180" : ""}`} />
                               </td>
                             </tr>
-                            {expandedRow === h.netuid && (
+                            {expandedRow === s.netuid && (
                               <tr className="border-b border-white/[0.04] bg-emerald-500/[0.03]">
                                 <td colSpan={8} className="px-6 py-3">
-                                  <div className="flex items-start gap-3 pl-11">
-                                    <div className="w-px h-full bg-emerald-500/30 self-stretch mx-1 flex-shrink-0" />
+                                  <div className="flex items-start gap-3 pl-14">
                                     <p className="text-sm text-gray-300 leading-relaxed">
-                                      <span className="font-semibold text-emerald-400">Why it&apos;s in: </span>{h.thesis}
+                                      <span className="font-semibold text-emerald-400">aGap Score: {h.score} · </span>
+                                      {s.benchmark_summary
+                                        ? s.benchmark_summary.slice(0, 200) + (s.benchmark_summary.length > 200 ? "…" : "")
+                                        : "No summary available."}
                                     </p>
                                   </div>
                                 </td>
