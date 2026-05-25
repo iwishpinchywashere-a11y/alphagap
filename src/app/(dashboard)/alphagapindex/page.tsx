@@ -217,7 +217,7 @@ export default function AlphaGapIndexPage() {
           <h2 className="text-3xl sm:text-4xl font-black text-white mb-10">How it works</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {[
-              { n: "01", icon: <IconChart className="w-5 h-5" />, color: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20", title: "Oracle Watches All 128", body: "Live data across every subnet — benchmarks, whale flows, founder signals, emissions." },
+              { n: "01", icon: <IconChart className="w-5 h-5" />, color: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20", title: "AlphaGap Watches All 128", body: "Live data across every subnet — benchmarks, whale flows, founder signals, emissions." },
               { n: "02", icon: <IconTarget className="w-5 h-5" />, color: "text-blue-400 bg-blue-500/10 border-blue-500/20", title: "aGap Scores Each One", body: "Our formula ranks every subnet on performance, revenue, on-chain signals, and team execution." },
               { n: "03", icon: <IconTrend className="w-5 h-5" />, color: "text-violet-400 bg-violet-500/10 border-violet-500/20", title: "Top 10 Selected", body: "Every Sunday the 10 highest-conviction subnets form the index. No emotion — only data." },
               { n: "04", icon: <IconZap className="w-5 h-5" />, color: "text-amber-400 bg-amber-500/10 border-amber-500/20", title: "TrustedStake Executes", body: "Your TAO is deployed and rebalanced automatically. Yield compounded. You do nothing." },
@@ -484,7 +484,7 @@ export default function AlphaGapIndexPage() {
             <div className="relative flex flex-col md:flex-row gap-8 items-center justify-between">
               <div>
                 <p className="text-xs font-bold text-emerald-400/80 uppercase tracking-widest mb-4">Intelligence Layer</p>
-                <h2 className="text-3xl sm:text-4xl font-black text-white mb-3">The Oracle watches.<br />The Index acts.</h2>
+                <h2 className="text-3xl sm:text-4xl font-black text-white mb-3">AlphaGap watches.<br />The Index acts.</h2>
                 <p className="text-gray-400 text-lg mb-6 max-w-lg">Scores stay current between rebalances — live data, whale movements, founder signals, benchmark updates. Not a spreadsheet.</p>
                 <a href="/oracle" className="inline-flex items-center gap-2 px-6 py-3 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/25 text-emerald-400 text-base font-semibold rounded-xl transition-colors">
                   Ask the Oracle <IconArrow className="w-4 h-4" />
