@@ -139,16 +139,16 @@ export default function AlphaGapIndexPage() {
             </span>
           </div>
 
-          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-semibold tracking-tight leading-[1.1] mb-6">
+          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight leading-[1.0] mb-6">
             <span className="block text-white">AlphaGap</span>
             <span className="block bg-gradient-to-r from-emerald-300 via-green-400 to-emerald-500 bg-clip-text text-transparent">Subnet Index</span>
           </h1>
 
-          <p className="text-white text-lg sm:text-xl font-normal max-w-2xl leading-snug mb-4">
+          <p className="text-white text-xl sm:text-2xl font-medium max-w-2xl leading-snug mb-4">
             Connect your wallet. Deploy your TAO.<br />
             <span className="text-emerald-400">We do everything else.</span>
           </p>
-          <p className="text-gray-400 text-sm sm:text-base max-w-xl leading-relaxed mb-10">
+          <p className="text-gray-400 text-base sm:text-lg max-w-xl leading-relaxed mb-10">
             aGap picks the top 10 subnets. TrustedStake auto-buys the tokens, manages the portfolio, and rebalances every Sunday. You sit back, collect APY, and let the formula do the work.
           </p>
 
