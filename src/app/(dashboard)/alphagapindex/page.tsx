@@ -64,21 +64,6 @@ export default function AlphaGapIndexPage() {
             The top 10 Bittensor subnets selected by the <span className="text-green-400 font-semibold">aGap investing formula</span> — algorithmically picked, automatically deployed, and rebalanced every week through TrustedStake&apos;s non-custodial infrastructure.
           </p>
 
-          {/* Stat bar */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 max-w-2xl">
-            {[
-              { label: "Subnets Screened",   value: "128",    sub: "every week" },
-              { label: "Index Holdings",     value: "10",     sub: "concentrated" },
-              { label: "Rebalance Cadence",  value: "Weekly", sub: "Sundays 00:00 UTC" },
-              { label: "Custody Model",      value: "0%",     sub: "assets held by us" },
-            ].map(s => (
-              <div key={s.label} className="bg-gray-900/60 border border-gray-800 rounded-xl px-4 py-3">
-                <div className="text-2xl font-bold text-white tabular-nums">{s.value}</div>
-                <div className="text-xs font-medium text-gray-400 mt-0.5">{s.label}</div>
-                <div className="text-xs text-gray-600 mt-0.5">{s.sub}</div>
-              </div>
-            ))}
-          </div>
         </div>
       </div>
 
