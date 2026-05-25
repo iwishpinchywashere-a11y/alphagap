@@ -217,8 +217,6 @@ export default function AlphaGapIndexPage() {
           <h2 className="text-3xl font-black text-white mb-10">How it works</h2>
 
           <div className="relative">
-            {/* Connecting line */}
-            <div className="hidden lg:block absolute top-8 left-8 right-8 h-px bg-gradient-to-r from-transparent via-emerald-500/20 to-transparent" />
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {[
