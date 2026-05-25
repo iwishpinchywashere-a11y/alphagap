@@ -434,9 +434,9 @@ export default function AlphaGapIndexPage() {
 
         {/* ── FAQ ──────────────────────────────────────────────────────────── */}
         <section className="py-16 border-b border-white/5">
-          <p className="text-xs font-bold text-emerald-400/80 uppercase tracking-widest mb-4">Questions</p>
-          <h2 className="text-3xl sm:text-4xl font-black text-white mb-8">Common questions</h2>
-          <div className="space-y-2 max-w-3xl">
+          <p className="text-xs font-bold text-emerald-400/80 uppercase tracking-widest mb-4 text-center">Questions</p>
+          <h2 className="text-3xl sm:text-4xl font-black text-white mb-8 text-center">Common questions</h2>
+          <div className="space-y-2 max-w-3xl mx-auto">
             {[
               { q: "Is my TAO safe?", a: "Yes. Non-custodial — your TAO never leaves your wallet. TrustedStake only executes delegations on your behalf." },
               { q: "What wallets are supported?", a: "Talisman and SubWallet. Both are Bittensor-native and available as browser extensions." },
