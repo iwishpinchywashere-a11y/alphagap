@@ -820,8 +820,11 @@ async function analyzeFounderPosts(
         FOUNDER_USER_IDS.has(msg.author.id) ||
         uname.startsWith("const") ||
         displayName.startsWith("const");
-      // Track ALL Const posts — even short ones. The previous >15 char threshold
-      // silently dropped brief replies and short comments. We want every post.
+      // Skip thumbs-up / thumbs-down reaction messages — Const uses these constantly
+      // to vote on things and they generate duplicate noise with no signal.
+      const IGNORE_PATTERNS = /^(👍|👎|🤙|✅|❌|thumbs\s*up|thumbs\s*down|\+1|-1|✔|✖)+$/i;
+      if (isFounder && IGNORE_PATTERNS.test(msg.content.trim())) continue;
+      // Track all other Const posts — even short ones.
       if (isFounder && msg.content.trim().length > 2) {
         if (!byChannel.has(scan.channelName)) {
           byChannel.set(scan.channelName, {
