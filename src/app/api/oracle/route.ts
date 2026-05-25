@@ -8,7 +8,19 @@ import Anthropic from "@anthropic-ai/sdk";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-const DAILY_LIMIT = 25;
+// Oracle daily limits per tier
+// Free + Pro: no access (403)
+// Premium ($49/mo): 15/day   — ~$2.70/mo worst-case with caching
+// Ultra ($99/mo):   50/day   — ~$9.00/mo worst-case with caching
+const DAILY_LIMITS: Record<string, number> = {
+  premium: 15,
+  ultra:   50,
+};
+
+// Max conversation turns sent to the model — keeps context cost bounded.
+// 15 turns = 30 messages (user + assistant alternating).
+const MAX_TURNS = 15;
+
 const TOKEN = () => process.env.BLOB_READ_WRITE_TOKEN || "";
 
 // ── Rate limit helpers ───────────────────────────────────────────────
@@ -345,20 +357,27 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
   const tier = getTier(session);
-  if (tier !== "premium")
+
+  // Free and Pro have no Oracle access
+  if (tier === "free" || tier === "pro")
     return NextResponse.json({ error: "premium_required" }, { status: 403 });
 
+  const dailyLimit = DAILY_LIMITS[tier] ?? 15;
   const email = session.user.email;
   const today = new Date().toISOString().slice(0, 10);
   const rl = await getRateLimit(email);
   const count = rl.date === today ? rl.count : 0;
 
-  if (count >= DAILY_LIMIT)
-    return NextResponse.json({ error: "rate_limited", message: `You've used all ${DAILY_LIMIT} Oracle queries today. Resets at midnight UTC.` }, { status: 429 });
+  if (count >= dailyLimit)
+    return NextResponse.json({ error: "rate_limited", message: `You've used all ${dailyLimit} Oracle queries today. Resets at midnight UTC.` }, { status: 429 });
 
-  const { messages } = await req.json() as { messages: { role: string; content: string }[] };
-  if (!messages?.length)
+  const { messages: rawMessages } = await req.json() as { messages: { role: string; content: string }[] };
+  if (!rawMessages?.length)
     return NextResponse.json({ error: "No messages" }, { status: 400 });
+
+  // Cap at MAX_TURNS to prevent ballooning context costs in long conversations.
+  // Keep the last N messages (pairs of user+assistant), always ending on a user message.
+  const messages = rawMessages.slice(-MAX_TURNS * 2);
 
   // Fire-and-forget rate limit increment
   incrementRateLimit(email, { date: today, count: count + 1 }).catch(() => {});
@@ -396,12 +415,21 @@ export async function POST(req: NextRequest) {
   const stream = new ReadableStream({
     async start(controller) {
       try {
+        // Prompt caching: mark the system prompt block as cacheable.
+        // Anthropic caches this for 5 minutes — subsequent queries within the
+        // window pay $0.08/M instead of $0.80/M on input tokens (~10x savings).
         const anthropicStream = anthropic.messages.stream({
           model: "claude-haiku-4-5",
           max_tokens: 1500,
-          system: systemPrompt,
+          system: [
+            {
+              type: "text",
+              text: systemPrompt,
+              cache_control: { type: "ephemeral" },
+            },
+          ],
           messages: messages.map(m => ({ role: m.role as "user" | "assistant", content: m.content })),
-        });
+        } as Parameters<typeof anthropic.messages.stream>[0]);
         for await (const chunk of anthropicStream) {
           if (chunk.type === "content_block_delta" && chunk.delta.type === "text_delta")
             controller.enqueue(new TextEncoder().encode(chunk.delta.text));
@@ -418,8 +446,8 @@ export async function POST(req: NextRequest) {
   return new Response(stream, {
     headers: {
       "Content-Type": "text/plain; charset=utf-8",
-      "X-Oracle-Remaining": String(DAILY_LIMIT - count - 1),
-      "X-Oracle-Limit": String(DAILY_LIMIT),
+      "X-Oracle-Remaining": String(dailyLimit - count - 1),
+      "X-Oracle-Limit": String(dailyLimit),
     },
   });
 }

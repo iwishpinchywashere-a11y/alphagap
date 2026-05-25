@@ -19,7 +19,7 @@ interface UserEntry {
   email: string;
   name: string;
   subscriptionStatus: "none" | "active" | "canceled" | "past_due" | "trialing";
-  subscriptionTier?: "pro" | "premium" | null;
+  subscriptionTier?: "pro" | "premium" | "ultra" | null;
   stripeCustomerId?: string;
   createdAt: string;
 }
@@ -48,7 +48,7 @@ export default function AdminPage() {
   const [actionEmail, setActionEmail] = useState("");
   const [actionMsg, setActionMsg] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
-  const [filter, setFilter] = useState<"all" | "pro" | "premium" | "free">("all");
+  const [filter, setFilter] = useState<"all" | "ultra" | "pro" | "premium" | "free">("all");
   const [reviews, setReviews] = useState<Review[]>([]);
   const [reviewsLoading, setReviewsLoading] = useState(true);
   const [reviewFilter, setReviewFilter] = useState<"pending" | "approved" | "denied">("pending");
@@ -77,7 +77,7 @@ export default function AdminPage() {
       .finally(() => setReviewsLoading(false));
   }, [status, isAdmin]);
 
-  async function doAction(action: "grant" | "revoke" | "make-admin" | "delete" | "set-tier" | "sync-user", email: string, tier?: "free" | "pro" | "premium") {
+  async function doAction(action: "grant" | "revoke" | "make-admin" | "delete" | "set-tier" | "sync-user", email: string, tier?: "free" | "pro" | "premium" | "ultra") {
     if (action === "delete" && !confirm(`Permanently delete account: ${email}?`)) return;
     setActionLoading(true);
     setActionMsg("");
@@ -159,14 +159,16 @@ export default function AdminPage() {
   }
 
   const active = users.filter(u => u.subscriptionStatus === "active" || u.subscriptionStatus === "trialing").length;
-  const proCount = users.filter(u => (u.subscriptionStatus === "active" || u.subscriptionStatus === "trialing") && (u as any).subscriptionTier !== "premium").length;
+  const proCount = users.filter(u => (u.subscriptionStatus === "active" || u.subscriptionStatus === "trialing") && (u as any).subscriptionTier !== "premium" && (u as any).subscriptionTier !== "ultra").length;
   const premiumCount = users.filter(u => (u.subscriptionStatus === "active" || u.subscriptionStatus === "trialing") && (u as any).subscriptionTier === "premium").length;
+  const ultraCount = users.filter(u => (u.subscriptionStatus === "active" || u.subscriptionStatus === "trialing") && (u as any).subscriptionTier === "ultra").length;
 
   const freeCount = users.filter(u => u.subscriptionStatus !== "active" && u.subscriptionStatus !== "trialing").length;
 
   const filteredUsers = users.filter(u => {
-    if (filter === "pro") return (u.subscriptionStatus === "active" || u.subscriptionStatus === "trialing") && (u as any).subscriptionTier !== "premium";
+    if (filter === "pro") return (u.subscriptionStatus === "active" || u.subscriptionStatus === "trialing") && (u as any).subscriptionTier !== "premium" && (u as any).subscriptionTier !== "ultra";
     if (filter === "premium") return (u.subscriptionStatus === "active" || u.subscriptionStatus === "trialing") && (u as any).subscriptionTier === "premium";
+    if (filter === "ultra") return (u.subscriptionStatus === "active" || u.subscriptionStatus === "trialing") && (u as any).subscriptionTier === "ultra";
     if (filter === "free") return u.subscriptionStatus !== "active" && u.subscriptionStatus !== "trialing";
     return true;
   });
@@ -276,8 +278,9 @@ export default function AdminPage() {
           <div className="px-6 py-4 border-b border-gray-800 flex items-center gap-3 flex-wrap">
             {([
               { key: "all", label: "All Users", count: users.length },
-              { key: "pro", label: "Pro", count: proCount },
+              { key: "ultra", label: "Ultra", count: ultraCount },
               { key: "premium", label: "Premium", count: premiumCount },
+              { key: "pro", label: "Pro", count: proCount },
               { key: "free", label: "Free", count: freeCount },
             ] as const).map(f => (
               <button
@@ -328,8 +331,12 @@ export default function AdminPage() {
                           {user.subscriptionStatus}
                         </span>
                         {isActive && (
-                          <span className={`ml-1.5 text-xs font-bold px-2 py-0.5 rounded-full border ${user.subscriptionTier === "premium" ? "bg-purple-500/10 text-purple-400 border-purple-500/20" : "bg-green-500/10 text-green-400 border-green-500/20"}`}>
-                            {user.subscriptionTier === "premium" ? "Premium" : "Pro"}
+                          <span className={`ml-1.5 text-xs font-bold px-2 py-0.5 rounded-full border ${
+                            user.subscriptionTier === "ultra"   ? "bg-amber-500/10 text-amber-400 border-amber-500/20" :
+                            user.subscriptionTier === "premium" ? "bg-purple-500/10 text-purple-400 border-purple-500/20" :
+                            "bg-green-500/10 text-green-400 border-green-500/20"
+                          }`}>
+                            {user.subscriptionTier === "ultra" ? "Ultra" : user.subscriptionTier === "premium" ? "Premium" : "Pro"}
                           </span>
                         )}
                       </td>
@@ -338,14 +345,17 @@ export default function AdminPage() {
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-1">
-                          {(["free", "pro", "premium"] as const).map(t => (
+                          {(["free", "pro", "premium", "ultra"] as const).map(t => (
                             <button
                               key={t}
                               onClick={() => doAction("set-tier", user.email, t)}
                               disabled={actionLoading || currentTier === t}
                               className={`text-xs px-2 py-1 rounded border font-medium transition-colors disabled:opacity-40 disabled:cursor-default ${
                                 currentTier === t
-                                  ? t === "premium" ? "bg-purple-500/20 text-purple-300 border-purple-500/40" : t === "pro" ? "bg-green-500/20 text-green-300 border-green-500/40" : "bg-gray-700 text-gray-300 border-gray-600"
+                                  ? t === "ultra"   ? "bg-amber-500/20 text-amber-300 border-amber-500/40"
+                                  : t === "premium" ? "bg-purple-500/20 text-purple-300 border-purple-500/40"
+                                  : t === "pro"     ? "bg-green-500/20 text-green-300 border-green-500/40"
+                                  :                   "bg-gray-700 text-gray-300 border-gray-600"
                                   : "bg-gray-800 text-gray-500 border-gray-700 hover:text-gray-200 hover:border-gray-500"
                               }`}
                             >
