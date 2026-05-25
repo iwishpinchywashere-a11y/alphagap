@@ -439,24 +439,19 @@ export default function OraclePage() {
 
           {/* Premium gate OR input + chips */}
           {!isPremium ? (
-            <div className="relative rounded-2xl overflow-hidden border-2 border-green-500/20 shadow-xl shadow-green-500/5">
-              {/* Blurred background input */}
-              <div className="bg-[#111118] px-5 py-4 text-gray-500 text-base select-none">
-                Ask anything — e.g. &quot;Which subnets should I watch right now?&quot;
+            <div className="rounded-2xl border border-green-500/20 bg-[#0d0d14] shadow-xl shadow-green-500/5 px-8 py-10 text-center">
+              <div className="w-14 h-14 rounded-2xl bg-green-500/10 border border-green-500/20 flex items-center justify-center text-2xl mx-auto mb-5">
+                🔮
               </div>
-              {/* Overlay */}
-              <div className="absolute inset-0 flex items-center justify-center bg-[#080810]/90 backdrop-blur-[3px]">
-                <div className="text-center px-6 py-4">
-                  <div className="text-4xl mb-3">🔒</div>
-                  <p className="text-lg font-bold text-white mb-1">Premium members only</p>
-                  <p className="text-sm text-gray-400 mb-5">25 queries/day · Live data from every subnet</p>
-                  <a
-                    href="/checkout?plan=premium"
-                    className="inline-block bg-gradient-to-r from-green-400 to-emerald-500 hover:from-green-300 hover:to-emerald-400 text-black text-sm font-bold px-7 py-3 rounded-xl transition-all shadow-lg shadow-green-500/25 active:scale-95"
-                  >
-                    Upgrade to Premium →
-                  </a>
-                </div>
+              <p className="text-xl font-bold text-white mb-2">Premium members only</p>
+              <p className="text-sm text-gray-500 mb-6">15 queries/day &nbsp;·&nbsp; Live data from every subnet</p>
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+                <a
+                  href="/checkout?plan=premium"
+                  className="inline-block bg-gradient-to-r from-green-400 to-emerald-500 hover:from-green-300 hover:to-emerald-400 text-black text-sm font-bold px-7 py-3 rounded-xl transition-all shadow-lg shadow-green-500/25 active:scale-95 w-full sm:w-auto"
+                >
+                  Upgrade to Premium →
+                </a>
               </div>
             </div>
           ) : (
