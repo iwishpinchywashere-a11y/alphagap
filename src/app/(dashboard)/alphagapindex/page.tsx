@@ -122,8 +122,8 @@ export default function AlphaGapIndexPage() {
         <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse 40% 60% at 80% 50%, rgba(245,158,11,0.04) 0%, transparent 60%)" }} />
         <div className="absolute inset-0 opacity-[0.018]" style={{ backgroundImage: "linear-gradient(rgba(255,255,255,1) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,1) 1px,transparent 1px)", backgroundSize: "40px 40px" }} />
 
-        <div className="relative px-6 md:px-12 pt-16 pb-14">
-          <div className="flex flex-wrap gap-2 mb-8">
+        <div className="relative px-6 md:px-12 pt-16 pb-14 text-center flex flex-col items-center">
+          <div className="flex flex-wrap justify-center gap-2 mb-8">
             <span className="inline-flex items-center gap-1.5 text-[11px] font-bold tracking-widest uppercase px-3 py-1.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20">
               <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
               Ultra Exclusive
@@ -153,7 +153,7 @@ export default function AlphaGapIndexPage() {
           </p>
 
           {/* 3-step visual */}
-          <div className="flex flex-wrap items-center gap-3 mb-10">
+          <div className="flex flex-wrap justify-center items-center gap-3 mb-10">
             {[
               { n: "1", label: "Connect wallet", icon: <IconShield className="w-4 h-4" />, color: "text-emerald-400 border-emerald-500/30 bg-emerald-500/10" },
               { n: "2", label: "Deploy your TAO", icon: <IconZap className="w-4 h-4" />, color: "text-emerald-400 border-emerald-500/30 bg-emerald-500/10" },
@@ -170,10 +170,10 @@ export default function AlphaGapIndexPage() {
             ))}
           </div>
 
-          <div className="flex items-center gap-4">
-            <div className="h-px flex-1 bg-gradient-to-r from-emerald-500/30 to-transparent" />
-            <span className="text-xs text-gray-500 font-medium tracking-widest uppercase">Fundamental · Systematic · Non-custodial</span>
-            <div className="h-px flex-1 bg-gradient-to-l from-emerald-500/30 to-transparent" />
+          <div className="flex items-center gap-4 w-full max-w-lg">
+            <div className="h-px flex-1 bg-gradient-to-r from-transparent to-emerald-500/30" />
+            <span className="text-xs text-gray-500 font-medium tracking-widest uppercase whitespace-nowrap">Fundamental · Systematic · Non-custodial</span>
+            <div className="h-px flex-1 bg-gradient-to-l from-transparent to-emerald-500/30" />
           </div>
         </div>
       </section>
