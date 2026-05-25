@@ -183,110 +183,48 @@ export default function AlphaGapIndexPage() {
         {/* ── THE PROBLEM ─────────────────────────────────────────────────── */}
         <section className="py-16 border-b border-white/5">
           <p className="text-xs font-bold text-emerald-400/80 uppercase tracking-widest mb-4">Why This Exists</p>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 items-start">
-            <div>
-              <h2 className="text-3xl sm:text-4xl font-black text-white leading-tight mb-5">
-                128 subnets.<br />
-                <span className="text-gray-500">One portfolio.</span><br />
-                Zero guesswork.
-              </h2>
-              <p className="text-gray-400 text-sm leading-relaxed mb-4">
-                Every signal that matters in Bittensor is public and observable. Validator stakes, emissions, benchmark scores, whale flows, founder comms — it&apos;s all there. The problem isn&apos;t access. It&apos;s processing it.
-              </p>
-              <p className="text-gray-500 text-sm leading-relaxed">
-                TrustedStake estimates it takes over 1,400 hours to become a competent Bittensor investor. The AlphaGap Subnet Index is what happens when you give that research job to the Oracle — and pipe the output directly into a managed, non-custodial portfolio.
-              </p>
-            </div>
-
-            <div className="space-y-3">
-              {[
-                {
-                  icon: <IconLayers className="w-4 h-4" />,
-                  color: "text-red-400 bg-red-500/10 border-red-500/20",
-                  title: "The Hydra Problem",
-                  desc: "New subnets launch every week. Existing ones pivot, merge, or collapse. Keeping up requires someone living and breathing this ecosystem full-time.",
-                },
-                {
-                  icon: <IconShield className="w-4 h-4" />,
-                  color: "text-amber-400 bg-amber-500/10 border-amber-500/20",
-                  title: "The Moat Problem",
-                  desc: "Mastering validator selection, dTAO mechanics, and stake allocation game theory simultaneously took the TrustedStake team 1,453 hours.",
-                },
-                {
-                  icon: <IconChart className="w-4 h-4" />,
-                  color: "text-blue-400 bg-blue-500/10 border-blue-500/20",
-                  title: "The Clock Problem",
-                  desc: "Without full-time attention, you miss optimal entries, rebalancing windows, and new launches. By the time you research an opportunity, whales are already in.",
-                },
-              ].map(p => (
-                <div key={p.title} className="flex gap-4 p-4 rounded-xl border border-white/5 bg-white/[0.02] hover:bg-white/[0.04] transition-colors">
-                  <div className={`w-8 h-8 rounded-lg border flex items-center justify-center flex-shrink-0 ${p.color}`}>
-                    {p.icon}
-                  </div>
-                  <div>
-                    <div className="font-semibold text-white text-base mb-1">{p.title}</div>
-                    <p className="text-sm text-gray-300 leading-relaxed">{p.desc}</p>
-                  </div>
+          <h2 className="text-3xl sm:text-4xl font-black text-white leading-tight mb-8">
+            128 subnets.<br />
+            <span className="text-gray-500">One portfolio.</span><br />
+            Zero guesswork.
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {[
+              { icon: <IconLayers className="w-5 h-5" />, color: "text-red-400 bg-red-500/10 border-red-500/20", title: "Too Many Subnets", desc: "128 subnets and counting. New ones launch weekly. You can't track them all." },
+              { icon: <IconShield className="w-5 h-5" />, color: "text-amber-400 bg-amber-500/10 border-amber-500/20", title: "Too Much Complexity", desc: "Validator selection, dTAO mechanics, stake allocation — it takes 1,400+ hours to master." },
+              { icon: <IconChart className="w-5 h-5" />, color: "text-blue-400 bg-blue-500/10 border-blue-500/20", title: "No Time to React", desc: "Miss a rebalance window and whales are already in. This solves that." },
+            ].map(p => (
+              <div key={p.title} className="flex gap-4 p-5 rounded-xl border border-white/5 bg-white/[0.02]">
+                <div className={`w-10 h-10 rounded-xl border flex items-center justify-center flex-shrink-0 ${p.color}`}>{p.icon}</div>
+                <div>
+                  <div className="font-bold text-white text-lg mb-1">{p.title}</div>
+                  <p className="text-base text-gray-400 leading-relaxed">{p.desc}</p>
                 </div>
-              ))}
-            </div>
+              </div>
+            ))}
           </div>
         </section>
 
         {/* ── HOW IT WORKS ─────────────────────────────────────────────────── */}
         <section className="py-16 border-b border-white/5">
           <p className="text-xs font-bold text-emerald-400/80 uppercase tracking-widest mb-4">The System</p>
-          <h2 className="text-3xl font-black text-white mb-10">How it works</h2>
-
-          <div className="relative">
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {[
-                {
-                  n: "01",
-                  icon: <IconChart className="w-5 h-5" />,
-                  color: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20",
-                  glow: "shadow-emerald-500/10",
-                  title: "Oracle Monitors All 128",
-                  body: "Live ingestion of benchmark scores, revenue data, whale wallet flows, founder Discord activity, and on-chain emissions across every subnet — 24/7.",
-                },
-                {
-                  n: "02",
-                  icon: <IconTarget className="w-5 h-5" />,
-                  color: "text-blue-400 bg-blue-500/10 border-blue-500/20",
-                  glow: "shadow-blue-500/10",
-                  title: "aGap Scores Each Subnet",
-                  body: "Our proprietary formula evaluates every subnet across performance, revenue, on-chain signals, team execution, and market opportunity. Scores updated weekly.",
-                },
-                {
-                  n: "03",
-                  icon: <IconTrend className="w-5 h-5" />,
-                  color: "text-violet-400 bg-violet-500/10 border-violet-500/20",
-                  glow: "shadow-violet-500/10",
-                  title: "Top 10 Selected",
-                  body: "Every Sunday the formula re-ranks all 128. The 10 highest-conviction subnets form the index. No emotion, no narrative chasing — only the data.",
-                },
-                {
-                  n: "04",
-                  icon: <IconZap className="w-5 h-5" />,
-                  color: "text-amber-400 bg-amber-500/10 border-amber-500/20",
-                  glow: "shadow-amber-500/10",
-                  title: "TrustedStake Executes",
-                  body: "Your stake is deployed and rebalanced automatically. Validators are continuously optimised. Root yield is compounded. You watch the dashboard.",
-                },
-              ].map(s => (
-                <div key={s.n} className={`relative p-5 rounded-2xl border border-white/6 bg-white/[0.025] shadow-xl ${s.glow} hover:bg-white/[0.04] transition-all`}>
-                  <div className="flex items-center justify-between mb-4">
-                    <div className={`w-9 h-9 rounded-xl border flex items-center justify-center ${s.color}`}>
-                      {s.icon}
-                    </div>
-                    <span className="text-xs font-black text-white/20 tabular-nums">{s.n}</span>
-                  </div>
-                  <div className="font-bold text-white text-base mb-2">{s.title}</div>
-                  <p className="text-sm text-gray-300 leading-relaxed">{s.body}</p>
+          <h2 className="text-3xl sm:text-4xl font-black text-white mb-10">How it works</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {[
+              { n: "01", icon: <IconChart className="w-5 h-5" />, color: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20", title: "Oracle Watches All 128", body: "Live data across every subnet — benchmarks, whale flows, founder signals, emissions." },
+              { n: "02", icon: <IconTarget className="w-5 h-5" />, color: "text-blue-400 bg-blue-500/10 border-blue-500/20", title: "aGap Scores Each One", body: "Our formula ranks every subnet on performance, revenue, on-chain signals, and team execution." },
+              { n: "03", icon: <IconTrend className="w-5 h-5" />, color: "text-violet-400 bg-violet-500/10 border-violet-500/20", title: "Top 10 Selected", body: "Every Sunday the 10 highest-conviction subnets form the index. No emotion — only data." },
+              { n: "04", icon: <IconZap className="w-5 h-5" />, color: "text-amber-400 bg-amber-500/10 border-amber-500/20", title: "TrustedStake Executes", body: "Your TAO is deployed and rebalanced automatically. Yield compounded. You do nothing." },
+            ].map(s => (
+              <div key={s.n} className="relative p-5 rounded-2xl border border-white/6 bg-white/[0.025] hover:bg-white/[0.04] transition-all">
+                <div className="flex items-center justify-between mb-4">
+                  <div className={`w-10 h-10 rounded-xl border flex items-center justify-center ${s.color}`}>{s.icon}</div>
+                  <span className="text-sm font-black text-white/20 tabular-nums">{s.n}</span>
                 </div>
-              ))}
-            </div>
+                <div className="font-bold text-white text-lg mb-2">{s.title}</div>
+                <p className="text-base text-gray-400 leading-relaxed">{s.body}</p>
+              </div>
+            ))}
           </div>
         </section>
 
@@ -418,8 +356,8 @@ export default function AlphaGapIndexPage() {
                   </table>
                 </div>
                 <div className="px-6 py-3 border-t border-white/5 flex flex-wrap items-center justify-between gap-2">
-                  <p className="text-xs text-gray-400">Click any row to expand the investment thesis. Weights are proportional to aGap scores.</p>
-                  <p className="text-xs text-gray-400 italic">Preview — live allocations update post-rebalance</p>
+                  <p className="text-sm text-gray-400">Click any row to see the investment thesis.</p>
+                  <p className="text-sm text-gray-500 italic">Live allocations update post-rebalance</p>
                 </div>
               </div>
 
@@ -430,215 +368,65 @@ export default function AlphaGapIndexPage() {
         {/* ── aGAP METHODOLOGY ─────────────────────────────────────────────── */}
         <section className="py-16 border-b border-white/5">
           <p className="text-xs font-bold text-emerald-400/80 uppercase tracking-widest mb-4">The Formula</p>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 items-start mb-10">
-            <div>
-              <h2 className="text-3xl font-black text-white mb-4">aGap Investing Methodology</h2>
-              <p className="text-gray-400 text-sm leading-relaxed mb-3">
-                aGap is a proprietary multi-factor scoring model built for <strong className="text-white font-semibold">long-term subnet investing — not short-term trading</strong>. It deliberately deprioritises price momentum in favour of subnets building durable, revenue-generating businesses on Bittensor.
-              </p>
-              <p className="text-gray-500 text-sm leading-relaxed">
-                The exact formula and weightings are proprietary. The philosophy is simple: back subnets with real products, real customers, and real teams. Not narrative.
-              </p>
-            </div>
-            <div className="p-5 rounded-2xl border border-emerald-500/15 bg-emerald-500/5">
-              <p className="text-xs font-bold text-emerald-400/80 uppercase tracking-widest mb-4">Result</p>
-              <div className="space-y-3">
-                {[
-                  ["Lower churn", "Rebalances only when fundamentals shift — not price"],
-                  ["Higher conviction", "10 concentrated positions, not 40+ diluted bets"],
-                  ["Fewer whipsaws", "No daily momentum chasing — weekly fundamental review"],
-                ].map(([title, sub]) => (
-                  <div key={title} className="flex items-start gap-3">
-                    <div className="w-5 h-5 rounded-full bg-emerald-500/15 border border-emerald-500/25 flex items-center justify-center flex-shrink-0 mt-0.5">
-                      <IconCheck className="w-3 h-3 text-emerald-400" />
-                    </div>
-                    <div>
-                      <span className="text-sm font-semibold text-white">{title}</span>
-                      <span className="text-sm text-gray-300 ml-2">{sub}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+          <h2 className="text-3xl sm:text-4xl font-black text-white mb-3">aGap Investing Methodology</h2>
+          <p className="text-gray-400 text-lg mb-10 max-w-2xl">Built for long-term investing — not trading. We back subnets with real products, real customers, and real teams.</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {[
-              {
-                icon: <IconTarget className="w-5 h-5" />,
-                color: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20",
-                label: "Real-World Performance",
-                detail: "How each subnet&apos;s AI output actually performs against the centralised players it&apos;s competing with. Head-to-head benchmarks across accuracy, throughput, and output quality — not self-reported metrics.",
-              },
-              {
-                icon: <IconDollar className="w-5 h-5" />,
-                color: "text-green-400 bg-green-500/10 border-green-500/20",
-                label: "Revenue Potential",
-                detail: "We look at a subnet's ability to generate real external income — existing customers, product traction, market size, and commercialisation progress. Verified revenue is the strongest signal, but early-stage subnets with clear monetisation paths score well too.",
-              },
-              {
-                icon: <IconTrend className="w-5 h-5" />,
-                color: "text-blue-400 bg-blue-500/10 border-blue-500/20",
-                label: "On-Chain Signals",
-                detail: "Stake velocity, whale accumulation patterns, validator confidence, and TAO inflow trends. We track where sophisticated capital is quietly moving — before the narrative catches up.",
-              },
-              {
-                icon: <IconUsers className="w-5 h-5" />,
-                color: "text-violet-400 bg-violet-500/10 border-violet-500/20",
-                label: "Team & Execution",
-                detail: "Shipping cadence, founder track record, community health, and public communications. The Oracle monitors key founder activity in real-time — including Discord signals from the builders who matter.",
-              },
+              { icon: <IconTarget className="w-5 h-5" />, color: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20", label: "Real-World Performance", detail: "Head-to-head benchmarks against centralised competitors. Not self-reported metrics." },
+              { icon: <IconDollar className="w-5 h-5" />, color: "text-green-400 bg-green-500/10 border-green-500/20", label: "Revenue Potential", detail: "Real customers, product traction, and clear paths to monetisation." },
+              { icon: <IconTrend className="w-5 h-5" />, color: "text-blue-400 bg-blue-500/10 border-blue-500/20", label: "On-Chain Signals", detail: "Whale accumulation, stake velocity, and validator confidence — before narratives catch up." },
+              { icon: <IconUsers className="w-5 h-5" />, color: "text-violet-400 bg-violet-500/10 border-violet-500/20", label: "Team & Execution", detail: "Shipping cadence, founder track record, and real community health." },
             ].map(f => (
               <div key={f.label} className="flex gap-4 p-5 rounded-xl border border-white/6 bg-white/[0.02] hover:bg-white/[0.04] transition-colors">
-                <div className={`w-9 h-9 rounded-xl border flex items-center justify-center flex-shrink-0 ${f.color}`}>
-                  {f.icon}
-                </div>
+                <div className={`w-10 h-10 rounded-xl border flex items-center justify-center flex-shrink-0 ${f.color}`}>{f.icon}</div>
                 <div>
-                  <div className="font-bold text-white text-base mb-1.5">{f.label}</div>
-                  <p className="text-sm text-gray-300 leading-relaxed">{f.detail}</p>
+                  <div className="font-bold text-white text-lg mb-1">{f.label}</div>
+                  <p className="text-base text-gray-400 leading-relaxed">{f.detail}</p>
                 </div>
               </div>
             ))}
-          </div>
-
-          {/* Rules */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="p-5 rounded-xl border border-white/6 bg-white/[0.02]">
-              <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">Inclusion Rules</p>
-              <ul className="space-y-3">
-                {[
-                  "Minimum aGap score of 65 for index eligibility",
-                  "Max 3 subnets per category — no sector concentration",
-                  "Minimum 90 days of live on-chain data required",
-                  "No subnet with unverified or fabricated revenue",
-                  "Active validator competition required — no monopoly",
-                ].map(r => (
-                  <li key={r} className="flex items-start gap-2.5 text-sm text-gray-300">
-                    <div className="w-4 h-4 rounded-full bg-emerald-500/10 flex items-center justify-center flex-shrink-0 mt-0.5">
-                      <IconCheck className="w-2.5 h-2.5 text-emerald-500" />
-                    </div>
-                    {r}
-                  </li>
-                ))}
-              </ul>
-            </div>
-            <div className="p-5 rounded-xl border border-white/6 bg-white/[0.02]">
-              <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">Rebalance Rules</p>
-              <ul className="space-y-3">
-                {[
-                  "Rebalance only if top-10 composition changes — no churn",
-                  "New entrant must score ≥5pts above the subnet it displaces",
-                  "Maximum 3 rotations per rebalance to limit costs",
-                  "Weights recalculated each rebalance from relative aGap scores",
-                  "Emergency rebalance if a subnet is abandoned or exploited",
-                ].map(r => (
-                  <li key={r} className="flex items-start gap-2.5 text-sm text-gray-300">
-                    <div className="w-4 h-4 rounded-full bg-blue-500/10 flex items-center justify-center flex-shrink-0 mt-0.5">
-                      <IconArrow className="w-2.5 h-2.5 text-blue-500" />
-                    </div>
-                    {r}
-                  </li>
-                ))}
-              </ul>
-            </div>
           </div>
         </section>
 
         {/* ── TRUSTEDSTAKE ─────────────────────────────────────────────────── */}
         <section className="py-16 border-b border-white/5">
           <p className="text-xs font-bold text-emerald-400/80 uppercase tracking-widest mb-4">Our Partner</p>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 items-start mb-10">
-            <div>
-              <h2 className="text-3xl font-black text-white mb-4">TrustedStake Infrastructure</h2>
-              <p className="text-gray-400 text-sm leading-relaxed mb-3">
-                TrustedStake is non-custodial enterprise staking infrastructure for the Bittensor ecosystem. Their platform handles the full complexity of managing multi-subnet positions — so the AlphaGap Index can focus on <em>what</em> to hold, not <em>how</em> to hold it.
-              </p>
-              <p className="text-gray-500 text-sm leading-relaxed mb-5">
-                Partners include Kraken Institutional, Talisman, SubWallet, and Tao Institute — the same organisations that validate what&apos;s real in this ecosystem.
-              </p>
-              <a href="https://trustedstake.ai" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 text-sm text-emerald-400 hover:text-emerald-300 font-medium transition-colors">
-                Visit trustedstake.ai <IconArrow className="w-3.5 h-3.5" />
-              </a>
-            </div>
-            <div className="p-5 rounded-2xl border border-white/6 bg-white/[0.025]">
-              <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">The Yield Engine</p>
-              <div className="space-y-4">
-                {[
-                  { icon: <IconRefresh className="w-4 h-4" />, color: "text-blue-400 bg-blue-500/10 border-blue-500/20", title: "Automated Rebalancing", desc: "When the AlphaGap Index rotates on Sunday, TrustedStake executes the full transition automatically — no manual action needed." },
-                  { icon: <IconTarget className="w-4 h-4" />, color: "text-violet-400 bg-violet-500/10 border-violet-500/20", title: "Optimal Validator Selection", desc: "Continuous monitoring selects the highest-performing validators per subnet to maximise yield, switching whenever better opportunities emerge." },
-                  { icon: <IconTrend className="w-4 h-4" />, color: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20", title: "Root Yield Compounding", desc: "Root network yield is automatically reinvested back into index positions — compounding your exposure without any manual intervention." },
-                ].map(f => (
-                  <div key={f.title} className="flex gap-3">
-                    <div className={`w-7 h-7 rounded-lg border flex items-center justify-center flex-shrink-0 mt-0.5 ${f.color}`}>{f.icon}</div>
-                    <div>
-                      <div className="text-base font-semibold text-white mb-0.5">{f.title}</div>
-                      <p className="text-sm text-gray-300 leading-relaxed">{f.desc}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
+          <h2 className="text-3xl sm:text-4xl font-black text-white mb-3">TrustedStake Infrastructure</h2>
+          <p className="text-gray-400 text-lg mb-10 max-w-2xl">Non-custodial enterprise staking for Bittensor. Trusted by Kraken Institutional, Talisman, and SubWallet.
+            <a href="https://trustedstake.ai" target="_blank" rel="noopener noreferrer" className="ml-2 text-emerald-400 hover:text-emerald-300 transition-colors">trustedstake.ai →</a>
+          </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {[
-              { icon: <IconShield className="w-4 h-4" />, color: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20", title: "Non-Custodial", desc: "Your TAO never leaves your wallet. TrustedStake executes delegations on your behalf — they never hold or touch your assets." },
-              { icon: <IconZap className="w-4 h-4" />, color: "text-amber-400 bg-amber-500/10 border-amber-500/20", title: "One-Click Deploy", desc: "Connect Talisman or SubWallet, set your TAO allocation, confirm. No manual staking across 10 subnets. No spreadsheets." },
-              { icon: <IconGlobe className="w-4 h-4" />, color: "text-blue-400 bg-blue-500/10 border-blue-500/20", title: "Enterprise-Grade Security", desc: "Built to the same standards used by their Kraken Institutional partnership. Every operation is auditable on-chain." },
-              { icon: <IconChart className="w-4 h-4" />, color: "text-violet-400 bg-violet-500/10 border-violet-500/20", title: "Transparent Reporting", desc: "Every rebalance, validator switch, and yield event is logged in your dashboard. No black boxes." },
-              { icon: <IconLayers className="w-4 h-4" />, color: "text-cyan-400 bg-cyan-500/10 border-cyan-500/20", title: "128+ Subnets Supported", desc: "Full Bittensor ecosystem coverage. The AlphaGap Index uses the top 10 — but the infrastructure scales to the entire network." },
-              { icon: <IconUsers className="w-4 h-4" />, color: "text-rose-400 bg-rose-500/10 border-rose-500/20", title: "Aligned Incentives", desc: "TrustedStake earns when you earn. Performance-aligned fees mean they're incentivised to maximise your yield, not just deploy assets." },
+              { icon: <IconShield className="w-5 h-5" />, color: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20", title: "Non-Custodial", desc: "Your TAO never leaves your wallet. Ever." },
+              { icon: <IconZap className="w-5 h-5" />, color: "text-amber-400 bg-amber-500/10 border-amber-500/20", title: "One-Click Deploy", desc: "Connect your wallet, set your amount, done." },
+              { icon: <IconRefresh className="w-5 h-5" />, color: "text-blue-400 bg-blue-500/10 border-blue-500/20", title: "Auto Rebalancing", desc: "Index rotates every Sunday. TrustedStake handles the rest." },
+              { icon: <IconTrend className="w-5 h-5" />, color: "text-violet-400 bg-violet-500/10 border-violet-500/20", title: "Yield Compounding", desc: "Root network yield automatically reinvested into your positions." },
+              { icon: <IconTarget className="w-5 h-5" />, color: "text-cyan-400 bg-cyan-500/10 border-cyan-500/20", title: "Best Validators", desc: "Continuous monitoring picks the highest-yielding validators per subnet." },
+              { icon: <IconGlobe className="w-5 h-5" />, color: "text-rose-400 bg-rose-500/10 border-rose-500/20", title: "Enterprise Security", desc: "Same standards as their Kraken Institutional partnership." },
             ].map(f => (
-              <div key={f.title} className="flex flex-col gap-3 p-5 rounded-xl border border-white/6 bg-white/[0.02] hover:bg-white/[0.04] transition-colors">
-                <div className={`w-8 h-8 rounded-lg border flex items-center justify-center ${f.color}`}>{f.icon}</div>
+              <div key={f.title} className="flex gap-4 p-5 rounded-xl border border-white/6 bg-white/[0.02] hover:bg-white/[0.04] transition-colors">
+                <div className={`w-10 h-10 rounded-xl border flex items-center justify-center flex-shrink-0 ${f.color}`}>{f.icon}</div>
                 <div>
-                  <div className="font-bold text-white text-base mb-1">{f.title}</div>
-                  <p className="text-sm text-gray-300 leading-relaxed">{f.desc}</p>
+                  <div className="font-bold text-white text-lg mb-1">{f.title}</div>
+                  <p className="text-base text-gray-400">{f.desc}</p>
                 </div>
               </div>
             ))}
-          </div>
-
-          <div className="mt-4 p-5 rounded-xl border border-blue-500/15 bg-blue-500/5 flex gap-3">
-            <div className="w-5 h-5 rounded-full bg-blue-500/15 flex items-center justify-center flex-shrink-0 mt-0.5">
-              <div className="w-1.5 h-1.5 rounded-full bg-blue-400" />
-            </div>
-            <div>
-              <span className="text-sm font-semibold text-blue-300">Integration status: </span>
-              <span className="text-base text-gray-200">The AlphaGap × TrustedStake connection is in active development. The aGap formula is complete. TrustedStake&apos;s infrastructure is live and managing real assets. The dashboard integration is the final piece. Ultra subscribers get early access the moment it ships.</span>
-            </div>
           </div>
         </section>
 
         {/* ── ORACLE SECTION ───────────────────────────────────────────────── */}
         <section className="py-16 border-b border-white/5">
-          <div className="relative rounded-2xl overflow-hidden border border-emerald-500/15 p-8 md:p-10" style={{ background: "radial-gradient(ellipse 80% 80% at 0% 50%, rgba(16,185,129,0.06) 0%, transparent 60%)" }}>
+          <div className="relative rounded-2xl overflow-hidden border border-emerald-500/15 p-8 md:p-12" style={{ background: "radial-gradient(ellipse 80% 80% at 0% 50%, rgba(16,185,129,0.06) 0%, transparent 60%)" }}>
             <div className="absolute top-0 right-0 w-48 h-48 bg-emerald-500/5 rounded-full blur-3xl pointer-events-none" />
-            <div className="relative grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+            <div className="relative flex flex-col md:flex-row gap-8 items-center justify-between">
               <div>
                 <p className="text-xs font-bold text-emerald-400/80 uppercase tracking-widest mb-4">Intelligence Layer</p>
-                <h2 className="text-3xl font-black text-white mb-4">The Oracle watches.<br />The Index acts.</h2>
-                <p className="text-gray-400 text-sm leading-relaxed mb-5">
-                  The AlphaGap Index isn&apos;t a static formula run on a spreadsheet. The Oracle continuously reads live data, founder communications, whale movements, and benchmark results — keeping aGap scores current between every rebalance.
-                </p>
-                <a href="/oracle" className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/25 text-emerald-400 text-sm font-semibold rounded-xl transition-colors">
-                  Ask the Oracle <IconArrow className="w-3.5 h-3.5" />
+                <h2 className="text-3xl sm:text-4xl font-black text-white mb-3">The Oracle watches.<br />The Index acts.</h2>
+                <p className="text-gray-400 text-lg mb-6 max-w-lg">Scores stay current between rebalances — live data, whale movements, founder signals, benchmark updates. Not a spreadsheet.</p>
+                <a href="/oracle" className="inline-flex items-center gap-2 px-6 py-3 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/25 text-emerald-400 text-base font-semibold rounded-xl transition-colors">
+                  Ask the Oracle <IconArrow className="w-4 h-4" />
                 </a>
-              </div>
-              <div className="space-y-3">
-                {[
-                  { icon: <IconChart className="w-4 h-4" />, title: "Live Data Ingestion", desc: "Every data point across 128 subnets feeds back into the scoring model continuously." },
-                  { icon: <IconUsers className="w-4 h-4" />, title: "Founder Signal Detection", desc: "Real-time monitoring of key founder Discord activity. Material announcements update scores before markets react." },
-                  { icon: <IconTrend className="w-4 h-4" />, title: "Whale Flow Tracking", desc: "On-chain movements from large TAO holders trigger immediate score reviews on affected subnets." },
-                ].map(f => (
-                  <div key={f.title} className="flex gap-3 p-4 rounded-xl bg-emerald-500/[0.04] border border-emerald-500/10">
-                    <div className="w-7 h-7 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center flex-shrink-0">{f.icon}</div>
-                    <div>
-                      <div className="text-base font-semibold text-white mb-0.5">{f.title}</div>
-                      <p className="text-sm text-gray-300 leading-relaxed">{f.desc}</p>
-                    </div>
-                  </div>
-                ))}
               </div>
             </div>
           </div>
@@ -647,23 +435,21 @@ export default function AlphaGapIndexPage() {
         {/* ── FAQ ──────────────────────────────────────────────────────────── */}
         <section className="py-16 border-b border-white/5">
           <p className="text-xs font-bold text-emerald-400/80 uppercase tracking-widest mb-4">Questions</p>
-          <h2 className="text-3xl font-black text-white mb-8">Frequently asked</h2>
+          <h2 className="text-3xl sm:text-4xl font-black text-white mb-8">Common questions</h2>
           <div className="space-y-2 max-w-3xl">
             {[
-              { q: "Is my TAO safe? Who holds it?", a: "Nobody holds your TAO except you. TrustedStake operates a fully non-custodial model — they execute delegations through Bittensor's native staking mechanics, but your assets remain in your wallet at all times. Every position is verifiable on-chain." },
-              { q: "What wallets are supported?", a: "TrustedStake integrates with Talisman and SubWallet — the two leading Bittensor-native wallets. Both are available as browser extensions and mobile apps. No centralised exchange required." },
-              { q: "How much TAO do I need?", a: "Minimum allocation thresholds will be confirmed at launch. Early indications suggest a practical minimum of around 1 TAO to make rebalancing costs worthwhile relative to position size." },
-              { q: "How often does the index change?", a: "Rebalances happen every Sunday at 00:00 UTC. The formula only rotates subnets if the new candidate scores at least 5 points higher than the one it displaces — preventing churn from minor fluctuations." },
-              { q: "What fees are involved?", a: "The AlphaGap Index methodology is included in your Ultra subscription. TrustedStake charges a separate performance-aligned management fee for execution. Full fee structure will be published at launch." },
-              { q: "Can I still use the Oracle independently?", a: "Yes. The Oracle runs independently of the Index. You can query any of the 128 subnets, challenge the methodology, or research subnets not currently in the index. Ultra members get 50 Oracle queries per day." },
-              { q: "When does this launch?", a: "The integration is in active development. Ultra subscribers will be first to know and first to access early deployment. Confirm your interest below and we'll reach out directly." },
+              { q: "Is my TAO safe?", a: "Yes. Non-custodial — your TAO never leaves your wallet. TrustedStake only executes delegations on your behalf." },
+              { q: "What wallets are supported?", a: "Talisman and SubWallet. Both are Bittensor-native and available as browser extensions." },
+              { q: "How often does the index rebalance?", a: "Every Sunday. Only rotates if a new subnet scores 5+ points above the one it displaces." },
+              { q: "What does it cost?", a: "Index access is included in Ultra. TrustedStake charges a separate performance fee for execution — full details at launch." },
+              { q: "When does this launch?", a: "In active development. Ultra subscribers get early access the moment it ships." },
             ].map((faq, i) => (
               <div key={faq.q} className="rounded-xl border border-white/6 overflow-hidden">
                 <button
                   className="w-full flex items-center justify-between gap-4 px-5 py-4 text-left hover:bg-white/[0.02] transition-colors"
                   onClick={() => setExpandedFaq(expandedFaq === i ? null : i)}
                 >
-                  <span className="font-semibold text-gray-200 text-sm">{faq.q}</span>
+                  <span className="font-semibold text-white text-base">{faq.q}</span>
                   <IconChevron className={`w-4 h-4 text-gray-600 flex-shrink-0 transition-transform ${expandedFaq === i ? "rotate-180" : ""}`} />
                 </button>
                 {expandedFaq === i && (
