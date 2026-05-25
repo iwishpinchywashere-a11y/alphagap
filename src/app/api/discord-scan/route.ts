@@ -55,17 +55,20 @@ const MESSAGES_PER_CHANNEL = 100;
 const MIN_MESSAGES_TO_ANALYZE = 1;
 // Delay between channel fetches (ms)
 const RATE_LIMIT_DELAY = 80;
-// Founder post lookback window — longer than the regular 24h scan so we don't miss posts
-// when the cron hiccups or Const posts outside the normal scan window
-const FOUNDER_LOOKBACK_HOURS = 72;
+// Founder post lookback window — 7 days so we catch posts even if the cron missed several
+// runs. The 72h window was too short — a few failed cron runs would lose all founder history.
+const FOUNDER_LOOKBACK_HOURS = 168; // 7 days
 // Minimum entries to surface on the social page — if below this, relax signal thresholds
 const MIN_ENTRIES_TARGET = 10;
-// Extra general/announcement channels to scan for Const posts (name substrings)
+// Extra general/announcement channels to scan for Const posts (name substrings).
+// Keep broad — we want EVERY channel Const might post in, not just subnet channels.
 const FOUNDER_CHANNEL_PATTERNS = [
   "general", "announce", "ecosystem", "governance", "core-team",
   "const", "update", "news", "dev-chat", "builders", "official",
+  "root", "validator", "subnet-owner", "protocol", "research",
+  "founders", "team", "alpha", "community", "public",
 ];
-const MAX_FOUNDER_CHANNELS = 20;
+const MAX_FOUNDER_CHANNELS = 50; // increased from 20 — Const posts across many channels
 
 // ── Deleted message detection ────────────────────────────────────────────────
 
@@ -757,6 +760,37 @@ Rules:
   }
 }
 
+// ── Founder fallback entries (used when AI analysis errors) ─────────────────
+// Surfaces ALL Const posts with a baseline score so they're never silently lost.
+function buildFallbackFounderEntries(
+  byChannel: Map<string, { channelId: string; channelName: string; netuid: number | null; msgs: DiscordMessage[] }>
+): DiscordAlphaResult[] {
+  const entries: DiscordAlphaResult[] = [];
+  for (const ch of byChannel.values()) {
+    const lastMsg = ch.msgs.at(-1);
+    const snippet = ch.msgs.map(m => m.content.slice(0, 120)).join(" · ").slice(0, 300);
+    entries.push({
+      channelId: `founder-const-${ch.channelId}`,
+      channelName: `founder-const-${ch.channelName}`,
+      netuid: ch.netuid,
+      subnetName: `Const · ${formatSubnetName(ch.channelName)}`,
+      signal: "alpha",
+      alphaScore: 35,
+      alphaTypes: ["founder"],
+      releaseHint: false,
+      summary: snippet || "The Bittensor founder posted in this channel.",
+      keyInsights: [],
+      alphaTake: "Const posted here — review manually for context.",
+      founderPost: true,
+      messageCount: ch.msgs.length,
+      uniquePosters: 1,
+      scannedAt: new Date().toISOString(),
+      lastActivityAt: lastMsg?.timestamp,
+    } as DiscordAlphaResult);
+  }
+  return entries;
+}
+
 // ── Founder Post Analysis ─────────────────────────────────────────────────────
 // Returns one entry PER CHANNEL Const posted in so summaries are channel-specific.
 
@@ -786,7 +820,9 @@ async function analyzeFounderPosts(
         FOUNDER_USER_IDS.has(msg.author.id) ||
         uname.startsWith("const") ||
         displayName.startsWith("const");
-      if (isFounder && msg.content.trim().length > 15) {
+      // Track ALL Const posts — even short ones. The previous >15 char threshold
+      // silently dropped brief replies and short comments. We want every post.
+      if (isFounder && msg.content.trim().length > 2) {
         if (!byChannel.has(scan.channelName)) {
           byChannel.set(scan.channelName, {
             channelId: scan.channelId,
@@ -855,25 +891,34 @@ Rules:
       },
       body: JSON.stringify({
         model: "claude-haiku-4-5-20251001",
-        max_tokens: 1200,
+        max_tokens: 2400,
         messages: [{ role: "user", content: prompt }],
       }),
     });
 
-    if (!res.ok) return [];
+    if (!res.ok) {
+      console.warn(`[discord-scan] Founder AI analysis failed (${res.status}) — surfacing all posts with fallback scores`);
+      return buildFallbackFounderEntries(byChannel);
+    }
 
     const data = await res.json();
     const text = data.content?.[0]?.text || "[]";
     const jsonText = text.replace(/^```json?\n?/, "").replace(/\n?```$/, "").trim();
 
-    const aiResults: Array<{
+    let aiResults: Array<{
       channelName: string;
       significant: boolean;
       alphaScore?: number;
       summary?: string;
       keyInsights?: string[];
       alphaTake?: string;
-    }> = JSON.parse(jsonText);
+    }> = [];
+    try {
+      aiResults = JSON.parse(jsonText);
+    } catch {
+      console.warn("[discord-scan] Founder AI JSON parse failed — surfacing all posts with fallback scores");
+      return buildFallbackFounderEntries(byChannel);
+    }
 
     const entries: DiscordAlphaResult[] = [];
     const channelList = [...byChannel.values()];
@@ -882,24 +927,31 @@ Rules:
       const ch = channelList[i];
       const ai = aiResults[i];
 
+      // Never drop Const's posts — even "not significant" posts show he's active.
+      // If AI says not significant, we still surface it with a lower alphaScore (30)
+      // so the user always knows when Const has posted anywhere.
       if (!ai?.significant) {
-        console.log(`[discord-scan] Founder post in #${ch.channelName} not significant — skipping`);
-        continue;
+        console.log(`[discord-scan] Founder post in #${ch.channelName} marked not significant — surfacing anyway with low score`);
       }
 
       const lastMsg = ch.msgs.at(-1);
+      // Use AI score if significant, otherwise floor at 30 so the post is still surfaced
+      const isSignificant = ai?.significant ?? false;
+      const alphaScore = isSignificant
+        ? Math.min(100, ai.alphaScore ?? 85)
+        : 30;
       entries.push({
         channelId: `founder-const-${ch.channelId}`,
         channelName: `founder-const-${ch.channelName}`,
         netuid: ch.netuid,
         subnetName: `Const · ${formatSubnetName(ch.channelName)}`,
         signal: "alpha",
-        alphaScore: Math.min(100, ai.alphaScore ?? 85),
+        alphaScore,
         alphaTypes: ["founder"],
-        releaseHint: (ai.alphaScore ?? 0) >= 80,
-        summary: ai.summary || "The Bittensor founder posted in this channel.",
-        keyInsights: ai.keyInsights ?? [],
-        alphaTake: ai.alphaTake,
+        releaseHint: alphaScore >= 80,
+        summary: ai?.summary || "The Bittensor founder posted in this channel.",
+        keyInsights: ai?.keyInsights ?? [],
+        alphaTake: ai?.alphaTake,
         founderPost: true,
         messageCount: ch.msgs.length,
         uniquePosters: 1,
@@ -908,11 +960,12 @@ Rules:
       } as DiscordAlphaResult);
     }
 
-    console.log(`[discord-scan] ${entries.length} significant founder channel(s) out of ${channelList.length}`);
+    console.log(`[discord-scan] ${entries.length} founder channel(s) surfaced (including non-significant)`);
     return entries;
   } catch (e) {
     console.error("[discord-scan] Founder analysis error:", e);
-    return [];
+    // Even on error, surface all Const posts with fallback scores — never silently drop them
+    return buildFallbackFounderEntries(byChannel);
   }
 }
 
