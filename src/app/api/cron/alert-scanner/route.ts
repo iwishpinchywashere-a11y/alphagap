@@ -727,6 +727,12 @@ export async function GET(req: NextRequest) {
       for (const entry of discordLatest.results) {
         const isFounder = entry.founderPost === true;
 
+        // Skip Const thumbs-up/down reaction messages — they fire every scan and carry no signal.
+        if (isFounder) {
+          const THUMBS_RE = /^[\s👍👎🤙✅❌✔✖+\-1]*$|thumbs\s*(up|down)|\+1|-1/i;
+          if (THUMBS_RE.test(entry.summary ?? "")) continue;
+        }
+
         // Signal gate: only alpha and active tier (not quiet/noise)
         if (!isFounder && entry.signal !== "alpha" && entry.signal !== "active") continue;
 
