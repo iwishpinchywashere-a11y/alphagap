@@ -302,21 +302,24 @@ export default function AlphaGapIndexPage() {
                         <th className="px-6 py-4 text-left text-xs font-bold text-gray-400 uppercase tracking-wider w-10">#</th>
                         <th className="px-4 py-4 text-left text-xs font-bold text-gray-400 uppercase tracking-wider">Subnet</th>
                         <th className="px-4 py-4 text-left text-xs font-bold text-gray-400 uppercase tracking-wider hidden md:table-cell">Category</th>
-                        <th className="px-4 py-4 text-left text-xs font-bold text-gray-400 uppercase tracking-wider hidden lg:table-cell">Revenue</th>
                         <th className="px-4 py-4 text-right text-xs font-bold text-gray-400 uppercase tracking-wider">aGap</th>
                         <th className="px-4 py-4 text-right text-xs font-bold text-gray-400 uppercase tracking-wider">Weight</th>
-                        <th className="px-4 py-4 text-right text-xs font-bold text-gray-400 uppercase tracking-wider">30d</th>
+                        <th className="px-4 py-4 text-right text-xs font-bold text-gray-400 uppercase tracking-wider hidden sm:table-cell">24h</th>
+                        <th className="px-4 py-4 text-right text-xs font-bold text-gray-400 uppercase tracking-wider hidden lg:table-cell">Emissions</th>
+                        <th className="px-4 py-4 text-right text-xs font-bold text-gray-400 uppercase tracking-wider hidden lg:table-cell">APY</th>
                         <th className="px-4 py-4 w-8"></th>
                       </tr>
                     </thead>
                     <tbody>
                       {holdings.length === 0 ? (
                         <tr>
-                          <td colSpan={7} className="px-6 py-12 text-center text-gray-500 text-sm">Loading index data…</td>
+                          <td colSpan={9} className="px-6 py-12 text-center text-gray-500 text-sm">Loading index data…</td>
                         </tr>
                       ) : holdings.map((h) => {
                         const s = h.subnet;
-                        const change30d = s.price_change_30d ?? null;
+                        const change24h = s.price_change_24h ?? null;
+                        const emission = s.emission_pct ?? null;
+                        const apy = s.apy_7d ?? null;
                         return (
                           <React.Fragment key={s.netuid}>
                             <tr
@@ -338,16 +341,9 @@ export default function AlphaGapIndexPage() {
                               <td className="px-4 py-4 hidden md:table-cell">
                                 <span className="text-xs text-gray-400 font-medium">{s.category ?? s.benchmark_category ?? "—"}</span>
                               </td>
-                              <td className="px-4 py-4 hidden lg:table-cell">
-                                <span className="text-sm text-gray-300 font-medium tabular-nums">
-                                  {s.annual_revenue_usd && s.annual_revenue_usd > 0
-                                    ? `$${(s.annual_revenue_usd / 1_000_000).toFixed(1)}M ARR`
-                                    : "—"}
-                                </span>
-                              </td>
                               <td className="px-4 py-4 text-right">
                                 <div className="flex items-center justify-end gap-2">
-                                  <div className="w-16 h-1 rounded-full bg-white/5 overflow-hidden">
+                                  <div className="w-14 h-1 rounded-full bg-white/5 overflow-hidden hidden sm:block">
                                     <div className="h-full rounded-full bg-gradient-to-r from-emerald-600 to-emerald-400" style={{ width: `${h.score}%` }} />
                                   </div>
                                   <span className={`text-sm font-bold tabular-nums ${scoreColor(h.score)}`}>{h.score}</span>
@@ -356,12 +352,22 @@ export default function AlphaGapIndexPage() {
                               <td className="px-4 py-4 text-right">
                                 <span className="text-sm font-semibold text-gray-300 tabular-nums">{h.weight}%</span>
                               </td>
-                              <td className="px-4 py-4 text-right">
-                                {change30d != null ? (
-                                  <span className={`text-sm font-bold tabular-nums ${change30d >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-                                    {change30d >= 0 ? "+" : ""}{change30d.toFixed(1)}%
+                              <td className="px-4 py-4 text-right hidden sm:table-cell">
+                                {change24h != null ? (
+                                  <span className={`text-sm font-bold tabular-nums ${change24h >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                                    {change24h >= 0 ? "+" : ""}{change24h.toFixed(1)}%
                                   </span>
                                 ) : <span className="text-gray-600 text-sm">—</span>}
+                              </td>
+                              <td className="px-4 py-4 text-right hidden lg:table-cell">
+                                <span className="text-sm text-gray-300 tabular-nums font-medium">
+                                  {emission != null ? `${emission.toFixed(2)}%` : "—"}
+                                </span>
+                              </td>
+                              <td className="px-4 py-4 text-right hidden lg:table-cell">
+                                <span className={`text-sm font-semibold tabular-nums ${apy != null && apy > 0 ? "text-emerald-400" : "text-gray-500"}`}>
+                                  {apy != null ? `${apy.toFixed(1)}%` : "—"}
+                                </span>
                               </td>
                               <td className="px-4 py-4">
                                 <IconChevron className={`w-4 h-4 text-gray-700 group-hover:text-gray-500 transition-all ${expandedRow === s.netuid ? "rotate-180" : ""}`} />
@@ -369,7 +375,7 @@ export default function AlphaGapIndexPage() {
                             </tr>
                             {expandedRow === s.netuid && (
                               <tr className="border-b border-white/[0.04] bg-emerald-500/[0.03]">
-                                <td colSpan={8} className="px-6 py-3">
+                                <td colSpan={9} className="px-6 py-3">
                                   <div className="flex items-start gap-3 pl-14">
                                     <p className="text-sm text-gray-300 leading-relaxed">
                                       <span className="font-semibold text-emerald-400">aGap Score: {h.score} · </span>
