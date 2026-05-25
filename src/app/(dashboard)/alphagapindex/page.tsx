@@ -322,68 +322,51 @@ export default function AlphaGapIndexPage() {
           <p className="text-xs font-bold text-gray-600 uppercase tracking-widest mb-3">The Formula</p>
           <h2 className="text-2xl font-bold text-white mb-2">aGap Investing Methodology</h2>
           <p className="text-gray-500 text-sm mb-6 max-w-2xl leading-relaxed">
-            aGap is a multi-factor scoring model built for <strong className="text-gray-300">long-term subnet investing, not short-term trading</strong>. It deliberately deprioritises price momentum in favour of subnets building durable, revenue-generating businesses. The result: lower churn, higher conviction, fewer whipsaw rebalances.
+            aGap is a proprietary multi-factor scoring model built for <strong className="text-gray-300">long-term subnet investing, not short-term trading</strong>. It deliberately deprioritises price momentum in favour of subnets building durable, revenue-generating businesses. The result: lower churn, higher conviction, fewer whipsaw rebalances.
           </p>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
             {[
               {
-                weight: "30%", icon: "📐", label: "Benchmark Performance",
+                icon: "📐",
+                label: "Real-World Performance",
                 color: "border-green-500/20 bg-green-500/5",
-                bar: "bg-green-500",
-                detail: "How the subnet's AI output stacks up against centralised incumbents. We run standardised comparisons across accuracy, throughput, latency, and output quality. A subnet scoring 90+ here is genuinely competing with — or beating — AWS, OpenAI, and Google on its chosen task.",
-                examples: ["SN51 lium.io: 90% cheaper than AWS H100s", "SN64 Chutes: #1 on OpenRouter by traffic", "SN44 Score: beats centralized physical AI systems"],
+                detail: "We look at how each subnet's AI output actually performs against the centralised players it's trying to replace. Not hype — head-to-head benchmarks across accuracy, throughput, and output quality.",
               },
               {
-                weight: "25%", icon: "💰", label: "External Revenue",
+                icon: "💰",
+                label: "Verified Revenue",
                 color: "border-emerald-500/20 bg-emerald-500/5",
-                bar: "bg-emerald-500",
-                detail: "Verified, real-world revenue from paying customers outside of TAO emissions. This is the single strongest signal of product-market fit in Bittensor. We only count revenue confirmed by SubnetRadar, TAO Institute, or the team's own published financials — not projections or taorevenue.com staking flow.",
-                examples: ["Verified ARR via SubnetRadar or TAO Institute", "Excludes emissions-only revenue", "Fiat-paying enterprise customers weighted highest"],
+                detail: "Product-market fit is proven by paying customers — not emissions. We only count revenue that's independently verified. Subnets generating real fiat income from real businesses score significantly higher.",
               },
               {
-                weight: "20%", icon: "📈", label: "On-Chain Momentum",
+                icon: "📈",
+                label: "On-Chain Signals",
                 color: "border-blue-500/20 bg-blue-500/5",
-                bar: "bg-blue-500",
-                detail: "Stake velocity, whale accumulation patterns, validator confidence, TAO inflow trends, and dTAO mechanics. We track wallet-level movements and flag when sophisticated capital is quietly building positions — before the narrative catches up.",
-                examples: ["Whale wallet inflow/outflow tracking", "Validator confidence scores", "dTAO stake velocity and burn rate"],
+                detail: "Stake velocity, whale accumulation, validator confidence, and TAO inflow trends. We track where sophisticated capital is quietly moving before the narrative catches up.",
               },
               {
-                weight: "15%", icon: "🏗️", label: "Team & Product Execution",
+                icon: "🏗️",
+                label: "Team & Execution",
                 color: "border-purple-500/20 bg-purple-500/5",
-                bar: "bg-purple-500",
-                detail: "GitHub commit frequency, product shipping cadence, founder track record outside Bittensor, community health metrics, and Discord engagement quality. We read the founders — not just the code. Const posts, team announcements, and validator communications all feed in.",
-                examples: ["GitHub activity (commits, PRs, contributors)", "Founder background and track record", "Discord/community health signals from the Oracle"],
-              },
-              {
-                weight: "10%", icon: "🌐", label: "Market Opportunity",
-                color: "border-amber-500/20 bg-amber-500/5",
-                bar: "bg-amber-500",
-                detail: "Total addressable market size, competitive differentiation against both centralised and other Bittensor players, and defensibility of the subnet's position. A $400B TAM with a genuine moat scores significantly higher than a $5B TAM in a crowded vertical.",
-                examples: ["TAM sourced from public market research", "Bittensor-native competitive mapping", "Defensibility of subnet architecture"],
+                detail: "Shipping cadence, founder track record, community health, and the quality of public communications — including direct monitoring of key founder activity via the AlphaGap Oracle.",
               },
             ].map(f => (
-              <div key={f.label} className={`rounded-xl border ${f.color} p-5 flex flex-col gap-3`}>
-                <div className="flex items-center justify-between">
-                  <span className="text-3xl font-extrabold text-white tabular-nums">{f.weight}</span>
-                  <span className="text-2xl">{f.icon}</span>
-                </div>
+              <div key={f.label} className={`rounded-xl border ${f.color} p-5 flex gap-4`}>
+                <span className="text-2xl flex-shrink-0 mt-0.5">{f.icon}</span>
                 <div>
-                  <div className="font-bold text-white text-sm mb-0.5">{f.label}</div>
-                  <div className="w-full h-1 rounded-full bg-gray-800 overflow-hidden mb-3">
-                    <div className={`h-full rounded-full ${f.bar}`} style={{ width: f.weight }} />
-                  </div>
-                  <p className="text-xs text-gray-500 leading-relaxed mb-3">{f.detail}</p>
-                  <ul className="space-y-1">
-                    {f.examples.map(e => (
-                      <li key={e} className="flex items-start gap-1.5 text-xs text-gray-600">
-                        <span className="text-gray-700 mt-0.5 flex-shrink-0">·</span>{e}
-                      </li>
-                    ))}
-                  </ul>
+                  <div className="font-bold text-white text-sm mb-1.5">{f.label}</div>
+                  <p className="text-xs text-gray-500 leading-relaxed">{f.detail}</p>
                 </div>
               </div>
             ))}
+          </div>
+
+          <div className="rounded-xl border border-green-500/15 bg-green-500/5 p-5 flex gap-3 mb-6">
+            <span className="text-green-400 text-lg flex-shrink-0 mt-0.5">💡</span>
+            <p className="text-xs text-gray-400 leading-relaxed">
+              <span className="font-semibold text-green-300">Investing, not trading.</span> The exact formula and weightings behind aGap are proprietary — but the philosophy is simple: we back subnets with real products, real customers, and real teams. Not narrative.
+            </p>
           </div>
 
           {/* Selection rules */}
