@@ -559,7 +559,7 @@ export default function AlphaGapIndexPage() {
               { q: "Is my TAO safe?", a: "Yes. Non-custodial — your TAO never leaves your wallet. TrustedStake only executes delegations on your behalf." },
               { q: "What wallets are supported?", a: "Talisman and SubWallet. Both are Bittensor-native and available as browser extensions." },
               { q: "How often does the index rebalance?", a: "Every Sunday. Only rotates if a new subnet scores 5+ points above the one it displaces." },
-              { q: "What does it cost?", a: "Index access is included in Ultra." },
+              { q: "What does it cost?", a: "Index access is included in Ultra for $99/mo." },
               { q: "When does this launch?", a: "In active development. Ultra subscribers get early access the moment it ships." },
             ].map((faq, i) => (
               <div key={faq.q} className="rounded-xl border border-white/6 overflow-hidden">
