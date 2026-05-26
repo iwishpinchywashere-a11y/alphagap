@@ -9,7 +9,7 @@ import { NextResponse } from "next/server";
 import { get as blobGet, list } from "@vercel/blob";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { getTier } from "@/lib/subscription";
+import { getTier, canAccessPremium } from "@/lib/subscription";
 import type { AuditData, SubnetAudit } from "@/app/api/cron/audit-scan/route";
 
 export const dynamic = "force-dynamic";
@@ -38,7 +38,7 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const tier = getTier(session);
-  if (tier !== "premium") {
+  if (!canAccessPremium(tier)) {
     return NextResponse.json({ error: "Premium subscription required" }, { status: 403 });
   }
 
