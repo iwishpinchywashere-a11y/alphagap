@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { canAccessPremium, canAccessPro } from "@/lib/subscription";
 import type { Tier } from "@/lib/subscription";
 
 interface BlurGateProps {
@@ -28,9 +29,7 @@ export default function BlurGate({
   minHeight = "200px",
 }: BlurGateProps) {
   const hasAccess =
-    required === "pro"
-      ? tier === "pro" || tier === "premium"
-      : tier === "premium";
+    required === "pro" ? canAccessPro(tier) : canAccessPremium(tier);
 
   if (hasAccess) return <>{children}</>;
 
