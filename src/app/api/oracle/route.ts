@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { getTier } from "@/lib/subscription";
+import { getTier, canAccessPremium } from "@/lib/subscription";
 import { get as blobGet, put } from "@vercel/blob";
 import Anthropic from "@anthropic-ai/sdk";
 
@@ -358,11 +358,14 @@ export async function POST(req: NextRequest) {
 
   const tier = getTier(session);
 
-  // Free and Pro have no Oracle access
-  if (tier === "free" || tier === "pro")
+  // Free and Pro have no Oracle access — use canAccessPremium so ultra is always included
+  if (!canAccessPremium(tier))
     return NextResponse.json({ error: "premium_required" }, { status: 403 });
 
-  const dailyLimit = DAILY_LIMITS[tier] ?? 15;
+  // Fail-closed: if tier isn't in DAILY_LIMITS (should never happen after the gate above), block.
+  const dailyLimit = DAILY_LIMITS[tier] ?? 0;
+  if (dailyLimit === 0)
+    return NextResponse.json({ error: "premium_required" }, { status: 403 });
   const email = session.user.email;
   const today = new Date().toISOString().slice(0, 10);
   const rl = await getRateLimit(email);
