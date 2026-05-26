@@ -4287,19 +4287,38 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
         // by the PATCH endpoint since we first loaded (prevents race condition
         // where scan overwrites a manually-patched higher peak price).
         const freshPortfolio = await loadPortfolio();
-        for (const pos of portfolio.positions) {
-          const fresh = freshPortfolio.positions.find(p => p.netuid === pos.netuid);
-          if (fresh?.peakPrice && (!pos.peakPrice || fresh.peakPrice > pos.peakPrice)) {
-            pos.peakPrice = fresh.peakPrice;
+
+        // ── Safety guard: never overwrite with fewer positions ───────────
+        // If the blob now has MORE positions than what we loaded at the start
+        // of this scan run (e.g. a restore ran concurrently), trust the blob.
+        if (freshPortfolio.positions.length > portfolio.positions.length) {
+          console.warn(
+            `[scan] Portfolio abort: blob has ${freshPortfolio.positions.length} positions but in-memory has ${portfolio.positions.length} — skipping save to protect data`
+          );
+        } else {
+          for (const pos of portfolio.positions) {
+            const fresh = freshPortfolio.positions.find(p => p.netuid === pos.netuid);
+            if (fresh?.peakPrice && (!pos.peakPrice || fresh.peakPrice > pos.peakPrice)) {
+              pos.peakPrice = fresh.peakPrice;
+            }
+            // Preserve manualPeakPrice that may have been set via PATCH
+            if (fresh?.manualPeakPrice) pos.manualPeakPrice = fresh.manualPeakPrice;
           }
+          await put("portfolio.json", JSON.stringify(portfolio), {
+            access: "private",
+            addRandomSuffix: false,
+            allowOverwrite: true,
+            contentType: "application/json",
+          });
+          // Write backup so we can always restore from it if portfolio.json gets corrupted
+          await put("portfolio-backup.json", JSON.stringify(portfolio), {
+            access: "private",
+            addRandomSuffix: false,
+            allowOverwrite: true,
+            contentType: "application/json",
+          });
+          console.log(`[scan] Portfolio saved: ${portfolio.positions.length} positions`);
         }
-        await put("portfolio.json", JSON.stringify(portfolio), {
-          access: "private",
-          addRandomSuffix: false,
-          allowOverwrite: true,
-          contentType: "application/json",
-        });
-        console.log(`[scan] Portfolio saved: ${portfolio.positions.length} positions`);
       }
     } catch (e) {
       console.error("[scan] Portfolio update failed:", e);

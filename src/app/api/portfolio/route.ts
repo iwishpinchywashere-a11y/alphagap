@@ -244,22 +244,35 @@ export async function PATCH(req: Request) {
   }
 }
 
+/**
+ * Load portfolio.json from blob storage.
+ * Returns null if the blob genuinely doesn't exist (safe to create from scratch).
+ * Returns { positions: [], history: [] } ONLY when blob is truly absent.
+ * Throws on read/parse errors so the caller can abort rather than overwrite with empty.
+ */
 export async function loadPortfolio(): Promise<Portfolio> {
-  try {
-    const blob = await blobGet("portfolio.json", {
-      token: process.env.BLOB_READ_WRITE_TOKEN!,
-      access: "private",
-    });
-    if (!blob?.stream) return { positions: [], history: [] };
-    const reader = blob.stream.getReader();
-    const chunks: Uint8Array[] = [];
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      chunks.push(value);
+  const blob = await blobGet("portfolio.json", {
+    token: process.env.BLOB_READ_WRITE_TOKEN!,
+    access: "private",
+  }).catch((err) => {
+    // 404 means blob genuinely doesn't exist — that's fine, return empty
+    const msg = String(err);
+    if (msg.includes("404") || msg.includes("not found") || msg.includes("The specified key does not exist")) {
+      return null;
     }
-    return JSON.parse(Buffer.concat(chunks).toString("utf-8"));
-  } catch {
-    return { positions: [], history: [] };
+    // Any other error re-throw so callers don't silently overwrite with empty
+    throw err;
+  });
+
+  if (!blob?.stream) return { positions: [], history: [] };
+
+  const reader = blob.stream.getReader();
+  const chunks: Uint8Array[] = [];
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    chunks.push(value);
   }
+  // Parse throws on corruption — callers will catch this and abort
+  return JSON.parse(Buffer.concat(chunks).toString("utf-8"));
 }
