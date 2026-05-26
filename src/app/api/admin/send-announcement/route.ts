@@ -7,7 +7,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { getUserList } from "@/lib/users";
-import { sendTelegramAnnouncementEmail, sendWalletTrackerAnnouncementEmail } from "@/lib/email";
+import { sendTelegramAnnouncementEmail, sendWalletTrackerAnnouncementEmail, sendOracleAnnouncementEmail } from "@/lib/email";
 
 const ADMIN_EMAIL = "iwishpinchywashere@gmail.com";
 
@@ -30,12 +30,12 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json().catch(() => ({}));
 
-  const emailType: string = body.type || "telegram"; // "telegram" | "wallet-tracker"
+  const emailType: string = body.type || "telegram"; // "telegram" | "wallet-tracker" | "oracle"
 
   function getSendFn(tier: "free" | "pro" | "premium") {
-    return emailType === "wallet-tracker"
-      ? (n: string, e: string) => sendWalletTrackerAnnouncementEmail(n, e, tier)
-      : (n: string, e: string) => sendTelegramAnnouncementEmail(n, e, tier);
+    if (emailType === "wallet-tracker") return (n: string, e: string) => sendWalletTrackerAnnouncementEmail(n, e, tier);
+    if (emailType === "oracle")         return (n: string, e: string) => sendOracleAnnouncementEmail(n, e, tier);
+    return (n: string, e: string) => sendTelegramAnnouncementEmail(n, e, tier);
   }
 
   // ── Test send ─────────────────────────────────────────────────────────────

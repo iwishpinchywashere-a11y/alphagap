@@ -349,6 +349,168 @@ export async function sendTelegramAnnouncementEmail(
   });
 }
 
+/** TAO Oracle launch announcement — two versions: premium (you have it) vs free/pro (upgrade) */
+export async function sendOracleAnnouncementEmail(
+  name: string,
+  email: string,
+  tier: "free" | "pro" | "premium",
+) {
+  const firstName = name?.split(" ")[0] || "there";
+  const isPremium = tier === "premium";
+
+  const ctaHref  = isPremium ? `${BASE_URL}/oracle` : `${BASE_URL}/pricing`;
+  const ctaLabel = isPremium ? "Ask the Oracle →" : "Unlock TAO Oracle →";
+  const ctaNote  = isPremium
+    ? "15 queries per day · Live data from every subnet · Available right now"
+    : "Available on Premium ($49/mo) · Includes everything in Pro · Cancel anytime";
+
+  const subject = isPremium
+    ? "🔮 TAO Oracle is live — ask it anything about Bittensor"
+    : "🔮 Introducing TAO Oracle — your AI analyst for every Bittensor subnet";
+
+  const useCases = [
+    { icon: "🐋", q: "Which subnets are whales accumulating right now?", a: "Shows live stake inflows across all 128 subnets ranked by whale conviction." },
+    { icon: "🚩", q: "What are the biggest red flags on the leaderboard today?", a: "Surfaces emissions drops, dev inactivity, and falling aGap scores in plain English." },
+    { icon: "🔥", q: "Which subnets have the strongest dev momentum this week?", a: "Combines GitHub commit velocity, HuggingFace model uploads, and score trajectory." },
+    { icon: "📊", q: "Compare Subnet 15 and Subnet 36 — which one looks better?", a: "Side-by-side breakdown of scores, signals, team activity, and market metrics." },
+    { icon: "⚡", q: "Any subnets about to have emissions changes?", a: "Flags subnets with validator weight rotation signals before they hit the leaderboard." },
+    { icon: "💡", q: "Give me your top 5 picks right now with reasoning.", a: "Ranks subnets by composite aGap score + signal strength and explains why each made the list." },
+  ];
+
+  const useCaseRows = useCases.map(u => `
+    <tr>
+      <td style="padding:14px 0;border-bottom:1px solid #1a2235;vertical-align:top;">
+        <table cellpadding="0" cellspacing="0" width="100%">
+          <tr>
+            <td style="width:32px;vertical-align:top;padding-top:2px;">
+              <span style="font-size:18px;line-height:1;">${u.icon}</span>
+            </td>
+            <td style="vertical-align:top;">
+              <p style="color:#e5e7eb;font-size:13px;font-weight:600;margin:0 0 4px 0;">&ldquo;${u.q}&rdquo;</p>
+              <p style="color:#6b7280;font-size:12px;line-height:1.6;margin:0;">${u.a}</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  `).join("");
+
+  const html = baseTemplate(`
+    <!-- Hero -->
+    <div style="text-align:center;margin:0 0 36px 0;">
+      <div style="display:inline-block;background:linear-gradient(135deg,#0a1f0d,#0d1a2b);border:1px solid #10b98130;border-radius:16px;padding:28px 36px;margin-bottom:24px;">
+        <div style="font-size:54px;line-height:1;margin-bottom:14px;">🔮</div>
+        <div style="display:inline-block;background:#10b98115;border:1px solid #10b98130;border-radius:20px;padding:4px 14px;margin-bottom:16px;">
+          <span style="color:#10b981;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;">${isPremium ? "Now Live in Your Account" : "New — Premium Feature"}</span>
+        </div>
+        <h1 style="color:#ffffff;font-size:28px;font-weight:800;margin:0 0 8px 0;line-height:1.2;">
+          Introducing<br>TAO Oracle
+        </h1>
+        <p style="color:#9ca3af;font-size:14px;margin:0;line-height:1.7;">Ask anything. Get instant answers.<br>Powered by live data from every Bittensor subnet.</p>
+      </div>
+    </div>
+
+    <!-- Greeting -->
+    <p style="color:#d1d5db;font-size:15px;line-height:1.8;margin:0 0 12px 0;">
+      Hey ${firstName},
+    </p>
+    ${isPremium ? `
+    <p style="color:#9ca3af;font-size:15px;line-height:1.8;margin:0 0 16px 0;">
+      We just launched something we&apos;ve been building for a while — and as a Premium member, it&apos;s live in your account right now, no action needed.
+    </p>
+    <p style="color:#9ca3af;font-size:15px;line-height:1.8;margin:0 0 32px 0;">
+      <strong style="color:#ffffff;">TAO Oracle</strong> is a live AI chat that knows everything AlphaGap knows. Every subnet score, every whale flow, every GitHub signal, every emissions change — all of it searchable in plain English. Ask a question, get a real answer in seconds.
+    </p>
+    ` : `
+    <p style="color:#9ca3af;font-size:15px;line-height:1.8;margin:0 0 16px 0;">
+      Bittensor moves fast. By the time you&apos;ve refreshed the leaderboard, checked GitHub, scanned whale activity, and read the latest Discord — the window has already closed.
+    </p>
+    <p style="color:#9ca3af;font-size:15px;line-height:1.8;margin:0 0 16px 0;">
+      Today we&apos;re launching <strong style="color:#ffffff;">TAO Oracle</strong> — a live AI analyst that has access to every signal AlphaGap tracks. Ask it anything, in plain English. Get a real, data-backed answer in seconds.
+    </p>
+    <p style="color:#9ca3af;font-size:15px;line-height:1.8;margin:0 0 32px 0;">
+      No dashboards to dig through. No tabs to open. Just ask.
+    </p>
+    `}
+
+    <!-- What it knows callout -->
+    <div style="background:#0a0f1a;border:1px solid #1f2937;border-radius:14px;padding:22px 28px;margin:0 0 24px 0;">
+      <p style="color:#10b981;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;margin:0 0 14px 0;">The Oracle has access to</p>
+      <table cellpadding="0" cellspacing="0" width="100%">
+        ${[
+          ["📈", "aGap scores & signal history for all 128 subnets"],
+          ["🐋", "Live whale & smart money flows"],
+          ["🔧", "GitHub commit velocity & HuggingFace model activity"],
+          ["⚡", "Emissions rates & validator weight changes"],
+          ["💬", "Discord alpha scanner & X/Twitter social momentum"],
+          ["🧪", "Pump Lab — historical alpha patterns & case studies"],
+        ].map(([icon, text]) => `
+          <tr>
+            <td style="padding:7px 0;vertical-align:top;">
+              <table cellpadding="0" cellspacing="0"><tr>
+                <td style="width:28px;vertical-align:top;padding-top:1px;"><span style="font-size:15px;">${icon}</span></td>
+                <td style="vertical-align:top;"><span style="color:#d1d5db;font-size:13px;">${text}</span></td>
+              </tr></table>
+            </td>
+          </tr>
+        `).join("")}
+      </table>
+    </div>
+
+    <!-- Use case examples -->
+    <div style="background:#0a0f1a;border:1px solid #1f2937;border-radius:14px;padding:22px 28px;margin:0 0 28px 0;">
+      <p style="color:#10b981;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;margin:0 0 4px 0;">Things you can ask right now</p>
+      <p style="color:#4b5563;font-size:12px;margin:0 0 18px 0;">Real questions. Real answers. In seconds.</p>
+      <table width="100%" cellpadding="0" cellspacing="0">
+        ${useCaseRows}
+        <tr><td style="padding-top:14px;"><p style="color:#4b5563;font-size:12px;margin:0;">15 queries per day on Premium &middot; 50/day on Ultra</p></td></tr>
+      </table>
+    </div>
+
+    ${isPremium ? `
+    <!-- Premium: it's live -->
+    <div style="background:#0d2b1f;border:1px solid #10b98130;border-radius:14px;padding:22px 28px;margin:0 0 28px 0;">
+      <p style="color:#10b981;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;margin:0 0 8px 0;">&#10003; Already in your account</p>
+      <p style="color:#9ca3af;font-size:13px;line-height:1.7;margin:0;">
+        Find it in the navigation menu under <strong style="color:#ffffff;">Oracle</strong>, or go straight to
+        <a href="${BASE_URL}/oracle" style="color:#10b981;text-decoration:none;">alphagap.io/oracle</a>.
+        You get 15 queries per day. Each one draws on live, up-to-the-minute subnet data.
+      </p>
+    </div>
+    ` : `
+    <!-- Free/Pro: upgrade prompt -->
+    <div style="background:#0a0f1a;border:1px solid #1f2937;border-radius:14px;padding:20px 28px;margin:0 0 28px 0;">
+      <p style="color:#9ca3af;font-size:13px;line-height:1.7;margin:0;">
+        TAO Oracle is included in the <strong style="color:#ffffff;">Premium plan ($49/mo)</strong>.
+        You&apos;ll keep everything you have now — Pro features, full leaderboard, all signals — and unlock Oracle, Telegram Alerts, Wallet Tracker, Pump Lab, and every other Premium feature in one upgrade.
+      </p>
+    </div>
+    `}
+
+    <!-- CTA -->
+    <div style="text-align:center;margin:0 0 32px 0;">
+      <a href="${ctaHref}"
+         style="display:inline-block;background:linear-gradient(135deg,#10b981,#059669);color:#000000;font-weight:800;font-size:15px;padding:16px 44px;border-radius:12px;text-decoration:none;letter-spacing:-0.2px;">
+        ${ctaLabel}
+      </a>
+      <p style="color:#4b5563;font-size:11px;margin:12px 0 0 0;">${ctaNote}</p>
+    </div>
+
+    <!-- Sign-off -->
+    <p style="color:#6b7280;font-size:13px;line-height:1.7;margin:0;border-top:1px solid #1a1a2e;padding-top:24px;">
+      This one&apos;s a game changer. Hope you love it,<br>
+      <strong style="color:#9ca3af;">— The AlphaGap Team</strong>
+    </p>
+  `);
+
+  return resend.emails.send({
+    from: FROM,
+    to: email,
+    subject,
+    html,
+  });
+}
+
 /** Password reset email — token expires in 1 hour */
 export async function sendPasswordResetEmail(name: string, email: string, resetToken: string) {
   const firstName = name.split(" ")[0];
