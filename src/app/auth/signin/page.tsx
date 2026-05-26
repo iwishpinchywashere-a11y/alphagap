@@ -74,6 +74,11 @@ function SignInForm() {
         </div>
 
         <form onSubmit={handleSubmit} className="bg-gray-900/60 border border-gray-800 rounded-2xl p-6 space-y-4">
+          {params.get("hint") === "subscription-updated" && (
+            <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg px-4 py-3 text-blue-300 text-sm">
+              Sign back in to apply your updated subscription.
+            </div>
+          )}
           {params.get("error") === "Callback" && (
             <div className="bg-red-500/10 border border-red-500/30 rounded-lg px-4 py-3 text-red-400 text-sm">
               Session expired. Please sign in again.

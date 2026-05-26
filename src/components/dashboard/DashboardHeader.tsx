@@ -6,23 +6,12 @@ import Link from "next/link";
 import { useDashboard } from "./DashboardProvider";
 import NotificationBell from "./NotificationBell";
 
-async function refreshSessionFromDB(update: (data?: unknown) => Promise<unknown>) {
-  // Read fresh tier data from the blob, pass it into the JWT update callback,
-  // then force a full page reload so the new session cookie is used everywhere.
-  const res = await fetch("/api/auth/refresh-session", { method: "POST" });
-  const freshData = res.ok ? await res.json() : {};
-  // Passing data to update() forces NextAuth to call the JWT callback with
-  // trigger="update" AND the fresh values, guaranteeing the token is rewritten.
-  await update(freshData);
-  // Hard reload — ensures the new JWT cookie is picked up for all server requests.
-  window.location.reload();
-}
 
 interface DropdownPos { top: number; right: number }
 
 export default function DashboardHeader() {
   const { taoPrice, lastScan, scanResult, scanError, scanning } = useDashboard();
-  const { data: session, update: updateSession } = useSession();
+  const { data: session } = useSession();
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<DropdownPos | null>(null);
   const btnRef = useRef<HTMLButtonElement>(null);
@@ -242,18 +231,16 @@ export default function DashboardHeader() {
               {/* Refresh session + Sign out */}
               <div className="border-t border-gray-800 py-1">
                 <button
-                  onClick={async () => {
-                    setRefreshing(true);
-                    await refreshSessionFromDB(updateSession);
-                    setRefreshing(false);
+                  onClick={() => {
+                    closeDropdown();
+                    signOut({ callbackUrl: "/auth/signin?hint=subscription-updated" });
                   }}
-                  disabled={refreshing}
-                  className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm text-gray-400 hover:bg-gray-800 hover:text-blue-400 transition-colors text-left disabled:opacity-50"
+                  className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm text-gray-400 hover:bg-gray-800 hover:text-blue-400 transition-colors text-left"
                 >
-                  <svg className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                   </svg>
-                  {refreshing ? "Refreshing…" : "Refresh Subscription"}
+                  Refresh Subscription
                 </button>
                 <button
                   onClick={() => { closeDropdown(); signOut({ callbackUrl: "/" }); }}
