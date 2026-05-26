@@ -111,7 +111,8 @@ export type PostType =
   | "x_trending"
   | "analytics_ratios"
   | "benchmark_update"
-  | "performance_gain";
+  | "performance_gain"
+  | "evergreen";
 
 export interface TweetPost {
   type: PostType;
@@ -189,7 +190,10 @@ const REFUSAL_SIGNALS = [
 ];
 
 async function writeTweet(prompt: string): Promise<string[]> {
-  if (!ANTHROPIC_KEY) return [];
+  if (!ANTHROPIC_KEY) {
+    console.error("[twitter-bot] writeTweet: ANTHROPIC_API_KEY is missing — cannot generate tweet");
+    return [];
+  }
 
   try {
     const res = await fetch("https://api.anthropic.com/v1/messages", {
@@ -200,14 +204,18 @@ async function writeTweet(prompt: string): Promise<string[]> {
         "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
-        model: "claude-haiku-4-5-20251001",
-        max_tokens: 350,           // enough for full 3-line format without mid-sentence cutoff
+        model: "claude-haiku-4-5",
+        max_tokens: 350,
         system: TWEET_SYSTEM,
         messages: [{ role: "user", content: prompt }],
       }),
     });
 
-    if (!res.ok) return [];
+    if (!res.ok) {
+      const errText = await res.text().catch(() => "(unreadable)");
+      console.error(`[twitter-bot] writeTweet: Anthropic API error ${res.status}: ${errText}`);
+      return [];
+    }
     const data = await res.json() as { content: Array<{ text: string }> };
     const raw = data.content[0]?.text?.trim() ?? "";
 
@@ -225,20 +233,18 @@ async function writeTweet(prompt: string): Promise<string[]> {
     if (!body) return [];
 
     // Safety truncation: if body is still too long, trim at the last sentence boundary.
-    // Never add "…" mid-sentence — drop the incomplete sentence entirely instead.
     let safeBody = body;
     if (body.length > MAX_BODY) {
       const trimmed = body.slice(0, MAX_BODY).trimEnd();
-      // Find the last sentence-ending punctuation so we don't cut mid-sentence
       const lastEnd = Math.max(trimmed.lastIndexOf(". "), trimmed.lastIndexOf("! "), trimmed.lastIndexOf("? "), trimmed.lastIndexOf(".\n"), trimmed.lastIndexOf("!\n"), trimmed.lastIndexOf("?\n"));
       safeBody = lastEnd > MAX_BODY / 2 ? trimmed.slice(0, lastEnd + 1).trimEnd() : trimmed;
     }
 
     const tweet = safeBody + FOOTER;
-
     console.log(`[twitter-bot] tweet length: ${tweet.length} chars`);
     return [tweet];
-  } catch {
+  } catch (err) {
+    console.error("[twitter-bot] writeTweet: unexpected error:", err);
     return [];
   }
 }
@@ -495,6 +501,43 @@ Write a tweet using the format in your instructions. Tell the story simply — w
   };
 }
 
+// ── 9. Evergreen fallback ─────────────────────────────────────────
+// Always fires — uses top-scored subnet from leaderboard.
+// Guaranteed to produce a tweet even when all 8 data-dependent types fail.
+
+export async function generateEvergreen(leaderboard: SubnetScore[], alreadyPostedIds: Set<string>): Promise<TweetPost | null> {
+  // Pick the highest-scored subnet not already posted today as evergreen
+  const todayUTC = new Date().toISOString().slice(0, 10);
+  const candidates = [...leaderboard]
+    .filter(s => (s.composite_score ?? 0) > 0)
+    .sort((a, b) => (b.composite_score ?? 0) - (a.composite_score ?? 0));
+
+  const subnet = candidates.find(s => !alreadyPostedIds.has(`evergreen_${s.netuid}_${todayUTC}`))
+    ?? candidates[0];
+
+  if (!subnet) return null;
+
+  const em = subnet.emission_pct != null ? `${(subnet.emission_pct * 100).toFixed(1)}% of emissions` : null;
+  const score = subnet.composite_score ?? 0;
+
+  const price24h = subnet.price_change_24h != null ? `${subnet.price_change_24h >= 0 ? "+" : ""}${subnet.price_change_24h.toFixed(1)}% 24h` : null;
+  const prompt = `Write a tweet about ${subnet.name} (SN${subnet.netuid}) on Bittensor.
+aGap score: ${score.toFixed(0)}/100${em ? `. Capturing ${em}` : ""}${price24h ? `. Price: ${price24h}` : ""}.
+Focus on why this subnet stands out — its purpose, what it's building, why it earns high aGap scores.
+Be specific and educational. No hype. No emojis. Facts only.
+Format: 2-3 short punchy sentences. Max 220 chars before the footer.`;
+
+  const tweets = await writeTweet(prompt);
+  if (!tweets.length) return null;
+
+  return {
+    type: "evergreen",
+    tweets,
+    rationale: `Evergreen fallback: ${subnet.name} (score ${score.toFixed(0)})`,
+    dedupId: `evergreen_${subnet.netuid}_${todayUTC}`,
+  };
+}
+
 // ── Pick best post ────────────────────────────────────────────────
 // Priority order matching the 8 approved post types.
 // Skips types where no fresh/qualifying data exists.
@@ -655,5 +698,7 @@ export async function pickBestPost(data: BotData, utcHour?: number): Promise<Twe
     if (post) return post;
   }
 
-  return null;
+  // ── Evergreen fallback — always fires if all 8 types fail ─────────
+  console.log("[twitter-bot] All 8 types failed — falling back to evergreen");
+  return generateEvergreen(leaderboard, alreadyPostedIds);
 }
