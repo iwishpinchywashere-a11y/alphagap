@@ -199,7 +199,7 @@ export default function AlphaGapIndexPage() {
             {[
               { icon: <IconLayers className="w-5 h-5" />, color: "text-red-400 bg-red-500/10 border-red-500/20", title: "Too Many Subnets", desc: "128 subnets and counting. New ones launch weekly. You can't track them all." },
               { icon: <IconShield className="w-5 h-5" />, color: "text-amber-400 bg-amber-500/10 border-amber-500/20", title: "Too Much Complexity", desc: "Validator selection, dTAO mechanics, stake allocation — it takes 1,400+ hours to master." },
-              { icon: <IconChart className="w-5 h-5" />, color: "text-blue-400 bg-blue-500/10 border-blue-500/20", title: "No Time to React", desc: "Miss a rebalance window and whales are already in. This solves that." },
+              { icon: <IconChart className="w-5 h-5" />, color: "text-blue-400 bg-blue-500/10 border-blue-500/20", title: "Impossible To React", desc: "The Bittensor ecosystem evolves faster than any human can track. Our AI scores every subnet in real time — so the index always reflects what's happening now, not last week." },
             ].map(p => (
               <div key={p.title} className="flex gap-4 p-5 rounded-xl border border-white/5 bg-white/[0.02]">
                 <div className={`w-10 h-10 rounded-xl border flex items-center justify-center flex-shrink-0 ${p.color}`}>{p.icon}</div>
@@ -235,7 +235,7 @@ export default function AlphaGapIndexPage() {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {[
               { icon: <IconTrend className="w-5 h-5" />, color: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20", title: "Emissions every block", desc: "Bittensor pays out emissions continuously — not monthly, not quarterly. Every block." },
-              { icon: <IconRefresh className="w-5 h-5" />, color: "text-blue-400 bg-blue-500/10 border-blue-500/20", title: "Auto-compounded", desc: "TrustedStake reinvests yield back into your positions automatically. No manual claiming." },
+              { icon: <IconRefresh className="w-5 h-5" />, color: "text-blue-400 bg-blue-500/10 border-blue-500/20", title: "Auto-compounded", desc: "Gain exposure to a curated basket of high-yielding alpha tokens — aGap's top picks — while earning sustainable, healthy yields that compound automatically across every position." },
               { icon: <IconDollar className="w-5 h-5" />, color: "text-amber-400 bg-amber-500/10 border-amber-500/20", title: "Spread across top 10", desc: "10 high-conviction subnets means your APY isn't riding on any single subnet's performance." },
             ].map(f => (
               <div key={f.title} className="flex gap-4 p-5 rounded-xl border border-white/6 bg-white/[0.02]">
@@ -558,7 +558,7 @@ export default function AlphaGapIndexPage() {
             {[
               { q: "Is my TAO safe?", a: "Yes. Non-custodial — your TAO never leaves your wallet. TrustedStake only executes delegations on your behalf." },
               { q: "What wallets are supported?", a: "Talisman and SubWallet. Both are Bittensor-native and available as browser extensions." },
-              { q: "How often does the index rebalance?", a: "Every Sunday. Only rotates if a new subnet scores 5+ points above the one it displaces." },
+              { q: "How often does the index rebalance?", a: "Weekly. Only rotates if a new subnet scores 5+ points above the one it displaces." },
               { q: "What does it cost?", a: "Index access is included in Ultra for $99/mo." },
               { q: "When does this launch?", a: "In active development. Ultra subscribers get early access the moment it ships." },
             ].map((faq, i) => (
