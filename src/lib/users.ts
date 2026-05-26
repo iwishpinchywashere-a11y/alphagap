@@ -15,7 +15,7 @@ export interface User {
   subscriptionStatus: "none" | "active" | "canceled" | "past_due" | "trialing";
   subscriptionPeriodEnd?: number; // Unix timestamp
   isAdmin?: boolean;
-  subscriptionTier?: "pro" | "premium";
+  subscriptionTier?: "pro" | "premium" | "ultra";
   createdAt: string;
   emailVerified?: boolean;
 }
@@ -100,7 +100,7 @@ export interface UserListEntry {
   email: string;
   name: string;
   subscriptionStatus: User["subscriptionStatus"];
-  subscriptionTier?: "pro" | "premium" | null;
+  subscriptionTier?: "pro" | "premium" | "ultra" | null;
   stripeCustomerId?: string;
   createdAt: string;
 }
