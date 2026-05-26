@@ -3,6 +3,7 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { getTier, canAccessPremium } from "@/lib/subscription";
+import Link from "next/link";
 import Image from "next/image";
 
 interface Message {
