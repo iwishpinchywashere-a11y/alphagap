@@ -14,8 +14,8 @@ function PortfolioChart({ history, values, formatY }: {
   values: number[];
   formatY: (v: number) => string;
 }) {
-  const W = 500, H = 180;
-  const PAD = { top: 14, right: 16, bottom: 30, left: 58 };
+  const W = 800, H = 240;
+  const PAD = { top: 18, right: 20, bottom: 36, left: 68 };
   const chartW = W - PAD.left - PAD.right;
   const chartH = H - PAD.top - PAD.bottom;
 
@@ -50,7 +50,7 @@ function PortfolioChart({ history, values, formatY }: {
   const lastPt = { x: xScale(history.length - 1), y: yScale(lastV) };
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: "clamp(160px, 28vw, 220px)" }}>
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: "clamp(200px, 30vw, 340px)" }}>
       <defs>
         <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor={gradStop} stopOpacity="0.22" />
