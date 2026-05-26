@@ -31,31 +31,33 @@ interface Position {
   peakPrice?: number;
 }
 
-// Peak price formula: (maxPnlUsd_from_screenshot / alphaTokens) + buyPrice
-// alphaTokens based on $1000 buy (same result as $100 because peak price is price-level, not dollar amount)
-// maxPnlUsd values below are the NORMALIZED $1000-equivalent figures (10x the $100 values from restore-v2)
+// manualPeakPrice = best known all-time-high USD price since the buy date.
+// Sources: (1) pre-wipe screenshot P&L back-calculated, (2) TaoStats historical max × TAO price.
 const POSITIONS: Array<{
   netuid: number; name: string; buyDate: string; buyAGapScore: number;
-  buyPrice: number; maxPnlUsd_1000?: number;
+  buyPrice: number; manualPeakPrice?: number;
 }> = [
   // ── Original April positions (from restore-v2, scaled to $1000) ───────────
-  { netuid: 15,  name: "ORO",          buyDate: "2026-04-10", buyAGapScore: 84, buyPrice: 4.11,  maxPnlUsd_1000: 1912.00 },
-  { netuid: 97,  name: "distil",       buyDate: "2026-04-06", buyAGapScore: 82, buyPrice: 11.02, maxPnlUsd_1000: 1766.90 },
-  { netuid: 85,  name: "Vidaio",       buyDate: "2026-03-31", buyAGapScore: 82, buyPrice: 3.89,  maxPnlUsd_1000: 354.70  },
-  { netuid: 11,  name: "TrajectoryRL", buyDate: "2026-03-31", buyAGapScore: 80, buyPrice: 3.89,  maxPnlUsd_1000: 352.60  },
-  { netuid: 51,  name: "lium.io",      buyDate: "2026-04-04", buyAGapScore: 85, buyPrice: 15.36, maxPnlUsd_1000: 312.80  },
-  { netuid: 71,  name: "Leadpoet",     buyDate: "2026-04-11", buyAGapScore: 81, buyPrice: 1.72,  maxPnlUsd_1000: 272.70  },
-  { netuid: 50,  name: "Synth",        buyDate: "2026-04-06", buyAGapScore: 81, buyPrice: 2.98,  maxPnlUsd_1000: 265.30  },
-  { netuid: 74,  name: "Gittensor",    buyDate: "2026-04-11", buyAGapScore: 84, buyPrice: 0,     maxPnlUsd_1000: 189.30  }, // live price used
-  { netuid: 8,   name: "Vanta",        buyDate: "2026-04-02", buyAGapScore: 81, buyPrice: 8.45,  maxPnlUsd_1000: 156.40  },
-  { netuid: 120, name: "Affine",       buyDate: "2026-04-08", buyAGapScore: 81, buyPrice: 26.34, maxPnlUsd_1000: 148.90  },
-  { netuid: 7,   name: "Allways",      buyDate: "2026-04-17", buyAGapScore: 80, buyPrice: 1.07,  maxPnlUsd_1000: 142.30  },
-  { netuid: 62,  name: "Ridges",       buyDate: "2026-04-05", buyAGapScore: 81, buyPrice: 8.90   },
-  { netuid: 75,  name: "Hippius",      buyDate: "2026-04-04", buyAGapScore: 84, buyPrice: 8.18   },
-  { netuid: 36,  name: "Autoppia",     buyDate: "2026-03-31", buyAGapScore: 80, buyPrice: 1.03   },
+  // manualPeakPrice column: use best known peak — either from pre-wipe screenshot
+  // or from TaoStats find-peaks (max TAO price since buy × TAO price at time of peak).
+  // For positions where manualPeakPrice is omitted, the scan will track peaks going forward.
+  { netuid: 15,  name: "ORO",          buyDate: "2026-04-10", buyAGapScore: 84, buyPrice: 4.11,  manualPeakPrice: 18.50    }, // user recalled +350%
+  { netuid: 97,  name: "distil",       buyDate: "2026-04-06", buyAGapScore: 82, buyPrice: 11.02, manualPeakPrice: 30.4912  }, // from pre-wipe screenshot
+  { netuid: 85,  name: "Vidaio",       buyDate: "2026-03-31", buyAGapScore: 82, buyPrice: 3.89,  manualPeakPrice: 5.2698   }, // from pre-wipe screenshot
+  { netuid: 11,  name: "TrajectoryRL", buyDate: "2026-03-31", buyAGapScore: 80, buyPrice: 3.89,  manualPeakPrice: 5.2616   }, // from pre-wipe screenshot
+  { netuid: 51,  name: "lium.io",      buyDate: "2026-04-04", buyAGapScore: 85, buyPrice: 15.36, manualPeakPrice: 20.1646  }, // from pre-wipe screenshot
+  { netuid: 71,  name: "Leadpoet",     buyDate: "2026-04-11", buyAGapScore: 81, buyPrice: 1.72,  manualPeakPrice: 2.2752   }, // TaoStats peak $2.2752 (Apr 14)
+  { netuid: 50,  name: "Synth",        buyDate: "2026-04-06", buyAGapScore: 81, buyPrice: 2.98,  manualPeakPrice: 3.7706   }, // from pre-wipe screenshot
+  { netuid: 74,  name: "Gittensor",    buyDate: "2026-04-11", buyAGapScore: 84, buyPrice: 0,     manualPeakPrice: 2.215    }, // TaoStats peak $2.215 (Apr 14)
+  { netuid: 8,   name: "Vanta",        buyDate: "2026-04-02", buyAGapScore: 81, buyPrice: 8.45,  manualPeakPrice: 10.9344  }, // TaoStats peak $10.93 (Apr 19)
+  { netuid: 120, name: "Affine",       buyDate: "2026-04-08", buyAGapScore: 81, buyPrice: 26.34, manualPeakPrice: 30.2620  }, // from pre-wipe screenshot
+  { netuid: 7,   name: "Allways",      buyDate: "2026-04-17", buyAGapScore: 80, buyPrice: 1.07,  manualPeakPrice: 1.3874   }, // TaoStats peak $1.387 (Apr 21)
+  { netuid: 62,  name: "Ridges",       buyDate: "2026-04-05", buyAGapScore: 81, buyPrice: 8.90,  manualPeakPrice: 8.9011   }, // TaoStats (no improvement vs buy)
+  { netuid: 75,  name: "Hippius",      buyDate: "2026-04-04", buyAGapScore: 84, buyPrice: 8.18,  manualPeakPrice: 8.18     }, // TaoStats (no improvement vs buy)
+  { netuid: 36,  name: "Autoppia",     buyDate: "2026-03-31", buyAGapScore: 80, buyPrice: 1.03,  manualPeakPrice: 4.0368   }, // TaoStats peak $4.04 (Apr 5) +292%
   // ── New May 2026 positions (auto-bought after the wipe reset purchasedNetUids) ─
-  { netuid: 4,   name: "Targon",       buyDate: "2026-05-25", buyAGapScore: 83, buyPrice: 16.23  },
-  { netuid: 13,  name: "Data Universe",buyDate: "2026-05-26", buyAGapScore: 80, buyPrice: 2.11   },
+  { netuid: 4,   name: "Targon",       buyDate: "2026-05-25", buyAGapScore: 83, buyPrice: 16.23  }, // scan will track peak
+  { netuid: 13,  name: "Data Universe",buyDate: "2026-05-26", buyAGapScore: 80, buyPrice: 2.11   }, // scan will track peak
 ];
 
 export async function GET() {
@@ -100,13 +102,13 @@ export async function GET() {
 
       const alphaTokens = BUY_AMOUNT / buyPrice;
 
-      // manualPeakPrice from screenshot data (price-level — independent of buy amount)
-      let manualPeakPrice: number | undefined;
-      if (p.maxPnlUsd_1000 != null && p.maxPnlUsd_1000 > 0) {
-        manualPeakPrice = (p.maxPnlUsd_1000 / alphaTokens) + buyPrice;
-      }
-
+      // Use manualPeakPrice directly from POSITIONS data (already in USD).
+      // Take max with live price so scan doesn't immediately overwrite with a lower value.
+      const manualPeakPrice = p.manualPeakPrice;
       const livePrice = currentPrices[p.netuid] ?? buyPrice;
+      const effectivePeak = manualPeakPrice
+        ? Math.max(manualPeakPrice, livePrice)
+        : livePrice;
 
       positions.push({
         netuid: p.netuid,
@@ -117,9 +119,7 @@ export async function GET() {
         amountUsd: BUY_AMOUNT,
         alphaTokens,
         ...(manualPeakPrice ? { manualPeakPrice } : {}),
-        peakPrice: manualPeakPrice
-          ? Math.max(manualPeakPrice, livePrice)
-          : livePrice,
+        peakPrice: effectivePeak,
       });
 
       log.push(

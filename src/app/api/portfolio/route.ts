@@ -246,33 +246,45 @@ export async function PATCH(req: Request) {
 
 /**
  * Load portfolio.json from blob storage.
- * Returns null if the blob genuinely doesn't exist (safe to create from scratch).
- * Returns { positions: [], history: [] } ONLY when blob is truly absent.
- * Throws on read/parse errors so the caller can abort rather than overwrite with empty.
+ * - 404 / genuinely absent → returns { positions: [], history: [] } (safe to start fresh)
+ * - Transient 5xx → retries up to 3 times before throwing
+ * - Parse error → throws so the caller can abort rather than overwrite with garbage
+ * - The scan's outer try-catch means a throw aborts the portfolio update gracefully.
  */
 export async function loadPortfolio(): Promise<Portfolio> {
-  const blob = await blobGet("portfolio.json", {
-    token: process.env.BLOB_READ_WRITE_TOKEN!,
-    access: "private",
-  }).catch((err) => {
-    // 404 means blob genuinely doesn't exist — that's fine, return empty
-    const msg = String(err);
-    if (msg.includes("404") || msg.includes("not found") || msg.includes("The specified key does not exist")) {
-      return null;
+  let lastErr: unknown;
+
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const blob = await blobGet("portfolio.json", {
+        token: process.env.BLOB_READ_WRITE_TOKEN!,
+        access: "private",
+      });
+
+      if (!blob?.stream) return { positions: [], history: [] };
+
+      const reader = blob.stream.getReader();
+      const chunks: Uint8Array[] = [];
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        chunks.push(value);
+      }
+      // Parse throws on corruption — callers will catch and abort instead of overwriting
+      return JSON.parse(Buffer.concat(chunks).toString("utf-8"));
+
+    } catch (err) {
+      const msg = String(err);
+      // 404 = blob genuinely doesn't exist → safe to start fresh
+      if (msg.includes("404") || msg.includes("not found") || msg.includes("The specified key does not exist")) {
+        return { positions: [], history: [] };
+      }
+      lastErr = err;
+      if (attempt < 3) {
+        await new Promise(r => setTimeout(r, 600 * attempt));
+      }
     }
-    // Any other error re-throw so callers don't silently overwrite with empty
-    throw err;
-  });
-
-  if (!blob?.stream) return { positions: [], history: [] };
-
-  const reader = blob.stream.getReader();
-  const chunks: Uint8Array[] = [];
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    chunks.push(value);
   }
-  // Parse throws on corruption — callers will catch this and abort
-  return JSON.parse(Buffer.concat(chunks).toString("utf-8"));
+  // All retries exhausted — throw so callers abort rather than overwriting with empty
+  throw lastErr;
 }
