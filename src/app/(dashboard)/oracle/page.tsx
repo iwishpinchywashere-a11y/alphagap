@@ -309,6 +309,11 @@ export default function OraclePage() {
         <div className="flex-shrink-0 border-b border-white/5 bg-[#080810]/95 backdrop-blur-md">
           <div className="max-w-3xl mx-auto px-4 sm:px-6 py-3.5 flex items-center justify-between">
             <div className="flex items-center gap-3">
+              <Link href="/dashboard" className="text-xs text-gray-500 hover:text-gray-300 transition-colors font-medium flex items-center gap-1">
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
+                Dashboard
+              </Link>
+              <span className="text-gray-700">·</span>
               <div className="w-7 h-7 rounded-lg bg-green-500/15 border border-green-500/25 flex items-center justify-center">
                 <Image src="/alphagap_icon.svg" alt="Oracle" width={16} height={16} />
               </div>
@@ -402,7 +407,12 @@ export default function OraclePage() {
       {/* Top bar */}
       <div className="flex-shrink-0 px-5 pt-5 pb-0 relative">
         <div className="max-w-2xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-3">
+            <Link href="/dashboard" className="text-xs text-gray-500 hover:text-gray-300 transition-colors font-medium flex items-center gap-1">
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
+              Dashboard
+            </Link>
+            <span className="text-gray-700">·</span>
             <div className="w-6 h-6 rounded-md bg-green-500/15 border border-green-500/20 flex items-center justify-center">
               <Image src="/alphagap_icon.svg" alt="AlphaGap" width={14} height={14} />
             </div>
