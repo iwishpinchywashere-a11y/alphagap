@@ -14,6 +14,7 @@ export default function DashboardNav() {
   const tabs = [
     { href: "/dashboard", label: "Alpha Leaderboard" },
     { href: "/powerrankings", label: "Power Rankings" },
+    { href: "/oracle", label: "Oracle" },
     { href: "/alerts", label: "Alerts" },
     { href: "/wallettracker", label: "Wallet Tracker" },
     { href: "/signals", label: "Dev Signals" },
@@ -80,15 +81,15 @@ export default function DashboardNav() {
                 href={tab.href}
                 onClick={() => { setSelectedSubnet(null); setOpen(false); }}
                 className={`flex items-center justify-between px-4 py-3 text-sm transition-colors border-b border-gray-800/50 ${
-                  tab.href === "/watchlist" ? "font-bold" : tab.href === "/wallettracker" ? "font-semibold" : tab.href === "/alerts" ? "font-semibold" : "font-normal"
+                  tab.href === "/watchlist" ? "font-bold" : tab.href === "/oracle" ? "font-semibold" : tab.href === "/alerts" ? "font-semibold" : "font-normal"
                 } ${
                   isActive
                     ? tab.href === "/watchlist" ? "text-blue-400 bg-blue-500/5"
-                      : tab.href === "/wallettracker" ? "text-green-400 bg-green-500/5"
+                      : tab.href === "/oracle" ? "text-green-400 bg-green-500/5"
                       : tab.href === "/alerts" ? "text-red-400 bg-red-500/5"
                       : "text-green-400 bg-green-500/5"
                     : tab.href === "/watchlist" ? "text-blue-400 hover:text-blue-300 hover:bg-blue-900/20"
-                      : tab.href === "/wallettracker" ? "text-green-400 hover:text-green-300 hover:bg-green-900/20"
+                      : tab.href === "/oracle" ? "text-green-400 hover:text-green-300 hover:bg-green-900/20"
                       : tab.href === "/alerts" ? "text-red-400 hover:text-red-300 hover:bg-red-900/20"
                       : "text-gray-400 hover:text-white hover:bg-gray-900/60"
                 } ${i === tabs.length - 1 ? "border-b-0" : ""}`}
@@ -96,6 +97,7 @@ export default function DashboardNav() {
                 <span>{tab.label}</span>
                 {isActive && (
                   <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${tab.href === "/watchlist" ? "bg-blue-400" : tab.href === "/alerts" ? "bg-red-400" : "bg-green-400"}`} />
+
                 )}
               </Link>
             );
