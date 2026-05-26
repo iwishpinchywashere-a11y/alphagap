@@ -6,10 +6,16 @@ import Link from "next/link";
 import { useDashboard } from "./DashboardProvider";
 import NotificationBell from "./NotificationBell";
 
-async function refreshSessionFromDB(update: () => Promise<unknown>) {
-  // Hit the server to ensure the blob is fresh, then trigger JWT update
-  await fetch("/api/auth/refresh-session", { method: "POST" });
-  await update();
+async function refreshSessionFromDB(update: (data?: unknown) => Promise<unknown>) {
+  // Read fresh tier data from the blob, pass it into the JWT update callback,
+  // then force a full page reload so the new session cookie is used everywhere.
+  const res = await fetch("/api/auth/refresh-session", { method: "POST" });
+  const freshData = res.ok ? await res.json() : {};
+  // Passing data to update() forces NextAuth to call the JWT callback with
+  // trigger="update" AND the fresh values, guaranteeing the token is rewritten.
+  await update(freshData);
+  // Hard reload — ensures the new JWT cookie is picked up for all server requests.
+  window.location.reload();
 }
 
 interface DropdownPos { top: number; right: number }

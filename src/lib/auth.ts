@@ -33,7 +33,7 @@ export const authOptions: NextAuthOptions = {
   ],
   session: { strategy: "jwt" },
   callbacks: {
-    async jwt({ token, user, trigger }) {
+    async jwt({ token, user, trigger, session: sessionData }) {
       // Helper: check ADMIN_EMAILS env var
       const adminEmails = (process.env.ADMIN_EMAILS || "")
         .split(",").map((e: string) => e.trim().toLowerCase()).filter(Boolean);
@@ -49,15 +49,23 @@ export const authOptions: NextAuthOptions = {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         token.isAdmin = (user as any).isAdmin ?? emailIsAdmin(user.email) ?? false;
       }
-      // On sign-in OR explicit updateSession() call: always do a fresh blob read
-      // with retries so a manually-updated subscription (or post-payment blob write)
-      // is always reflected — even if authorize() ran on a stale Vercel instance.
+      // On sign-in OR explicit updateSession() call: always do a fresh blob read.
       if ((trigger === "signIn" || trigger === "update") && token.email) {
-        const fresh = await getUserByEmail(token.email as string, { retries: 5 });
-        if (fresh) {
-          token.subscriptionStatus = fresh.subscriptionStatus;
-          token.subscriptionTier = fresh.subscriptionTier ?? null;
-          token.isAdmin = (fresh.isAdmin ?? false) || emailIsAdmin(token.email as string);
+        // If the client passed fresh tier data (from our /api/auth/refresh-session
+        // endpoint), apply it directly — this bypasses any blob propagation delay.
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const passed = sessionData as any;
+        if (trigger === "update" && passed?.subscriptionStatus) {
+          token.subscriptionStatus = passed.subscriptionStatus;
+          token.subscriptionTier = passed.subscriptionTier ?? null;
+        } else {
+          // Fallback: read fresh from blob (sign-in, or update with no data)
+          const fresh = await getUserByEmail(token.email as string, { retries: 5 });
+          if (fresh) {
+            token.subscriptionStatus = fresh.subscriptionStatus;
+            token.subscriptionTier = fresh.subscriptionTier ?? null;
+            token.isAdmin = (fresh.isAdmin ?? false) || emailIsAdmin(token.email as string);
+          }
         }
       }
       // Always ensure ADMIN_EMAILS users get isAdmin=true even without refresh
