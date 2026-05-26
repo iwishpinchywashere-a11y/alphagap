@@ -109,7 +109,12 @@ export async function POST(req: Request) {
       await addToUserList(updated);
       return NextResponse.json({ ok: true, message: `${email} set to Premium` });
     }
-    return NextResponse.json({ error: "Invalid tier. Use: free, pro, premium" }, { status: 400 });
+    if (tier === "ultra") {
+      const updated = await updateUser(email, { subscriptionStatus: "active", subscriptionTier: "ultra" });
+      await addToUserList(updated);
+      return NextResponse.json({ ok: true, message: `${email} set to Ultra` });
+    }
+    return NextResponse.json({ error: "Invalid tier. Use: free, pro, premium, ultra" }, { status: 400 });
   }
 
   return NextResponse.json({ error: "Unknown action" }, { status: 400 });

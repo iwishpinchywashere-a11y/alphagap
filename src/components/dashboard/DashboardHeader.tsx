@@ -6,11 +6,17 @@ import Link from "next/link";
 import { useDashboard } from "./DashboardProvider";
 import NotificationBell from "./NotificationBell";
 
+async function refreshSessionFromDB(update: () => Promise<unknown>) {
+  // Hit the server to ensure the blob is fresh, then trigger JWT update
+  await fetch("/api/auth/refresh-session", { method: "POST" });
+  await update();
+}
+
 interface DropdownPos { top: number; right: number }
 
 export default function DashboardHeader() {
   const { taoPrice, lastScan, scanResult, scanError, scanning } = useDashboard();
-  const { data: session } = useSession();
+  const { data: session, update: updateSession } = useSession();
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<DropdownPos | null>(null);
   const btnRef = useRef<HTMLButtonElement>(null);
@@ -22,8 +28,10 @@ export default function DashboardHeader() {
   const subTier: string = user?.subscriptionTier ?? "";
   const isAdmin: boolean = user?.isAdmin ?? false;
   const isActive = subStatus === "active" || subStatus === "trialing";
-  const isPremium = isActive && subTier === "premium";
-  const isPro = isActive && !isPremium; // treat null/undefined tier as pro
+  const isUltra = isAdmin || (isActive && subTier === "ultra");
+  const isPremium = !isUltra && isActive && subTier === "premium";
+  const isPro = isActive && !isPremium && !isUltra;
+  const [refreshing, setRefreshing] = useState(false);
 
   const openDropdown = useCallback(() => {
     if (!btnRef.current) return;
@@ -140,13 +148,15 @@ export default function DashboardHeader() {
                 </div>
                 <div className="mt-2.5">
                   <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${
-                    isPremium
-                      ? "text-purple-400 bg-purple-500/10 border-purple-500/30"
-                      : isActive
-                        ? "text-green-400 bg-green-500/10 border-green-500/30"
-                        : "text-gray-500 bg-gray-800 border-gray-700"
+                    isUltra
+                      ? "text-amber-400 bg-amber-500/10 border-amber-500/30"
+                      : isPremium
+                        ? "text-purple-400 bg-purple-500/10 border-purple-500/30"
+                        : isActive
+                          ? "text-green-400 bg-green-500/10 border-green-500/30"
+                          : "text-gray-500 bg-gray-800 border-gray-700"
                   }`}>
-                    {isPremium ? "✓ Premium Subscriber" : isActive ? "✓ Pro Subscriber" : "No subscription"}
+                    {isUltra ? "✓ Ultra" : isPremium ? "✓ Premium" : isActive ? "✓ Pro" : "No subscription"}
                   </span>
                 </div>
               </div>
@@ -223,8 +233,22 @@ export default function DashboardHeader() {
                 )}
               </div>
 
-              {/* Sign out */}
+              {/* Refresh session + Sign out */}
               <div className="border-t border-gray-800 py-1">
+                <button
+                  onClick={async () => {
+                    setRefreshing(true);
+                    await refreshSessionFromDB(updateSession);
+                    setRefreshing(false);
+                  }}
+                  disabled={refreshing}
+                  className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm text-gray-400 hover:bg-gray-800 hover:text-blue-400 transition-colors text-left disabled:opacity-50"
+                >
+                  <svg className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  {refreshing ? "Refreshing…" : "Refresh Subscription"}
+                </button>
                 <button
                   onClick={() => { closeDropdown(); signOut({ callbackUrl: "/" }); }}
                   className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm text-gray-400 hover:bg-gray-800 hover:text-red-400 transition-colors text-left"
