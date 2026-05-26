@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import SubnetLogo from "@/components/dashboard/SubnetLogo";
-import { getTier } from "@/lib/subscription";
+import { getTier, canAccessPremium } from "@/lib/subscription";
 import { useWatchlist } from "@/components/dashboard/WatchlistProvider";
 import { useDashboard } from "@/components/dashboard/DashboardProvider";
 import { formatNum } from "@/lib/formatters";
@@ -286,7 +286,7 @@ function sortValue(a: SubnetAudit, key: SortKey, agapMap: Map<number, number>, m
 export default function AuditsPage() {
   const { data: session, status: sessionStatus } = useSession();
   const tier = getTier(session);
-  const isPremium = tier === "premium";
+  const isPremium = canAccessPremium(tier);
   const router = useRouter();
   const { isWatched, watchlist } = useWatchlist();
   const { leaderboard } = useDashboard();

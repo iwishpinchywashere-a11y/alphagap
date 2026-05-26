@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
-import { getTier } from "@/lib/subscription";
+import { getTier, canAccessPremium } from "@/lib/subscription";
 import Image from "next/image";
 
 interface Message {
@@ -189,7 +189,7 @@ function InputBar({
 export default function OraclePage() {
   const { data: session, status } = useSession();
   const tier = getTier(session);
-  const isPremium = tier === "premium";
+  const isPremium = canAccessPremium(tier);
 
   const [messages, setMessages]       = useState<Message[]>([]);
   const [input, setInput]             = useState("");
