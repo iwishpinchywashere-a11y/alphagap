@@ -443,7 +443,10 @@ export default function OraclePage() {
               <div className="w-14 h-14 rounded-2xl bg-green-500/10 border border-green-500/20 flex items-center justify-center text-2xl mx-auto mb-5">
                 🔮
               </div>
-              <p className="text-xl font-bold text-white mb-6">Premium members only</p>
+              <p className="text-xl font-bold text-white mb-3">Premium members only</p>
+              <p className="text-gray-400 text-sm leading-relaxed max-w-sm mx-auto mb-7">
+                Live chat using data from every Bittensor subnet — scores, signals, whale activity, dev momentum, and more. Ask anything, get instant answers.
+              </p>
               <a
                 href="/pricing"
                 className="inline-block bg-gradient-to-r from-green-400 to-emerald-500 hover:from-green-300 hover:to-emerald-400 text-black text-sm font-bold px-7 py-3 rounded-xl transition-all shadow-lg shadow-green-500/25 active:scale-95"
