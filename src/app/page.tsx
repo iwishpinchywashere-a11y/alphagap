@@ -420,7 +420,117 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* aGap section moved below "How it works" */}
+      {/* TAO Oracle — Featured Premium Section */}
+      <section className="py-24 px-6 relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-green-950/10 to-transparent pointer-events-none" />
+        <div className="absolute top-1/2 right-1/4 -translate-y-1/2 w-[500px] h-[500px] bg-green-500/[0.04] rounded-full blur-[100px] pointer-events-none" />
+
+        <div className="relative max-w-5xl mx-auto">
+          <div className="text-center mb-14">
+            <div className="inline-flex items-center gap-2 bg-green-500/10 border border-green-500/20 rounded-full px-4 py-1.5 mb-5">
+              <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
+              <span className="text-green-400 text-xs font-bold uppercase tracking-widest">New — Premium Feature</span>
+            </div>
+            <h2 className="text-3xl sm:text-4xl font-bold mb-4">
+              Ask the{" "}
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-emerald-300">TAO Oracle</span>
+              {" "}anything
+            </h2>
+            <p className="text-gray-400 text-lg max-w-2xl mx-auto leading-relaxed">
+              Live AI chat using data from every Bittensor subnet — scores, signals, whale activity, dev momentum, and more. Ask anything, get instant answers in plain English.
+            </p>
+          </div>
+
+          <div className="grid lg:grid-cols-2 gap-10 items-start">
+            {/* Left: Mock chat UI */}
+            <div className="bg-[#0d0d14] border border-white/10 rounded-2xl p-4 shadow-2xl">
+              <div className="flex items-center gap-3 mb-4 pb-3 border-b border-white/5">
+                <div className="w-9 h-9 rounded-xl bg-green-500/15 border border-green-500/25 flex items-center justify-center text-lg">🔮</div>
+                <div>
+                  <div className="text-white text-sm font-semibold">AlphaGap Oracle</div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-green-400" />
+                    <span className="text-green-400 text-xs">Live · Premium</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-4 text-sm">
+                <div className="flex justify-end">
+                  <div className="bg-green-500/10 border border-green-500/20 rounded-2xl px-4 py-3 max-w-[85%] text-white">
+                    Which subnets are whales accumulating right now?
+                  </div>
+                </div>
+                <div className="flex gap-3">
+                  <div className="w-7 h-7 rounded-lg bg-green-500/15 border border-green-500/25 flex items-center justify-center flex-shrink-0 mt-0.5 text-sm">🔮</div>
+                  <div className="bg-white/[0.03] border border-white/[0.08] rounded-2xl px-4 py-3 text-gray-200 space-y-1.5">
+                    <p><strong className="text-white">3 subnets with heavy smart-money flow:</strong></p>
+                    <p>▸ <strong className="text-white">SN64 Chutes</strong> — buy/sell ratio 3.1× above avg, large wallets added positions in the last 6h</p>
+                    <p>▸ <strong className="text-white">SN19</strong> — Const wallet bought 840 TAO, aGap 82</p>
+                    <p>▸ <strong className="text-white">SN4 Targon</strong> — flow score spiking, unusual volume, smart money entering</p>
+                  </div>
+                </div>
+                <div className="flex justify-end">
+                  <div className="bg-green-500/10 border border-green-500/20 rounded-2xl px-4 py-3 max-w-[85%] text-white">
+                    What&apos;s the biggest red flag right now?
+                  </div>
+                </div>
+                <div className="flex gap-3">
+                  <div className="w-7 h-7 rounded-lg bg-green-500/15 border border-green-500/25 flex items-center justify-center flex-shrink-0 mt-0.5 text-sm">🔮</div>
+                  <div className="bg-white/[0.03] border border-white/[0.08] rounded-2xl px-4 py-3 text-gray-200">
+                    ▸ <strong className="text-white">SN77</strong> has a Nakamoto coefficient of 1 — a single validator controls consensus. Critical centralisation risk worth avoiding until that changes.
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Right: what you can ask + CTA */}
+            <div className="space-y-5">
+              <p className="text-xs text-gray-500 uppercase tracking-widest font-semibold">Ask anything — for example</p>
+              <div className="space-y-3">
+                {[
+                  { icon: "🐋", label: "Smart money & whale flows", ex: "\"Who's accumulating before the next pump?\"" },
+                  { icon: "⚡", label: "Dev momentum", ex: "\"Which subnets shipped the most code this week?\"" },
+                  { icon: "📊", label: "Top picks with reasoning", ex: "\"Best long-term holds right now — top 3\"" },
+                  { icon: "🚨", label: "Red flags & risks", ex: "\"What are the biggest centralisation risks?\"" },
+                  { icon: "💬", label: "Social & KOL activity", ex: "\"What are KOLs buzzing about right now?\"" },
+                ].map((q) => (
+                  <div key={q.label} className="flex items-start gap-3 p-3 rounded-xl bg-white/[0.02] border border-white/[0.05] hover:border-white/10 transition-colors">
+                    <span className="text-xl flex-shrink-0 leading-none mt-0.5">{q.icon}</span>
+                    <div>
+                      <p className="text-sm font-medium text-white">{q.label}</p>
+                      <p className="text-xs text-gray-500 italic">{q.ex}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="bg-white/[0.02] border border-white/[0.06] rounded-xl p-5">
+                <p className="text-xs text-gray-500 uppercase tracking-widest font-semibold mb-3">Included in Premium</p>
+                <ul className="space-y-2 mb-5">
+                  {[
+                    "15 AI queries per day (50 on Ultra)",
+                    "Pulls live data from every subnet scan",
+                    "Scores, signals, whales, dev activity",
+                    "Powered by Claude AI",
+                  ].map((f) => (
+                    <li key={f} className="flex items-start gap-2 text-sm">
+                      <span className="text-green-400 flex-shrink-0 mt-0.5">✓</span>
+                      <span className="text-gray-300">{f}</span>
+                    </li>
+                  ))}
+                </ul>
+                <Link
+                  href="/pricing"
+                  className="w-full inline-flex items-center justify-center px-5 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-black font-bold rounded-xl hover:from-green-400 hover:to-emerald-500 transition-all shadow-lg shadow-green-500/20 text-sm"
+                >
+                  Unlock the Oracle →
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
 
       {/* Telegram Alerts — Premium feature showcase */}
       <section className="py-24 px-6 relative overflow-hidden">

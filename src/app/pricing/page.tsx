@@ -29,6 +29,7 @@ const PLANS = [
     highlight: true,
     features: [
       "Everything in Pro",
+      "🔮 TAO Oracle — live AI chat using data from every subnet (15 queries/day)",
       "📡 Telegram Alerts — 7 customisable alert types, straight to your phone",
       "Investing Analysis — long-term aGap scoring designed for serious investors",
       "Whale & smart money tracking",
@@ -95,6 +96,24 @@ export default function PricingPage() {
           </div>
           <h1 className="text-3xl sm:text-4xl font-bold text-white mb-3">Pick your plan</h1>
           <p className="text-gray-400 text-base">No hidden fees. Cancel anytime. Switch plans anytime.</p>
+        </div>
+
+        {/* Oracle feature callout */}
+        <div className="mb-8 rounded-2xl border border-green-500/25 bg-gradient-to-r from-green-950/30 to-emerald-950/20 p-5 flex flex-col sm:flex-row items-start sm:items-center gap-4">
+          <div className="w-11 h-11 rounded-xl bg-green-500/15 border border-green-500/25 flex items-center justify-center text-2xl flex-shrink-0">🔮</div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-white font-bold text-sm">TAO Oracle — now included in Premium</span>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-green-400/10 text-green-400 border border-green-400/20 uppercase tracking-widest">New</span>
+            </div>
+            <p className="text-gray-400 text-xs leading-relaxed">Live AI chat using data from every Bittensor subnet. Ask about whale flows, dev momentum, red flags, top picks — get instant answers in plain English.</p>
+          </div>
+          <Link
+            href="/"
+            className="flex-shrink-0 text-xs text-green-400 hover:text-green-300 font-medium transition-colors whitespace-nowrap"
+          >
+            See it in action →
+          </Link>
         </div>
 
         {/* Plan cards */}
