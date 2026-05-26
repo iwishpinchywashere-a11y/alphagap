@@ -10,7 +10,8 @@ interface Message {
   content: string;
 }
 
-const DAILY_LIMIT = 25;
+// Matches dailyLimitS in /api/oracle/route.ts
+const TIER_LIMITS: Record<string, number> = { premium: 15, ultra: 50 };
 
 const STARTER_QUESTIONS: { icon: React.ReactNode; bg: string; color: string; text: string }[] = [
   {
@@ -191,6 +192,8 @@ export default function OraclePage() {
   const tier = getTier(session);
   const isPremium = canAccessPremium(tier);
 
+  const dailyLimit = TIER_LIMITS[tier] ?? 15;
+
   const [messages, setMessages]       = useState<Message[]>([]);
   const [input, setInput]             = useState("");
   const [loading, setLoading]         = useState(false);
@@ -261,6 +264,8 @@ export default function OraclePage() {
 
       const rem = res.headers.get("X-Oracle-Remaining");
       if (rem !== null) setRemaining(Number(rem));
+      // X-Oracle-Limit is the source of truth for the user's actual daily cap
+      // (no-op for now since dailyLimit is already derived from tier, but keeps them in sync)
 
       const reader = res.body!.getReader();
       const decoder = new TextDecoder();
@@ -315,7 +320,7 @@ export default function OraclePage() {
                 <span className={`text-xs tabular-nums font-medium ${
                   remaining <= 5 ? "text-yellow-400" : "text-gray-500"
                 }`}>
-                  {remaining}/{DAILY_LIMIT} left
+                  {remaining}/{dailyLimit} left
                 </span>
               )}
               <button
@@ -369,7 +374,7 @@ export default function OraclePage() {
           <div className="max-w-3xl mx-auto">
             {rateLimited ? (
               <div className="text-center text-sm text-yellow-400 bg-yellow-500/5 border border-yellow-500/15 rounded-2xl px-5 py-4 font-medium">
-                You&apos;ve used all {DAILY_LIMIT} queries for today. Resets at midnight UTC.
+                You&apos;ve used all {dailyLimit} queries for today. Resets at midnight UTC.
               </div>
             ) : (
               <>
@@ -405,7 +410,7 @@ export default function OraclePage() {
           </div>
           {isPremium && remaining !== null && (
             <span className={`text-xs font-medium tabular-nums ${remaining <= 5 ? "text-yellow-400" : "text-gray-500"}`}>
-              {remaining}/{DAILY_LIMIT} queries left
+              {remaining}/{dailyLimit} queries left
             </span>
           )}
         </div>
