@@ -144,13 +144,16 @@ function buildFindings(
   current: SubnetScore | null
 ): SignalFinding[] {
   const findings: SignalFinding[] = [];
-  if (!pumpEvent) return findings;
 
-  const pumpMs = new Date(pumpEvent.startDate).getTime();
-  const pre14 = getWindow(scores, pumpEvent.startDate, 14);
-  const pre7  = getWindow(scores, pumpEvent.startDate, 7);
+  // Score windows relative to pump start — empty arrays when no pump event found.
+  // Defined here (not after the pumpEvent guard) so the AlphaGap Score finding
+  // can still be built for portfolio cases where pumpFromSignalDate returns null.
+  const pre7  = pumpEvent ? getWindow(scores, pumpEvent.startDate, 7)  : [];
+  const pre14 = pumpEvent ? getWindow(scores, pumpEvent.startDate, 14) : [];
 
-  // AlphaGap Score
+  // AlphaGap Score — always evaluated, even without a pump event.
+  // This is critical: portfolio cases (confirmed aGap picks) must have ≥1 finding so they
+  // are never auto-purged or hidden when pumpFromSignalDate can't find a clean pump window.
   const agapNow = current?.composite_score ?? 0;
   const prePumpScores = pre7.length > 0 ? pre7 : pre14;
   const agapAtPump = prePumpScores.length > 0 ? prePumpScores[prePumpScores.length - 1].agap : agapNow;
@@ -168,6 +171,11 @@ function buildFindings(
     daysBeforePump: prePumpScores.length > 0 ? Math.min(7, prePumpScores.length) : 0,
     fired: agapFired,
   });
+
+  // All remaining signals need a pump window to be meaningful
+  if (!pumpEvent) return findings;
+
+  const pumpMs = new Date(pumpEvent.startDate).getTime();
 
   // Dev spike
   const devTrend7  = trend(pre7.map((s) => s.dev));
@@ -796,7 +804,10 @@ export default function PumpLabPage() {
             }
           }
 
-          // Auto-purge 0-signal cases — but never delete portfolio entries (they have confirmed aGap signals)
+          // Auto-purge 0-signal cases.
+          // Portfolio entries (have pump_date + "aGap score" in reason) are NEVER deleted and
+          // NEVER removed from state — they are confirmed aGap picks regardless of whether
+          // a clean pump window was found in the price data.
           const firedCount = findings.filter((f) => f.fired).length;
           if (firedCount === 0) {
             if (!isPortfolioCase) {
@@ -805,9 +816,10 @@ export default function PumpLabPage() {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ name: stubName }),
               }).catch(() => {});
+              setAutopsies((prev) => prev.filter((a) => a.pumper.name !== stubName));
+              continue;
             }
-            setAutopsies((prev) => prev.filter((a) => a.pumper.name !== stubName));
-            continue;
+            // Portfolio case with 0 signals: keep in state (card will show aGap score at minimum)
           }
 
           setAutopsies((prev) =>
@@ -839,7 +851,12 @@ export default function PumpLabPage() {
   const loading = autopsies.some((a) => a.loading);
 
   const sortedAutopsies = [...autopsies]
-    .filter((a) => a.loading || a.findings.filter((f) => f.fired).length > 0)
+    .filter((a) => {
+      if (a.loading) return true;
+      // Portfolio cases (confirmed aGap picks) always shown regardless of signal count
+      const isPortfolio = !!(a.pumper.pump_date && a.pumper.reason?.includes("aGap score"));
+      return isPortfolio || a.findings.filter((f) => f.fired).length > 0;
+    })
     .sort((a, b) => {
       if (a.loading && !b.loading) return 1;
       if (!a.loading && b.loading) return -1;
