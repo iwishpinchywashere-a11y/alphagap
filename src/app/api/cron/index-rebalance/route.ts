@@ -103,7 +103,7 @@ export async function runRebalance(): Promise<NextResponse> {
 
   try {
     await updateStrategyWeights(weights, {
-      description: `AlphaGap Subnet Index — Top 10 by aGap Investing Score. Rebalanced ${new Date().toDateString()}.`,
+      description: `AlphaGap Subnet Index - Top 10 by aGap Investing Score. Rebalanced ${new Date().toDateString()}.`,
     });
     console.log("[index-rebalance] ✓ Weights pushed to TrustedStake");
 
