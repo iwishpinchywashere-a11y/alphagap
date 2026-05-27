@@ -95,6 +95,25 @@ export default function AlphaGapIndexPage() {
   const [expandedFaq, setExpandedFaq] = useState<number | null>(null);
   const { leaderboard } = useDashboard();
 
+  // Last rebalance date from TrustedStake cron
+  const [lastRebalancedAt, setLastRebalancedAt] = useState<string | null>(null);
+  const [delegateUrl, setDelegateUrl] = useState<string>("https://app.trustedstake.ai");
+  React.useEffect(() => {
+    fetch("/api/index-status")
+      .then(r => r.json())
+      .then(d => {
+        if (d.rebalancedAt) setLastRebalancedAt(d.rebalancedAt);
+        if (d.strategyUrl) setDelegateUrl(d.strategyUrl);
+      })
+      .catch(() => {});
+  }, []);
+
+  const lastRebalancedLabel = useMemo(() => {
+    if (!lastRebalancedAt) return "Sunday weekly";
+    const d = new Date(lastRebalancedAt);
+    return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  }, [lastRebalancedAt]);
+
   // Top 10 by invest_agap (the live aGap investing score)
   const top10 = useMemo(() => {
     return [...leaderboard]
@@ -107,7 +126,7 @@ export default function AlphaGapIndexPage() {
       });
   }, [leaderboard]);
 
-  // Compute weights proportional to scores
+  // Compute weights proportional to scores (matches buildWeights in trustedstake.ts)
   const totalScore = top10.reduce((sum, h) => sum + h.score, 0);
   const holdings = top10.map(h => ({
     ...h,
@@ -171,7 +190,16 @@ export default function AlphaGapIndexPage() {
             ))}
           </div>
 
-          {!isUltra && (
+          {isUltra ? (
+            <a
+              href={delegateUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 px-8 py-3.5 bg-gradient-to-r from-emerald-400 to-green-400 hover:from-emerald-300 hover:to-green-300 text-black font-bold text-base rounded-xl transition-all shadow-lg shadow-emerald-500/25 active:scale-95 mb-8"
+            >
+              Delegate on TrustedStake <IconArrow className="w-4 h-4" />
+            </a>
+          ) : (
             <a href="/pricing" className="inline-flex items-center gap-2 px-8 py-3.5 bg-gradient-to-r from-amber-400 to-orange-400 hover:from-amber-300 hover:to-orange-300 text-black font-bold text-base rounded-xl transition-all shadow-lg shadow-amber-500/20 active:scale-95 mb-8">
               Subscribe to Ultra — $99/mo <IconArrow className="w-4 h-4" />
             </a>
@@ -280,9 +308,21 @@ export default function AlphaGapIndexPage() {
               <p className="text-xs font-bold text-emerald-400/80 uppercase tracking-widest mb-2">Live Portfolio</p>
               <h2 className="text-3xl font-black text-white">Current Index Holdings</h2>
             </div>
-            <div className="flex items-center gap-2 text-xs text-gray-400 border border-white/6 rounded-lg px-3 py-2">
-              <IconRefresh className="w-3 h-3" />
-              Last rebalanced: <span className="text-gray-400 font-medium ml-1">May 25, 2026</span>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 text-xs text-gray-400 border border-white/6 rounded-lg px-3 py-2">
+                <IconRefresh className="w-3 h-3" />
+                Last rebalanced: <span className="text-gray-300 font-medium ml-1">{lastRebalancedLabel}</span>
+              </div>
+              {isUltra && (
+                <a
+                  href={delegateUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-emerald-500 to-green-500 hover:from-emerald-400 hover:to-green-400 text-black font-bold text-xs rounded-lg transition-all shadow-md shadow-emerald-500/20 active:scale-95"
+                >
+                  Delegate on TrustedStake <IconArrow className="w-3 h-3" />
+                </a>
+              )}
             </div>
           </div>
 
