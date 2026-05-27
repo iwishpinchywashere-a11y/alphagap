@@ -454,12 +454,46 @@ export async function GET() {
   ]);
   const flows = flowsResult.status === "fulfilled" ? flowsResult.value : [];
   const emissions = emissionsResult.status === "fulfilled" ? emissionsResult.value : [];
-  const devActivity = devResult.status === "fulfilled" ? devResult.value : ([] as Awaited<ReturnType<typeof getGithubActivity>>);
   const tmcSubnets = tmcResult.status === "fulfilled" ? tmcResult.value : [];
   const validatorCounts = tmcValResult.status === "fulfilled" ? tmcValResult.value : new Map<number, number>();
   const srSubnets = srSubnetsResult.status === "fulfilled" ? srSubnetsResult.value : [];
   const srWhaleMoves = srWhalesResult.status === "fulfilled" ? srWhalesResult.value : [];
   const burnedAlphaData = burnedAlphaResult.status === "fulfilled" ? burnedAlphaResult.value : [];
+
+  // ── Dev activity with blob-cached fallback ────────────────────────────────
+  // TaoStats /dev_activity sometimes returns 429 (rate-limited) or fails.
+  // When that happens, use the last successfully cached result so dev scores
+  // don't collapse to 0-3 for the entire leaderboard.
+  const DEV_CACHE_BLOB = "dev-activity-cache.json";
+  const BLOB_TOKEN_DEV = process.env.BLOB_READ_WRITE_TOKEN || "";
+  let devActivity = devResult.status === "fulfilled" ? devResult.value : ([] as Awaited<ReturnType<typeof getGithubActivity>>);
+
+  if (devActivity.length > 0) {
+    // Save fresh data as the new cache (fire-and-forget)
+    put(DEV_CACHE_BLOB, JSON.stringify(devActivity), {
+      access: "private" as never,
+      token: BLOB_TOKEN_DEV,
+      addRandomSuffix: false,
+      allowOverwrite: true,
+      contentType: "application/json",
+    }).catch(() => {});
+    console.log(`[scan] dev-activity-cache updated (${devActivity.length} entries)`);
+  } else {
+    // TaoStats failed — try the cache
+    try {
+      const cacheResult = await blobGet(DEV_CACHE_BLOB, { token: BLOB_TOKEN_DEV, access: "private" });
+      if (cacheResult?.stream) {
+        const reader = cacheResult.stream.getReader();
+        const chunks: Uint8Array[] = [];
+        while (true) { const { done, value } = await reader.read(); if (done) break; chunks.push(value); }
+        devActivity = JSON.parse(Buffer.concat(chunks).toString("utf-8"));
+        console.log(`[scan] TaoStats dev-activity unavailable — using cached data (${devActivity.length} entries)`);
+      }
+    } catch {
+      console.warn("[scan] dev-activity-cache read failed — dev scores will be low this cycle");
+    }
+  }
+
   console.log(`[scan] Batch 2 done: ${flows.length} flows, ${emissions.length} emissions, ${devActivity.length} dev history, ${tmcSubnets.length} TMC, ${srSubnets.length} SR subnets, ${srWhaleMoves.length} whale moves, ${burnedAlphaData.length} burned alpha`);
 
   // Build TMC emission map (accurate emission % from TaoMarketCap)
