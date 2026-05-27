@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import React, { useState, useRef, useEffect, useCallback, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { getTier, canAccessPremium } from "@/lib/subscription";
 import Link from "next/link";
@@ -188,6 +189,18 @@ function InputBar({
   );
 }
 
+// Inner component — isolated in Suspense so useSearchParams doesn't block SSR
+function OracleAutoQuery({ onQuery }: { onQuery: (q: string) => void }) {
+  const searchParams = useSearchParams();
+  const fired = useRef(false);
+  useEffect(() => {
+    if (fired.current) return;
+    const q = searchParams.get("q");
+    if (q) { fired.current = true; setTimeout(() => onQuery(q), 300); }
+  }, [searchParams, onQuery]);
+  return null;
+}
+
 export default function OraclePage() {
   const { data: session, status } = useSession();
   const tier = getTier(session);
@@ -205,7 +218,6 @@ export default function OraclePage() {
   const bottomRef                     = useRef<HTMLDivElement>(null);
   const inputRef                      = useRef<HTMLTextAreaElement>(null);
   const responseStartRef              = useRef<HTMLDivElement>(null);
-
   const hasMessages = messages.length > 0;
 
   // When the response starts generating, scroll to the TOP of the new message
@@ -452,6 +464,13 @@ export default function OraclePage() {
               whale activity, and more.
             </p>
           </div>
+
+          {/* Auto-fire query from ?q= URL param */}
+          {isPremium && (
+            <Suspense fallback={null}>
+              <OracleAutoQuery onQuery={sendMessage} />
+            </Suspense>
+          )}
 
           {/* Premium gate OR input + chips */}
           {!isPremium ? (

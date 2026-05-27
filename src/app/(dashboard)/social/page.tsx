@@ -288,6 +288,15 @@ export default function SocialPage() {
               {pulseAge !== null ? `Last pulse ${pulseAge}m ago` : "Pulse pending"}
               <span className="text-gray-600 hidden sm:inline">· {stats.tier1Count + stats.tier2Count} KOLs tracked</span>
             </div>
+            <button
+              onClick={() => {
+                const q = `Based on current social signals: What are the top 3 most actionable alpha opportunities in Bittensor right now? Look at KOL tweet activity, Discord alpha channels, and subnet momentum. Give me specific subnets with reasoning.`;
+                router.push(`/oracle?q=${encodeURIComponent(q)}`);
+              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border bg-violet-500/10 border-violet-500/30 text-violet-400 hover:bg-violet-500/20 transition-colors text-xs font-medium"
+            >
+              🔮 Ask Oracle
+            </button>
           </div>
 
           {/* Stats chips */}

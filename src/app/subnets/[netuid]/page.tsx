@@ -2,6 +2,7 @@
 
 import { use, useEffect, useRef, useState, useMemo, useCallback } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import SocialLinks from "@/components/dashboard/SocialLinks";
 
 // ── Types ─────────────────────────────────────────────────────────
@@ -610,6 +611,7 @@ function StatItem({ label, value, sub }: { label: string; value: string; sub?: s
 // ── Main page ─────────────────────────────────────────────────────
 export default function SubnetDetailPage({ params }: { params: Promise<{ netuid: string }> }) {
   const { netuid } = use(params);
+  const router = useRouter();
   const [data, setData] = useState<SubnetData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -811,6 +813,16 @@ export default function SubnetDetailPage({ params }: { params: Promise<{ netuid:
                   title={isWatched(data.netuid) ? "Remove from watchlist" : "Add to watchlist"}
                 >
                   {watchlistBusy ? "…" : isWatched(data.netuid) ? "★ Watching" : "☆ Watchlist"}
+                </button>
+                <button
+                  onClick={() => {
+                    const q = `Give me a full investment analysis of ${data.name} (SN${data.netuid}). Cover: aGap score (${agap}/100), dev score (${dev}/100), social score (${social}/100), flow score (${flow}/100), current price action, emission %, whale activity, and whether this belongs in a long-term portfolio right now.`;
+                    router.push(`/oracle?q=${encodeURIComponent(q)}`);
+                  }}
+                  className="flex items-center gap-1.5 text-xs font-medium rounded-full px-3 py-1 border bg-violet-500/10 border-violet-500/40 text-violet-400 hover:bg-violet-500/20 transition-colors"
+                  title="Ask Oracle about this subnet"
+                >
+                  🔮 Ask Oracle
                 </button>
                 {watchlistError && (
                   <span className="text-xs text-red-400">{watchlistError}</span>

@@ -171,9 +171,23 @@ export default function WatchlistPage() {
 
         {/* Current saved Watchlist */}
         <section>
-          <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">
-            Currently Watching {loading ? "…" : `(${pending.size})`}
-          </h2>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
+              Currently Watching {loading ? "…" : `(${pending.size})`}
+            </h2>
+            {watchedSubnets.length > 0 && (
+              <button
+                onClick={() => {
+                  const names = watchedSubnets.map(s => `${s.name} (SN${s.netuid}, aGap ${s.composite_score})`).join(", ");
+                  const q = `Analyze my watchlist: ${names}. Rank them by conviction for long-term investing. Flag any I should consider trimming and explain why. Which one has the most momentum right now?`;
+                  router.push(`/oracle?q=${encodeURIComponent(q)}`);
+                }}
+                className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border bg-violet-500/10 border-violet-500/30 text-violet-400 hover:bg-violet-500/20 transition-colors"
+              >
+                🔮 Analyze with Oracle
+              </button>
+            )}
+          </div>
 
           {watchlist.size === 0 && !loading && (
             <div className="border border-gray-800 rounded-xl p-6 text-center text-gray-500">
