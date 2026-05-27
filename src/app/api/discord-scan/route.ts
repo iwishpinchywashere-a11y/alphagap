@@ -768,7 +768,7 @@ function buildFallbackFounderEntries(
   const entries: DiscordAlphaResult[] = [];
   for (const ch of byChannel.values()) {
     const lastMsg = ch.msgs.at(-1);
-    const snippet = ch.msgs.map(m => m.content.slice(0, 120)).join(" · ").slice(0, 300);
+    const snippet = ch.msgs.map(m => m.content.slice(0, 1000)).join(" · ").slice(0, 2000);
     entries.push({
       channelId: `founder-const-${ch.channelId}`,
       channelName: `founder-const-${ch.channelName}`,
@@ -854,7 +854,7 @@ async function analyzeFounderPosts(
   const channelSections = [...byChannel.values()]
     .map(ch => {
       const lines = ch.msgs
-        .map(m => `  "${m.content.slice(0, 500)}"`)
+        .map(m => `  "${m.content.slice(0, 2000)}"`)
         .join("\n");
       return `=== #${ch.channelName} ===\n${lines}`;
     })
