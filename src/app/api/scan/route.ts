@@ -3806,7 +3806,11 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
       const now24 = Date.now();
       const target24h = now24 - 24 * 3600 * 1000;
       const target7d  = now24 - 7 * 24 * 3600 * 1000;
-      const allTs = Object.keys(scoreHistory).sort(); // ascending ISO strings sort correctly
+      // Filter out empty snapshots (subnets=0) — these come from failed scans and cause
+      // d24/dailyAvg7d to be null for all subnets, collapsing every VELO score to 50.
+      const allTs = Object.keys(scoreHistory)
+        .filter(ts => Object.keys(scoreHistory[ts]).length > 0)
+        .sort(); // ascending ISO strings sort correctly
 
       // Find the snapshot closest to a target epoch.
       // NO tolerance gate — we always return the closest available snapshot.
@@ -3919,18 +3923,23 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
       // pushing the blob past the 40MB parse threshold and silently resetting history.
       const _d = new Date(); _d.setMinutes(0, 0, 0);
       const scanTs = _d.toISOString(); // e.g. "2026-05-05T14:00:00.000Z"
-      scoreHistory[scanTs] = {};
-      for (const entry of leaderboard) {
-        scoreHistory[scanTs][String(entry.netuid)] = {
-          agap: entry.composite_score,
-          flow: entry.flow_score,
-          dev: entry.dev_score,
-          eval: entry.eval_score || 0,
-          social: entry.social_score || 0,
-          price: entry.alpha_price || 0,
-          mcap: entry.market_cap || 0,
-          emission_pct: entry.emission_pct || 0,
-        };
+      // Only write the snapshot if the leaderboard has entries — empty snapshots
+      // corrupt the VELO calculation by becoming the "best" 24h/7d match while
+      // having no subnet data, collapsing every velocity score to 50.
+      if (leaderboard.length > 0) {
+        scoreHistory[scanTs] = {};
+        for (const entry of leaderboard) {
+          scoreHistory[scanTs][String(entry.netuid)] = {
+            agap: entry.composite_score,
+            flow: entry.flow_score,
+            dev: entry.dev_score,
+            eval: entry.eval_score || 0,
+            social: entry.social_score || 0,
+            price: entry.alpha_price || 0,
+            mcap: entry.market_cap || 0,
+            emission_pct: entry.emission_pct || 0,
+          };
+        }
       }
 
       // Trim to last 30 days — keeps blob well under 40MB limit
