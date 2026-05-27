@@ -704,10 +704,14 @@ export async function GET() {
     124: "SwarmSubnet",     // Swarm
   };
 
-  // ── Step 3a: Direct GitHub scan — ALL subnets, real-time 24h data ──
-  // This is the CORE engine. We query GitHub API directly for every subnet
-  // with a registered github_repo. Always fresh — no TaoStats staleness.
-  console.log("[scan] Step 3a: Direct GitHub scan (all subnets)...");
+  // ── Step 3a: Direct GitHub scan — ALL subnets, real-time data ──────
+  // This is our OWN BACKBONE — independent of TaoStats. Queries GitHub API
+  // directly for every subnet with a registered github_repo. We now fetch
+  // the full 30d commit window so we own commits7d/30d, prs_merged_7d/30d,
+  // and contributors_30d without any TaoStats dependency.
+  const GH_SCAN_CACHE_BLOB = "github-scan-latest.json";
+  const BLOB_TOKEN_GH = process.env.BLOB_READ_WRITE_TOKEN || "";
+  console.log("[scan] Step 3a: Direct GitHub scan (all subnets, 30d window)...");
   let githubScanMap = new Map<number, GitHubScanResult>();
   try {
     githubScanMap = await scanAllSubnetGitHub(
@@ -720,45 +724,75 @@ export async function GET() {
     console.error("[scan] GitHub scanner failed:", e);
   }
 
-  // Merge: override TaoStats commits_1d with direct GitHub data (always fresher)
+  // ── Persist scan results as our own backbone cache ───────────────
+  // Saved after every successful scan. Used as fallback if the scanner
+  // fails on a future run (rate-limit, GitHub outage, etc.).
+  if (githubScanMap.size > 0) {
+    const ghCacheObj: Record<number, GitHubScanResult> = {};
+    for (const [k, v] of githubScanMap) ghCacheObj[k] = v;
+    put(GH_SCAN_CACHE_BLOB, JSON.stringify(ghCacheObj), {
+      access: "private" as never, token: BLOB_TOKEN_GH,
+      addRandomSuffix: false, allowOverwrite: true, contentType: "application/json",
+    }).catch(() => {});
+    console.log(`[scan] github-scan-latest cache updated (${githubScanMap.size} repos)`);
+  } else {
+    // Scanner failed — load our own backbone cache
+    try {
+      const ghCacheResult = await blobGet(GH_SCAN_CACHE_BLOB, { token: BLOB_TOKEN_GH, access: "private" });
+      if (ghCacheResult?.stream) {
+        const reader = ghCacheResult.stream.getReader();
+        const chunks: Uint8Array[] = [];
+        while (true) { const { done, value } = await reader.read(); if (done) break; chunks.push(value); }
+        const ghCacheObj: Record<number, GitHubScanResult> = JSON.parse(Buffer.concat(chunks).toString("utf-8"));
+        for (const [k, v] of Object.entries(ghCacheObj)) githubScanMap.set(Number(k), v);
+        console.log(`[scan] GitHub scanner failed — using backbone cache (${githubScanMap.size} repos)`);
+      }
+    } catch {
+      console.warn("[scan] github-scan-latest cache read failed — GitHub data will be missing this cycle");
+    }
+  }
+
+  // ── Merge github scan into devMap — OWN DATA ALWAYS WINS ─────────
+  // Our direct scanner now provides commits7d/30d, prs_merged_7d/30d,
+  // and contributors_30d independently of TaoStats. We always trust our
+  // own numbers (they're from the same GitHub API, just queried directly).
+  // Only skip overwriting if our scan returned 0 AND we have non-zero TaoStats
+  // data — protects against rate-limited/failed scan responses.
   for (const [netuid, ghResult] of githubScanMap) {
-    // Diagnostic logging for override repos so we can confirm they're getting scanned correctly
     if (GITHUB_REPO_OVERRIDES[netuid] !== undefined) {
-      console.log(`[scan] Override SN${netuid} GitHub scan result: commits7d=${ghResult.commits7d}, commits24h=${ghResult.commits24h}, repo=${ghResult.repoUrl}`);
+      console.log(`[scan] Override SN${netuid}: c24h=${ghResult.commits24h} c7d=${ghResult.commits7d} c30d=${ghResult.commits30d} pr7d=${ghResult.prs_merged_7d} repo=${ghResult.repoUrl}`);
     }
 
     const existing = devMap.get(netuid);
+    const nowIso = new Date().toISOString();
     if (existing) {
+      // Always update 24h data
       existing.commits_1d = ghResult.commits24h;
       existing.unique_contributors_1d = ghResult.contributors24h;
-      if (ghResult.commits24h > 0) {
-        existing.last_event_at = new Date().toISOString();
+      if (ghResult.commits24h > 0) existing.last_event_at = nowIso;
+
+      // Trust our scanner for 7d/30d data — only overwrite if we got a non-zero result
+      // (a 0 COULD mean GitHub rate-limited this specific repo; don't clobber good TaoStats data)
+      if (ghResult.commits7d > 0 || ghResult.commits30d > 0) {
+        existing.commits_7d = ghResult.commits7d;
+        existing.commits_30d = ghResult.commits30d;
+        existing.unique_contributors_7d = ghResult.contributors7d;
+        existing.unique_contributors_30d = ghResult.contributors30d;
       }
-      // For repos with overrides: TaoStats data points to old/wrong repo.
-      // Trust the direct GitHub scan for ALL metrics when override is active.
-      // IMPORTANT: Only overwrite commits_7d if the scan actually returned data (> 0).
-      // A 0 result can mean GitHub rate-limited us — we don't want to zero out good existing data.
-      if (GITHUB_REPO_OVERRIDES[netuid] !== undefined) {
-        if (ghResult.commits7d > 0) {
-          existing.commits_7d = ghResult.commits7d;
-          existing.unique_contributors_30d = ghResult.contributors7d ?? ghResult.contributors24h;
-          existing.unique_contributors_7d = ghResult.contributors7d ?? ghResult.contributors24h;
-        }
-        if (ghResult.commits24h > 0) {
-          existing.commits_1d = ghResult.commits24h;
-        }
+      if (ghResult.prs_merged_7d > 0) {
+        existing.prs_merged_7d = ghResult.prs_merged_7d;
+        existing.prs_merged_30d = ghResult.prs_merged_30d;
       }
     } else {
-      // Subnet wasn't in TaoStats dev data.
-      // Add it if: it has activity, OR it's an override repo (we always want override repos tracked).
+      // Subnet wasn't in TaoStats dev data — add it if it has any signal
       const isOverride = GITHUB_REPO_OVERRIDES[netuid] !== undefined;
-      if (isOverride || ghResult.commits7d > 0 || ghResult.commits24h > 0 || ghResult.hasNewRelease) {
+      if (isOverride || ghResult.commits30d > 0 || ghResult.commits24h > 0 || ghResult.hasNewRelease) {
         devMap.set(netuid, {
           netuid,
           repo_url: ghResult.repoUrl,
           commits_1d: ghResult.commits24h,
           commits_7d: ghResult.commits7d,
-          commits_30d: ghResult.commits7d,  // best approximation we have
+          commits_30d: ghResult.commits30d,
           prs_opened_1d: 0,
           prs_merged_1d: 0,
           issues_opened_1d: 0,
@@ -767,16 +801,16 @@ export async function GET() {
           comments_1d: 0,
           unique_contributors_1d: ghResult.contributors24h,
           prs_opened_7d: 0,
-          prs_merged_7d: 0,
+          prs_merged_7d: ghResult.prs_merged_7d,
           unique_contributors_7d: ghResult.contributors7d,
-          prs_merged_30d: 0,
-          unique_contributors_30d: ghResult.contributors7d,
-          days_since_last_event: ghResult.commits7d > 0 ? 0 : 99,
-          last_event_at: ghResult.commits7d > 0 ? new Date().toISOString() : "",
-          as_of_day: new Date().toISOString().slice(0, 10),
+          prs_merged_30d: ghResult.prs_merged_30d,
+          unique_contributors_30d: ghResult.contributors30d,
+          days_since_last_event: ghResult.commits30d > 0 ? 0 : 99,
+          last_event_at: ghResult.commits30d > 0 ? nowIso : "",
+          as_of_day: nowIso.slice(0, 10),
         });
         if (isOverride) {
-          console.log(`[scan] Override SN${netuid} added to devMap (was absent from TaoStats): commits7d=${ghResult.commits7d}`);
+          console.log(`[scan] Override SN${netuid} added to devMap (was absent from TaoStats): c30d=${ghResult.commits30d}`);
         }
       }
     }

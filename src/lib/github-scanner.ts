@@ -22,9 +22,14 @@ export interface GitHubScanResult {
   commits24h: number;
   contributors24h: number;
   commitMessages: string[];     // up to 15 most recent, formatted for AI
-  // 7-day activity (same API call as 24h — just a wider window)
+  // 7-day activity (from 30d commit window, filtered to 7d)
   commits7d: number;
   contributors7d: number;
+  prs_merged_7d: number;        // PRs merged in last 7d (from GitHub PR API)
+  // 30-day activity (own backbone — no TaoStats dependency)
+  commits30d: number;           // all commits in last 30d (capped at 100 for GitHub API limit)
+  contributors30d: number;      // unique authors in last 30d
+  prs_merged_30d: number;       // PRs merged in last 30d
   // New release in last 24h
   hasNewRelease: boolean;
   releaseTag?: string;
@@ -62,6 +67,7 @@ export async function scanAllSubnetGitHub(
   const results = new Map<number, GitHubScanResult>();
   const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
   const since7d  = new Date(Date.now() - 7  * 24 * 60 * 60 * 1000).toISOString();
+  const since30d = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
   // Aliases so existing code below still compiles
   const since = since24h;
 
@@ -87,10 +93,14 @@ export async function scanAllSubnetGitHub(
 
     await Promise.all(batch.map(async ({ netuid, owner, repo, repoUrl }) => {
       try {
-        // Parallel: commits since 24h + releases + 30d LOC stats + repo metadata (stars/forks)
-        const [commitsRes, releasesRes, codeFreqRes, repoMetaRes] = await Promise.allSettled([
+        // Parallel: commits (30d window) + PRs (30d) + releases + 30d LOC stats + repo metadata
+        const [commitsRes, prsRes, releasesRes, codeFreqRes, repoMetaRes] = await Promise.allSettled([
           fetch(
-            `https://api.github.com/repos/${owner}/${repo}/commits?since=${since7d}&per_page=100`,
+            `https://api.github.com/repos/${owner}/${repo}/commits?since=${since30d}&per_page=100`,
+            { headers: ghHeaders(), signal: AbortSignal.timeout(10000) }
+          ),
+          fetch(
+            `https://api.github.com/repos/${owner}/${repo}/pulls?state=closed&sort=updated&per_page=100`,
             { headers: ghHeaders(), signal: AbortSignal.timeout(10000) }
           ),
           fetch(
@@ -108,25 +118,35 @@ export async function scanAllSubnetGitHub(
         ]);
 
         // ── Process commits ─────────────────────────────────────
-        // We query since=7d and count both windows from one response.
+        // We query since=30d and count all three windows (30d / 7d / 24h) from one response.
+        // GitHub returns newest-first, capped at 100 — commits30d is a floor for very active
+        // repos but accurate for the vast majority of subnets.
         let commits24h = 0;
         let commits7d  = 0;
+        let commits30d = 0;
         const commitMessages: string[] = [];
-        const contributors    = new Set<string>();
+        const contributors24h = new Set<string>();
         const contributors7d  = new Set<string>();
+        const contributors30d = new Set<string>();
 
         if (commitsRes.status === "fulfilled" && commitsRes.value.ok) {
           const data = await commitsRes.value.json();
           if (Array.isArray(data)) {
-            commits7d = data.length;  // all commits since 7d ago
             for (const c of data) {
               const commitDate = c.commit?.author?.date || "";
               const author = c.commit?.author?.name || c.author?.login || "";
-              if (author) contributors7d.add(author);
-              // Only count / capture messages for last 24h
+              // 30d window (all results)
+              commits30d++;
+              if (author) contributors30d.add(author);
+              // 7d window
+              if (commitDate >= since7d) {
+                commits7d++;
+                if (author) contributors7d.add(author);
+              }
+              // 24h window — capture messages too
               if (commitDate >= since24h) {
                 commits24h++;
-                if (author) contributors.add(author);
+                if (author) contributors24h.add(author);
                 if (commitMessages.length < 15) {
                   const msg = (c.commit?.message || "").split("\n")[0].trim().slice(0, 120);
                   const date = commitDate.slice(0, 10);
@@ -141,6 +161,24 @@ export async function scanAllSubnetGitHub(
         } else if (commitsRes.status === "fulfilled" && commitsRes.value.status === 404) {
           // Repo not found or private — skip
           return;
+        }
+
+        // ── Process PRs ─────────────────────────────────────────
+        // Count merged PRs in last 7d and 30d — our own backbone, no TaoStats needed.
+        let prs_merged_7d  = 0;
+        let prs_merged_30d = 0;
+        if (prsRes.status === "fulfilled" && prsRes.value.ok) {
+          const prs = await prsRes.value.json();
+          if (Array.isArray(prs)) {
+            for (const pr of prs) {
+              const mergedAt: string | null = pr.merged_at;
+              if (!mergedAt) continue; // closed without merge
+              if (mergedAt >= since30d) {
+                prs_merged_30d++;
+                if (mergedAt >= since7d) prs_merged_7d++;
+              }
+            }
+          }
         }
 
         // ── Process releases ────────────────────────────────────
@@ -208,9 +246,13 @@ export async function scanAllSubnetGitHub(
           repo,
           repoUrl,
           commits24h,
-          contributors24h: contributors.size,
+          contributors24h: contributors24h.size,
           commits7d,
           contributors7d: contributors7d.size,
+          prs_merged_7d,
+          commits30d,
+          contributors30d: contributors30d.size,
+          prs_merged_30d,
           commitMessages,
           hasNewRelease,
           releaseTag,
@@ -225,7 +267,8 @@ export async function scanAllSubnetGitHub(
         if (commits24h > 0 || hasNewRelease) {
           console.log(
             `[github-scanner] SN${netuid} (${owner}/${repo}): ` +
-            `${commits24h} commits, ${contributors.size} contributors` +
+            `${commits24h}c24h / ${commits7d}c7d / ${commits30d}c30d, ` +
+            `${prs_merged_7d}pr7d, ${contributors24h.size} contributors` +
             (hasNewRelease ? `, 🚀 NEW RELEASE: ${releaseTag}` : "")
           );
         }
