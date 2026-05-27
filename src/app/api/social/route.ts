@@ -105,9 +105,16 @@ export async function GET() {
     });
 
   // ── Discord Leaderboard — top 20 by signal quality ──────────────────
+  // Drop any entry whose last real activity is more than 48 h old — these
+  // are stale signals and should not surface on the Social page.
+  const cutoff48h = Date.now() - 48 * 60 * 60 * 1000;
   const signalRank = { alpha: 3, active: 2, quiet: 1, noise: 0 } as const;
   const discordLeaderboard = discordData
-    .filter(d => (d.netuid !== null || (d as any).founderPost) && (d.signal === "alpha" || d.signal === "active"))
+    .filter(d => {
+      const activityTs = (d as any).lastActivityAt ?? d.scannedAt;
+      if (activityTs && new Date(activityTs).getTime() < cutoff48h) return false;
+      return (d.netuid !== null || (d as any).founderPost) && (d.signal === "alpha" || d.signal === "active");
+    })
     .sort((a, b) => {
       const sr = signalRank[b.signal] - signalRank[a.signal];
       if (sr !== 0) return sr;
