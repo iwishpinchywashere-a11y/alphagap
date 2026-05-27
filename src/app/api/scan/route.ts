@@ -3817,6 +3817,25 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     try {
       const { get: getBlob2 } = await import("@vercel/blob");
       type ScoreRow = { agap: number; flow: number; dev: number; eval: number; social: number; price: number; mcap: number; emission_pct: number };
+
+      // ── Load velo fallback (last-known-good VELO scores) ─────────────────
+      // Prevents all-50 flash when: (a) blob read fails, (b) history is thin
+      // (< 72 snapshots), (c) single snapshot exists (d24 ≈ 0 via scale), or
+      // (d) after any blob reset. Always updated at end of this block.
+      const VELO_FB_BLOB = "velo-fallback.json";
+      const BLOB_TOKEN_VF = process.env.BLOB_READ_WRITE_TOKEN;
+      let veloFallback: Record<string, number> = {}; // netuid-string → velo score
+      try {
+        const fbBlob = await blobGet(VELO_FB_BLOB, { token: BLOB_TOKEN_VF, access: "private" });
+        if (fbBlob?.stream) {
+          const reader = fbBlob.stream.getReader();
+          const chunks: Uint8Array[] = [];
+          while (true) { const { done, value } = await reader.read(); if (done) break; chunks.push(value); }
+          veloFallback = JSON.parse(Buffer.concat(chunks).toString("utf-8"));
+          console.log(`[scan] Velo fallback loaded: ${Object.keys(veloFallback).length} subnets`);
+        }
+      } catch { /* no fallback blob yet — first run */ }
+
       let scoreHistory: Record<string, Record<string, ScoreRow>> = {};
       try {
         const blob = await getBlob2("subnet-scores-history.json", { token: process.env.BLOB_READ_WRITE_TOKEN, access: "private" });
@@ -3951,16 +3970,73 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
         }
       }
 
+      // ── Apply velo fallback + change damper ─────────────────────────────
+      // Three protection layers now that velo loop has run:
+      //
+      // Layer 1 — Fill all-50 with fallback:
+      //   Any subnet whose velo loop produced the default 50 (no history /
+      //   thin history / blob read failed) gets replaced with last-known-good.
+      //   This prevents the 3-day "all-50 rebuild period" from being visible.
+      //
+      // Layer 2 — Change damper (±30 pts per scan max):
+      //   A single bad scan (e.g. TaoStats down → dev scores collapse → composite
+      //   drops 25pts for all) cannot swing VELO by more than 30 pts in one hour.
+      //   Over 2-3 good scans the score self-corrects. Prevents "all-5" or "all-95"
+      //   from appearing after a noisy scan.
+      //
+      // Layer 3 — Save fallback for next scan:
+      //   Always persist the final (post-damper) velo scores so next scan's
+      //   fallback is up-to-date. Fallback drifts toward truth over time.
+      //
+      const MAX_VELO_CHANGE = 30; // max pts VELO can move per scan vs last known value
+      for (const entry of leaderboard) {
+        const key = String(entry.netuid);
+        const fb = veloFallback[key]; // undefined if no fallback yet (first-ever scan)
+        const computed = entry.agap_velo ?? 50;
+
+        if (fb === undefined) {
+          // No fallback yet — accept whatever was computed
+          entry.agap_velo = computed;
+        } else if (computed === 50 && allTs.length < 3) {
+          // Layer 1: no real history → use last-known-good
+          entry.agap_velo = fb;
+        } else {
+          // Layer 2: damper — clamp change vs fallback to ±30 pts
+          const delta = computed - fb;
+          if (Math.abs(delta) > MAX_VELO_CHANGE) {
+            entry.agap_velo = Math.round(fb + Math.sign(delta) * MAX_VELO_CHANGE);
+          } else {
+            entry.agap_velo = computed;
+          }
+        }
+      }
+
+      // Layer 3: persist updated velo as next fallback (fire-and-forget)
+      const newVeloFallback: Record<string, number> = {};
+      for (const entry of leaderboard) {
+        if (entry.agap_velo !== undefined) newVeloFallback[String(entry.netuid)] = entry.agap_velo;
+      }
+      put(VELO_FB_BLOB, JSON.stringify(newVeloFallback), {
+        access: "private" as never, token: BLOB_TOKEN_VF,
+        addRandomSuffix: false, allowOverwrite: true, contentType: "application/json",
+      }).catch(() => {});
+      console.log(`[scan] Velo fallback saved: ${Object.keys(newVeloFallback).length} subnets`);
+
       // ── One entry per HOUR (not per scan) to prevent blob size explosion ──
       // Hourly keys: 24 × 30d = 720 entries max. VELO only needs 24h + 7d windows
       // so 30-day retention is plenty. Trimming to 90d with 120+ subnets was
       // pushing the blob past the 40MB parse threshold and silently resetting history.
       const _d = new Date(); _d.setMinutes(0, 0, 0);
       const scanTs = _d.toISOString(); // e.g. "2026-05-05T14:00:00.000Z"
-      // Only write the snapshot if the leaderboard has entries — empty snapshots
-      // corrupt the VELO calculation by becoming the "best" 24h/7d match while
-      // having no subnet data, collapsing every velocity score to 50.
-      if (leaderboard.length > 0) {
+      // Only write the snapshot if the leaderboard is healthy:
+      //   • non-empty (obvious)
+      //   • mean composite > 15 — a lower mean signals a bad scan (TaoStats down, etc.)
+      //     and we must not poison the history with those scores
+      const meanComposite = leaderboard.length > 0
+        ? leaderboard.reduce((s, e) => s + e.composite_score, 0) / leaderboard.length
+        : 0;
+      const snapshotHealthy = leaderboard.length >= 80 && meanComposite >= 15;
+      if (snapshotHealthy) {
         scoreHistory[scanTs] = {};
         for (const entry of leaderboard) {
           scoreHistory[scanTs][String(entry.netuid)] = {
@@ -3974,6 +4050,8 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
             emission_pct: entry.emission_pct || 0,
           };
         }
+      } else {
+        console.warn(`[scan] Skipping history write — unhealthy snapshot: ${leaderboard.length} subnets, mean composite=${meanComposite.toFixed(1)}`);
       }
 
       // Trim to last 30 days — keeps blob well under 40MB limit
