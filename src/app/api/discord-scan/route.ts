@@ -761,14 +761,19 @@ Rules:
 }
 
 // ── Founder fallback entries (used when AI analysis errors) ─────────────────
-// Surfaces ALL Const posts with a baseline score so they're never silently lost.
+// Only surfaces entries that have a real content snippet — skips channels where
+// every Const message was filtered out (polls, single-emoji posts, etc.).
 function buildFallbackFounderEntries(
   byChannel: Map<string, { channelId: string; channelName: string; netuid: number | null; msgs: DiscordMessage[] }>
 ): DiscordAlphaResult[] {
   const entries: DiscordAlphaResult[] = [];
   for (const ch of byChannel.values()) {
+    if (ch.msgs.length === 0) continue; // nothing real to surface
     const lastMsg = ch.msgs.at(-1);
-    const snippet = ch.msgs.map(m => m.content.slice(0, 1000)).join(" · ").slice(0, 2000);
+    const snippet = ch.msgs.map(m => m.content.slice(0, 1000)).join(" · ").slice(0, 2000).trim();
+    // Only emit if we have an actual snippet — the generic fallback string by itself
+    // tells users nothing and just creates noise on the Social page.
+    if (!snippet) continue;
     entries.push({
       channelId: `founder-const-${ch.channelId}`,
       channelName: `founder-const-${ch.channelName}`,
@@ -778,7 +783,7 @@ function buildFallbackFounderEntries(
       alphaScore: 35,
       alphaTypes: ["founder"],
       releaseHint: false,
-      summary: snippet || "The Bittensor founder posted in this channel.",
+      summary: snippet,
       keyInsights: [],
       alphaTake: "Const posted here — review manually for context.",
       founderPost: true,

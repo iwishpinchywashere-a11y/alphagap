@@ -113,7 +113,12 @@ export async function GET() {
     .filter(d => {
       const activityTs = (d as any).lastActivityAt ?? d.scannedAt;
       if (activityTs && new Date(activityTs).getTime() < cutoff48h) return false;
-      return (d.netuid !== null || (d as any).founderPost) && (d.signal === "alpha" || d.signal === "active");
+      if (!((d.netuid !== null || (d as any).founderPost) && (d.signal === "alpha" || d.signal === "active"))) return false;
+      // Drop founderPost entries that only have the generic fallback summary with no key insights —
+      // these carry zero signal and just add noise to the page.
+      const GENERIC_FOUNDER_SUMMARY = "The Bittensor founder posted in this channel.";
+      if ((d as any).founderPost && d.summary === GENERIC_FOUNDER_SUMMARY && !(d as any).keyInsights?.length) return false;
+      return true;
     })
     .sort((a, b) => {
       const sr = signalRank[b.signal] - signalRank[a.signal];
