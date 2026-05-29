@@ -417,7 +417,10 @@ export async function GET(req: NextRequest) {
 
     const watchlistData = await readBlob<{ netuids: number[] }>(`watchlists/${hash}.json`);
     const watchlist = watchlistData?.netuids ?? [];
-    if (!watchlist.length) continue;
+    // NOTE: do NOT early-exit on empty watchlist here. Non-watchlist alerts
+    // (discordEntry founder posts, constActivity, walletTracker) must still fire
+    // for users who haven't added any subnets. Per-subnet sections handle the
+    // empty case naturally — they just iterate over zero items.
 
     // ── Per-subnet metric alerts ──────────────────────────────────────
     for (const netuid of watchlist) {

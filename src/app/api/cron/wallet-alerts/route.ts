@@ -215,7 +215,9 @@ export async function GET(req: NextRequest) {
         if (processed.has(hash)) continue; // already alerted
 
         const usdValue = parseFloat(ev.usd ?? "0") || 0;
-        if (usdValue < u.minUsd) { newHashes.push(hash); continue; }
+        // Do NOT mark as processed when below threshold — if the user lowers
+        // their minimum later this event should still be deliverable.
+        if (usdValue < u.minUsd) continue;
 
         const taoAmount = parseInt(ev.amount || "0") / RAO_PER_TAO;
         const isBuy     = ev.action === "DELEGATE";

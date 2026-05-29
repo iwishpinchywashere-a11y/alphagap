@@ -105,14 +105,17 @@ export async function GET() {
     });
 
   // ── Discord Leaderboard — top 20 by signal quality ──────────────────
-  // Drop any entry whose last real activity is more than 48 h old — these
-  // are stale signals and should not surface on the Social page.
-  const cutoff48h = Date.now() - 48 * 60 * 60 * 1000;
+  // Regular entries expire after 48 h. Founder (Const) posts use a 7-day
+  // window — matching discord-scan's FOUNDER_LOOKBACK_HOURS — so important
+  // posts aren't silently hidden just because they're a few days old.
+  const cutoff48h  = Date.now() - 48 * 60 * 60 * 1000;
+  const cutoff7d   = Date.now() - 7 * 24 * 60 * 60 * 1000;
   const signalRank = { alpha: 3, active: 2, quiet: 1, noise: 0 } as const;
   const discordLeaderboard = discordData
     .filter(d => {
       const activityTs = (d as any).lastActivityAt ?? d.scannedAt;
-      if (activityTs && new Date(activityTs).getTime() < cutoff48h) return false;
+      const cutoff = (d as any).founderPost ? cutoff7d : cutoff48h;
+      if (activityTs && new Date(activityTs).getTime() < cutoff) return false;
       if (!((d.netuid !== null || (d as any).founderPost) && (d.signal === "alpha" || d.signal === "active"))) return false;
       // Drop founderPost entries that only have the generic fallback summary with no key insights —
       // these carry zero signal and just add noise to the page.
