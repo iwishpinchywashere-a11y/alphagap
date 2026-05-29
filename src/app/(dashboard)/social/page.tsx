@@ -205,6 +205,7 @@ export default function SocialPage() {
   const [expandedTweet, setExpandedTweet] = useState<string | null>(null);
   const { isWatched, watchlist } = useWatchlist();
   const [watchlistOnly, setWatchlistOnly] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const [discordSort, setDiscordSort] = useState<"score" | "latest">("score");
   const [tweetsSort, setTweetsSort] = useState<"score" | "latest">("score");
   const [deletedMessages, setDeletedMessages] = useState<DeletedMessage[]>([]);
@@ -249,20 +250,29 @@ export default function SocialPage() {
   const pulseAge = lastPulse ? Math.floor((Date.now() - new Date(lastPulse).getTime()) / 60000) : null;
   const pulseFresh = pulseAge !== null && pulseAge < 15;
 
+  const subnetMatchesSearch = (name: string | undefined, netuid: number | null | undefined) => {
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.trim().toLowerCase().replace(/^sn/i, "");
+    return (name ?? "").toLowerCase().includes(q) || String(netuid ?? "").includes(q);
+  };
+
   const discordLeaderboard = (watchlistOnly
     ? rawDiscordLeaderboard.filter(d => watchlist.has(d.netuid))
     : rawDiscordLeaderboard
-  ).filter(d => !d.founderPost).slice().sort((a, b) =>
+  ).filter(d => !d.founderPost && subnetMatchesSearch(d.name, d.netuid)).slice().sort((a, b) =>
     discordSort === "latest"
       ? new Date(b.lastActivityAt ?? b.scannedAt).getTime() - new Date(a.lastActivityAt ?? a.scannedAt).getTime()
       : (b.alphaScore ?? 0) - (a.alphaScore ?? 0)
   );
-  const hotTweets = (watchlistOnly ? rawHotTweets.filter(t => watchlist.has(t.netuid)) : rawHotTweets).slice().sort((a, b) =>
-    tweetsSort === "latest"
-      ? new Date(b.detected_at).getTime() - new Date(a.detected_at).getTime()
-      : (b.momentum_score ?? b.heat_score) - (a.momentum_score ?? a.heat_score)
-  );
-  const xLeaderboard = watchlistOnly ? rawXLeaderboard.filter(s => watchlist.has(s.netuid)) : rawXLeaderboard;
+  const hotTweets = (watchlistOnly ? rawHotTweets.filter(t => watchlist.has(t.netuid)) : rawHotTweets)
+    .filter(t => subnetMatchesSearch(t.subnet_name, t.netuid))
+    .slice().sort((a, b) =>
+      tweetsSort === "latest"
+        ? new Date(b.detected_at).getTime() - new Date(a.detected_at).getTime()
+        : (b.momentum_score ?? b.heat_score) - (a.momentum_score ?? a.heat_score)
+    );
+  const xLeaderboard = (watchlistOnly ? rawXLeaderboard.filter(s => watchlist.has(s.netuid)) : rawXLeaderboard)
+    .filter(s => subnetMatchesSearch(s.name, s.netuid));
 
   return (
     <div className="min-h-screen bg-[#0a0a0f] text-white">
@@ -354,11 +364,31 @@ export default function SocialPage() {
             </svg>
             My Watchlist
           </button>
+
+          {/* Search bar */}
+          <div className="relative flex items-center ml-auto">
+            <svg className="absolute left-2.5 w-3.5 h-3.5 text-gray-500 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z" />
+            </svg>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              placeholder="Search subnet…"
+              className="pl-7 pr-7 py-1.5 rounded-lg text-xs bg-gray-900/60 border border-gray-700 text-gray-300 placeholder-gray-600 focus:outline-none focus:border-gray-600 w-36"
+            />
+            {searchQuery && (
+              <button onClick={() => setSearchQuery("")} className="absolute right-2 text-gray-500 hover:text-gray-300">
+                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            )}
+          </div>
         </div>
 
         {/* ── Founder Signal ── */}
         {(() => {
-          const founderEntries = rawDiscordLeaderboard.filter(d => d.founderPost);
+          const founderEntries = rawDiscordLeaderboard
+            .filter(d => d.founderPost && subnetMatchesSearch(d.name, d.netuid));
           if (founderEntries.length === 0) return null;
 
           const subnetNameMap = new Map<number, string>(rawXLeaderboard.map(e => [e.netuid, e.name]));

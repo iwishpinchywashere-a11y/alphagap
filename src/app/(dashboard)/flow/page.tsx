@@ -88,6 +88,7 @@ export default function FlowPage() {
   const [sortBy, setSortBy] = useState<"date" | "strength" | "flow" | "volume">("date");
   const { isWatched, watchlist } = useWatchlist();
   const [watchlistOnly, setWatchlistOnly] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   // ── Historical flow events (persisted 72h rolling window) ─────
   const [historicalEvents, setHistoricalEvents] = useState<PersistedFlowEvent[]>([]);
@@ -462,7 +463,17 @@ export default function FlowPage() {
     });
   }, [liveEvents, historicalEvents, constEvents, leaderboard, filter, sortBy]);
 
-  const visibleEvents = watchlistOnly ? events.filter(ev => watchlist.has(ev.netuid)) : events;
+  const visibleEvents = useMemo(() => {
+    let evs = watchlistOnly ? events.filter(ev => watchlist.has(ev.netuid)) : events;
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase().replace(/^sn/i, "");
+      evs = evs.filter(ev =>
+        ev.name.toLowerCase().includes(q) ||
+        String(ev.netuid).includes(q)
+      );
+    }
+    return evs;
+  }, [events, watchlistOnly, watchlist, searchQuery]);
 
   const stats = useMemo(() => {
     const accumCount = leaderboard.filter(s => s.whale_signal === "accumulating").length;
@@ -595,8 +606,26 @@ export default function FlowPage() {
               My Watchlist
             </button>
           </div>
-          <div className="flex items-center gap-1.5">
-            <span className="text-xs text-gray-600 mr-1">Sort:</span>
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Search bar */}
+            <div className="relative flex items-center">
+              <svg className="absolute left-2.5 w-3.5 h-3.5 text-gray-500 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z" />
+              </svg>
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                placeholder="Search subnet…"
+                className="pl-7 pr-7 py-1 rounded-md text-xs bg-gray-900/60 border border-gray-800 text-gray-300 placeholder-gray-600 focus:outline-none focus:border-gray-600 w-36"
+              />
+              {searchQuery && (
+                <button onClick={() => setSearchQuery("")} className="absolute right-2 text-gray-500 hover:text-gray-300">
+                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+              )}
+            </div>
+            <span className="text-xs text-gray-600 mr-0.5">Sort:</span>
             {(["date", "strength", "flow", "volume"] as const).map(s => (
               <button
                 key={s}

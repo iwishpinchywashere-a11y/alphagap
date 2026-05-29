@@ -253,6 +253,7 @@ export default function BenchmarksPage() {
   const [alerts, setAlerts] = useState<BenchmarkAlert[]>([]);
   const { isWatched, watchlist } = useWatchlist();
   const [watchlistOnly, setWatchlistOnly] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     fetch("/api/benchmarks/alerts").then(r => r.ok ? r.json() : null).then(d => {
@@ -263,6 +264,11 @@ export default function BenchmarksPage() {
   const filtered = [...BENCHMARK_DATA]
     .filter(b => selectedCategory === "All" || b.benchmark_category === selectedCategory)
     .filter(b => !watchlistOnly || watchlist.has(b.subnet_id) || watchlist.has((b as BenchmarkEntry & { netuid?: number }).netuid ?? -1))
+    .filter(b => {
+      if (!searchQuery.trim()) return true;
+      const q = searchQuery.trim().toLowerCase().replace(/^sn/i, "");
+      return b.subnet_name.toLowerCase().includes(q) || String(b.subnet_id).includes(q);
+    })
     .sort((a, b) => b[sortBy] - a[sortBy]);
 
   const totalRevenue = BENCHMARK_DATA.reduce((s, b) => s + b.annual_revenue_usd, 0);
@@ -350,6 +356,25 @@ export default function BenchmarksPage() {
               }`}>
               ⭐ Watchlist
             </button>
+          </div>
+
+          {/* Search bar */}
+          <div className="relative flex items-center flex-shrink-0">
+            <svg className="absolute left-2.5 w-3.5 h-3.5 text-gray-500 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z" />
+            </svg>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              placeholder="Search subnet…"
+              className="pl-7 pr-7 py-1.5 rounded-full text-xs bg-transparent border border-gray-700/60 text-gray-300 placeholder-gray-600 focus:outline-none focus:border-gray-600 w-36"
+            />
+            {searchQuery && (
+              <button onClick={() => setSearchQuery("")} className="absolute right-2.5 text-gray-500 hover:text-gray-300">
+                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            )}
           </div>
 
           {/* Sort */}
