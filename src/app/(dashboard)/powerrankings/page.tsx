@@ -323,6 +323,7 @@ export default function PowerRankingsPage() {
   const [showInvestingGate, setShowInvestingGate] = useState(false);
   const { isWatched, watchlist } = useWatchlist();
   const [watchlistOnly, setWatchlistOnly] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     fetch("/api/cached-scan")
@@ -343,7 +344,13 @@ export default function PowerRankingsPage() {
   });
 
   const watchlistFiltered = watchlistOnly ? sorted.filter(e => watchlist.has(e.netuid)) : sorted;
-  const visible = showAll ? watchlistFiltered : watchlistFiltered.slice(0, 25);
+  const searchFiltered = searchQuery.trim()
+    ? watchlistFiltered.filter(e => {
+        const q = searchQuery.trim().toLowerCase().replace(/^sn/i, "");
+        return e.name.toLowerCase().includes(q) || String(e.netuid).includes(q);
+      })
+    : watchlistFiltered;
+  const visible = showAll ? searchFiltered : searchFiltered.slice(0, 25);
 
   return (
     <div className="min-h-screen bg-[#0a0a0f] text-white">
@@ -491,20 +498,41 @@ export default function PowerRankingsPage() {
             <span>View Full Alpha Dashboard</span>
           </Link>
 
-          {/* Watchlist filter */}
-          <button
-            onClick={() => setWatchlistOnly(v => !v)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border ${
-              watchlistOnly
-                ? "bg-blue-600 border-blue-500 text-white"
-                : "bg-gray-800/60 border-gray-700/40 text-gray-400 hover:text-white"
-            }`}
-          >
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
-            </svg>
-            My Watchlist
-          </button>
+          {/* Watchlist filter + search */}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setWatchlistOnly(v => !v)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border ${
+                watchlistOnly
+                  ? "bg-blue-600 border-blue-500 text-white"
+                  : "bg-gray-800/60 border-gray-700/40 text-gray-400 hover:text-white"
+              }`}
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+              </svg>
+              My Watchlist
+            </button>
+
+            {/* Search bar */}
+            <div className="relative flex items-center">
+              <svg className="absolute left-2.5 w-3.5 h-3.5 text-gray-500 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z" />
+              </svg>
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                placeholder="Search subnet…"
+                className="pl-7 pr-7 py-1.5 rounded-lg text-xs bg-gray-800/60 border border-gray-700/40 text-gray-300 placeholder-gray-600 focus:outline-none focus:border-gray-600 w-36"
+              />
+              {searchQuery && (
+                <button onClick={() => setSearchQuery("")} className="absolute right-2 text-gray-500 hover:text-gray-300">
+                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+              )}
+            </div>
+          </div>
         </div>
 
         {/* ── Rankings list ─────────────────────────────────────────── */}
@@ -545,7 +573,11 @@ export default function PowerRankingsPage() {
 
                 {sorted.length > 20 && (
                   <div className="space-y-2.5">
-                    {sorted.slice(20).map((entry, i) => (
+                    {sorted.slice(20).filter(e => {
+                      if (!searchQuery.trim()) return true;
+                      const q = searchQuery.trim().toLowerCase().replace(/^sn/i, "");
+                      return e.name.toLowerCase().includes(q) || String(e.netuid).includes(q);
+                    }).map((entry, i) => (
                       <RankCard key={entry.netuid} entry={entry} rank={i + 21} mode={mode} watched={isWatched(entry.netuid)} />
                     ))}
                   </div>
@@ -559,7 +591,7 @@ export default function PowerRankingsPage() {
                   ))}
                 </div>
 
-                {watchlistFiltered.length > 25 && (
+                {searchFiltered.length > 25 && (
                   <div className="mt-4 text-center">
                     <button
                       onClick={() => setShowAll(s => !s)}
@@ -567,7 +599,7 @@ export default function PowerRankingsPage() {
                     >
                       {showAll
                         ? `Show top 25 only ↑`
-                        : `Show all ${watchlistFiltered.length} subnets ↓`}
+                        : `Show all ${searchFiltered.length} subnets ↓`}
                     </button>
                   </div>
                 )}
