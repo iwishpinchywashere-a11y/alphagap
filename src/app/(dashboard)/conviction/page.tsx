@@ -712,29 +712,6 @@ export default function ConvictionPage() {
             </div>
           </div>
 
-          {/* Stats grid — 2 cols on mobile, 4 on tablet, free-wrap on desktop */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:flex lg:flex-wrap gap-2">
-            {[
-              { label: "Subnets locking",    value: String(network.subnetCount),                                       highlight: false },
-              { label: "Total locked",        value: fmtAlpha(network.totalLockedAlpha, currency, taoPrice),           highlight: true  },
-              { label: "Conviction α",        value: fmtAlpha(network.totalConvictionAlpha, currency, taoPrice),       highlight: false },
-              { label: "Unlocked / sellable", value: fmtAlpha(network.totalUnlockedAlpha, currency, taoPrice),         highlight: false },
-              { label: "Owner-locked",        value: fmtAlpha(network.ownerLockedAlpha, currency, taoPrice),           highlight: false },
-              { label: "Active lockers",      value: String(network.totalLockers),                                     highlight: false },
-              { label: "Decaying locks",      value: `${network.decayingPct}%`,                                        highlight: false },
-            ].map(stat => (
-              <div key={stat.label}
-                className={`rounded-xl px-4 py-3 border ${
-                  stat.highlight ? "bg-green-950/30 border-green-500/20" : "bg-[#0d1610] border-white/5"
-                }`}
-              >
-                <div className={`text-base font-black tabular-nums ${stat.highlight ? "text-green-300" : "text-white"}`}>
-                  {stat.value}
-                </div>
-                <div className="text-[10px] text-gray-600 uppercase tracking-widest mt-0.5">{stat.label}</div>
-              </div>
-            ))}
-          </div>
         </div>
       </div>
 
