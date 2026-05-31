@@ -635,7 +635,7 @@ export default function ConvictionPage() {
         }} />
         <div className="absolute top-0 right-1/3 w-80 h-40 bg-amber-600/8 rounded-full blur-3xl pointer-events-none" />
 
-        <div className="relative px-4 md:px-6 py-8 max-w-5xl mx-auto">
+        <div className="relative px-4 md:px-8 py-8">
           <div className="flex items-start justify-between gap-4 mb-4">
             <div>
               <h1 className="text-3xl font-bold bg-gradient-to-r from-amber-400 via-yellow-300 to-white bg-clip-text text-transparent leading-tight mb-1">
@@ -680,7 +680,7 @@ export default function ConvictionPage() {
         </div>
       </div>
 
-      <main className="max-w-5xl mx-auto px-4 md:px-6 py-6">
+      <main className="px-4 md:px-8 py-6">
 
         {/* ── AlphaGap Intelligence Panel ───────────────── */}
         <InsightPanel rows={data.rows} />
