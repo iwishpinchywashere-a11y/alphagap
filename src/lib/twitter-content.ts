@@ -213,9 +213,10 @@ async function writeTweet(prompt: string): Promise<string[]> {
 
     if (!res.ok) {
       const errText = await res.text().catch(() => "(unreadable)");
-      console.error(`[twitter-bot] writeTweet: Anthropic API error ${res.status}: ${errText}`);
+      console.error(`[twitter-bot] writeTweet: Anthropic API error ${res.status}: ${errText.slice(0, 200)}`);
       return [];
     }
+    console.log(`[twitter-bot] writeTweet: Anthropic ${res.status} ok`);
     const data = await res.json() as { content: Array<{ text: string }> };
     const raw = data.content[0]?.text?.trim() ?? "";
 
@@ -693,12 +694,23 @@ export async function pickBestPost(data: BotData, utcHour?: number): Promise<Twe
     [tryBenchmarkUpdate, tryAgapRiser,       tryDevUpdate,       tryPerformanceGain, tryDiscordAlpha,    tryXTrending,       tryAnalyticsRatios, tryWhaleFlow],
   ];
 
+  console.log(`[twitter-bot] slot=${slot} utcHour=${utcHour} leaderboard=${leaderboard.length} devSignals=${devSignals.length} discord=${discordAlpha.length} social=${socialTrending.length} analytics=${analyticsRatios.length} benchmarks=${benchmarkUpdates.length} perf=${performanceGains.length} deduped=${alreadyPostedIds.size}`);
+
   for (const tryer of slotOrder[slot]) {
-    const post = await tryer();
+    const name = tryer.name;
+    let post: TweetPost | null = null;
+    try {
+      post = await tryer();
+    } catch (err) {
+      console.error(`[twitter-bot] ${name} threw:`, err);
+    }
+    console.log(`[twitter-bot] ${name} → ${post ? "✓ " + post.type : "null"}`);
     if (post) return post;
   }
 
   // ── Evergreen fallback — always fires if all 8 types fail ─────────
   console.log("[twitter-bot] All 8 types failed — falling back to evergreen");
-  return generateEvergreen(leaderboard, alreadyPostedIds);
+  const ev = await generateEvergreen(leaderboard, alreadyPostedIds);
+  console.log(`[twitter-bot] evergreen → ${ev ? "✓" : "null"}`);
+  return ev;
 }
