@@ -213,13 +213,77 @@ const SORT_DEFAULTS: Record<SortKey, "asc" | "desc"> = {
  *   • tao_locked        → 0–30 pts  (capital depth / liquidity confidence)
  *   • const_buy/sell    → –10–20 pts (team skin-in-the-game)
  */
-function convictionScore(
+// ── Real BIT-0011 conviction scoring ──────────────────────────────
+
+interface ConvictionApiRow {
+  netuid: number;
+  totalLockedAlpha: number;
+  totalConvictionAlpha: number;
+  priceUsd: number;
+  market_cap?: number;
+  king?: { lockType: "perpetual" | "decaying"; lastUpdate: number; isOwner: boolean };
+}
+
+function convictionMaturityPct(lastUpdateBlock: number, observedAtBlock: number, lockType: "perpetual" | "decaying"): number {
+  const blocks = Math.max(0, observedAtBlock - lastUpdateBlock);
+  const halfLife = lockType === "perpetual" ? 648_000 : 216_000;
+  return Math.round((1 - Math.exp(-blocks / halfLife)) * 100);
+}
+
+/**
+ * Score a subnet's on-chain BIT-0011 conviction (0–100).
+ *
+ * Components:
+ *   40 pts — raw locked α (absolute commitment size)
+ *   20 pts — lock type (perpetual > decaying)
+ *   25 pts — % of total supply locked (relative commitment)
+ *   15 pts — conviction maturity (how long it has been locked)
+ */
+function scoreFromConviction(row: ConvictionApiRow, observedAtBlock: number): number {
+  if (!row.totalLockedAlpha) return 0;
+
+  // 1. Raw locked α
+  const lockedPts =
+    row.totalLockedAlpha >= 500_000 ? 40 :
+    row.totalLockedAlpha >= 200_000 ? 32 :
+    row.totalLockedAlpha >= 100_000 ? 25 :
+    row.totalLockedAlpha >=  50_000 ? 18 :
+    row.totalLockedAlpha >=  10_000 ? 10 :
+    row.totalLockedAlpha >=   1_000 ? 5  : 0;
+
+  // 2. Lock type
+  const typePts = row.king?.lockType === "perpetual" ? 20 : 10;
+
+  // 3. Supply % locked
+  const supplyPct = row.market_cap && row.priceUsd > 0
+    ? (row.totalLockedAlpha * row.priceUsd) / row.market_cap * 100 : 0;
+  const supplyPts =
+    supplyPct >= 20 ? 25 :
+    supplyPct >= 10 ? 20 :
+    supplyPct >=  5 ? 15 :
+    supplyPct >=  2 ? 8  :
+    supplyPct >= 0.5 ? 3 : 0;
+
+  // 4. Conviction maturity
+  const cvPct = row.king?.lastUpdate
+    ? convictionMaturityPct(row.king.lastUpdate, observedAtBlock, row.king.lockType ?? "perpetual")
+    : 0;
+  const maturityPts =
+    cvPct >= 80 ? 15 :
+    cvPct >= 60 ? 12 :
+    cvPct >= 40 ? 8  :
+    cvPct >= 20 ? 4  : 0;
+
+  return Math.min(100, lockedPts + typePts + supplyPts + maturityPts);
+}
+
+/** Legacy proxy formula — used as fallback for subnets not in conviction API */
+function convictionScoreFallback(
   alphaStakedPct: number | undefined,
   taoLocked: number | undefined,
   constBuy: number | undefined,
   constSell: number | undefined,
 ): number {
-  // 1. Alpha staked %
   const staked = alphaStakedPct ?? 0;
   const stakedPts =
     staked >= 75 ? 50 :
@@ -227,26 +291,21 @@ function convictionScore(
     staked >= 55 ? 30 :
     staked >= 45 ? 20 :
     staked >= 35 ? 10 : 0;
-
-  // 2. TAO in pool (liquidity conviction)
   const locked = taoLocked ?? 0;
   const lockedPts =
     locked >= 15_000 ? 30 :
-    locked >= 8_000  ? 22 :
-    locked >= 3_000  ? 15 :
-    locked >= 1_000  ? 8  :
-    locked >= 200    ? 3  : 0;
-
-  // 3. Team (Const) net buy/sell
+    locked >=  8_000 ? 22 :
+    locked >=  3_000 ? 15 :
+    locked >=  1_000 ? 8  :
+    locked >=    200 ? 3  : 0;
   const netConst = (constBuy ?? 0) - (constSell ?? 0);
   const constPts =
     netConst >= 2_000 ? 20 :
     netConst >= 1_000 ? 15 :
-    netConst >= 300   ? 10 :
+    netConst >=   300 ? 10 :
     netConst > 0      ? 5  :
     netConst <= -500  ? -10 :
     netConst <= -200  ? -5  : 0;
-
   return Math.max(0, Math.min(100, stakedPts + lockedPts + constPts));
 }
 
@@ -309,14 +368,36 @@ export default function AuditsPage() {
     [leaderboard]
   );
 
-  // Build netuid → conviction score from leaderboard signals
-  const convictionMap = useMemo(
-    () => new Map(leaderboard.map(s => [
+  // ── Real conviction data from SubnetRadar via /api/conviction ────
+  const [convictionRows, setConvictionRows] = useState<ConvictionApiRow[]>([]);
+  const [convictionBlock, setConvictionBlock] = useState(0);
+
+  useEffect(() => {
+    fetch("/api/conviction")
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (!d?.rows) return;
+        setConvictionRows(d.rows);
+        setConvictionBlock(d.observedAtBlock ?? 0);
+      })
+      .catch(() => {});
+  }, []);
+
+  // Build netuid → conviction score
+  // If a subnet has real on-chain conviction data → use BIT-0011 score.
+  // Otherwise fall back to the proxy formula from leaderboard signals.
+  const convictionMap = useMemo(() => {
+    const realMap = new Map(convictionRows.map(r => [
+      r.netuid,
+      scoreFromConviction(r, convictionBlock),
+    ]));
+    return new Map(leaderboard.map(s => [
       s.netuid,
-      convictionScore(s.alpha_staked_pct, s.tao_locked, s.const_buy_tao, s.const_sell_tao),
-    ])),
-    [leaderboard]
-  );
+      realMap.has(s.netuid)
+        ? realMap.get(s.netuid)!
+        : convictionScoreFallback(s.alpha_staked_pct, s.tao_locked, s.const_buy_tao, s.const_sell_tao),
+    ]));
+  }, [convictionRows, convictionBlock, leaderboard]);
 
   const [subnets, setSubnets]     = useState<SubnetAudit[]>([]);
   const [updatedAt, setUpdatedAt] = useState<string | null>(null);
@@ -559,6 +640,7 @@ export default function AuditsPage() {
                           const cv = convictionMap.get(audit.netuid);
                           if (cv == null) return <span className="text-gray-600 text-sm">—</span>;
                           const label = cv >= 70 ? "HIGH" : cv >= 40 ? "MED" : "LOW";
+                          const hasRealData = convictionRows.some(r => r.netuid === audit.netuid);
                           const cls =
                             cv >= 70 ? "text-emerald-400" :
                             cv >= 40 ? "text-yellow-400" :
@@ -567,6 +649,9 @@ export default function AuditsPage() {
                             <div className="flex flex-col items-end gap-0.5">
                               <span className={`tabular-nums font-bold text-sm ${cls}`}>{cv}</span>
                               <span className={`text-[9px] font-semibold uppercase tracking-wide ${cls} opacity-70`}>{label}</span>
+                              {hasRealData && (
+                                <span className="text-[8px] text-emerald-600 font-medium">on-chain</span>
+                              )}
                             </div>
                           );
                         })()}
