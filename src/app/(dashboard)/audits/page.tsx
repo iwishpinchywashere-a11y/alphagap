@@ -336,7 +336,7 @@ function sortValue(a: SubnetAudit, key: SortKey, agapMap: Map<number, number>, m
     case "staleVal":   return a.staleValidatorPct;
     case "ziMiners":   return a.zeroIncentiveMinerPct;
     case "loc30d":     return loc30dMap.get(a.netuid) ?? -1;
-    case "conviction": return convMap.get(a.netuid) ?? -1;
+    case "conviction": return convMap.get(Number(a.netuid)) ?? -1;
     default:           return 0;
   }
 }
@@ -383,20 +383,22 @@ export default function AuditsPage() {
       .catch(() => {});
   }, []);
 
-  // Build netuid → conviction score
-  // If a subnet has real on-chain conviction data → use BIT-0011 score.
-  // Otherwise fall back to the proxy formula from leaderboard signals.
+  // Build netuid → conviction score.
+  // Strategy: build two maps independently, then merge so real data wins.
+  // Keys are coerced to Number() throughout to avoid string/number mismatch.
   const convictionMap = useMemo(() => {
-    const realMap = new Map(convictionRows.map(r => [
-      r.netuid,
-      scoreFromConviction(r, convictionBlock),
-    ]));
-    return new Map(leaderboard.map(s => [
-      s.netuid,
-      realMap.has(s.netuid)
-        ? realMap.get(s.netuid)!
-        : convictionScoreFallback(s.alpha_staked_pct, s.tao_locked, s.const_buy_tao, s.const_sell_tao),
-    ]));
+    // Fallback proxy scores from leaderboard signals (all subnets)
+    const merged = new Map<number, number>(
+      leaderboard.map(s => [
+        Number(s.netuid),
+        convictionScoreFallback(s.alpha_staked_pct, s.tao_locked, s.const_buy_tao, s.const_sell_tao),
+      ])
+    );
+    // Real BIT-0011 on-chain scores — overwrite any fallback entry
+    for (const r of convictionRows) {
+      merged.set(Number(r.netuid), scoreFromConviction(r, convictionBlock));
+    }
+    return merged;
   }, [convictionRows, convictionBlock, leaderboard]);
 
   const [subnets, setSubnets]     = useState<SubnetAudit[]>([]);
@@ -637,10 +639,10 @@ export default function AuditsPage() {
                       {/* Conviction score */}
                       <td className="px-1.5 py-2 text-right">
                         {(() => {
-                          const cv = convictionMap.get(audit.netuid);
+                          const cv = convictionMap.get(Number(audit.netuid));
                           if (cv == null) return <span className="text-gray-600 text-sm">—</span>;
                           const label = cv >= 70 ? "HIGH" : cv >= 40 ? "MED" : "LOW";
-                          const hasRealData = convictionRows.some(r => r.netuid === audit.netuid);
+                          const hasRealData = convictionRows.some(r => Number(r.netuid) === Number(audit.netuid));
                           const cls =
                             cv >= 70 ? "text-emerald-400" :
                             cv >= 40 ? "text-yellow-400" :
