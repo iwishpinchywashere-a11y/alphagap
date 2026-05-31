@@ -117,59 +117,172 @@ function ScoreBadge({ score, label }: { score?: number; label: string }) {
   );
 }
 
-function SignalBadge({ signal }: { signal?: string }) {
+function SignalBadge({ signal, row }: { signal?: string; row?: ConvictionRow }) {
   if (!signal || signal === "neutral") return null;
   const cfg = {
-    strong_buy: { label: "Strong Buy", cls: "bg-emerald-500/20 text-emerald-300 border-emerald-500/40" },
-    buy:        { label: "Buy Signal", cls: "bg-green-500/15 text-green-400 border-green-500/30" },
-    watch:      { label: "Watch",      cls: "bg-yellow-500/15 text-yellow-400 border-yellow-500/30" },
+    strong_buy: { label: "⚡ Strong Buy", cls: "bg-emerald-500/20 text-emerald-300 border-emerald-500/40" },
+    buy:        { label: "📈 Buy Signal", cls: "bg-green-500/15 text-green-400 border-green-500/30" },
+    watch:      { label: "👀 Watch",      cls: "bg-yellow-500/15 text-yellow-400 border-yellow-500/30" },
   }[signal] ?? null;
   if (!cfg) return null;
+
+  // Build human-readable reason
+  let reason = "";
+  if (row) {
+    const parts: string[] = [];
+    if (row.king?.lockType === "perpetual") parts.push("perpetual lock");
+    if (row.totalLockedAlpha >= 50000) parts.push(`${(row.totalLockedAlpha/1000).toFixed(0)}k α locked`);
+    if (row.invest_score != null) parts.push(`invest score ${row.invest_score}/100`);
+    if (parts.length) reason = parts.join(" · ");
+  }
+
   return (
-    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${cfg.cls} whitespace-nowrap`}>
+    <span
+      className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${cfg.cls} whitespace-nowrap cursor-help`}
+      title={reason || undefined}
+    >
       {cfg.label}
     </span>
   );
 }
 
-// ── Podium ────────────────────────────────────────────────────────
+// ── Conviction progress (BIT-0011 formula) ───────────────────────
 
-function KingPodium({ rows, currency, taoPrice }: { rows: ConvictionRow[]; currency: Currency; taoPrice: number }) {
-  const top3 = rows.slice(0, 3);
-  const [first, second, third] = [top3[0], top3[1], top3[2]];
-  const order = [second, first, third].filter(Boolean);
-  const heights = ["h-20", "h-28", "h-14"];
-  const medals = ["🥈", "🥇", "🥉"];
-  const ranks = [2, 1, 3];
+function convictionPct(lastUpdateBlock: number, observedAtBlock: number, lockType: "perpetual" | "decaying"): number {
+  const blocks = Math.max(0, observedAtBlock - lastUpdateBlock);
+  const halfLife = lockType === "perpetual" ? 648000 : 216000;
+  return Math.round((1 - Math.exp(-blocks / halfLife)) * 100);
+}
+
+// ── Top 5 Leaderboard ────────────────────────────────────────────
+
+function Top5Leaderboard({
+  rows, currency, taoPrice, observedAtBlock, recentEvents,
+}: {
+  rows: ConvictionRow[]; currency: Currency; taoPrice: number;
+  observedAtBlock: number; recentEvents: ConvictionEvent[];
+}) {
+  const top5 = rows.slice(0, 5);
+  const rankColors = [
+    "from-amber-500/25 to-amber-600/10 border-amber-500/40",
+    "from-gray-300/15 to-gray-400/8 border-gray-500/30",
+    "from-orange-600/20 to-orange-700/8 border-orange-600/30",
+    "from-gray-800/60 to-gray-900/40 border-gray-700/50",
+    "from-gray-800/60 to-gray-900/40 border-gray-700/50",
+  ];
+  const rankNums = ["1st", "2nd", "3rd", "4th", "5th"];
+
+  // Subnets that had a new lock event recently
+  const freshNetuids = new Set(recentEvents.map(e => e.netuid));
 
   return (
-    <div className="flex items-end justify-center gap-4 mb-8">
-      {order.map((row, i) => {
-        const rank = ranks[i];
-        const medal = medals[i];
+    <div className="mb-8 space-y-2">
+      {top5.map((row, i) => {
+        const cvPct = row.king?.lastUpdate
+          ? convictionPct(row.king.lastUpdate, observedAtBlock, row.king?.lockType ?? "perpetual")
+          : null;
+        const ownerLockers = row.lockers.filter(l => l.isOwner);
+        const communityLockers = row.lockers.filter(l => !l.isOwner);
+        const communityAlpha = communityLockers.reduce((s, l) => s + l.lockedAlpha, 0);
+        const ownerAlpha = ownerLockers.reduce((s, l) => s + l.lockedAlpha, 0);
+        const commPct = row.totalLockedAlpha > 0
+          ? Math.round((communityAlpha / row.totalLockedAlpha) * 100) : 0;
+        const skinPct = row.market_cap && row.market_cap > 0
+          ? ((row.totalLockedAlpha * row.priceUsd) / row.market_cap * 100).toFixed(1)
+          : null;
+        const isFresh = freshNetuids.has(row.netuid);
+
         return (
-          <Link key={row.netuid} href={`/subnets/${row.netuid}`}
-            className="flex flex-col items-center gap-2 group"
+          <div key={row.netuid}
+            className={`bg-gradient-to-r ${rankColors[i]} border rounded-xl p-4 flex items-center gap-4 flex-wrap sm:flex-nowrap`}
           >
-            <div className="text-center">
-              <SubnetLogo netuid={row.netuid} name={row.name} size={40} />
-              <div className="text-xs font-bold text-white mt-1 truncate max-w-[80px]">{row.name}</div>
-              <div className="text-[10px] text-gray-500 font-mono">SN{row.netuid}</div>
-              <div className="text-sm font-black text-amber-300 tabular-nums mt-0.5">
-                {fmtAlpha(row.totalLockedAlpha, currency, taoPrice)}
+            {/* Rank + logo */}
+            <div className="flex items-center gap-3 flex-shrink-0">
+              <div className="text-center w-8">
+                <div className={`text-xs font-black tabular-nums ${i === 0 ? "text-amber-400 text-base" : "text-gray-500"}`}>
+                  {rankNums[i]}
+                </div>
               </div>
-              {row.agap_signal && row.agap_signal !== "neutral" && (
-                <SignalBadge signal={row.agap_signal} />
+              <Link href={`/subnets/${row.netuid}`} className="flex-shrink-0">
+                <SubnetLogo netuid={row.netuid} name={row.name} size={i === 0 ? 44 : 36} />
+              </Link>
+            </div>
+
+            {/* Name + badges */}
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <Link href={`/subnets/${row.netuid}`}
+                  className={`font-bold text-white hover:text-amber-300 transition-colors ${i === 0 ? "text-base" : "text-sm"}`}>
+                  {row.name}
+                </Link>
+                <span className="text-[10px] text-gray-500 font-mono">SN{row.netuid}</span>
+                {isFresh && (
+                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-green-500/20 text-green-400 border border-green-500/30 uppercase tracking-widest">New lock</span>
+                )}
+                <SignalBadge signal={row.agap_signal} row={row} />
+              </div>
+
+              {/* Sub-stats row */}
+              <div className="flex items-center gap-3 mt-1.5 flex-wrap text-[10px] text-gray-500">
+                {row.king?.lockType && (
+                  <span className={`font-bold ${row.king.lockType === "perpetual" ? "text-emerald-400" : "text-orange-400"}`}>
+                    {row.king.lockType}
+                  </span>
+                )}
+                {cvPct !== null && (
+                  <span title="How far to maximum conviction (BIT-0011 formula)">
+                    <span className="text-gray-600">Conviction maturity:</span>{" "}
+                    <span className={`font-semibold ${cvPct >= 70 ? "text-emerald-400" : cvPct >= 40 ? "text-yellow-400" : "text-gray-400"}`}>
+                      {cvPct}%
+                    </span>
+                  </span>
+                )}
+                {skinPct !== null && (
+                  <span title="Locked α ÷ market cap — how much of the subnet is actually committed">
+                    <span className="text-gray-600">Skin in game:</span>{" "}
+                    <span className={`font-semibold ${parseFloat(skinPct) >= 5 ? "text-cyan-400" : "text-gray-400"}`}>
+                      {skinPct}%
+                    </span>
+                  </span>
+                )}
+                {communityAlpha > 0 && (
+                  <span title="Community (non-owner) vs owner locks">
+                    <span className="text-gray-600">Community:</span>{" "}
+                    <span className="text-violet-400 font-semibold">{commPct}%</span>
+                  </span>
+                )}
+                <span><span className="text-gray-600">{row.lockers.length} locker{row.lockers.length !== 1 ? "s" : ""}</span></span>
+              </div>
+
+              {/* Conviction maturity bar */}
+              {cvPct !== null && (
+                <div className="mt-2 flex items-center gap-2">
+                  <div className="flex-1 h-1 bg-gray-800 rounded-full overflow-hidden max-w-[160px]">
+                    <div
+                      className={`h-full rounded-full transition-all ${cvPct >= 70 ? "bg-emerald-400" : cvPct >= 40 ? "bg-yellow-400" : "bg-gray-500"}`}
+                      style={{ width: `${cvPct}%` }}
+                    />
+                  </div>
+                  <span className="text-[9px] text-gray-600">max conv.</span>
+                </div>
               )}
             </div>
-            <div className={`w-20 ${heights[i]} rounded-t-xl flex items-start justify-center pt-2 ${
-              rank === 1 ? "bg-gradient-to-b from-amber-500/40 to-amber-600/20 border border-amber-500/40" :
-              rank === 2 ? "bg-gradient-to-b from-gray-400/25 to-gray-500/15 border border-gray-500/30" :
-              "bg-gradient-to-b from-orange-600/25 to-orange-700/15 border border-orange-600/30"
-            }`}>
-              <span className="text-xl">{medal}</span>
+
+            {/* Locked amount + aGap scores */}
+            <div className="flex items-center gap-4 flex-shrink-0">
+              <div className="text-right">
+                <div className={`font-black text-amber-300 tabular-nums ${i === 0 ? "text-lg" : "text-sm"}`}>
+                  {fmtAlpha(row.totalLockedAlpha, currency, taoPrice)}
+                </div>
+                <div className="text-[10px] text-gray-600 mt-0.5">locked</div>
+              </div>
+
+              <div className="flex gap-2.5">
+                <ScoreBadge score={row.agap_score} label="aGap" />
+                <ScoreBadge score={row.invest_score} label="Invest" />
+              </div>
             </div>
-          </Link>
+          </div>
         );
       })}
     </div>
@@ -297,7 +410,7 @@ function KingCard({
 
         {/* Signal */}
         <div className="hidden md:block flex-shrink-0 w-24 text-right">
-          <SignalBadge signal={row.agap_signal} />
+          <SignalBadge signal={row.agap_signal} row={row} />
         </div>
 
         {/* Chevron */}
@@ -572,14 +685,20 @@ export default function ConvictionPage() {
         {/* ── AlphaGap Intelligence Panel ───────────────── */}
         <InsightPanel rows={data.rows} />
 
-        {/* ── Podium ────────────────────────────────────── */}
-        {data.rows.length >= 3 && (
+        {/* ── Top 5 Leaderboard ─────────────────────────── */}
+        {data.rows.length >= 1 && (
           <div className="mb-6">
-            <div className="flex items-center gap-2 mb-4 px-1">
-              <span className="text-sm font-bold text-amber-300">Top Kings Podium</span>
-              <span className="text-[10px] text-gray-600">highest single-wallet conviction wins the crown</span>
+            <div className="flex items-center gap-2 mb-3 px-1">
+              <span className="text-sm font-bold text-amber-300">👑 Top 5 by Conviction</span>
+              <span className="text-[10px] text-gray-600">highest locked α · hover signals for reasoning</span>
             </div>
-            <KingPodium rows={data.rows} currency={currency} taoPrice={taoPrice} />
+            <Top5Leaderboard
+              rows={data.rows}
+              currency={currency}
+              taoPrice={taoPrice}
+              observedAtBlock={data.observedAtBlock}
+              recentEvents={events}
+            />
           </div>
         )}
 
