@@ -346,15 +346,15 @@ function LeaderboardRow({
         {/* Left signal bar */}
         <div className={`w-[3px] flex-shrink-0 ${signalBar}`} />
 
-        <div className="flex items-center gap-3 px-4 py-3 flex-1 min-w-0">
+        <div className="flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-3 flex-1 min-w-0">
           {/* Rank */}
           <div className="w-5 flex-shrink-0 text-center">
             <span className={`text-xs font-black tabular-nums ${rank <= 3 ? "text-green-400" : "text-gray-600"}`}>{rank}</span>
           </div>
 
           {/* Logo + name */}
-          <div className="flex items-center gap-2.5 w-40 flex-shrink-0 min-w-0">
-            <SubnetLogo netuid={row.netuid} name={row.name} size={32} />
+          <div className="flex items-center gap-2 flex-shrink-0 w-28 sm:w-40 min-w-0">
+            <SubnetLogo netuid={row.netuid} name={row.name} size={30} />
             <div className="min-w-0">
               <div className="text-sm font-semibold text-white truncate">{row.name}</div>
               <div className="text-[10px] text-gray-600 font-mono">SN{row.netuid}</div>
@@ -451,8 +451,8 @@ function LeaderboardRow({
           ))}
 
           {/* Footer */}
-          <div className="px-5 py-3 border-t border-white/5 flex items-center justify-between gap-4 flex-wrap bg-black/10">
-            <div className="flex items-center gap-4 text-[10px] text-gray-600 flex-wrap">
+          <div className="px-4 py-3 border-t border-white/5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-black/10">
+            <div className="flex items-center gap-3 text-xs text-gray-600 flex-wrap">
               {skinPct !== null && row.market_cap && row.priceUsd > 0 && (
                 <span>Supply locked: <span className={`font-semibold ${parseFloat(skinPct) >= 10 ? "text-green-300" : parseFloat(skinPct) >= 3 ? "text-green-400" : "text-white"}`}>{skinPct}%</span>
                   <span className="text-gray-700"> of {fmtAlpha(row.market_cap / row.priceUsd, "alpha", taoPrice)}</span>
@@ -470,9 +470,9 @@ function LeaderboardRow({
                 <span>Emission: <span className="text-white font-semibold">{row.emission_pct.toFixed(2)}%</span></span>
               )}
             </div>
-            <div className="flex gap-2 flex-shrink-0">
+            <div className="flex gap-2 w-full sm:w-auto">
               <Link href={`/subnets/${row.netuid}`}
-                className="text-[11px] font-medium px-3 py-1.5 rounded-lg border border-white/10 text-gray-400 hover:border-white/20 hover:text-gray-200 transition-colors">
+                className="flex-1 sm:flex-none text-center text-xs font-medium px-3 py-2 rounded-lg border border-white/10 text-gray-400 hover:border-white/20 hover:text-gray-200 transition-colors">
                 View SN{row.netuid} →
               </Link>
               <button
@@ -481,7 +481,7 @@ function LeaderboardRow({
                   const q = `Analyze ${row.name} (SN${row.netuid}) conviction lock. ${(row.totalLockedAlpha / 1000).toFixed(0)}k α locked (${row.king?.lockType ?? "perpetual"}${row.king?.isOwner ? ", owner" : ""}). aGap: ${row.agap_score ?? "N/A"}/100, Invest: ${row.invest_score ?? "N/A"}/100. Is this a bullish signal?`;
                   router.push(`/oracle?q=${encodeURIComponent(q)}`);
                 }}
-                className="text-[11px] font-medium px-3 py-1.5 rounded-lg border border-purple-500/30 bg-purple-500/10 text-purple-400 hover:bg-purple-500/20 transition-colors"
+                className="flex-1 sm:flex-none text-center text-xs font-medium px-3 py-2 rounded-lg border border-purple-500/30 bg-purple-500/10 text-purple-400 hover:bg-purple-500/20 transition-colors"
               >
                 🔮 Ask Oracle
               </button>
@@ -678,28 +678,29 @@ export default function ConvictionPage() {
         <div className="absolute top-0 left-1/3 w-96 h-32 bg-green-600/8 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute top-0 right-1/4 w-64 h-24 bg-purple-600/6 rounded-full blur-3xl pointer-events-none" />
 
-        <div className="relative px-4 md:px-12 py-7 max-w-screen-2xl mx-auto">
-          <div className="flex items-start justify-between gap-4 mb-5">
-            <div>
-              <div className="flex items-center gap-3 mb-1.5">
-                <h1 className="text-2xl font-black bg-gradient-to-r from-green-400 via-emerald-300 to-white bg-clip-text text-transparent leading-tight">
+        <div className="relative px-4 md:px-12 py-6 max-w-screen-2xl mx-auto">
+          {/* Title row — stacks on mobile */}
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-5">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-3 mb-2">
+                <h1 className="text-2xl sm:text-3xl font-black bg-gradient-to-r from-green-400 via-emerald-300 to-white bg-clip-text text-transparent leading-tight">
                   Conviction
                 </h1>
-                <span className="text-xs font-bold text-purple-400 bg-purple-500/10 border border-purple-500/20 px-2.5 py-1 rounded-full">Intelligence</span>
+                <span className="text-xs font-bold text-purple-400 bg-purple-500/10 border border-purple-500/20 px-2.5 py-1 rounded-full whitespace-nowrap">Intelligence</span>
               </div>
-              <p className="text-xs text-gray-500 max-w-lg leading-relaxed">
+              <p className="text-sm text-gray-400 leading-relaxed max-w-lg">
                 Founders and investors lock α on-chain to signal long-term commitment. Conviction grows the longer it stays locked — cross-referenced with aGap scores to surface where smart money aligns with fundamentals.
               </p>
-              <p className="text-[10px] text-gray-700 mt-1.5">
+              <p className="text-xs text-gray-600 mt-2">
                 BIT-0011 · Block #{data.observedAtBlock.toLocaleString()} · Data via SubnetRadar
               </p>
             </div>
 
-            {/* Currency toggle */}
-            <div className="flex items-center gap-0.5 bg-black/40 border border-white/8 rounded-xl p-1 flex-shrink-0">
+            {/* Currency toggle — sits right on desktop, below text on mobile */}
+            <div className="flex items-center gap-0.5 bg-black/40 border border-white/8 rounded-xl p-1 self-start flex-shrink-0">
               {(["alpha", "usd"] as Currency[]).map(c => (
                 <button key={c} onClick={() => setCurrency(c)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                  className={`px-3 py-2 rounded-lg text-sm font-bold transition-all ${
                     currency === c
                       ? "bg-green-500/20 text-green-300 border border-green-500/30"
                       : "text-gray-600 hover:text-gray-400"
@@ -710,28 +711,26 @@ export default function ConvictionPage() {
             </div>
           </div>
 
-          {/* Stats strip */}
-          <div className="flex flex-wrap gap-2">
+          {/* Stats grid — 2 cols on mobile, 4 on tablet, free-wrap on desktop */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:flex lg:flex-wrap gap-2">
             {[
-              { label: "Subnets locking", value: String(network.subnetCount), highlight: false },
-              { label: "Total locked",     value: fmtAlpha(network.totalLockedAlpha, currency, taoPrice), highlight: true },
-              { label: "Conviction α",     value: fmtAlpha(network.totalConvictionAlpha, currency, taoPrice), highlight: false },
-              { label: "Unlocked / sellable", value: fmtAlpha(network.totalUnlockedAlpha, currency, taoPrice), highlight: false },
-              { label: "Owner-locked",     value: fmtAlpha(network.ownerLockedAlpha, currency, taoPrice), highlight: false },
-              { label: "Active lockers",   value: String(network.totalLockers), highlight: false },
-              { label: "Decaying locks",   value: `${network.decayingPct}%`, highlight: false },
+              { label: "Subnets locking",    value: String(network.subnetCount),                                       highlight: false },
+              { label: "Total locked",        value: fmtAlpha(network.totalLockedAlpha, currency, taoPrice),           highlight: true  },
+              { label: "Conviction α",        value: fmtAlpha(network.totalConvictionAlpha, currency, taoPrice),       highlight: false },
+              { label: "Unlocked / sellable", value: fmtAlpha(network.totalUnlockedAlpha, currency, taoPrice),         highlight: false },
+              { label: "Owner-locked",        value: fmtAlpha(network.ownerLockedAlpha, currency, taoPrice),           highlight: false },
+              { label: "Active lockers",      value: String(network.totalLockers),                                     highlight: false },
+              { label: "Decaying locks",      value: `${network.decayingPct}%`,                                        highlight: false },
             ].map(stat => (
               <div key={stat.label}
-                className={`rounded-xl px-4 py-2.5 border ${
-                  stat.highlight
-                    ? "bg-green-950/30 border-green-500/20"
-                    : "bg-[#0d1610] border-white/5"
+                className={`rounded-xl px-4 py-3 border ${
+                  stat.highlight ? "bg-green-950/30 border-green-500/20" : "bg-[#0d1610] border-white/5"
                 }`}
               >
-                <div className={`text-sm font-black tabular-nums ${stat.highlight ? "text-green-300" : "text-white"}`}>
+                <div className={`text-base font-black tabular-nums ${stat.highlight ? "text-green-300" : "text-white"}`}>
                   {stat.value}
                 </div>
-                <div className="text-[9px] text-gray-600 uppercase tracking-widest mt-0.5">{stat.label}</div>
+                <div className="text-[10px] text-gray-600 uppercase tracking-widest mt-0.5">{stat.label}</div>
               </div>
             ))}
           </div>
@@ -744,11 +743,11 @@ export default function ConvictionPage() {
         {top5.length > 0 && (
           <div className="mb-8">
             <div className="flex items-center gap-3 mb-4">
-              <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Top 5 by conviction</span>
+              <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Top 5 by conviction</span>
               <div className="flex-1 h-px bg-white/5" />
-              <span className="text-[9px] text-gray-700">ring = maturity · hover signal badge for reason</span>
+              <span className="hidden sm:block text-[10px] text-gray-600">ring = maturity · tap signal for reason</span>
             </div>
-            <div className="flex gap-3 overflow-x-auto pb-2">
+            <div className="flex gap-3 overflow-x-auto pb-3 -mx-4 px-4 md:-mx-0 md:px-0">
               {top5.map((row, i) => (
                 <FeaturedCard
                   key={row.netuid}
@@ -769,27 +768,26 @@ export default function ConvictionPage() {
 
           {/* ── Full leaderboard ───────────────────────── */}
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-3 mb-4">
-              <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Full leaderboard</span>
-              <div className="flex-1 h-px bg-white/5" />
-
-              {/* Search */}
-              <div className="relative flex items-center">
-                <svg className="absolute left-2.5 w-3 h-3 text-gray-600 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-4">
+              <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Full leaderboard</span>
+              <div className="hidden sm:block flex-1 h-px bg-white/5" />
+              {/* Search — full width on mobile */}
+              <div className="relative flex items-center w-full sm:w-auto">
+                <svg className="absolute left-3 w-3.5 h-3.5 text-gray-600 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z" />
                 </svg>
                 <input
                   type="text" value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
                   placeholder="Search subnet…"
-                  className="pl-7 pr-6 py-1.5 rounded-lg text-xs bg-[#0d1610] border border-white/8 text-gray-300 placeholder-gray-700 focus:outline-none focus:border-green-500/30 w-36"
+                  className="pl-8 pr-7 py-2 rounded-xl text-sm bg-[#0d1610] border border-white/8 text-gray-300 placeholder-gray-600 focus:outline-none focus:border-green-500/30 w-full sm:w-44"
                 />
                 {searchQuery && (
-                  <button onClick={() => setSearchQuery("")} className="absolute right-2 text-gray-600 hover:text-gray-400">
-                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                  <button onClick={() => setSearchQuery("")} className="absolute right-3 text-gray-600 hover:text-gray-400">
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
                   </button>
                 )}
               </div>
-              <span className="text-[10px] text-gray-700 flex-shrink-0">{filteredRows.length} subnets</span>
+              <span className="text-xs text-gray-600 flex-shrink-0">{filteredRows.length} subnets</span>
             </div>
 
             {/* Column headers */}
@@ -831,7 +829,7 @@ export default function ConvictionPage() {
 
         {/* ── Explainer ─────────────────────────────────── */}
         <div className="mt-10 pt-5 border-t border-white/4">
-          <p className="text-[10px] text-gray-700 max-w-2xl leading-relaxed">
+          <p className="text-xs text-gray-600 max-w-2xl leading-relaxed">
             <span className="text-gray-500 font-semibold">BIT-0011 conviction</span> — α locked to a hotkey accrues conviction over time:{" "}
             <code className="text-green-500/60 bg-green-500/5 px-1 rounded">1 − exp(−blocks/648,000)</code> perpetual,{" "}
             <code className="text-orange-400/50 bg-orange-500/5 px-1 rounded">1 − exp(−blocks/216,000)</code> decaying.
