@@ -104,13 +104,14 @@ export async function GET(req: NextRequest) {
 
   // ── Slot-based idempotency check ──────────────────────────────────
   // Each cron slot (7am / 12pm / 5pm / 10pm UTC) gets a unique key.
-  // If a lock already exists for this slot, a concurrent or retry
-  // invocation bails out immediately — preventing double-posts.
+  // If a lock already exists for this slot a previous invocation already
+  // ran — skip immediately to prevent double-posts.
   //
-  // IMPORTANT: read the lock FIRST, claim it IMMEDIATELY after checking,
-  // then load everything else. Loading data blobs before writing the lock
-  // creates a race window where two concurrent invocations both pass the
-  // check and both proceed to post — that was the root cause of duplicates.
+  // NOTE: We removed the write-then-verify ownership pattern because
+  // Vercel Blob read-after-write is eventually consistent (cached reads
+  // return stale data for several seconds), making the verify always fail
+  // even with no concurrent invocation. The real duplicate-post guard is
+  // the dedupId check below against twitter-posted.json.
   const slotKey = currentSlotKey();
   const lock = await readLock();
 
@@ -120,23 +121,9 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: true, posted: false, reason: `locked (slot ${slotKey}, ${minutesSinceLock.toFixed(0)}m ago)` });
   }
 
-  // Claim the slot NOW — before loading any other data.
-  // We store our own timestamp so we can verify ownership below.
-  const myLockedAt = new Date().toISOString();
-  await writeLock(slotKey, myLockedAt);
-
-  // ── Write-then-verify ownership ───────────────────────────────────
-  // Two Vercel serverless instances can both read a null lock within
-  // milliseconds of each other at the cron trigger, then both write their
-  // own lock (the second write overwrites the first). Waiting 300ms and
-  // re-reading the lock tells us which instance "won" — the one whose
-  // lockedAt is still present continues; the other bails out.
-  await new Promise(r => setTimeout(r, 300));
-  const verifyLock = await readLock();
-  if (!verifyLock || verifyLock.slotKey !== slotKey || verifyLock.lockedAt !== myLockedAt) {
-    console.log(`[twitter-bot] Lock verify failed — another invocation claimed slot ${slotKey} — bailing`);
-    return NextResponse.json({ ok: true, posted: false, reason: `lock verify failed — concurrent invocation owns slot ${slotKey}` });
-  }
+  // Claim the slot immediately (best-effort — protects against retries that
+  // run after the blob is eventually consistent, not against same-ms races).
+  await writeLock(slotKey, new Date().toISOString());
 
   // Load all data blobs in parallel now that the slot is claimed
   // Actual blob names and shapes (corrected from original stale names):
