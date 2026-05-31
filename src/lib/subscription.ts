@@ -14,13 +14,19 @@ export function getTier(session: any): Tier {
   // Admins always get ultra
   if (u.isAdmin) return "ultra";
 
-  // Explicit tier field (new subscriptions)
-  if (u.subscriptionTier === "ultra")   return "ultra";
-  if (u.subscriptionTier === "premium") return "premium";
-  if (u.subscriptionTier === "pro")     return "pro";
+  const s = u.subscriptionStatus as string | undefined;
+  // active + trialing = paid. past_due = still in Stripe retry window, keep access.
+  // canceled / none / anything else = no paid access.
+  const isPaid = s === "active" || s === "trialing" || s === "past_due";
+
+  // Explicit tier field (new subscriptions) — only honour if subscription is paid
+  if (isPaid) {
+    if (u.subscriptionTier === "ultra")   return "ultra";
+    if (u.subscriptionTier === "premium") return "premium";
+    if (u.subscriptionTier === "pro")     return "pro";
+  }
 
   // Backwards compat: existing active subs without a tier → pro
-  const s = u.subscriptionStatus as string | undefined;
   if (s === "active" || s === "trialing") return "pro";
 
   return "free";
