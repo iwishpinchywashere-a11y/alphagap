@@ -160,6 +160,41 @@ function SignalChip({ signal, row }: { signal?: string; row?: ConvictionRow }) {
   );
 }
 
+// ── Supply lock bar ───────────────────────────────────────────────
+
+function SupplyLockBar({
+  lockedAlpha, marketCap, priceUsd, currency, taoPrice,
+}: {
+  lockedAlpha: number; marketCap?: number; priceUsd: number;
+  currency: Currency; taoPrice: number;
+}) {
+  if (!marketCap || marketCap === 0 || priceUsd === 0) return null;
+  const totalSupply = marketCap / priceUsd;         // total α in circulation
+  const pct = Math.min((lockedAlpha / totalSupply) * 100, 100);
+  const pctLabel = pct < 0.1 ? "<0.1%" : `${pct.toFixed(1)}%`;
+  const supplyFmt = fmtAlpha(totalSupply, currency, taoPrice);
+
+  return (
+    <div className="w-full" title={`${pctLabel} of total supply (${supplyFmt}) is locked`}>
+      <div className="flex items-center justify-between mb-1">
+        <span className="text-[9px] text-gray-600 uppercase tracking-widest">% of supply locked</span>
+        <span className={`text-[10px] font-bold tabular-nums ${pct >= 10 ? "text-green-300" : pct >= 3 ? "text-green-400/80" : "text-gray-500"}`}>
+          {pctLabel}
+        </span>
+      </div>
+      <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden">
+        <div
+          className={`h-full rounded-full ${pct >= 10 ? "bg-green-400" : pct >= 3 ? "bg-green-500/70" : "bg-gray-600"}`}
+          style={{ width: `${Math.max(pct, 0.5)}%` }}
+        />
+      </div>
+      <div className="text-[8px] text-gray-700 mt-0.5 tabular-nums">
+        {fmtAlpha(lockedAlpha, currency, taoPrice)} of {supplyFmt} total
+      </div>
+    </div>
+  );
+}
+
 // ── Featured Top-5 card ───────────────────────────────────────────
 
 function FeaturedCard({
@@ -235,6 +270,15 @@ function FeaturedCard({
           </div>
           <div className="mt-1"><LockPill type={row.king?.lockType} /></div>
         </div>
+
+        {/* Supply lock % */}
+        <SupplyLockBar
+          lockedAlpha={row.totalLockedAlpha}
+          marketCap={row.market_cap}
+          priceUsd={row.priceUsd}
+          currency={currency}
+          taoPrice={taoPrice}
+        />
 
         {/* aGap + Invest score pills */}
         <div className="flex gap-1.5 w-full">
@@ -323,20 +367,38 @@ function LeaderboardRow({
             {row.king?.isOwner && <span className="text-[9px] text-amber-500/60">owner</span>}
           </div>
 
-          {/* Locked + maturity bar */}
+          {/* Locked + bars */}
           <div className="flex-1 min-w-0">
             <div className="text-sm font-bold text-green-400 tabular-nums">
               {fmtAlpha(row.totalLockedAlpha, currency, taoPrice)}
             </div>
+            {/* Conviction maturity bar */}
             {cvPct !== null && (
               <div className="flex items-center gap-1.5 mt-1">
-                <div className="w-20 h-1 bg-white/5 rounded-full overflow-hidden">
+                <div className="w-16 h-1 bg-white/5 rounded-full overflow-hidden">
                   <div className={`h-full rounded-full ${cvPct >= 70 ? "bg-green-400" : cvPct >= 40 ? "bg-yellow-400" : "bg-gray-600"}`}
                     style={{ width: `${cvPct}%` }} />
                 </div>
-                <span className="text-[9px] text-gray-600 tabular-nums">{cvPct}%</span>
+                <span className="text-[9px] text-gray-600 tabular-nums">{cvPct}% matured</span>
               </div>
             )}
+            {/* Supply lock % bar */}
+            {row.market_cap && row.market_cap > 0 && row.priceUsd > 0 && (() => {
+              const totalSupply = row.market_cap / row.priceUsd;
+              const supplyPct = Math.min((row.totalLockedAlpha / totalSupply) * 100, 100);
+              const supplyPctLabel = supplyPct < 0.1 ? "<0.1%" : `${supplyPct.toFixed(1)}%`;
+              return (
+                <div className="flex items-center gap-1.5 mt-1" title={`${supplyPctLabel} of total α supply is locked`}>
+                  <div className="w-16 h-1 bg-white/5 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full ${supplyPct >= 10 ? "bg-purple-400" : supplyPct >= 3 ? "bg-purple-500/60" : "bg-gray-700"}`}
+                      style={{ width: `${Math.max(supplyPct, 0.5)}%` }}
+                    />
+                  </div>
+                  <span className="text-[9px] text-gray-600 tabular-nums">{supplyPctLabel} of supply</span>
+                </div>
+              );
+            })()}
           </div>
 
           {/* aGap score */}
@@ -391,8 +453,10 @@ function LeaderboardRow({
           {/* Footer */}
           <div className="px-5 py-3 border-t border-white/5 flex items-center justify-between gap-4 flex-wrap bg-black/10">
             <div className="flex items-center gap-4 text-[10px] text-gray-600 flex-wrap">
-              {skinPct !== null && (
-                <span>Skin in game: <span className={`font-semibold ${parseFloat(skinPct) >= 5 ? "text-cyan-400" : "text-white"}`}>{skinPct}%</span></span>
+              {skinPct !== null && row.market_cap && row.priceUsd > 0 && (
+                <span>Supply locked: <span className={`font-semibold ${parseFloat(skinPct) >= 10 ? "text-green-300" : parseFloat(skinPct) >= 3 ? "text-green-400" : "text-white"}`}>{skinPct}%</span>
+                  <span className="text-gray-700"> of {fmtAlpha(row.market_cap / row.priceUsd, "alpha", taoPrice)}</span>
+                </span>
               )}
               {communityAlpha > 0 && (
                 <span>Community: <span className="text-purple-400 font-semibold">{commPct}%</span></span>
@@ -734,7 +798,7 @@ export default function ConvictionPage() {
               <div className="w-5 ml-3" />
               <div className="w-40">Subnet</div>
               <div className="w-28">Lock</div>
-              <div className="flex-1">Locked α · Maturity</div>
+              <div className="flex-1">Locked α · Maturity · % of supply</div>
               <div className="w-12 text-center">aGap</div>
               <div className="w-12 text-center">Invest</div>
               <div className="w-28 text-right">Signal</div>
