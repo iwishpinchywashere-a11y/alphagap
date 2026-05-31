@@ -511,6 +511,182 @@ export async function sendOracleAnnouncementEmail(
   });
 }
 
+/** Conviction page announcement — Premium has full access; Free/Pro see teaser + upgrade prompt */
+export async function sendConvictionAnnouncementEmail(
+  name: string,
+  email: string,
+  tier: "free" | "pro" | "premium",
+) {
+  const firstName = name?.split(" ")[0] || "there";
+  const isPremium = tier === "premium";
+
+  const ctaHref  = isPremium ? `${BASE_URL}/conviction` : `${BASE_URL}/pricing`;
+  const ctaLabel = isPremium ? "View Conviction Page →" : "Unlock Full Access →";
+  const ctaNote  = isPremium
+    ? "Live at alphagap.io/conviction — updated every 10 minutes"
+    : "Premium plan · $49/mo · Cancel anytime · Includes everything in Pro";
+
+  const subject = isPremium
+    ? "🔒 New: The Conviction Page — see where real money is locked right now"
+    : "🔒 New feature: see exactly which subnets smart money is locked into";
+
+  const signals = [
+    { icon: "🏆", label: "Conviction Leaderboard", desc: "Every subnet ranked by total locked alpha — the harder the lock, the higher the conviction. See who is putting real capital behind what." },
+    { icon: "📈", label: "aGap + Invest Score Side-by-Side", desc: "Each subnet&apos;s intelligence score and investability score displayed together. Know which high-conviction subnets also have strong fundamentals." },
+    { icon: "⚡", label: "Live Lock & Unlock Events", desc: "A real-time feed of every significant lock and unlock across the network. When a whale moves, you see it the moment it happens." },
+    { icon: "🐋", label: "Top Locker Breakdown", desc: "Drill into any subnet and see the individual wallets driving its conviction — how much they locked, when, and how it&apos;s changed." },
+    { icon: "🔍", label: "128 Subnets Tracked", desc: "Every subnet in the network, ranked. Filter by lock size, score, or recent activity to find where conviction is building." },
+  ];
+
+  const signalRows = signals.map(s => `
+    <tr>
+      <td style="padding:14px 0;border-bottom:1px solid #1a2235;vertical-align:top;">
+        <table cellpadding="0" cellspacing="0" width="100%">
+          <tr>
+            <td style="width:36px;vertical-align:top;padding-top:2px;">
+              <span style="font-size:20px;line-height:1;">${s.icon}</span>
+            </td>
+            <td style="vertical-align:top;">
+              <p style="color:#ffffff;font-size:13px;font-weight:700;margin:0 0 3px 0;">${s.label}</p>
+              <p style="color:#6b7280;font-size:12px;line-height:1.6;margin:0;">${s.desc}</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  `).join("");
+
+  const html = baseTemplate(`
+    <!-- Hero -->
+    <div style="text-align:center;margin:0 0 36px 0;">
+      <div style="display:inline-block;background:linear-gradient(135deg,#0d1a2b,#0a1f0d);border:1px solid #10b98130;border-radius:16px;padding:28px 32px;margin-bottom:24px;">
+        <div style="font-size:52px;line-height:1;margin-bottom:12px;">🔒</div>
+        <div style="display:inline-block;background:#10b98115;border:1px solid #10b98130;border-radius:20px;padding:4px 14px;margin-bottom:16px;">
+          <span style="color:#10b981;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;">${isPremium ? "Now Live in Your Account" : "New Premium Feature"}</span>
+        </div>
+        <h1 style="color:#ffffff;font-size:26px;font-weight:800;margin:0 0 8px 0;line-height:1.2;">
+          Introducing:<br>The Conviction Page
+        </h1>
+        <p style="color:#9ca3af;font-size:14px;margin:0;line-height:1.6;">See where real capital is locked.<br>Follow conviction before price follows.</p>
+      </div>
+    </div>
+
+    <!-- Intro -->
+    <p style="color:#d1d5db;font-size:15px;line-height:1.8;margin:0 0 12px 0;">
+      Hey ${firstName},
+    </p>
+    ${isPremium ? `
+    <p style="color:#9ca3af;font-size:15px;line-height:1.8;margin:0 0 16px 0;">
+      We just launched the Conviction Page — and as a Premium member, it&apos;s live in your account right now.
+    </p>
+    <p style="color:#9ca3af;font-size:15px;line-height:1.8;margin:0 0 16px 0;">
+      Alpha locking is one of the most important on-chain signals in Bittensor. When validators and stakers lock alpha into a subnet, they are putting real capital on the line and committing to it. They don&apos;t do that unless they believe in what&apos;s being built.
+    </p>
+    <p style="color:#9ca3af;font-size:15px;line-height:1.8;margin:0 0 32px 0;">
+      The Conviction Page shows you exactly which subnets are attracting that locked capital — ranked, updated every 10 minutes, with a live feed of every lock and unlock event happening across the network. This is the clearest signal of where smart money has the highest conviction right now.
+    </p>
+    ` : `
+    <p style="color:#9ca3af;font-size:15px;line-height:1.8;margin:0 0 16px 0;">
+      Prices react to conviction. The question is: how do you find conviction before it shows up in price?
+    </p>
+    <p style="color:#9ca3af;font-size:15px;line-height:1.8;margin:0 0 16px 0;">
+      On Bittensor, one of the clearest answers is <strong style="color:#ffffff;">alpha locking</strong>. When validators and stakers lock alpha into a subnet, they are putting real capital on the line. Not speculation — locked capital. They can&apos;t move it. They don&apos;t lock unless they genuinely believe.
+    </p>
+    <p style="color:#9ca3af;font-size:15px;line-height:1.8;margin:0 0 32px 0;">
+      Today we&apos;re launching the <strong style="color:#ffffff;">Conviction Page</strong> — a live ranking of every subnet by locked alpha, updated every 10 minutes, with individual locker breakdowns and a real-time event feed. <strong style="color:#ffffff;">This is the page you check before making any move.</strong>
+    </p>
+    `}
+
+    <!-- Why it matters callout -->
+    <div style="background:#0a1f0d;border:1px solid #10b98130;border-radius:14px;padding:22px 28px;margin:0 0 24px 0;">
+      <p style="color:#10b981;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;margin:0 0 12px 0;">Why locked alpha matters</p>
+      <p style="color:#d1d5db;font-size:14px;line-height:1.8;margin:0 0 12px 0;">
+        Locked alpha is irreversible for a period. Lockers give up liquidity in exchange for enhanced yield — but only if the subnet performs. That&apos;s real skin in the game.
+      </p>
+      <p style="color:#9ca3af;font-size:13px;line-height:1.8;margin:0;">
+        A subnet with rising locked alpha has something the market hasn&apos;t fully priced in yet: <strong style="color:#ffffff;">people who know the ecosystem best are betting on it with committed capital.</strong> That&apos;s your edge.
+      </p>
+    </div>
+
+    <!-- Feature list -->
+    <div style="background:#0a0f1a;border:1px solid #1f2937;border-radius:14px;padding:24px 28px;margin:0 0 28px 0;">
+      <p style="color:#10b981;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;margin:0 0 4px 0;">What&apos;s on the page</p>
+      <p style="color:#4b5563;font-size:12px;margin:0 0 20px 0;">Everything updated every 10 minutes.</p>
+      <table width="100%" cellpadding="0" cellspacing="0">
+        ${signalRows}
+      </table>
+    </div>
+
+    ${isPremium ? `
+    <!-- Premium: already have access -->
+    <div style="background:#0d2b1f;border:1px solid #10b98130;border-radius:14px;padding:20px 28px;margin:0 0 28px 0;">
+      <p style="color:#10b981;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;margin:0 0 8px 0;">&#10003; Already in your account</p>
+      <p style="color:#9ca3af;font-size:13px;line-height:1.7;margin:0;">
+        Find it in the navigation under <strong style="color:#ffffff;">Conviction</strong>, or go straight to
+        <a href="${BASE_URL}/conviction" style="color:#10b981;text-decoration:none;">alphagap.io/conviction</a>.
+        We recommend checking it every day — locked alpha changes fast, and the early signals are in the data before they hit anyone&apos;s feed.
+      </p>
+    </div>
+    ` : `
+    <!-- Free/Pro: teaser of what they're missing -->
+    <div style="background:#0d1117;border:1px solid #1f2937;border-radius:14px;padding:24px 28px;margin:0 0 24px 0;">
+      <p style="color:#6b7280;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;margin:0 0 16px 0;">What you&apos;re currently missing</p>
+      <table cellpadding="0" cellspacing="0" width="100%">
+        ${[
+          "Full conviction leaderboard — all 128 subnets ranked by locked alpha",
+          "aGap + Invest score next to every subnet's lock data",
+          "Live event feed — every significant lock and unlock as it happens",
+          "Individual locker wallets — see exactly who is building conviction and how much",
+          "Historical conviction trends — catch subnets before they break out",
+        ].map(item => `
+          <tr>
+            <td style="padding:8px 0;border-bottom:1px solid #1a2235;">
+              <table cellpadding="0" cellspacing="0"><tr>
+                <td style="width:24px;vertical-align:top;padding-top:2px;">
+                  <span style="color:#374151;font-size:14px;">🔒</span>
+                </td>
+                <td style="vertical-align:top;padding-left:8px;">
+                  <span style="color:#6b7280;font-size:13px;">${item}</span>
+                </td>
+              </tr></table>
+            </td>
+          </tr>
+        `).join("")}
+      </table>
+      <p style="color:#4b5563;font-size:12px;margin:16px 0 0 0;">Upgrade to Premium to unlock the full page.</p>
+    </div>
+    <div style="background:#0a0f1a;border:1px solid #1f2937;border-radius:14px;padding:20px 28px;margin:0 0 28px 0;">
+      <p style="color:#9ca3af;font-size:13px;line-height:1.7;margin:0;">
+        The Conviction Page is included in <strong style="color:#ffffff;">Premium ($49/mo)</strong>.
+        You&apos;ll keep everything you have now — full leaderboard, all signals, reports — and unlock Conviction, Whale Tracker, Pump Lab, Analytics, Telegram Alerts, and every other Premium feature in one upgrade.
+      </p>
+    </div>
+    `}
+
+    <!-- CTA -->
+    <div style="text-align:center;margin:0 0 32px 0;">
+      <a href="${ctaHref}"
+         style="display:inline-block;background:linear-gradient(135deg,#10b981,#059669);color:#000000;font-weight:800;font-size:15px;padding:16px 44px;border-radius:12px;text-decoration:none;letter-spacing:-0.2px;">
+        ${ctaLabel}
+      </a>
+      <p style="color:#4b5563;font-size:11px;margin:12px 0 0 0;">${ctaNote}</p>
+    </div>
+
+    <!-- Sign-off -->
+    <p style="color:#6b7280;font-size:13px;line-height:1.7;margin:0;border-top:1px solid #1a1a2e;padding-top:24px;">
+      This one&apos;s important. Check it daily,<br>
+      <strong style="color:#9ca3af;">— The AlphaGap Team</strong>
+    </p>
+  `);
+
+  return resend.emails.send({
+    from: FROM,
+    to: email,
+    subject,
+    html,
+  });
+}
+
 /** Password reset email — token expires in 1 hour */
 export async function sendPasswordResetEmail(name: string, email: string, resetToken: string) {
   const firstName = name.split(" ")[0];
