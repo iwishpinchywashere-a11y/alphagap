@@ -283,19 +283,19 @@ function FeaturedCard({
 
         {/* aGap + Invest score pills */}
         <div className="flex gap-1.5 w-full">
-          <div className="flex-1 text-center bg-green-500/8 border border-green-500/15 rounded-lg py-1.5">
-            <div className={`text-sm font-black ${
+          <div className="flex-1 text-center bg-green-500/15 border border-green-500/35 rounded-lg py-2">
+            <div className={`text-base font-black ${
               row.agap_score != null && row.agap_score >= 70 ? "text-green-300" :
-              row.agap_score != null && row.agap_score >= 50 ? "text-green-400/80" : "text-gray-500"
+              row.agap_score != null && row.agap_score >= 50 ? "text-green-400" : "text-gray-400"
             }`}>{row.agap_score ?? "—"}</div>
-            <div className="text-[8px] text-gray-700 uppercase tracking-widest">aGap</div>
+            <div className="text-[9px] text-gray-400 uppercase tracking-widest mt-0.5">aGap</div>
           </div>
-          <div className="flex-1 text-center bg-purple-500/8 border border-purple-500/15 rounded-lg py-1.5">
-            <div className={`text-sm font-black ${
+          <div className="flex-1 text-center bg-purple-500/15 border border-purple-500/35 rounded-lg py-2">
+            <div className={`text-base font-black ${
               row.invest_score != null && row.invest_score >= 70 ? "text-purple-300" :
-              row.invest_score != null && row.invest_score >= 50 ? "text-purple-400/80" : "text-gray-500"
+              row.invest_score != null && row.invest_score >= 50 ? "text-purple-400" : "text-gray-400"
             }`}>{row.invest_score ?? "—"}</div>
-            <div className="text-[8px] text-gray-700 uppercase tracking-widest">Invest</div>
+            <div className="text-[9px] text-gray-400 uppercase tracking-widest mt-0.5">Invest</div>
           </div>
         </div>
 
@@ -403,21 +403,21 @@ function LeaderboardRow({
           </div>
 
           {/* aGap score */}
-          <div className="hidden lg:flex flex-col items-center gap-0.5 flex-shrink-0 w-12">
-            <span className={`text-sm font-black tabular-nums ${
+          <div className="hidden lg:flex flex-col items-center gap-0.5 flex-shrink-0 w-14">
+            <span className={`text-base font-black tabular-nums ${
               row.agap_score != null && row.agap_score >= 70 ? "text-green-300" :
-              row.agap_score != null && row.agap_score >= 50 ? "text-green-400/70" : "text-gray-500"
+              row.agap_score != null && row.agap_score >= 50 ? "text-green-400" : "text-gray-400"
             }`}>{row.agap_score ?? "—"}</span>
-            <span className="text-[8px] text-gray-700 uppercase tracking-widest">aGap</span>
+            <span className="text-[9px] text-gray-400 uppercase tracking-widest">aGap</span>
           </div>
 
           {/* Invest score */}
-          <div className="hidden lg:flex flex-col items-center gap-0.5 flex-shrink-0 w-12">
-            <span className={`text-sm font-black tabular-nums ${
+          <div className="hidden lg:flex flex-col items-center gap-0.5 flex-shrink-0 w-14">
+            <span className={`text-base font-black tabular-nums ${
               row.invest_score != null && row.invest_score >= 70 ? "text-purple-300" :
-              row.invest_score != null && row.invest_score >= 50 ? "text-purple-400/70" : "text-gray-500"
+              row.invest_score != null && row.invest_score >= 50 ? "text-purple-400" : "text-gray-400"
             }`}>{row.invest_score ?? "—"}</span>
-            <span className="text-[8px] text-gray-700 uppercase tracking-widest">Invest</span>
+            <span className="text-[9px] text-gray-400 uppercase tracking-widest">Invest</span>
           </div>
 
           {/* Signal */}
