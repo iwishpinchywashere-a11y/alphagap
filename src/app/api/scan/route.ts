@@ -86,6 +86,32 @@ async function fetchSRSubnets(): Promise<SRSubnet[]> {
     return [];
   }
 }
+interface SRConvictionRow {
+  netuid: number;
+  totalLockedAlpha: number;
+  totalConvictionAlpha: number;
+  priceUsd: number;
+  king?: { lockType: "perpetual" | "decaying"; lastUpdate: number; isOwner: boolean };
+  lockers: { isOwner: boolean; lockedAlpha: number }[];
+}
+async function fetchSRConviction(): Promise<{ rows: SRConvictionRow[]; observedAtBlock: number }> {
+  try {
+    const res = await fetch("https://subnetradar.com/api/alpha/conviction", {
+      signal: AbortSignal.timeout(10000),
+      headers: {
+        "User-Agent": "AlphaGap/1.0",
+        "Accept": "application/json",
+      },
+      next: { revalidate: 300 },
+    });
+    if (!res.ok) return { rows: [], observedAtBlock: 0 };
+    const data = await res.json();
+    return { rows: data.rows ?? [], observedAtBlock: data.observedAtBlock ?? 0 };
+  } catch {
+    return { rows: [], observedAtBlock: 0 };
+  }
+}
+
 async function fetchSRWhales(): Promise<SRWhaleMove[]> {
   try {
     const res = await fetch("https://subnetradar.com/api/whales", {
@@ -442,7 +468,7 @@ export async function GET() {
   // NOTE: TaoStats dev is used for 7d/30d historical context only.
   //       24h commit data comes from the direct GitHub scanner below.
   console.log("[scan] Batch 2: flows + emissions + dev history + TMC + SubnetRadar...");
-  const [flowsResult, emissionsResult, devResult, tmcResult, tmcValResult, srSubnetsResult, srWhalesResult, burnedAlphaResult] = await Promise.allSettled([
+  const [flowsResult, emissionsResult, devResult, tmcResult, tmcValResult, srSubnetsResult, srWhalesResult, burnedAlphaResult, srConvictionResult] = await Promise.allSettled([
     getTaoFlows(),
     getSubnetEmissions(),
     getGithubActivity(),
@@ -451,6 +477,7 @@ export async function GET() {
     fetchSRSubnets(),
     fetchSRWhales(),
     getBurnedAlpha(),
+    fetchSRConviction(),
   ]);
   const flows = flowsResult.status === "fulfilled" ? flowsResult.value : [];
   const emissions = emissionsResult.status === "fulfilled" ? emissionsResult.value : [];
@@ -459,6 +486,7 @@ export async function GET() {
   const srSubnets = srSubnetsResult.status === "fulfilled" ? srSubnetsResult.value : [];
   const srWhaleMoves = srWhalesResult.status === "fulfilled" ? srWhalesResult.value : [];
   const burnedAlphaData = burnedAlphaResult.status === "fulfilled" ? burnedAlphaResult.value : [];
+  const srConvictionData = srConvictionResult.status === "fulfilled" ? srConvictionResult.value : { rows: [], observedAtBlock: 0 };
 
   // ── Dev activity with blob-cached fallback ────────────────────────────────
   // TaoStats /dev_activity sometimes returns 429 (rate-limited) or fails.
@@ -515,6 +543,12 @@ export async function GET() {
 
   // ── SubnetRadar maps ──────────────────────────────────────────────
   const srSubnetMap = new Map<number, SRSubnet>(srSubnets.map(s => [s.netuid, s]));
+
+  // ── BIT-0011 conviction map (SubnetRadar conviction API) ──────────
+  const srConvictionMap = new Map<number, SRConvictionRow>(
+    srConvictionData.rows.map(r => [Number(r.netuid), r])
+  );
+  const srConvictionBlock = srConvictionData.observedAtBlock;
 
   // Net TAO from large stake/unstake moves (≥50 TAO = "whale" threshold)
   const srWhaleNetFlowMap = new Map<number, number>();
@@ -3340,9 +3374,9 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     else if (isBenchmarked && confirmedArr >          0) marketValidationBonus = 2;
     else if (isBenchmarked)                              marketValidationBonus = 1;
 
-    // ── PILLAR 1: CONVICTION (max 24) — was Smart Money max 9 ────────────────
-    // For a monthly investing lens, SUSTAINED whale accumulation + staking lock
-    // conviction matter far more than any 24h snapshot signal.
+    // ── PILLAR 1: CONVICTION (max 30) ────────────────────────────────────────
+    // For a monthly investing lens, SUSTAINED whale accumulation, staking lock,
+    // AND real on-chain BIT-0011 conviction locks all matter.
     // Components:
     //   • Whale spot: positive whaleBoost dampened (snapshot only, 24h window)
     //   • Whale velocity: amplified (sustained multi-scan accumulation is the real signal)
@@ -3350,28 +3384,55 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     //   • Staking trend: direction of conviction (rising = locking in, falling = exiting)
     //   • TAO locked: absolute capital committed to subnet pool
     //   • Founder conviction: Const buy signal (founder holding = aligned incentives)
-    const investWhaleSpot  = Math.max(0, whaleBoost) * 0.35;        // 0–7 pts (dampened)
-    const investWhaleVelo  = whaleVelocityBonus * 0.7;              // 0–10.5 pts (amplified)
+    //   • BIT-0011 on-chain lock: real locked α + lock type + supply % + maturity
+    const investWhaleSpot  = Math.max(0, whaleBoost) * 0.35;        // 0–7 pts
+    const investWhaleVelo  = whaleVelocityBonus * 0.7;              // 0–10.5 pts
     const investStakingLock =
       d.alphaStakedPct >= 75 ? 6 :
       d.alphaStakedPct >= 65 ? 4 :
       d.alphaStakedPct >= 55 ? 2 : 0;
     const investStakingTrend = Math.max(-4, Math.min(4, stakingTrendBonus * 0.45));
-    // TAO locked: total capital committed (conviction lock proxy)
     const investTaoLock =
       d.taoLocked >= 50_000 ? 3 :
       d.taoLocked >= 20_000 ? 2 :
       d.taoLocked >=  5_000 ? 1 : 0;
-    // Founder conviction: Const buying = founder deploying own capital.
-    // Tripled from v21 (max 4 → 12): founder buying is the #1 long-term investment
-    // signal in Bittensor — a team eating their own cooking means aligned incentives.
-    // Sell conviction also strengthened (max -2 → -8) — founders exiting is a red flag.
     let investConstConviction = 0;
     if      (constBuy  > 0) investConstConviction = Math.min(12,  1 + constBuy  / 100);
     else if (constSell > 0) investConstConviction = Math.max(-8, -constSell / 200);
+
+    // BIT-0011 on-chain conviction (max 6 bonus pts added on top of existing pillar)
+    // Real locked alpha from SubnetRadar — the most direct "skin in the game" signal.
+    let investBit0011 = 0;
+    const convRow = srConvictionMap.get(d.netuid);
+    if (convRow && convRow.totalLockedAlpha > 0) {
+      // Locked amount (0–3 pts)
+      const bit0011LockedPts =
+        convRow.totalLockedAlpha >= 500_000 ? 3 :
+        convRow.totalLockedAlpha >= 100_000 ? 2 :
+        convRow.totalLockedAlpha >=  10_000 ? 1 : 0;
+      // Lock type: perpetual = permanent commitment (bonus 1 pt)
+      const bit0011TypePts = convRow.king?.lockType === "perpetual" ? 1 : 0;
+      // Supply %: what fraction of total supply is actually locked
+      const bit0011SupplyPct = convRow.priceUsd > 0 && d.marketCapUsd && d.marketCapUsd > 0
+        ? (convRow.totalLockedAlpha * convRow.priceUsd) / d.marketCapUsd * 100 : 0;
+      const bit0011SupplyPts =
+        bit0011SupplyPct >= 15 ? 2 :
+        bit0011SupplyPct >=  5 ? 1 : 0;
+      // Maturity: how long it's been locked (BIT-0011 formula, 0–1 bonus pts)
+      let bit0011MaturityPts = 0;
+      if (convRow.king?.lastUpdate && srConvictionBlock > 0) {
+        const blocks = Math.max(0, srConvictionBlock - convRow.king.lastUpdate);
+        const halfLife = convRow.king.lockType === "perpetual" ? 648_000 : 216_000;
+        const matPct = (1 - Math.exp(-blocks / halfLife)) * 100;
+        if (matPct >= 50) bit0011MaturityPts = 1;
+      }
+      investBit0011 = bit0011LockedPts + bit0011TypePts + bit0011SupplyPts + bit0011MaturityPts;
+    }
+
     const rawConvictionPillar = investWhaleSpot + investWhaleVelo + investStakingLock
-                               + investStakingTrend + investTaoLock + investConstConviction;
-    const pillarConviction = Math.min(24, Math.round(rawConvictionPillar));
+                               + investStakingTrend + investTaoLock + investConstConviction
+                               + investBit0011;
+    const pillarConviction = Math.min(30, Math.round(rawConvictionPillar));
 
     // ── PILLAR 2: AUDIT + DECENTRALIZATION (max 20) — was Health max 11 ──────
     // Centralisation is an existential risk for long-term holders.
