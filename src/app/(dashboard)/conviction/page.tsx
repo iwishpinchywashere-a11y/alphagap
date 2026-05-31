@@ -71,16 +71,17 @@ interface ConvictionData {
 
 type Currency = "alpha" | "usd";
 
-function fmtAlpha(v: number, currency: Currency, price: number): string {
+function fmtAlpha(v: number | undefined | null, currency: Currency, price: number): string {
+  const n = v ?? 0;
   if (currency === "usd") {
-    const usd = v * price;
+    const usd = n * price;
     if (usd >= 1e6) return `$${(usd / 1e6).toFixed(2)}M`;
     if (usd >= 1e3) return `$${(usd / 1e3).toFixed(1)}k`;
     return `$${usd.toFixed(0)}`;
   }
-  if (v >= 1e6) return `${(v / 1e6).toFixed(2)}M α`;
-  if (v >= 1e3) return `${(v / 1e3).toFixed(1)}k α`;
-  return `${v.toFixed(2)} α`;
+  if (n >= 1e6) return `${(n / 1e6).toFixed(2)}M α`;
+  if (n >= 1e3) return `${(n / 1e3).toFixed(1)}k α`;
+  return `${n.toFixed(2)} α`;
 }
 
 function shortKey(k: string) { return `${k.slice(0, 6)}…${k.slice(-4)}`; }
@@ -445,7 +446,7 @@ function LeaderboardRow({
                 </a>
               </div>
               <div className="text-xs font-bold text-green-400 tabular-nums flex-shrink-0">
-                {locker.lockedAlpha >= 1000 ? `${(locker.lockedAlpha / 1000).toFixed(1)}k` : locker.lockedAlpha.toFixed(0)} α
+                {(locker.lockedAlpha ?? 0) >= 1000 ? `${((locker.lockedAlpha ?? 0) / 1000).toFixed(1)}k` : (locker.lockedAlpha ?? 0).toFixed(0)} α
               </div>
             </div>
           ))}
@@ -602,7 +603,7 @@ function IntelligenceSidebar({ rows, events }: { rows: ConvictionRow[]; events: 
                   <span className="font-semibold text-white">{ev.name}</span>
                   <span className="text-gray-500"> locked </span>
                   <span className="font-bold text-green-400">
-                    {ev.deltaAlpha >= 1000 ? `${(ev.deltaAlpha / 1000).toFixed(1)}k` : ev.deltaAlpha.toFixed(0)} α
+                    {(ev.deltaAlpha ?? 0) >= 1000 ? `${((ev.deltaAlpha ?? 0) / 1000).toFixed(1)}k` : (ev.deltaAlpha ?? 0).toFixed(0)} α
                   </span>
                 </div>
                 <div className="text-[9px] text-gray-700 mt-0.5">{timeAgo(ev.t)} · SN{ev.netuid}</div>
