@@ -114,9 +114,15 @@ function classifyIntent(messages: { role: string; content: string }[]): Set<stri
   if (match(/yield|apy|return|staking reward|passive/))
     needs.add("yield-latest.json");
 
-  // General investing / hold / best / top / revenue — add audit for fuller picture
-  if (match(/invest|long.term|hold|best subnet|top subnet|recommend|slept on|undervalued|conviction|revenue|earn|profit|monetiz/))
+  // Conviction / BIT-0011 / locked alpha / on-chain commitment
+  if (match(/conviction|bit.?0011|lock|locked alpha|on.chain commit|perpetual lock|decay/))
+    needs.add("conviction-latest.json");
+
+  // General investing / hold / best / top / revenue — add audit + conviction for fuller picture
+  if (match(/invest|long.term|hold|best subnet|top subnet|recommend|slept on|undervalued|conviction|revenue|earn|profit|monetiz/)) {
     needs.add("audit-data.json");
+    needs.add("conviction-latest.json");
+  }
 
   // Broad / open-ended questions — default to leaderboard + audit + signals
   if (needs.size === 1) {
@@ -165,6 +171,62 @@ function buildSystemPrompt(loaded: Record<string, any>): string {
       }
     }
     sections.push(`AUDIT DATA:\n${JSON.stringify(auditMap)}`);
+  }
+
+  // ── Conviction (BIT-0011 on-chain locks) ───────────────────────
+  if (loaded["conviction-latest.json"]) {
+    const raw = loaded["conviction-latest.json"];
+    const savedAt = (raw?.savedAt ?? "").slice(0, 10);
+    const obsBlock = raw?.observedAtBlock ?? 0;
+    const rows = safeArr(raw, "rows")
+      .filter((r: any) => r?.totalLockedAlpha > 0)
+      .sort((a: any, b: any) => (b.totalConvictionAlpha ?? 0) - (a.totalConvictionAlpha ?? 0))
+      .slice(0, 30)
+      .map((r: any) => {
+        const lockType = r.king?.lockType ?? "unknown";
+        const lastUpdate = r.king?.lastUpdate ?? 0;
+        const isOwner = r.king?.isOwner ?? false;
+        // BIT-0011 maturity %
+        let matPct: number | null = null;
+        if (lastUpdate && obsBlock) {
+          const blocks = Math.max(0, obsBlock - lastUpdate);
+          const halfLife = lockType === "perpetual" ? 648000 : 216000;
+          matPct = Math.round((1 - Math.exp(-blocks / halfLife)) * 100);
+        }
+        // % of supply locked
+        const priceUsd = r.priceUsd ?? 0;
+        const mcap = r.market_cap ?? 0;
+        const supplyPct = priceUsd > 0 && mcap > 0
+          ? +((r.totalLockedAlpha * priceUsd / mcap) * 100).toFixed(1) : null;
+        return {
+          sn: r.netuid, name: r.name,
+          locked_alpha: Math.round(r.totalLockedAlpha),
+          conviction_alpha: Math.round(r.totalConvictionAlpha ?? 0),
+          lock_type: lockType,
+          owner_lock: isOwner,
+          lockers: r.lockers?.length ?? 0,
+          maturity_pct: matPct,
+          supply_locked_pct: supplyPct,
+          agap_signal: r.agap_signal ?? "neutral",
+          invest_score: r.invest_score ?? null,
+          agap_score: r.agap_score ?? null,
+          whale_signal: r.whale_signal ?? null,
+        };
+      });
+    const network = {
+      subnets_locking: rows.length,
+      block: obsBlock,
+      saved: savedAt,
+    };
+    sections.push(
+      `BIT-0011 CONVICTION DATA (on-chain α locks, block #${obsBlock}, saved ${savedAt}):\n` +
+      `Network: ${JSON.stringify(network)}\n` +
+      `Subnets (sorted by conviction α):\n${rows.length ? JSON.stringify(rows) : "No conviction locks found."}\n` +
+      `NOTE: lock_type=perpetual means permanent commitment (no decay). ` +
+      `maturity_pct shows how far toward maximum conviction (BIT-0011 formula). ` +
+      `supply_locked_pct shows what % of total α supply is conviction-locked. ` +
+      `agap_signal=strong_buy means perpetual lock + invest_score≥70 + 50k+ α locked.`
+    );
   }
 
   // ── Signals ─────────────────────────────────────────────────────
@@ -335,6 +397,16 @@ SCORES:
 - tao_locked: TAO in liquidity pool (market depth).
 - const_buy/sell: TAO moved by Const (Bittensor co-founder) — major signal.
 - audit (nakamoto<3=red flag, hhi>0.5=red flag, burn_pct high=miners may leave).
+
+BIT-0011 CONVICTION (if conviction-latest.json loaded):
+- locked_alpha: actual α locked on-chain via BIT-0011. This is real committed capital.
+- lock_type=perpetual: founder/whale committed permanently — strongest signal.
+- lock_type=decaying: conviction shrinks over time unless renewed.
+- maturity_pct: how far toward max conviction (low = recently locked, high = long-term holder).
+- supply_locked_pct: what % of the subnet's total supply is locked — 5%+ is significant, 15%+ is very high.
+- owner_lock=true: the subnet owner/founder has locked — direct "skin in the game".
+- agap_signal=strong_buy: perpetual lock + invest_score≥70 + 50k+ α = highest conviction signal.
+- Conviction is a LONG-TERM signal — it shows who can't easily exit. Treat it as commitment, not price prediction.
 
 SIGNAL TYPES (actual values):
 - dev_spike: unusual burst of GitHub/development activity

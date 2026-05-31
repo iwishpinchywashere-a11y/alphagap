@@ -4406,6 +4406,21 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
       });
       console.log("[scan] Cached to Vercel Blob.");
 
+      // Save conviction data so the Oracle can reference it
+      if (srConvictionData.rows.length > 0) {
+        await put("conviction-latest.json", JSON.stringify({
+          rows: srConvictionData.rows,
+          observedAtBlock: srConvictionData.observedAtBlock,
+          savedAt: new Date().toISOString(),
+        }), {
+          access: "private",
+          addRandomSuffix: false,
+          allowOverwrite: true,
+          contentType: "application/json",
+        });
+        console.log(`[scan] Conviction data saved (${srConvictionData.rows.length} subnets)`);
+      }
+
       // Save aGap history for EMA smoothing — include version so stale history gets reset
       agapHistory.__version = AGAP_HISTORY_VERSION;
       await put("agap-history.json", JSON.stringify(agapHistory), {
