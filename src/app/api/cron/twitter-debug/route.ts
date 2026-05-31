@@ -1,24 +1,104 @@
-// Quick debug route - add temporarily
+// Debug route - inspect lock state and test blob read/write
 import { NextRequest, NextResponse } from "next/server";
-import { postTweet } from "@/lib/twitter-bot";
+import { get as blobGet, put as blobPut } from "@vercel/blob";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(req: NextRequest) {
-  // Test multiple content types from Vercel to isolate which passes
-  const tests = [
-    "Allways (SN7) — unusual on-chain activity 🏗️\n\nVolume 11.8× above baseline while price steady. Dev score 94, aGap 95/100.\n\nBuilders shipping, metrics strong → alphagap.io\n\n$ALLWAYS #Bittensor",
-    "Allways (SN7) 🏗️ Dev score 94 · Flow 90 · aGap 95/100\n\nVolume up 11.8× baseline, price +17.6% in 7 days. On-chain metrics unusually active.\n\n→ alphagap.io | $ALLWAYS #Bittensor",
-    "SN7 Allways — high on-chain activity detected 📊\n\nDev 94 · Flow 90 · aGap 95/100 · Volume 11.8× avg · +17.6% in 7d\n\nTracking full data → alphagap.io\n\n$ALLWAYS #Bittensor",
-  ];
+const BLOB_TOKEN = process.env.BLOB_READ_WRITE_TOKEN || "";
 
-  const results = [];
-  for (const text of tests) {
-    const r = await postTweet(text);
-    results.push({ len: text.length, ok: !!r?.id && r.id !== "", error: r?.error?.slice(0, 80) });
-    // small delay between attempts
-    await new Promise(res => setTimeout(res, 1000));
+async function readBlob<T>(name: string): Promise<{ data: T | null; error: string | null }> {
+  try {
+    const b = await blobGet(name, { token: BLOB_TOKEN, access: "private" });
+    if (!b?.stream) return { data: null, error: "no stream returned" };
+    const reader = b.stream.getReader();
+    const chunks: Uint8Array[] = [];
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(value);
+    }
+    const all = chunks.reduce((a, b) => {
+      const c = new Uint8Array(a.length + b.length);
+      c.set(a); c.set(b, a.length);
+      return c;
+    }, new Uint8Array(0));
+    return { data: JSON.parse(Buffer.from(all).toString("utf-8")) as T, error: null };
+  } catch (e) {
+    return { data: null, error: String(e) };
+  }
+}
+
+export async function GET(req: NextRequest) {
+  const hasToken = !!BLOB_TOKEN;
+  const tokenPrefix = BLOB_TOKEN ? BLOB_TOKEN.slice(0, 8) + "..." : "MISSING";
+
+  // Read current lock
+  const lockResult = await readBlob<{ slotKey: string; lockedAt: string }>("twitter-post-lock.json");
+
+  // Read posted log (just last entry + count)
+  const postedResult = await readBlob<{ posted: Array<{ id: string; type: string; postedAt: string; tweetUrl: string }> }>("twitter-posted.json");
+  const postedCount = postedResult.data?.posted?.length ?? 0;
+  const lastPosted = postedResult.data?.posted?.slice(-1)[0] ?? null;
+
+  // Test write/read roundtrip on the lock
+  const testSlot = "debug-test-" + Date.now();
+  const testLockedAt = new Date().toISOString();
+  let writeError: string | null = null;
+  let verifyResult: { data: unknown; error: string | null } | null = null;
+
+  try {
+    await blobPut(
+      "twitter-post-lock.json",
+      JSON.stringify({ slotKey: testSlot, lockedAt: testLockedAt }),
+      { access: "private", addRandomSuffix: false, allowOverwrite: true, contentType: "application/json", token: BLOB_TOKEN }
+    );
+  } catch (e) {
+    writeError = String(e);
   }
 
-  return NextResponse.json({ results });
+  if (!writeError) {
+    await new Promise(r => setTimeout(r, 300));
+    verifyResult = await readBlob("twitter-post-lock.json");
+  }
+
+  // Restore the original lock (or clear it)
+  let restoreError: string | null = null;
+  if (lockResult.data) {
+    try {
+      await blobPut(
+        "twitter-post-lock.json",
+        JSON.stringify(lockResult.data),
+        { access: "private", addRandomSuffix: false, allowOverwrite: true, contentType: "application/json", token: BLOB_TOKEN }
+      );
+    } catch (e) {
+      restoreError = String(e);
+    }
+  }
+
+  const currentUtcHour = new Date().toISOString().slice(0, 13);
+
+  return NextResponse.json({
+    tokenPresent: hasToken,
+    tokenPrefix,
+    currentUtcHour,
+    lock: {
+      data: lockResult.data,
+      error: lockResult.error,
+    },
+    postedLog: {
+      count: postedCount,
+      error: postedResult.error,
+      last: lastPosted,
+    },
+    blobRoundtrip: {
+      wrote: !writeError,
+      writeError,
+      readBack: verifyResult?.data,
+      readError: verifyResult?.error,
+      match: !writeError && !verifyResult?.error &&
+        (verifyResult?.data as Record<string, unknown>)?.slotKey === testSlot &&
+        (verifyResult?.data as Record<string, unknown>)?.lockedAt === testLockedAt,
+    },
+    restoreError,
+  });
 }
