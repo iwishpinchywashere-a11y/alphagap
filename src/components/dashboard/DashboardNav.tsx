@@ -17,6 +17,7 @@ export default function DashboardNav() {
     { href: "/oracle", label: "Oracle" },
     { href: "/alerts", label: "Alerts" },
     { href: "/wallettracker", label: "Wallet Tracker" },
+    { href: "/conviction", label: "Conviction" },
     { href: "/signals", label: "Dev Signals" },
     { href: "/flow", label: "Flow" },
     { href: "/social", label: "Social" },
