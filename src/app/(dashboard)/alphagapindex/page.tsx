@@ -848,7 +848,7 @@ export default function AlphaGapIndexPage() {
                   </div>
                   <div className="flex flex-col gap-2 flex-shrink-0">
                     <a
-                      href="https://app.trustedstake.ai"
+                      href={`https://app.trustedstake.ai/?strategy=${TS_STRATEGY_ID}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/25 text-emerald-400 text-sm font-semibold rounded-xl transition-colors"
@@ -879,24 +879,36 @@ export default function AlphaGapIndexPage() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="font-bold text-white text-base mb-1">Set Up Proxy on TrustedStake</p>
-                      <p className="text-gray-400 text-sm mb-4">This is a one-time on-chain transaction (~30 seconds). TrustedStake needs a proxy address to execute delegations on your behalf. Your TAO never leaves your wallet.</p>
+                      <p className="text-gray-400 text-sm mb-3">One-time on-chain transaction (~30 seconds). TrustedStake executes delegations on your behalf — your TAO never leaves your wallet.</p>
                       {joinStep !== "proxy-done" && joinStep !== "registering" && joinStep !== "success" ? (
-                        <div className="flex flex-wrap gap-3">
-                          <button
-                            onClick={() => {
-                              window.open("https://app.trustedstake.ai", "ts-popup", "width=480,height=700");
-                              setJoinStep("proxy-done");
-                            }}
-                            className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-amber-400 to-orange-400 hover:from-amber-300 hover:to-orange-300 text-black font-bold text-sm rounded-xl transition-all shadow-lg shadow-amber-500/20 active:scale-95"
-                          >
-                            Set Up Proxy on TrustedStake <IconArrow className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            onClick={() => setJoinStep("proxy-done")}
-                            className="inline-flex items-center gap-2 px-5 py-2.5 border border-white/8 text-gray-400 hover:text-gray-300 hover:border-white/15 text-sm rounded-xl transition-all"
-                          >
-                            {"I've already set up my proxy"}
-                          </button>
+                        <div className="space-y-3">
+                          {/* Instruction box */}
+                          <div className="bg-amber-500/8 border border-amber-500/20 rounded-xl p-4 text-sm">
+                            <p className="text-amber-300 font-semibold mb-2">Important — follow these steps exactly:</p>
+                            <ol className="text-gray-300 space-y-1.5 list-decimal list-inside">
+                              <li>Click the button below to open TrustedStake</li>
+                              <li>Find the <span className="text-white font-semibold">&ldquo;AlphaGap Index&rdquo;</span> strategy under <span className="text-white font-semibold">Community Strategies</span></li>
+                              <li>Click <span className="text-white font-semibold">Delegate</span> and sign the on-chain proxy transaction</li>
+                              <li>Return here and click <span className="text-white font-semibold">&ldquo;I&rsquo;ve set up my proxy&rdquo;</span></li>
+                            </ol>
+                            <p className="text-gray-500 text-xs mt-3">Proxy address: <span className="font-mono text-gray-400">5CeJG2T47...KxUuw</span></p>
+                          </div>
+                          <div className="flex flex-wrap gap-3">
+                            <a
+                              href={`https://app.trustedstake.ai/?strategy=${TS_STRATEGY_ID}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-amber-400 to-orange-400 hover:from-amber-300 hover:to-orange-300 text-black font-bold text-sm rounded-xl transition-all shadow-lg shadow-amber-500/20 active:scale-95"
+                            >
+                              Open AlphaGap Index on TrustedStake <IconArrow className="w-3.5 h-3.5" />
+                            </a>
+                            <button
+                              onClick={() => setJoinStep("proxy-done")}
+                              className="inline-flex items-center gap-2 px-5 py-2.5 border border-white/8 text-gray-400 hover:text-gray-300 hover:border-white/15 text-sm rounded-xl transition-all"
+                            >
+                              I&rsquo;ve set up my proxy ✓
+                            </button>
+                          </div>
                         </div>
                       ) : (
                         <p className="text-emerald-400 text-sm font-medium">
