@@ -258,7 +258,10 @@ export default function AlphaGapIndexPage() {
       });
       const joinData = await joinRes.json();
       if (!joinRes.ok) {
-        throw new Error(joinData.error ?? `Registration failed (${joinRes.status})`);
+        // TrustedStake error shape: { statusCode, message, error }
+        // Our proxy error shape: { error }
+        const detail = joinData.message ?? joinData.error ?? `Registration failed (${joinRes.status})`;
+        throw new Error(detail);
       }
 
       // 5. Persist membership
@@ -307,7 +310,8 @@ export default function AlphaGapIndexPage() {
       });
       const leaveData = await leaveRes.json();
       if (!leaveRes.ok) {
-        throw new Error(leaveData.error ?? `Unregister failed (${leaveRes.status})`);
+        const detail = leaveData.message ?? leaveData.error ?? `Unregister failed (${leaveRes.status})`;
+        throw new Error(detail);
       }
 
       // 4. Clear membership

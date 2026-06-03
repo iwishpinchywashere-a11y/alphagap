@@ -48,6 +48,9 @@ export async function POST(request: Request) {
     });
 
     const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      console.error(`[ts-join] TrustedStake ${res.status}:`, JSON.stringify(data));
+    }
     return NextResponse.json(data, { status: res.status });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
