@@ -132,6 +132,20 @@ export async function updateStrategyWeights(
   }
 }
 
+export async function makeStrategyPublic(): Promise<void> {
+  if (!TS_API_KEY || !TS_STRATEGY_ID) throw new Error("TrustedStake env vars not configured");
+  const res = await fetch(`${TS_BASE}/strategies/${TS_STRATEGY_ID}`, {
+    method: "PATCH",
+    headers: tsHeaders(),
+    body: JSON.stringify({ isPublic: true }),
+    signal: AbortSignal.timeout(10000),
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`PATCH strategy failed: ${res.status} — ${text}`);
+  }
+}
+
 export async function triggerRebalance(): Promise<TSRebalanceResult> {
   if (!TS_API_KEY || !TS_STRATEGY_ID) throw new Error("TrustedStake env vars not configured");
   const res = await fetch(`${TS_BASE}/strategies/${TS_STRATEGY_ID}/rebalance`, {

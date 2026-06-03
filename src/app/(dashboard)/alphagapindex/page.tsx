@@ -1,10 +1,15 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { getTier, canAccessUltra, canAccessPremium } from "@/lib/subscription";
 import { useDashboard } from "@/components/dashboard/DashboardProvider";
 import SubnetLogo from "@/components/dashboard/SubnetLogo";
+
+/* ── Constants ───────────────────────────────────────────────────────────── */
+const TS_STRATEGY_ID = "97d1325b-9ee9-4bd1-bd58-893d707f85c4";
+const TS_PROXY_ADDRESS = "5CeJG2T47NxUAAc42q2zoU7qV1YFy4khL3ogHxooVjNKxUuw";
+const TS_STRATEGY_TABLE = "custom_strategies";
 
 /* ── SVG Icons ───────────────────────────────────────────────────────────── */
 const IconChart = ({ className }: { className?: string }) => (
@@ -77,6 +82,22 @@ const IconChevron = ({ className }: { className?: string }) => (
     <polyline points="6 9 12 15 18 9" />
   </svg>
 );
+const IconWallet = ({ className }: { className?: string }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21 12V7H5a2 2 0 010-4h14v4" /><path d="M3 5v14a2 2 0 002 2h16v-5" />
+    <path d="M18 12a2 2 0 100 4 2 2 0 000-4z" />
+  </svg>
+);
+const IconLoader = ({ className }: { className?: string }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21 12a9 9 0 11-6.219-8.56" />
+  </svg>
+);
+const IconX = ({ className }: { className?: string }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+    <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+  </svg>
+);
 
 /* ── Helpers ─────────────────────────────────────────────────────────────── */
 function scoreColor(score: number): string {
@@ -84,6 +105,34 @@ function scoreColor(score: number): string {
   if (score >= 65) return "text-yellow-400";
   return "text-orange-400";
 }
+
+function formatTao(tao: number | null): string {
+  if (tao == null) return "—";
+  if (tao >= 1000) return `${(tao / 1000).toFixed(1)}k TAO`;
+  return `${tao.toFixed(1)} TAO`;
+}
+
+/* ── Types ───────────────────────────────────────────────────────────────── */
+interface StrategyData {
+  strategyId: string;
+  name: string;
+  apy: number | null;
+  aumTao: number | null;
+  delegatorsTotal: number | null;
+  constituents: Record<string, number>;
+  proxyAddress: string;
+  strategyTable: string;
+  lastUpdated: string | null;
+}
+
+interface WalletAccount {
+  address: string;
+  name: string;
+  source: string;
+}
+
+type JoinStep = "idle" | "setup-proxy" | "proxy-done" | "registering" | "success" | "error";
+type LeaveStep = "idle" | "leaving" | "success" | "error";
 
 /* ── Component ───────────────────────────────────────────────────────────── */
 export default function AlphaGapIndexPage() {
@@ -97,16 +146,180 @@ export default function AlphaGapIndexPage() {
 
   // Last rebalance date from TrustedStake cron
   const [lastRebalancedAt, setLastRebalancedAt] = useState<string | null>(null);
-  const [delegateUrl, setDelegateUrl] = useState<string>("https://app.trustedstake.ai");
   React.useEffect(() => {
     fetch("/api/index-status")
       .then(r => r.json())
-      .then(d => {
-        if (d.rebalancedAt) setLastRebalancedAt(d.rebalancedAt);
-        if (d.strategyUrl) setDelegateUrl(d.strategyUrl);
-      })
+      .then(d => { if (d.rebalancedAt) setLastRebalancedAt(d.rebalancedAt); })
       .catch(() => {});
   }, []);
+
+  // ── Live strategy data ──────────────────────────────────────────────────
+  const [strategyData, setStrategyData] = useState<StrategyData | null>(null);
+  useEffect(() => {
+    fetch("/api/trustedstake/strategy")
+      .then(r => r.json())
+      .then((d: StrategyData) => setStrategyData(d))
+      .catch(() => {});
+  }, []);
+
+  // ── Wallet state ────────────────────────────────────────────────────────
+  const [walletAccounts, setWalletAccounts] = useState<WalletAccount[]>([]);
+  const [selectedAddress, setSelectedAddress] = useState<string | null>(null);
+  const [walletConnecting, setWalletConnecting] = useState(false);
+  const [walletError, setWalletError] = useState<string | null>(null);
+  const [showAccountPicker, setShowAccountPicker] = useState(false);
+
+  // ── Membership state ────────────────────────────────────────────────────
+  const [isMember, setIsMember] = useState(false);
+  const [joinStep, setJoinStep] = useState<JoinStep>("idle");
+  const [joinError, setJoinError] = useState<string | null>(null);
+  const [leaveStep, setLeaveStep] = useState<LeaveStep>("idle");
+  const [leaveError, setLeaveError] = useState<string | null>(null);
+
+  // Restore membership status from localStorage when address changes
+  useEffect(() => {
+    if (!selectedAddress) { setIsMember(false); return; }
+    const stored = localStorage.getItem(`alphagap-ts-member-${selectedAddress}`);
+    setIsMember(stored === "true");
+  }, [selectedAddress]);
+
+  // ── Connect wallet ──────────────────────────────────────────────────────
+  const connectWallet = useCallback(async () => {
+    setWalletConnecting(true);
+    setWalletError(null);
+    try {
+      const { getWalletAccounts } = await import("@/lib/polkadot-wallet");
+      const accounts = await getWalletAccounts();
+      setWalletAccounts(accounts);
+      if (accounts.length === 1) {
+        setSelectedAddress(accounts[0].address);
+      } else {
+        setShowAccountPicker(true);
+      }
+    } catch (err) {
+      setWalletError(err instanceof Error ? err.message : "Failed to connect wallet");
+    } finally {
+      setWalletConnecting(false);
+    }
+  }, []);
+
+  const disconnectWallet = useCallback(() => {
+    setSelectedAddress(null);
+    setWalletAccounts([]);
+    setIsMember(false);
+    setJoinStep("idle");
+    setLeaveStep("idle");
+    setJoinError(null);
+    setLeaveError(null);
+  }, []);
+
+  // ── Join flow ───────────────────────────────────────────────────────────
+  const handleRegister = useCallback(async () => {
+    if (!selectedAddress) return;
+    setJoinStep("registering");
+    setJoinError(null);
+
+    try {
+      // 1. Get current block
+      const blockRes = await fetch("/api/trustedstake/block");
+      const blockData = await blockRes.json();
+      if (!blockRes.ok) throw new Error(blockData.error ?? "Failed to fetch block");
+
+      const { blockNumber, timestamp } = blockData as { blockNumber: number; timestamp: string };
+
+      // 2. Build message
+      const messageObj = {
+        action: "register_membership",
+        timestamp: Date.now(),
+        nonce: crypto.randomUUID(),
+        data: {
+          proxy: TS_PROXY_ADDRESS,
+          strategyId: TS_STRATEGY_ID,
+          strategyTable: TS_STRATEGY_TABLE,
+          fromBlock: blockNumber,
+          fromTimestamp: new Date(timestamp).getTime(),
+        },
+      };
+      const messageString = JSON.stringify(messageObj);
+
+      // 3. Sign
+      const { signMessage } = await import("@/lib/polkadot-wallet");
+      const signature = await signMessage(selectedAddress, messageString);
+
+      // 4. POST to join API
+      const joinRes = await fetch("/api/trustedstake/join", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          walletAddress: selectedAddress,
+          signature,
+          message: messageString,
+        }),
+      });
+      const joinData = await joinRes.json();
+      if (!joinRes.ok) {
+        throw new Error(joinData.error ?? `Registration failed (${joinRes.status})`);
+      }
+
+      // 5. Persist membership
+      localStorage.setItem(`alphagap-ts-member-${selectedAddress}`, "true");
+      setIsMember(true);
+      setJoinStep("success");
+    } catch (err) {
+      setJoinError(err instanceof Error ? err.message : "Registration failed");
+      setJoinStep("error");
+    }
+  }, [selectedAddress]);
+
+  // ── Leave flow ──────────────────────────────────────────────────────────
+  const handleLeave = useCallback(async () => {
+    if (!selectedAddress) return;
+    setLeaveStep("leaving");
+    setLeaveError(null);
+
+    try {
+      // 1. Build unregister message
+      const messageObj = {
+        action: "unregister_membership",
+        timestamp: Date.now(),
+        nonce: crypto.randomUUID(),
+        data: {
+          proxy: TS_PROXY_ADDRESS,
+          strategyId: TS_STRATEGY_ID,
+          strategyTable: TS_STRATEGY_TABLE,
+        },
+      };
+      const messageString = JSON.stringify(messageObj);
+
+      // 2. Sign
+      const { signMessage } = await import("@/lib/polkadot-wallet");
+      const signature = await signMessage(selectedAddress, messageString);
+
+      // 3. POST to leave API
+      const leaveRes = await fetch("/api/trustedstake/leave", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          walletAddress: selectedAddress,
+          signature,
+          message: messageString,
+        }),
+      });
+      const leaveData = await leaveRes.json();
+      if (!leaveRes.ok) {
+        throw new Error(leaveData.error ?? `Unregister failed (${leaveRes.status})`);
+      }
+
+      // 4. Clear membership
+      localStorage.removeItem(`alphagap-ts-member-${selectedAddress}`);
+      setIsMember(false);
+      setLeaveStep("success");
+      setJoinStep("idle");
+    } catch (err) {
+      setLeaveError(err instanceof Error ? err.message : "Failed to leave strategy");
+      setLeaveStep("error");
+    }
+  }, [selectedAddress]);
 
   const lastRebalancedLabel = useMemo(() => {
     if (!lastRebalancedAt) return "Sunday weekly";
@@ -132,6 +345,9 @@ export default function AlphaGapIndexPage() {
     ...h,
     weight: totalScore > 0 ? Math.round((h.score / totalScore) * 1000) / 10 : 0,
   }));
+
+  // Live APY — prefer strategy data, fallback to 49.38%
+  const liveApy = strategyData?.apy ?? 49.38;
 
   return (
     <main className="flex-1 overflow-auto bg-[#080810]">
@@ -172,6 +388,27 @@ export default function AlphaGapIndexPage() {
             aGap picks the top 10 subnets. TrustedStake auto-buys the tokens, manages the portfolio, and rebalances every Sunday. You sit back, collect APY, and let the formula do the work.
           </p>
 
+          {/* ── Live stats pills ── */}
+          <div className="flex flex-wrap justify-center gap-3 mb-8">
+            <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+              <IconTrend className="w-4 h-4" />
+              <span className="font-bold text-sm tabular-nums">{liveApy.toFixed(2)}% APY</span>
+              <span className="text-emerald-600 text-xs">14d</span>
+            </div>
+            <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 border border-white/8 text-gray-300">
+              <IconDollar className="w-4 h-4 text-gray-500" />
+              <span className="font-semibold text-sm tabular-nums">
+                {strategyData ? formatTao(strategyData.aumTao) : "—"} AUM
+              </span>
+            </div>
+            <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 border border-white/8 text-gray-300">
+              <IconUsers className="w-4 h-4 text-gray-500" />
+              <span className="font-semibold text-sm tabular-nums">
+                {strategyData?.delegatorsTotal != null ? strategyData.delegatorsTotal : "—"} Members
+              </span>
+            </div>
+          </div>
+
           {/* 3-step visual */}
           <div className="flex flex-wrap justify-center items-center gap-3 mb-10">
             {[
@@ -190,19 +427,87 @@ export default function AlphaGapIndexPage() {
             ))}
           </div>
 
-          {isUltra ? (
-            <a
-              href={delegateUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 px-8 py-3.5 bg-gradient-to-r from-emerald-400 to-green-400 hover:from-emerald-300 hover:to-green-300 text-black font-bold text-base rounded-xl transition-all shadow-lg shadow-emerald-500/25 active:scale-95 mb-8"
-            >
-              Delegate on TrustedStake <IconArrow className="w-4 h-4" />
-            </a>
-          ) : (
+          {/* ── Hero CTA — smart flow ── */}
+          {!isUltra ? (
             <a href="/pricing" className="inline-flex items-center gap-2 px-8 py-3.5 bg-gradient-to-r from-amber-400 to-orange-400 hover:from-amber-300 hover:to-orange-300 text-black font-bold text-base rounded-xl transition-all shadow-lg shadow-amber-500/20 active:scale-95 mb-8">
               Subscribe to Ultra — $99/mo <IconArrow className="w-4 h-4" />
             </a>
+          ) : !selectedAddress ? (
+            <div className="flex flex-col items-center gap-3 mb-8">
+              <button
+                onClick={connectWallet}
+                disabled={walletConnecting}
+                className="inline-flex items-center gap-2 px-8 py-3.5 bg-gradient-to-r from-emerald-400 to-green-400 hover:from-emerald-300 hover:to-green-300 disabled:opacity-60 disabled:cursor-not-allowed text-black font-bold text-base rounded-xl transition-all shadow-lg shadow-emerald-500/25 active:scale-95"
+              >
+                {walletConnecting ? (
+                  <><IconLoader className="w-4 h-4 animate-spin" /> Connecting…</>
+                ) : (
+                  <><IconWallet className="w-4 h-4" /> Connect Wallet</>
+                )}
+              </button>
+              {walletError && (
+                <p className="text-sm text-red-400 max-w-xs text-center">{walletError}</p>
+              )}
+              <p className="text-xs text-gray-500">Supports Talisman &amp; SubWallet</p>
+            </div>
+          ) : isMember ? (
+            <div className="flex flex-col items-center gap-3 mb-8">
+              <div className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-bold text-sm">
+                <IconCheck className="w-4 h-4" /> Active Member
+              </div>
+              <p className="text-xs text-gray-500 font-mono">{selectedAddress.slice(0, 10)}…{selectedAddress.slice(-6)}</p>
+              <button
+                onClick={handleLeave}
+                disabled={leaveStep === "leaving"}
+                className="text-xs text-gray-500 hover:text-red-400 transition-colors underline underline-offset-2"
+              >
+                {leaveStep === "leaving" ? "Leaving…" : "Leave Strategy"}
+              </button>
+              {leaveError && <p className="text-xs text-red-400">{leaveError}</p>}
+            </div>
+          ) : (
+            <div className="flex flex-col items-center gap-3 mb-8">
+              <div className="flex items-center gap-2 text-xs text-gray-400 border border-white/8 rounded-lg px-3 py-1.5">
+                <IconWallet className="w-3.5 h-3.5" />
+                <span className="font-mono">{selectedAddress.slice(0, 10)}…{selectedAddress.slice(-6)}</span>
+                <button onClick={disconnectWallet} className="text-gray-600 hover:text-gray-400 ml-1 transition-colors"><IconX className="w-3.5 h-3.5" /></button>
+              </div>
+              <p className="text-sm text-gray-400">Wallet connected — scroll down to join the Index</p>
+            </div>
+          )}
+
+          {/* Account picker modal */}
+          {showAccountPicker && walletAccounts.length > 1 && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+              <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setShowAccountPicker(false)} />
+              <div className="relative z-10 w-full max-w-sm rounded-2xl border border-white/10 bg-[#0e0e1a] p-6 shadow-2xl">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-bold text-white text-lg">Select Account</h3>
+                  <button onClick={() => setShowAccountPicker(false)} className="text-gray-500 hover:text-gray-300 transition-colors"><IconX className="w-4 h-4" /></button>
+                </div>
+                <div className="space-y-2">
+                  {walletAccounts.map(acc => (
+                    <button
+                      key={acc.address}
+                      onClick={() => {
+                        setSelectedAddress(acc.address);
+                        setShowAccountPicker(false);
+                      }}
+                      className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-white/6 bg-white/[0.02] hover:bg-white/[0.05] transition-colors text-left"
+                    >
+                      <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center flex-shrink-0">
+                        <IconWallet className="w-4 h-4 text-emerald-400" />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="text-sm font-semibold text-white truncate">{acc.name}</div>
+                        <div className="text-xs text-gray-500 font-mono">{acc.address.slice(0, 12)}…{acc.address.slice(-6)}</div>
+                      </div>
+                      <span className="text-xs text-gray-600 flex-shrink-0 ml-auto">{acc.source}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
           )}
 
           <div className="flex items-center gap-4 w-full max-w-lg">
@@ -313,16 +618,6 @@ export default function AlphaGapIndexPage() {
                 <IconRefresh className="w-3 h-3" />
                 Last rebalanced: <span className="text-gray-300 font-medium ml-1">{lastRebalancedLabel}</span>
               </div>
-              {isUltra && (
-                <a
-                  href={delegateUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-emerald-500 to-green-500 hover:from-emerald-400 hover:to-green-400 text-black font-bold text-xs rounded-lg transition-all shadow-md shadow-emerald-500/20 active:scale-95"
-                >
-                  Delegate on TrustedStake <IconArrow className="w-3 h-3" />
-                </a>
-              )}
             </div>
           </div>
 
@@ -369,7 +664,6 @@ export default function AlphaGapIndexPage() {
                           </button>
                           {isOpen && (
                             <div className="px-4 pb-4 bg-emerald-500/[0.03] border-t border-white/[0.04]">
-                              {/* Stats grid */}
                               <div className="grid grid-cols-2 gap-2 pt-3 mb-3">
                                 {[
                                   { label: "24h", value: change24h != null ? `${change24h >= 0 ? "+" : ""}${change24h.toFixed(1)}%` : "—", color: change24h != null ? (change24h >= 0 ? "text-emerald-400" : "text-red-400") : "text-gray-600" },
@@ -383,7 +677,6 @@ export default function AlphaGapIndexPage() {
                                   </div>
                                 ))}
                               </div>
-                              {/* Score bar */}
                               <div className="flex items-center gap-2 mb-3">
                                 <span className="text-xs text-gray-500">aGap</span>
                                 <div className="flex-1 h-1.5 rounded-full bg-white/5 overflow-hidden">
@@ -391,7 +684,6 @@ export default function AlphaGapIndexPage() {
                                 </div>
                                 <span className={`text-xs font-bold tabular-nums ${scoreColor(h.score)}`}>{h.score}</span>
                               </div>
-                              {/* Thesis */}
                               {s.benchmark_summary && (
                                 <p className="text-sm text-gray-400 leading-relaxed">{s.benchmark_summary.slice(0, 200)}{s.benchmark_summary.length > 200 ? "…" : ""}</p>
                               )}
@@ -510,6 +802,160 @@ export default function AlphaGapIndexPage() {
           </div>
         </section>
 
+        {/* ── JOIN THE INDEX ────────────────────────────────────────────────── */}
+        {isUltra && (
+          <section className="py-16 border-b border-white/5">
+            <p className="text-xs font-bold text-emerald-400/80 uppercase tracking-widest mb-4">Delegation</p>
+            <h2 className="text-3xl sm:text-4xl font-black text-white mb-3">Join the Index</h2>
+            <p className="text-gray-400 text-base mb-8 max-w-2xl">
+              Two steps to start earning. First, set up your wallet proxy on TrustedStake (one-time, on-chain). Then register your membership here with a signed message — no TAO leaves your wallet.
+            </p>
+
+            {/* ── Not yet connected ── */}
+            {!selectedAddress && (
+              <div className="rounded-2xl border border-white/8 bg-white/[0.02] p-8 flex flex-col sm:flex-row items-center justify-between gap-6">
+                <div>
+                  <p className="font-bold text-white text-lg mb-1">Connect your wallet to get started</p>
+                  <p className="text-gray-400 text-sm">Supports Talisman and SubWallet browser extensions.</p>
+                </div>
+                <button
+                  onClick={connectWallet}
+                  disabled={walletConnecting}
+                  className="flex-shrink-0 inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-emerald-400 to-green-400 hover:from-emerald-300 hover:to-green-300 disabled:opacity-60 disabled:cursor-not-allowed text-black font-bold text-sm rounded-xl transition-all shadow-lg shadow-emerald-500/20 active:scale-95"
+                >
+                  {walletConnecting ? <><IconLoader className="w-4 h-4 animate-spin" /> Connecting…</> : <><IconWallet className="w-4 h-4" /> Connect Wallet</>}
+                </button>
+              </div>
+            )}
+
+            {/* ── Already a member ── */}
+            {selectedAddress && isMember && (
+              <div className="rounded-2xl border border-emerald-500/25 bg-emerald-500/5 p-8">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center">
+                        <IconCheck className="w-4 h-4 text-emerald-400" />
+                      </div>
+                      <span className="font-bold text-emerald-400 text-lg">Active Member</span>
+                    </div>
+                    <p className="text-gray-400 text-sm font-mono">{selectedAddress}</p>
+                    <p className="text-gray-500 text-xs mt-1">Your wallet is registered with the AlphaGap Subnet Index strategy.</p>
+                  </div>
+                  <div className="flex flex-col gap-2 flex-shrink-0">
+                    <a
+                      href="https://app.trustedstake.ai"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/25 text-emerald-400 text-sm font-semibold rounded-xl transition-colors"
+                    >
+                      Manage on TrustedStake <IconArrow className="w-3.5 h-3.5" />
+                    </a>
+                    <button
+                      onClick={handleLeave}
+                      disabled={leaveStep === "leaving"}
+                      className="inline-flex items-center justify-center gap-2 px-5 py-2 bg-white/[0.03] hover:bg-red-500/10 border border-white/8 hover:border-red-500/25 text-gray-500 hover:text-red-400 text-sm rounded-xl transition-all"
+                    >
+                      {leaveStep === "leaving" ? <><IconLoader className="w-3.5 h-3.5 animate-spin" /> Leaving…</> : "Leave Strategy"}
+                    </button>
+                    {leaveError && <p className="text-xs text-red-400 text-center">{leaveError}</p>}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ── Join flow ── */}
+            {selectedAddress && !isMember && (
+              <div className="space-y-4">
+                {/* Step 1: Set up proxy */}
+                <div className={`rounded-2xl border p-6 transition-all ${joinStep === "proxy-done" || joinStep === "registering" || joinStep === "success" ? "border-emerald-500/25 bg-emerald-500/5 opacity-70" : "border-white/8 bg-white/[0.02]"}`}>
+                  <div className="flex items-start gap-4">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 font-bold text-sm ${joinStep === "proxy-done" || joinStep === "registering" || joinStep === "success" ? "bg-emerald-500/20 text-emerald-400" : "bg-white/5 text-gray-400"}`}>
+                      {joinStep === "proxy-done" || joinStep === "registering" || joinStep === "success" ? <IconCheck className="w-4 h-4" /> : "1"}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-bold text-white text-base mb-1">Set Up Proxy on TrustedStake</p>
+                      <p className="text-gray-400 text-sm mb-4">This is a one-time on-chain transaction (~30 seconds). TrustedStake needs a proxy address to execute delegations on your behalf. Your TAO never leaves your wallet.</p>
+                      {joinStep !== "proxy-done" && joinStep !== "registering" && joinStep !== "success" ? (
+                        <div className="flex flex-wrap gap-3">
+                          <button
+                            onClick={() => {
+                              window.open("https://app.trustedstake.ai", "ts-popup", "width=480,height=700");
+                              setJoinStep("proxy-done");
+                            }}
+                            className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-amber-400 to-orange-400 hover:from-amber-300 hover:to-orange-300 text-black font-bold text-sm rounded-xl transition-all shadow-lg shadow-amber-500/20 active:scale-95"
+                          >
+                            Set Up Proxy on TrustedStake <IconArrow className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => setJoinStep("proxy-done")}
+                            className="inline-flex items-center gap-2 px-5 py-2.5 border border-white/8 text-gray-400 hover:text-gray-300 hover:border-white/15 text-sm rounded-xl transition-all"
+                          >
+                            {"I've already set up my proxy"}
+                          </button>
+                        </div>
+                      ) : (
+                        <p className="text-emerald-400 text-sm font-medium">
+                          <IconCheck className="w-3.5 h-3.5 inline mr-1.5" />
+                          Proxy set up — proceed to Step 2
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Step 2: Register */}
+                <div className={`rounded-2xl border p-6 transition-all ${joinStep === "idle" ? "border-white/5 bg-white/[0.01] opacity-50 pointer-events-none" : joinStep === "success" ? "border-emerald-500/25 bg-emerald-500/5" : "border-white/8 bg-white/[0.02]"}`}>
+                  <div className="flex items-start gap-4">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 font-bold text-sm ${joinStep === "success" ? "bg-emerald-500/20 text-emerald-400" : "bg-white/5 text-gray-400"}`}>
+                      {joinStep === "success" ? <IconCheck className="w-4 h-4" /> : "2"}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-bold text-white text-base mb-1">Register My Membership</p>
+                      <p className="text-gray-400 text-sm mb-4">
+                        Sign a message with your wallet to register with the AlphaGap strategy. No transaction fee — this is just a signature.
+                      </p>
+                      <p className="text-xs text-gray-500 font-mono mb-4 break-all">
+                        Wallet: {selectedAddress}
+                      </p>
+
+                      {joinStep === "success" ? (
+                        <div className="flex items-center gap-2 text-emerald-400 font-semibold text-sm">
+                          <IconCheck className="w-4 h-4" />
+                          Membership registered successfully!
+                        </div>
+                      ) : joinStep === "error" ? (
+                        <div className="space-y-3">
+                          <p className="text-sm text-red-400">{joinError}</p>
+                          <button
+                            onClick={handleRegister}
+                            className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-emerald-400 to-green-400 hover:from-emerald-300 hover:to-green-300 text-black font-bold text-sm rounded-xl transition-all active:scale-95"
+                          >
+                            Retry <IconArrow className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ) : joinStep === "registering" ? (
+                        <div className="flex items-center gap-2 text-gray-400 text-sm">
+                          <IconLoader className="w-4 h-4 animate-spin text-emerald-400" />
+                          Signing and registering…
+                        </div>
+                      ) : (
+                        <button
+                          onClick={handleRegister}
+                          disabled={joinStep !== "proxy-done"}
+                          className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-emerald-400 to-green-400 hover:from-emerald-300 hover:to-green-300 disabled:opacity-40 disabled:cursor-not-allowed text-black font-bold text-sm rounded-xl transition-all shadow-lg shadow-emerald-500/20 active:scale-95"
+                        >
+                          Register My Membership <IconArrow className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </section>
+        )}
+
         {/* ── MID-PAGE CTA ─────────────────────────────────────────────────── */}
         {!isUltra && (
           <div className="py-10 border-b border-white/5 flex flex-col sm:flex-row items-center justify-between gap-4">
@@ -596,11 +1042,12 @@ export default function AlphaGapIndexPage() {
           <h2 className="text-3xl sm:text-4xl font-black text-white mb-8 text-center">Common questions</h2>
           <div className="space-y-2 max-w-3xl mx-auto">
             {[
-              { q: "Is my TAO safe?", a: "Yes. Non-custodial — your TAO never leaves your wallet. TrustedStake only executes delegations on your behalf." },
+              { q: "Is my TAO safe?", a: "Yes. Non-custodial — your TAO never leaves your wallet. TrustedStake only executes delegations on your behalf via a proxy you control." },
               { q: "What wallets are supported?", a: "Talisman and SubWallet. Both are Bittensor-native and available as browser extensions." },
               { q: "How often does the index rebalance?", a: "Weekly. Only rotates if a new subnet scores 5+ points above the one it displaces." },
               { q: "What does it cost?", a: "Index access is included in Ultra for $99/mo." },
-              { q: "When does this launch?", a: "In active development. Ultra subscribers get early access the moment it ships." },
+              { q: "What is a proxy address?", a: "A TrustedStake proxy is a Bittensor account you authorize to move stake on your behalf. You set it up once in the TrustedStake app, and it allows automated rebalancing without needing your signature every time." },
+              { q: "How do I leave the strategy?", a: "Click 'Leave Strategy' in the delegation section above. Your TAO stays in your wallet — you're just unregistering from the automated strategy." },
             ].map((faq, i) => (
               <div key={faq.q} className="rounded-xl border border-white/6 overflow-hidden">
                 <button
@@ -630,11 +1077,24 @@ export default function AlphaGapIndexPage() {
               </div>
               {isUltra ? (
                 <>
-                  <h2 className="text-3xl font-black text-white mb-3">You&apos;re on the list</h2>
-                  <p className="text-gray-500 text-sm mb-7 max-w-md mx-auto leading-relaxed">As an Ultra subscriber, you have priority access the moment the TrustedStake integration launches. We&apos;ll reach out directly — no queue, no waitlist.</p>
-                  <a href="mailto:hello@alphagap.io?subject=AlphaGap Subnet Index — Ultra Early Access" className="inline-block bg-gradient-to-r from-amber-400 to-orange-400 hover:from-amber-300 hover:to-orange-300 text-black text-sm font-bold px-8 py-3.5 rounded-xl transition-all shadow-lg shadow-amber-500/20 active:scale-95">
-                    Confirm Early Access →
-                  </a>
+                  <h2 className="text-3xl font-black text-white mb-3">You&apos;re ready to deploy</h2>
+                  <p className="text-gray-500 text-sm mb-7 max-w-md mx-auto leading-relaxed">
+                    {isMember
+                      ? "Your wallet is registered with the AlphaGap Subnet Index. Sit back — TrustedStake handles everything from here."
+                      : "Connect your wallet and join the Index above to start earning. The entire flow takes under 2 minutes."}
+                  </p>
+                  {isMember ? (
+                    <a href="https://app.trustedstake.ai" target="_blank" rel="noopener noreferrer" className="inline-block bg-gradient-to-r from-emerald-400 to-green-400 hover:from-emerald-300 hover:to-green-300 text-black text-sm font-bold px-8 py-3.5 rounded-xl transition-all shadow-lg shadow-emerald-500/20 active:scale-95">
+                      Manage on TrustedStake →
+                    </a>
+                  ) : (
+                    <button
+                      onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+                      className="inline-block bg-gradient-to-r from-amber-400 to-orange-400 hover:from-amber-300 hover:to-orange-300 text-black text-sm font-bold px-8 py-3.5 rounded-xl transition-all shadow-lg shadow-amber-500/20 active:scale-95"
+                    >
+                      Connect Wallet →
+                    </button>
+                  )}
                 </>
               ) : (
                 <>
