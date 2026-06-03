@@ -131,7 +131,8 @@ interface WalletAccount {
   source: string;
 }
 
-type JoinStep = "idle" | "proxy-connecting" | "proxy-pending" | "proxy-done" | "registering" | "success" | "error";
+type ProxyStep = "idle" | "proxy-connecting" | "proxy-pending" | "proxy-done" | "proxy-error";
+type RegisterStep = "idle" | "registering" | "success" | "register-error";
 type LeaveStep = "idle" | "leaving" | "success" | "error";
 
 /* ── Component ───────────────────────────────────────────────────────────── */
@@ -171,8 +172,12 @@ export default function AlphaGapIndexPage() {
 
   // ── Membership state ────────────────────────────────────────────────────
   const [isMember, setIsMember] = useState(false);
-  const [joinStep, setJoinStep] = useState<JoinStep>("idle");
-  const [joinError, setJoinError] = useState<string | null>(null);
+  // Step 1: proxy setup (independent of Step 2)
+  const [proxyStep, setProxyStep] = useState<ProxyStep>("idle");
+  const [proxyError, setProxyError] = useState<string | null>(null);
+  // Step 2: membership register (independent of Step 1)
+  const [registerStep, setRegisterStep] = useState<RegisterStep>("idle");
+  const [registerError, setRegisterError] = useState<string | null>(null);
   const [leaveStep, setLeaveStep] = useState<LeaveStep>("idle");
   const [leaveError, setLeaveError] = useState<string | null>(null);
 
@@ -207,9 +212,9 @@ export default function AlphaGapIndexPage() {
     setSelectedAddress(null);
     setWalletAccounts([]);
     setIsMember(false);
-    setJoinStep("idle");
+    setRegisterStep("idle");
     setLeaveStep("idle");
-    setJoinError(null);
+    setRegisterError(null);
     setLeaveError(null);
   }, []);
 
@@ -230,34 +235,43 @@ export default function AlphaGapIndexPage() {
   //
   const handleSetupProxy = useCallback(async () => {
     if (!selectedAddress) return;
-    setJoinStep("proxy-connecting");
-    setJoinError(null);
+    setProxyStep("proxy-connecting");
+    setProxyError(null);
 
     try {
-      // ── Step 1-2: Connect to Bittensor via WebSocket ──────────────────
       const { ApiPromise, WsProvider } = await import("@polkadot/api");
       const provider = new WsProvider("wss://entrypoint-finney.opentensor.ai:443");
       const api = await ApiPromise.create({ provider });
 
       try {
-        // ── Step 3: Build the call ────────────────────────────────────────
-        const tx = api.tx.proxy.addProxy(TS_PROXY_ADDRESS, 0, 0);
+        // ── Pre-check: proxy already exists? ─────────────────────────────
+        // Skip the transaction entirely if the proxy is already set up.
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const proxiesResult: any = await api.query.proxy.proxies(selectedAddress);
+        const proxyDefs = proxiesResult[0] ?? proxiesResult;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const alreadySet = Array.isArray(proxyDefs) && proxyDefs.some(
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (p: any) => (p.delegate?.toString() ?? p.toJSON()?.delegate) === TS_PROXY_ADDRESS
+        );
+        if (alreadySet) {
+          setProxyStep("proxy-done");
+          return;
+        }
 
-        // ── Step 4: Get injector ──────────────────────────────────────────
+        // ── Build and sign the proxy.addProxy transaction ─────────────────
+        const tx = api.tx.proxy.addProxy(TS_PROXY_ADDRESS, 0, 0);
         const { web3FromAddress } = await import("@polkadot/extension-dapp");
         const injector = await web3FromAddress(selectedAddress);
 
-        // ── Step 5: Prompt wallet (triggers popup) ────────────────────────
-        setJoinStep("proxy-pending");
+        setProxyStep("proxy-pending");
 
-        // ── Step 6: signAndSend with race/timeout ─────────────────────────
         await new Promise<void>((resolve, reject) => {
           let unsub: (() => void) | null = null;
 
-          // On timeout: the tx was already submitted — advance anyway
           const timeout = setTimeout(() => {
             unsub?.();
-            resolve();
+            resolve(); // Tx was submitted — advance even if callback is slow
           }, 45_000);
 
           const subPromise = tx.signAndSend(
@@ -267,15 +281,10 @@ export default function AlphaGapIndexPage() {
               if (dispatchError) {
                 clearTimeout(timeout);
                 unsub?.();
-
                 if (dispatchError.isModule) {
                   try {
                     const decoded = api.registry.findMetaError(dispatchError.asModule);
-                    // "Duplicate" means proxy already exists — treat as success
-                    if (decoded.name === "Duplicate") {
-                      resolve();
-                      return;
-                    }
+                    if (decoded.name === "Duplicate") { resolve(); return; }
                     reject(new Error(`${decoded.section}.${decoded.name}: ${decoded.docs.join(" ")}`));
                   } catch {
                     reject(new Error(dispatchError.toString()));
@@ -283,12 +292,7 @@ export default function AlphaGapIndexPage() {
                 } else {
                   reject(new Error(dispatchError.toString()));
                 }
-              } else if (
-                status.isReady ||
-                status.isBroadcast ||
-                status.isInBlock ||
-                status.isFinalized
-              ) {
+              } else if (status.isReady || status.isBroadcast || status.isInBlock || status.isFinalized) {
                 clearTimeout(timeout);
                 unsub?.();
                 resolve();
@@ -310,30 +314,23 @@ export default function AlphaGapIndexPage() {
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-
-      // User cancelled/rejected the wallet signing prompt
-      if (
-        msg.toLowerCase().includes("cancelled") ||
-        msg.toLowerCase().includes("rejected") ||
-        msg.toLowerCase().includes("user rejected")
-      ) {
-        setJoinStep("idle");
+      if (msg.toLowerCase().includes("cancelled") || msg.toLowerCase().includes("rejected") || msg.toLowerCase().includes("user rejected")) {
+        setProxyStep("idle");
         return;
       }
-
-      setJoinError(msg);
-      setJoinStep("error");
+      setProxyError(msg);
+      setProxyStep("proxy-error");
       return;
     }
 
-    setJoinStep("proxy-done");
+    setProxyStep("proxy-done");
   }, [selectedAddress]);
 
   // ── Join flow ───────────────────────────────────────────────────────────
   const handleRegister = useCallback(async () => {
     if (!selectedAddress) return;
-    setJoinStep("registering");
-    setJoinError(null);
+    setRegisterStep("registering");
+    setRegisterError(null);
 
     try {
       // 1. Get current block
@@ -383,10 +380,10 @@ export default function AlphaGapIndexPage() {
       // 5. Persist membership
       localStorage.setItem(`alphagap-ts-member-${selectedAddress}`, "true");
       setIsMember(true);
-      setJoinStep("success");
+      setRegisterStep("success");
     } catch (err) {
-      setJoinError(err instanceof Error ? err.message : "Registration failed");
-      setJoinStep("error");
+      setRegisterError(err instanceof Error ? err.message : "Registration failed");
+      setRegisterStep("register-error");
     }
   }, [selectedAddress]);
 
@@ -434,7 +431,7 @@ export default function AlphaGapIndexPage() {
       localStorage.removeItem(`alphagap-ts-member-${selectedAddress}`);
       setIsMember(false);
       setLeaveStep("success");
-      setJoinStep("idle");
+      setRegisterStep("idle");
     } catch (err) {
       setLeaveError(err instanceof Error ? err.message : "Failed to leave strategy");
       setLeaveStep("error");
@@ -988,51 +985,37 @@ export default function AlphaGapIndexPage() {
             {selectedAddress && !isMember && (
               <div className="space-y-4">
                 {/* Step 1: Set up proxy */}
-                <div className={`rounded-2xl border p-6 transition-all ${joinStep === "proxy-done" || joinStep === "registering" || joinStep === "success" ? "border-emerald-500/25 bg-emerald-500/5 opacity-70" : joinStep === "proxy-connecting" || joinStep === "proxy-pending" ? "border-emerald-500/20 bg-emerald-500/5" : "border-white/8 bg-white/[0.02]"}`}>
+                <div className={`rounded-2xl border p-6 transition-all ${proxyStep === "proxy-done" ? "border-emerald-500/25 bg-emerald-500/5 opacity-70" : proxyStep === "proxy-connecting" || proxyStep === "proxy-pending" ? "border-emerald-500/20 bg-emerald-500/5" : "border-white/8 bg-white/[0.02]"}`}>
                   <div className="flex items-start gap-4">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 font-bold text-sm ${joinStep === "proxy-done" || joinStep === "registering" || joinStep === "success" ? "bg-emerald-500/20 text-emerald-400" : joinStep === "proxy-connecting" || joinStep === "proxy-pending" ? "bg-emerald-500/15 text-emerald-400" : "bg-white/5 text-gray-400"}`}>
-                      {joinStep === "proxy-done" || joinStep === "registering" || joinStep === "success" ? <IconCheck className="w-4 h-4" /> : joinStep === "proxy-connecting" || joinStep === "proxy-pending" ? <IconLoader className="w-4 h-4 animate-spin" /> : "1"}
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 font-bold text-sm ${proxyStep === "proxy-done" ? "bg-emerald-500/20 text-emerald-400" : proxyStep === "proxy-connecting" || proxyStep === "proxy-pending" ? "bg-emerald-500/15 text-emerald-400" : "bg-white/5 text-gray-400"}`}>
+                      {proxyStep === "proxy-done" ? <IconCheck className="w-4 h-4" /> : proxyStep === "proxy-connecting" || proxyStep === "proxy-pending" ? <IconLoader className="w-4 h-4 animate-spin" /> : "1"}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="font-bold text-white text-base mb-1">Authorise TrustedStake as Proxy</p>
                       <p className="text-gray-400 text-sm mb-4">
                         One-time on-chain transaction. Your wallet signs a message authorising TrustedStake to execute staking on your behalf — your TAO never moves without your instruction.
                       </p>
-                      {joinStep === "idle" && (
-                        <button
-                          onClick={handleSetupProxy}
-                          className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-emerald-500 to-green-500 hover:from-emerald-400 hover:to-green-400 text-black font-bold text-sm rounded-xl transition-all shadow-lg shadow-emerald-500/20 active:scale-95"
-                        >
+                      {proxyStep === "idle" && (
+                        <button onClick={handleSetupProxy} className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-emerald-500 to-green-500 hover:from-emerald-400 hover:to-green-400 text-black font-bold text-sm rounded-xl transition-all shadow-lg shadow-emerald-500/20 active:scale-95">
                           Set Up Proxy <IconArrow className="w-3.5 h-3.5" />
                         </button>
                       )}
-                      {joinStep === "proxy-connecting" && (
-                        <p className="text-gray-400 text-sm flex items-center gap-2">
-                          <IconLoader className="w-4 h-4 animate-spin text-emerald-400" />
-                          Connecting to Bittensor network…
-                        </p>
+                      {proxyStep === "proxy-connecting" && (
+                        <p className="text-gray-400 text-sm flex items-center gap-2"><IconLoader className="w-4 h-4 animate-spin text-emerald-400" /> Connecting to Bittensor network…</p>
                       )}
-                      {joinStep === "proxy-pending" && (
-                        <p className="text-gray-400 text-sm flex items-center gap-2">
-                          <IconLoader className="w-4 h-4 animate-spin text-emerald-400" />
-                          Check your wallet — sign the proxy transaction…
-                        </p>
+                      {proxyStep === "proxy-pending" && (
+                        <p className="text-gray-400 text-sm flex items-center gap-2"><IconLoader className="w-4 h-4 animate-spin text-emerald-400" /> Check your wallet — sign the proxy transaction…</p>
                       )}
-                      {joinStep === "error" && (
+                      {proxyStep === "proxy-error" && (
                         <div className="space-y-3">
-                          <p className="text-red-400 text-sm">{joinError}</p>
-                          <button
-                            onClick={handleSetupProxy}
-                            className="inline-flex items-center gap-2 px-5 py-2.5 bg-white/5 hover:bg-white/10 border border-white/8 text-gray-300 font-semibold text-sm rounded-xl transition-all"
-                          >
-                            Retry
-                          </button>
+                          <p className="text-red-400 text-sm">{proxyError}</p>
+                          <button onClick={handleSetupProxy} className="inline-flex items-center gap-2 px-5 py-2.5 bg-white/5 hover:bg-white/10 border border-white/8 text-gray-300 font-semibold text-sm rounded-xl transition-all">Retry</button>
                         </div>
                       )}
-                      {(joinStep === "proxy-done" || joinStep === "registering" || joinStep === "success") && (
+                      {proxyStep === "proxy-done" && (
                         <p className="text-emerald-400 text-sm font-medium">
                           <IconCheck className="w-3.5 h-3.5 inline mr-1.5" />
-                          Proxy authorised — wait ~30 seconds for the transaction to confirm on-chain, then register below
+                          Proxy authorised — wait ~30s for confirmation, then register below
                         </p>
                       )}
                     </div>
@@ -1040,46 +1023,35 @@ export default function AlphaGapIndexPage() {
                 </div>
 
                 {/* Step 2: Register */}
-                <div className={`rounded-2xl border p-6 transition-all ${joinStep === "idle" || joinStep === "proxy-connecting" || joinStep === "proxy-pending" || joinStep === "error" ? "border-white/5 bg-white/[0.01] opacity-40 pointer-events-none" : joinStep === "success" ? "border-emerald-500/25 bg-emerald-500/5" : "border-white/8 bg-white/[0.02]"}`}>
+                <div className={`rounded-2xl border p-6 transition-all ${proxyStep !== "proxy-done" ? "border-white/5 bg-white/[0.01] opacity-40 pointer-events-none" : registerStep === "success" ? "border-emerald-500/25 bg-emerald-500/5" : "border-white/8 bg-white/[0.02]"}`}>
                   <div className="flex items-start gap-4">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 font-bold text-sm ${joinStep === "success" ? "bg-emerald-500/20 text-emerald-400" : "bg-white/5 text-gray-400"}`}>
-                      {joinStep === "success" ? <IconCheck className="w-4 h-4" /> : "2"}
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 font-bold text-sm ${registerStep === "success" ? "bg-emerald-500/20 text-emerald-400" : "bg-white/5 text-gray-400"}`}>
+                      {registerStep === "success" ? <IconCheck className="w-4 h-4" /> : "2"}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="font-bold text-white text-base mb-1">Register My Membership</p>
                       <p className="text-gray-400 text-sm mb-4">
                         Sign a message with your wallet to register with the AlphaGap strategy. No transaction fee — this is just a signature.
                       </p>
-                      <p className="text-xs text-gray-500 font-mono mb-4 break-all">
-                        Wallet: {selectedAddress}
-                      </p>
+                      <p className="text-xs text-gray-500 font-mono mb-4 break-all">Wallet: {selectedAddress}</p>
 
-                      {joinStep === "success" ? (
+                      {registerStep === "success" ? (
                         <div className="flex items-center gap-2 text-emerald-400 font-semibold text-sm">
-                          <IconCheck className="w-4 h-4" />
-                          Membership registered successfully!
+                          <IconCheck className="w-4 h-4" /> Membership registered successfully!
                         </div>
-                      ) : joinStep === "error" ? (
+                      ) : registerStep === "register-error" ? (
                         <div className="space-y-3">
-                          <p className="text-sm text-red-400">{joinError}</p>
-                          <button
-                            onClick={handleRegister}
-                            className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-emerald-400 to-green-400 hover:from-emerald-300 hover:to-green-300 text-black font-bold text-sm rounded-xl transition-all active:scale-95"
-                          >
+                          <p className="text-sm text-red-400">{registerError}</p>
+                          <button onClick={handleRegister} className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-emerald-400 to-green-400 hover:from-emerald-300 hover:to-green-300 text-black font-bold text-sm rounded-xl transition-all active:scale-95">
                             Retry <IconArrow className="w-3.5 h-3.5" />
                           </button>
                         </div>
-                      ) : joinStep === "registering" ? (
+                      ) : registerStep === "registering" ? (
                         <div className="flex items-center gap-2 text-gray-400 text-sm">
-                          <IconLoader className="w-4 h-4 animate-spin text-emerald-400" />
-                          Signing and registering…
+                          <IconLoader className="w-4 h-4 animate-spin text-emerald-400" /> Signing and registering…
                         </div>
                       ) : (
-                        <button
-                          onClick={handleRegister}
-                          disabled={joinStep !== "proxy-done"}
-                          className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-emerald-400 to-green-400 hover:from-emerald-300 hover:to-green-300 disabled:opacity-40 disabled:cursor-not-allowed text-black font-bold text-sm rounded-xl transition-all shadow-lg shadow-emerald-500/20 active:scale-95"
-                        >
+                        <button onClick={handleRegister} disabled={proxyStep !== "proxy-done"} className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-emerald-400 to-green-400 hover:from-emerald-300 hover:to-green-300 disabled:opacity-40 disabled:cursor-not-allowed text-black font-bold text-sm rounded-xl transition-all shadow-lg shadow-emerald-500/20 active:scale-95">
                           Register My Membership <IconArrow className="w-3.5 h-3.5" />
                         </button>
                       )}
