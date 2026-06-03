@@ -215,58 +215,50 @@ export default function AlphaGapIndexPage() {
 
   // ── Proxy setup (on-chain tx, fully in-app) ────────────────────────────
   //
-  // Architecture: sign in browser (Talisman/SubWallet), submit via our backend
-  // over HTTP RPC. This avoids WebSocket subscription issues that caused the
-  // signAndSend callback to never fire.
+  // Architecture: extrinsic building happens server-side (reliable), only
+  // the signature is produced in the browser wallet extension.
   //
   // Flow:
-  //   1. Connect to Bittensor chain (for metadata + nonce only)
-  //   2. Build proxy.addProxy extrinsic
-  //   3. Sign with wallet extension (triggers Talisman/SubWallet popup)
-  //   4. POST signed hex to /api/bittensor/submit-proxy (server submits over HTTP)
-  //   5. Advance to Step 2
+  //   1. GET /api/bittensor/proxy-payload?address=... → server builds signing payload
+  //   2. Browser signs payload with Talisman/SubWallet (triggers wallet popup)
+  //   3. POST {address, signature, payload} → /api/bittensor/submit-proxy
+  //   4. Server reconstructs signed extrinsic and submits via HTTP RPC
   //
   const handleSetupProxy = useCallback(async () => {
     if (!selectedAddress) return;
     setJoinStep("proxy-connecting");
     setJoinError(null);
 
-    let api: import("@polkadot/api").ApiPromise | null = null;
-
     try {
-      // Dynamic imports — browser-only, not in server bundle
-      const { ApiPromise, WsProvider } = await import("@polkadot/api");
+      // ── Step 1: Get signing payload from server ────────────────────────
+      const payloadRes = await fetch(
+        `/api/bittensor/proxy-payload?address=${encodeURIComponent(selectedAddress)}`
+      );
+      const payloadData = await payloadRes.json();
+      if (!payloadRes.ok) {
+        throw new Error(payloadData.error ?? "Failed to build transaction payload");
+      }
+      const { payload } = payloadData as { payload: Record<string, unknown> };
+
+      // ── Step 2: Sign in browser (triggers wallet popup) ────────────────
       const { web3FromAddress } = await import("@polkadot/extension-dapp");
-
-      // Connect to get chain metadata (needed to encode the extrinsic correctly)
-      const provider = new WsProvider("wss://entrypoint-finney.opentensor.ai:443");
-      api = await ApiPromise.create({ provider });
-
-      // Build: proxy.addProxy(delegate, proxyType, delay)
-      // proxyType 0 = "Any" — allows TrustedStake to execute all staking ops
-      const tx = api.tx.proxy.addProxy(TS_PROXY_ADDRESS, 0, 0);
-
-      // Get signer from wallet extension
       const injector = await web3FromAddress(selectedAddress);
 
-      // ── Step: Sign ─────────────────────────────────────────────────────
-      // signAsync triggers the Talisman/SubWallet popup and returns the
-      // signed extrinsic. No WebSocket subscription — just pure signing.
-      setJoinStep("proxy-pending");
-      const signed = await tx.signAsync(selectedAddress, { signer: injector.signer });
-      const extrinsicHex = signed.toHex();
+      setJoinStep("proxy-pending"); // "Check your wallet — sign the proxy transaction…"
 
-      // Disconnect WebSocket — we no longer need it
-      api.disconnect().catch(() => {});
-      api = null;
+      // signPayload is the standard Substrate signing interface — Talisman and
+      // SubWallet both support it fully. It signs a structured extrinsic payload
+      // (not raw bytes), so the wallet shows the decoded call details.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const signResult = await (injector.signer.signPayload as any)(payload);
 
-      // ── Step: Submit via backend ────────────────────────────────────────
-      // Our server POSTs the signed hex to Bittensor's HTTP RPC endpoint.
-      // This is far more reliable than subscribing to a WebSocket in the browser.
+      const { signature } = signResult;
+
+      // ── Step 3: Submit via server (server reconstructs + submits) ────
       const submitRes = await fetch("/api/bittensor/submit-proxy", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ extrinsic: extrinsicHex }),
+        body: JSON.stringify({ address: selectedAddress, signature, payload }),
       });
       const submitData = await submitRes.json();
 
@@ -274,13 +266,11 @@ export default function AlphaGapIndexPage() {
         throw new Error(submitData.error ?? "Failed to submit transaction");
       }
 
-      // Success — proxy transaction submitted (or already exists on chain)
-
+      // Proxy transaction is on its way to chain
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      api?.disconnect().catch(() => {});
 
-      // User cancelled the wallet prompt — silently reset, no error
+      // User cancelled/rejected the wallet signing prompt
       if (
         msg.toLowerCase().includes("cancelled") ||
         msg.toLowerCase().includes("rejected") ||
