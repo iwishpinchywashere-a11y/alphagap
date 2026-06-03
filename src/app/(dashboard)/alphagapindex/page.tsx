@@ -637,6 +637,286 @@ export default function AlphaGapIndexPage() {
 
       <div className="px-6 md:px-12">
 
+        {/* ── HOLDINGS (first thing after hero) ───────────────────────────── */}
+        <section className="py-16 border-b border-white/5">
+          <div className="flex flex-wrap items-end justify-between gap-4 mb-8">
+            <div>
+              <p className="text-xs font-bold text-emerald-400/80 uppercase tracking-widest mb-2">Live Portfolio</p>
+              <h2 className="text-3xl font-black text-white">Current Index Holdings</h2>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 text-xs text-gray-400 border border-white/6 rounded-lg px-3 py-2">
+                <IconRefresh className="w-3 h-3" />
+                Last rebalanced: <span className="text-gray-300 font-medium ml-1">{lastRebalancedLabel}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-white/6 bg-white/[0.02] overflow-hidden relative" style={!canViewHoldings ? { pointerEvents: "none" } : {}}>
+            <div className="flex h-[3px] w-full">
+              {holdings.map((h, i) => (
+                <div key={h.subnet.netuid} style={{ width: `${h.weight}%`, background: `hsl(${150 - i * 10}, 65%, ${52 - i * 1.5}%)` }} />
+              ))}
+            </div>
+            <div className="relative">
+              <div>
+                {holdings.length === 0 ? (
+                  <p className="px-6 py-12 text-center text-gray-500 text-sm">Loading index data…</p>
+                ) : (<>
+                  <div className="md:hidden divide-y divide-white/[0.04]">
+                    {holdings.map((h) => {
+                      const s = h.subnet;
+                      const change24h = s.price_change_24h ?? null;
+                      const change30d = s.price_change_30d ?? null;
+                      const emission = s.emission_pct != null ? s.emission_pct * 100 : null;
+                      const apy = s.apy_7d != null ? s.apy_7d * 100 : null;
+                      const isOpen = expandedRow === s.netuid;
+                      return (
+                        <div key={s.netuid}>
+                          <button className="w-full text-left px-4 py-4 flex items-center gap-3 hover:bg-white/[0.03] transition-colors" onClick={() => setExpandedRow(isOpen ? null : s.netuid)}>
+                            <span className="text-xs font-bold text-gray-600 w-5 tabular-nums flex-shrink-0">{h.rank}</span>
+                            <SubnetLogo netuid={s.netuid} name={s.name} size={36} />
+                            <div className="flex-1 min-w-0">
+                              <div className="font-semibold text-gray-100 text-base truncate">{s.name}</div>
+                              <div className="text-xs text-gray-500">SN{s.netuid} · {s.category ?? s.benchmark_category ?? "—"}</div>
+                            </div>
+                            <div className="flex flex-col items-end gap-0.5 flex-shrink-0">
+                              <span className={`text-sm font-bold tabular-nums ${scoreColor(h.score)}`}>{h.score}</span>
+                              <span className="text-xs text-gray-500">{h.weight}%</span>
+                            </div>
+                            <IconChevron className={`w-4 h-4 text-gray-600 flex-shrink-0 transition-transform ml-1 ${isOpen ? "rotate-180" : ""}`} />
+                          </button>
+                          {isOpen && (
+                            <div className="px-4 pb-4 bg-emerald-500/[0.03] border-t border-white/[0.04]">
+                              <div className="grid grid-cols-2 gap-2 pt-3 mb-3">
+                                {[
+                                  { label: "24h", value: change24h != null ? `${change24h >= 0 ? "+" : ""}${change24h.toFixed(1)}%` : "—", color: change24h != null ? (change24h >= 0 ? "text-emerald-400" : "text-red-400") : "text-gray-600" },
+                                  { label: "30d", value: change30d != null ? `${change30d >= 0 ? "+" : ""}${change30d.toFixed(1)}%` : "—", color: change30d != null ? (change30d >= 0 ? "text-emerald-400" : "text-red-400") : "text-gray-600" },
+                                  { label: "EM %", value: emission != null ? `${emission.toFixed(1)}%` : "—", color: "text-gray-300" },
+                                  { label: "APY", value: apy != null ? `${apy.toFixed(0)}%` : "—", color: apy != null && apy >= 20 ? "text-emerald-400" : apy != null && apy >= 10 ? "text-yellow-400" : apy != null ? "text-orange-400" : "text-gray-600" },
+                                ].map(stat => (
+                                  <div key={stat.label} className="bg-white/[0.03] rounded-lg px-3 py-2">
+                                    <div className="text-xs text-gray-500 mb-0.5">{stat.label}</div>
+                                    <div className={`text-sm font-bold tabular-nums ${stat.color}`}>{stat.value}</div>
+                                  </div>
+                                ))}
+                              </div>
+                              <div className="flex items-center gap-2 mb-3">
+                                <span className="text-xs text-gray-500">aGap</span>
+                                <div className="flex-1 h-1.5 rounded-full bg-white/5 overflow-hidden">
+                                  <div className="h-full rounded-full bg-gradient-to-r from-emerald-600 to-emerald-400" style={{ width: `${h.score}%` }} />
+                                </div>
+                                <span className={`text-xs font-bold tabular-nums ${scoreColor(h.score)}`}>{h.score}</span>
+                              </div>
+                              {s.benchmark_summary && (
+                                <p className="text-sm text-gray-400 leading-relaxed">{s.benchmark_summary.slice(0, 200)}{s.benchmark_summary.length > 200 ? "…" : ""}</p>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div className="hidden md:block overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b border-white/5">
+                          <th className="px-6 py-4 text-left text-xs font-bold text-gray-400 uppercase tracking-wider w-10">#</th>
+                          <th className="px-4 py-4 text-left text-xs font-bold text-gray-400 uppercase tracking-wider">Subnet</th>
+                          <th className="px-4 py-4 text-left text-xs font-bold text-gray-400 uppercase tracking-wider hidden lg:table-cell">Category</th>
+                          <th className="px-4 py-4 text-right text-xs font-bold text-gray-400 uppercase tracking-wider">aGap</th>
+                          <th className="px-4 py-4 text-right text-xs font-bold text-gray-400 uppercase tracking-wider">Weight</th>
+                          <th className="px-4 py-4 text-right text-xs font-bold text-gray-400 uppercase tracking-wider">24h</th>
+                          <th className="px-4 py-4 text-right text-xs font-bold text-gray-400 uppercase tracking-wider hidden lg:table-cell">30d</th>
+                          <th className="px-4 py-4 text-right text-xs font-bold text-gray-400 uppercase tracking-wider hidden lg:table-cell">EM %</th>
+                          <th className="px-4 py-4 text-right text-xs font-bold text-gray-400 uppercase tracking-wider hidden lg:table-cell">APY</th>
+                          <th className="px-4 py-4 w-8"></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {holdings.map((h) => {
+                          const s = h.subnet;
+                          const change24h = s.price_change_24h ?? null;
+                          const change30d = s.price_change_30d ?? null;
+                          const emission = s.emission_pct != null ? s.emission_pct * 100 : null;
+                          const apy = s.apy_7d != null ? s.apy_7d * 100 : null;
+                          return (
+                            <React.Fragment key={s.netuid}>
+                              <tr className="border-b border-white/[0.04] hover:bg-white/[0.03] transition-colors cursor-pointer group" onClick={() => setExpandedRow(expandedRow === s.netuid ? null : s.netuid)}>
+                                <td className="px-6 py-4"><span className="text-xs font-bold text-gray-500 tabular-nums">{h.rank}</span></td>
+                                <td className="px-4 py-4">
+                                  <div className="flex items-center gap-3">
+                                    <SubnetLogo netuid={s.netuid} name={s.name} size={32} />
+                                    <div>
+                                      <div className="font-semibold text-gray-100 text-sm">{s.name}</div>
+                                      <div className="text-xs text-gray-500">SN{s.netuid}</div>
+                                    </div>
+                                  </div>
+                                </td>
+                                <td className="px-4 py-4 hidden lg:table-cell"><span className="text-xs text-gray-400 font-medium">{s.category ?? s.benchmark_category ?? "—"}</span></td>
+                                <td className="px-4 py-4 text-right">
+                                  <div className="flex items-center justify-end gap-2">
+                                    <div className="w-14 h-1 rounded-full bg-white/5 overflow-hidden">
+                                      <div className="h-full rounded-full bg-gradient-to-r from-emerald-600 to-emerald-400" style={{ width: `${h.score}%` }} />
+                                    </div>
+                                    <span className={`text-sm font-bold tabular-nums ${scoreColor(h.score)}`}>{h.score}</span>
+                                  </div>
+                                </td>
+                                <td className="px-4 py-4 text-right"><span className="text-sm font-semibold text-gray-300 tabular-nums">{h.weight}%</span></td>
+                                <td className="px-4 py-4 text-right">
+                                  {change24h != null ? <span className={`text-sm font-bold tabular-nums ${change24h >= 0 ? "text-emerald-400" : "text-red-400"}`}>{change24h >= 0 ? "+" : ""}{change24h.toFixed(1)}%</span> : <span className="text-gray-600 text-sm">—</span>}
+                                </td>
+                                <td className="px-4 py-4 text-right hidden lg:table-cell">
+                                  {change30d != null ? <span className={`text-sm font-bold tabular-nums ${change30d >= 0 ? "text-emerald-400" : "text-red-400"}`}>{change30d >= 0 ? "+" : ""}{change30d.toFixed(1)}%</span> : <span className="text-gray-600 text-sm">—</span>}
+                                </td>
+                                <td className="px-4 py-4 text-right hidden lg:table-cell"><span className="text-sm text-gray-300 tabular-nums font-medium">{emission != null ? `${emission.toFixed(1)}%` : "—"}</span></td>
+                                <td className="px-4 py-4 text-right hidden lg:table-cell">
+                                  <span className={`text-sm font-semibold tabular-nums ${apy != null && apy >= 20 ? "text-emerald-400" : apy != null && apy >= 10 ? "text-yellow-400" : apy != null ? "text-orange-400" : "text-gray-600"}`}>
+                                    {apy != null ? `${apy.toFixed(0)}%` : "—"}
+                                  </span>
+                                </td>
+                                <td className="px-4 py-4"><IconChevron className={`w-4 h-4 text-gray-700 group-hover:text-gray-500 transition-all ${expandedRow === s.netuid ? "rotate-180" : ""}`} /></td>
+                              </tr>
+                              {expandedRow === s.netuid && (
+                                <tr className="border-b border-white/[0.04] bg-emerald-500/[0.03]">
+                                  <td colSpan={10} className="px-6 py-3">
+                                    <p className="text-sm text-gray-300 leading-relaxed pl-10">
+                                      <span className="font-semibold text-emerald-400">aGap Score: {h.score} · </span>
+                                      {s.benchmark_summary ? s.benchmark_summary.slice(0, 200) + (s.benchmark_summary.length > 200 ? "…" : "") : "No summary available."}
+                                    </p>
+                                  </td>
+                                </tr>
+                              )}
+                            </React.Fragment>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </>)}
+                <div className="px-4 md:px-6 py-3 border-t border-white/5 flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-sm text-gray-400">Tap any row to see the investment thesis.</p>
+                  <p className="text-sm text-gray-500 italic">Live allocations update post-rebalance</p>
+                </div>
+              </div>
+
+            </div>
+
+            {!canViewHoldings && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center z-10 rounded-2xl overflow-hidden">
+                <div className="absolute inset-0 backdrop-blur-xl bg-[#080810]/60" />
+                <div className="relative z-10 text-center px-6 py-8">
+                  <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mx-auto mb-4">
+                    <IconShield className="w-5 h-5 text-amber-400" />
+                  </div>
+                  <p className="text-white font-bold text-xl mb-2">Premium &amp; Ultra only</p>
+                  <p className="text-gray-400 text-base mb-6 max-w-xs mx-auto">See exactly which 10 subnets aGap is backing right now.</p>
+                  <a href="/pricing" className="inline-flex items-center gap-2 px-7 py-3 bg-gradient-to-r from-amber-400 to-orange-400 hover:from-amber-300 hover:to-orange-300 text-black font-bold text-base rounded-xl transition-all shadow-lg shadow-amber-500/20 active:scale-95">
+                    Upgrade to unlock <IconArrow className="w-4 h-4" />
+                  </a>
+                </div>
+              </div>
+            )}
+          </div>
+        </section>
+
+        {/* ── JOIN THE INDEX (first occurrence — right under holdings) ────── */}
+        <section id="join-section" className="py-16 border-b border-white/5">
+          <p className="text-xs font-bold text-emerald-400/80 uppercase tracking-widest mb-4">Delegation</p>
+          <h2 className="text-3xl sm:text-4xl font-black text-white mb-3">Deploy Your TAO</h2>
+          <p className="text-gray-400 text-base mb-8 max-w-2xl">
+            {isUltra
+              ? "Two steps to start earning. First, set up your wallet proxy on TrustedStake (one-time, on-chain). Then register your membership here with a signed message — no TAO leaves your wallet."
+              : "The AlphaGap Index is exclusive to Ultra subscribers. Upgrade to deploy your TAO into the top 10 subnets automatically."}
+          </p>
+
+          {!isUltra && (
+            <a href="/pricing" className="inline-flex items-center gap-2 px-8 py-3.5 bg-gradient-to-r from-amber-400 to-orange-400 hover:from-amber-300 hover:to-orange-300 text-black font-bold text-base rounded-xl transition-all shadow-lg shadow-amber-500/20 active:scale-95">
+              Upgrade to Ultra — $99/mo <IconArrow className="w-4 h-4" />
+            </a>
+          )}
+
+          {isUltra && !selectedAddress && (
+            <div className="rounded-2xl border border-white/8 bg-white/[0.02] p-8 flex flex-col sm:flex-row items-center justify-between gap-6">
+              <div>
+                <p className="font-bold text-white text-lg mb-1">Connect your wallet to get started</p>
+                <p className="text-gray-400 text-sm">Supports Talisman and SubWallet browser extensions.</p>
+              </div>
+              <button onClick={connectWallet} disabled={walletConnecting} className="flex-shrink-0 inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-emerald-400 to-green-400 hover:from-emerald-300 hover:to-green-300 disabled:opacity-60 disabled:cursor-not-allowed text-black font-bold text-sm rounded-xl transition-all shadow-lg shadow-emerald-500/20 active:scale-95">
+                {walletConnecting ? <><IconLoader className="w-4 h-4 animate-spin" /> Connecting…</> : <><IconWallet className="w-4 h-4" /> Connect Wallet</>}
+              </button>
+            </div>
+          )}
+
+          {isUltra && selectedAddress && isMember && (
+            <div className="rounded-2xl border border-emerald-500/25 bg-emerald-500/5 p-8">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center"><IconCheck className="w-4 h-4 text-emerald-400" /></div>
+                    <span className="font-bold text-emerald-400 text-lg">Active Member</span>
+                  </div>
+                  <p className="text-gray-400 text-sm font-mono">{selectedAddress}</p>
+                  <p className="text-gray-500 text-xs mt-1">Your wallet is registered with the AlphaGap Subnet Index strategy.</p>
+                </div>
+                <div className="flex flex-col gap-2 flex-shrink-0">
+                  <a href={`https://app.trustedstake.ai/?strategy=${TS_STRATEGY_ID}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/25 text-emerald-400 text-sm font-semibold rounded-xl transition-colors">
+                    Manage on TrustedStake <IconArrow className="w-3.5 h-3.5" />
+                  </a>
+                  <button onClick={handleLeave} disabled={leaveStep === "leaving"} className="inline-flex items-center justify-center gap-2 px-5 py-2 bg-white/[0.03] hover:bg-red-500/10 border border-white/8 hover:border-red-500/25 text-gray-500 hover:text-red-400 text-sm rounded-xl transition-all">
+                    {leaveStep === "leaving" ? <><IconLoader className="w-3.5 h-3.5 animate-spin" /> Leaving…</> : "Leave Strategy"}
+                  </button>
+                  {leaveError && <p className="text-xs text-red-400 text-center">{leaveError}</p>}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {isUltra && selectedAddress && !isMember && (
+            <div className="space-y-4">
+              <div className={`rounded-2xl border p-6 transition-all ${proxyStep === "proxy-done" ? "border-emerald-500/25 bg-emerald-500/5 opacity-70" : proxyStep === "proxy-connecting" || proxyStep === "proxy-pending" ? "border-emerald-500/20 bg-emerald-500/5" : "border-white/8 bg-white/[0.02]"}`}>
+                <div className="flex items-start gap-4">
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 font-bold text-sm ${proxyStep === "proxy-done" ? "bg-emerald-500/20 text-emerald-400" : proxyStep === "proxy-connecting" || proxyStep === "proxy-pending" ? "bg-emerald-500/15 text-emerald-400" : "bg-white/5 text-gray-400"}`}>
+                    {proxyStep === "proxy-done" ? <IconCheck className="w-4 h-4" /> : proxyStep === "proxy-connecting" || proxyStep === "proxy-pending" ? <IconLoader className="w-4 h-4 animate-spin" /> : "1"}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-bold text-white text-base mb-1">Authorise TrustedStake as Proxy</p>
+                    <p className="text-gray-400 text-sm mb-4">One-time on-chain transaction. Your wallet signs a message authorising TrustedStake to execute staking on your behalf — your TAO never moves without your instruction.</p>
+                    {proxyStep === "idle" && <button onClick={handleSetupProxy} className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-emerald-500 to-green-500 hover:from-emerald-400 hover:to-green-400 text-black font-bold text-sm rounded-xl transition-all shadow-lg shadow-emerald-500/20 active:scale-95">Set Up Proxy <IconArrow className="w-3.5 h-3.5" /></button>}
+                    {proxyStep === "proxy-connecting" && <p className="text-gray-400 text-sm flex items-center gap-2"><IconLoader className="w-4 h-4 animate-spin text-emerald-400" /> Connecting to Bittensor network…</p>}
+                    {proxyStep === "proxy-pending" && <p className="text-gray-400 text-sm flex items-center gap-2"><IconLoader className="w-4 h-4 animate-spin text-emerald-400" /> Check your wallet — sign the proxy transaction…</p>}
+                    {proxyStep === "proxy-error" && <div className="space-y-3"><p className="text-red-400 text-sm">{proxyError}</p><button onClick={handleSetupProxy} className="inline-flex items-center gap-2 px-5 py-2.5 bg-white/5 hover:bg-white/10 border border-white/8 text-gray-300 font-semibold text-sm rounded-xl transition-all">Retry</button></div>}
+                    {proxyStep === "proxy-done" && <p className="text-emerald-400 text-sm font-medium"><IconCheck className="w-3.5 h-3.5 inline mr-1.5" />Proxy authorised — wait ~30s for confirmation, then register below</p>}
+                  </div>
+                </div>
+              </div>
+              <div className={`rounded-2xl border p-6 transition-all ${proxyStep !== "proxy-done" ? "border-white/5 bg-white/[0.01] opacity-40 pointer-events-none" : registerStep === "success" ? "border-emerald-500/25 bg-emerald-500/5" : "border-white/8 bg-white/[0.02]"}`}>
+                <div className="flex items-start gap-4">
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 font-bold text-sm ${registerStep === "success" ? "bg-emerald-500/20 text-emerald-400" : "bg-white/5 text-gray-400"}`}>
+                    {registerStep === "success" ? <IconCheck className="w-4 h-4" /> : "2"}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-bold text-white text-base mb-1">Register My Membership</p>
+                    <p className="text-gray-400 text-sm mb-4">Sign a message with your wallet to register with the AlphaGap strategy. No transaction fee — this is just a signature.</p>
+                    <p className="text-xs text-gray-500 font-mono mb-4 break-all">Wallet: {selectedAddress}</p>
+                    {registerStep === "success" ? (
+                      <div className="flex items-center gap-2 text-emerald-400 font-semibold text-sm"><IconCheck className="w-4 h-4" /> Membership registered successfully!</div>
+                    ) : registerStep === "register-error" ? (
+                      <div className="space-y-3"><p className="text-sm text-red-400">{registerError}</p><button onClick={handleRegister} className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-emerald-400 to-green-400 text-black font-bold text-sm rounded-xl transition-all active:scale-95">Retry <IconArrow className="w-3.5 h-3.5" /></button></div>
+                    ) : registerStep === "registering" ? (
+                      <div className="flex items-center gap-2 text-gray-400 text-sm"><IconLoader className="w-4 h-4 animate-spin text-emerald-400" /> Signing and registering…</div>
+                    ) : (
+                      <button onClick={handleRegister} disabled={proxyStep !== "proxy-done"} className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-emerald-400 to-green-400 hover:from-emerald-300 hover:to-green-300 disabled:opacity-40 disabled:cursor-not-allowed text-black font-bold text-sm rounded-xl transition-all shadow-lg shadow-emerald-500/20 active:scale-95">
+                        Register My Membership <IconArrow className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </section>
+
         {/* ── THE PROBLEM ─────────────────────────────────────────────────── */}
         <section className="py-16 border-b border-white/5">
           <p className="text-xs font-bold text-emerald-400/80 uppercase tracking-widest mb-4">Why This Exists</p>
@@ -723,359 +1003,6 @@ export default function AlphaGapIndexPage() {
           </div>
         </section>
 
-        {/* ── HOLDINGS ─────────────────────────────────────────────────────── */}
-        <section className="py-16 border-b border-white/5">
-          <div className="flex flex-wrap items-end justify-between gap-4 mb-8">
-            <div>
-              <p className="text-xs font-bold text-emerald-400/80 uppercase tracking-widest mb-2">Live Portfolio</p>
-              <h2 className="text-3xl font-black text-white">Current Index Holdings</h2>
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2 text-xs text-gray-400 border border-white/6 rounded-lg px-3 py-2">
-                <IconRefresh className="w-3 h-3" />
-                Last rebalanced: <span className="text-gray-300 font-medium ml-1">{lastRebalancedLabel}</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="rounded-2xl border border-white/6 bg-white/[0.02] overflow-hidden relative" style={!canViewHoldings ? { pointerEvents: "none" } : {}}>
-            {/* Weight spectrum bar */}
-            <div className="flex h-[3px] w-full">
-              {holdings.map((h, i) => (
-                <div key={h.subnet.netuid} style={{ width: `${h.weight}%`, background: `hsl(${150 - i * 10}, 65%, ${52 - i * 1.5}%)` }} />
-              ))}
-            </div>
-
-            <div className="relative">
-              <div>
-                {holdings.length === 0 ? (
-                  <p className="px-6 py-12 text-center text-gray-500 text-sm">Loading index data…</p>
-                ) : (<>
-
-                  {/* ── Mobile cards (< md) ── */}
-                  <div className="md:hidden divide-y divide-white/[0.04]">
-                    {holdings.map((h) => {
-                      const s = h.subnet;
-                      const change24h = s.price_change_24h ?? null;
-                      const change30d = s.price_change_30d ?? null;
-                      const emission = s.emission_pct != null ? s.emission_pct * 100 : null;
-                      const apy = s.apy_7d != null ? s.apy_7d * 100 : null;
-                      const isOpen = expandedRow === s.netuid;
-                      return (
-                        <div key={s.netuid}>
-                          <button
-                            className="w-full text-left px-4 py-4 flex items-center gap-3 hover:bg-white/[0.03] transition-colors"
-                            onClick={() => setExpandedRow(isOpen ? null : s.netuid)}
-                          >
-                            <span className="text-xs font-bold text-gray-600 w-5 tabular-nums flex-shrink-0">{h.rank}</span>
-                            <SubnetLogo netuid={s.netuid} name={s.name} size={36} />
-                            <div className="flex-1 min-w-0">
-                              <div className="font-semibold text-gray-100 text-base truncate">{s.name}</div>
-                              <div className="text-xs text-gray-500">SN{s.netuid} · {s.category ?? s.benchmark_category ?? "—"}</div>
-                            </div>
-                            <div className="flex flex-col items-end gap-0.5 flex-shrink-0">
-                              <span className={`text-sm font-bold tabular-nums ${scoreColor(h.score)}`}>{h.score}</span>
-                              <span className="text-xs text-gray-500">{h.weight}%</span>
-                            </div>
-                            <IconChevron className={`w-4 h-4 text-gray-600 flex-shrink-0 transition-transform ml-1 ${isOpen ? "rotate-180" : ""}`} />
-                          </button>
-                          {isOpen && (
-                            <div className="px-4 pb-4 bg-emerald-500/[0.03] border-t border-white/[0.04]">
-                              <div className="grid grid-cols-2 gap-2 pt-3 mb-3">
-                                {[
-                                  { label: "24h", value: change24h != null ? `${change24h >= 0 ? "+" : ""}${change24h.toFixed(1)}%` : "—", color: change24h != null ? (change24h >= 0 ? "text-emerald-400" : "text-red-400") : "text-gray-600" },
-                                  { label: "30d", value: change30d != null ? `${change30d >= 0 ? "+" : ""}${change30d.toFixed(1)}%` : "—", color: change30d != null ? (change30d >= 0 ? "text-emerald-400" : "text-red-400") : "text-gray-600" },
-                                  { label: "EM %", value: emission != null ? `${emission.toFixed(1)}%` : "—", color: "text-gray-300" },
-                                  { label: "APY", value: apy != null ? `${apy.toFixed(0)}%` : "—", color: apy != null && apy >= 20 ? "text-emerald-400" : apy != null && apy >= 10 ? "text-yellow-400" : apy != null ? "text-orange-400" : "text-gray-600" },
-                                ].map(stat => (
-                                  <div key={stat.label} className="bg-white/[0.03] rounded-lg px-3 py-2">
-                                    <div className="text-xs text-gray-500 mb-0.5">{stat.label}</div>
-                                    <div className={`text-sm font-bold tabular-nums ${stat.color}`}>{stat.value}</div>
-                                  </div>
-                                ))}
-                              </div>
-                              <div className="flex items-center gap-2 mb-3">
-                                <span className="text-xs text-gray-500">aGap</span>
-                                <div className="flex-1 h-1.5 rounded-full bg-white/5 overflow-hidden">
-                                  <div className="h-full rounded-full bg-gradient-to-r from-emerald-600 to-emerald-400" style={{ width: `${h.score}%` }} />
-                                </div>
-                                <span className={`text-xs font-bold tabular-nums ${scoreColor(h.score)}`}>{h.score}</span>
-                              </div>
-                              {s.benchmark_summary && (
-                                <p className="text-sm text-gray-400 leading-relaxed">{s.benchmark_summary.slice(0, 200)}{s.benchmark_summary.length > 200 ? "…" : ""}</p>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  {/* ── Desktop table (md+) ── */}
-                  <div className="hidden md:block overflow-x-auto">
-                    <table className="w-full">
-                      <thead>
-                        <tr className="border-b border-white/5">
-                          <th className="px-6 py-4 text-left text-xs font-bold text-gray-400 uppercase tracking-wider w-10">#</th>
-                          <th className="px-4 py-4 text-left text-xs font-bold text-gray-400 uppercase tracking-wider">Subnet</th>
-                          <th className="px-4 py-4 text-left text-xs font-bold text-gray-400 uppercase tracking-wider hidden lg:table-cell">Category</th>
-                          <th className="px-4 py-4 text-right text-xs font-bold text-gray-400 uppercase tracking-wider">aGap</th>
-                          <th className="px-4 py-4 text-right text-xs font-bold text-gray-400 uppercase tracking-wider">Weight</th>
-                          <th className="px-4 py-4 text-right text-xs font-bold text-gray-400 uppercase tracking-wider">24h</th>
-                          <th className="px-4 py-4 text-right text-xs font-bold text-gray-400 uppercase tracking-wider hidden lg:table-cell">30d</th>
-                          <th className="px-4 py-4 text-right text-xs font-bold text-gray-400 uppercase tracking-wider hidden lg:table-cell">EM %</th>
-                          <th className="px-4 py-4 text-right text-xs font-bold text-gray-400 uppercase tracking-wider hidden lg:table-cell">APY</th>
-                          <th className="px-4 py-4 w-8"></th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {holdings.map((h) => {
-                          const s = h.subnet;
-                          const change24h = s.price_change_24h ?? null;
-                          const change30d = s.price_change_30d ?? null;
-                          const emission = s.emission_pct != null ? s.emission_pct * 100 : null;
-                          const apy = s.apy_7d != null ? s.apy_7d * 100 : null;
-                          return (
-                            <React.Fragment key={s.netuid}>
-                              <tr
-                                className="border-b border-white/[0.04] hover:bg-white/[0.03] transition-colors cursor-pointer group"
-                                onClick={() => setExpandedRow(expandedRow === s.netuid ? null : s.netuid)}
-                              >
-                                <td className="px-6 py-4"><span className="text-xs font-bold text-gray-500 tabular-nums">{h.rank}</span></td>
-                                <td className="px-4 py-4">
-                                  <div className="flex items-center gap-3">
-                                    <SubnetLogo netuid={s.netuid} name={s.name} size={32} />
-                                    <div>
-                                      <div className="font-semibold text-gray-100 text-sm">{s.name}</div>
-                                      <div className="text-xs text-gray-500">SN{s.netuid}</div>
-                                    </div>
-                                  </div>
-                                </td>
-                                <td className="px-4 py-4 hidden lg:table-cell"><span className="text-xs text-gray-400 font-medium">{s.category ?? s.benchmark_category ?? "—"}</span></td>
-                                <td className="px-4 py-4 text-right">
-                                  <div className="flex items-center justify-end gap-2">
-                                    <div className="w-14 h-1 rounded-full bg-white/5 overflow-hidden">
-                                      <div className="h-full rounded-full bg-gradient-to-r from-emerald-600 to-emerald-400" style={{ width: `${h.score}%` }} />
-                                    </div>
-                                    <span className={`text-sm font-bold tabular-nums ${scoreColor(h.score)}`}>{h.score}</span>
-                                  </div>
-                                </td>
-                                <td className="px-4 py-4 text-right"><span className="text-sm font-semibold text-gray-300 tabular-nums">{h.weight}%</span></td>
-                                <td className="px-4 py-4 text-right">
-                                  {change24h != null ? <span className={`text-sm font-bold tabular-nums ${change24h >= 0 ? "text-emerald-400" : "text-red-400"}`}>{change24h >= 0 ? "+" : ""}{change24h.toFixed(1)}%</span> : <span className="text-gray-600 text-sm">—</span>}
-                                </td>
-                                <td className="px-4 py-4 text-right hidden lg:table-cell">
-                                  {change30d != null ? <span className={`text-sm font-bold tabular-nums ${change30d >= 0 ? "text-emerald-400" : "text-red-400"}`}>{change30d >= 0 ? "+" : ""}{change30d.toFixed(1)}%</span> : <span className="text-gray-600 text-sm">—</span>}
-                                </td>
-                                <td className="px-4 py-4 text-right hidden lg:table-cell"><span className="text-sm text-gray-300 tabular-nums font-medium">{emission != null ? `${emission.toFixed(1)}%` : "—"}</span></td>
-                                <td className="px-4 py-4 text-right hidden lg:table-cell">
-                                  <span className={`text-sm font-semibold tabular-nums ${apy != null && apy >= 20 ? "text-emerald-400" : apy != null && apy >= 10 ? "text-yellow-400" : apy != null ? "text-orange-400" : "text-gray-600"}`}>
-                                    {apy != null ? `${apy.toFixed(0)}%` : "—"}
-                                  </span>
-                                </td>
-                                <td className="px-4 py-4"><IconChevron className={`w-4 h-4 text-gray-700 group-hover:text-gray-500 transition-all ${expandedRow === s.netuid ? "rotate-180" : ""}`} /></td>
-                              </tr>
-                              {expandedRow === s.netuid && (
-                                <tr className="border-b border-white/[0.04] bg-emerald-500/[0.03]">
-                                  <td colSpan={10} className="px-6 py-3">
-                                    <p className="text-sm text-gray-300 leading-relaxed pl-10">
-                                      <span className="font-semibold text-emerald-400">aGap Score: {h.score} · </span>
-                                      {s.benchmark_summary ? s.benchmark_summary.slice(0, 200) + (s.benchmark_summary.length > 200 ? "…" : "") : "No summary available."}
-                                    </p>
-                                  </td>
-                                </tr>
-                              )}
-                            </React.Fragment>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                </>)}
-                <div className="px-4 md:px-6 py-3 border-t border-white/5 flex flex-wrap items-center justify-between gap-2">
-                  <p className="text-sm text-gray-400">Tap any row to see the investment thesis.</p>
-                  <p className="text-sm text-gray-500 italic">Live allocations update post-rebalance</p>
-                </div>
-              </div>
-
-            </div>
-
-            {/* ── Blur gate for free/pro ── */}
-            {!canViewHoldings && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center z-10 rounded-2xl overflow-hidden">
-                <div className="absolute inset-0 backdrop-blur-xl bg-[#080810]/60" />
-                <div className="relative z-10 text-center px-6 py-8">
-                  <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mx-auto mb-4">
-                    <IconShield className="w-5 h-5 text-amber-400" />
-                  </div>
-                  <p className="text-white font-bold text-xl mb-2">Premium &amp; Ultra only</p>
-                  <p className="text-gray-400 text-base mb-6 max-w-xs mx-auto">See exactly which 10 subnets aGap is backing right now.</p>
-                  <a href="/pricing" className="inline-flex items-center gap-2 px-7 py-3 bg-gradient-to-r from-amber-400 to-orange-400 hover:from-amber-300 hover:to-orange-300 text-black font-bold text-base rounded-xl transition-all shadow-lg shadow-amber-500/20 active:scale-95">
-                    Upgrade to unlock <IconArrow className="w-4 h-4" />
-                  </a>
-                </div>
-              </div>
-            )}
-          </div>
-        </section>
-
-        {/* ── JOIN THE INDEX ────────────────────────────────────────────────── */}
-        {isUltra && (
-          <section className="py-16 border-b border-white/5">
-            <p className="text-xs font-bold text-emerald-400/80 uppercase tracking-widest mb-4">Delegation</p>
-            <h2 className="text-3xl sm:text-4xl font-black text-white mb-3">Join the Index</h2>
-            <p className="text-gray-400 text-base mb-8 max-w-2xl">
-              Two steps to start earning. First, set up your wallet proxy on TrustedStake (one-time, on-chain). Then register your membership here with a signed message — no TAO leaves your wallet.
-            </p>
-
-            {/* ── Not yet connected ── */}
-            {!selectedAddress && (
-              <div className="rounded-2xl border border-white/8 bg-white/[0.02] p-8 flex flex-col sm:flex-row items-center justify-between gap-6">
-                <div>
-                  <p className="font-bold text-white text-lg mb-1">Connect your wallet to get started</p>
-                  <p className="text-gray-400 text-sm">Supports Talisman and SubWallet browser extensions.</p>
-                </div>
-                <button
-                  onClick={connectWallet}
-                  disabled={walletConnecting}
-                  className="flex-shrink-0 inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-emerald-400 to-green-400 hover:from-emerald-300 hover:to-green-300 disabled:opacity-60 disabled:cursor-not-allowed text-black font-bold text-sm rounded-xl transition-all shadow-lg shadow-emerald-500/20 active:scale-95"
-                >
-                  {walletConnecting ? <><IconLoader className="w-4 h-4 animate-spin" /> Connecting…</> : <><IconWallet className="w-4 h-4" /> Connect Wallet</>}
-                </button>
-              </div>
-            )}
-
-            {/* ── Already a member ── */}
-            {selectedAddress && isMember && (
-              <div className="rounded-2xl border border-emerald-500/25 bg-emerald-500/5 p-8">
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                  <div>
-                    <div className="flex items-center gap-2 mb-2">
-                      <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center">
-                        <IconCheck className="w-4 h-4 text-emerald-400" />
-                      </div>
-                      <span className="font-bold text-emerald-400 text-lg">Active Member</span>
-                    </div>
-                    <p className="text-gray-400 text-sm font-mono">{selectedAddress}</p>
-                    <p className="text-gray-500 text-xs mt-1">Your wallet is registered with the AlphaGap Subnet Index strategy.</p>
-                  </div>
-                  <div className="flex flex-col gap-2 flex-shrink-0">
-                    <a
-                      href={`https://app.trustedstake.ai/?strategy=${TS_STRATEGY_ID}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/25 text-emerald-400 text-sm font-semibold rounded-xl transition-colors"
-                    >
-                      Manage on TrustedStake <IconArrow className="w-3.5 h-3.5" />
-                    </a>
-                    <button
-                      onClick={handleLeave}
-                      disabled={leaveStep === "leaving"}
-                      className="inline-flex items-center justify-center gap-2 px-5 py-2 bg-white/[0.03] hover:bg-red-500/10 border border-white/8 hover:border-red-500/25 text-gray-500 hover:text-red-400 text-sm rounded-xl transition-all"
-                    >
-                      {leaveStep === "leaving" ? <><IconLoader className="w-3.5 h-3.5 animate-spin" /> Leaving…</> : "Leave Strategy"}
-                    </button>
-                    {leaveError && <p className="text-xs text-red-400 text-center">{leaveError}</p>}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* ── Join flow ── */}
-            {selectedAddress && !isMember && (
-              <div className="space-y-4">
-                {/* Step 1: Set up proxy */}
-                <div className={`rounded-2xl border p-6 transition-all ${proxyStep === "proxy-done" ? "border-emerald-500/25 bg-emerald-500/5 opacity-70" : proxyStep === "proxy-connecting" || proxyStep === "proxy-pending" ? "border-emerald-500/20 bg-emerald-500/5" : "border-white/8 bg-white/[0.02]"}`}>
-                  <div className="flex items-start gap-4">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 font-bold text-sm ${proxyStep === "proxy-done" ? "bg-emerald-500/20 text-emerald-400" : proxyStep === "proxy-connecting" || proxyStep === "proxy-pending" ? "bg-emerald-500/15 text-emerald-400" : "bg-white/5 text-gray-400"}`}>
-                      {proxyStep === "proxy-done" ? <IconCheck className="w-4 h-4" /> : proxyStep === "proxy-connecting" || proxyStep === "proxy-pending" ? <IconLoader className="w-4 h-4 animate-spin" /> : "1"}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-bold text-white text-base mb-1">Authorise TrustedStake as Proxy</p>
-                      <p className="text-gray-400 text-sm mb-4">
-                        One-time on-chain transaction. Your wallet signs a message authorising TrustedStake to execute staking on your behalf — your TAO never moves without your instruction.
-                      </p>
-                      {proxyStep === "idle" && (
-                        <button onClick={handleSetupProxy} className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-emerald-500 to-green-500 hover:from-emerald-400 hover:to-green-400 text-black font-bold text-sm rounded-xl transition-all shadow-lg shadow-emerald-500/20 active:scale-95">
-                          Set Up Proxy <IconArrow className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                      {proxyStep === "proxy-connecting" && (
-                        <p className="text-gray-400 text-sm flex items-center gap-2"><IconLoader className="w-4 h-4 animate-spin text-emerald-400" /> Connecting to Bittensor network…</p>
-                      )}
-                      {proxyStep === "proxy-pending" && (
-                        <p className="text-gray-400 text-sm flex items-center gap-2"><IconLoader className="w-4 h-4 animate-spin text-emerald-400" /> Check your wallet — sign the proxy transaction…</p>
-                      )}
-                      {proxyStep === "proxy-error" && (
-                        <div className="space-y-3">
-                          <p className="text-red-400 text-sm">{proxyError}</p>
-                          <button onClick={handleSetupProxy} className="inline-flex items-center gap-2 px-5 py-2.5 bg-white/5 hover:bg-white/10 border border-white/8 text-gray-300 font-semibold text-sm rounded-xl transition-all">Retry</button>
-                        </div>
-                      )}
-                      {proxyStep === "proxy-done" && (
-                        <p className="text-emerald-400 text-sm font-medium">
-                          <IconCheck className="w-3.5 h-3.5 inline mr-1.5" />
-                          Proxy authorised — wait ~30s for confirmation, then register below
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Step 2: Register */}
-                <div className={`rounded-2xl border p-6 transition-all ${proxyStep !== "proxy-done" ? "border-white/5 bg-white/[0.01] opacity-40 pointer-events-none" : registerStep === "success" ? "border-emerald-500/25 bg-emerald-500/5" : "border-white/8 bg-white/[0.02]"}`}>
-                  <div className="flex items-start gap-4">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 font-bold text-sm ${registerStep === "success" ? "bg-emerald-500/20 text-emerald-400" : "bg-white/5 text-gray-400"}`}>
-                      {registerStep === "success" ? <IconCheck className="w-4 h-4" /> : "2"}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-bold text-white text-base mb-1">Register My Membership</p>
-                      <p className="text-gray-400 text-sm mb-4">
-                        Sign a message with your wallet to register with the AlphaGap strategy. No transaction fee — this is just a signature.
-                      </p>
-                      <p className="text-xs text-gray-500 font-mono mb-4 break-all">Wallet: {selectedAddress}</p>
-
-                      {registerStep === "success" ? (
-                        <div className="flex items-center gap-2 text-emerald-400 font-semibold text-sm">
-                          <IconCheck className="w-4 h-4" /> Membership registered successfully!
-                        </div>
-                      ) : registerStep === "register-error" ? (
-                        <div className="space-y-3">
-                          <p className="text-sm text-red-400">{registerError}</p>
-                          <button onClick={handleRegister} className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-emerald-400 to-green-400 hover:from-emerald-300 hover:to-green-300 text-black font-bold text-sm rounded-xl transition-all active:scale-95">
-                            Retry <IconArrow className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      ) : registerStep === "registering" ? (
-                        <div className="flex items-center gap-2 text-gray-400 text-sm">
-                          <IconLoader className="w-4 h-4 animate-spin text-emerald-400" /> Signing and registering…
-                        </div>
-                      ) : (
-                        <button onClick={handleRegister} disabled={proxyStep !== "proxy-done"} className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-emerald-400 to-green-400 hover:from-emerald-300 hover:to-green-300 disabled:opacity-40 disabled:cursor-not-allowed text-black font-bold text-sm rounded-xl transition-all shadow-lg shadow-emerald-500/20 active:scale-95">
-                          Register My Membership <IconArrow className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-          </section>
-        )}
-
-        {/* ── MID-PAGE CTA ─────────────────────────────────────────────────── */}
-        {!isUltra && (
-          <div className="py-10 border-b border-white/5 flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div>
-              <p className="text-white font-bold text-xl mb-1">Deploy your TAO into the top 10 subnets.</p>
-              <p className="text-gray-400 text-base">Automated. Non-custodial. Powered by aGap + TrustedStake.</p>
-            </div>
-            <a href="/pricing" className="flex-shrink-0 inline-flex items-center gap-2 px-7 py-3.5 bg-gradient-to-r from-amber-400 to-orange-400 hover:from-amber-300 hover:to-orange-300 text-black font-bold text-base rounded-xl transition-all shadow-lg shadow-amber-500/20 active:scale-95 whitespace-nowrap">
-              Subscribe to Ultra <IconArrow className="w-4 h-4" />
-            </a>
-          </div>
-        )}
-
         {/* ── aGAP METHODOLOGY ─────────────────────────────────────────────── */}
         <section className="py-16 border-b border-white/5">
           <p className="text-xs font-bold text-emerald-400/80 uppercase tracking-widest mb-4">The Formula</p>
@@ -1123,6 +1050,40 @@ export default function AlphaGapIndexPage() {
                 </div>
               </div>
             ))}
+          </div>
+        </section>
+
+        {/* ── JOIN THE INDEX (second occurrence — compact mid-page CTA) ──── */}
+        <section className="py-16 border-b border-white/5">
+          <div className="relative rounded-2xl overflow-hidden border border-emerald-500/20 p-8 md:p-10" style={{ background: "radial-gradient(ellipse 80% 80% at 50% 0%, rgba(16,185,129,0.07) 0%, transparent 60%)" }}>
+            <div className="absolute inset-0 opacity-[0.015]" style={{ backgroundImage: "linear-gradient(rgba(255,255,255,1) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,1) 1px,transparent 1px)", backgroundSize: "30px 30px" }} />
+            <div className="relative flex flex-col md:flex-row items-center justify-between gap-8">
+              <div>
+                <p className="text-xs font-bold text-emerald-400/80 uppercase tracking-widest mb-3">Start Earning</p>
+                <h2 className="text-3xl font-black text-white mb-2">Ready to deploy your TAO?</h2>
+                <p className="text-gray-400 text-base max-w-md">Connect your wallet and join the AlphaGap Index — aGap picks the top 10, TrustedStake handles everything else.</p>
+              </div>
+              <div className="flex-shrink-0">
+                {!isUltra ? (
+                  <a href="/pricing" className="inline-flex items-center gap-2 px-8 py-3.5 bg-gradient-to-r from-amber-400 to-orange-400 hover:from-amber-300 hover:to-orange-300 text-black font-bold text-base rounded-xl transition-all shadow-lg shadow-amber-500/20 active:scale-95 whitespace-nowrap">
+                    Upgrade to Ultra — $99/mo <IconArrow className="w-4 h-4" />
+                  </a>
+                ) : isMember ? (
+                  <div className="flex items-center gap-3 px-6 py-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/25">
+                    <IconCheck className="w-5 h-5 text-emerald-400" />
+                    <span className="font-bold text-emerald-400">Active Member</span>
+                  </div>
+                ) : selectedAddress ? (
+                  <a href="#join-section" onClick={e => { e.preventDefault(); document.getElementById("join-section")?.scrollIntoView({ behavior: "smooth" }); }} className="inline-flex items-center gap-2 px-8 py-3.5 bg-gradient-to-r from-emerald-400 to-green-400 hover:from-emerald-300 hover:to-green-300 text-black font-bold text-base rounded-xl transition-all shadow-lg shadow-emerald-500/20 active:scale-95 whitespace-nowrap">
+                    Complete Registration <IconArrow className="w-4 h-4" />
+                  </a>
+                ) : (
+                  <button onClick={connectWallet} disabled={walletConnecting} className="inline-flex items-center gap-2 px-8 py-3.5 bg-gradient-to-r from-emerald-400 to-green-400 hover:from-emerald-300 hover:to-green-300 disabled:opacity-60 disabled:cursor-not-allowed text-black font-bold text-base rounded-xl transition-all shadow-lg shadow-emerald-500/20 active:scale-95 whitespace-nowrap">
+                    {walletConnecting ? <><IconLoader className="w-4 h-4 animate-spin" /> Connecting…</> : <><IconWallet className="w-4 h-4" /> Connect Wallet &amp; Join</>}
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
         </section>
 
