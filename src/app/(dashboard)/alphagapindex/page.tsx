@@ -214,6 +214,18 @@ export default function AlphaGapIndexPage() {
   }, []);
 
   // ── Proxy setup (on-chain tx, fully in-app) ────────────────────────────
+  //
+  // Architecture: sign in browser (Talisman/SubWallet), submit via our backend
+  // over HTTP RPC. This avoids WebSocket subscription issues that caused the
+  // signAndSend callback to never fire.
+  //
+  // Flow:
+  //   1. Connect to Bittensor chain (for metadata + nonce only)
+  //   2. Build proxy.addProxy extrinsic
+  //   3. Sign with wallet extension (triggers Talisman/SubWallet popup)
+  //   4. POST signed hex to /api/bittensor/submit-proxy (server submits over HTTP)
+  //   5. Advance to Step 2
+  //
   const handleSetupProxy = useCallback(async () => {
     if (!selectedAddress) return;
     setJoinStep("proxy-connecting");
@@ -222,78 +234,65 @@ export default function AlphaGapIndexPage() {
     let api: import("@polkadot/api").ApiPromise | null = null;
 
     try {
-      // Dynamic import — @polkadot/api is browser-only (~6MB), only loaded on click
+      // Dynamic imports — browser-only, not in server bundle
       const { ApiPromise, WsProvider } = await import("@polkadot/api");
       const { web3FromAddress } = await import("@polkadot/extension-dapp");
 
-      // Connect to Bittensor Finney mainnet
+      // Connect to get chain metadata (needed to encode the extrinsic correctly)
       const provider = new WsProvider("wss://entrypoint-finney.opentensor.ai:443");
       api = await ApiPromise.create({ provider });
 
-      // Build proxy.addProxy(delegate, proxyType=0 "Any", delay=0)
+      // Build: proxy.addProxy(delegate, proxyType, delay)
+      // proxyType 0 = "Any" — allows TrustedStake to execute all staking ops
       const tx = api.tx.proxy.addProxy(TS_PROXY_ADDRESS, 0, 0);
+
+      // Get signer from wallet extension
       const injector = await web3FromAddress(selectedAddress);
 
+      // ── Step: Sign ─────────────────────────────────────────────────────
+      // signAsync triggers the Talisman/SubWallet popup and returns the
+      // signed extrinsic. No WebSocket subscription — just pure signing.
       setJoinStep("proxy-pending");
+      const signed = await tx.signAsync(selectedAddress, { signer: injector.signer });
+      const extrinsicHex = signed.toHex();
 
-      await new Promise<void>((resolve, reject) => {
-        let resolved = false;
+      // Disconnect WebSocket — we no longer need it
+      api.disconnect().catch(() => {});
+      api = null;
 
-        // Safety timeout — if nothing happens in 90s, give up
-        const timer = setTimeout(() => {
-          if (!resolved) { resolved = true; resolve(); }
-        }, 90_000);
-
-        tx.signAndSend(
-          selectedAddress,
-          { signer: injector.signer },
-          ({ status, dispatchError }) => {
-            if (resolved) return;
-
-            if (dispatchError) {
-              clearTimeout(timer);
-              resolved = true;
-              if (dispatchError.isModule) {
-                const decoded = api!.registry.findMetaError(dispatchError.asModule);
-                // proxy.Duplicate = proxy already exists — treat as success
-                if (decoded.name === "Duplicate") { resolve(); return; }
-                reject(new Error(`${decoded.section}.${decoded.name}: ${decoded.docs.join(" ")}`));
-              } else {
-                reject(new Error(dispatchError.toString()));
-              }
-              return;
-            }
-
-            // Resolve as soon as the tx is broadcast — don't wait for finality.
-            // TrustedStake verifies on-chain at membership register time.
-            if (status.isReady || status.isBroadcast || status.isInBlock || status.isFinalized) {
-              clearTimeout(timer);
-              resolved = true;
-              resolve();
-            }
-
-            // Dropped / invalid = failed
-            if (status.isDropped || status.isInvalid || status.isFinalityTimeout) {
-              clearTimeout(timer);
-              resolved = true;
-              reject(new Error("Transaction was dropped or invalid. Please try again."));
-            }
-          }
-        );
+      // ── Step: Submit via backend ────────────────────────────────────────
+      // Our server POSTs the signed hex to Bittensor's HTTP RPC endpoint.
+      // This is far more reliable than subscribing to a WebSocket in the browser.
+      const submitRes = await fetch("/api/bittensor/submit-proxy", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ extrinsic: extrinsicHex }),
       });
+      const submitData = await submitRes.json();
+
+      if (!submitRes.ok && !submitData.alreadyExists) {
+        throw new Error(submitData.error ?? "Failed to submit transaction");
+      }
+
+      // Success — proxy transaction submitted (or already exists on chain)
 
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      // User rejected the signature prompt — don't show as error, just reset
-      if (msg.toLowerCase().includes("cancelled") || msg.toLowerCase().includes("rejected") || msg.toLowerCase().includes("user rejected")) {
+      api?.disconnect().catch(() => {});
+
+      // User cancelled the wallet prompt — silently reset, no error
+      if (
+        msg.toLowerCase().includes("cancelled") ||
+        msg.toLowerCase().includes("rejected") ||
+        msg.toLowerCase().includes("user rejected")
+      ) {
         setJoinStep("idle");
         return;
       }
+
       setJoinError(msg);
       setJoinStep("error");
       return;
-    } finally {
-      api?.disconnect().catch(() => {});
     }
 
     setJoinStep("proxy-done");
@@ -1002,7 +1001,7 @@ export default function AlphaGapIndexPage() {
                       {(joinStep === "proxy-done" || joinStep === "registering" || joinStep === "success") && (
                         <p className="text-emerald-400 text-sm font-medium">
                           <IconCheck className="w-3.5 h-3.5 inline mr-1.5" />
-                          Proxy authorised — proceed to Step 2
+                          Proxy transaction submitted — wait ~30 seconds for chain confirmation, then register below
                         </p>
                       )}
                     </div>
