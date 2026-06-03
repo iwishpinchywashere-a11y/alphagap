@@ -219,57 +219,84 @@ export default function AlphaGapIndexPage() {
     setJoinStep("proxy-connecting");
     setJoinError(null);
 
+    let api: import("@polkadot/api").ApiPromise | null = null;
+
     try {
-      // Dynamic import — @polkadot/api is browser-only and large (~6MB)
+      // Dynamic import — @polkadot/api is browser-only (~6MB), only loaded on click
       const { ApiPromise, WsProvider } = await import("@polkadot/api");
       const { web3FromAddress } = await import("@polkadot/extension-dapp");
 
-      setJoinStep("proxy-pending");
-
       // Connect to Bittensor Finney mainnet
       const provider = new WsProvider("wss://entrypoint-finney.opentensor.ai:443");
-      const api = await ApiPromise.create({ provider });
+      api = await ApiPromise.create({ provider });
 
-      // Build proxy.addProxy extrinsic:
-      //   delegate = TrustedStake shared proxy address
-      //   proxyType = 0 ("Any" — allows all operations incl. staking)
-      //   delay = 0 (no time-lock)
+      // Build proxy.addProxy(delegate, proxyType=0 "Any", delay=0)
       const tx = api.tx.proxy.addProxy(TS_PROXY_ADDRESS, 0, 0);
-
-      // Sign + submit via connected wallet (Talisman / SubWallet)
       const injector = await web3FromAddress(selectedAddress);
 
+      setJoinStep("proxy-pending");
+
       await new Promise<void>((resolve, reject) => {
+        let resolved = false;
+
+        // Safety timeout — if nothing happens in 90s, give up
+        const timer = setTimeout(() => {
+          if (!resolved) { resolved = true; resolve(); }
+        }, 90_000);
+
         tx.signAndSend(
           selectedAddress,
           { signer: injector.signer },
           ({ status, dispatchError }) => {
+            if (resolved) return;
+
             if (dispatchError) {
+              clearTimeout(timer);
+              resolved = true;
               if (dispatchError.isModule) {
-                const decoded = api.registry.findMetaError(dispatchError.asModule);
+                const decoded = api!.registry.findMetaError(dispatchError.asModule);
+                // proxy.Duplicate = proxy already exists — treat as success
+                if (decoded.name === "Duplicate") { resolve(); return; }
                 reject(new Error(`${decoded.section}.${decoded.name}: ${decoded.docs.join(" ")}`));
               } else {
                 reject(new Error(dispatchError.toString()));
               }
-            } else if (status.isInBlock || status.isFinalized) {
+              return;
+            }
+
+            // Resolve as soon as the tx is broadcast — don't wait for finality.
+            // TrustedStake verifies on-chain at membership register time.
+            if (status.isReady || status.isBroadcast || status.isInBlock || status.isFinalized) {
+              clearTimeout(timer);
+              resolved = true;
               resolve();
+            }
+
+            // Dropped / invalid = failed
+            if (status.isDropped || status.isInvalid || status.isFinalityTimeout) {
+              clearTimeout(timer);
+              resolved = true;
+              reject(new Error("Transaction was dropped or invalid. Please try again."));
             }
           }
         );
       });
 
-      await api.disconnect();
-      setJoinStep("proxy-done");
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      // "Already exists" means proxy is already set up — that's fine, proceed
-      if (msg.toLowerCase().includes("already") || msg.toLowerCase().includes("duplicate")) {
-        setJoinStep("proxy-done");
-      } else {
-        setJoinError(msg);
-        setJoinStep("error");
+      // User rejected the signature prompt — don't show as error, just reset
+      if (msg.toLowerCase().includes("cancelled") || msg.toLowerCase().includes("rejected") || msg.toLowerCase().includes("user rejected")) {
+        setJoinStep("idle");
+        return;
       }
+      setJoinError(msg);
+      setJoinStep("error");
+      return;
+    } finally {
+      api?.disconnect().catch(() => {});
     }
+
+    setJoinStep("proxy-done");
   }, [selectedAddress]);
 
   // ── Join flow ───────────────────────────────────────────────────────────
