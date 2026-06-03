@@ -213,16 +213,20 @@ export default function AlphaGapIndexPage() {
     setLeaveError(null);
   }, []);
 
-  // ── Proxy setup (on-chain tx, fully in-app) ────────────────────────────
+  // ── Proxy setup (on-chain tx, fully in-browser via signAndSend) ───────
   //
-  // Architecture: extrinsic building happens server-side (reliable), only
-  // the signature is produced in the browser wallet extension.
+  // Architecture: @polkadot/api handles all chain-specific payload encoding
+  // internally, exactly like TrustedStake's own app. signAndSend triggers the
+  // Talisman/SubWallet popup and manages signing + submission in one call.
   //
   // Flow:
-  //   1. GET /api/bittensor/proxy-payload?address=... → server builds signing payload
-  //   2. Browser signs payload with Talisman/SubWallet (triggers wallet popup)
-  //   3. POST {address, signature, payload} → /api/bittensor/submit-proxy
-  //   4. Server reconstructs signed extrinsic and submits via HTTP RPC
+  //   1. Dynamic import @polkadot/api (browser only)
+  //   2. WsProvider + ApiPromise.create() → connects to chain, downloads metadata
+  //   3. api.tx.proxy.addProxy(TS_PROXY_ADDRESS, 0, 0) → build the call
+  //   4. web3FromAddress(selectedAddress) → get injector from Talisman/SubWallet
+  //   5. signAndSend with 45-second timeout race
+  //   6. Resolve on isReady/isBroadcast/isInBlock/isFinalized (tx is on its way)
+  //   7. api.disconnect()
   //
   const handleSetupProxy = useCallback(async () => {
     if (!selectedAddress) return;
@@ -230,43 +234,80 @@ export default function AlphaGapIndexPage() {
     setJoinError(null);
 
     try {
-      // ── Step 1: Get signing payload from server ────────────────────────
-      const payloadRes = await fetch(
-        `/api/bittensor/proxy-payload?address=${encodeURIComponent(selectedAddress)}`
-      );
-      const payloadData = await payloadRes.json();
-      if (!payloadRes.ok) {
-        throw new Error(payloadData.error ?? "Failed to build transaction payload");
+      // ── Step 1-2: Connect to Bittensor via WebSocket ──────────────────
+      const { ApiPromise, WsProvider } = await import("@polkadot/api");
+      const provider = new WsProvider("wss://entrypoint-finney.opentensor.ai:443");
+      const api = await ApiPromise.create({ provider });
+
+      try {
+        // ── Step 3: Build the call ────────────────────────────────────────
+        const tx = api.tx.proxy.addProxy(TS_PROXY_ADDRESS, 0, 0);
+
+        // ── Step 4: Get injector ──────────────────────────────────────────
+        const { web3FromAddress } = await import("@polkadot/extension-dapp");
+        const injector = await web3FromAddress(selectedAddress);
+
+        // ── Step 5: Prompt wallet (triggers popup) ────────────────────────
+        setJoinStep("proxy-pending");
+
+        // ── Step 6: signAndSend with race/timeout ─────────────────────────
+        await new Promise<void>((resolve, reject) => {
+          let unsub: (() => void) | null = null;
+
+          // On timeout: the tx was already submitted — advance anyway
+          const timeout = setTimeout(() => {
+            unsub?.();
+            resolve();
+          }, 45_000);
+
+          const subPromise = tx.signAndSend(
+            selectedAddress,
+            { signer: injector.signer },
+            ({ status, dispatchError }) => {
+              if (dispatchError) {
+                clearTimeout(timeout);
+                unsub?.();
+
+                if (dispatchError.isModule) {
+                  try {
+                    const decoded = api.registry.findMetaError(dispatchError.asModule);
+                    // "Duplicate" means proxy already exists — treat as success
+                    if (decoded.name === "Duplicate") {
+                      resolve();
+                      return;
+                    }
+                    reject(new Error(`${decoded.section}.${decoded.name}: ${decoded.docs.join(" ")}`));
+                  } catch {
+                    reject(new Error(dispatchError.toString()));
+                  }
+                } else {
+                  reject(new Error(dispatchError.toString()));
+                }
+              } else if (
+                status.isReady ||
+                status.isBroadcast ||
+                status.isInBlock ||
+                status.isFinalized
+              ) {
+                clearTimeout(timeout);
+                unsub?.();
+                resolve();
+              } else if (status.isDropped || status.isInvalid) {
+                clearTimeout(timeout);
+                unsub?.();
+                reject(new Error("Transaction was dropped or invalid"));
+              }
+            }
+          );
+
+          subPromise.then((fn) => { unsub = fn; }).catch((err) => {
+            clearTimeout(timeout);
+            reject(err);
+          });
+        });
+      } finally {
+        api.disconnect().catch(() => {});
       }
-      const { payload } = payloadData as { payload: Record<string, unknown> };
-
-      // ── Step 2: Sign in browser (triggers wallet popup) ────────────────
-      const { web3FromAddress } = await import("@polkadot/extension-dapp");
-      const injector = await web3FromAddress(selectedAddress);
-
-      setJoinStep("proxy-pending"); // "Check your wallet — sign the proxy transaction…"
-
-      // signPayload is the standard Substrate signing interface — Talisman and
-      // SubWallet both support it fully. It signs a structured extrinsic payload
-      // (not raw bytes), so the wallet shows the decoded call details.
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const signResult = await (injector.signer.signPayload as any)(payload);
-
-      const { signature } = signResult;
-
-      // ── Step 3: Submit via server (server reconstructs + submits) ────
-      const submitRes = await fetch("/api/bittensor/submit-proxy", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ address: selectedAddress, signature, payload }),
-      });
-      const submitData = await submitRes.json();
-
-      if (!submitRes.ok && !submitData.alreadyExists) {
-        throw new Error(submitData.error ?? "Failed to submit transaction");
-      }
-
-      // Proxy transaction is on its way to chain
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
 
@@ -991,7 +1032,7 @@ export default function AlphaGapIndexPage() {
                       {(joinStep === "proxy-done" || joinStep === "registering" || joinStep === "success") && (
                         <p className="text-emerald-400 text-sm font-medium">
                           <IconCheck className="w-3.5 h-3.5 inline mr-1.5" />
-                          Proxy transaction submitted — wait ~30 seconds for chain confirmation, then register below
+                          Proxy authorised — wait ~30 seconds for the transaction to confirm on-chain, then register below
                         </p>
                       )}
                     </div>
