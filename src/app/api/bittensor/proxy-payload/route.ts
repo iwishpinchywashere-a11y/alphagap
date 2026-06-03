@@ -3,9 +3,7 @@
  *
  * Ultra-gated. Builds the proxy.addProxy signing payload server-side using
  * @polkadot/api connected to Bittensor Finney, and returns it as JSON for the
- * browser to sign with Talisman/SubWallet.
- *
- * Returns: { payload: SignerPayloadJSON } — pass directly to signer.signPayload()
+ * browser to sign with Talisman/SubWallet via signer.signPayload().
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -18,7 +16,6 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 30;
 
 const BITTENSOR_WSS = "wss://entrypoint-finney.opentensor.ai:443";
-// TrustedStake shared proxy address for custom strategies
 const TS_PROXY_ADDRESS = "5CeJG2T47NxUAAc42q2zoU7qV1YFy4khL3ogHxooVjNKxUuw";
 
 export async function GET(req: NextRequest) {
@@ -37,63 +34,56 @@ export async function GET(req: NextRequest) {
     const provider = new WsProvider(BITTENSOR_WSS);
     api = await ApiPromise.create({ provider });
 
-    // Build the proxy.addProxy call
-    // proxyType 0 = first variant (Any) — allows TrustedStake to execute staking ops
+    // Build the call
     const tx = api.tx.proxy.addProxy(TS_PROXY_ADDRESS, 0, 0);
 
-    // Build the signing payload — this needs to be done while connected to the
-    // chain so we get the correct nonce, blockHash, genesisHash, specVersion etc.
-    const { nonce, blockHash, genesisHash, runtimeVersion } = await Promise.all([
+    // Fetch everything needed for the signing payload in parallel
+    const [nonce, latestBlockHash, genesisHash, runtimeVersion] = await Promise.all([
       api.rpc.system.accountNextIndex(address),
-      api.rpc.chain.getBlockHash(),
-      api.rpc.chain.getBlockHash(0),
+      api.rpc.chain.getBlockHash(),       // current tip (used for mortal era)
+      api.rpc.chain.getBlockHash(0),       // genesis hash
       api.rpc.state.getRuntimeVersion(),
-    ]).then(([nonce, blockHash, genesisHash, rv]) => ({
-      nonce,
-      blockHash: blockHash.toHex(),
-      genesisHash: genesisHash.toHex(),
-      runtimeVersion: rv,
-    }));
+    ]);
 
-    // Construct the SignerPayloadJSON that Talisman/SubWallet's signPayload expects.
-    //
-    // IMPORTANT: For immortal era (era = "0x00"), Substrate requires blockHash = genesisHash.
-    // Using the latest block hash causes a "bad signature" error because the chain
-    // verifies the signature against genesisHash for immortal transactions.
-    const rv = runtimeVersion as unknown as {
-      specVersion: { toHex(): string };
-      transactionVersion: { toHex(): string };
-    };
+    // Get the real signed extensions from the chain's registry.
+    // Never hardcode these — if one name doesn't match the chain runtime,
+    // Talisman crashes with "Oops".
+    const signedExtensions = api.registry.signedExtensions;
+
+    // Log for debugging
+    console.log("[proxy-payload] signedExtensions:", signedExtensions);
+    console.log("[proxy-payload] specVersion:", runtimeVersion.specVersion.toNumber());
+    console.log("[proxy-payload] transactionVersion:", runtimeVersion.transactionVersion.toNumber());
+
+    // Use mortal era (valid for ~2 hours from latest block) rather than immortal.
+    // Immortal era requires blockHash=genesisHash which some wallets handle
+    // differently; mortal era is simpler and explicit about which block it's for.
+    const era = api.registry.createType("ExtrinsicEra", {
+      current: latestBlockHash,
+      period: 64, // ~64 blocks ≈ ~12 minutes
+    });
 
     const signerPayload = {
       address,
-      blockHash:          genesisHash,   // must equal genesisHash for immortal era
-      blockNumber:        "0x00000000",
-      era:                "0x00",         // 0x00 = immortal (valid forever)
-      genesisHash,
+      blockHash:          latestBlockHash.toHex(),
+      blockNumber:        api.registry.createType("BlockNumber",
+        await api.rpc.chain.getHeader(latestBlockHash).then(h => h.number.toHex())
+      ).toHex(),
+      era:                era.toHex(),
+      genesisHash:        genesisHash.toHex(),
       method:             tx.method.toHex(),
       nonce:              nonce.toHex(),
-      specVersion:        rv.specVersion.toHex(),
+      signedExtensions,
+      specVersion:        runtimeVersion.specVersion.toHex(),
       tip:                "0x00000000000000000000000000000000",
-      transactionVersion: rv.transactionVersion.toHex(),
+      transactionVersion: runtimeVersion.transactionVersion.toHex(),
       version:            4,
-      signedExtensions:   [
-        "CheckNonZeroSender",
-        "CheckSpecVersion",
-        "CheckTxVersion",
-        "CheckGenesis",
-        "CheckMortality",
-        "CheckNonce",
-        "CheckWeight",
-        "ChargeTransactionPayment",
-        "CommitmentsSignedExtension",
-      ],
     };
 
     return NextResponse.json({ payload: signerPayload });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    console.error("[proxy-payload]", msg);
+    console.error("[proxy-payload] error:", msg);
     return NextResponse.json({ error: msg }, { status: 500 });
   } finally {
     api?.disconnect().catch(() => {});
