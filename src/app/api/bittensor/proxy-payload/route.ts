@@ -55,22 +55,39 @@ export async function GET(req: NextRequest) {
       runtimeVersion: rv,
     }));
 
-    // Construct the SignerPayloadJSON that Talisman/SubWallet's signPayload expects
+    // Construct the SignerPayloadJSON that Talisman/SubWallet's signPayload expects.
+    //
+    // IMPORTANT: For immortal era (era = "0x00"), Substrate requires blockHash = genesisHash.
+    // Using the latest block hash causes a "bad signature" error because the chain
+    // verifies the signature against genesisHash for immortal transactions.
+    const rv = runtimeVersion as unknown as {
+      specVersion: { toHex(): string };
+      transactionVersion: { toHex(): string };
+    };
+
     const signerPayload = {
       address,
-      blockHash,
-      blockNumber: "0x00000000", // mortal era — not needed for immortal
-      era: "0x00",              // immortal era (0x00)
+      blockHash:          genesisHash,   // must equal genesisHash for immortal era
+      blockNumber:        "0x00000000",
+      era:                "0x00",         // 0x00 = immortal (valid forever)
       genesisHash,
-      method: tx.method.toHex(),
-      nonce: nonce.toHex(),
-      signedExtensions: runtimeVersion.toJSON().apis
-        ? undefined
-        : undefined,
-      specVersion: (runtimeVersion as unknown as { specVersion: { toHex(): string } }).specVersion.toHex(),
-      tip: "0x00000000000000000000000000000000",
-      transactionVersion: (runtimeVersion as unknown as { transactionVersion: { toHex(): string } }).transactionVersion.toHex(),
-      version: 4,
+      method:             tx.method.toHex(),
+      nonce:              nonce.toHex(),
+      specVersion:        rv.specVersion.toHex(),
+      tip:                "0x00000000000000000000000000000000",
+      transactionVersion: rv.transactionVersion.toHex(),
+      version:            4,
+      signedExtensions:   [
+        "CheckNonZeroSender",
+        "CheckSpecVersion",
+        "CheckTxVersion",
+        "CheckGenesis",
+        "CheckMortality",
+        "CheckNonce",
+        "CheckWeight",
+        "ChargeTransactionPayment",
+        "CommitmentsSignedExtension",
+      ],
     };
 
     return NextResponse.json({ payload: signerPayload });
