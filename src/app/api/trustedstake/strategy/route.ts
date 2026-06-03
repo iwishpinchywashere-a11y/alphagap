@@ -12,20 +12,20 @@ import { NextResponse } from "next/server";
 export const revalidate = 300;
 
 const TS_STRATEGY_ID = "97d1325b-9ee9-4bd1-bd58-893d707f85c4";
-const TS_PUBLIC_BASE = "https://api.app.trustedstake.ai/api/v1";
+const TS_BASE = "https://api.app.trustedstake.ai";
 
 export async function GET() {
   try {
     const [strategyRes, apyRes, aumRes] = await Promise.allSettled([
-      fetch(`${TS_PUBLIC_BASE}/custom-strategies/${TS_STRATEGY_ID}`, {
+      fetch(`${TS_BASE}/api/v1/custom-strategies/${TS_STRATEGY_ID}`, {
         next: { revalidate: 300 },
         signal: AbortSignal.timeout(10000),
       }),
-      fetch(`${TS_PUBLIC_BASE}/tmc-apy/${TS_STRATEGY_ID}`, {
+      fetch(`${TS_BASE}/tmc-apy/${TS_STRATEGY_ID}`, {
         next: { revalidate: 300 },
         signal: AbortSignal.timeout(10000),
       }),
-      fetch(`${TS_PUBLIC_BASE}/aum-snapshots/summary?strategyType=custom`, {
+      fetch(`${TS_BASE}/aum-snapshots/summary?strategyType=custom`, {
         next: { revalidate: 300 },
         signal: AbortSignal.timeout(10000),
       }),
@@ -48,27 +48,25 @@ export async function GET() {
       lastUpdated = s.updatedAt ?? null;
     }
 
-    // APY
+    // APY — response shape: { strategyId, strategyName, weightedApy, ... }
     let apy: number | null = null;
     if (apyRes.status === "fulfilled" && apyRes.value.ok) {
       const d = await apyRes.value.json();
-      const raw = d.data?.apy ?? d.apy ?? null;
+      const raw = d.weightedApy ?? null;
       if (raw != null) apy = Number(raw);
     }
 
-    // AUM + delegators
+    // AUM + delegators — response shape: Array<{ strategyId, latestAumTao, delegatorsTotal, ... }>
     let aumTao: number | null = null;
     let delegatorsTotal: number | null = null;
     if (aumRes.status === "fulfilled" && aumRes.value.ok) {
       const d = await aumRes.value.json();
-      const list: Array<{ strategyId?: string; aumTao?: number; totalDelegators?: number }> =
-        d.data ?? d.strategies ?? d ?? [];
-      const entry = Array.isArray(list)
-        ? list.find((e) => e.strategyId === TS_STRATEGY_ID)
-        : null;
+      const list: Array<{ strategyId?: string; latestAumTao?: string; delegatorsTotal?: number }> =
+        Array.isArray(d) ? d : (d.data ?? d.strategies ?? []);
+      const entry = list.find((e) => e.strategyId === TS_STRATEGY_ID);
       if (entry) {
-        aumTao = entry.aumTao ?? null;
-        delegatorsTotal = entry.totalDelegators ?? null;
+        aumTao = entry.latestAumTao != null ? Number(entry.latestAumTao) : null;
+        delegatorsTotal = entry.delegatorsTotal ?? null;
       }
     }
 
