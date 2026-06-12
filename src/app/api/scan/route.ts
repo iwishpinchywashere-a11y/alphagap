@@ -1833,25 +1833,32 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
       score += Math.min(10, hf);
     }
 
-    // Hard cap at 75 before quality & boost adjustments.
-    // Quality and big events are what push a subnet into 80-100.
-    // Raised from 70 → 75 so genuinely high-velocity teams aren't artificially
-    // capped when the AI quality scan didn't fire for them on this particular run.
-    score = Math.min(75, score);
+    // Hard cap at 60 before quality adjustment.
+    // Quantity (commits, LOC, PRs) can only carry you to 60 — quality is what
+    // separates a focused team shipping real work from a noisy commit farm.
+    // A moderate-volume team with excellent AI quality (60+40=100) should outrank
+    // a high-volume team that never ships anything meaningful (60−15=45).
+    score = Math.min(60, score);
 
-    // ── 6. AI QUALITY ADJUSTMENT (−10 to +25 pts) ────────────────────
-    // Separates "committing a lot" from "shipping something important"
-    // This is the key driver for getting into the 80-100 range
+    // ── 6. AI QUALITY ADJUSTMENT (−15 to +40 pts) ────────────────────
+    // This is the primary driver for reaching 70–100. Expanded range makes
+    // quality the decisive differentiator, not just a minor additive bonus.
+    // When the AI scan didn't fire this cycle, apply a small neutral default
+    // so active subnets aren't silently penalised for a missed scan window.
     const aiQuality = aiQualityMap.get(d.netuid);
     if (aiQuality !== undefined) {
       const adj =
-        aiQuality >= 95 ? 25 :   // groundbreaking — architectural shift / research breakthrough
-        aiQuality >= 85 ? 18 :   // major feature or meaningful milestone
-        aiQuality >= 70 ? 12 :   // solid, quality work
-        aiQuality >= 50 ? 5  :   // routine but valid progress
-        aiQuality >= 30 ? -2 :   // low signal / noisy commits
-        -10;                      // spam / trivial changes
+        aiQuality >= 95 ? 40 :   // groundbreaking — architectural shift / research breakthrough
+        aiQuality >= 85 ? 28 :   // major feature or meaningful milestone
+        aiQuality >= 70 ? 16 :   // solid, quality work
+        aiQuality >= 50 ? 6  :   // routine but valid progress
+        aiQuality >= 30 ? -5 :   // low signal / noisy commits
+        -15;                      // spam / trivial changes
       score = Math.min(100, Math.max(0, score + adj));
+    } else if (hasVerifiedRecentActivity) {
+      // AI scan didn't run this cycle — neutral +5 so active subnets aren't
+      // artificially suppressed just because they weren't sampled this pass.
+      score = Math.min(100, score + 5);
     }
 
     // ── 7. BIG EVENT BOOST ────────────────────────────────────────────
