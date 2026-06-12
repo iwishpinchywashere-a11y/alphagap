@@ -46,7 +46,7 @@
     },
     {
       "path": "/api/cron/index-rebalance",
-      "schedule": "0 0 * * 0"
+      "schedule": "0 12 * * *"
     }
   ]
 }

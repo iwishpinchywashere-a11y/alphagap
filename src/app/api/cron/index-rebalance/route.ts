@@ -1,7 +1,10 @@
 /**
  * GET /api/cron/index-rebalance
  *
- * Runs every Sunday at 00:00 UTC.
+ * Scheduled daily at 12:00 UTC. Only rebalances when:
+ *   - It's Sunday (UTC), OR
+ *   - Last rebalance was >5 days ago (catches missed Sunday runs).
+ *
  * 1. Reads scan-latest.json from Vercel Blob
  * 2. Takes the top 10 subnets by invest_agap score
  * 3. Normalises scores to integer weights summing to exactly 100
@@ -10,7 +13,7 @@
  * 6. Writes index-rebalance-latest.json to Vercel Blob for display on /alphagapindex
  *
  * Also callable manually via POST /api/admin/trigger-index-rebalance
- * (see that route for admin-only manual trigger).
+ * (see that route for admin-only manual trigger — always runs regardless of day).
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -21,6 +24,7 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 const BLOB_TOKEN = process.env.BLOB_READ_WRITE_TOKEN || "";
+const REBALANCE_INTERVAL_DAYS = 5; // rebalance if last run was >5 days ago
 
 interface LeaderboardEntry {
   netuid: number;
@@ -33,6 +37,20 @@ interface LeaderboardEntry {
   category?: string;
 }
 
+async function getLastRebalancedAt(): Promise<Date | null> {
+  try {
+    const blob = await blobGet("index-rebalance-latest.json", { token: BLOB_TOKEN, access: "private" });
+    if (!blob?.stream) return null;
+    const reader = blob.stream.getReader();
+    const chunks: Uint8Array[] = [];
+    while (true) { const { done, value } = await reader.read(); if (done) break; chunks.push(value); }
+    const data = JSON.parse(Buffer.concat(chunks).toString("utf-8"));
+    return data.rebalancedAt ? new Date(data.rebalancedAt) : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function GET(req: NextRequest) {
   // ── Auth: Vercel cron header or CRON_SECRET bearer ───────────────
   const isVercelCron = req.headers.get("x-vercel-cron") === "1";
@@ -42,6 +60,23 @@ export async function GET(req: NextRequest) {
     if (auth !== `Bearer ${cronSecret}`) {
       return NextResponse.json({ error: "unauthorized" }, { status: 401 });
     }
+  }
+
+  // ── Guard: only rebalance on Sunday or if overdue ────────────────
+  if (isVercelCron) {
+    const now = new Date();
+    const isSunday = now.getUTCDay() === 0;
+    const lastRun = await getLastRebalancedAt();
+    const daysSinceLast = lastRun
+      ? (now.getTime() - lastRun.getTime()) / (1000 * 60 * 60 * 24)
+      : Infinity;
+    const isOverdue = daysSinceLast > REBALANCE_INTERVAL_DAYS;
+
+    if (!isSunday && !isOverdue) {
+      console.log(`[index-rebalance] Skipping — not Sunday and last run was ${daysSinceLast.toFixed(1)}d ago`);
+      return NextResponse.json({ skipped: true, reason: "not Sunday", daysSinceLast });
+    }
+    console.log(`[index-rebalance] Running — isSunday=${isSunday}, daysSinceLast=${daysSinceLast.toFixed(1)}`);
   }
 
   return runRebalance();
