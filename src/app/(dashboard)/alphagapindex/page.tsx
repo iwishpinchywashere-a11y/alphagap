@@ -512,18 +512,6 @@ export default function AlphaGapIndexPage() {
               <span className="font-bold text-sm tabular-nums">{liveApy.toFixed(2)}% APY</span>
               <span className="text-emerald-600 text-xs">14d</span>
             </div>
-            <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 border border-white/8 text-gray-300">
-              <IconDollar className="w-4 h-4 text-gray-500" />
-              <span className="font-semibold text-sm tabular-nums">
-                {strategyData ? formatTao(strategyData.aumTao) : "—"} AUM
-              </span>
-            </div>
-            <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 border border-white/8 text-gray-300">
-              <IconUsers className="w-4 h-4 text-gray-500" />
-              <span className="font-semibold text-sm tabular-nums">
-                {strategyData?.delegatorsTotal != null ? strategyData.delegatorsTotal : "—"} Members
-              </span>
-            </div>
           </div>
 
           {/* 3-step visual */}
