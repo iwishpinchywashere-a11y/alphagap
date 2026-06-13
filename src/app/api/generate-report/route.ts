@@ -15,7 +15,16 @@ const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY || "";
 const RAO = 1e9;
 
 // GET handler for Vercel cron job
-export async function GET() {
+export async function GET(req: Request) {
+  // Auth: Vercel cron header or CRON_SECRET bearer
+  const isVercelCron = req.headers.get("x-vercel-cron") === "1";
+  if (!isVercelCron) {
+    const cronSecret = process.env.CRON_SECRET;
+    const auth = req.headers.get("authorization");
+    if (!cronSecret || auth !== `Bearer ${cronSecret}`) {
+      return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+    }
+  }
   return generateReport();
 }
 
@@ -118,6 +127,13 @@ async function generateReport(forceNetuid?: number, forceDate?: string) {
       }
     }
     console.log(`[report] Subnets reported in last ${REPORT_COOLDOWN_DAYS} days (cooldown): ${[...recentNetuids.keys()].join(", ")}`);
+
+    // ── Idempotency: skip if today's report already exists ───────────────
+    const today = forceDate || new Date().toISOString().split("T")[0];
+    if (!forceNetuid && !forceDate && reportIndex[today] !== undefined) {
+      console.log(`[report] Today's report (${today}) already exists for SN${reportIndex[today]} — skipping`);
+      return NextResponse.json({ skipped: true, date: today, netuid: reportIndex[today] });
+    }
 
     if (forceNetuid) {
       // Manual request — still enforce cooldown
@@ -350,6 +366,7 @@ Write the report using EXACTLY this structure. Be concise and punchy — each se
         max_tokens: 4000,
         messages: [{ role: "user", content: safePrompt }],
       }),
+      signal: AbortSignal.timeout(120000),
     });
 
     if (!res.ok) {
@@ -405,7 +422,6 @@ Write the report using EXACTLY this structure. Be concise and punchy — each se
     }
 
     // Step 5: Store the report in Vercel Blob
-    const today = forceDate || new Date().toISOString().split("T")[0];
     const report = {
       date: today,
       netuid: targetNetuid,

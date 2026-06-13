@@ -8,16 +8,17 @@ function ghHeaders(): Record<string, string> {
   return h;
 }
 
+const GH_TIMEOUT_MS = 12000;
+
 // ── Fetch GitHub README ──────────────────────────────────────────
 export async function fetchReadme(owner: string, repo: string): Promise<string | null> {
   try {
     const res = await fetch(
       `https://api.github.com/repos/${owner}/${repo}/readme`,
-      { headers: { ...ghHeaders(), Accept: "application/vnd.github.raw+json" } }
+      { headers: { ...ghHeaders(), Accept: "application/vnd.github.raw+json" }, signal: AbortSignal.timeout(GH_TIMEOUT_MS) }
     );
     if (!res.ok) return null;
     const text = await res.text();
-    // Truncate to ~3000 chars to save tokens
     return text.slice(0, 3000);
   } catch {
     return null;
@@ -34,7 +35,7 @@ export async function fetchLatestRelease(owner: string, repo: string): Promise<{
   try {
     const res = await fetch(
       `https://api.github.com/repos/${owner}/${repo}/releases/latest`,
-      { headers: ghHeaders() }
+      { headers: ghHeaders(), signal: AbortSignal.timeout(GH_TIMEOUT_MS) }
     );
     if (!res.ok) return null;
     const data = await res.json();
@@ -54,12 +55,11 @@ export async function fetchRecentCommits(owner: string, repo: string, count: num
   try {
     const res = await fetch(
       `https://api.github.com/repos/${owner}/${repo}/commits?per_page=${count}`,
-      { headers: ghHeaders() }
+      { headers: ghHeaders(), signal: AbortSignal.timeout(GH_TIMEOUT_MS) }
     );
     if (!res.ok) return [];
     const data = await res.json();
     return data.map((c: { commit: { message: string; author: { date: string } }; sha: string }) => {
-      // Include full commit message (not just first line) — this is where the detail is
       const msg = c.commit.message.slice(0, 300);
       const date = c.commit.author.date?.slice(0, 10) || "";
       return `[${date}] ${c.sha.slice(0, 7)}: ${msg}`;
@@ -74,12 +74,12 @@ export async function fetchRecentPRs(owner: string, repo: string, count: number 
   try {
     const res = await fetch(
       `https://api.github.com/repos/${owner}/${repo}/pulls?state=closed&sort=updated&direction=desc&per_page=${count}`,
-      { headers: ghHeaders() }
+      { headers: ghHeaders(), signal: AbortSignal.timeout(GH_TIMEOUT_MS) }
     );
     if (!res.ok) return [];
     const data = await res.json();
     return data
-      .filter((pr: { merged_at: string | null }) => pr.merged_at) // only merged PRs
+      .filter((pr: { merged_at: string | null }) => pr.merged_at)
       .map((pr: { title: string; body: string | null; merged_at: string; user: { login: string } }) => {
         const body = (pr.body || "").slice(0, 400);
         const date = pr.merged_at?.slice(0, 10) || "";
@@ -90,10 +90,12 @@ export async function fetchRecentPRs(owner: string, repo: string, count: number 
   }
 }
 
+const HF_TIMEOUT_MS = 10000;
+
 // ── Fetch HuggingFace model card ─────────────────────────────────
 export async function fetchModelCard(modelId: string): Promise<string | null> {
   try {
-    const res = await fetch(`https://huggingface.co/api/models/${modelId}`);
+    const res = await fetch(`https://huggingface.co/api/models/${modelId}`, { signal: AbortSignal.timeout(HF_TIMEOUT_MS) });
     if (!res.ok) return null;
     const data = await res.json();
 
@@ -107,8 +109,7 @@ export async function fetchModelCard(modelId: string): Promise<string | null> {
     if (data.cardData?.datasets) parts.push(`Datasets: ${[].concat(data.cardData.datasets).slice(0, 5).join(", ")}`);
     if (data.cardData?.language) parts.push(`Language: ${[].concat(data.cardData.language).join(", ")}`);
 
-    // Also try to get the README/model card text
-    const readmeRes = await fetch(`https://huggingface.co/${modelId}/raw/main/README.md`);
+    const readmeRes = await fetch(`https://huggingface.co/${modelId}/raw/main/README.md`, { signal: AbortSignal.timeout(HF_TIMEOUT_MS) });
     if (readmeRes.ok) {
       const readme = await readmeRes.text();
       parts.push(`\n--- Model Card ---\n${readme.slice(0, 2000)}`);
@@ -123,7 +124,7 @@ export async function fetchModelCard(modelId: string): Promise<string | null> {
 // ── Fetch HuggingFace dataset info ───────────────────────────────
 export async function fetchDatasetInfo(datasetId: string): Promise<string | null> {
   try {
-    const res = await fetch(`https://huggingface.co/api/datasets/${datasetId}`);
+    const res = await fetch(`https://huggingface.co/api/datasets/${datasetId}`, { signal: AbortSignal.timeout(HF_TIMEOUT_MS) });
     if (!res.ok) return null;
     const data = await res.json();
 
