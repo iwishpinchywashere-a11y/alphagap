@@ -54,6 +54,7 @@ const PLANS = [
     features: [
       "Everything in Premium",
       "📊 AlphaGap Index — auto-invest your TAO into the top 10 subnets",
+      "🔄 Weekly auto-rebalancing tracks the top 10 as scores shift",
       "🔮 TAO Oracle — 20 queries/day (2× Premium)",
       "Priority access to new Ultra-only features",
       "Cancel anytime",
@@ -96,7 +97,7 @@ export default function PricingPage() {
       {/* Background glow */}
       <div className="fixed top-0 left-1/2 -translate-x-1/2 w-[700px] h-[400px] bg-green-500/5 rounded-full blur-[120px] pointer-events-none" />
 
-      <div className="relative max-w-3xl mx-auto px-4 py-14 sm:py-20">
+      <div className="relative max-w-5xl mx-auto px-4 py-14 sm:py-20">
         {/* Header */}
         <div className="text-center mb-12">
           <div className="flex justify-center mb-10">
