@@ -529,17 +529,29 @@ function SubscribeContent() {
               </div>
               <ul className="space-y-2.5 mb-8 flex-1">
                 {([
-                  { icon: "leaderboard", text: "Full Alpha Leaderboard — all 128 subnets" },
-                  { icon: "signals",     text: "AI Signal Intelligence — all signals" },
-                  { icon: "reports",     text: "Daily AI Deep-Dive Reports" },
-                  { icon: "whale",       text: "Whale & Smart Money Tracker" },
-                  { icon: "social",      text: "Twitter/X social momentum feed" },
-                  { icon: "pumplab",     text: "Pump Lab" },
-                  { icon: "wallet",      text: "Wallet Tracker" },
-                  { icon: "index",       text: "AlphaGap Index — auto-invest TAO into top 10 subnets" },
-                  { icon: "rebalance",   text: "Weekly auto-rebalancing" },
-                  { icon: "oracle",      text: "Oracle — 20 queries/day (2× Premium)" },
-                  { icon: "priority",    text: "Priority access to new Ultra features" },
+                  { icon: "check",     text: "Everything in Premium" },
+                ] as { icon: string; text: string }[]).map(f => (
+                  <li key={f.text} className="flex items-start gap-2 text-xs text-gray-300">
+                    <span className="text-amber-400 shrink-0 mt-0.5"><PIcon name={f.icon} /></span>
+                    {f.text}
+                  </li>
+                ))}
+                <li className="mt-3 mb-1 text-[10px] font-bold text-amber-400 uppercase tracking-wider">AlphaGap Index</li>
+                {([
+                  { icon: "index",     text: "Auto-invest your TAO into the top 10 subnets" },
+                  { icon: "rebalance", text: "Weekly auto-rebalancing as scores shift" },
+                  { icon: "leaderboard", text: "Weight proportional to aGap score" },
+                  { icon: "wallet",    text: "Non-custodial — your TAO never leaves your wallet" },
+                  { icon: "priority",  text: "Powered by TrustedStake" },
+                ] as { icon: string; text: string }[]).map(f => (
+                  <li key={f.text} className="flex items-start gap-2 text-xs text-gray-300">
+                    <span className="text-amber-400 shrink-0 mt-0.5"><PIcon name={f.icon} /></span>
+                    {f.text}
+                  </li>
+                ))}
+                <li className="mt-3 mb-1 text-[10px] font-bold text-amber-400 uppercase tracking-wider">Oracle</li>
+                {([
+                  { icon: "oracle",    text: "20 queries/day — 2× more than Premium" },
                 ] as { icon: string; text: string }[]).map(f => (
                   <li key={f.text} className="flex items-start gap-2 text-xs text-gray-300">
                     <span className="text-amber-400 shrink-0 mt-0.5"><PIcon name={f.icon} /></span>
