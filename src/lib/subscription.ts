@@ -1,8 +1,8 @@
 // Subscription tier utilities
 // Free    → limited preview on every page
 // Pro     → full access to Leaderboard, Signals, Reports ($29/mo)
-// Premium → full access to all pages + Oracle (15/day) ($49/mo)
-// Ultra   → everything + expanded Oracle (50/day) + exclusive features ($99/mo) [secret]
+// Premium → full access to all pages + Oracle (10/day) ($49/mo)
+// Ultra   → everything + AlphaGap Index + Oracle (20/day) ($99/mo)
 
 export type Tier = "free" | "pro" | "premium" | "ultra";
 

@@ -19,7 +19,7 @@ export async function GET(req: Request) {
 
   const { searchParams } = new URL(req.url);
   const rawPlan = searchParams.get("plan");
-  const planKey: PlanKey = rawPlan === "ultra" ? "ultra" : rawPlan === "premium" ? "premium" : "premium";
+  const planKey: PlanKey = rawPlan === "ultra" ? "ultra" : "premium";
   const targetPlan = PLANS[planKey];
 
   try {
