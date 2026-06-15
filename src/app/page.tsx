@@ -532,6 +532,125 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* AlphaGap Index — Ultra feature showcase */}
+      <section className="py-24 px-6 relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-amber-950/10 to-transparent pointer-events-none" />
+        <div className="absolute top-1/2 left-1/4 -translate-y-1/2 w-[600px] h-[600px] bg-amber-400/[0.04] rounded-full blur-[120px] pointer-events-none" />
+
+        <div className="relative max-w-5xl mx-auto">
+          <div className="text-center mb-14">
+            <div className="inline-flex items-center gap-2 bg-amber-400/10 border border-amber-400/20 rounded-full px-4 py-1.5 mb-5">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+              <span className="text-amber-400 text-xs font-bold uppercase tracking-widest">Ultra Exclusive Feature</span>
+            </div>
+            <h2 className="text-3xl sm:text-4xl font-bold mb-4">
+              Introducing the{" "}
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-orange-400">AlphaGap Index</span>
+            </h2>
+            <p className="text-gray-400 text-lg max-w-2xl mx-auto leading-relaxed">
+              Stop picking individual subnets. Let AlphaGap&apos;s scoring engine do it for you — automatically allocating your TAO across the top 10 subnets and rebalancing every week.
+            </p>
+          </div>
+
+          <div className="grid lg:grid-cols-2 gap-10 items-start">
+            {/* Left: mock index visual */}
+            <div className="space-y-4">
+              {/* Index card */}
+              <div className="bg-[#0d0d14] border border-amber-400/20 rounded-2xl overflow-hidden shadow-2xl shadow-amber-400/5">
+                <div className="px-5 py-4 border-b border-amber-400/10 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-amber-400/15 border border-amber-400/20 flex items-center justify-center text-lg">📊</div>
+                    <div>
+                      <div className="text-white text-sm font-bold">AlphaGap Index</div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                        <span className="text-amber-400 text-xs">Live · Ultra</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-xs text-gray-600">Last rebalanced</div>
+                    <div className="text-xs text-amber-400 font-semibold">Sunday</div>
+                  </div>
+                </div>
+                {[
+                  { rank: 1, name: "Score",   netuid: 44,  score: 88, weight: "18%", wk: "+9.3%" },
+                  { rank: 2, name: "Chutes",  netuid: 64,  score: 82, weight: "15%", wk: "+14.1%" },
+                  { rank: 3, name: "ninja",   netuid: 66,  score: 79, weight: "13%", wk: "+5.4%" },
+                  { rank: 4, name: "Affine",  netuid: 120, score: 75, weight: "11%", wk: "-1.7%" },
+                  { rank: 5, name: "distil",  netuid: 97,  score: 72, weight: "10%", wk: "+7.8%" },
+                  { rank: 6, name: "Targon",  netuid: 4,   score: 70, weight: "9%",  wk: "+3.2%" },
+                ].map(r => (
+                  <div key={r.rank} className="flex items-center gap-3 px-5 py-2.5 border-b border-gray-800/40 last:border-0 hover:bg-white/[0.02] transition-colors">
+                    <span className="text-[10px] text-gray-600 w-3 tabular-nums font-mono">{r.rank}</span>
+                    <span className="text-[10px] text-gray-600 font-mono w-8">SN{r.netuid}</span>
+                    <span className="text-sm font-semibold text-gray-200 flex-1">{r.name}</span>
+                    <span className="text-sm font-bold text-amber-400 tabular-nums w-6">{r.score}</span>
+                    <div className="w-16 bg-gray-800 rounded-full h-1.5 mx-2">
+                      <div className="bg-gradient-to-r from-amber-400 to-orange-400 h-1.5 rounded-full" style={{ width: r.weight }} />
+                    </div>
+                    <span className="text-[10px] text-gray-500 tabular-nums w-7">{r.weight}</span>
+                    <span className={`text-[10px] font-bold tabular-nums w-12 text-right ${r.wk.startsWith("+") ? "text-green-400" : "text-red-400"}`}>{r.wk}</span>
+                  </div>
+                ))}
+                <div className="px-5 py-2.5 bg-amber-950/20 flex items-center justify-between">
+                  <span className="text-[10px] text-gray-600">Showing 6 of 10 constituents</span>
+                  <span className="text-[10px] text-amber-400 font-semibold">Next rebalance: Sunday →</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Right: how it works + CTA */}
+            <div className="space-y-5">
+              <p className="text-xs text-gray-500 uppercase tracking-widest font-semibold">How it works</p>
+              <div className="space-y-3">
+                {[
+                  { step: "01", icon: "📊", title: "Score every subnet, every week", desc: "AlphaGap runs its full 20+ signal analysis across all 128 active subnets to generate fresh composite scores." },
+                  { step: "02", icon: "🏆", title: "Select the top 10", desc: "The 10 highest-scoring subnets become the Index constituents. Weight is proportional to score — higher scores get bigger allocations." },
+                  { step: "03", icon: "🔄", title: "Auto-rebalance every Sunday", desc: "Winners stay in. Fading subnets are trimmed. New high-scorers replace them. Your TAO always tracks the best opportunities." },
+                  { step: "04", icon: "⚡", title: "Powered by TrustedStake", desc: "Execution happens automatically via TrustedStake — a non-custodial staking protocol. You stay in control of your TAO at all times." },
+                ].map(s => (
+                  <div key={s.step} className="flex gap-4 p-4 rounded-xl bg-white/[0.02] border border-white/[0.05] hover:border-amber-400/15 transition-colors">
+                    <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-amber-400/10 border border-amber-400/20 flex items-center justify-center text-[11px] font-bold text-amber-400">{s.step}</div>
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <span>{s.icon}</span>
+                        <p className="text-sm font-semibold text-white">{s.title}</p>
+                      </div>
+                      <p className="text-xs text-gray-500 leading-relaxed">{s.desc}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="bg-white/[0.02] border border-amber-400/15 rounded-xl p-5">
+                <p className="text-xs text-amber-400 uppercase tracking-widest font-semibold mb-3">Included in Ultra — $99/mo</p>
+                <ul className="space-y-2 mb-5">
+                  {[
+                    "Auto-invest across the top 10 subnets",
+                    "Weekly rebalancing — always tracks best opportunities",
+                    "Non-custodial — you keep control of your TAO",
+                    "20 Oracle queries/day included",
+                    "Cancel anytime",
+                  ].map(f => (
+                    <li key={f} className="flex items-start gap-2 text-sm">
+                      <span className="text-amber-400 flex-shrink-0 mt-0.5">✓</span>
+                      <span className="text-gray-300">{f}</span>
+                    </li>
+                  ))}
+                </ul>
+                <Link
+                  href="/pricing"
+                  className="w-full inline-flex items-center justify-center px-5 py-3 bg-gradient-to-r from-amber-400 to-orange-400 hover:from-amber-300 hover:to-orange-300 text-black font-bold rounded-xl transition-all shadow-lg shadow-amber-400/20 text-sm"
+                >
+                  Unlock the Index — Ultra →
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Telegram Alerts — Premium feature showcase */}
       <section className="py-24 px-6 relative overflow-hidden">
         {/* Background accent */}

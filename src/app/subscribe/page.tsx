@@ -942,6 +942,69 @@ function SubscribeContent() {
               </div>
             </FeatureCard>
 
+            {/* Feature 7: AlphaGap Index — Ultra Exclusive */}
+            <div className="bg-gradient-to-b from-amber-950/30 to-[#0d0d14] border border-amber-400/25 rounded-2xl overflow-hidden">
+              <div className="px-6 py-5 border-b border-amber-400/10">
+                <div className="flex items-center gap-3 mb-1">
+                  <span className="text-2xl">📊</span>
+                  <h3 className="font-bold text-lg text-white">AlphaGap Index — Auto-Invest in the Top 10</h3>
+                  <span className="text-[10px] font-bold bg-amber-400/15 text-amber-400 border border-amber-400/25 px-2 py-0.5 rounded-full ml-auto">ULTRA ONLY</span>
+                </div>
+              </div>
+              <div className="p-4">
+                <p className="text-sm text-gray-400 leading-relaxed mb-5">
+                  The AlphaGap Index is a <span className="text-white font-medium">managed portfolio strategy</span> that automatically allocates your TAO across the top-scoring subnets every week. Instead of picking individual subnets, you own the entire leaderboard — auto-rebalanced as scores shift.
+                </p>
+
+                {/* How it works steps */}
+                <div className="grid sm:grid-cols-3 gap-3 mb-5">
+                  {[
+                    { step: "1", icon: "📊", title: "Score every subnet", desc: "AlphaGap runs its full 20+ signal analysis across all 128 subnets every week" },
+                    { step: "2", icon: "🏆", title: "Select the top 10", desc: "The 10 highest composite aGap scores become the Index constituents for that week" },
+                    { step: "3", icon: "🔄", title: "Auto-rebalance", desc: "Your TAO is redistributed weekly — winners stay in, falling subnets are trimmed" },
+                  ].map(s => (
+                    <div key={s.step} className="bg-amber-950/20 border border-amber-400/15 rounded-xl p-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="w-5 h-5 rounded-full bg-amber-400/20 border border-amber-400/30 flex items-center justify-center text-[10px] font-bold text-amber-400">{s.step}</span>
+                        <span className="text-lg">{s.icon}</span>
+                      </div>
+                      <div className="text-xs font-semibold text-white mb-1">{s.title}</div>
+                      <div className="text-[10px] text-gray-500 leading-relaxed">{s.desc}</div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Mock index table */}
+                <div className="bg-gray-950 rounded-xl border border-gray-800 overflow-hidden mb-5">
+                  <div className="px-4 py-2.5 border-b border-gray-800 flex items-center justify-between">
+                    <span className="text-[10px] text-amber-400 font-semibold uppercase tracking-wide">📊 AlphaGap Index — Current Top 10</span>
+                    <span className="text-[10px] text-gray-600">Rebalanced weekly · Sunday</span>
+                  </div>
+                  {[
+                    { rank: 1, name: "Score",   netuid: 44,  score: 88, weight: "18%", change: "+4.1%" },
+                    { rank: 2, name: "Chutes",  netuid: 64,  score: 82, weight: "15%", change: "+6.2%" },
+                    { rank: 3, name: "ninja",   netuid: 66,  score: 79, weight: "13%", change: "+5.4%" },
+                    { rank: 4, name: "Affine",  netuid: 120, score: 75, weight: "11%", change: "-1.7%" },
+                    { rank: 5, name: "distil",  netuid: 97,  score: 72, weight: "10%", change: "+7.8%" },
+                  ].map(r => (
+                    <div key={r.rank} className="flex items-center gap-3 px-4 py-2.5 border-b border-gray-800/50 last:border-0">
+                      <span className="text-[10px] text-gray-600 w-3 tabular-nums">{r.rank}</span>
+                      <span className="text-[10px] text-gray-600 font-mono">SN{r.netuid}</span>
+                      <span className="text-sm font-semibold text-gray-200 flex-1">{r.name}</span>
+                      <span className="text-sm font-bold text-amber-400 tabular-nums">{r.score}</span>
+                      <span className="text-[10px] text-gray-500 tabular-nums w-8 text-right">{r.weight}</span>
+                      <span className={`text-[10px] font-bold tabular-nums w-12 text-right ${r.change.startsWith("+") ? "text-green-400" : "text-red-400"}`}>{r.change}</span>
+                    </div>
+                  ))}
+                  <div className="px-4 py-2 text-[10px] text-gray-600 border-t border-gray-800">Showing top 5 of 10 constituents</div>
+                </div>
+
+                <a href="/pricing" className="w-full inline-flex items-center justify-center gap-2 px-5 py-3 bg-gradient-to-r from-amber-400 to-orange-400 hover:from-amber-300 hover:to-orange-300 text-black font-bold rounded-xl transition-all shadow-lg shadow-amber-400/20 text-sm">
+                  Unlock Ultra — $99/mo →
+                </a>
+              </div>
+            </div>
+
           </div>
         </div>
       </section>
