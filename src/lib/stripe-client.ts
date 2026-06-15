@@ -38,6 +38,14 @@ export const PLANS = {
     interval: "month" as const,
     tier: "premium" as const,
   },
+  ultra: {
+    name: "AlphaGap Ultra",
+    description: "AlphaGap Index + 20 Oracle queries/day + full access",
+    amount: 9900,
+    currency: "usd",
+    interval: "month" as const,
+    tier: "ultra" as const,
+  },
 } as const;
 
 export type PlanKey = keyof typeof PLANS;

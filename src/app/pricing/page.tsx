@@ -26,10 +26,10 @@ const PLANS = [
     price: "$49",
     period: "/month",
     tagline: "For power users & researchers",
-    highlight: true,
+    highlight: false,
     features: [
       "Everything in Pro",
-      "🔮 TAO Oracle — live AI chat using data from every subnet (15 queries/day)",
+      "🔮 TAO Oracle — live AI chat using data from every subnet (10 queries/day)",
       "📡 Telegram Alerts — 7 customisable alert types, straight to your phone",
       "Investing Analysis — long-term aGap scoring designed for serious investors",
       "Whale & smart money tracking",
@@ -44,14 +44,29 @@ const PLANS = [
       "Cancel anytime",
     ],
   },
+  {
+    id: "ultra" as const,
+    name: "Ultra",
+    price: "$99",
+    period: "/month",
+    tagline: "For serious investors who want every edge",
+    highlight: true,
+    features: [
+      "Everything in Premium",
+      "📊 AlphaGap Index — auto-invest your TAO into the top 10 subnets",
+      "🔮 TAO Oracle — 20 queries/day (2× Premium)",
+      "Priority access to new Ultra-only features",
+      "Cancel anytime",
+    ],
+  },
 ];
 
 export default function PricingPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
-  const [loading, setLoading] = useState<"pro" | "premium" | null>(null);
+  const [loading, setLoading] = useState<"pro" | "premium" | "ultra" | null>(null);
 
-  async function handleSelect(plan: "pro" | "premium") {
+  async function handleSelect(plan: "pro" | "premium" | "ultra") {
     setLoading(plan);
     try {
       if (status === "authenticated") {
@@ -117,26 +132,26 @@ export default function PricingPage() {
         </div>
 
         {/* Plan cards */}
-        <div className="grid sm:grid-cols-2 gap-4 mb-8">
+        <div className="grid sm:grid-cols-3 gap-4 mb-8">
           {PLANS.map((plan) => (
             <div
               key={plan.id}
               className={`relative rounded-2xl border p-6 flex flex-col ${
-                plan.highlight
-                  ? "bg-gradient-to-b from-green-950/40 to-gray-900/60 border-green-500/40 shadow-xl shadow-green-500/10"
+                plan.id === "ultra"
+                  ? "bg-gradient-to-b from-amber-950/40 to-gray-900/60 border-amber-400/40 shadow-xl shadow-amber-400/10"
                   : "bg-gray-900/60 border-gray-800"
               }`}
             >
               {plan.highlight && (
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                  <span className="bg-gradient-to-r from-green-500 to-emerald-600 text-black text-[11px] font-bold px-3 py-1 rounded-full uppercase tracking-wider">
-                    Most Popular
+                  <span className="bg-gradient-to-r from-amber-400 to-orange-400 text-black text-[11px] font-bold px-3 py-1 rounded-full uppercase tracking-wider">
+                    Most Powerful
                   </span>
                 </div>
               )}
 
               <div className="mb-5">
-                <div className="text-sm font-semibold text-gray-400 mb-1">{plan.name}</div>
+                <div className={`text-sm font-semibold mb-1 ${plan.id === "ultra" ? "text-amber-400" : "text-gray-400"}`}>{plan.name}</div>
                 <div className="flex items-end gap-1 mb-1">
                   <span className="text-4xl font-bold text-white">{plan.price}</span>
                   <span className="text-gray-500 text-sm mb-1">{plan.period}</span>
@@ -147,7 +162,7 @@ export default function PricingPage() {
               <ul className="space-y-2.5 mb-7 flex-1">
                 {plan.features.map((f) => (
                   <li key={f} className="flex items-start gap-2 text-sm">
-                    <span className="text-green-400 mt-0.5 flex-shrink-0">✓</span>
+                    <span className={`mt-0.5 flex-shrink-0 ${plan.id === "ultra" ? "text-amber-400" : "text-green-400"}`}>✓</span>
                     <span className="text-gray-300">{f}</span>
                   </li>
                 ))}
@@ -157,8 +172,8 @@ export default function PricingPage() {
                 onClick={() => handleSelect(plan.id)}
                 disabled={loading !== null}
                 className={`w-full py-3.5 rounded-xl font-bold text-sm transition-all disabled:opacity-60 disabled:cursor-not-allowed ${
-                  plan.highlight
-                    ? "bg-gradient-to-r from-green-500 to-emerald-600 text-black hover:from-green-400 hover:to-emerald-500 shadow-lg shadow-green-500/25"
+                  plan.id === "ultra"
+                    ? "bg-gradient-to-r from-amber-400 to-orange-400 text-black hover:from-amber-300 hover:to-orange-300 shadow-lg shadow-amber-400/25"
                     : "bg-gray-800 border border-gray-700 text-white hover:bg-gray-700"
                 }`}
               >

@@ -117,7 +117,7 @@ export default function LandingPage() {
               Explore Premium ↓
             </Link>
           </div>
-          <p className="text-xs text-gray-600 mt-3">Free preview · Pro from $29/mo · Premium from $49/mo</p>
+          <p className="text-xs text-gray-600 mt-3">Free preview · Pro $29/mo · Premium $49/mo · Ultra $99/mo</p>
         </div>
       </section>
 
@@ -509,7 +509,7 @@ export default function LandingPage() {
                 <p className="text-xs text-gray-500 uppercase tracking-widest font-semibold mb-3">Included in Premium</p>
                 <ul className="space-y-2 mb-5">
                   {[
-                    "15 AI queries per day (50 on Ultra)",
+                    "10 AI queries per day (20 on Ultra)",
                     "Pulls live data from every subnet scan",
                     "Scores, signals, whales, dev activity",
                     "Powered by Claude AI",

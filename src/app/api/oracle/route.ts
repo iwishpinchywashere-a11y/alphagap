@@ -10,11 +10,11 @@ export const maxDuration = 60;
 
 // Oracle daily limits per tier
 // Free + Pro: no access (403)
-// Premium ($49/mo): 15/day   — ~$2.70/mo worst-case with caching
-// Ultra ($99/mo):   50/day   — ~$9.00/mo worst-case with caching
+// Premium ($49/mo): 10/day
+// Ultra ($99/mo):   20/day
 const DAILY_LIMITS: Record<string, number> = {
-  premium: 15,
-  ultra:   50,
+  premium: 10,
+  ultra:   20,
 };
 
 // Max conversation turns sent to the model — keeps context cost bounded.

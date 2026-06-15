@@ -135,33 +135,45 @@ function FeatureCard({ icon, title, badge, children }: {
 }
 
 // ── Upgrade confirmation modal ────────────────────────────────────
-function UpgradeModal({ proratedAmount, onConfirm, onCancel, loading }: {
+function UpgradeModal({ plan, proratedAmount, onConfirm, onCancel, loading }: {
+  plan: "premium" | "ultra";
   proratedAmount: number | null;
   onConfirm: () => void;
   onCancel: () => void;
   loading: boolean;
 }) {
+  const isUltra = plan === "ultra";
+  const planName = isUltra ? "Ultra" : "Premium";
+  const monthlyPrice = isUltra ? "$99" : "$49";
+  const features = isUltra
+    ? [
+        { icon: "📊", text: "AlphaGap Index — auto-invest your TAO into the top 10 subnets" },
+        { icon: "🔮", text: "TAO Oracle — 20 queries/day (2× Premium)" },
+        { icon: "⭐", text: "Priority access to new Ultra-only features" },
+      ]
+    : [
+        { icon: "📈", text: "Portfolio performance tracker — simulated $100 auto-buys" },
+        { icon: "🎯", text: "aGap Velocity score — momentum signals before the market" },
+        { icon: "🔬", text: "Investing aGap — long-term value scoring" },
+        { icon: "🐋", text: "Whale accumulation & smart-money signals" },
+        { icon: "📊", text: "Full price history, sparklines & volume surge alerts" },
+        { icon: "🤖", text: "AI-generated subnet reports" },
+      ];
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4" style={{ background: "rgba(0,0,0,0.75)" }}>
       <div className="bg-[#111118] border border-gray-700 rounded-2xl w-full max-w-md p-6 shadow-2xl">
         <div className="flex items-center gap-3 mb-5">
-          <div className="w-10 h-10 rounded-xl bg-green-500/15 border border-green-500/30 flex items-center justify-center text-lg">⬆</div>
+          <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg ${isUltra ? "bg-amber-400/15 border border-amber-400/30" : "bg-green-500/15 border border-green-500/30"}`}>⬆</div>
           <div>
-            <div className="font-bold text-white text-lg">Upgrade to Premium</div>
+            <div className="font-bold text-white text-lg">Upgrade to {planName}</div>
             <div className="text-xs text-gray-500">Charged instantly to your card on file</div>
           </div>
         </div>
 
         {/* What you get */}
         <div className="bg-gray-900/60 border border-gray-800 rounded-xl p-4 mb-5 space-y-2.5">
-          {[
-            { icon: "📈", text: "Portfolio performance tracker — simulated $100 auto-buys" },
-            { icon: "🎯", text: "aGap Velocity score — momentum signals before the market" },
-            { icon: "🔬", text: "Investing aGap — long-term value scoring" },
-            { icon: "🐋", text: "Whale accumulation & smart-money signals" },
-            { icon: "📊", text: "Full price history, sparklines & volume surge alerts" },
-            { icon: "🤖", text: "AI-generated subnet reports" },
-          ].map(({ icon, text }) => (
+          {features.map(({ icon, text }) => (
             <div key={text} className="flex items-start gap-2.5">
               <span className="text-base leading-none mt-0.5">{icon}</span>
               <span className="text-sm text-gray-300">{text}</span>
@@ -179,7 +191,7 @@ function UpgradeModal({ proratedAmount, onConfirm, onCancel, loading }: {
           )}
           <div className="flex justify-between text-sm">
             <span className="text-gray-400">Then monthly</span>
-            <span className="font-semibold text-white">$49 / mo</span>
+            <span className="font-semibold text-white">{monthlyPrice} / mo</span>
           </div>
         </div>
 
@@ -194,7 +206,7 @@ function UpgradeModal({ proratedAmount, onConfirm, onCancel, loading }: {
           <button
             onClick={onConfirm}
             disabled={loading}
-            className="flex-1 py-2.5 rounded-xl bg-green-500 hover:bg-green-400 text-black text-sm font-bold transition-colors disabled:opacity-60"
+            className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-colors disabled:opacity-60 ${isUltra ? "bg-amber-400 hover:bg-amber-300 text-black" : "bg-green-500 hover:bg-green-400 text-black"}`}
           >
             {loading ? "Upgrading…" : "Confirm Upgrade →"}
           </button>
@@ -212,6 +224,7 @@ function SubscribeContent() {
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [liveStats, setLiveStats] = useState({ subnets: 122, signals: 0, lastScan: "" });
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [upgradePlan, setUpgradePlan] = useState<"premium" | "ultra">("premium");
   const [proratedAmount, setProratedAmount] = useState<number | null>(null);
   const [upgradeLoading, setUpgradeLoading] = useState(false);
 
@@ -234,22 +247,23 @@ function SubscribeContent() {
   const subStatus = (session?.user as any)?.subscriptionStatus;
   const isSubscribed = subStatus === "active" || subStatus === "trialing";
 
-  async function handleSubscribe(plan: "pro" | "premium" = "pro") {
+  async function handleSubscribe(plan: "pro" | "premium" | "ultra" = "pro") {
     if (!session) {
       router.push("/pricing");
       return;
     }
     const currentTier = (session?.user as any)?.subscriptionTier as string | undefined;
-    const tierRank: Record<string, number> = { pro: 1, premium: 2 };
+    const tierRank: Record<string, number> = { pro: 1, premium: 2, ultra: 3 };
     if (isSubscribed && (tierRank[currentTier ?? ""] ?? 0) >= (tierRank[plan] ?? 0)) {
       router.push("/dashboard");
       return;
     }
-    // Pro user upgrading to Premium — show confirmation modal with prorated amount
-    if (isSubscribed && plan === "premium") {
+    // Subscribed user upgrading — show confirmation modal with prorated amount
+    if (isSubscribed && (plan === "premium" || plan === "ultra")) {
       setCheckoutLoading(true);
+      setUpgradePlan(plan);
       try {
-        const res = await fetch("/api/stripe/upgrade-preview");
+        const res = await fetch(`/api/stripe/upgrade-preview?plan=${plan}`);
         const data = await res.json();
         setProratedAmount(data.amountDue ?? null);
       } catch {
@@ -281,7 +295,7 @@ function SubscribeContent() {
       const res = await fetch("/api/stripe/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ plan: "premium" }),
+        body: JSON.stringify({ plan: upgradePlan }),
       });
       const data = await res.json();
       if (data.url) window.location.href = data.url;
@@ -299,6 +313,7 @@ function SubscribeContent() {
     <div className="min-h-screen bg-[#0a0a0f] text-white overflow-x-hidden">
       {showUpgradeModal && (
         <UpgradeModal
+          plan={upgradePlan}
           proratedAmount={proratedAmount}
           onConfirm={confirmUpgrade}
           onCancel={() => setShowUpgradeModal(false)}
@@ -376,7 +391,7 @@ function SubscribeContent() {
           </p>
 
           {/* Plan cards */}
-          <div className="grid sm:grid-cols-3 gap-5 max-w-4xl mx-auto mb-12 text-left">
+          <div className="grid sm:grid-cols-4 gap-5 max-w-5xl mx-auto mb-12 text-left">
 
             {/* Free */}
             <div className="bg-[#0d0d14] border border-gray-800 rounded-3xl p-7 flex flex-col">
@@ -474,16 +489,16 @@ function SubscribeContent() {
               <ul className="space-y-2.5 mb-8 flex-1">
                 {[
                   "Everything in Pro",
-                  "📈 Investing Analysis — long-term aGap scoring designed for serious investors",
+                  "🔮 Oracle — 10 queries/day",
+                  "📈 Investing Analysis",
                   "🐋 Whale & Smart Money Tracker",
                   "📡 Twitter/X social momentum feed",
-                  "💬 Discord scanner finds alpha in real time",
-                  "🧪 Pump Lab — early alpha detector",
+                  "💬 Discord scanner",
+                  "🧪 Pump Lab",
                   "📈 Performance Tracker",
-                  "🔍 Wallet Tracker — track any TAO wallet across all subnets",
+                  "🔍 Wallet Tracker",
                   "📊 Analytics & Scatter Plots",
                   "🏆 Benchmark Rankings",
-                  "Full access to every page",
                 ].map(f => (
                   <li key={f} className="flex items-start gap-2 text-xs text-gray-300">
                     <span className="text-purple-400 shrink-0 mt-0.5">✓</span>
@@ -497,6 +512,44 @@ function SubscribeContent() {
                 className="w-full bg-gradient-to-r from-purple-600 to-violet-700 text-white font-bold rounded-xl py-3.5 text-sm hover:from-purple-500 hover:to-violet-600 transition-all shadow-lg shadow-purple-500/20 disabled:opacity-60"
               >
                 {isSubscribed ? "Open Dashboard →" : checkoutLoading ? "Loading…" : session ? "Subscribe — $49/mo →" : "Get Premium — $49/mo →"}
+              </button>
+              <p className="text-center text-[11px] text-gray-700 mt-3">Powered by Stripe · Secure checkout</p>
+            </div>
+
+            {/* Ultra */}
+            <div className="relative bg-gradient-to-b from-amber-950/40 to-[#0d0d14] border border-amber-400/40 rounded-3xl p-7 flex flex-col shadow-xl shadow-amber-400/10">
+              <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                <span className="bg-gradient-to-r from-amber-400 to-orange-400 text-black text-[10px] font-bold px-3 py-1 rounded-full">
+                  MOST POWERFUL
+                </span>
+              </div>
+              <div className="mb-6">
+                <div className="text-xs font-bold text-amber-400 uppercase tracking-wider mb-2">Ultra</div>
+                <div className="flex items-baseline gap-1 mb-1">
+                  <span className="text-4xl font-bold text-white">$99</span>
+                  <span className="text-gray-500">/month</span>
+                </div>
+                <p className="text-xs text-gray-600">Cancel anytime · Instant access</p>
+              </div>
+              <ul className="space-y-2.5 mb-8 flex-1">
+                {[
+                  "Everything in Premium",
+                  "📊 AlphaGap Index — auto-invest TAO into top 10 subnets",
+                  "🔮 Oracle — 20 queries/day (2× Premium)",
+                  "⭐ Priority access to new Ultra features",
+                ].map(f => (
+                  <li key={f} className="flex items-start gap-2 text-xs text-gray-300">
+                    <span className="text-amber-400 shrink-0 mt-0.5">✓</span>
+                    {f}
+                  </li>
+                ))}
+              </ul>
+              <button
+                onClick={() => handleSubscribe("ultra")}
+                disabled={checkoutLoading}
+                className="w-full bg-gradient-to-r from-amber-400 to-orange-400 text-black font-bold rounded-xl py-3.5 text-sm hover:from-amber-300 hover:to-orange-300 transition-all shadow-lg shadow-amber-400/25 disabled:opacity-60"
+              >
+                {isSubscribed ? "Open Dashboard →" : checkoutLoading ? "Loading…" : session ? "Subscribe — $99/mo →" : "Get Ultra — $99/mo →"}
               </button>
               <p className="text-center text-[11px] text-gray-700 mt-3">Powered by Stripe · Secure checkout</p>
             </div>
@@ -1035,7 +1088,7 @@ function SubscribeContent() {
             AlphaGap finds those windows before anyone else.
           </p>
           <p className="text-gray-500 text-base mb-10">
-            $29/month. No long-term commitment. Cancel anytime.
+            From $29/month. No long-term commitment. Cancel anytime.
           </p>
           <button
             onClick={() => handleSubscribe("pro")}

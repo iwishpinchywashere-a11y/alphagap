@@ -1155,7 +1155,7 @@ export default function AlphaGapIndexPage() {
               ) : (
                 <>
                   <h2 className="text-3xl font-black text-white mb-3">Unlock the Index</h2>
-                  <p className="text-gray-500 text-sm mb-7 max-w-md mx-auto leading-relaxed">The AlphaGap Subnet Index is exclusive to Ultra. Upgrade for live holdings, portfolio deploy, and 50 Oracle queries per day.</p>
+                  <p className="text-gray-500 text-sm mb-7 max-w-md mx-auto leading-relaxed">The AlphaGap Subnet Index is exclusive to Ultra. Upgrade for live holdings, portfolio deploy, and 20 Oracle queries per day.</p>
                   <a href="/pricing" className="inline-block bg-gradient-to-r from-amber-400 to-orange-400 hover:from-amber-300 hover:to-orange-300 text-black text-sm font-bold px-8 py-3.5 rounded-xl transition-all shadow-lg shadow-amber-500/20 active:scale-95">
                     Upgrade to Ultra →
                   </a>

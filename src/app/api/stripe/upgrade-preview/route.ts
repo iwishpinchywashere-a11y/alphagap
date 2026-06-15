@@ -1,21 +1,26 @@
 /**
- * GET /api/stripe/upgrade-preview
+ * GET /api/stripe/upgrade-preview?plan=premium|ultra
  *
- * Returns the prorated amount due today if the user upgrades from Pro to Premium.
+ * Returns the prorated amount due today if the user upgrades to the given plan.
  * Uses Stripe's upcoming invoice API — no charges, no changes, read-only.
  */
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { getStripe, PLANS } from "@/lib/stripe-client";
+import { getStripe, PLANS, type PlanKey } from "@/lib/stripe-client";
 import { getUserByEmail } from "@/lib/users";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(req: Request) {
   const session = await getServerSession(authOptions);
   const email = session?.user?.email;
   if (!email) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+
+  const { searchParams } = new URL(req.url);
+  const rawPlan = searchParams.get("plan");
+  const planKey: PlanKey = rawPlan === "ultra" ? "ultra" : rawPlan === "premium" ? "premium" : "premium";
+  const targetPlan = PLANS[planKey];
 
   try {
     const stripe = getStripe();
@@ -24,7 +29,7 @@ export async function GET() {
 
     // Find active subscription
     let subId = user.stripeSubscriptionId;
-    let customerId = user.stripeCustomerId;
+    const customerId = user.stripeCustomerId;
 
     if (!subId && customerId) {
       const listed = await stripe.subscriptions.list({ customer: customerId, status: "active", limit: 1 }).catch(() => null);
@@ -39,10 +44,10 @@ export async function GET() {
 
     // Create a temporary Price to preview the proration (not charged)
     const previewPrice = await stripe.prices.create({
-      unit_amount: PLANS.premium.amount,
-      currency: PLANS.premium.currency,
-      recurring: { interval: PLANS.premium.interval },
-      product_data: { name: PLANS.premium.name },
+      unit_amount: targetPlan.amount,
+      currency: targetPlan.currency,
+      recurring: { interval: targetPlan.interval },
+      product_data: { name: targetPlan.name },
     });
 
     // Preview the prorated charge — no changes made, read-only

@@ -45,7 +45,7 @@ export async function POST(req: Request) {
 
   try {
     const body = await req.json().catch(() => ({}));
-    const planKey: PlanKey = body.plan === "premium" ? "premium" : "pro";
+    const planKey: PlanKey = body.plan === "ultra" ? "ultra" : body.plan === "premium" ? "premium" : "pro";
     // Check for a valid referral code in cookie — used to apply 10% discount
     const refCode = await getValidatedRefCode(req);
     const plan = PLANS[planKey];
@@ -113,8 +113,8 @@ export async function POST(req: Request) {
       const sub = activeSub;
       // Determine current tier from the actual Stripe price amount (source of truth)
       const currentAmount = sub.items.data[0]?.price?.unit_amount ?? 0;
-      const tierRank = { pro: 1, premium: 2 };
-      const currentTier: PlanKey = currentAmount >= PLANS.premium.amount ? "premium" : "pro";
+      const tierRank = { pro: 1, premium: 2, ultra: 3 };
+      const currentTier: PlanKey = currentAmount >= PLANS.ultra.amount ? "ultra" : currentAmount >= PLANS.premium.amount ? "premium" : "pro";
 
       if ((tierRank[currentTier] ?? 0) >= (tierRank[planKey] ?? 0)) {
         // Already on this plan or higher — just go to dashboard

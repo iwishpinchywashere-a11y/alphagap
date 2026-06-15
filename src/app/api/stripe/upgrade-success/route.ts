@@ -16,7 +16,8 @@ export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
-  const planKey: PlanKey = searchParams.get("plan") === "premium" ? "premium" : "pro";
+  const rawPlan = searchParams.get("plan");
+  const planKey: PlanKey = rawPlan === "ultra" ? "ultra" : rawPlan === "premium" ? "premium" : "pro";
   const baseUrl = (process.env.NEXTAUTH_URL || "https://alphagap.io").replace(/\/$/, "");
 
   const session = await getServerSession(authOptions);

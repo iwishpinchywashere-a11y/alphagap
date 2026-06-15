@@ -17,8 +17,9 @@ import type Stripe from "stripe";
 
 export const dynamic = "force-dynamic";
 
-function tierFromSub(sub: Stripe.Subscription): "pro" | "premium" {
+function tierFromSub(sub: Stripe.Subscription): "pro" | "premium" | "ultra" {
   const amount = sub.items.data[0]?.price?.unit_amount ?? 0;
+  if (amount >= 9900) return "ultra";
   return amount >= 4900 ? "premium" : "pro";
 }
 

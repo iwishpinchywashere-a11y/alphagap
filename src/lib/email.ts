@@ -46,14 +46,14 @@ function baseTemplate(content: string): string {
 export async function sendSubscriptionConfirmationEmail(
   name: string,
   email: string,
-  tier: "pro" | "premium",
+  tier: "pro" | "premium" | "ultra",
   amountCents: number,
   periodEnd: number,
 ) {
   const firstName = name.split(" ")[0];
-  const tierLabel = tier === "premium" ? "AlphaGap Premium" : "AlphaGap Pro";
-  const accentColor = tier === "premium" ? "#a855f7" : "#10b981";
-  const accentBg = tier === "premium" ? "#2e1065" : "#064e3b";
+  const tierLabel = tier === "ultra" ? "AlphaGap Ultra" : tier === "premium" ? "AlphaGap Premium" : "AlphaGap Pro";
+  const accentColor = tier === "ultra" ? "#f59e0b" : tier === "premium" ? "#a855f7" : "#10b981";
+  const accentBg = tier === "ultra" ? "#451a03" : tier === "premium" ? "#2e1065" : "#064e3b";
   const amountStr = `$${(amountCents / 100).toFixed(0)}/month`;
   const renewDate = new Date(periodEnd * 1000).toLocaleDateString("en-US", {
     month: "long", day: "numeric", year: "numeric",
@@ -80,7 +80,14 @@ export async function sendSubscriptionConfirmationEmail(
     "Full access to every page",
   ];
 
-  const features = tier === "premium" ? premiumFeatures : proFeatures;
+  const ultraFeatures = [
+    "Everything in Premium",
+    "📊 AlphaGap Index — auto-invest TAO into top 10 subnets",
+    "🔮 TAO Oracle — 20 queries/day",
+    "⭐ Priority access to new Ultra-only features",
+  ];
+
+  const features = tier === "ultra" ? ultraFeatures : tier === "premium" ? premiumFeatures : proFeatures;
 
   const featureRows = features.map(f => `
     <tr>

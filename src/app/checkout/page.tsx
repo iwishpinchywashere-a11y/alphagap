@@ -28,7 +28,7 @@ export default async function CheckoutPage({
   searchParams: Promise<{ plan?: string }>;
 }) {
   const params = await searchParams;
-  const planKey: PlanKey = params.plan === "premium" ? "premium" : "pro";
+  const planKey: PlanKey = params.plan === "ultra" ? "ultra" : params.plan === "premium" ? "premium" : "pro";
   const baseUrl = (process.env.NEXTAUTH_URL || "https://alphagap.io").replace(/\/$/, "");
 
   // ── 1. Auth check ──────────────────────────────────────────────

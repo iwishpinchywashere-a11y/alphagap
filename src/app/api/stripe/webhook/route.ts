@@ -6,8 +6,9 @@ import { getAttributionByReferredUser, recordCommission, payPendingCommissions }
 import { sendSubscriptionConfirmationEmail } from "@/lib/email";
 
 /** Detect tier from subscription price amount (in cents) */
-function tierFromSub(sub: Stripe.Subscription): "pro" | "premium" {
+function tierFromSub(sub: Stripe.Subscription): "pro" | "premium" | "ultra" {
   const amount = sub.items.data[0]?.price?.unit_amount ?? 0;
+  if (amount >= 9900) return "ultra";
   if (amount >= 4900) return "premium";
   return "pro";
 }
