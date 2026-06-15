@@ -33,7 +33,7 @@ function FeatIcon({ name, className = "w-4 h-4" }: { name: string; className?: s
 type Feature = { icon: string; text: string };
 
 const PLANS: Array<{
-  id: "pro" | "premium" | "ultra";
+  id: "premium" | "ultra";
   name: string;
   price: string;
   period: string;
@@ -42,20 +42,6 @@ const PLANS: Array<{
   features: Feature[];
 }> = [
   {
-    id: "pro" as const,
-    name: "Pro",
-    price: "$29",
-    period: "/month",
-    tagline: "For active Bittensor investors",
-    highlight: false,
-    features: [
-      { icon: "leaderboard", text: "Full Alpha Leaderboard (all 128 subnets)" },
-      { icon: "signals",     text: "All intelligence signals — unlimited" },
-      { icon: "reports",     text: "Daily Deep Dive reports" },
-      { icon: "cancel",      text: "Cancel anytime" },
-    ],
-  },
-  {
     id: "premium" as const,
     name: "Premium",
     price: "$49",
@@ -63,7 +49,9 @@ const PLANS: Array<{
     tagline: "For power users & researchers",
     highlight: false,
     features: [
-      { icon: "check",       text: "Everything in Pro" },
+      { icon: "leaderboard", text: "Full Alpha Leaderboard (all 128 subnets)" },
+      { icon: "signals",     text: "All intelligence signals — unlimited" },
+      { icon: "reports",     text: "Daily Deep Dive reports" },
       { icon: "oracle",      text: "TAO Oracle — live AI chat using data from every subnet (10 queries/day)" },
       { icon: "alerts",      text: "Telegram Alerts — 7 customisable alert types, straight to your phone" },
       { icon: "investing",   text: "Investing Analysis — long-term aGap scoring for serious investors" },
@@ -100,9 +88,9 @@ const PLANS: Array<{
 export default function PricingPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
-  const [loading, setLoading] = useState<"pro" | "premium" | "ultra" | null>(null);
+  const [loading, setLoading] = useState<"premium" | "ultra" | null>(null);
 
-  async function handleSelect(plan: "pro" | "premium" | "ultra") {
+  async function handleSelect(plan: "premium" | "ultra") {
     setLoading(plan);
     try {
       if (status === "authenticated") {
@@ -170,14 +158,14 @@ export default function PricingPage() {
         </div>
 
         {/* Plan cards */}
-        <div className="grid sm:grid-cols-3 gap-4 mb-8">
+        <div className="grid sm:grid-cols-2 gap-4 mb-8 max-w-2xl mx-auto">
           {PLANS.map((plan) => (
             <div
               key={plan.id}
               className={`relative rounded-2xl border p-6 flex flex-col ${
                 plan.id === "ultra"
                   ? "bg-gradient-to-b from-amber-950/40 to-gray-900/60 border-amber-400/40 shadow-xl shadow-amber-400/10"
-                  : "bg-gray-900/60 border-gray-800"
+                  : "bg-gradient-to-b from-purple-950/30 to-gray-900/60 border-purple-500/30 shadow-xl shadow-purple-500/10"
               }`}
             >
               {plan.highlight && (
@@ -189,7 +177,7 @@ export default function PricingPage() {
               )}
 
               <div className="mb-5">
-                <div className={`text-sm font-semibold mb-1 ${plan.id === "ultra" ? "text-amber-400" : "text-gray-400"}`}>{plan.name}</div>
+                <div className={`text-sm font-semibold mb-1 ${plan.id === "ultra" ? "text-amber-400" : "text-purple-400"}`}>{plan.name}</div>
                 <div className="flex items-end gap-1 mb-1">
                   <span className="text-4xl font-bold text-white">{plan.price}</span>
                   <span className="text-gray-500 text-sm mb-1">{plan.period}</span>
@@ -200,7 +188,7 @@ export default function PricingPage() {
               <ul className="space-y-2.5 mb-7 flex-1">
                 {plan.features.map((f) => (
                   <li key={f.text} className="flex items-start gap-2 text-sm">
-                    <span className={`mt-0.5 flex-shrink-0 ${plan.id === "ultra" ? "text-amber-400" : "text-green-400"}`}>
+                    <span className={`mt-0.5 flex-shrink-0 ${plan.id === "ultra" ? "text-amber-400" : "text-purple-400"}`}>
                       <FeatIcon name={f.icon} />
                     </span>
                     <span className="text-gray-300">{f.text}</span>
@@ -214,7 +202,7 @@ export default function PricingPage() {
                 className={`w-full py-3.5 rounded-xl font-bold text-sm transition-all disabled:opacity-60 disabled:cursor-not-allowed ${
                   plan.id === "ultra"
                     ? "bg-gradient-to-r from-amber-400 to-orange-400 text-black hover:from-amber-300 hover:to-orange-300 shadow-lg shadow-amber-400/25"
-                    : "bg-gray-800 border border-gray-700 text-white hover:bg-gray-700"
+                    : "bg-gradient-to-r from-purple-600 to-violet-700 text-white hover:from-purple-500 hover:to-violet-600 shadow-lg shadow-purple-500/20"
                 }`}
               >
                 {loading === plan.id

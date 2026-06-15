@@ -287,7 +287,7 @@ function SubscribeContent() {
   const subStatus = (session?.user as any)?.subscriptionStatus;
   const isSubscribed = subStatus === "active" || subStatus === "trialing";
 
-  async function handleSubscribe(plan: "pro" | "premium" | "ultra" = "pro") {
+  async function handleSubscribe(plan: "pro" | "premium" | "ultra" = "premium") {
     if (!session) {
       router.push("/pricing");
       return;
@@ -465,59 +465,13 @@ function SubscribeContent() {
               </a>
             </div>
 
-            {/* Pro */}
-            <div className="relative bg-[#0d0d14] border border-green-500/40 rounded-3xl p-7 flex flex-col shadow-xl shadow-green-500/10">
+            {/* Premium */}
+            <div className="relative bg-[#0d0d14] border border-purple-500/40 rounded-3xl p-7 flex flex-col shadow-xl shadow-purple-500/10">
               <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                <span className="bg-gradient-to-r from-green-500 to-emerald-600 text-black text-[10px] font-bold px-3 py-1 rounded-full">
+                <span className="bg-gradient-to-r from-purple-500 to-violet-600 text-white text-[10px] font-bold px-3 py-1 rounded-full">
                   MOST POPULAR
                 </span>
               </div>
-              <div className="mb-6">
-                <div className="text-xs font-bold text-green-500 uppercase tracking-wider mb-2">Pro</div>
-                <div className="flex items-baseline gap-1 mb-1">
-                  <span className="text-4xl font-bold text-white">$29</span>
-                  <span className="text-gray-500">/month</span>
-                </div>
-                <p className="text-xs text-gray-600">Cancel anytime · Instant access</p>
-              </div>
-              <ul className="space-y-2.5 mb-8 flex-1">
-                {([
-                  { icon: "leaderboard", text: "Full Alpha Leaderboard — all 128 subnets" },
-                  { icon: "filter",      text: "All sorting & filtering" },
-                  { icon: "signals",     text: "AI Signal Intelligence — all signals" },
-                  { icon: "reports",     text: "Daily AI Deep-Dive Reports" },
-                  { icon: "subnet",      text: "All 128 Subnet Detail pages" },
-                  { icon: "updates",     text: "Updated every 10 minutes" },
-                ] as { icon: string; text: string }[]).map(f => (
-                  <li key={f.text} className="flex items-start gap-2 text-xs text-gray-300">
-                    <span className="text-green-400 shrink-0 mt-0.5"><PIcon name={f.icon} /></span>
-                    {f.text}
-                  </li>
-                ))}
-                {([
-                  { icon: "whale",       text: "Whale & Smart Money Tracker" },
-                  { icon: "social",      text: "Social Intelligence & KOL Radar" },
-                  { icon: "pumplab",     text: "Pump Lab — early alpha detector" },
-                  { icon: "performance", text: "Performance Tracker — measuring results" },
-                ] as { icon: string; text: string }[]).map(f => (
-                  <li key={f.text} className="flex items-start gap-2 text-xs text-gray-600">
-                    <span className="text-gray-700 shrink-0 mt-0.5"><PIcon name={f.icon} /></span>
-                    {f.text}
-                  </li>
-                ))}
-              </ul>
-              <button
-                onClick={() => handleSubscribe("pro")}
-                disabled={checkoutLoading}
-                className="w-full bg-gradient-to-r from-green-500 to-emerald-600 text-black font-bold rounded-xl py-3.5 text-sm hover:from-green-400 hover:to-emerald-500 transition-all shadow-lg shadow-green-500/25 disabled:opacity-60"
-              >
-                {isSubscribed ? "Open Dashboard →" : checkoutLoading ? "Loading…" : session ? "Subscribe — $29/mo →" : "Get Pro — $29/mo →"}
-              </button>
-              <p className="text-center text-[11px] text-gray-700 mt-3">Powered by Stripe · Secure checkout</p>
-            </div>
-
-            {/* Premium */}
-            <div className="relative bg-[#0d0d14] border border-purple-500/30 rounded-3xl p-7 flex flex-col">
               <div className="mb-6">
                 <div className="text-xs font-bold text-purple-400 uppercase tracking-wider mb-2">Premium</div>
                 <div className="flex items-baseline gap-1 mb-1">
@@ -528,7 +482,9 @@ function SubscribeContent() {
               </div>
               <ul className="space-y-2.5 mb-8 flex-1">
                 {([
-                  { icon: "check",       text: "Everything in Pro" },
+                  { icon: "leaderboard", text: "Full Alpha Leaderboard — all 128 subnets" },
+                  { icon: "signals",     text: "AI Signal Intelligence — all signals" },
+                  { icon: "reports",     text: "Daily AI Deep-Dive Reports" },
                   { icon: "oracle",      text: "Oracle — 10 queries/day" },
                   { icon: "investing",   text: "Investing Analysis" },
                   { icon: "whale",       text: "Whale & Smart Money Tracker" },
@@ -1191,12 +1147,12 @@ function SubscribeContent() {
             AlphaGap finds those windows before anyone else.
           </p>
           <p className="text-gray-500 text-base mb-10">
-            From $29/month. No long-term commitment. Cancel anytime.
+            From $49/month. No long-term commitment. Cancel anytime.
           </p>
           <button
-            onClick={() => handleSubscribe("pro")}
+            onClick={() => handleSubscribe("premium")}
             disabled={checkoutLoading}
-            className="px-10 py-5 bg-gradient-to-r from-green-500 to-emerald-600 text-black font-bold rounded-xl hover:from-green-400 hover:to-emerald-500 transition-all shadow-2xl shadow-green-500/30 text-xl disabled:opacity-60"
+            className="px-10 py-5 bg-gradient-to-r from-purple-600 to-violet-700 text-white font-bold rounded-xl hover:from-purple-500 hover:to-violet-600 transition-all shadow-2xl shadow-purple-500/30 text-xl disabled:opacity-60"
           >
             {ctaLabel}
           </button>
