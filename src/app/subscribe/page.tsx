@@ -977,31 +977,6 @@ function SubscribeContent() {
                   ))}
                 </div>
 
-                {/* Mock index table */}
-                <div className="bg-gray-950 rounded-xl border border-gray-800 overflow-hidden mb-5">
-                  <div className="px-4 py-2.5 border-b border-gray-800 flex items-center justify-between">
-                    <span className="text-[10px] text-amber-400 font-semibold uppercase tracking-wide flex items-center gap-1.5"><PIcon name="index" className="w-3 h-3" /> AlphaGap Index — Current Top 10</span>
-                    <span className="text-[10px] text-gray-600">Rebalanced weekly</span>
-                  </div>
-                  {[
-                    { rank: 1, name: "Score",   netuid: 44,  score: 88, weight: "18%", change: "+4.1%" },
-                    { rank: 2, name: "Chutes",  netuid: 64,  score: 82, weight: "15%", change: "+6.2%" },
-                    { rank: 3, name: "ninja",   netuid: 66,  score: 79, weight: "13%", change: "+5.4%" },
-                    { rank: 4, name: "Affine",  netuid: 120, score: 75, weight: "11%", change: "-1.7%" },
-                    { rank: 5, name: "distil",  netuid: 97,  score: 72, weight: "10%", change: "+7.8%" },
-                  ].map(r => (
-                    <div key={r.rank} className="flex items-center gap-3 px-4 py-2.5 border-b border-gray-800/50 last:border-0">
-                      <span className="text-[10px] text-gray-600 w-3 tabular-nums">{r.rank}</span>
-                      <span className="text-[10px] text-gray-600 font-mono">SN{r.netuid}</span>
-                      <span className="text-sm font-semibold text-gray-200 flex-1">{r.name}</span>
-                      <span className="text-sm font-bold text-amber-400 tabular-nums">{r.score}</span>
-                      <span className="text-[10px] text-gray-500 tabular-nums w-8 text-right">{r.weight}</span>
-                      <span className={`text-[10px] font-bold tabular-nums w-12 text-right ${r.change.startsWith("+") ? "text-green-400" : "text-red-400"}`}>{r.change}</span>
-                    </div>
-                  ))}
-                  <div className="px-4 py-2 text-[10px] text-gray-600 border-t border-gray-800">Showing top 5 of 10 constituents</div>
-                </div>
-
                 <a href="/pricing" className="w-full inline-flex items-center justify-center gap-2 px-5 py-3 bg-gradient-to-r from-amber-400 to-orange-400 hover:from-amber-300 hover:to-orange-300 text-black font-bold rounded-xl transition-all shadow-lg shadow-amber-400/20 text-sm">
                   Unlock Ultra — $99/mo →
                 </a>
