@@ -431,7 +431,7 @@ function SubscribeContent() {
           </p>
 
           {/* Plan cards */}
-          <div className="grid sm:grid-cols-4 gap-5 max-w-5xl mx-auto mb-12 text-left">
+          <div className="grid sm:grid-cols-3 gap-5 max-w-5xl mx-auto mb-12 text-left pt-5">
 
             {/* Free */}
             <div className="bg-[#0d0d14] border border-gray-800 rounded-3xl p-7 flex flex-col">
@@ -466,7 +466,7 @@ function SubscribeContent() {
             </div>
 
             {/* Premium */}
-            <div className="relative bg-[#0d0d14] border border-purple-500/40 rounded-3xl p-7 flex flex-col shadow-xl shadow-purple-500/10">
+            <div className="relative bg-[#0d0d14] border border-purple-500/40 rounded-3xl p-7 pt-9 flex flex-col shadow-xl shadow-purple-500/10">
               <div className="absolute -top-3 left-1/2 -translate-x-1/2">
                 <span className="bg-gradient-to-r from-purple-500 to-violet-600 text-white text-[10px] font-bold px-3 py-1 rounded-full">
                   MOST POPULAR
@@ -513,7 +513,7 @@ function SubscribeContent() {
             </div>
 
             {/* Ultra */}
-            <div className="relative bg-gradient-to-b from-amber-950/40 to-[#0d0d14] border border-amber-400/40 rounded-3xl p-7 flex flex-col shadow-xl shadow-amber-400/10">
+            <div className="relative bg-gradient-to-b from-amber-950/40 to-[#0d0d14] border border-amber-400/40 rounded-3xl p-7 pt-9 flex flex-col shadow-xl shadow-amber-400/10">
               <div className="absolute -top-3 left-1/2 -translate-x-1/2">
                 <span className="bg-gradient-to-r from-amber-400 to-orange-400 text-black text-[10px] font-bold px-3 py-1 rounded-full">
                   MOST POWERFUL
@@ -529,10 +529,17 @@ function SubscribeContent() {
               </div>
               <ul className="space-y-2.5 mb-8 flex-1">
                 {([
-                  { icon: "check",     text: "Everything in Premium" },
-                  { icon: "index",     text: "AlphaGap Index — auto-invest TAO into top 10 subnets" },
-                  { icon: "oracle",    text: "Oracle — 20 queries/day (2× Premium)" },
-                  { icon: "priority",  text: "Priority access to new Ultra features" },
+                  { icon: "leaderboard", text: "Full Alpha Leaderboard — all 128 subnets" },
+                  { icon: "signals",     text: "AI Signal Intelligence — all signals" },
+                  { icon: "reports",     text: "Daily AI Deep-Dive Reports" },
+                  { icon: "whale",       text: "Whale & Smart Money Tracker" },
+                  { icon: "social",      text: "Twitter/X social momentum feed" },
+                  { icon: "pumplab",     text: "Pump Lab" },
+                  { icon: "wallet",      text: "Wallet Tracker" },
+                  { icon: "index",       text: "AlphaGap Index — auto-invest TAO into top 10 subnets" },
+                  { icon: "rebalance",   text: "Weekly auto-rebalancing" },
+                  { icon: "oracle",      text: "Oracle — 20 queries/day (2× Premium)" },
+                  { icon: "priority",    text: "Priority access to new Ultra features" },
                 ] as { icon: string; text: string }[]).map(f => (
                   <li key={f.text} className="flex items-start gap-2 text-xs text-gray-300">
                     <span className="text-amber-400 shrink-0 mt-0.5"><PIcon name={f.icon} /></span>
