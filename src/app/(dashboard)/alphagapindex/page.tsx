@@ -140,6 +140,7 @@ export default function AlphaGapIndexPage() {
   const { data: session } = useSession();
   const tier = getTier(session);
   const isUltra = canAccessUltra(tier);
+  const isPremiumOrAbove = tier === "premium" || tier === "ultra";
   const [expandedRow, setExpandedRow] = useState<number | null>(null);
   const [expandedFaq, setExpandedFaq] = useState<number | null>(null);
   const { leaderboard } = useDashboard();
@@ -649,7 +650,8 @@ export default function AlphaGapIndexPage() {
               <div>
                 {holdings.length === 0 ? (
                   <p className="px-6 py-12 text-center text-gray-500 text-sm">Loading index data…</p>
-                ) : (<>
+                ) : (
+                <div className={!isPremiumOrAbove ? "blur-3xl select-none pointer-events-none" : ""}>
                   <div className="md:hidden divide-y divide-white/[0.04]">
                     {holdings.map((h) => {
                       const s = h.subnet;
@@ -662,13 +664,13 @@ export default function AlphaGapIndexPage() {
                         <div key={s.netuid}>
                           <button className="w-full text-left px-4 py-4 flex items-center gap-3 hover:bg-white/[0.03] transition-colors" onClick={() => isUltra && setExpandedRow(isOpen ? null : s.netuid)}>
                             <span className="text-xs font-bold text-gray-600 w-5 tabular-nums flex-shrink-0">{h.rank}</span>
-                            <div className={`flex-shrink-0 ${!isUltra ? "blur-[3px] pointer-events-none" : ""}`}>
+                            <div className={`flex-shrink-0 ${isPremiumOrAbove && !isUltra ? "blur-[3px] pointer-events-none" : ""}`}>
                               <SubnetLogo netuid={s.netuid} name={s.name} size={36} />
                             </div>
                             <div className="flex-1 min-w-0 relative">
-                              <div className={`font-semibold text-gray-100 text-base truncate ${!isUltra ? "blur-[3px] select-none" : ""}`}>{s.name}</div>
-                              <div className={`text-xs text-gray-500 ${!isUltra ? "blur-[3px] select-none" : ""}`}>SN{s.netuid} · {s.category ?? s.benchmark_category ?? "—"}</div>
-                              {!isUltra && (
+                              <div className={`font-semibold text-gray-100 text-base truncate ${isPremiumOrAbove && !isUltra ? "blur-[3px] select-none" : ""}`}>{s.name}</div>
+                              <div className={`text-xs text-gray-500 ${isPremiumOrAbove && !isUltra ? "blur-[3px] select-none" : ""}`}>SN{s.netuid} · {s.category ?? s.benchmark_category ?? "—"}</div>
+                              {isPremiumOrAbove && !isUltra && (
                                 <span className="absolute inset-y-0 left-0 flex items-center">
                                   <span className="text-[9px] font-bold text-amber-400 bg-[#080810] border border-amber-400/30 rounded px-1.5 py-0.5">ULTRA</span>
                                 </span>
@@ -740,14 +742,14 @@ export default function AlphaGapIndexPage() {
                                 <td className="px-6 py-4"><span className="text-xs font-bold text-gray-500 tabular-nums">{h.rank}</span></td>
                                 <td className="px-4 py-4">
                                   <div className="flex items-center gap-3 relative">
-                                    <div className={!isUltra ? "blur-[3px] pointer-events-none" : ""}>
+                                    <div className={isPremiumOrAbove && !isUltra ? "blur-[3px] pointer-events-none" : ""}>
                                       <SubnetLogo netuid={s.netuid} name={s.name} size={32} />
                                     </div>
-                                    <div className={!isUltra ? "blur-[3px] select-none" : ""}>
+                                    <div className={isPremiumOrAbove && !isUltra ? "blur-[3px] select-none" : ""}>
                                       <div className="font-semibold text-gray-100 text-sm">{s.name}</div>
                                       <div className="text-xs text-gray-500">SN{s.netuid}</div>
                                     </div>
-                                    {!isUltra && (
+                                    {isPremiumOrAbove && !isUltra && (
                                       <span className="absolute left-10 top-1/2 -translate-y-1/2 text-[9px] font-bold text-amber-400 bg-[#080810] border border-amber-400/30 rounded px-1.5 py-0.5 z-10">ULTRA</span>
                                     )}
                                   </div>
@@ -792,13 +794,18 @@ export default function AlphaGapIndexPage() {
                       </tbody>
                     </table>
                   </div>
-                </>)}
+                </div>
+                )}
                 <div className="px-4 md:px-6 py-3 border-t border-white/5 flex flex-wrap items-center justify-between gap-2">
                   {isUltra ? (
                     <p className="text-sm text-gray-400">Tap any row to see the investment thesis.</p>
-                  ) : (
+                  ) : isPremiumOrAbove ? (
                     <a href="/pricing" className="text-xs text-amber-400 hover:text-amber-300 font-semibold transition-colors flex items-center gap-1.5">
                       <IconShield className="w-3.5 h-3.5 flex-shrink-0" /> Upgrade to Ultra to reveal the top 10 subnets →
+                    </a>
+                  ) : (
+                    <a href="/pricing" className="text-xs text-amber-400 hover:text-amber-300 font-semibold transition-colors flex items-center gap-1.5">
+                      <IconShield className="w-3.5 h-3.5 flex-shrink-0" /> Upgrade to Premium or Ultra to access the AlphaGap Index →
                     </a>
                   )}
                   <p className="text-sm text-gray-500 italic">Live allocations update post-rebalance</p>
