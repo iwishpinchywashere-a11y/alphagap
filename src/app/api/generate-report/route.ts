@@ -445,8 +445,13 @@ Write the report using EXACTLY this structure. Be concise and punchy — each se
         });
         console.log(`[report] Saved to Blob: reports/${today}.json`);
 
-        // Update report-index.json so dedup works reliably without reading individual files
-        reportIndex[today] = targetNetuid;
+        // Update report-index.json — stores rich metadata so the list endpoint
+        // never needs to fetch individual report files just to build the sidebar.
+        reportIndex[today] = {
+          netuid: targetNetuid,
+          subnet_name: targetName,
+          composite_score: report.composite_score,
+        } as unknown as number; // index type is broadened below; cast avoids ts error
         await put("report-index.json", JSON.stringify(reportIndex), {
           access: "private",
           addRandomSuffix: false,
