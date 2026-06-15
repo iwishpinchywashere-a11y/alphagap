@@ -1470,10 +1470,23 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     }).catch(e => console.warn("[scan] Failed to save dev analysis cache:", e));
   }
 
-  // Build quality map: netuid → AI quality score, used later to adjust dev_score
+  // Build quality map: netuid → AI quality score, used later to adjust dev_score.
+  // Seed from this scan's fresh analyses first, then backfill from cache for any
+  // subnet that wasn't active today but has a recent quality score (≤7 days old).
+  // This prevents subnets from losing their quality signal just because they didn't
+  // commit in the past 24h — a team shipping 20 commits on Monday shouldn't look
+  // the same as a dormant subnet on Tuesday.
   const aiQualityMap = new Map<number, number>();
   for (const { ctx, score } of analyzedDevSignals) {
     aiQualityMap.set(ctx.act.netuid, score);
+  }
+  const CACHE_FRESHNESS_DAYS = 7;
+  const cacheFreshnessCutoff = Date.now() - CACHE_FRESHNESS_DAYS * 24 * 60 * 60 * 1000;
+  for (const [netuidStr, entry] of Object.entries(devAnalysisCache)) {
+    const netuid = Number(netuidStr);
+    if (aiQualityMap.has(netuid)) continue; // fresh scan wins
+    if (new Date(entry.cachedAt).getTime() < cacheFreshnessCutoff) continue; // too stale
+    aiQualityMap.set(netuid, entry.score);
   }
 
   // Create rich dev signals — score from AI quality assessment, date from real commits
@@ -1841,23 +1854,31 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     score = Math.min(60, score);
 
     // ── 6. AI QUALITY ADJUSTMENT (−15 to +40 pts) ────────────────────
-    // This is the primary driver for reaching 70–100. Expanded range makes
-    // quality the decisive differentiator, not just a minor additive bonus.
-    // When the AI scan didn't fire this cycle, apply a small neutral default
-    // so active subnets aren't silently penalised for a missed scan window.
+    // Primary driver for reaching 70–100. Thresholds match the AI prompt's
+    // calibration scale so each band maps cleanly:
+    //   90+  → extraordinary (first-ever, breakthrough, massive launch)
+    //   80+  → significant   (major feature, public release, protocol upgrade)
+    //   65+  → meaningful    (real new capability, solid multi-PR sprint)
+    //   45+  → incremental   (small features, purposeful refactors)
+    //   25+  → routine/noise (dep bumps, CI fixes, solo chores)
+    //   <25  → spam          (trivial, no signal)
+    //
+    // The 65–80 band deliberately gets +18 because "solid shipping on a small
+    // cap with flat token" is exactly what AlphaGap should surface — the AI
+    // prompt scores this range 65–78 and it should move the score meaningfully.
     const aiQuality = aiQualityMap.get(d.netuid);
     if (aiQuality !== undefined) {
       const adj =
-        aiQuality >= 95 ? 40 :   // groundbreaking — architectural shift / research breakthrough
-        aiQuality >= 85 ? 28 :   // major feature or meaningful milestone
-        aiQuality >= 70 ? 16 :   // solid, quality work
-        aiQuality >= 50 ? 6  :   // routine but valid progress
-        aiQuality >= 30 ? -5 :   // low signal / noisy commits
+        aiQuality >= 90 ? 40 :   // extraordinary — paradigm shift / breakthrough
+        aiQuality >= 80 ? 28 :   // significant — major feature or public launch
+        aiQuality >= 65 ? 18 :   // meaningful — solid multi-PR work, real new capability
+        aiQuality >= 45 ? 10 :   // incremental — small features, purposeful refactors
+        aiQuality >= 25 ? 2  :   // routine/noise — dep bumps, CI fixes, solo chores
         -15;                      // spam / trivial changes
       score = Math.min(100, Math.max(0, score + adj));
     } else if (hasVerifiedRecentActivity) {
-      // AI scan didn't run this cycle — neutral +5 so active subnets aren't
-      // artificially suppressed just because they weren't sampled this pass.
+      // No AI quality data at all — neutral +5 so active subnets with no
+      // cached score aren't penalised relative to unscanned noise.
       score = Math.min(100, score + 5);
     }
 
