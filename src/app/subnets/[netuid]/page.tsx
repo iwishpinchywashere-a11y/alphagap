@@ -137,7 +137,7 @@ function PriceChart({ data, color }: { data: PricePoint[]; color: string }) {
   const cH = H - PAD.top - PAD.bottom;
 
   if (data.length < 2) {
-    return <div className="flex items-center justify-center h-48 text-gray-600 text-xs">Loading chart data…</div>;
+    return <div className="flex items-center justify-center h-48 text-gray-600 text-xs">No price data available</div>;
   }
 
   const prices = data.map((d) => d.price);
@@ -697,9 +697,15 @@ export default function SubnetDetailPage({ params }: { params: Promise<{ netuid:
     if (!data) return [];
     const now = Date.now();
     if (timeframe === "1D") {
-      return data.sevenDayPrices.filter((p) => parseTs(p.timestamp) >= now - 86400000);
+      const pts = data.sevenDayPrices.filter((p) => parseTs(p.timestamp) >= now - 86400000);
+      if (pts.length >= 2) return pts;
+      // Fallback: last 2 daily candles when intraday data is unavailable
+      return data.priceHistory.slice(-2);
     }
-    if (timeframe === "7D") return data.sevenDayPrices;
+    if (timeframe === "7D") {
+      if (data.sevenDayPrices.length >= 2) return data.sevenDayPrices;
+      return data.priceHistory.filter((p) => parseTs(p.timestamp) >= now - 7 * 86400000);
+    }
     if (timeframe === "1M") {
       return data.priceHistory.filter((p) => parseTs(p.timestamp) >= now - 30 * 86400000);
     }

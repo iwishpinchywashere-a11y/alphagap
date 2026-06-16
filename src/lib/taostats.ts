@@ -11,7 +11,8 @@ interface TaoStatsResponse<T> {
   };
 }
 
-async function taoFetch<T>(path: string, params: Record<string, string> = {}): Promise<T[]> {
+// revalidate: live market data = 30s, reference data (identities, metagraph) = 120s
+async function taoFetch<T>(path: string, params: Record<string, string> = {}, revalidate = 60): Promise<T[]> {
   const url = new URL(`${BASE_URL}${path}`);
   for (const [k, v] of Object.entries(params)) {
     url.searchParams.set(k, v);
@@ -19,17 +20,17 @@ async function taoFetch<T>(path: string, params: Record<string, string> = {}): P
 
   const res = await fetch(url.toString(), {
     headers: { Authorization: API_KEY },
-    next: { revalidate: 0 },
-    signal: AbortSignal.timeout(15000),
+    next: { revalidate },
+    signal: AbortSignal.timeout(12000),
   });
 
   if (res.status === 429) {
-    console.warn(`TaoStats rate limited on ${path}, waiting 5s and retrying...`);
-    await new Promise(r => setTimeout(r, 5000));
+    console.warn(`TaoStats rate limited on ${path}, retrying in 2s…`);
+    await new Promise(r => setTimeout(r, 2000));
     const retry = await fetch(url.toString(), {
       headers: { Authorization: API_KEY },
-      next: { revalidate: 0 },
-      signal: AbortSignal.timeout(15000),
+      next: { revalidate },
+      signal: AbortSignal.timeout(12000),
     });
     if (!retry.ok) {
       console.warn(`TaoStats ${path} still failing after retry (${retry.status})`);
@@ -64,7 +65,7 @@ export interface SubnetIdentity {
 }
 
 export async function getSubnetIdentities(): Promise<SubnetIdentity[]> {
-  return taoFetch<SubnetIdentity>("/subnet/identity/v1", { limit: "200" });
+  return taoFetch<SubnetIdentity>("/subnet/identity/v1", { limit: "200" }, 300);
 }
 
 // ── TAO Flow ─────────────────────────────────────────────────────
@@ -131,7 +132,7 @@ export interface SubnetPoolDetail extends SubnetPool {
 }
 
 export async function getSubnetPoolDetail(netuid: number): Promise<SubnetPoolDetail | null> {
-  const data = await taoFetch<SubnetPoolDetail>("/dtao/pool/latest/v1", { netuid: String(netuid), limit: "1" });
+  const data = await taoFetch<SubnetPoolDetail>("/dtao/pool/latest/v1", { netuid: String(netuid), limit: "1" }, 30);
   return data[0] || null;
 }
 
@@ -186,7 +187,7 @@ export interface TaoPrice {
 }
 
 export async function getTaoPrice(): Promise<number> {
-  const data = await taoFetch<TaoPrice>("/price/latest/v1", { asset: "tao" });
+  const data = await taoFetch<TaoPrice>("/price/latest/v1", { asset: "tao" }, 30);
   if (data.length > 0) {
     return parseFloat(data[0].price);
   }
@@ -229,7 +230,7 @@ export interface MetagraphNeuron {
 
 export async function getMetagraph(netuid: number): Promise<MetagraphNeuron[]> {
   // Bittensor subnets can have up to 256 neurons — use limit=500 to capture all in one page
-  return taoFetch<MetagraphNeuron>("/metagraph/latest/v1", { netuid: String(netuid), limit: "500" });
+  return taoFetch<MetagraphNeuron>("/metagraph/latest/v1", { netuid: String(netuid), limit: "500" }, 120);
 }
 
 // ── Neuron Registrations ────────────────────────────────────────
@@ -312,7 +313,7 @@ export async function getPoolHistory(netuid: number, days: number = 365): Promis
     timestamp_start: String(since),
     limit: String(limit),
     order: "timestamp_asc",
-  });
+  }, 120);
 }
 
 // ── Subnet Coldkey Distribution (concentration risk) ────────────
