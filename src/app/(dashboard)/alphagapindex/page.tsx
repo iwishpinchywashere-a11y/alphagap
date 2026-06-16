@@ -650,7 +650,8 @@ export default function AlphaGapIndexPage() {
                 {holdings.length === 0 ? (
                   <p className="px-6 py-12 text-center text-gray-500 text-sm">Loading index data…</p>
                 ) : (
-                <div className={!isUltra ? "blur-3xl select-none pointer-events-none" : ""}>
+                <div className="relative">
+                  <div className={!isUltra ? "blur-3xl select-none pointer-events-none" : ""}>
                   <div className="md:hidden divide-y divide-white/[0.04]">
                     {holdings.map((h) => {
                       const s = h.subnet;
@@ -784,7 +785,21 @@ export default function AlphaGapIndexPage() {
                         })}
                       </tbody>
                     </table>
+                    </div>
                   </div>
+                  {!isUltra && (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 pointer-events-auto" style={{ background: "radial-gradient(ellipse 80% 60% at 50% 50%, rgba(8,8,16,0.88) 0%, rgba(8,8,16,0.5) 100%)" }}>
+                      <a
+                        href="/subscribe"
+                        className="inline-flex items-center gap-3 px-8 py-4 bg-gradient-to-r from-amber-400 to-orange-400 hover:from-amber-300 hover:to-orange-300 text-black font-black text-lg rounded-2xl transition-all shadow-2xl shadow-amber-500/30 active:scale-95"
+                      >
+                        <IconZap className="w-5 h-5" />
+                        Upgrade to Ultra
+                        <IconArrow className="w-5 h-5" />
+                      </a>
+                      <p className="text-sm text-gray-400">Unlock live holdings · $99/mo</p>
+                    </div>
+                  )}
                 </div>
                 )}
                 <div className="px-4 md:px-6 py-3 border-t border-white/5 flex flex-wrap items-center justify-between gap-2">
