@@ -13,7 +13,7 @@ interface Message {
 }
 
 // Matches dailyLimitS in /api/oracle/route.ts
-const TIER_LIMITS: Record<string, number> = { premium: 15, ultra: 50 };
+const TIER_LIMITS: Record<string, number> = { premium: 10, ultra: 20 };
 
 const STARTER_QUESTIONS: { icon: React.ReactNode; bg: string; color: string; text: string }[] = [
   {
