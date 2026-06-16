@@ -117,7 +117,7 @@ export default function LandingPage() {
               Explore Premium ↓
             </Link>
           </div>
-          <p className="text-xs text-gray-600 mt-3">Free preview · Pro $29/mo · Premium $49/mo · Ultra $99/mo</p>
+          <p className="text-xs text-gray-600 mt-3">Free preview · Premium $49/mo · Ultra $99/mo</p>
         </div>
       </section>
 
@@ -814,7 +814,7 @@ export default function LandingPage() {
                 highlight: "Up 16 $TAO",
               },
               {
-                quote: "+20% since i bought the pro version of alphagap",
+                quote: "+20% since i bought the premium version of alphagap",
                 highlight: "+20%",
               },
               {
@@ -864,7 +864,7 @@ export default function LandingPage() {
           </h2>
           <p className="text-gray-400 text-lg mb-10 max-w-xl mx-auto">
             Join the traders who see what the market doesn&apos;t.
-            Free to start. Pro from $29/mo. Cancel anytime.
+            Free to start. Premium from $49/mo. Cancel anytime.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link

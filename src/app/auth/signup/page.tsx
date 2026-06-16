@@ -10,7 +10,7 @@ const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
 function SignUpForm() {
   const params = useSearchParams();
   const rawPlan = params.get("plan");
-  const plan = (rawPlan === "ultra" ? "ultra" : rawPlan === "premium" ? "premium" : "pro") as "pro" | "premium" | "ultra";
+  const plan = (rawPlan === "ultra" ? "ultra" : rawPlan === "premium" ? "premium" : "premium") as "premium" | "ultra";
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -79,7 +79,7 @@ function SignUpForm() {
           </p>
           {plan && (
             <p className="text-xs text-green-400/80 mt-1 font-medium">
-              Selected: AlphaGap {plan === "ultra" ? "Ultra ($99/mo)" : plan === "premium" ? "Premium ($49/mo)" : "Pro ($29/mo)"}
+              Selected: AlphaGap {plan === "ultra" ? "Ultra ($99/mo)" : "Premium ($49/mo)"}
             </p>
           )}
         </div>

@@ -377,7 +377,7 @@ function SubscribeContent() {
               <>
                 <Link href="/auth/signin" className="text-sm text-gray-400 hover:text-white transition-colors">Sign In</Link>
                 <button
-                  onClick={() => handleSubscribe("pro")}
+                  onClick={() => handleSubscribe("premium")}
                   className="text-sm bg-gradient-to-r from-green-500 to-emerald-600 text-black font-bold px-4 py-1.5 rounded-lg hover:from-green-400 hover:to-emerald-500 transition-all shadow-md shadow-green-500/20"
                 >
                   Get Access

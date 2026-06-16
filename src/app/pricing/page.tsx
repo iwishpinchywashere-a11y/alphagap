@@ -221,7 +221,7 @@ export default function PricingPage() {
             href="/subscribe"
             className="inline-block px-6 py-2.5 border border-gray-700 text-gray-300 hover:border-gray-500 hover:text-white rounded-xl text-sm font-medium transition-colors"
           >
-            Learn About Pro &amp; Premium →
+            Learn About Premium &amp; Ultra →
           </Link>
         </div>
 
