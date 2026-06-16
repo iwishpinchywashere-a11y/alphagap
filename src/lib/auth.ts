@@ -49,32 +49,23 @@ export const authOptions: NextAuthOptions = {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         token.isAdmin = (user as any).isAdmin ?? emailIsAdmin(user.email) ?? false;
       }
-      // Re-read from blob on sign-in, explicit update, or if last refresh > 60s ago.
-      const now = Date.now();
-      const lastRefresh = (token.subscriptionLastRefreshed as number) ?? 0;
-      const shouldRefresh =
-        trigger === "signIn" ||
-        trigger === "update" ||
-        now - lastRefresh > 60_000;
-
-      if (shouldRefresh && token.email) {
-        // If the client passed fresh tier data (from our /api/auth/refresh-session
-        // endpoint), apply it directly — this bypasses any blob propagation delay.
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const passed = sessionData as any;
-        if (trigger === "update" && passed?.subscriptionStatus) {
-          token.subscriptionStatus = passed.subscriptionStatus;
-          token.subscriptionTier = passed.subscriptionTier ?? null;
-          token.subscriptionLastRefreshed = now;
-        } else {
-          // Fallback: read fresh from blob (sign-in, time-based, or update with no data)
-          const fresh = await getUserByEmail(token.email as string, { retries: 5 });
-          if (fresh) {
-            token.subscriptionStatus = fresh.subscriptionStatus;
-            token.subscriptionTier = fresh.subscriptionTier ?? null;
-            token.isAdmin = (fresh.isAdmin ?? false) || emailIsAdmin(token.email as string);
-          }
-          token.subscriptionLastRefreshed = now;
+      // Always re-read from blob when we have an email in the token.
+      // This ensures admin tier changes take effect on the next session fetch
+      // without requiring sign-out. Blob reads are ~50ms and happen once per
+      // page load (useSession calls /api/auth/session on mount).
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const passed = sessionData as any;
+      if (trigger === "update" && passed?.subscriptionStatus) {
+        // Client passed explicit fresh data — apply directly (fastest path)
+        token.subscriptionStatus = passed.subscriptionStatus;
+        token.subscriptionTier = passed.subscriptionTier ?? null;
+      } else if (token.email) {
+        // Read live from blob — no retries to avoid serverless timeout
+        const fresh = await getUserByEmail(token.email as string);
+        if (fresh) {
+          token.subscriptionStatus = fresh.subscriptionStatus;
+          token.subscriptionTier = fresh.subscriptionTier ?? null;
+          token.isAdmin = (fresh.isAdmin ?? false) || emailIsAdmin(token.email as string);
         }
       }
       // Always ensure ADMIN_EMAILS users get isAdmin=true even without refresh
