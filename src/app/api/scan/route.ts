@@ -927,6 +927,7 @@ export async function GET() {
       const cacheBlob = await blobGetSocial(SOCIAL_CACHE_BLOB, {
         token: process.env.BLOB_READ_WRITE_TOKEN,
         access: "private",
+        abortSignal: AbortSignal.timeout(8000),
       });
       if (cacheBlob?.stream) {
         const reader = cacheBlob.stream.getReader();
@@ -2458,6 +2459,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
       const wpBlob = await getBlobWP("website-product.json", {
         token: process.env.BLOB_READ_WRITE_TOKEN,
         access: "private",
+        abortSignal: AbortSignal.timeout(8000),
       });
       if (wpBlob?.stream) {
         const reader = wpBlob.stream.getReader();
@@ -2508,6 +2510,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
       const histBlob = await getBlob("agap-history.json", {
         token: process.env.BLOB_READ_WRITE_TOKEN,
         access: "private",
+        abortSignal: AbortSignal.timeout(8000),
       });
       if (histBlob?.stream) {
         const reader = histBlob.stream.getReader();
@@ -3859,6 +3862,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
       const prevBlob = await getBlobForFlow("scan-latest.json", {
         token: process.env.BLOB_READ_WRITE_TOKEN,
         access: "private",
+        abortSignal: AbortSignal.timeout(8000),
       });
       if (prevBlob?.stream) {
         const reader = prevBlob.stream.getReader();
@@ -3953,7 +3957,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
       const BLOB_TOKEN_VF = process.env.BLOB_READ_WRITE_TOKEN;
       let veloFallback: Record<string, number> = {}; // netuid-string → velo score
       try {
-        const fbBlob = await blobGet(VELO_FB_BLOB, { token: BLOB_TOKEN_VF, access: "private" });
+        const fbBlob = await blobGet(VELO_FB_BLOB, { token: BLOB_TOKEN_VF, access: "private", abortSignal: AbortSignal.timeout(8000) });
         if (fbBlob?.stream) {
           const reader = fbBlob.stream.getReader();
           const chunks: Uint8Array[] = [];
@@ -3965,7 +3969,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
 
       let scoreHistory: Record<string, Record<string, ScoreRow>> = {};
       try {
-        const blob = await getBlob2("subnet-scores-history.json", { token: process.env.BLOB_READ_WRITE_TOKEN, access: "private" });
+        const blob = await getBlob2("subnet-scores-history.json", { token: process.env.BLOB_READ_WRITE_TOKEN, access: "private", abortSignal: AbortSignal.timeout(12000) });
         if (blob?.stream) {
           const reader = blob.stream.getReader();
           const chunks: Uint8Array[] = [];
@@ -4197,7 +4201,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
       const RAO_DIVISOR = 1e9;
       let flowHistory: Record<string, Record<string, number>> = {};
       try {
-        const blob = await getBlob3("flow-history.json", { token: process.env.BLOB_READ_WRITE_TOKEN, access: "private" });
+        const blob = await getBlob3("flow-history.json", { token: process.env.BLOB_READ_WRITE_TOKEN, access: "private", abortSignal: AbortSignal.timeout(8000) });
         if (blob?.stream) {
           const reader = blob.stream.getReader();
           const chunks: Uint8Array[] = [];
