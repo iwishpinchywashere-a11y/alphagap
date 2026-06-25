@@ -458,9 +458,47 @@ export async function GET() {
     getTaoPrice(),
   ]);
   let identities = idResult.status === "fulfilled" ? idResult.value : ([] as Awaited<ReturnType<typeof getSubnetIdentities>>);
-  const pools = poolsResult.status === "fulfilled" ? poolsResult.value : [];
+  let pools = poolsResult.status === "fulfilled" ? poolsResult.value : ([] as Awaited<ReturnType<typeof getSubnetPools>>);
   const taoPrice = taoPriceResult.status === "fulfilled" ? taoPriceResult.value : 0;
   console.log(`[scan] Batch 1 done: ${identities.length} ids, ${pools.length} pools, TAO=$${taoPrice.toFixed(2)}`);
+
+  // ── Blob-cached fallback for identities + pools ───────────────────────────
+  // These are the two feeds that kill isHealthyScan when TaoStats goes down.
+  // Same pattern as dev-activity-cache — save fresh data each run, load stale on failure.
+  const BLOB_TOKEN_CACHE = process.env.BLOB_READ_WRITE_TOKEN || "";
+  if (identities.length > 0) {
+    put("identity-cache.json", JSON.stringify(identities), {
+      access: "private" as never, token: BLOB_TOKEN_CACHE,
+      addRandomSuffix: false, allowOverwrite: true, contentType: "application/json",
+    }).catch(() => {});
+  } else {
+    try {
+      const cached = await blobGet("identity-cache.json", { token: BLOB_TOKEN_CACHE, access: "private" });
+      if (cached?.stream) {
+        const reader = cached.stream.getReader(); const chunks: Uint8Array[] = [];
+        while (true) { const { done, value } = await reader.read(); if (done) break; chunks.push(value); }
+        identities = JSON.parse(Buffer.concat(chunks).toString("utf-8"));
+        console.warn(`[scan] TaoStats identities unavailable — using cache (${identities.length} entries)`);
+      }
+    } catch { console.warn("[scan] identity-cache read failed"); }
+  }
+
+  if (pools.length > 0) {
+    put("pool-cache.json", JSON.stringify(pools), {
+      access: "private" as never, token: BLOB_TOKEN_CACHE,
+      addRandomSuffix: false, allowOverwrite: true, contentType: "application/json",
+    }).catch(() => {});
+  } else {
+    try {
+      const cached = await blobGet("pool-cache.json", { token: BLOB_TOKEN_CACHE, access: "private" });
+      if (cached?.stream) {
+        const reader = cached.stream.getReader(); const chunks: Uint8Array[] = [];
+        while (true) { const { done, value } = await reader.read(); if (done) break; chunks.push(value); }
+        pools = JSON.parse(Buffer.concat(chunks).toString("utf-8"));
+        console.warn(`[scan] TaoStats pools unavailable — using cache (${pools.length} entries)`);
+      }
+    } catch { console.warn("[scan] pool-cache read failed"); }
+  }
 
   await new Promise(r => setTimeout(r, 500));
 
