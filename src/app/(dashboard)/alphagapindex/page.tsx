@@ -10,6 +10,10 @@ import SubnetLogo from "@/components/dashboard/SubnetLogo";
 const TS_STRATEGY_ID = "97d1325b-9ee9-4bd1-bd58-893d707f85c4";
 const TS_PROXY_ADDRESS = "5CeJG2T47NxUAAc42q2zoU7qV1YFy4khL3ogHxooVjNKxUuw";
 const TS_STRATEGY_TABLE = "custom_strategies";
+// Private invite link — the only supported way to join a private strategy
+// (TrustedStake's API does not accept invite tokens on /membership/register yet).
+// Unlimited uses, no expiry — verified via manager API share-links endpoint.
+const TS_INVITE_URL = "https://app.trustedstake.ai/strat/invite/e6efd855f520660338db05c14baf5fd38a15c0e83e12b6c43b8307b2b9c9d237";
 
 /* ── SVG Icons ───────────────────────────────────────────────────────────── */
 const IconChart = ({ className }: { className?: string }) => (
@@ -132,7 +136,7 @@ interface WalletAccount {
 }
 
 type ProxyStep = "idle" | "proxy-connecting" | "proxy-pending" | "proxy-done" | "proxy-error";
-type RegisterStep = "idle" | "registering" | "success" | "register-error";
+type RegisterStep = "idle" | "awaiting" | "success" | "register-error";
 type LeaveStep = "idle" | "leaving" | "success" | "error";
 
 /* ── Component ───────────────────────────────────────────────────────────── */
@@ -180,12 +184,34 @@ export default function AlphaGapIndexPage() {
   const [leaveStep, setLeaveStep] = useState<LeaveStep>("idle");
   const [leaveError, setLeaveError] = useState<string | null>(null);
 
-  // Restore membership status from localStorage when address changes
+  // Membership check — TrustedStake's delegator list is the source of truth.
+  const checkMembership = useCallback(async (address: string): Promise<boolean> => {
+    try {
+      const res = await fetch(`/api/trustedstake/membership?address=${encodeURIComponent(address)}`);
+      if (!res.ok) return false;
+      const data = await res.json();
+      return data.isMember === true;
+    } catch {
+      return false;
+    }
+  }, []);
+
+  // Restore membership when address changes: localStorage for instant paint,
+  // then sync with TrustedStake.
   useEffect(() => {
     if (!selectedAddress) { setIsMember(false); return; }
     const stored = localStorage.getItem(`alphagap-ts-member-${selectedAddress}`);
     setIsMember(stored === "true");
-  }, [selectedAddress]);
+
+    let cancelled = false;
+    checkMembership(selectedAddress).then(member => {
+      if (cancelled) return;
+      setIsMember(member);
+      if (member) localStorage.setItem(`alphagap-ts-member-${selectedAddress}`, "true");
+      else localStorage.removeItem(`alphagap-ts-member-${selectedAddress}`);
+    });
+    return () => { cancelled = true; };
+  }, [selectedAddress, checkMembership]);
 
   // ── Connect wallet ──────────────────────────────────────────────────────
   const connectWallet = useCallback(async () => {
@@ -208,6 +234,7 @@ export default function AlphaGapIndexPage() {
   }, []);
 
   const disconnectWallet = useCallback(() => {
+    if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
     setSelectedAddress(null);
     setWalletAccounts([]);
     setIsMember(false);
@@ -326,65 +353,55 @@ export default function AlphaGapIndexPage() {
   }, [selectedAddress]);
 
   // ── Join flow ───────────────────────────────────────────────────────────
-  const handleRegister = useCallback(async () => {
+  // The AlphaGap Index is a PRIVATE strategy on TrustedStake, and their API
+  // does not accept invite tokens on /membership/register (confirmed by the
+  // TrustedStake team — API invite support is on their roadmap). The supported
+  // flow is: open the private invite link, the user completes the join on
+  // TrustedStake, and we detect membership via the manager API delegator list.
+  const pollRef = React.useRef<ReturnType<typeof setInterval> | null>(null);
+  const stopPolling = useCallback(() => {
+    if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
+  }, []);
+  useEffect(() => stopPolling, [stopPolling]);
+
+  const confirmMembership = useCallback((address: string) => {
+    stopPolling();
+    localStorage.setItem(`alphagap-ts-member-${address}`, "true");
+    setIsMember(true);
+    setRegisterStep("success");
+  }, [stopPolling]);
+
+  const handleJoinViaInvite = useCallback(() => {
     if (!selectedAddress) return;
-    setRegisterStep("registering");
+    window.open(TS_INVITE_URL, "_blank", "noopener,noreferrer");
+    setRegisterStep("awaiting");
     setRegisterError(null);
 
-    try {
-      // 1. Get current block
-      const blockRes = await fetch("/api/trustedstake/block");
-      const blockData = await blockRes.json();
-      if (!blockRes.ok) throw new Error(blockData.error ?? "Failed to fetch block");
-
-      const { blockNumber, timestamp } = blockData as { blockNumber: number; timestamp: string };
-
-      // 2. Build message
-      const messageObj = {
-        action: "register_membership",
-        timestamp: Date.now(),
-        nonce: crypto.randomUUID(),
-        data: {
-          proxy: TS_PROXY_ADDRESS,
-          strategyId: TS_STRATEGY_ID,
-          strategyTable: TS_STRATEGY_TABLE,
-          fromBlock: blockNumber,
-          fromTimestamp: new Date(timestamp).getTime(),
-        },
-      };
-      const messageString = JSON.stringify(messageObj);
-
-      // 3. Sign
-      const { signMessage } = await import("@/lib/polkadot-wallet");
-      const signature = await signMessage(selectedAddress, messageString);
-
-      // 4. POST to join API
-      const joinRes = await fetch("/api/trustedstake/join", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          walletAddress: selectedAddress,
-          signature,
-          message: messageString,
-        }),
-      });
-      const joinData = await joinRes.json();
-      if (!joinRes.ok) {
-        // TrustedStake error shape: { statusCode, message, error }
-        // Our proxy error shape: { error }
-        const detail = joinData.message ?? joinData.error ?? `Registration failed (${joinRes.status})`;
-        throw new Error(detail);
+    // Poll for up to 10 minutes while the user completes the join on TrustedStake
+    stopPolling();
+    let attempts = 0;
+    pollRef.current = setInterval(async () => {
+      attempts += 1;
+      if (await checkMembership(selectedAddress)) {
+        confirmMembership(selectedAddress);
+      } else if (attempts >= 100) {
+        stopPolling();
+        setRegisterError("We couldn't confirm your membership yet. If you completed the join on TrustedStake, click Check Again.");
+        setRegisterStep("register-error");
       }
+    }, 6000);
+  }, [selectedAddress, checkMembership, confirmMembership, stopPolling]);
 
-      // 5. Persist membership
-      localStorage.setItem(`alphagap-ts-member-${selectedAddress}`, "true");
-      setIsMember(true);
-      setRegisterStep("success");
-    } catch (err) {
-      setRegisterError(err instanceof Error ? err.message : "Registration failed");
+  const handleCheckStatus = useCallback(async () => {
+    if (!selectedAddress) return;
+    setRegisterError(null);
+    if (await checkMembership(selectedAddress)) {
+      confirmMembership(selectedAddress);
+    } else {
+      setRegisterError("Not registered yet — complete the join on TrustedStake with this wallet, then check again.");
       setRegisterStep("register-error");
     }
-  }, [selectedAddress]);
+  }, [selectedAddress, checkMembership, confirmMembership]);
 
   // ── Leave flow ──────────────────────────────────────────────────────────
   const handleLeave = useCallback(async () => {
@@ -825,7 +842,7 @@ export default function AlphaGapIndexPage() {
           <h2 className="text-3xl sm:text-4xl font-black text-white mb-3">Deploy Your TAO</h2>
           <p className="text-gray-400 text-base mb-8 max-w-2xl">
             {isUltra
-              ? "Two steps to start earning. First, set up your wallet proxy on TrustedStake (one-time, on-chain). Then register your membership here with a signed message — no TAO leaves your wallet."
+              ? "Two steps to start earning. First, set up your wallet proxy (one-time, on-chain). Then join the strategy through our private invite link on TrustedStake — no TAO leaves your wallet."
               : "The AlphaGap Index is exclusive to Ultra subscribers. Upgrade to deploy your TAO into the top 10 subnets automatically."}
           </p>
 
@@ -885,7 +902,7 @@ export default function AlphaGapIndexPage() {
                     {proxyStep === "proxy-connecting" && <p className="text-gray-400 text-sm flex items-center gap-2"><IconLoader className="w-4 h-4 animate-spin text-emerald-400" /> Connecting to Bittensor network…</p>}
                     {proxyStep === "proxy-pending" && <p className="text-gray-400 text-sm flex items-center gap-2"><IconLoader className="w-4 h-4 animate-spin text-emerald-400" /> Check your wallet — sign the proxy transaction…</p>}
                     {proxyStep === "proxy-error" && <div className="space-y-3"><p className="text-red-400 text-sm">{proxyError}</p><button onClick={handleSetupProxy} className="inline-flex items-center gap-2 px-5 py-2.5 bg-white/5 hover:bg-white/10 border border-white/8 text-gray-300 font-semibold text-sm rounded-xl transition-all">Retry</button></div>}
-                    {proxyStep === "proxy-done" && <p className="text-emerald-400 text-sm font-medium"><IconCheck className="w-3.5 h-3.5 inline mr-1.5" />Proxy authorised — wait ~30s for confirmation, then register below</p>}
+                    {proxyStep === "proxy-done" && <p className="text-emerald-400 text-sm font-medium"><IconCheck className="w-3.5 h-3.5 inline mr-1.5" />Proxy authorised — wait ~30s for confirmation, then join below</p>}
                   </div>
                 </div>
               </div>
@@ -895,18 +912,30 @@ export default function AlphaGapIndexPage() {
                     {registerStep === "success" ? <IconCheck className="w-4 h-4" /> : "2"}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-bold text-white text-base mb-1">Register My Membership</p>
-                    <p className="text-gray-400 text-sm mb-4">Sign a message with your wallet to register with the AlphaGap strategy. No transaction fee — this is just a signature.</p>
+                    <p className="font-bold text-white text-base mb-1">Join via Private Invite</p>
+                    <p className="text-gray-400 text-sm mb-4">The AlphaGap Index is a private strategy — access is invite-only through AlphaGap. Click below to open our invite on TrustedStake, connect this same wallet there, and confirm the join. We&apos;ll detect your membership automatically.</p>
                     <p className="text-xs text-gray-500 font-mono mb-4 break-all">Wallet: {selectedAddress}</p>
                     {registerStep === "success" ? (
-                      <div className="flex items-center gap-2 text-emerald-400 font-semibold text-sm"><IconCheck className="w-4 h-4" /> Membership registered successfully!</div>
+                      <div className="flex items-center gap-2 text-emerald-400 font-semibold text-sm"><IconCheck className="w-4 h-4" /> Membership confirmed — you&apos;re in!</div>
                     ) : registerStep === "register-error" ? (
-                      <div className="space-y-3"><p className="text-sm text-red-400">{registerError}</p><button onClick={handleRegister} className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-emerald-400 to-green-400 text-black font-bold text-sm rounded-xl transition-all active:scale-95">Retry <IconArrow className="w-3.5 h-3.5" /></button></div>
-                    ) : registerStep === "registering" ? (
-                      <div className="flex items-center gap-2 text-gray-400 text-sm"><IconLoader className="w-4 h-4 animate-spin text-emerald-400" /> Signing and registering…</div>
+                      <div className="space-y-3">
+                        <p className="text-sm text-red-400">{registerError}</p>
+                        <div className="flex flex-wrap gap-3">
+                          <button onClick={handleCheckStatus} className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-emerald-400 to-green-400 text-black font-bold text-sm rounded-xl transition-all active:scale-95">Check Again <IconRefresh className="w-3.5 h-3.5" /></button>
+                          <button onClick={handleJoinViaInvite} className="inline-flex items-center gap-2 px-5 py-2.5 bg-white/5 hover:bg-white/10 border border-white/8 text-gray-300 font-semibold text-sm rounded-xl transition-all">Reopen Invite <IconArrow className="w-3.5 h-3.5" /></button>
+                        </div>
+                      </div>
+                    ) : registerStep === "awaiting" ? (
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2 text-gray-400 text-sm"><IconLoader className="w-4 h-4 animate-spin text-emerald-400" /> Waiting for you to complete the join on TrustedStake…</div>
+                        <div className="flex flex-wrap gap-3">
+                          <button onClick={handleCheckStatus} className="inline-flex items-center gap-2 px-5 py-2.5 bg-white/5 hover:bg-white/10 border border-white/8 text-gray-300 font-semibold text-sm rounded-xl transition-all">I&apos;ve Joined — Check Now <IconRefresh className="w-3.5 h-3.5" /></button>
+                          <a href={TS_INVITE_URL} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 px-5 py-2.5 text-gray-500 hover:text-gray-300 text-sm font-medium transition-colors">Reopen invite link <IconArrow className="w-3.5 h-3.5" /></a>
+                        </div>
+                      </div>
                     ) : (
-                      <button onClick={handleRegister} disabled={proxyStep !== "proxy-done"} className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-emerald-400 to-green-400 hover:from-emerald-300 hover:to-green-300 disabled:opacity-40 disabled:cursor-not-allowed text-black font-bold text-sm rounded-xl transition-all shadow-lg shadow-emerald-500/20 active:scale-95">
-                        Register My Membership <IconArrow className="w-3.5 h-3.5" />
+                      <button onClick={handleJoinViaInvite} disabled={proxyStep !== "proxy-done"} className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-emerald-400 to-green-400 hover:from-emerald-300 hover:to-green-300 disabled:opacity-40 disabled:cursor-not-allowed text-black font-bold text-sm rounded-xl transition-all shadow-lg shadow-emerald-500/20 active:scale-95">
+                        Join on TrustedStake <IconArrow className="w-3.5 h-3.5" />
                       </button>
                     )}
                   </div>

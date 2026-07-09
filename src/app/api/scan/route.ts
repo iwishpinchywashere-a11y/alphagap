@@ -733,7 +733,7 @@ export async function GET() {
     36:  "AutoppiaAI",      // Web Agents - Autoppia
     37:  "AureliusAligned", // Aurelius
     39:  "basilic_ai",      // Basilica
-    40:  "chunking_subnet", // Chunking
+    40:  "vectorchatai",    // Ralph (SN40) — rebranded from Chunking; official X is @vectorchatai
     42:  "getmasafi",       // Masa (real-time social data)
     43:  "GraphiteSubnet",  // Graphite
     44:  "webuildscore",    // Score (SN44)
