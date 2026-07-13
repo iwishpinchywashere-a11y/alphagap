@@ -39,10 +39,11 @@ export default function AccountPage() {
   }
 
   const subscriptionStatus = user?.subscriptionStatus ?? "none";
-  const subscriptionTier: "pro" | "premium" | null = user?.subscriptionTier ?? null;
+  const subscriptionTier: "pro" | "premium" | "ultra" | null = user?.subscriptionTier ?? null;
   const isActive = subscriptionStatus === "active" || subscriptionStatus === "trialing";
+  const isUltra = isActive && subscriptionTier === "ultra";
   const isPremium = isActive && subscriptionTier === "premium";
-  const isPro = isActive && !isPremium; // treat null/undefined tier as pro (default active tier)
+  const isPro = isActive && !isPremium && !isUltra; // treat null/undefined tier as pro (default active tier)
 
   async function cancelSubscription() {
     setCancelLoading(true);
@@ -177,7 +178,7 @@ export default function AccountPage() {
               <div className="flex items-center justify-between mb-4">
                 <span className="text-gray-300 text-sm">Plan</span>
                 <span className="text-white font-semibold">
-                  {isPremium ? "AlphaGap Premium — $49/mo" : "AlphaGap Pro — $29/mo"}
+                  {isUltra ? "AlphaGap Ultra — $99/mo" : isPremium ? "AlphaGap Premium — $49/mo" : "AlphaGap Pro — $29/mo"}
                 </span>
               </div>
 
@@ -195,6 +196,24 @@ export default function AccountPage() {
                     className="mt-3 w-full inline-block text-center bg-gradient-to-r from-purple-500 to-violet-600 text-white font-bold rounded-lg py-2.5 text-sm hover:from-purple-400 hover:to-violet-500 transition-all shadow-lg shadow-purple-500/20"
                   >
                     Upgrade to Premium →
+                  </a>
+                </div>
+              )}
+
+              {/* Upgrade to Ultra (only shown for Premium users) */}
+              {isPremium && (
+                <div className="bg-amber-500/5 border border-amber-500/20 rounded-xl p-4 mb-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="text-sm font-semibold text-amber-300 mb-1">Upgrade to Ultra — $99/mo</div>
+                      <div className="text-xs text-gray-500">Unlocks the AlphaGap Subnet Index, portfolio deploy & 20 Oracle queries/day</div>
+                    </div>
+                  </div>
+                  <a
+                    href="/checkout?plan=ultra"
+                    className="mt-3 w-full inline-block text-center bg-gradient-to-r from-amber-500 to-orange-500 text-black font-bold rounded-lg py-2.5 text-sm hover:from-amber-400 hover:to-orange-400 transition-all shadow-lg shadow-amber-500/20"
+                  >
+                    Upgrade to Ultra →
                   </a>
                 </div>
               )}
@@ -293,16 +312,16 @@ export default function AccountPage() {
                 Subscribe to unlock full access to AlphaGap — all signals, dashboard, social intel, and daily reports.
               </p>
               <a
-                href="/checkout?plan=pro"
-                className="w-full inline-block text-center bg-gradient-to-r from-green-500 to-emerald-600 text-black font-bold rounded-lg py-2.5 text-sm hover:from-green-400 hover:to-emerald-500 transition-all shadow-lg shadow-green-500/20"
-              >
-                Get Pro — $29/mo →
-              </a>
-              <a
                 href="/checkout?plan=premium"
-                className="w-full inline-block text-center mt-2 bg-gradient-to-r from-purple-500 to-violet-600 text-white font-bold rounded-lg py-2.5 text-sm hover:from-purple-400 hover:to-violet-500 transition-all shadow-lg shadow-purple-500/20"
+                className="w-full inline-block text-center bg-gradient-to-r from-purple-500 to-violet-600 text-white font-bold rounded-lg py-2.5 text-sm hover:from-purple-400 hover:to-violet-500 transition-all shadow-lg shadow-purple-500/20"
               >
                 Get Premium — $49/mo →
+              </a>
+              <a
+                href="/checkout?plan=ultra"
+                className="w-full inline-block text-center mt-2 bg-gradient-to-r from-amber-500 to-orange-500 text-black font-bold rounded-lg py-2.5 text-sm hover:from-amber-400 hover:to-orange-400 transition-all shadow-lg shadow-amber-500/20"
+              >
+                Get Ultra — $99/mo →
               </a>
             </>
           )}

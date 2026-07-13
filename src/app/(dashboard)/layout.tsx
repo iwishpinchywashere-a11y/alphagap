@@ -6,6 +6,7 @@ import OnboardingTour from "@/components/dashboard/OnboardingTour";
 import WatchlistOnboarding from "@/components/dashboard/WatchlistOnboarding";
 import { WatchlistProvider } from "@/components/dashboard/WatchlistProvider";
 import { NotificationProvider } from "@/components/dashboard/NotificationProvider";
+import StaleDataBanner from "@/components/dashboard/StaleDataBanner";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -15,6 +16,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <div className="flex flex-col min-h-screen">
             <DashboardHeader />
             <DashboardNav />
+            <StaleDataBanner />
             {children}
             <DashboardFooter />
             <OnboardingTour />

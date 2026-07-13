@@ -395,6 +395,44 @@ function getDefaultStitchCampaigns(): StitchCampaign[] {
 // ── Main scan handler ─────────────────────────────────────────────
 export async function GET() {
   const startTime = Date.now();
+
+  // ── Stampede guard ────────────────────────────────────────────────
+  // The dashboard triggers a client-side rescan whenever the cache looks old,
+  // so during a data-source outage every visitor would otherwise pile a full
+  // scan (and its TaoStats spend) on top of the cron. Serve the latest blob if
+  // it's fresh, and refuse to start a second scan within 8 min of the last
+  // attempt — concurrent visitors get the last known data instead.
+  const GUARD_TOKEN = process.env.BLOB_READ_WRITE_TOKEN || "";
+  if (GUARD_TOKEN) {
+    try {
+      const latest = await blobGet("scan-latest.json", { token: GUARD_TOKEN, access: "private", abortSignal: AbortSignal.timeout(8000) });
+      if (latest?.stream) {
+        const reader = latest.stream.getReader(); const chunks: Uint8Array[] = [];
+        while (true) { const { done, value } = await reader.read(); if (done) break; chunks.push(value); }
+        const cached = JSON.parse(Buffer.concat(chunks).toString("utf-8"));
+        const age = cached.lastScan ? Date.now() - new Date(cached.lastScan).getTime() : Infinity;
+        if (age < 8 * 60 * 1000) {
+          console.log(`[scan] Fresh blob (${Math.round(age / 60000)}min old) — skipping scan.`);
+          return NextResponse.json({ ...cached, cached: true });
+        }
+        const attempt = await blobGet("scan-attempt.json", { token: GUARD_TOKEN, access: "private", abortSignal: AbortSignal.timeout(5000) }).catch(() => null);
+        if (attempt?.stream) {
+          const r2 = attempt.stream.getReader(); const c2: Uint8Array[] = [];
+          while (true) { const { done, value } = await r2.read(); if (done) break; c2.push(value); }
+          const { at } = JSON.parse(Buffer.concat(c2).toString("utf-8"));
+          if (at && Date.now() - new Date(at).getTime() < 8 * 60 * 1000) {
+            console.log("[scan] Another scan attempt started <8min ago — serving last blob.");
+            return NextResponse.json({ ...cached, cached: true, stale: age > 4 * 60 * 60 * 1000 });
+          }
+        }
+      }
+    } catch { /* guard is best-effort — proceed with the scan */ }
+    put("scan-attempt.json", JSON.stringify({ at: new Date().toISOString() }), {
+      access: "private" as never, token: GUARD_TOKEN,
+      addRandomSuffix: false, allowOverwrite: true, contentType: "application/json",
+    }).catch(() => {});
+  }
+
   const signals: ScanSignal[] = [];
   let signalId = 1;
 
@@ -449,15 +487,34 @@ export async function GET() {
   // ── Step 1: Sequential TaoStats calls to avoid 429 rate limits ──
   // Each call separated by 1s delay. TaoStats enforces strict rate limiting.
   console.log("[scan] Fetching identities...");
-  // With upgraded TaoStats API, we can parallelize more aggressively
-  // Batch 1: identities + pools + price (all parallel)
-  console.log("[scan] Batch 1: identities + pools + price...");
+  const BLOB_TOKEN_CACHE = process.env.BLOB_READ_WRITE_TOKEN || "";
+
+  // Identities (names/repos/socials) change rarely. Serve them from the blob
+  // cache and only refresh from TaoStats on the first scan of each 6h window —
+  // saves ~140 TaoStats credits/day vs fetching on every 10-min scan.
+  const scanStart = new Date();
+  const identityRefreshDue = scanStart.getUTCHours() % 6 === 0 && scanStart.getUTCMinutes() < 10;
+  let identities: Awaited<ReturnType<typeof getSubnetIdentities>> = [];
+  if (!identityRefreshDue) {
+    try {
+      const cached = await blobGet("identity-cache.json", { token: BLOB_TOKEN_CACHE, access: "private" });
+      if (cached?.stream) {
+        const reader = cached.stream.getReader(); const chunks: Uint8Array[] = [];
+        while (true) { const { done, value } = await reader.read(); if (done) break; chunks.push(value); }
+        identities = JSON.parse(Buffer.concat(chunks).toString("utf-8"));
+      }
+    } catch { /* fall through to TaoStats fetch */ }
+  }
+  const identitiesFromCache = identities.length > 0;
+
+  // Batch 1: identities (unless cached) + pools + price (all parallel)
+  console.log(`[scan] Batch 1: identities (${identitiesFromCache ? "cache" : "fetch"}) + pools + price...`);
   const [idResult, poolsResult, taoPriceResult] = await Promise.allSettled([
-    getSubnetIdentities(),
+    identitiesFromCache ? Promise.resolve(identities) : getSubnetIdentities(),
     getSubnetPools(),
     getTaoPrice(),
   ]);
-  let identities = idResult.status === "fulfilled" ? idResult.value : ([] as Awaited<ReturnType<typeof getSubnetIdentities>>);
+  identities = idResult.status === "fulfilled" ? idResult.value : ([] as Awaited<ReturnType<typeof getSubnetIdentities>>);
   let pools = poolsResult.status === "fulfilled" ? poolsResult.value : ([] as Awaited<ReturnType<typeof getSubnetPools>>);
   const taoPrice = taoPriceResult.status === "fulfilled" ? taoPriceResult.value : 0;
   console.log(`[scan] Batch 1 done: ${identities.length} ids, ${pools.length} pools, TAO=$${taoPrice.toFixed(2)}`);
@@ -465,12 +522,13 @@ export async function GET() {
   // ── Blob-cached fallback for identities + pools ───────────────────────────
   // These are the two feeds that kill isHealthyScan when TaoStats goes down.
   // Same pattern as dev-activity-cache — save fresh data each run, load stale on failure.
-  const BLOB_TOKEN_CACHE = process.env.BLOB_READ_WRITE_TOKEN || "";
   if (identities.length > 0) {
-    put("identity-cache.json", JSON.stringify(identities), {
-      access: "private" as never, token: BLOB_TOKEN_CACHE,
-      addRandomSuffix: false, allowOverwrite: true, contentType: "application/json",
-    }).catch(() => {});
+    if (!identitiesFromCache) {
+      put("identity-cache.json", JSON.stringify(identities), {
+        access: "private" as never, token: BLOB_TOKEN_CACHE,
+        addRandomSuffix: false, allowOverwrite: true, contentType: "application/json",
+      }).catch(() => {});
+    }
   } else {
     try {
       const cached = await blobGet("identity-cache.json", { token: BLOB_TOKEN_CACHE, access: "private" });
@@ -505,11 +563,14 @@ export async function GET() {
   // Batch 2: flows + emissions + TaoStats dev (historical 7d/30d) + TMC + SubnetRadar + burned alpha
   // NOTE: TaoStats dev is used for 7d/30d historical context only.
   //       24h commit data comes from the direct GitHub scanner below.
-  console.log("[scan] Batch 2: flows + emissions + dev history + TMC + SubnetRadar...");
+  // TaoStats dev history moves slowly — refresh from TaoStats only on the
+  // first scan of each hour, otherwise the blob cache below serves it.
+  const devRefreshDue = scanStart.getUTCMinutes() < 10;
+  console.log(`[scan] Batch 2: flows + emissions + dev history (${devRefreshDue ? "fetch" : "cache"}) + TMC + SubnetRadar...`);
   const [flowsResult, emissionsResult, devResult, tmcResult, tmcValResult, srSubnetsResult, srWhalesResult, burnedAlphaResult, srConvictionResult] = await Promise.allSettled([
     getTaoFlows(),
     getSubnetEmissions(),
-    getGithubActivity(),
+    devRefreshDue ? getGithubActivity() : Promise.resolve([] as Awaited<ReturnType<typeof getGithubActivity>>),
     fetchTMCSubnets(),
     fetchTMCValidators(),
     fetchSRSubnets(),
@@ -553,7 +614,7 @@ export async function GET() {
         const chunks: Uint8Array[] = [];
         while (true) { const { done, value } = await reader.read(); if (done) break; chunks.push(value); }
         devActivity = JSON.parse(Buffer.concat(chunks).toString("utf-8"));
-        console.log(`[scan] TaoStats dev-activity unavailable — using cached data (${devActivity.length} entries)`);
+        console.log(`[scan] dev-activity from ${devRefreshDue ? "cache (TaoStats failed)" : "cache (hourly refresh window not due)"} — ${devActivity.length} entries`);
       }
     } catch {
       console.warn("[scan] dev-activity-cache read failed — dev scores will be low this cycle");

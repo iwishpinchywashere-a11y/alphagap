@@ -368,7 +368,7 @@ export async function sendOracleAnnouncementEmail(
   const ctaHref  = isPremium ? `${BASE_URL}/oracle` : `${BASE_URL}/pricing`;
   const ctaLabel = isPremium ? "Ask the Oracle →" : "Unlock TAO Oracle →";
   const ctaNote  = isPremium
-    ? "15 queries per day · Live data from every subnet · Available right now"
+    ? "10 queries per day · Live data from every subnet · Available right now"
     : "Available on Premium ($49/mo) · Includes everything in Pro · Cancel anytime";
 
   const subject = isPremium
@@ -470,7 +470,7 @@ export async function sendOracleAnnouncementEmail(
       <p style="color:#4b5563;font-size:12px;margin:0 0 18px 0;">Real questions. Real answers. In seconds.</p>
       <table width="100%" cellpadding="0" cellspacing="0">
         ${useCaseRows}
-        <tr><td style="padding-top:14px;"><p style="color:#4b5563;font-size:12px;margin:0;">15 queries per day on Premium &middot; 50/day on Ultra</p></td></tr>
+        <tr><td style="padding-top:14px;"><p style="color:#4b5563;font-size:12px;margin:0;">10 queries per day on Premium &middot; 20/day on Ultra</p></td></tr>
       </table>
     </div>
 
@@ -481,7 +481,7 @@ export async function sendOracleAnnouncementEmail(
       <p style="color:#9ca3af;font-size:13px;line-height:1.7;margin:0;">
         Find it in the navigation menu under <strong style="color:#ffffff;">Oracle</strong>, or go straight to
         <a href="${BASE_URL}/oracle" style="color:#10b981;text-decoration:none;">alphagap.io/oracle</a>.
-        You get 15 queries per day. Each one draws on live, up-to-the-minute subnet data.
+        You get 10 queries per day. Each one draws on live, up-to-the-minute subnet data.
       </p>
     </div>
     ` : `
@@ -859,6 +859,24 @@ export async function sendWalletTrackerAnnouncementEmail(
     from: FROM,
     to: email,
     subject,
+    html,
+  });
+}
+
+/** Operational alert to the site owner (data pipeline stale, cron failures) */
+export async function sendSystemAlertEmail(subject: string, lines: string[]) {
+  const html = baseTemplate(`
+    <h1 style="color:#ffffff;font-size:22px;font-weight:800;margin:0 0 16px;">⚠️ ${subject}</h1>
+    ${lines.map(l => `<p style="color:#9ca3af;font-size:14px;line-height:1.7;margin:0 0 10px;">${l}</p>`).join("")}
+    <p style="color:#6b7280;font-size:13px;line-height:1.7;margin:24px 0 0;border-top:1px solid #1a1a2e;padding-top:24px;">
+      — AlphaGap health watch
+    </p>
+  `);
+
+  return resend.emails.send({
+    from: FROM,
+    to: "iwishpinchywashere@gmail.com",
+    subject: `[AlphaGap] ${subject}`,
     html,
   });
 }

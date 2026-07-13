@@ -458,7 +458,7 @@ export default function BenchmarksPage() {
               Benchmark results directly feed into a subnet&apos;s overall AlphaGap composite score.
               <span className="text-gray-600"> Revenue figures are best estimates and may vary.</span>
             </p>
-            <div className="mt-2 text-[10px] text-gray-700">Last updated: April 3, 2026</div>
+            <div className="mt-2 text-[10px] text-gray-700">Last updated: May 15, 2026</div>
           </div>
         </div>
       </div>

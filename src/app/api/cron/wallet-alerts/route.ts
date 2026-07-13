@@ -14,7 +14,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { list as blobList, get as blobGet, put as blobPut } from "@vercel/blob";
 import { enqueueAlert } from "@/lib/telegram-alerts";
 import type { TelegramConnection } from "@/lib/telegram-alerts";
-import { getSubnetIdentities } from "@/lib/taostats";
 import crypto from "crypto";
 
 export const dynamic     = "force-dynamic";
@@ -128,15 +127,6 @@ export async function GET(req: NextRequest) {
   // Look back 10 minutes (covers 5-min cron + buffer for TaoStats indexing lag)
   const since = Math.floor((Date.now() - 10 * 60 * 1000) / 1000);
 
-  // Build netuid → subnet name map (best-effort; falls back to "SNxx")
-  const subnetNames = new Map<number, string>();
-  try {
-    const identities = await getSubnetIdentities();
-    for (const id of identities) {
-      if (id.netuid != null && id.subnet_name) subnetNames.set(id.netuid, id.subnet_name);
-    }
-  } catch { /* non-fatal — alerts still send without names */ }
-
   // ── Pass 1: collect all telegram users + their tracked wallets ──
   interface UserEntry {
     hash:          string;
@@ -174,6 +164,16 @@ export async function GET(req: NextRequest) {
   if (!users.length) {
     return NextResponse.json({ ok: true, message: "No users with active wallet alerts" });
   }
+
+  // Build netuid → subnet name map from the scan blob — zero TaoStats calls
+  // (best-effort; falls back to "SNxx")
+  const subnetNames = new Map<number, string>();
+  try {
+    const scan = await readBlob<{ leaderboard?: Array<{ netuid: number; name?: string }> }>("scan-latest.json");
+    for (const s of scan?.leaderboard ?? []) {
+      if (s.netuid != null && s.name) subnetNames.set(s.netuid, s.name);
+    }
+  } catch { /* non-fatal — alerts still send without names */ }
 
   // ── Pass 2: collect unique addresses across all users ────────────
   const allAddresses = new Set<string>();

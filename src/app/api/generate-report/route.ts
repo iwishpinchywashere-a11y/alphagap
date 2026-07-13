@@ -62,6 +62,18 @@ async function generateReport(forceNetuid?: number, forceDate?: string) {
       console.error("[report] Failed to read scan cache:", e);
     }
 
+    // Don't publish a "daily report" off frozen data — when the scan pipeline
+    // is stale (e.g. TaoStats credits at 0) the same subnet/scores would just
+    // repeat day after day. Skip until fresh data returns (forceNetuid bypasses).
+    if (!forceNetuid) {
+      const lastScan = (scanData?.lastScan as string) || null;
+      const scanAgeH = lastScan ? (Date.now() - new Date(lastScan).getTime()) / 3600_000 : Infinity;
+      if (scanAgeH > 12) {
+        console.warn(`[report] Scan data is ${scanAgeH.toFixed(1)}h old — skipping report generation.`);
+        return NextResponse.json({ skipped: true, reason: `scan data stale (${scanAgeH.toFixed(1)}h old)` });
+      }
+    }
+
     // Step 2: Determine which subnet to report on
     let targetNetuid: number;
     let targetName: string;

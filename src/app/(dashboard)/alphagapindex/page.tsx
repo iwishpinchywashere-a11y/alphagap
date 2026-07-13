@@ -5,6 +5,7 @@ import { useSession } from "next-auth/react";
 import { getTier, canAccessUltra } from "@/lib/subscription";
 import { useDashboard } from "@/components/dashboard/DashboardProvider";
 import SubnetLogo from "@/components/dashboard/SubnetLogo";
+import type { SubnetScore } from "@/lib/types";
 
 /* ── Constants ───────────────────────────────────────────────────────────── */
 const TS_STRATEGY_ID = "97d1325b-9ee9-4bd1-bd58-893d707f85c4";
@@ -148,12 +149,16 @@ export default function AlphaGapIndexPage() {
   const [expandedFaq, setExpandedFaq] = useState<number | null>(null);
   const { leaderboard } = useDashboard();
 
-  // Last rebalance date from TrustedStake cron
+  // Last rebalance date + ACTUAL strategy holdings from TrustedStake cron
   const [lastRebalancedAt, setLastRebalancedAt] = useState<string | null>(null);
+  const [actualHoldings, setActualHoldings] = useState<Array<{ netuid: number; name: string; invest_score: number; weight: number }>>([]);
   React.useEffect(() => {
     fetch("/api/index-status")
       .then(r => r.json())
-      .then(d => { if (d.rebalancedAt) setLastRebalancedAt(d.rebalancedAt); })
+      .then(d => {
+        if (d.rebalancedAt) setLastRebalancedAt(d.rebalancedAt);
+        if (Array.isArray(d.holdings) && d.holdings.length > 0) setActualHoldings(d.holdings);
+      })
       .catch(() => {});
   }, []);
 
@@ -455,7 +460,7 @@ export default function AlphaGapIndexPage() {
   }, [selectedAddress]);
 
   const lastRebalancedLabel = useMemo(() => {
-    if (!lastRebalancedAt) return "Weekly";
+    if (!lastRebalancedAt) return "—";
     const d = new Date(lastRebalancedAt);
     return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
   }, [lastRebalancedAt]);
@@ -472,15 +477,30 @@ export default function AlphaGapIndexPage() {
       });
   }, [leaderboard]);
 
-  // Compute weights proportional to scores (matches buildWeights in trustedstake.ts)
-  const totalScore = top10.reduce((sum, h) => sum + h.score, 0);
-  const holdings = top10.map(h => ({
-    ...h,
-    weight: totalScore > 0 ? Math.round((h.score / totalScore) * 1000) / 10 : 0,
-  }));
+  // Show the ACTUAL strategy holdings (weights set at the last rebalance) so the
+  // table matches what members really hold. Falls back to a live top-10 preview
+  // only when no rebalance snapshot exists yet.
+  const holdings = useMemo(() => {
+    if (actualHoldings.length > 0) {
+      return actualHoldings.map((ah, i) => {
+        const live = leaderboard.find(l => l.netuid === ah.netuid);
+        return {
+          rank: i + 1,
+          subnet: live ?? ({ netuid: ah.netuid, name: ah.name } as SubnetScore),
+          score: ah.invest_score,
+          weight: ah.weight,
+        };
+      });
+    }
+    const totalScore = top10.reduce((sum, h) => sum + h.score, 0);
+    return top10.map(h => ({
+      ...h,
+      weight: totalScore > 0 ? Math.round((h.score / totalScore) * 1000) / 10 : 0,
+    }));
+  }, [actualHoldings, leaderboard, top10]);
 
-  // Live APY — prefer strategy data, fallback to 49.38%
-  const liveApy = strategyData?.apy ?? 49.38;
+  // Live APY from TrustedStake — no fabricated fallback; the pill hides when unavailable
+  const liveApy = strategyData?.apy ?? null;
 
   return (
     <main className="flex-1 overflow-auto bg-[#080810]">
@@ -522,13 +542,15 @@ export default function AlphaGapIndexPage() {
           </p>
 
           {/* ── Live stats pills ── */}
-          <div className="flex flex-wrap justify-center gap-3 mb-8">
-            <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
-              <IconTrend className="w-4 h-4" />
-              <span className="font-bold text-sm tabular-nums">{liveApy.toFixed(2)}% APY</span>
-              <span className="text-emerald-600 text-xs">14d</span>
+          {liveApy != null && (
+            <div className="flex flex-wrap justify-center gap-3 mb-8">
+              <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+                <IconTrend className="w-4 h-4" />
+                <span className="font-bold text-sm tabular-nums">{liveApy.toFixed(2)}% APY</span>
+                <span className="text-emerald-600 text-xs">14d</span>
+              </div>
             </div>
-          </div>
+          )}
 
           {/* 3-step visual */}
           <div className="flex flex-wrap justify-center items-center gap-3 mb-10">
@@ -1140,7 +1162,7 @@ export default function AlphaGapIndexPage() {
             {[
               { q: "Is my TAO safe?", a: "Yes. Non-custodial — your TAO never leaves your wallet. TrustedStake only executes delegations on your behalf via a proxy you control." },
               { q: "What wallets are supported?", a: "Talisman and SubWallet. Both are Bittensor-native and available as browser extensions." },
-              { q: "How often does the index rebalance?", a: "Weekly. Only rotates if a new subnet scores 5+ points above the one it displaces." },
+              { q: "How often does the index rebalance?", a: "Weekly — every Sunday the index re-targets the top 10 subnets by aGap Investing Score." },
               { q: "What does it cost?", a: "Index access is included in Ultra for $99/mo." },
               { q: "What is a proxy address?", a: "A TrustedStake proxy is a Bittensor account you authorize to move stake on your behalf. You set it up once in the TrustedStake app, and it allows automated rebalancing without needing your signature every time." },
               { q: "How do I leave the strategy?", a: "Click 'Leave Strategy' in the delegation section above. Your TAO stays in your wallet — you're just unregistering from the automated strategy." },

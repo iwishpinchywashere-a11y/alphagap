@@ -892,7 +892,7 @@ export default function LandingPage() {
           </div>
           <div className="flex items-center gap-6 text-sm text-gray-600">
             <Link href="/dashboard" className="hover:text-gray-400 transition-colors">Dashboard</Link>
-            <a href="https://x.com" className="hover:text-gray-400 transition-colors">X/Twitter</a>
+            <a href="https://x.com/AlphaGapTAO" className="hover:text-gray-400 transition-colors">X/Twitter</a>
             <span>Built on Bittensor</span>
           </div>
         </div>

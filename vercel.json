@@ -30,7 +30,7 @@
     },
     {
       "path": "/api/cron/audit-scan",
-      "schedule": "0 * * * *"
+      "schedule": "0 */6 * * *"
     },
     {
       "path": "/api/cron/twitter-bot",
@@ -38,7 +38,7 @@
     },
     {
       "path": "/api/cron/yield-collector",
-      "schedule": "0 */2 * * *"
+      "schedule": "0 */6 * * *"
     },
     {
       "path": "/api/cron/pay-commissions",
@@ -47,6 +47,10 @@
     {
       "path": "/api/cron/index-rebalance",
       "schedule": "0 12 * * *"
+    },
+    {
+      "path": "/api/cron/health-watch",
+      "schedule": "*/30 * * * *"
     }
   ]
 }

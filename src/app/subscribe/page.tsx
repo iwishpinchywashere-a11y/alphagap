@@ -743,7 +743,7 @@ function SubscribeContent() {
               <div className="bg-gray-950 rounded-xl border border-gray-800 p-5">
                 <div className="flex items-center justify-between mb-4">
                   <div>
-                    <div className="text-xs text-gray-600 font-medium uppercase tracking-wide mb-1">Daily Report · May 19, 2026</div>
+                    <div className="text-xs text-gray-600 font-medium uppercase tracking-wide mb-1">Daily Report · {new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</div>
                     <h4 className="font-bold text-white text-lg">Score (SN44) — Deep Dive</h4>
                   </div>
                   <div className="text-right">

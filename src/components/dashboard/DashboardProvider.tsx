@@ -11,6 +11,7 @@ interface DashboardContextValue {
   scanning: boolean;
   scanStep: string | null;
   lastScan: string | null;
+  lastScanAt: string | null; // ISO timestamp of the data snapshot
   scanResult: string | null;
   scanError: string | null;
   selectedSubnet: number | null;
@@ -35,6 +36,7 @@ export default function DashboardProvider({ children }: { children: React.ReactN
   const [scanning, setScanning] = useState(false);
   const [scanStep, setScanStep] = useState<string | null>(null);
   const [lastScan, setLastScan] = useState<string | null>(null);
+  const [lastScanAt, setLastScanAt] = useState<string | null>(null);
   const [scanResult, setScanResult] = useState<string | null>(null);
   const [scanError, setScanError] = useState<string | null>(null);
   const [selectedSubnet, setSelectedSubnet] = useState<number | null>(null);
@@ -82,6 +84,7 @@ export default function DashboardProvider({ children }: { children: React.ReactN
       ? new Date(data.lastScan as string).toLocaleTimeString()
       : new Date().toLocaleTimeString();
     setLastScan(lastScanTime);
+    setLastScanAt((data.lastScan as string) || null);
     const duration = data.duration_ms ? `${((data.duration_ms as number) / 1000).toFixed(1)}s` : "";
     const counts = (data.counts || {}) as Record<string, number>;
     const cached = data.cached ? " (cached)" : "";
@@ -127,7 +130,7 @@ export default function DashboardProvider({ children }: { children: React.ReactN
   // Current schema version — must match SCAN_SCHEMA_VERSION in scan/route.ts.
   // If the cached blob has an older version, force a background rescan immediately
   // so the dashboard never shows stale-format data to the user.
-  const CURRENT_SCHEMA_VERSION = 20;
+  const CURRENT_SCHEMA_VERSION = 21; // keep in sync with SCAN_SCHEMA_VERSION in scan/route.ts
 
   // On first mount: load cache instantly, then refresh in background if stale or wrong schema
   useEffect(() => {
@@ -258,6 +261,7 @@ export default function DashboardProvider({ children }: { children: React.ReactN
         scanning,
         scanStep,
         lastScan,
+        lastScanAt,
         scanResult,
         scanError,
         selectedSubnet,
