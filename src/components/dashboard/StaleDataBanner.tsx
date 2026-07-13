@@ -28,7 +28,7 @@ export default function StaleDataBanner() {
   return (
     <div className="bg-amber-500/10 border-b border-amber-500/25 px-4 py-2 text-center">
       <p className="text-amber-400 text-xs font-medium">
-        ⚠️ Data was last refreshed {ageLabel} ago — prices and scores may not reflect current market conditions. We&apos;re working on restoring live updates.
+        {`⚠️ Data was last refreshed ${ageLabel} ago — prices and scores may not reflect current market conditions. We're working on restoring live updates.`}
       </p>
     </div>
   );
