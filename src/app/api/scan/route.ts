@@ -4744,5 +4744,24 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     } catch (e) { console.log("[scan] Const tracker persist failed:", e); }
   }
 
+  // A degraded scan (prices missing, zero-price leaderboard) must never reach
+  // the client as if it were real — the dashboard would replace good cached
+  // data with $0.00 rows. Serve the last good blob instead.
+  if (!isHealthyScan && process.env.BLOB_READ_WRITE_TOKEN) {
+    try {
+      const lastGood = await blobGet("scan-latest.json", {
+        token: process.env.BLOB_READ_WRITE_TOKEN, access: "private",
+        abortSignal: AbortSignal.timeout(8000),
+      });
+      if (lastGood?.stream) {
+        const reader = lastGood.stream.getReader(); const chunks: Uint8Array[] = [];
+        while (true) { const { done, value } = await reader.read(); if (done) break; chunks.push(value); }
+        const cached = JSON.parse(Buffer.concat(chunks).toString("utf-8"));
+        console.warn("[scan] Degraded result — serving last good blob to the client instead.");
+        return NextResponse.json({ ...cached, cached: true, stale: true, degradedScanAt: new Date().toISOString() });
+      }
+    } catch { /* fall through to the degraded result as an absolute last resort */ }
+  }
+
   return NextResponse.json(responseData);
 }

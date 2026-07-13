@@ -106,8 +106,9 @@ export default function DashboardProvider({ children }: { children: React.ReactN
       }
       const data = await res.json();
       const freshLeaderboard = (data.leaderboard as SubnetScore[]) || [];
+      const withPrice = freshLeaderboard.filter(e => (e.alpha_price ?? 0) > 0).length;
 
-      if (freshLeaderboard.length < 50) {
+      if (freshLeaderboard.length < 50 || withPrice < 50) {
         // Scan returned a degraded result (data source outage / API credits exhausted).
         // Do NOT overwrite the existing leaderboard — users should keep seeing the last
         // good data rather than a blank table. Still surface fresh signals if available.
