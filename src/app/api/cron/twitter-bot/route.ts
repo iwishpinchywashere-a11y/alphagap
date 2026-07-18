@@ -373,7 +373,10 @@ export async function GET(req: NextRequest) {
   // whichever invocation is "second". If the dedupId is already present
   // (written by the first invocation's pending-save below), bail out.
   const freshLog = await loadPostedLog();
-  if (freshLog.posted.some(p => p.id === post.dedupId)) {
+  // Same 48h window as alreadyPostedIds — an unwindowed check here would
+  // permanently block stable dedupIds (e.g. benchmark_update_8_...) once
+  // they appear anywhere in the 200-entry log.
+  if (freshLog.posted.some(p => p.id === post.dedupId && new Date(p.postedAt).getTime() > cutoff)) {
     console.log(`[twitter-bot] Concurrent dedup: ${post.dedupId} already claimed — skipping`);
     return NextResponse.json({ ok: true, posted: false, reason: `concurrent dedup: ${post.dedupId} already claimed` });
   }
