@@ -119,6 +119,10 @@ export interface TweetPost {
   tweets: string[];   // 1 = single tweet, 2+ = thread
   rationale: string;
   dedupId: string;   // stable ID for 48h dedup (e.g. "whale_flow_82")
+  // Subject keys (e.g. "subj_analytics_82") recorded in the posted log and
+  // checked against a 7-DAY window — prevents the same subnet headlining the
+  // same post type day after day even when the dedupId resets daily.
+  subjectKeys?: string[];
 }
 
 // ── Helpers ───────────────────────────────────────────────────────
@@ -425,6 +429,7 @@ Write a tweet using the format in your instructions. Name the top subnets and ex
     tweets,
     rationale: `X trending: ${top3.map(e => e.subnetName).join(", ")}`,
     dedupId: `x_trending_${dateKey}`,
+    subjectKeys: top3.filter(e => e.netuid).map(e => `subj_trending_${e.netuid}`),
   };
 }
 
@@ -453,6 +458,7 @@ Write a tweet using the format in your instructions. Explain in plain English wh
     tweets,
     rationale: `Analytics top 3 by ${ratioLabel}: ${top3.map(e => e.name).join(", ")}`,
     dedupId: `analytics_ratios_${dateKey}`,
+    subjectKeys: top3.map(e => `subj_analytics_${e.netuid}`),
   };
 }
 
@@ -506,14 +512,18 @@ Write a tweet using the format in your instructions. Tell the story simply — w
 // Always fires — uses top-scored subnet from leaderboard.
 // Guaranteed to produce a tweet even when all 8 data-dependent types fail.
 
-export async function generateEvergreen(leaderboard: SubnetScore[], alreadyPostedIds: Set<string>): Promise<TweetPost | null> {
-  // Pick the highest-scored subnet not already posted today as evergreen
+export async function generateEvergreen(leaderboard: SubnetScore[], alreadyPostedIds: Set<string>, weeklyPostedIds?: Set<string>): Promise<TweetPost | null> {
+  // Pick the highest-scored subnet not featured as evergreen in the last 7
+  // days — the old daily-reset key let the same top subnet repeat every day.
   const todayUTC = new Date().toISOString().slice(0, 10);
+  const weekly = weeklyPostedIds ?? new Set<string>();
   const candidates = [...leaderboard]
     .filter(s => (s.composite_score ?? 0) > 0)
     .sort((a, b) => (b.composite_score ?? 0) - (a.composite_score ?? 0));
 
-  const subnet = candidates.find(s => !alreadyPostedIds.has(`evergreen_${s.netuid}_${todayUTC}`))
+  const subnet = candidates.find(s =>
+    !alreadyPostedIds.has(`evergreen_${s.netuid}_${todayUTC}`) && !weekly.has(`subj_evergreen_${s.netuid}`)
+  ) ?? candidates.find(s => !alreadyPostedIds.has(`evergreen_${s.netuid}_${todayUTC}`))
     ?? candidates[0];
 
   if (!subnet) return null;
@@ -552,6 +562,9 @@ export interface BotData {
   benchmarkUpdates?: BenchmarkEntry[];
   performanceGains?: PerformanceEntry[];
   alreadyPostedIds: Set<string>;
+  // dedupIds + subjectKeys posted in the last 7 days (superset window of
+  // alreadyPostedIds) — used for subject-level cooldowns.
+  weeklyPostedIds?: Set<string>;
 }
 
 // ── Type rotation slots ───────────────────────────────────────────
@@ -581,6 +594,7 @@ export async function pickBestPost(data: BotData, utcHour?: number): Promise<Twe
     benchmarkUpdates = [],
     performanceGains = [],
     alreadyPostedIds,
+    weeklyPostedIds = new Set<string>(),
   } = data;
 
   const slot = getSlot(utcHour ?? new Date().getUTCHours());
@@ -622,10 +636,11 @@ export async function pickBestPost(data: BotData, utcHour?: number): Promise<Twe
   }
 
   async function tryXTrending(): Promise<TweetPost | null> {
-    // Resets daily — use date-based key so it can fire once per calendar day
-    return socialTrending.length > 0 && !alreadyPostedIds.has(`x_trending_${todayUTC}`)
-      ? generateXTrending(socialTrending)
-      : null;
+    // Once per calendar day, and never re-featuring subnets covered as
+    // trending within the last 7 days (subject-level cooldown).
+    if (alreadyPostedIds.has(`x_trending_${todayUTC}`)) return null;
+    const fresh = socialTrending.filter(e => !e.netuid || !weeklyPostedIds.has(`subj_trending_${e.netuid}`));
+    return fresh.length > 0 ? generateXTrending(fresh) : null;
   }
 
   async function tryWhaleFlow(): Promise<TweetPost | null> {
@@ -650,10 +665,13 @@ export async function pickBestPost(data: BotData, utcHour?: number): Promise<Twe
   }
 
   async function tryAnalyticsRatios(): Promise<TweetPost | null> {
-    // Resets daily — use date-based key so it can fire once per calendar day
-    return analyticsRatios.length >= 3 && !alreadyPostedIds.has(`analytics_ratios_${todayUTC}`)
-      ? generateAnalyticsRatios(analyticsRatios)
-      : null;
+    // Once per calendar day, and never re-featuring subnets covered by an
+    // analytics post within the last 7 days. The efficiency ranking is sticky
+    // (the same subnet can top it for weeks), so without this cooldown the
+    // same "top 3" posts every single day.
+    if (alreadyPostedIds.has(`analytics_ratios_${todayUTC}`)) return null;
+    const fresh = analyticsRatios.filter(e => !weeklyPostedIds.has(`subj_analytics_${e.netuid}`));
+    return fresh.length >= 3 ? generateAnalyticsRatios(fresh) : null;
   }
 
   async function tryBenchmarkUpdate(): Promise<TweetPost | null> {
@@ -710,7 +728,7 @@ export async function pickBestPost(data: BotData, utcHour?: number): Promise<Twe
 
   // ── Evergreen fallback — always fires if all 8 types fail ─────────
   console.log("[twitter-bot] All 8 types failed — falling back to evergreen");
-  const ev = await generateEvergreen(leaderboard, alreadyPostedIds);
+  const ev = await generateEvergreen(leaderboard, alreadyPostedIds, weeklyPostedIds);
   console.log(`[twitter-bot] evergreen → ${ev ? "✓" : "null"}`);
   return ev;
 }

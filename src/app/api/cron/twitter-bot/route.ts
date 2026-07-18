@@ -42,7 +42,7 @@ async function readBlob<T>(name: string): Promise<T | null> {
 // ── Posted-IDs tracker (avoids repeating same signal within 48h) ──
 
 interface PostedLog {
-  posted: Array<{ id: string; type: string; text: string; tweetUrl: string; postedAt: string }>;
+  posted: Array<{ id: string; type: string; text: string; tweetUrl: string; postedAt: string; subjects?: string[] }>;
 }
 
 async function loadPostedLog(): Promise<PostedLog> {
@@ -160,6 +160,18 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  // ── Stale-data guard ─────────────────────────────────────────────
+  // Never tweet frozen stats as if they were today's news. When the scan
+  // pipeline is stale (e.g. TaoStats credits at 0) the "top movers" and
+  // "efficiency leaders" don't change — the bot posted the same Compelle
+  // analytics post 11 days in a row during the Jul 2026 outage.
+  const scanLastScan = (scanRaw as Record<string, unknown> | null)?.lastScan as string | undefined;
+  const scanAgeH = scanLastScan ? (Date.now() - new Date(scanLastScan).getTime()) / 3600000 : Infinity;
+  if (scanAgeH > 12) {
+    console.warn(`[twitter-bot] Scan data is ${scanAgeH.toFixed(1)}h old — skipping this slot.`);
+    return NextResponse.json({ ok: true, posted: false, reason: `scan data stale (${scanAgeH.toFixed(1)}h old)` });
+  }
+
   // Build dedup set (48h window)
   const cutoff = Date.now() - 48 * 3600000;
   const alreadyPostedIds = new Set(
@@ -167,6 +179,27 @@ export async function GET(req: NextRequest) {
       .filter((p) => new Date(p.postedAt).getTime() > cutoff)
       .map((p) => p.id)
   );
+
+  // 7-day window: dedupIds + subject keys — powers subject-level cooldowns so
+  // the same subnet can't headline the same post type day after day.
+  const weekCutoff = Date.now() - 7 * 24 * 3600000;
+  const SUBJECT_PREFIX: Record<string, string> = {
+    analytics_ratios: "subj_analytics",
+    x_trending: "subj_trending",
+    evergreen: "subj_evergreen",
+  };
+  const weeklyPostedIds = new Set<string>();
+  for (const p of postedLog.posted) {
+    if (new Date(p.postedAt).getTime() <= weekCutoff) continue;
+    weeklyPostedIds.add(p.id);
+    for (const s of p.subjects ?? []) weeklyPostedIds.add(s);
+    // Backfill for entries logged before subjects existed: extract SN numbers
+    // from the stored text snippet so pre-fix repeats still trigger cooldowns.
+    const prefix = SUBJECT_PREFIX[p.type];
+    if (prefix && !p.subjects?.length) {
+      for (const m of p.text.matchAll(/SN(\d{1,3})/g)) weeklyPostedIds.add(`${prefix}_${m[1]}`);
+    }
+  }
 
   // ── Map leaderboard fields to SubnetScore interface ────────────────
   // scan-latest.json uses agap_velo (not velo_score) and score_delta_24h
@@ -317,6 +350,7 @@ export async function GET(req: NextRequest) {
     benchmarkUpdates,
     performanceGains,
     alreadyPostedIds,
+    weeklyPostedIds,
   };
 
   // Pick best content — pass current UTC hour so slot rotation works
@@ -340,6 +374,25 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: true, posted: false, reason: `concurrent dedup: ${post.dedupId} already claimed` });
   }
 
+  // ── Near-duplicate text backstop ─────────────────────────────────
+  // Last line of defence: even if a candidate slips past the id/subject
+  // dedups, never post text that reads like a rephrase of something from the
+  // last 7 days. Compares normalized word sets against stored snippets.
+  const normalize = (t: string) => new Set(t.toLowerCase().replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter(w => w.length > 2));
+  const candidateWords = normalize(post.tweets[0]);
+  for (const prev of freshLog.posted) {
+    if (new Date(prev.postedAt).getTime() <= weekCutoff) continue;
+    const prevWords = normalize(prev.text);
+    if (!prevWords.size || !candidateWords.size) continue;
+    let overlap = 0;
+    for (const w of candidateWords) if (prevWords.has(w)) overlap++;
+    const similarity = overlap / Math.min(candidateWords.size, prevWords.size);
+    if (similarity >= 0.7) {
+      console.warn(`[twitter-bot] Near-duplicate of ${prev.id} (${(similarity * 100).toFixed(0)}% word overlap) — skipping slot.`);
+      return NextResponse.json({ ok: true, posted: false, reason: `near-duplicate of ${prev.id} (${(similarity * 100).toFixed(0)}% overlap)` });
+    }
+  }
+
   // ── Write dedup log entry BEFORE posting ──────────────────────────
   // If we post the tweet and then savePostedLog fails (network blip,
   // timeout), the next slot has no record of the post and fires again.
@@ -352,6 +405,7 @@ export async function GET(req: NextRequest) {
     text: post.tweets[0].slice(0, 100),
     tweetUrl: "pending",
     postedAt,
+    subjects: post.subjectKeys ?? [],
   };
   freshLog.posted.push(logEntry);
   freshLog.posted = freshLog.posted.slice(-200);
