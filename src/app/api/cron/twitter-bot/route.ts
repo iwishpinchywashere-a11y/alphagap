@@ -102,6 +102,10 @@ export async function GET(req: NextRequest) {
 
   console.log("[twitter-bot] Starting bot run...");
 
+  // Dry-run mode: run the full selection pipeline (dedup, cooldowns, AI
+  // generation, near-dup check) but never tweet and never write state.
+  const dryRun = new URL(req.url).searchParams.get("dryRun") === "1";
+
   // ── Slot-based idempotency check ──────────────────────────────────
   // Each cron slot (7am / 12pm / 5pm / 10pm UTC) gets a unique key.
   // If a lock already exists for this slot a previous invocation already
@@ -115,7 +119,7 @@ export async function GET(req: NextRequest) {
   const slotKey = currentSlotKey();
   const lock = await readLock();
 
-  if (lock?.slotKey === slotKey) {
+  if (!dryRun && lock?.slotKey === slotKey) {
     const minutesSinceLock = (Date.now() - new Date(lock.lockedAt).getTime()) / 60000;
     console.log(`[twitter-bot] Lock exists for slot ${slotKey} (${minutesSinceLock.toFixed(0)}m ago) — skipping`);
     return NextResponse.json({ ok: true, posted: false, reason: `locked (slot ${slotKey}, ${minutesSinceLock.toFixed(0)}m ago)` });
@@ -123,7 +127,7 @@ export async function GET(req: NextRequest) {
 
   // Claim the slot immediately (best-effort — protects against retries that
   // run after the blob is eventually consistent, not against same-ms races).
-  await writeLock(slotKey, new Date().toISOString());
+  if (!dryRun) await writeLock(slotKey, new Date().toISOString());
 
   // Load all data blobs in parallel now that the slot is claimed
   // Actual blob names and shapes (corrected from original stale names):
@@ -152,7 +156,7 @@ export async function GET(req: NextRequest) {
   // ── 3-hour cooldown (belt-and-suspenders) ────────────────────────
   // Slots are ≥5h apart, so 3h = safe guard without blocking valid posts.
   const lastPost = postedLog.posted[postedLog.posted.length - 1];
-  if (lastPost) {
+  if (lastPost && !dryRun) {
     const minutesSinceLast = (Date.now() - new Date(lastPost.postedAt).getTime()) / 60000;
     if (minutesSinceLast < 180) {
       console.log(`[twitter-bot] Last post was ${minutesSinceLast.toFixed(0)}m ago — skipping (cooldown)`);
@@ -398,6 +402,15 @@ export async function GET(req: NextRequest) {
   // timeout), the next slot has no record of the post and fires again.
   // Writing first means the dedupId is persisted even if the URL update
   // below fails — preventing a future slot from re-posting the same content.
+  if (dryRun) {
+    return NextResponse.json({
+      ok: true,
+      posted: false,
+      dryRun: true,
+      wouldPost: { type: post.type, dedupId: post.dedupId, subjects: post.subjectKeys ?? [], rationale: post.rationale, text: post.tweets },
+    });
+  }
+
   const postedAt = new Date().toISOString();
   const logEntry = {
     id: post.dedupId,
