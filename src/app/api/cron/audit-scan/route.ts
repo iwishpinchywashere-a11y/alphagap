@@ -489,10 +489,14 @@ export async function GET(req: Request) {
   let emissionCorrections = 0;
   for (const [uid, ts] of taoswapMap) {
     const scanEmission = scanEmissionMap.get(uid) ?? 0;
-    if ((ts.emission_percent ?? 0) === 0 && scanEmission > 0) {
+    if ((ts.emission_percent ?? 0) === 0) {
+      // Either TaoSwap is stale (subnet emits per TaoStats — use scan's figure)
+      // or no emissions flow at all (e.g. emissions not yet enabled for a
+      // recycled netuid) — in both cases burn% and chain-buy% are ratios of
+      // nothing and must score as unknown, not worst-case.
       taoswapMap.set(uid, {
         ...ts,
-        emission_percent: scanEmission * 100,
+        emission_percent: scanEmission > 0 ? scanEmission * 100 : ts.emission_percent,
         emission_miner_burn: null,
         emission_chain_buys_percent: null,
       });
@@ -500,7 +504,7 @@ export async function GET(req: Request) {
     }
   }
   if (emissionCorrections > 0) {
-    console.log(`[audit-scan] Nulled stale TaoSwap emission stats for ${emissionCorrections} subnet(s) that emit per TaoStats`);
+    console.log(`[audit-scan] Nulled undefined/stale emission ratios for ${emissionCorrections} zero-emission subnet(s)`);
   }
 
   // Fetch metagraph in parallel batches
