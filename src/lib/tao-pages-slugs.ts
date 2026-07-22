@@ -282,7 +282,7 @@ const STATIC_SUBNET_LIST: Array<{ netuid: number; name: string }> = [
   { netuid: 50,  name: "Synth" },
   { netuid: 51,  name: "lium.io" },
   { netuid: 52,  name: "Dojo" },
-  { netuid: 53,  name: "EfficientFrontier" },
+  { netuid: 53,  name: "Engy" },
   { netuid: 54,  name: "Yanez MIID" },
   { netuid: 55,  name: "NIOME" },
   { netuid: 56,  name: "Gradients" },

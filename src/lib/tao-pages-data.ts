@@ -1241,23 +1241,23 @@ export const TAO_PAGES_SUBNETS: TaoPageSubnet[] = [
 
 {
   netuid: 53,
-  slug: "efficientfrontier",
-  name: "EfficientFrontier",
-  category: "Developer Tools",
-  subnetType: "Tools",
-  tagline: "Optimize everything, waste nothing",
-  mainstream: "Optuna or Ray Tune",
+  slug: "engy",
+  name: "Engy",
+  category: "AI Inference",
+  subnetType: "Compute",
+  tagline: "Verified inference for frontier open models — proof you got the model you paid for",
+  mainstream: "OpenAI API, Z.ai, or OpenRouter",
   problem:
-    "Hyperparameter optimization and portfolio construction both require exploring vast search spaces to find the best configurations — work that is computationally expensive and easy to do badly. Most teams use ad-hoc approaches that leave significant performance on the table.",
+    "When you buy LLM inference from an API, you can't verify what actually served your request. Providers can silently swap in a cheaper quantized model and pocket the difference — and with agentic coding tools burning millions of tokens, nobody would ever know. Trusted-hardware solutions (TEEs) just move the trust to the chip vendor.",
   differentiator:
-    "EfficientFrontier applies portfolio optimization mathematics to general-purpose search problems, distributed across Bittensor miners. Whether you're tuning a model or allocating capital, the network efficiently explores the possibility space and surfaces Pareto-optimal solutions.",
+    "Engy, built by Hanlin AI (ex-Google Brain), pins each model's exact weights and quantization via published Merkle roots and attaches a cryptographic activation fingerprint to every response — proof the pinned checkpoint produced your output, with no trusted hardware required. It runs frontier open models like the 753B GLM-5.2 on consumer GPUs at roughly half of first-party pricing, with an OpenAI/Anthropic-compatible API that plugs straight into Claude Code and Cursor.",
   keywords: [
-    "hyperparameter optimization",
-    "portfolio optimization AI",
-    "Bittensor tools subnet",
-    "EfficientFrontier Bittensor",
-    "decentralized optimization",
-    "Pareto optimization network",
+    "verified AI inference",
+    "Engy Bittensor",
+    "cryptographic inference proof",
+    "GLM-5.2 API",
+    "cheap LLM inference",
+    "decentralized inference subnet",
   ],
 },
 

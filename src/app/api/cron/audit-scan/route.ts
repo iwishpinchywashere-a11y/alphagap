@@ -465,6 +465,44 @@ export async function GET(req: Request) {
   }
   console.log(`[audit-scan] TaoSwap data loaded for ${taoswapMap.size} subnets`);
 
+  // ── Cross-check TaoSwap emission stats against our scan (TaoStats) ──
+  // When a netuid is recycled (old subnet deregs, new one takes the slot),
+  // TaoSwap can keep serving the dead predecessor's emission stats — e.g.
+  // SN53 "engy" showed emission 0% / 100% miner burn while TaoStats showed
+  // live emissions. Scoring those leftovers as fact tanked the audit score.
+  // If TaoSwap says a subnet emits nothing but our scan sees real emissions,
+  // treat TaoSwap's emission-derived fields as UNKNOWN (null → neutral 50),
+  // not as worst-case truth.
+  const scanEmissionMap = new Map<number, number>();
+  try {
+    const scanBlob = await blobGet("scan-latest.json", { token, access: "private", abortSignal: AbortSignal.timeout(10000) });
+    if (scanBlob?.stream) {
+      const reader = scanBlob.stream.getReader(); const chunks: Uint8Array[] = [];
+      while (true) { const { done, value } = await reader.read(); if (done) break; chunks.push(value); }
+      const scan = JSON.parse(Buffer.concat(chunks).toString("utf-8"));
+      for (const e of scan.leaderboard ?? []) {
+        if (e.netuid != null && e.emission_pct != null) scanEmissionMap.set(e.netuid, e.emission_pct);
+      }
+    }
+  } catch { /* cross-check unavailable — TaoSwap values used as-is */ }
+
+  let emissionCorrections = 0;
+  for (const [uid, ts] of taoswapMap) {
+    const scanEmission = scanEmissionMap.get(uid) ?? 0;
+    if ((ts.emission_percent ?? 0) === 0 && scanEmission > 0) {
+      taoswapMap.set(uid, {
+        ...ts,
+        emission_percent: scanEmission * 100,
+        emission_miner_burn: null,
+        emission_chain_buys_percent: null,
+      });
+      emissionCorrections++;
+    }
+  }
+  if (emissionCorrections > 0) {
+    console.log(`[audit-scan] Nulled stale TaoSwap emission stats for ${emissionCorrections} subnet(s) that emit per TaoStats`);
+  }
+
   // Fetch metagraph in parallel batches
   const BATCH_SIZE = 8;
   const results: Record<number, SubnetAudit> = {};

@@ -802,6 +802,7 @@ export async function GET() {
     50:  "SynthdataCo",     // Synth
     51:  "lium_io",         // lium.io
     52:  "TensorplexLabs",  // Dojo (SN52)
+    53:  "totheagi",        // Engy (SN53) — no official subnet account yet; founder Ning Ren (Hanlin AI). NOT @the_engy (a band)
     54:  "yanez__ai",       // Yanez MIID
     55:  "GenomesDAO",      // NIOME / GenomesDAO
     56:  "gradients_ai",    // Gradients
