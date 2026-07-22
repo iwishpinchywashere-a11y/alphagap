@@ -51,6 +51,10 @@
     {
       "path": "/api/cron/health-watch",
       "schedule": "*/30 * * * *"
+    },
+    {
+      "path": "/api/cron/identity-drift",
+      "schedule": "0 13 * * *"
     }
   ]
 }
