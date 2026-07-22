@@ -32,7 +32,14 @@ const STATE_KEY = "identity-drift-state.json";
 const PLACEHOLDER = new Set(["", "deprecated", "unknown", "pending", "parked", "base"]);
 
 function norm(s: string | null | undefined): string {
-  return (s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+  // Fold homoglyphs Bittensor teams love (Greek τ for "t", 0/O and 1/l/i
+  // confusion) BEFORE stripping — otherwise "hoτfloaτ" vs "hotfloat" and
+  // "0xMarkets" vs "OxMarkets" read as drift when they're the same project.
+  return (s || "")
+    .toLowerCase()
+    .replace(/τ/g, "t").replace(/ρ/g, "p").replace(/α/g, "a").replace(/ε/g, "e")
+    .replace(/ο/g, "o").replace(/[0]/g, "o").replace(/[1]/g, "l")
+    .replace(/[^a-z]/g, "");
 }
 
 // Same substring-tolerant match used in the one-time audit — handles
