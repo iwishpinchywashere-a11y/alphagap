@@ -45,6 +45,7 @@ export const SUBNET_LOGOS: Record<number, string> = {
   49: "https://tournaments.nepher.ai/logo.png",
   50: "/subnets/sn50-synth.jpg",
   51: "https://raw.githubusercontent.com/Datura-ai/lium-logos/refs/heads/main/Celium_Icon_FullColor.png",
+  53: "data:image/svg+xml;base64,PHN2ZyB2aWV3Qm94PSIxMzIgMTMyIDc2MCA3NjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3QgeD0iMTMyIiB5PSIxMzIiIHdpZHRoPSI3NjAiIGhlaWdodD0iNzYwIiBmaWxsPSIjZmZmZmZmIi8+PHJlY3QgeD0iMjA1IiB5PSIyNDYiIHdpZHRoPSI0NzIiIGhlaWdodD0iMTMyIiByeD0iNjYiIGZpbGw9IiNGNTUxMUUiLz48cmVjdCB4PSIzNDciIHk9IjQ0NCIgd2lkdGg9IjQ3MiIgaGVpZ2h0PSIxMzQiIHJ4PSI2NyIgZmlsbD0iI0Y1NTExRSIvPjxyZWN0IHg9IjIwNSIgeT0iNjQ3IiB3aWR0aD0iNDcyIiBoZWlnaHQ9IjEzMiIgcng9IjY2IiBmaWxsPSIjRjU1MTFFIi8+PC9zdmc+Cg==", // Engy (SN53) — brand mark from engy.ai/logo.svg, embedded as data URI
   55: "https://miro.medium.com/v2/resize:fit:1400/format:webp/1*pgi-9hji1nosR-l7taHQeA.png",
   56: "https://gradients-public.s3.eu-central-003.backblazeb2.com/gradientslogo.png",
   57: "https://i.imgur.com/HbfFUqo.jpeg",
