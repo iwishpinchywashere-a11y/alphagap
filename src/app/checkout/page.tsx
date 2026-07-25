@@ -19,6 +19,7 @@ import { authOptions } from "@/lib/auth";
 import { getStripe, PLANS, type PlanKey } from "@/lib/stripe-client";
 import { getUserByEmail, setStripeCustomerLookup, updateUser } from "@/lib/users";
 import { validateCode } from "@/lib/referral";
+import AgIcon from "@/components/AgIcon";
 
 export const dynamic = "force-dynamic";
 
@@ -37,17 +38,17 @@ export default async function CheckoutPage({
 
   if (!email) {
     return (
-      <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center p-8">
-        <div className="max-w-md w-full bg-gray-900 border border-red-500/30 rounded-2xl p-8 text-center">
-          <div className="text-4xl mb-4">🔒</div>
-          <h1 className="text-white font-bold text-xl mb-2">Session not found</h1>
+      <div className="min-h-screen bg-[#07090b] ag-aurora flex items-center justify-center p-8">
+        <div className="max-w-md w-full ag-glass !border-red-500/30 p-8 text-center">
+          <div className="text-4xl mb-4 flex justify-center text-gray-300"><AgIcon name="lock" /></div>
+          <h1 className="font-display text-white font-semibold text-xl mb-2">Session not found</h1>
           <p className="text-gray-400 text-sm mb-6">
             Your account was created but we couldn&apos;t establish a session.
             Please sign in manually to continue to checkout.
           </p>
           <a
             href={`/auth/signin?callbackUrl=${encodeURIComponent(`/checkout?plan=${planKey}`)}`}
-            className="inline-block bg-gradient-to-r from-green-500 to-emerald-600 text-black font-bold px-6 py-3 rounded-lg text-sm"
+            className="inline-block bg-gradient-to-r from-green-500 to-emerald-600 text-black font-bold px-6 py-3 rounded-full text-sm shadow-lg shadow-green-500/20 hover:from-green-400 hover:to-emerald-500 transition-all"
           >
             Sign In → Continue to Payment
           </a>
@@ -170,22 +171,22 @@ export default async function CheckoutPage({
   }
 
   return (
-    <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center p-8">
-      <div className="max-w-md w-full bg-gray-900 border border-red-500/30 rounded-2xl p-8 text-center">
-        <div className="text-4xl mb-4">⚠️</div>
-        <h1 className="text-white font-bold text-xl mb-2">Checkout setup failed</h1>
+    <div className="min-h-screen bg-[#07090b] ag-aurora flex items-center justify-center p-8">
+      <div className="max-w-md w-full ag-glass !border-red-500/30 p-8 text-center">
+        <div className="text-4xl mb-4 flex justify-center text-yellow-400"><AgIcon name="warning" /></div>
+        <h1 className="font-display text-white font-semibold text-xl mb-2">Checkout setup failed</h1>
         <p className="text-red-400 text-sm mb-2 font-mono">{errorMsg}</p>
         <p className="text-gray-500 text-xs mb-6">Signed in as: {email}</p>
         <div className="flex gap-3 justify-center">
           <a
             href={`/checkout?plan=${planKey}`}
-            className="inline-block bg-gradient-to-r from-green-500 to-emerald-600 text-black font-bold px-6 py-3 rounded-lg text-sm"
+            className="inline-block bg-gradient-to-r from-green-500 to-emerald-600 text-black font-bold px-6 py-3 rounded-full text-sm shadow-lg shadow-green-500/20 hover:from-green-400 hover:to-emerald-500 transition-all"
           >
             Try Again
           </a>
           <a
             href="/pricing"
-            className="inline-block bg-gray-800 text-gray-300 px-6 py-3 rounded-lg text-sm"
+            className="inline-block bg-white/[0.05] border border-white/[0.12] text-gray-300 px-6 py-3 rounded-full text-sm hover:bg-white/[0.08] transition-colors"
           >
             Back to Pricing
           </a>

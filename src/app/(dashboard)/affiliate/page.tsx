@@ -30,9 +30,9 @@ function StatCard({
   sub?: string;
 }) {
   return (
-    <div className="rounded-xl border border-white/10 bg-white/5 p-5 flex flex-col gap-1">
-      <p className="text-xs text-gray-400 uppercase tracking-wider">{label}</p>
-      <p className="text-2xl font-bold text-white">{value}</p>
+    <div className="ag-glass ag-glass-hover p-5 flex flex-col gap-1">
+      <p className="text-[10.5px] text-gray-500 uppercase tracking-[0.16em]">{label}</p>
+      <p className="font-display text-2xl font-semibold tracking-[-0.02em] text-white">{value}</p>
       {sub && <p className="text-xs text-gray-500">{sub}</p>}
     </div>
   );
@@ -134,7 +134,7 @@ export default function AffiliatePage() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-[#0a0a0f] flex items-center justify-center">
+      <main className="min-h-screen bg-[#07090b] ag-aurora flex items-center justify-center">
         <div className="w-8 h-8 border-2 border-green-500 border-t-transparent rounded-full animate-spin" />
       </main>
     );
@@ -142,30 +142,36 @@ export default function AffiliatePage() {
 
   if (error) {
     return (
-      <main className="min-h-screen bg-[#0a0a0f] flex items-center justify-center px-4">
+      <main className="min-h-screen bg-[#07090b] ag-aurora flex items-center justify-center px-4">
         <p className="text-red-400 text-sm">{error}</p>
       </main>
     );
   }
 
   return (
-    <main className="min-h-screen bg-[#0a0a0f] text-white">
+    <main className="min-h-screen bg-[#07090b] ag-aurora text-white">
       <div className="max-w-4xl mx-auto px-4 py-12 space-y-10">
 
         {/* ── Hero ── */}
         <div className="space-y-2">
-          <h1 className="text-3xl font-bold tracking-tight">Affiliate Dashboard</h1>
-          <p className="text-gray-400 text-lg">
+          <h1 className="font-display text-4xl font-semibold tracking-[-0.03em] leading-tight">
+            Affiliate <span className="ag-gradient-text">Dashboard</span>
+          </h1>
+          <p className="text-[14.5px] text-gray-400 leading-relaxed">
             Earn{" "}
-            <span className="text-green-400 font-semibold">20%</span> for every
+            <span className="text-emerald-400 font-semibold">20%</span> for every
             subscriber you refer. Paid automatically via Stripe every month.
           </p>
+          <div className="flex items-center gap-2.5 pt-2 font-mono text-[11px] uppercase tracking-[0.08em] text-gray-500">
+            <span className="ag-live-dot flex-shrink-0" />
+            <span>LIFETIME COMMISSIONS · AUTOMATIC STRIPE PAYOUTS</span>
+          </div>
         </div>
 
         {/* ── Referral link ── */}
-        <section className="rounded-2xl border border-white/10 bg-white/5 p-6 space-y-4">
-          <h2 className="font-semibold text-white">Your referral link</h2>
-          <div className="flex items-center gap-3 bg-black/30 rounded-xl px-4 py-3 border border-white/10">
+        <section className="ag-glass p-6 space-y-4">
+          <h2 className="font-display font-semibold text-white">Your referral link</h2>
+          <div className="flex items-center gap-3 bg-white/[0.035] backdrop-blur-md rounded-full px-4 py-3 border border-white/[0.08]">
             <span className="text-sm text-gray-300 flex-1 truncate font-mono">
               {referralLink}
             </span>
@@ -179,12 +185,12 @@ export default function AffiliatePage() {
               value={customCode}
               onChange={(e) => setCustomCode(e.target.value)}
               placeholder="Set custom code (e.g. JOHNDOE)"
-              className="flex-1 bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-green-500/50"
+              className="flex-1 bg-white/[0.035] border border-white/[0.08] backdrop-blur-md rounded-full px-4 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500/40"
               maxLength={20}
             />
             <button
               type="submit"
-              className="px-4 py-2 rounded-lg text-sm font-medium bg-white/10 hover:bg-white/20 border border-white/20 transition-colors text-white whitespace-nowrap"
+              className="px-4 py-2 rounded-full text-sm font-medium bg-white/[0.06] hover:bg-white/[0.12] border border-white/[0.14] backdrop-blur-md transition-colors text-white whitespace-nowrap"
             >
               Set code
             </button>
@@ -201,8 +207,8 @@ export default function AffiliatePage() {
         </section>
 
         {/* ── Stripe Connect ── */}
-        <section className="rounded-2xl border border-white/10 bg-white/5 p-6 space-y-3">
-          <h2 className="font-semibold text-white">Payout setup</h2>
+        <section className="ag-glass p-6 space-y-3">
+          <h2 className="font-display font-semibold text-white">Payout setup</h2>
           {stats?.payoutsEnabled ? (
             <div className="flex items-center gap-2">
               <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-green-500/10 border border-green-500/30 text-green-400 text-sm font-medium">
@@ -232,7 +238,7 @@ export default function AffiliatePage() {
               <button
                 onClick={handleConnectStripe}
                 disabled={connectLoading}
-                className="px-4 py-2 rounded-lg text-sm font-medium bg-green-500/10 hover:bg-green-500/20 border border-green-500/30 text-green-300 transition-colors disabled:opacity-50"
+                className="px-5 py-2.5 rounded-full text-sm font-bold bg-gradient-to-r from-emerald-400 to-green-400 text-black hover:opacity-90 transition-opacity disabled:opacity-50"
               >
                 {connectLoading ? "Redirecting…" : "Connect bank account"}
               </button>
@@ -261,21 +267,21 @@ export default function AffiliatePage() {
         {/* ── Recent referrals table ── */}
         {stats && stats.recentReferrals.length > 0 && (
           <section className="space-y-3">
-            <h2 className="font-semibold text-white">Recent referrals</h2>
-            <div className="rounded-2xl border border-white/10 bg-white/5 overflow-hidden">
+            <h2 className="font-display font-semibold text-white">Recent referrals</h2>
+            <div className="ag-glass overflow-hidden">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-white/10 text-left">
-                    <th className="px-4 py-3 text-xs text-gray-400 font-medium uppercase tracking-wider">
+                    <th className="px-4 py-3 font-mono text-[10.5px] text-gray-500 font-medium uppercase tracking-[0.08em]">
                       Email
                     </th>
-                    <th className="px-4 py-3 text-xs text-gray-400 font-medium uppercase tracking-wider">
+                    <th className="px-4 py-3 font-mono text-[10.5px] text-gray-500 font-medium uppercase tracking-[0.08em]">
                       Signed up
                     </th>
-                    <th className="px-4 py-3 text-xs text-gray-400 font-medium uppercase tracking-wider">
+                    <th className="px-4 py-3 font-mono text-[10.5px] text-gray-500 font-medium uppercase tracking-[0.08em]">
                       Status
                     </th>
-                    <th className="px-4 py-3 text-xs text-gray-400 font-medium uppercase tracking-wider text-right">
+                    <th className="px-4 py-3 font-mono text-[10.5px] text-gray-500 font-medium uppercase tracking-[0.08em] text-right">
                       Commission
                     </th>
                   </tr>
@@ -311,7 +317,7 @@ export default function AffiliatePage() {
         )}
 
         {stats && stats.recentReferrals.length === 0 && (
-          <section className="rounded-2xl border border-white/10 bg-white/5 p-8 text-center space-y-2">
+          <section className="ag-glass p-8 text-center space-y-2">
             <p className="text-gray-400">No referrals yet.</p>
             <p className="text-sm text-gray-600">
               Share your link above to start earning.
@@ -321,7 +327,7 @@ export default function AffiliatePage() {
 
         {/* ── How it works ── */}
         <section className="space-y-4">
-          <h2 className="font-semibold text-white">How it works</h2>
+          <h2 className="font-display font-semibold text-white">How it works</h2>
           <div className="grid sm:grid-cols-3 gap-4">
             {[
               {
@@ -342,7 +348,7 @@ export default function AffiliatePage() {
             ].map(({ step, title, desc }) => (
               <div
                 key={step}
-                className="rounded-xl border border-white/10 bg-white/5 p-5 space-y-2"
+                className="ag-glass ag-glass-hover !rounded-xl p-5 space-y-2"
               >
                 <div className="w-7 h-7 rounded-full bg-green-500/10 border border-green-500/20 flex items-center justify-center">
                   <span className="text-xs font-bold text-green-400">{step}</span>

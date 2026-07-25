@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import type { SubnetType } from "@/lib/tao-pages-data";
 import { subnetAvatarColor } from "@/lib/subnet-logos";
+import AgIcon, { type AgIconName } from "@/components/AgIcon";
 
 export interface SubnetRow {
   netuid: number;
@@ -32,17 +33,17 @@ const ALL_TYPES: SubnetType[] = [
   "Tools",
 ];
 
-const TYPE_ICONS: Record<SubnetType, string> = {
-  Inference: "⚡",
-  Training:  "🧠",
-  Compute:   "🖥",
-  Storage:   "☁️",
-  Agents:    "🤖",
-  Data:      "📊",
-  Finance:   "📈",
-  Science:   "🔬",
-  Creative:  "🎨",
-  Tools:     "🔧",
+const TYPE_ICONS: Record<SubnetType, AgIconName> = {
+  Inference: "bolt",
+  Training:  "brain",
+  Compute:   "signal",
+  Storage:   "globe",
+  Agents:    "robot",
+  Data:      "chart",
+  Finance:   "trendUp",
+  Science:   "scope",
+  Creative:  "gem",
+  Tools:     "target",
 };
 
 const TYPE_COLORS: Record<SubnetType, string> = {
@@ -101,7 +102,7 @@ export default function TaoPagesClient({ subnets }: { subnets: SubnetRow[] }) {
           placeholder="Search subnets by name or description…"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          className="w-full bg-white/[0.04] border border-white/[0.08] hover:border-white/[0.14] focus:border-green-500/40 focus:outline-none rounded-xl pl-10 pr-10 py-3 text-sm text-white placeholder-gray-600 transition-colors"
+          className="w-full bg-white/[0.035] border border-white/[0.08] hover:border-white/[0.14] backdrop-blur-[14px] focus:border-emerald-400/40 focus:ring-1 focus:ring-emerald-400/20 focus:outline-none rounded-full pl-10 pr-10 py-3 text-sm text-white placeholder-gray-600 transition-colors"
         />
         {query && (
           <button
@@ -119,10 +120,10 @@ export default function TaoPagesClient({ subnets }: { subnets: SubnetRow[] }) {
       <div className="flex flex-wrap items-center gap-2 mb-8">
         <button
           onClick={() => setActive(null)}
-          className={`px-3 py-1.5 rounded-full border text-xs font-medium transition-all ${
+          className={`px-3 py-1.5 rounded-full border text-xs font-medium backdrop-blur-[14px] transition-all ${
             active === null
-              ? "bg-white/10 border-white/20 text-white"
-              : "border-white/10 text-gray-500 hover:text-gray-300 hover:border-white/15"
+              ? "bg-gradient-to-b from-emerald-400/20 to-emerald-400/[0.08] border-emerald-400/25 text-[#d9fbe9] shadow-[0_6px_18px_-8px_rgba(52,211,153,0.35)]"
+              : "bg-white/[0.035] border-white/[0.08] text-gray-500 hover:text-gray-300 hover:border-white/[0.14]"
           }`}
         >
           All <span className="ml-1 opacity-50">{subnets.length}</span>
@@ -131,13 +132,13 @@ export default function TaoPagesClient({ subnets }: { subnets: SubnetRow[] }) {
           <button
             key={type}
             onClick={() => setActive(active === type ? null : type)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-medium transition-all ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-medium backdrop-blur-[14px] transition-all ${
               active === type
                 ? TYPE_COLORS[type]
-                : "border-white/10 text-gray-500 hover:text-gray-300 hover:border-white/15"
+                : "bg-white/[0.035] border-white/[0.08] text-gray-500 hover:text-gray-300 hover:border-white/[0.14]"
             }`}
           >
-            <span>{TYPE_ICONS[type]}</span>
+            <AgIcon name={TYPE_ICONS[type]} className="w-3 h-3" />
             {type}
             <span className="opacity-50">{counts[type]}</span>
           </button>
@@ -154,7 +155,7 @@ export default function TaoPagesClient({ subnets }: { subnets: SubnetRow[] }) {
             <Link
               key={s.netuid}
               href={`/taopages/${s.slug}`}
-              className="group relative bg-[#0d0d14] border border-white/[0.06] hover:border-white/[0.14] rounded-2xl p-6 transition-all duration-200 hover:scale-[1.02] hover:shadow-lg hover:shadow-black/40 flex flex-col"
+              className="group relative ag-glass ag-glass-hover p-6 flex flex-col"
             >
               {/* Rank */}
               <span className="absolute top-4 right-4 text-[10px] font-mono text-gray-700">
@@ -179,7 +180,7 @@ export default function TaoPagesClient({ subnets }: { subnets: SubnetRow[] }) {
                 </div>
                 <div>
                   <div className="flex items-center gap-2 mb-1">
-                    <h2 className="text-sm font-bold text-white group-hover:text-emerald-300 transition-colors leading-tight">
+                    <h2 className="font-display text-sm font-semibold text-white group-hover:text-emerald-300 transition-colors leading-tight">
                       {s.name}
                     </h2>
                     <span className="text-[10px] font-mono text-gray-600 bg-white/5 px-1.5 py-0.5 rounded shrink-0">
@@ -198,7 +199,7 @@ export default function TaoPagesClient({ subnets }: { subnets: SubnetRow[] }) {
               </p>
 
               {/* Analogy */}
-              <div className="bg-white/[0.03] rounded-lg px-3 py-2 mb-4">
+              <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl px-3 py-2 mb-4">
                 <p className="text-[11px] text-gray-500 leading-snug">
                   <span className="text-gray-700">Like: </span>{s.analogy}
                 </p>
@@ -213,7 +214,7 @@ export default function TaoPagesClient({ subnets }: { subnets: SubnetRow[] }) {
                   </div>
                 ) : (
                   <div className="flex items-center gap-1">
-                    <span className="text-[10px] text-gray-700">{icon}</span>
+                    <AgIcon name={icon} className="w-3 h-3 text-gray-700" />
                     <span className="text-[10px] text-gray-700">{s.subnetType}</span>
                   </div>
                 )}

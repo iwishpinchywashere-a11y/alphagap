@@ -50,15 +50,15 @@ export default function BlurGate({
       </div>
 
       {/* Overlay — button anchored to top */}
-      <div className="absolute inset-0 z-10 flex flex-col items-center justify-start pt-8 bg-[#0a0a0f]/40">
-        <div className="text-center px-6">
+      <div className="absolute inset-0 z-10 flex flex-col items-center justify-start pt-8 bg-[#07090b]/40">
+        <div className="ag-glass text-center px-8 py-6 mx-6">
           <Link
             href={href}
-            className="inline-block px-8 py-3.5 bg-gradient-to-r from-green-500 to-emerald-600 text-black font-bold rounded-xl text-base hover:from-green-400 hover:to-emerald-500 transition-all shadow-xl shadow-green-500/30"
+            className="inline-block px-8 py-3.5 bg-gradient-to-r from-emerald-500 to-green-400 text-black font-bold rounded-full text-base hover:from-emerald-400 hover:to-green-300 transition-all shadow-xl shadow-emerald-500/30"
           >
             {buttonLabel}
           </Link>
-          <p className="text-xs text-gray-500 mt-2">{subLabel}</p>
+          <p className="text-xs font-mono text-gray-500 mt-3">{subLabel}</p>
         </div>
       </div>
     </div>

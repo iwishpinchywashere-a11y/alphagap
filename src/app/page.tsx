@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
+import AgIcon from "@/components/AgIcon";
 
 export default function LandingPage() {
   const { data: session } = useSession();
@@ -41,9 +42,9 @@ export default function LandingPage() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-[#0a0a0f] text-white overflow-x-hidden">
+    <div className="min-h-screen bg-[#07090b] text-white overflow-x-hidden ag-aurora">
       {/* Nav */}
-      <nav className="fixed top-0 left-0 right-0 z-50 backdrop-blur-xl bg-[#0a0a0f]/80 border-b border-white/5">
+      <nav className="fixed top-0 left-0 right-0 z-50 backdrop-blur-xl bg-[#07090b]/80 border-b border-white/5">
         <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center">
             <img src="/alphagap_logo_dark.svg" alt="AlphaGap" className="h-12 w-auto" />
@@ -51,14 +52,14 @@ export default function LandingPage() {
           {session ? (
             <Link
               href="/dashboard"
-              className="px-5 py-2.5 bg-gradient-to-r from-green-500 to-emerald-600 text-black font-semibold rounded-lg hover:from-green-400 hover:to-emerald-500 transition-all shadow-lg shadow-green-500/20 text-sm"
+              className="px-5 py-2.5 bg-gradient-to-r from-emerald-400 to-green-400 text-black font-bold rounded-xl hover:from-emerald-300 hover:to-green-300 transition-all shadow-lg shadow-green-500/20 text-sm"
             >
               Dashboard →
             </Link>
           ) : (
             <Link
               href="/subscribe"
-              className="px-5 py-2.5 bg-gradient-to-r from-green-500 to-emerald-600 text-black font-semibold rounded-lg hover:from-green-400 hover:to-emerald-500 transition-all shadow-lg shadow-green-500/20 text-sm"
+              className="px-5 py-2.5 bg-gradient-to-r from-emerald-400 to-green-400 text-black font-bold rounded-xl hover:from-emerald-300 hover:to-green-300 transition-all shadow-lg shadow-green-500/20 text-sm"
             >
               Get Access →
             </Link>
@@ -90,10 +91,10 @@ export default function LandingPage() {
             </svg>
           </div>
 
-          <h1 className="text-5xl sm:text-6xl md:text-7xl font-bold tracking-tight leading-[1.1] mb-6">
+          <h1 className="font-display text-5xl sm:text-6xl md:text-7xl font-semibold tracking-[-0.03em] leading-[1.1] mb-6">
             Bittensor Subnet
             <br />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-emerald-300">Intelligence Analytics</span>
+            <span className="ag-gradient-text">Intelligence Analytics</span>
           </h1>
 
           <p className="text-lg sm:text-xl text-gray-400 max-w-2xl mx-auto mb-10 leading-relaxed">
@@ -106,7 +107,7 @@ export default function LandingPage() {
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
               href="/powerrankings"
-              className="px-8 py-4 bg-gradient-to-r from-green-500 to-emerald-600 text-black font-bold rounded-xl hover:from-green-400 hover:to-emerald-500 transition-all shadow-xl shadow-green-500/25 text-lg"
+              className="px-8 py-4 bg-gradient-to-r from-emerald-400 to-green-400 text-black font-bold rounded-xl hover:from-emerald-300 hover:to-green-300 transition-all shadow-xl shadow-green-500/25 text-lg"
             >
               Start for Free →
             </Link>
@@ -127,8 +128,8 @@ export default function LandingPage() {
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[400px] bg-green-500/[0.03] rounded-full blur-[100px]" />
 
         <div className="relative max-w-5xl mx-auto">
-          <h2 className="text-3xl sm:text-4xl font-bold text-center mb-3">
-            What We <span className="text-green-400">Track</span>
+          <h2 className="font-display text-3xl sm:text-4xl font-semibold tracking-[-0.02em] text-center mb-3">
+            What We <span className="ag-gradient-text">Track</span>
           </h2>
           <p className="text-gray-500 text-center mb-12 text-sm">Thousands of data points. Every subnet. Every day.</p>
 
@@ -187,7 +188,7 @@ export default function LandingPage() {
                 iconBg: "bg-cyan-500/10",
               },
               {
-                icon: <span className="text-3xl">💬</span>,
+                icon: <AgIcon name="chat" className="w-8 h-8 text-indigo-400" />,
                 title: "Discord Buzz",
                 desc: "Server activity & alerts",
                 glow: "group-hover:shadow-indigo-500/20",
@@ -195,7 +196,7 @@ export default function LandingPage() {
                 iconBg: "bg-indigo-500/10",
               },
               {
-                icon: <span className="text-3xl">🐋</span>,
+                icon: <AgIcon name="whale" className="w-8 h-8 text-blue-400" />,
                 title: "Whale Watching",
                 desc: "Large wallet accumulation",
                 glow: "group-hover:shadow-blue-500/20",
@@ -215,7 +216,7 @@ export default function LandingPage() {
             ].map((item) => (
               <div
                 key={item.title}
-                className={`group relative bg-[#0d0d14] border border-white/[0.06] rounded-2xl p-6 text-center transition-all duration-300 hover:scale-[1.03] ${item.glow} hover:shadow-lg cursor-default ${item.border}`}
+                className={`group relative ag-glass ag-glass-hover p-6 text-center cursor-default`}
               >
                 {/* Icon container with glow ring */}
                 <div className={`w-14 h-14 mx-auto rounded-xl ${item.iconBg} flex items-center justify-center mb-4 transition-transform duration-300 group-hover:scale-110`}>
@@ -232,7 +233,7 @@ export default function LandingPage() {
       {/* The Problem */}
       <section className="py-20 px-6">
         <div className="max-w-4xl mx-auto">
-          <h2 className="text-3xl sm:text-4xl font-bold text-center mb-6">
+          <h2 className="font-display text-3xl sm:text-4xl font-semibold tracking-[-0.02em] text-center mb-6">
             128 teams are building.
             <br />
             <span className="text-gray-500">You have no idea what they&apos;re doing.</span>
@@ -247,22 +248,22 @@ export default function LandingPage() {
           <div className="grid sm:grid-cols-3 gap-6">
             {[
               {
-                icon: "🔬",
+                icon: <AgIcon name="scope" className="w-8 h-8 text-cyan-400" />,
                 title: "Scattered across platforms",
                 desc: "Teams push updates to technical platforms that most investors never check. Critical developments go unnoticed for days or weeks.",
               },
               {
-                icon: "📉",
+                icon: <AgIcon name="trendDown" className="w-8 h-8 text-red-400" />,
                 title: "Markets react too late",
                 desc: "Token prices stay flat while teams ship major upgrades. By the time Twitter finds out, the smart money has already moved.",
               },
               {
-                icon: "💡",
+                icon: <AgIcon name="bulb" className="w-8 h-8 text-yellow-400" />,
                 title: "The gap is your alpha",
                 desc: "Between a team shipping a breakthrough and the market pricing it in — there's a window. We find that window before anyone else.",
               },
             ].map((card) => (
-              <div key={card.title} className="bg-white/[0.03] border border-white/5 rounded-xl p-6 hover:border-green-500/20 transition-colors">
+              <div key={card.title} className="ag-glass ag-glass-hover p-6">
                 <div className="text-3xl mb-4">{card.icon}</div>
                 <h3 className="font-bold text-lg mb-2">{card.title}</h3>
                 <p className="text-gray-500 text-sm leading-relaxed">{card.desc}</p>
@@ -275,7 +276,7 @@ export default function LandingPage() {
       {/* How it works */}
       <section id="how-it-works" className="py-20 px-6 bg-white/[0.01]">
         <div className="max-w-4xl mx-auto">
-          <h2 className="text-3xl sm:text-4xl font-bold text-center mb-4">
+          <h2 className="font-display text-3xl sm:text-4xl font-semibold tracking-[-0.02em] text-center mb-4">
             An AI brain that never sleeps
           </h2>
           <p className="text-gray-400 text-center max-w-xl mx-auto mb-16">
@@ -334,8 +335,8 @@ export default function LandingPage() {
       {/* The aGap Score */}
       <section className="py-20 px-6 bg-white/[0.01]">
         <div className="max-w-4xl mx-auto text-center">
-          <h2 className="text-3xl sm:text-4xl font-bold mb-4">
-            The <span className="text-green-400">aGap</span> Score
+          <h2 className="font-display text-3xl sm:text-4xl font-semibold tracking-[-0.02em] mb-4">
+            The <span className="ag-gradient-text">aGap</span> Score
           </h2>
           <p className="text-gray-400 max-w-xl mx-auto mb-10 text-lg">
             Our proprietary composite score that answers one question:
@@ -344,12 +345,12 @@ export default function LandingPage() {
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 max-w-3xl mx-auto">
             {[
-              { label: "Development", desc: "How actively is the team shipping?", icon: "⚡", color: "text-green-400" },
-              { label: "Market Gap", desc: "Has the price caught up yet?", icon: "📉", color: "text-yellow-400" },
-              { label: "Awareness", desc: "Does the market know about this?", icon: "👁", color: "text-blue-400" },
-              { label: "Smart Money", desc: "Are insiders accumulating?", icon: "🐋", color: "text-purple-400" },
+              { label: "Development", desc: "How actively is the team shipping?", icon: <AgIcon name="bolt" className="w-8 h-8 text-green-400" />, color: "text-green-400" },
+              { label: "Market Gap", desc: "Has the price caught up yet?", icon: <AgIcon name="trendDown" className="w-8 h-8 text-yellow-400" />, color: "text-yellow-400" },
+              { label: "Awareness", desc: "Does the market know about this?", icon: <AgIcon name="eye" className="w-8 h-8 text-blue-400" />, color: "text-blue-400" },
+              { label: "Smart Money", desc: "Are insiders accumulating?", icon: <AgIcon name="whale" className="w-8 h-8 text-purple-400" />, color: "text-purple-400" },
             ].map((c) => (
-              <div key={c.label} className="bg-white/[0.03] border border-white/5 rounded-xl p-5">
+              <div key={c.label} className="ag-glass ag-glass-hover p-5">
                 <div className="text-3xl mb-3">{c.icon}</div>
                 <div className={`font-semibold ${c.color}`}>{c.label}</div>
                 <div className="text-xs text-gray-500 mt-1">{c.desc}</div>
@@ -362,44 +363,44 @@ export default function LandingPage() {
       {/* Features */}
       <section className="py-20 px-6">
         <div className="max-w-5xl mx-auto">
-          <h2 className="text-3xl sm:text-4xl font-bold text-center mb-16">
+          <h2 className="font-display text-3xl sm:text-4xl font-semibold tracking-[-0.02em] text-center mb-16">
             Everything you need to find alpha
           </h2>
 
           <div className="grid sm:grid-cols-2 gap-6">
             {[
               {
-                icon: "📊",
+                icon: <AgIcon name="chart" className="w-6 h-6 text-green-400" />,
                 title: "Alpha Leaderboard",
                 desc: "All 128 subnets ranked by our proprietary aGap score. See dev activity, price momentum, emission value, social buzz, and whale movements at a glance. Sort by any metric to find your edge.",
                 color: "from-green-500/20 to-emerald-500/20",
               },
               {
-                icon: "🧠",
+                icon: <AgIcon name="brain" className="w-6 h-6 text-cyan-400" />,
                 title: "AI Intelligence Feed",
                 desc: "Every GitHub push and HuggingFace deployment — analyzed by AI and broken down into 4 sections: What they built, Why it matters, In simple terms, and The AlphaGap take. No technical knowledge required.",
                 color: "from-blue-500/20 to-cyan-500/20",
               },
               {
-                icon: "🐋",
+                icon: <AgIcon name="whale" className="w-6 h-6 text-amber-400" />,
                 title: "Whale Detection",
-                desc: "We analyze buy/sell transaction sizes to detect when large wallets are accumulating before the crowd. A 🐋 icon flags subnets where whale average buy size dwarfs retail sells.",
+                desc: "We analyze buy/sell transaction sizes to detect when large wallets are accumulating before the crowd. A whale icon flags subnets where whale average buy size dwarfs retail sells.",
                 color: "from-yellow-500/20 to-amber-500/20",
               },
               {
-                icon: "📡",
+                icon: <AgIcon name="radar" className="w-6 h-6 text-rose-400" />,
                 title: "Emission Analysis",
                 desc: "Our proprietary eVal metric detects when the network allocates more value to a subnet than the market realizes. When insiders are confident before retail catches on, that's your edge.",
                 color: "from-red-500/20 to-rose-500/20",
               },
               {
-                icon: "🔥",
+                icon: <AgIcon name="flame" className="w-6 h-6 text-orange-400" />,
                 title: "Early Trend Detection",
                 desc: "We monitor social campaigns, influencer activity, and marketing launches across the ecosystem. Get flagged when buzz is about to spike — before the crowd piles in.",
                 color: "from-orange-500/20 to-amber-500/20",
               },
               {
-                icon: "🔍",
+                icon: <AgIcon name="search" className="w-6 h-6 text-teal-400" />,
                 title: "Wallet Tracker",
                 desc: "Track any TAO wallet across the entire network. See exactly who is staking where, monitor top wallets ranked by 24h movement, identify known wallets (validators, founders, whales), and look up any address to reveal their full subnet portfolio.",
                 color: "from-teal-500/20 to-cyan-500/20",
@@ -407,7 +408,7 @@ export default function LandingPage() {
             ].map((feature) => (
               <div
                 key={feature.title}
-                className="bg-white/[0.03] border border-white/5 rounded-xl p-6 hover:border-green-500/20 transition-all group"
+                className="ag-glass ag-glass-hover p-6 group"
               >
                 <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${feature.color} flex items-center justify-center text-2xl mb-4 group-hover:scale-110 transition-transform`}>
                   {feature.icon}
@@ -428,12 +429,12 @@ export default function LandingPage() {
         <div className="relative max-w-5xl mx-auto">
           <div className="text-center mb-14">
             <div className="inline-flex items-center gap-2 bg-green-500/10 border border-green-500/20 rounded-full px-4 py-1.5 mb-5">
-              <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
-              <span className="text-green-400 text-xs font-bold uppercase tracking-widest">New — Premium Feature</span>
+              <span className="ag-live-dot" />
+              <span className="text-green-400 font-mono text-[11px] font-bold uppercase tracking-widest">New — Premium Feature</span>
             </div>
-            <h2 className="text-3xl sm:text-4xl font-bold mb-4">
+            <h2 className="font-display text-3xl sm:text-4xl font-semibold tracking-[-0.02em] mb-4">
               Ask the{" "}
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-emerald-300">TAO Oracle</span>
+              <span className="ag-gradient-text">TAO Oracle</span>
               {" "}anything
             </h2>
             <p className="text-gray-400 text-lg max-w-2xl mx-auto leading-relaxed">
@@ -443,9 +444,9 @@ export default function LandingPage() {
 
           <div className="grid lg:grid-cols-2 gap-10 items-start">
             {/* Left: Mock chat UI */}
-            <div className="bg-[#0d0d14] border border-white/10 rounded-2xl p-4 shadow-2xl">
+            <div className="ag-glass p-4 shadow-2xl">
               <div className="flex items-center gap-3 mb-4 pb-3 border-b border-white/5">
-                <div className="w-9 h-9 rounded-xl bg-green-500/15 border border-green-500/25 flex items-center justify-center text-lg">🔮</div>
+                <div className="w-9 h-9 rounded-xl bg-green-500/15 border border-green-500/25 flex items-center justify-center"><AgIcon name="oracle" className="w-5 h-5 text-green-400" /></div>
                 <div>
                   <div className="text-white text-sm font-semibold">AlphaGap Oracle</div>
                   <div className="flex items-center gap-1.5">
@@ -462,7 +463,7 @@ export default function LandingPage() {
                   </div>
                 </div>
                 <div className="flex gap-3">
-                  <div className="w-7 h-7 rounded-lg bg-green-500/15 border border-green-500/25 flex items-center justify-center flex-shrink-0 mt-0.5 text-sm">🔮</div>
+                  <div className="w-7 h-7 rounded-lg bg-green-500/15 border border-green-500/25 flex items-center justify-center flex-shrink-0 mt-0.5"><AgIcon name="oracle" className="w-4 h-4 text-green-400" /></div>
                   <div className="bg-white/[0.03] border border-white/[0.08] rounded-2xl px-4 py-3 text-gray-200 space-y-1.5">
                     <p><strong className="text-white">3 subnets with heavy smart-money flow:</strong></p>
                     <p>▸ <strong className="text-white">SN64 Chutes</strong> — buy/sell ratio 3.1× above avg, large wallets added positions in the last 6h</p>
@@ -476,7 +477,7 @@ export default function LandingPage() {
                   </div>
                 </div>
                 <div className="flex gap-3">
-                  <div className="w-7 h-7 rounded-lg bg-green-500/15 border border-green-500/25 flex items-center justify-center flex-shrink-0 mt-0.5 text-sm">🔮</div>
+                  <div className="w-7 h-7 rounded-lg bg-green-500/15 border border-green-500/25 flex items-center justify-center flex-shrink-0 mt-0.5"><AgIcon name="oracle" className="w-4 h-4 text-green-400" /></div>
                   <div className="bg-white/[0.03] border border-white/[0.08] rounded-2xl px-4 py-3 text-gray-200">
                     ▸ <strong className="text-white">SN77</strong> has a Nakamoto coefficient of 1 — a single validator controls consensus. Critical centralisation risk worth avoiding until that changes.
                   </div>
@@ -486,14 +487,14 @@ export default function LandingPage() {
 
             {/* Right: what you can ask + CTA */}
             <div className="space-y-5">
-              <p className="text-xs text-gray-500 uppercase tracking-widest font-semibold">Ask anything — for example</p>
+              <p className="font-mono text-[11px] text-gray-500 uppercase tracking-widest font-semibold">Ask anything — for example</p>
               <div className="space-y-3">
                 {[
-                  { icon: "🐋", label: "Smart money & whale flows", ex: "\"Who's accumulating before the next pump?\"" },
-                  { icon: "⚡", label: "Dev momentum", ex: "\"Which subnets shipped the most code this week?\"" },
-                  { icon: "📊", label: "Top picks with reasoning", ex: "\"Best long-term holds right now — top 3\"" },
-                  { icon: "🚨", label: "Red flags & risks", ex: "\"What are the biggest centralisation risks?\"" },
-                  { icon: "💬", label: "Social & KOL activity", ex: "\"What are KOLs buzzing about right now?\"" },
+                  { icon: <AgIcon name="whale" className="w-5 h-5 text-blue-400" />, label: "Smart money & whale flows", ex: "\"Who's accumulating before the next pump?\"" },
+                  { icon: <AgIcon name="bolt" className="w-5 h-5 text-yellow-400" />, label: "Dev momentum", ex: "\"Which subnets shipped the most code this week?\"" },
+                  { icon: <AgIcon name="chart" className="w-5 h-5 text-green-400" />, label: "Top picks with reasoning", ex: "\"Best long-term holds right now — top 3\"" },
+                  { icon: <AgIcon name="warning" className="w-5 h-5 text-red-400" />, label: "Red flags & risks", ex: "\"What are the biggest centralisation risks?\"" },
+                  { icon: <AgIcon name="chat" className="w-5 h-5 text-indigo-400" />, label: "Social & KOL activity", ex: "\"What are KOLs buzzing about right now?\"" },
                 ].map((q) => (
                   <div key={q.label} className="flex items-start gap-3 p-3 rounded-xl bg-white/[0.02] border border-white/[0.05] hover:border-white/10 transition-colors">
                     <span className="text-xl flex-shrink-0 leading-none mt-0.5">{q.icon}</span>
@@ -506,7 +507,7 @@ export default function LandingPage() {
               </div>
 
               <div className="bg-white/[0.02] border border-white/[0.06] rounded-xl p-5">
-                <p className="text-xs text-gray-500 uppercase tracking-widest font-semibold mb-3">Included in Premium</p>
+                <p className="font-mono text-[11px] text-gray-500 uppercase tracking-widest font-semibold mb-3">Included in Premium</p>
                 <ul className="space-y-2 mb-5">
                   {[
                     "10 AI queries per day (20 on Ultra)",
@@ -522,7 +523,7 @@ export default function LandingPage() {
                 </ul>
                 <Link
                   href="/pricing"
-                  className="w-full inline-flex items-center justify-center px-5 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-black font-bold rounded-xl hover:from-green-400 hover:to-emerald-500 transition-all shadow-lg shadow-green-500/20 text-sm"
+                  className="w-full inline-flex items-center justify-center px-5 py-3 bg-gradient-to-r from-emerald-400 to-green-400 text-black font-bold rounded-xl hover:from-emerald-300 hover:to-green-300 transition-all shadow-lg shadow-green-500/20 text-sm"
                 >
                   Unlock the Oracle →
                 </Link>
@@ -541,9 +542,9 @@ export default function LandingPage() {
           <div className="text-center mb-14">
             <div className="inline-flex items-center gap-2 bg-amber-400/10 border border-amber-400/20 rounded-full px-4 py-1.5 mb-5">
               <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-              <span className="text-amber-400 text-xs font-bold uppercase tracking-widest">Ultra Exclusive Feature</span>
+              <span className="text-amber-400 font-mono text-[11px] font-bold uppercase tracking-widest">Ultra Exclusive Feature</span>
             </div>
-            <h2 className="text-3xl sm:text-4xl font-bold mb-4">
+            <h2 className="font-display text-3xl sm:text-4xl font-semibold tracking-[-0.02em] mb-4">
               Introducing the{" "}
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-orange-400">AlphaGap Index</span>
             </h2>
@@ -555,7 +556,7 @@ export default function LandingPage() {
           <div className="max-w-xl mx-auto">
             {/* How it works + CTA */}
             <div className="space-y-5">
-              <p className="text-xs text-gray-500 uppercase tracking-widest font-semibold">How it works</p>
+              <p className="font-mono text-[11px] text-gray-500 uppercase tracking-widest font-semibold">How it works</p>
               <div className="space-y-3">
                 {[
                   { step: "01", icon: "◈", title: "Score every subnet, every week", desc: "AlphaGap runs its full 20+ signal analysis across all 128 active subnets to generate fresh composite scores." },
@@ -577,7 +578,7 @@ export default function LandingPage() {
               </div>
 
               <div className="bg-white/[0.02] border border-amber-400/15 rounded-xl p-5">
-                <p className="text-xs text-amber-400 uppercase tracking-widest font-semibold mb-3">Included in Ultra — $99/mo</p>
+                <p className="font-mono text-[11px] text-amber-400 uppercase tracking-widest font-semibold mb-3">Included in Ultra — $99/mo</p>
                 <ul className="space-y-2 mb-5">
                   {[
                     "Auto-invest across the top 10 subnets",
@@ -614,9 +615,9 @@ export default function LandingPage() {
           {/* Section header */}
           <div className="text-center mb-14">
             <div className="inline-flex items-center gap-2 bg-blue-500/10 border border-blue-500/20 rounded-full px-4 py-1.5 mb-5">
-              <span className="text-blue-400 text-xs font-bold uppercase tracking-widest">Premium</span>
+              <span className="text-blue-400 font-mono text-[11px] font-bold uppercase tracking-widest">Premium</span>
             </div>
-            <h2 className="text-3xl sm:text-4xl font-bold mb-4">
+            <h2 className="font-display text-3xl sm:text-4xl font-semibold tracking-[-0.02em] mb-4">
               Don&apos;t watch the screen.<br />
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-300">Let the screen watch for you.</span>
             </h2>
@@ -631,7 +632,7 @@ export default function LandingPage() {
             {/* Left: Telegram message mockups */}
             <div className="relative">
               {/* Phone chrome */}
-              <div className="bg-[#0d0d14] border border-white/10 rounded-2xl p-4 shadow-2xl">
+              <div className="ag-glass p-4 shadow-2xl">
                 {/* Chat header */}
                 <div className="flex items-center gap-3 mb-4 pb-3 border-b border-white/5">
                   <div className="w-9 h-9 rounded-full bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center text-black font-bold text-sm flex-shrink-0">α</div>
@@ -649,7 +650,7 @@ export default function LandingPage() {
                   {/* Whale alert */}
                   <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl px-3.5 py-3">
                     <div className="flex items-center gap-2 mb-1.5">
-                      <span className="text-base">🐋</span>
+                      <AgIcon name="whale" className="w-4 h-4 text-blue-300" />
                       <span className="font-semibold text-blue-300">Whale Activity — SN19 Nineteen</span>
                     </div>
                     <p className="text-gray-300 text-xs leading-relaxed">Unusual volume surge detected. Buy/sell ratio 3.1× above 7-day avg. Large wallets accumulating.</p>
@@ -659,7 +660,7 @@ export default function LandingPage() {
                   {/* Dev signal */}
                   <div className="bg-green-500/10 border border-green-500/20 rounded-xl px-3.5 py-3">
                     <div className="flex items-center gap-2 mb-1.5">
-                      <span className="text-base">🔮</span>
+                      <AgIcon name="oracle" className="w-4 h-4 text-green-300" />
                       <span className="font-semibold text-green-300">Development Update — SN64 Chutes</span>
                     </div>
                     <p className="text-gray-300 text-xs leading-relaxed">4 commits · 3 contributors · New inference API deployed. Signal strength: <span className="text-green-400 font-semibold">82/100</span></p>
@@ -669,7 +670,7 @@ export default function LandingPage() {
                   {/* Discord alpha */}
                   <div className="bg-indigo-500/10 border border-indigo-500/20 rounded-xl px-3.5 py-3">
                     <div className="flex items-center gap-2 mb-1.5">
-                      <span className="text-base">💬</span>
+                      <AgIcon name="chat" className="w-4 h-4 text-indigo-300" />
                       <span className="font-semibold text-indigo-300">Discord Alpha — SN9 Pretraining</span>
                     </div>
                     <p className="text-gray-300 text-xs leading-relaxed">High-signal post detected in main channel. Team announcement: testnet v2 launching this week.</p>
@@ -679,7 +680,7 @@ export default function LandingPage() {
                   {/* Emission alert */}
                   <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-xl px-3.5 py-3">
                     <div className="flex items-center gap-2 mb-1.5">
-                      <span className="text-base">⚡</span>
+                      <AgIcon name="bolt" className="w-4 h-4 text-yellow-300" />
                       <span className="font-semibold text-yellow-300">Emission Spike — SN8 Proprioception</span>
                     </div>
                     <p className="text-gray-300 text-xs leading-relaxed">Emission share ↑ 31% in last scan cycle. Network weight rotating in. aGap: <span className="text-yellow-400 font-semibold">+12 pts</span></p>
@@ -709,16 +710,16 @@ export default function LandingPage() {
 
               {/* 7 alert types */}
               <div>
-                <p className="text-xs text-gray-500 uppercase tracking-widest font-semibold mb-4">7 customisable alert types</p>
+                <p className="font-mono text-[11px] text-gray-500 uppercase tracking-widest font-semibold mb-4">7 customisable alert types</p>
                 <div className="space-y-3">
                   {[
-                    { icon: "📊", label: "aGap Score Change", desc: "Catches momentum shifts the moment they happen" },
-                    { icon: "⚡", label: "Emissions Change", desc: "Be first when validators rotate weight to a subnet" },
-                    { icon: "🔮", label: "Development Updates", desc: "GitHub spikes & HuggingFace releases — filtered by signal strength" },
-                    { icon: "🐋", label: "Whale Activity / Volume Surge", desc: "Large wallet moves & unusual volume detected from on-chain flow" },
-                    { icon: "💬", label: "Discord Alpha", desc: "High-signal posts across all Bittensor subnet servers" },
+                    { icon: <AgIcon name="chart" className="w-5 h-5 text-green-400" />, label: "aGap Score Change", desc: "Catches momentum shifts the moment they happen" },
+                    { icon: <AgIcon name="bolt" className="w-5 h-5 text-yellow-400" />, label: "Emissions Change", desc: "Be first when validators rotate weight to a subnet" },
+                    { icon: <AgIcon name="oracle" className="w-5 h-5 text-emerald-400" />, label: "Development Updates", desc: "GitHub spikes & HuggingFace releases — filtered by signal strength" },
+                    { icon: <AgIcon name="whale" className="w-5 h-5 text-blue-400" />, label: "Whale Activity / Volume Surge", desc: "Large wallet moves & unusual volume detected from on-chain flow" },
+                    { icon: <AgIcon name="chat" className="w-5 h-5 text-indigo-400" />, label: "Discord Alpha", desc: "High-signal posts across all Bittensor subnet servers" },
                     { icon: "𝕏", label: "Going Viral on X", desc: "KOL posts catching fire — before the crowd piles in" },
-                    { icon: "💰", label: "Price Movement", desc: "Your threshold, your subnets — once per 24h to avoid spam" },
+                    { icon: <AgIcon name="money" className="w-5 h-5 text-emerald-400" />, label: "Price Movement", desc: "Your threshold, your subnets — once per 24h to avoid spam" },
                   ].map(a => (
                     <div key={a.label} className="flex items-start gap-3 p-3 rounded-xl bg-white/[0.02] border border-white/[0.05] hover:border-white/[0.10] transition-colors">
                       <span className="text-xl flex-shrink-0 leading-none mt-0.5">{a.icon}</span>
@@ -733,7 +734,7 @@ export default function LandingPage() {
 
               {/* How to get it */}
               <div className="bg-white/[0.02] border border-white/[0.06] rounded-xl p-5 mt-2">
-                <p className="text-xs text-gray-500 uppercase tracking-widest font-semibold mb-4">Get set up in 60 seconds</p>
+                <p className="font-mono text-[11px] text-gray-500 uppercase tracking-widest font-semibold mb-4">Get set up in 60 seconds</p>
                 <div className="space-y-2.5">
                   {[
                     "Upgrade to Premium ($49/mo)",
@@ -749,7 +750,7 @@ export default function LandingPage() {
                 </div>
                 <Link
                   href="/pricing"
-                  className="mt-5 w-full inline-flex items-center justify-center gap-2 px-5 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-black font-bold rounded-xl hover:from-green-400 hover:to-emerald-500 transition-all shadow-lg shadow-green-500/20 text-sm"
+                  className="mt-5 w-full inline-flex items-center justify-center gap-2 px-5 py-3 bg-gradient-to-r from-emerald-400 to-green-400 text-black font-bold rounded-xl hover:from-emerald-300 hover:to-green-300 transition-all shadow-lg shadow-green-500/20 text-sm"
                 >
                   Unlock Telegram Alerts →
                 </Link>
@@ -762,8 +763,8 @@ export default function LandingPage() {
       {/* Testimonials */}
       <section className="py-20 px-6 bg-white/[0.01]">
         <div className="max-w-5xl mx-auto">
-          <h2 className="text-3xl sm:text-4xl font-bold text-center mb-3">
-            What people are saying about <span className="text-green-400">AlphaGap</span>
+          <h2 className="font-display text-3xl sm:text-4xl font-semibold tracking-[-0.02em] text-center mb-3">
+            What people are saying about <span className="ag-gradient-text">AlphaGap</span>
           </h2>
           <p className="text-gray-500 text-center text-sm mb-12">Real words from real subscribers. Not paid endorsements.</p>
 
@@ -772,7 +773,7 @@ export default function LandingPage() {
             {approvedReviews.map((r) => (
               <div
                 key={r.id}
-                className="break-inside-avoid bg-[#0d0d14] border border-white/[0.06] rounded-2xl p-5 hover:border-green-500/20 transition-colors"
+                className="break-inside-avoid ag-glass ag-glass-hover p-5"
               >
                 <div className="text-green-500/40 text-4xl font-serif leading-none mb-2">&ldquo;</div>
                 <p className="text-gray-300 text-sm leading-relaxed">{r.review}</p>
@@ -798,11 +799,11 @@ export default function LandingPage() {
             {/* Hardcoded testimonials */}
             {[
               {
-                quote: "I'm telling you guys. Personal testimony and I'm not paid for this whatsoever. I subscribed for $29/month and upgraded to premium. It paid for itself in 3–4 days with modest amounts of TAO trading subnets off signals. The AI is INSANELY fast. Highly recommend. I continue to be both impressed and addicted to subnets and what they are shipping!! 😎",
+                quote: "I'm telling you guys. Personal testimony and I'm not paid for this whatsoever. I subscribed for $29/month and upgraded to premium. It paid for itself in 3–4 days with modest amounts of TAO trading subnets off signals. The AI is INSANELY fast. Highly recommend. I continue to be both impressed and addicted to subnets and what they are shipping!!",
                 highlight: "paid for itself in 3–4 days",
               },
               {
-                quote: "It makes more sense when you subscribe. I made my $49 back day one. It's perfectly named because the alpha in this is crazy and could never be tracked by a single person. The AI has to be on overdrive!! 😎",
+                quote: "It makes more sense when you subscribe. I made my $49 back day one. It's perfectly named because the alpha in this is crazy and could never be tracked by a single person. The AI has to be on overdrive!!",
                 highlight: "made my $49 back day one",
               },
               {
@@ -824,7 +825,7 @@ export default function LandingPage() {
             ].map((t, i) => (
               <div
                 key={i}
-                className="break-inside-avoid bg-[#0d0d14] border border-white/[0.06] rounded-2xl p-5 hover:border-green-500/20 transition-colors"
+                className="break-inside-avoid ag-glass ag-glass-hover p-5"
               >
                 {/* Quote mark */}
                 <div className="text-green-500/40 text-4xl font-serif leading-none mb-2">&ldquo;</div>
@@ -857,10 +858,10 @@ export default function LandingPage() {
       {/* CTA */}
       <section className="py-24 px-6">
         <div className="max-w-3xl mx-auto text-center">
-          <h2 className="text-4xl sm:text-5xl font-bold mb-6">
+          <h2 className="font-display text-4xl sm:text-5xl font-semibold tracking-[-0.03em] mb-6">
             Stop guessing.
             <br />
-            <span className="text-green-400">Start finding alpha.</span>
+            <span className="ag-gradient-text">Start finding alpha.</span>
           </h2>
           <p className="text-gray-400 text-lg mb-10 max-w-xl mx-auto">
             Join the traders who see what the market doesn&apos;t.
@@ -869,7 +870,7 @@ export default function LandingPage() {
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
               href="/powerrankings"
-              className="inline-flex px-10 py-5 bg-gradient-to-r from-green-500 to-emerald-600 text-black font-bold rounded-xl hover:from-green-400 hover:to-emerald-500 transition-all shadow-2xl shadow-green-500/30 text-xl"
+              className="inline-flex px-10 py-5 bg-gradient-to-r from-emerald-400 to-green-400 text-black font-bold rounded-xl hover:from-emerald-300 hover:to-green-300 transition-all shadow-2xl shadow-green-500/30 text-xl"
             >
               Start for Free →
             </Link>

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import BlurGate from "@/components/BlurGate";
+import AgIcon from "@/components/AgIcon";
 import { getTier } from "@/lib/subscription";
 import { useWatchlist } from "@/components/dashboard/WatchlistProvider";
 import SubnetLogo from "@/components/dashboard/SubnetLogo";
@@ -84,22 +85,27 @@ function fmtMcap(v: number | null): string {
   return `$${v.toFixed(0)}`;
 }
 function heatColor(score: number): string {
-  if (score >= 90) return "text-green-300 bg-green-500/20 border-green-500/40";
-  if (score >= 75) return "text-green-400 bg-green-500/15 border-green-500/30";
-  if (score >= 60) return "text-yellow-300 bg-yellow-500/15 border-yellow-500/30";
+  if (score >= 90) return "text-emerald-300 bg-emerald-500/15 border-emerald-500/40";
+  if (score >= 75) return "text-emerald-400 bg-emerald-500/10 border-emerald-500/30";
+  if (score >= 60) return "text-yellow-300 bg-yellow-500/10 border-yellow-500/30";
   if (score >= 40) return "text-orange-400 bg-orange-500/10 border-orange-500/20";
-  return "text-gray-400 bg-gray-800 border-gray-700";
+  return "text-[#9aa39e] bg-white/[0.04] border-white/[0.08]";
 }
-function heatFlame(score: number): string {
-  if (score >= 90) return "🔥🔥🔥";
-  if (score >= 75) return "🔥🔥";
-  if (score >= 50) return "🔥";
-  return "·";
+function HeatFlames({ score }: { score: number }) {
+  const n = score >= 90 ? 3 : score >= 75 ? 2 : score >= 50 ? 1 : 0;
+  if (n === 0) return <span>·</span>;
+  return (
+    <span className="inline-flex items-center gap-0.5 align-middle">
+      {Array.from({ length: n }).map((_, i) => (
+        <AgIcon key={i} name="flame" className="w-3 h-3" />
+      ))}
+    </span>
+  );
 }
 function tierBadge(tier: number): string {
-  if (tier === 1) return "bg-green-500/20 text-green-400 border-green-500/40";
-  if (tier === 2) return "bg-blue-500/20 text-blue-400 border-blue-500/40";
-  return "bg-gray-700 text-gray-400 border-gray-600";
+  if (tier === 1) return "bg-emerald-500/10 text-emerald-400 border-emerald-500/35";
+  if (tier === 2) return "bg-blue-500/10 text-blue-400 border-blue-500/35";
+  return "bg-white/[0.04] text-[#9aa39e] border-white/[0.14]";
 }
 function tierLabel(tier: number): string {
   if (tier === 1) return "T1";
@@ -107,53 +113,63 @@ function tierLabel(tier: number): string {
   return "T3";
 }
 function discordSignalStyle(signal: string): string {
-  if (signal === "alpha") return "bg-green-500/20 text-green-400 border border-green-500/40";
-  if (signal === "active") return "bg-blue-500/20 text-blue-400 border border-blue-500/40";
-  return "bg-gray-800 text-gray-500 border border-gray-700";
+  if (signal === "alpha") return "bg-emerald-500/10 text-emerald-400 border border-emerald-500/35";
+  if (signal === "active") return "bg-blue-500/10 text-blue-400 border border-blue-500/35";
+  return "bg-white/[0.04] text-[#5d665f] border border-white/[0.08]";
 }
 function agapColor(score: number | null): string {
-  if (score == null) return "text-gray-600";
-  if (score >= 75) return "text-green-400";
+  if (score == null) return "text-[#5d665f]";
+  if (score >= 75) return "text-emerald-400";
   if (score >= 50) return "text-yellow-400";
   if (score >= 35) return "text-orange-400";
-  return "text-gray-500";
+  return "text-[#9aa39e]";
 }
-function alphaTypeTag(type: string): string {
+function alphaTypeTag(type: string): React.ReactNode {
+  const withIcon = (icon: React.ComponentProps<typeof AgIcon>["name"], label: string) => (
+    <span className="inline-flex items-center gap-1">
+      <AgIcon name={icon} className="w-3 h-3" /> {label}
+    </span>
+  );
   switch (type) {
-    case "partnership": return "🤝 partnership";
-    case "feature":     return "⚡ feature";
-    case "launch":      return "🚀 launch";
+    case "partnership": return withIcon("users", "partnership");
+    case "feature":     return withIcon("bolt", "feature");
+    case "launch":      return withIcon("rocket", "launch");
     case "dev_update":  return "⎇ dev update";
-    case "team":        return "👤 team";
+    case "team":        return withIcon("users", "team");
     default:            return type;
   }
+}
+function monogram(name: string, handle: string): string {
+  const fromName = name.trim().split(/\s+/).map(w => w[0]).join("").slice(0, 2).toUpperCase();
+  return fromName || handle.slice(0, 2).toUpperCase();
 }
 
 // ── Score Badge ────────────────────────────────────────────────────
 function AlphaScore({ score }: { score: number }) {
   const cls =
-    score >= 80 ? "text-green-300 border-green-500/50 bg-green-500/10"
-    : score >= 60 ? "text-green-400 border-green-500/40 bg-green-500/8"
-    : score >= 40 ? "text-yellow-400 border-yellow-500/40 bg-yellow-500/8"
+    score >= 80 ? "text-emerald-300 border-emerald-500/50 bg-emerald-500/10"
+    : score >= 60 ? "text-emerald-400 border-emerald-500/40 bg-emerald-500/[0.06]"
+    : score >= 40 ? "text-yellow-400 border-yellow-500/40 bg-yellow-500/[0.06]"
     : "text-orange-400 border-orange-500/30 bg-orange-500/5";
   return (
     <div className="text-right shrink-0 min-w-[52px]">
-      <div className={`inline-flex items-center justify-center w-10 h-10 rounded-xl border-2 font-bold text-sm tabular-nums ${cls}`}>{score}</div>
-      <div className="text-[10px] text-gray-600 mt-0.5 text-center">alpha</div>
+      <div className={`inline-flex items-center justify-center w-10 h-10 rounded-xl border font-mono font-semibold text-sm tabular-nums ${cls}`}>{score}</div>
+      <div className="font-mono text-[9px] tracking-[0.14em] uppercase text-[#5d665f] mt-1 text-center">alpha</div>
     </div>
   );
 }
 
-// ── Stat Card ──────────────────────────────────────────────────────
-function StatCard({ icon, label, value, sub }: { icon: string; label: string; value: string | number; sub?: string }) {
+// ── KPI Card ───────────────────────────────────────────────────────
+function KpiCard({ label, value, small, sub, subClass }: {
+  label: string; value: React.ReactNode; small?: string; sub?: React.ReactNode; subClass?: string;
+}) {
   return (
-    <div className="bg-gray-900/60 border border-gray-800 rounded-xl px-4 py-3.5 hover:border-gray-700 transition-colors">
-      <div className="flex items-center gap-2 mb-1.5">
-        <span className="text-base">{icon}</span>
-        <div className="text-xs text-gray-500 font-medium">{label}</div>
+    <div className="ag-glass ag-glass-hover p-6">
+      <div className="text-[10.5px] tracking-[0.16em] uppercase text-[#5d665f] mb-2.5">{label}</div>
+      <div className="font-display text-2xl md:text-3xl font-semibold tracking-tight text-white truncate">
+        {value}{small && <small className="text-[13px] text-[#5d665f] font-normal ml-0.5">{small}</small>}
       </div>
-      <div className="text-2xl font-bold text-white tabular-nums">{value}</div>
-      {sub && <div className="text-[11px] text-gray-600 mt-0.5">{sub}</div>}
+      {sub && <div className={`font-mono text-[11px] mt-1.5 truncate ${subClass ?? "text-[#5d665f]"}`}>{sub}</div>}
     </div>
   );
 }
@@ -161,16 +177,15 @@ function StatCard({ icon, label, value, sub }: { icon: string; label: string; va
 // ── Section Header ─────────────────────────────────────────────────
 function SectionHeader({
   icon, title, subtitle, right,
-}: { icon: string; title: string; subtitle?: string; right?: React.ReactNode }) {
+}: { icon: React.ReactNode; title: string; subtitle?: string; right?: React.ReactNode }) {
   return (
-    <div className="relative flex items-center justify-between px-5 py-4 bg-gradient-to-r from-green-950/30 via-emerald-950/10 to-transparent border-b border-gray-800/50">
-      <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-green-500 to-emerald-600 rounded-l-xl" />
+    <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-white/[0.08]">
       <div>
         <div className="flex items-center gap-2">
           <span className="text-lg">{icon}</span>
-          <h2 className="font-bold text-white">{title}</h2>
+          <h2 className="font-display font-semibold text-white text-[17px] tracking-tight">{title}</h2>
         </div>
-        {subtitle && <p className="text-xs text-gray-500 mt-0.5 ml-7">{subtitle}</p>}
+        {subtitle && <p className="text-xs text-[#5d665f] mt-0.5 ml-7">{subtitle}</p>}
       </div>
       {right && <div className="shrink-0">{right}</div>}
     </div>
@@ -180,12 +195,13 @@ function SectionHeader({
 // ── Sort Toggle ────────────────────────────────────────────────────
 function SortToggle({ value, onChange }: { value: "score" | "latest"; onChange: (v: "score" | "latest") => void }) {
   return (
-    <div className="flex items-center gap-0.5 bg-gray-800/80 rounded-lg p-0.5">
+    <div className="ag-pill-tabs" style={{ padding: 3 }}>
       {(["score", "latest"] as const).map(v => (
         <button
           key={v}
           onClick={() => onChange(v)}
-          className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${value === v ? "bg-gray-700 text-white shadow-sm" : "text-gray-500 hover:text-gray-300"}`}
+          className={`ag-pill-tab ${value === v ? "ag-pill-tab-on" : ""}`}
+          style={{ padding: "6px 14px", fontSize: "11.5px" }}
         >
           {v === "score" ? "Top Score" : "Latest"}
         </button>
@@ -228,20 +244,20 @@ export default function SocialPage() {
   }, []);
 
   if (loading) return (
-    <main className="flex-1 flex items-center justify-center">
+    <main className="flex-1 flex items-center justify-center bg-[#07090b]">
       <div className="text-center">
-        <div className="w-10 h-10 border-2 border-green-500/30 border-t-green-400 rounded-full animate-spin mx-auto mb-4" />
-        <p className="text-gray-500 text-sm">Loading social intelligence…</p>
+        <div className="w-10 h-10 border-2 border-emerald-500/30 border-t-emerald-400 rounded-full animate-spin mx-auto mb-4" />
+        <p className="text-[#5d665f] text-sm">Loading social intelligence…</p>
       </div>
     </main>
   );
 
   if (error || !data) return (
-    <main className="flex-1 flex items-center justify-center">
+    <main className="flex-1 flex items-center justify-center bg-[#07090b]">
       <div className="text-center">
-        <div className="text-4xl mb-4">⚠️</div>
-        <p className="text-gray-400">Failed to load social data</p>
-        <p className="text-gray-600 text-sm mt-1">{error}</p>
+        <AgIcon name="warning" className="w-10 h-10 text-red-400 mb-4 mx-auto" />
+        <p className="text-[#9aa39e]">Failed to load social data</p>
+        <p className="text-[#5d665f] text-sm mt-1">{error}</p>
       </div>
     </main>
   );
@@ -274,54 +290,67 @@ export default function SocialPage() {
   const xLeaderboard = (watchlistOnly ? rawXLeaderboard.filter(s => watchlist.has(s.netuid)) : rawXLeaderboard)
     .filter(s => subnetMatchesSearch(s.name, s.netuid));
 
+  // KPI derivations (display only — no new data)
+  const mostDiscussed = rawXLeaderboard[0] ?? null;
+  const topHeatTweet = rawHotTweets.length > 0
+    ? rawHotTweets.reduce((best, t) => ((t.heat_score ?? 0) > (best.heat_score ?? 0) ? t : best), rawHotTweets[0])
+    : null;
+
   return (
-    <div className="min-h-screen bg-[#0a0a0f] text-white">
+    <div className="min-h-screen bg-[#07090b] text-white ag-aurora">
 
       {/* ── Hero Header ── */}
-      <div className="relative overflow-hidden border-b border-gray-800/50">
-        <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: "linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)", backgroundSize: "40px 40px" }} />
-        <div className="absolute -top-20 left-1/4 w-96 h-96 bg-green-600/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute -top-10 right-1/3 w-64 h-64 bg-blue-600/5 rounded-full blur-3xl pointer-events-none" />
-
-        <div className="relative max-w-screen-xl mx-auto px-4 md:px-6 pt-8 pb-6">
-          <div className="flex flex-wrap items-start justify-between gap-4 mb-4">
+      <div className="relative">
+        <div className="max-w-screen-xl mx-auto px-4 md:px-6 pt-10 pb-2">
+          <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <h1 className="text-3xl font-bold bg-gradient-to-r from-green-400 via-emerald-300 to-white bg-clip-text text-transparent mb-1">
-                📡 Social Intelligence
+              <h1 className="font-display text-3xl md:text-[40px] font-semibold tracking-[-0.03em] mb-2 leading-tight">
+                Social <span className="ag-gradient-text">Radar</span>
               </h1>
-              <p className="text-gray-500 text-sm max-w-xl">
+              <p className="text-[#9aa39e] text-sm md:text-[14.5px] max-w-xl leading-relaxed mb-3">
                 Real-time KOL activity, Twitter heat, and Discord alpha across all Bittensor subnets.
               </p>
-            </div>
-            <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-medium ${pulseFresh ? "bg-green-500/10 border-green-500/30 text-green-400" : "bg-gray-800/60 border-gray-700 text-gray-500"}`}>
-              <span className={`w-1.5 h-1.5 rounded-full ${pulseFresh ? "bg-green-400 animate-pulse" : "bg-gray-600"}`} />
-              {pulseAge !== null ? `Last pulse ${pulseAge}m ago` : "Pulse pending"}
-              <span className="text-gray-600 hidden sm:inline">· {stats.tier1Count + stats.tier2Count} KOLs tracked</span>
+              <div className="flex items-center gap-2 font-mono text-[11px] text-[#5d665f] uppercase tracking-wide flex-wrap mb-6">
+                <span className={`ag-live-dot shrink-0 ${pulseFresh ? "" : "opacity-40"}`} />
+                <span className={pulseFresh ? "text-emerald-400" : ""}>
+                  {pulseAge !== null ? `Last pulse ${pulseAge}m ago` : "Pulse pending"}
+                </span>
+                <span>· {stats.totalHotEvents} hot events</span>
+                <span>· {stats.subnetsWithHeat} subnets buzzing</span>
+                <span>· {stats.discordChannelsScanned} channels scanned</span>
+                <span>· {stats.discordAlphaCount} alpha signals</span>
+              </div>
             </div>
             <button
               onClick={() => {
                 const q = `Based on current social signals: What are the top 3 most actionable alpha opportunities in Bittensor right now? Look at KOL tweet activity, Discord alpha channels, and subnet momentum. Give me specific subnets with reasoning.`;
                 router.push(`/oracle?q=${encodeURIComponent(q)}`);
               }}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border bg-violet-500/10 border-violet-500/30 text-violet-400 hover:bg-violet-500/20 transition-colors text-xs font-medium"
+              className="flex items-center gap-1.5 px-4 py-2 rounded-full border bg-violet-500/[0.07] border-violet-500/30 text-violet-300 hover:bg-violet-500/15 transition-colors text-xs font-medium backdrop-blur-xl"
             >
-              🔮 Ask Oracle
+              <AgIcon name="oracle" className="w-3.5 h-3.5" /> Ask Oracle
             </button>
           </div>
 
-          {/* Stats chips */}
-          <div className="flex flex-wrap items-center gap-2">
-            {[
-              { val: stats.totalHotEvents,          label: "hot events",      color: "text-green-400" },
-              { val: stats.subnetsWithHeat,          label: "subnets buzzing", color: "text-green-400" },
-              { val: stats.kolsTracked,              label: "KOLs tracked",    color: "text-blue-400" },
-              { val: stats.discordChannelsScanned,   label: "channels scanned",color: "text-purple-400" },
-              { val: stats.discordAlphaCount,        label: "alpha signals",   color: "text-yellow-400" },
-            ].map(({ val, label, color }) => (
-              <span key={label} className="text-xs bg-gray-800/60 border border-gray-700/40 rounded-full px-3 py-1.5 text-gray-400">
-                <span className={`font-bold ${color}`}>{val}</span> {label}
-              </span>
-            ))}
+          {/* KPI row */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <KpiCard
+              label="KOLs Tracked"
+              value={stats.kolsTracked}
+              sub={`TIER-1: ${stats.tier1Count} · TIER-2: ${stats.tier2Count}`}
+            />
+            <KpiCard
+              label="Most Discussed"
+              value={mostDiscussed ? mostDiscussed.name : "—"}
+              sub={mostDiscussed ? `${mostDiscussed.tweet_count} event${mostDiscussed.tweet_count !== 1 ? "s" : ""} · SN${mostDiscussed.netuid}` : "no X data yet"}
+              subClass={mostDiscussed ? "text-emerald-400" : undefined}
+            />
+            <KpiCard
+              label="Top Heat"
+              value={topHeatTweet ? topHeatTweet.heat_score : "—"}
+              small={topHeatTweet ? "/100" : undefined}
+              sub={topHeatTweet ? `@${topHeatTweet.kol_handle.toUpperCase()} → SN${topHeatTweet.netuid}` : "no heat events yet"}
+            />
           </div>
         </div>
       </div>
@@ -337,27 +366,29 @@ export default function SocialPage() {
       <main className="max-w-screen-xl mx-auto px-4 md:px-6 py-6 space-y-5">
 
         {/* ── Section Nav ── */}
-        <div className="flex items-center gap-2 flex-wrap">
-          {[
-            { id: "discord",      label: "Discord Alpha",   icon: "💬" },
-            ...(deletedMessages.length > 0 ? [{ id: "discord-deleted", label: "Deleted Msgs", icon: "🗑️" }] : []),
-            { id: "hot-tweets",   label: "Viral KOL Tweets",icon: "🔥" },
-            { id: "x-leaderboard",label: "Top on X",        icon: "𝕏" },
-            { id: "kol-radar",    label: "KOL Radar",       icon: "🎯" },
-          ].map(({ id, label, icon }) => (
-            <button
-              key={id}
-              onClick={() => document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" })}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-gray-700 text-gray-400 hover:border-green-600/50 hover:text-green-400 transition-colors bg-gray-900/60"
-            >
-              <span>{icon}</span>{label}
-            </button>
-          ))}
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="ag-pill-tabs flex-wrap" style={{ padding: 4 }}>
+            {([
+              { id: "discord",      label: "Discord Alpha",   icon: <AgIcon name="chat" className="w-3.5 h-3.5" /> },
+              ...(deletedMessages.length > 0 ? [{ id: "discord-deleted", label: "Deleted Msgs", icon: <AgIcon name="warning" className="w-3.5 h-3.5" /> }] : []),
+              { id: "hot-tweets",   label: "Viral KOL Tweets",icon: <AgIcon name="flame" className="w-3.5 h-3.5" /> },
+              { id: "x-leaderboard",label: "Top on X",        icon: "𝕏" },
+              { id: "kol-radar",    label: "KOL Radar",       icon: <AgIcon name="target" className="w-3.5 h-3.5" /> },
+            ] as { id: string; label: string; icon: React.ReactNode }[]).map(({ id, label, icon }) => (
+              <button
+                key={id}
+                onClick={() => document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" })}
+                className="ag-pill-tab inline-flex items-center"
+                style={{ padding: "7px 14px", fontSize: "12px" }}
+              >
+                <span className="mr-1.5 inline-flex items-center">{icon}</span>{label}
+              </button>
+            ))}
+          </div>
           <button
             onClick={() => setWatchlistOnly(v => !v)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border ${
-              watchlistOnly ? "bg-blue-600 border-blue-500 text-white" : "bg-gray-900/60 border-gray-700 text-gray-400 hover:border-gray-500 hover:text-white"
-            }`}
+            className={`ag-pill-tab flex items-center gap-1.5 border border-white/[0.08] ${watchlistOnly ? "ag-pill-tab-on" : ""}`}
+            style={{ padding: "8px 14px", fontSize: "12px" }}
           >
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
@@ -367,7 +398,7 @@ export default function SocialPage() {
 
           {/* Search bar */}
           <div className="relative flex items-center ml-auto">
-            <svg className="absolute left-2.5 w-3.5 h-3.5 text-gray-500 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <svg className="absolute left-3 w-3.5 h-3.5 text-[#5d665f] pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z" />
             </svg>
             <input
@@ -375,10 +406,10 @@ export default function SocialPage() {
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               placeholder="Search subnet…"
-              className="pl-7 pr-7 py-1.5 rounded-lg text-xs bg-gray-900/60 border border-gray-700 text-gray-300 placeholder-gray-600 focus:outline-none focus:border-gray-600 w-36"
+              className="pl-8 pr-7 py-2 rounded-full text-xs bg-white/[0.035] border border-white/[0.08] text-[#eef2f0] placeholder-[#5d665f] focus:outline-none focus:border-emerald-500/40 w-40 backdrop-blur-xl transition-colors"
             />
             {searchQuery && (
-              <button onClick={() => setSearchQuery("")} className="absolute right-2 text-gray-500 hover:text-gray-300">
+              <button onClick={() => setSearchQuery("")} className="absolute right-2.5 text-[#5d665f] hover:text-[#eef2f0]">
                 <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
             )}
@@ -409,13 +440,12 @@ export default function SocialPage() {
           const mostRecentAt = founderEntries.map(e => e.lastActivityAt ?? e.scannedAt).sort().at(-1);
 
           return (
-            <div className="bg-amber-950/20 border border-amber-500/40 rounded-xl overflow-hidden ring-1 ring-amber-500/20 shadow-lg shadow-amber-500/10">
-              <div className="relative flex items-center justify-between px-5 py-4 bg-gradient-to-r from-amber-950/40 via-yellow-950/10 to-transparent border-b border-amber-500/20">
-                <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-amber-400 to-yellow-600 rounded-l-xl" />
-                <div className="flex items-center gap-2">
-                  <span className="text-xl">👑</span>
+            <div className="bg-amber-500/[0.04] border border-amber-500/40 rounded-[20px] overflow-hidden ring-1 ring-amber-500/20 shadow-lg shadow-amber-500/10 backdrop-blur-xl">
+              <div className="flex items-center justify-between px-5 py-4 bg-gradient-to-r from-amber-500/[0.08] via-transparent to-transparent border-b border-amber-500/20">
+                <div className="flex items-center gap-2.5">
+                  <AgIcon name="crown" className="w-5 h-5 text-amber-300" />
                   <div>
-                    <h2 className="font-bold text-amber-300 text-sm">Const · Bittensor Founder</h2>
+                    <h2 className="font-display font-semibold text-amber-300 text-sm tracking-tight">Const · Bittensor Founder</h2>
                     <p className="text-xs text-amber-500/70 mt-0.5">
                       {founderEntries.length === 1
                         ? <>Posted in {channelLabel(founderEntries[0])}{mostRecentAt && ` · ${timeAgo(mostRecentAt)}`}</>
@@ -424,8 +454,8 @@ export default function SocialPage() {
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className={`text-2xl font-bold tabular-nums leading-none ${topScore >= 70 ? "text-green-400" : "text-yellow-400"}`}>{topScore}</div>
-                  <div className="text-[10px] text-gray-600 mt-0.5">alpha score</div>
+                  <div className={`font-display text-2xl font-semibold tabular-nums leading-none ${topScore >= 70 ? "text-emerald-400" : "text-yellow-400"}`}>{topScore}</div>
+                  <div className="font-mono text-[9px] tracking-[0.14em] uppercase text-[#5d665f] mt-1">alpha score</div>
                 </div>
               </div>
 
@@ -436,19 +466,19 @@ export default function SocialPage() {
                       <div className="flex items-center gap-2 mb-2">
                         <span className="text-[10px] font-bold text-amber-400 uppercase tracking-widest">In {channelLabel(entry)}</span>
                         {entry.netuid != null && entry.netuid > 0 && (
-                          <span className="text-[10px] text-amber-500/60 bg-amber-900/30 border border-amber-500/20 px-1.5 py-0.5 rounded font-mono leading-none">SN{entry.netuid}</span>
+                          <span className="text-[10px] text-amber-500/60 bg-amber-500/[0.08] border border-amber-500/20 px-1.5 py-0.5 rounded font-mono leading-none">SN{entry.netuid}</span>
                         )}
                         {(entry.lastActivityAt ?? entry.scannedAt) && (
-                          <span className="text-[10px] text-amber-500/50">{timeAgo(entry.lastActivityAt ?? entry.scannedAt!)}</span>
+                          <span className="text-[10px] text-amber-500/50 font-mono">{timeAgo(entry.lastActivityAt ?? entry.scannedAt!)}</span>
                         )}
-                        <span className={`text-[10px] font-bold tabular-nums ml-auto ${(entry.alphaScore ?? 0) >= 70 ? "text-green-400" : "text-yellow-400"}`}>{entry.alphaScore ?? "—"}</span>
+                        <span className={`text-[10px] font-bold tabular-nums ml-auto font-mono ${(entry.alphaScore ?? 0) >= 70 ? "text-emerald-400" : "text-yellow-400"}`}>{entry.alphaScore ?? "—"}</span>
                       </div>
                     )}
                     {entry.summary && <p className="text-sm text-gray-100 leading-relaxed mb-2">{entry.summary}</p>}
                     {entry.keyInsights && entry.keyInsights.length > 0 && (
                       <ul className="space-y-1 mb-2">
                         {entry.keyInsights.map((insight, ii) => (
-                          <li key={ii} className="flex items-start gap-1.5 text-sm text-gray-300 leading-relaxed">
+                          <li key={ii} className="flex items-start gap-1.5 text-sm text-[#c6cdc9] leading-relaxed">
                             <span className="text-amber-400 mt-0.5 shrink-0">›</span>
                             <span>{insight}</span>
                           </li>
@@ -469,9 +499,9 @@ export default function SocialPage() {
         })()}
 
         {/* ── Discord Alpha ── */}
-        <div id="discord" className="bg-gray-900/60 border border-gray-800 rounded-xl overflow-hidden">
+        <div id="discord" className="ag-glass overflow-hidden">
           <SectionHeader
-            icon="💬"
+            icon={<AgIcon name="chat" className="w-4.5 h-4.5 text-emerald-400" />}
             title="Discord Alpha"
             subtitle="AI scans every channel — scores quality + quantity of alpha signals"
             right={<SortToggle value={discordSort} onChange={setDiscordSort} />}
@@ -479,15 +509,15 @@ export default function SocialPage() {
 
           {/* Sneak peek for non-premium */}
           {discordLeaderboard.length > 0 && tier !== "premium" && (() => { const d = discordLeaderboard[0]; return (
-            <div className="divide-y divide-gray-800/60 border-b border-gray-800/60">
+            <div className="divide-y divide-white/[0.06] border-b border-white/[0.06]">
               <DiscordRow d={d} index={0} isWatched={isWatched(d.netuid)} onSubnetClick={() => router.push(`/subnets/${d.netuid}`)} />
             </div>
           ); })()}
 
           <BlurGate tier={tier} required="premium" minHeight="200px">
-            <div className="divide-y divide-gray-800/60">
+            <div className="divide-y divide-white/[0.06]">
               {discordLeaderboard.length === 0 ? (
-                <div className="p-8 text-center text-gray-600 text-sm">No Discord data yet — run /api/discord-scan to populate</div>
+                <div className="p-8 text-center text-[#5d665f] text-sm">No Discord data yet — run /api/discord-scan to populate</div>
               ) : discordLeaderboard.map((d, i) => (
                 <DiscordRow key={d.netuid} d={d} index={i} isWatched={isWatched(d.netuid)} onSubnetClick={() => router.push(`/subnets/${d.netuid}`)} />
               ))}
@@ -497,47 +527,46 @@ export default function SocialPage() {
 
         {/* ── Deleted Discord Messages ── */}
         {deletedMessages.length > 0 && (
-          <div id="discord-deleted" className="bg-red-950/20 border border-red-500/30 rounded-xl overflow-hidden ring-1 ring-red-500/10">
-            <div className="relative flex items-center justify-between px-5 py-4 bg-gradient-to-r from-red-950/40 via-red-950/10 to-transparent border-b border-red-500/20">
-              <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-red-500 to-orange-600 rounded-l-xl" />
+          <div id="discord-deleted" className="bg-red-500/[0.03] border border-red-500/30 rounded-[20px] overflow-hidden ring-1 ring-red-500/10 backdrop-blur-xl">
+            <div className="flex items-center justify-between px-5 py-4 bg-gradient-to-r from-red-500/[0.07] via-transparent to-transparent border-b border-red-500/20">
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="text-lg">🗑️</span>
-                  <h2 className="font-bold text-red-300">Deleted Discord Messages</h2>
+                  <AgIcon name="warning" className="w-4.5 h-4.5 text-red-300" />
+                  <h2 className="font-display font-semibold text-red-300 text-[17px] tracking-tight">Deleted Discord Messages</h2>
                 </div>
                 <p className="text-xs text-red-500/60 mt-0.5 ml-7">AI-flagged messages deleted from subnet Discords — potentially significant</p>
               </div>
-              <span className="text-xs text-red-400/70 bg-red-500/10 border border-red-500/20 px-2.5 py-1 rounded-full font-medium shrink-0">
+              <span className="font-mono text-[11px] text-red-400/70 bg-red-500/10 border border-red-500/20 px-3 py-1 rounded-full shrink-0">
                 {deletedMessages.length} flagged
               </span>
             </div>
             <BlurGate tier={tier} required="premium" minHeight="120px">
               <div className="divide-y divide-red-500/10">
                 {deletedMessages.map(msg => (
-                  <div key={msg.id} className={`px-5 py-4 hover:bg-red-500/5 transition-colors ${msg.sinister ? "bg-red-950/20" : ""}`}>
+                  <div key={msg.id} className={`px-5 py-4 hover:bg-red-500/5 transition-colors ${msg.sinister ? "bg-red-500/[0.05]" : ""}`}>
                     <div className="flex items-center justify-between gap-3 mb-2">
                       <div className="flex items-center gap-2 flex-wrap">
                         {msg.netuid != null && (
                           <button onClick={() => router.push(`/subnets/${msg.netuid}`)} className="flex items-center gap-1.5 hover:text-red-300 transition-colors">
-                            <span className="text-xs text-gray-600 bg-gray-800 px-1.5 py-0.5 rounded font-mono">SN{msg.netuid}</span>
+                            <span className="font-mono text-[10.5px] text-[#5d665f] bg-white/[0.05] border border-white/[0.08] px-1.5 py-0.5 rounded">SN{msg.netuid}</span>
                             <span className="font-semibold text-sm text-gray-200">{msg.subnetName}</span>
                           </button>
                         )}
                         {msg.sinister && (
-                          <span className="text-[10px] px-1.5 py-0.5 rounded font-bold bg-red-500/20 text-red-400 border border-red-500/40 shrink-0">🚨 SINISTER</span>
+                          <span className="text-[10px] px-1.5 py-0.5 rounded font-bold bg-red-500/20 text-red-400 border border-red-500/40 shrink-0 inline-flex items-center gap-1"><AgIcon name="warning" className="w-3 h-3" /> SINISTER</span>
                         )}
                       </div>
-                      <span className="text-xs text-gray-600 shrink-0 whitespace-nowrap">detected {timeAgo(msg.detectedAt)}</span>
+                      <span className="font-mono text-[10.5px] text-[#5d665f] shrink-0 whitespace-nowrap">detected {timeAgo(msg.detectedAt)}</span>
                     </div>
-                    <div className="text-xs text-gray-500 mb-2">@{msg.username} · posted {timeAgo(msg.postedAt)} · then deleted</div>
-                    <div className="bg-gray-900/70 border border-red-500/20 rounded-lg px-3 py-2.5 mb-2">
+                    <div className="font-mono text-[11px] text-[#5d665f] mb-2">@{msg.username} · posted {timeAgo(msg.postedAt)} · then deleted</div>
+                    <div className="bg-white/[0.03] border border-red-500/20 rounded-xl px-3 py-2.5 mb-2">
                       <p className="text-[10px] font-bold text-red-500/60 uppercase tracking-widest mb-1.5">Deleted message</p>
                       <p className="text-sm text-gray-200 leading-relaxed">{msg.content}</p>
                     </div>
                     {msg.significance && (
                       <div className="border-l-2 border-red-500/40 bg-red-500/5 rounded-r-lg px-3 py-2">
                         <p className="text-[10px] font-bold text-red-400 uppercase tracking-widest mb-1">Why this was flagged</p>
-                        <p className="text-xs text-gray-300 leading-relaxed">{msg.significance}</p>
+                        <p className="text-xs text-[#c6cdc9] leading-relaxed">{msg.significance}</p>
                       </div>
                     )}
                   </div>
@@ -548,72 +577,71 @@ export default function SocialPage() {
         )}
 
         {/* ── Hot KOL Tweets ── */}
-        <div id="hot-tweets" className="bg-gray-900/60 border border-gray-800 rounded-xl overflow-hidden">
-          <SectionHeader
-            icon="🔥"
-            title="Viral KOL Tweets"
-            subtitle="Tier 1 & 2 KOL posts mentioning Bittensor subnets"
-            right={
-              <div className="flex items-center gap-3">
-                <span className="text-xs text-gray-600">{hotTweets.length} events</span>
-                <SortToggle value={tweetsSort} onChange={setTweetsSort} />
-              </div>
-            }
-          />
+        <div id="hot-tweets">
+          <div className="flex items-center justify-between gap-3 mb-4 mt-2">
+            <div>
+              <h2 className="font-display font-semibold text-white text-lg tracking-tight flex items-center gap-2">
+                <AgIcon name="flame" className="w-5 h-5 text-emerald-400" />Viral KOL Tweets
+              </h2>
+              <p className="text-xs text-[#5d665f] mt-0.5 ml-7">Tier 1 & 2 KOL posts mentioning Bittensor subnets</p>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="font-mono text-[11px] text-[#5d665f]">{hotTweets.length} events</span>
+              <SortToggle value={tweetsSort} onChange={setTweetsSort} />
+            </div>
+          </div>
 
           {/* Sneak peek */}
           {hotTweets.length > 0 && tier !== "premium" && (() => { const t = hotTweets[0]; return (
-            <div className="overflow-x-auto border-b border-gray-800/60">
+            <div className="mb-4">
               <TweetTable tweets={[t]} expandedTweet={expandedTweet} onExpand={setExpandedTweet} onSubnetClick={(n) => router.push(`/subnets/${n}`)} isWatched={() => false} showHeader />
             </div>
           ); })()}
 
           <BlurGate tier={tier} required="premium" minHeight="300px">
             {hotTweets.length === 0 ? (
-              <div className="p-10 text-center text-gray-600 text-sm">No heat events yet. Pulse runs every 10 minutes — check back soon.</div>
+              <div className="ag-glass p-10 text-center text-[#5d665f] text-sm">No heat events yet. Pulse runs every 10 minutes — check back soon.</div>
             ) : (
-              <div className="overflow-x-auto">
-                <TweetTable tweets={hotTweets} expandedTweet={expandedTweet} onExpand={setExpandedTweet} onSubnetClick={(n) => router.push(`/subnets/${n}`)} isWatched={isWatched} showHeader />
-              </div>
+              <TweetTable tweets={hotTweets} expandedTweet={expandedTweet} onExpand={setExpandedTweet} onSubnetClick={(n) => router.push(`/subnets/${n}`)} isWatched={isWatched} showHeader />
             )}
           </BlurGate>
         </div>
 
         {/* ── Top Subnets on X ── */}
-        <div id="x-leaderboard" className="bg-gray-900/60 border border-gray-800 rounded-xl overflow-hidden">
+        <div id="x-leaderboard" className="ag-glass overflow-hidden">
           <SectionHeader
             icon="𝕏"
             title="Top Subnets on X"
             subtitle="Ranked by social score — includes KOL heat boost"
           />
           <BlurGate tier={tier} required="premium" minHeight="200px">
-            <div className="divide-y divide-gray-800/60">
+            <div className="divide-y divide-white/[0.06]">
               {xLeaderboard.length === 0 ? (
-                <div className="p-8 text-center text-gray-600 text-sm">No X data yet</div>
+                <div className="p-8 text-center text-[#5d665f] text-sm">No X data yet</div>
               ) : xLeaderboard.map((s, i) => (
                 <div
                   key={s.netuid}
-                  className={`px-4 py-3.5 flex items-center gap-3 hover:bg-gray-800/30 cursor-pointer transition-colors ${isWatched(s.netuid) ? "bg-blue-950/40 ring-inset ring-1 ring-blue-400/30" : ""}`}
+                  className={`px-4 py-3.5 flex items-center gap-3 hover:bg-white/[0.03] cursor-pointer transition-colors ${isWatched(s.netuid) ? "bg-blue-950/40 ring-inset ring-1 ring-blue-400/30" : ""}`}
                   onClick={() => router.push(`/subnets/${s.netuid}`)}
                 >
-                  <span className="text-xs text-gray-600 w-6 text-right tabular-nums font-mono shrink-0">{i + 1}</span>
+                  <span className={`font-display text-lg font-semibold w-7 text-right tabular-nums shrink-0 ${i === 0 ? "text-emerald-400 [text-shadow:0_0_18px_rgba(52,211,153,.35)]" : "text-[#5d665f]"}`}>{i + 1}</span>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-xs text-gray-600 bg-gray-800 px-1.5 py-0.5 rounded font-mono">SN{s.netuid}</span>
+                      <span className="font-mono text-[10.5px] text-[#5d665f] bg-white/[0.05] border border-white/[0.08] px-1.5 py-0.5 rounded">SN{s.netuid}</span>
                       <span className="font-semibold text-sm text-gray-100 truncate">{s.name}</span>
                       {s.kol_boost >= 60 && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded border bg-green-500/15 text-green-400 border-green-500/30 shrink-0 font-bold">🔥 KOL</span>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full border bg-emerald-500/10 text-emerald-400 border-emerald-500/30 shrink-0 font-bold inline-flex items-center gap-1"><AgIcon name="flame" className="w-3 h-3" /> KOL</span>
                       )}
                     </div>
                     {s.top_kol && (
-                      <div className="text-xs text-gray-600 mt-0.5">
+                      <div className="font-mono text-[11px] text-[#5d665f] mt-0.5">
                         Top: @{s.top_kol} · {fmtFollowers(s.top_kol_followers)} followers · {s.tweet_count} event{s.tweet_count !== 1 ? "s" : ""}
                       </div>
                     )}
                   </div>
                   <div className="text-right shrink-0">
-                    <div className="text-lg font-bold tabular-nums text-green-400">{s.social_score}</div>
-                    <div className={`text-xs tabular-nums ${agapColor(s.composite_score)}`}>aGap {s.composite_score}</div>
+                    <div className="font-mono text-base font-semibold tabular-nums text-emerald-400">{s.social_score}</div>
+                    <div className={`font-mono text-[11px] tabular-nums ${agapColor(s.composite_score)}`}>aGap {s.composite_score}</div>
                   </div>
                 </div>
               ))}
@@ -622,54 +650,54 @@ export default function SocialPage() {
         </div>
 
         {/* ── KOL Radar ── */}
-        <div id="kol-radar" className="bg-gray-900/60 border border-gray-800 rounded-xl overflow-hidden">
+        <div id="kol-radar" className="ag-glass overflow-hidden">
           <SectionHeader
-            icon="🎯"
+            icon={<AgIcon name="target" className="w-4.5 h-4.5 text-emerald-400" />}
             title="KOL Radar"
             subtitle="Most active KOLs covering Bittensor subnets in the last 72h"
           />
           <BlurGate tier={tier} required="premium" minHeight="200px">
             {kolRadar.length === 0 ? (
-              <div className="p-8 text-center text-gray-600 text-sm">No KOL activity detected yet</div>
+              <div className="p-8 text-center text-[#5d665f] text-sm">No KOL activity detected yet</div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="text-left text-xs text-gray-600 border-b border-gray-800 bg-gray-950/40">
-                      <th className="px-4 py-2.5 font-semibold uppercase tracking-wide">KOL</th>
-                      <th className="px-4 py-2.5 text-right font-semibold uppercase tracking-wide">Followers</th>
-                      <th className="px-4 py-2.5 text-right font-semibold uppercase tracking-wide">Subnets</th>
-                      <th className="px-4 py-2.5 text-right font-semibold uppercase tracking-wide">Engagement</th>
-                      <th className="px-4 py-2.5 text-right font-semibold uppercase tracking-wide">Peak Heat</th>
-                      <th className="px-4 py-2.5 text-right font-semibold uppercase tracking-wide hidden sm:table-cell">Last Active</th>
+                    <tr className="text-left font-mono text-[10px] text-[#5d665f] border-b border-white/[0.08] bg-white/[0.02]">
+                      <th className="px-4 py-2.5 font-medium uppercase tracking-[0.16em]">KOL</th>
+                      <th className="px-4 py-2.5 text-right font-medium uppercase tracking-[0.16em]">Followers</th>
+                      <th className="px-4 py-2.5 text-right font-medium uppercase tracking-[0.16em]">Subnets</th>
+                      <th className="px-4 py-2.5 text-right font-medium uppercase tracking-[0.16em]">Engagement</th>
+                      <th className="px-4 py-2.5 text-right font-medium uppercase tracking-[0.16em]">Peak Heat</th>
+                      <th className="px-4 py-2.5 text-right font-medium uppercase tracking-[0.16em] hidden sm:table-cell">Last Active</th>
                     </tr>
                   </thead>
                   <tbody>
                     {kolRadar.map((k) => (
-                      <tr key={k.handle} className="border-b border-gray-800/60 hover:bg-gray-800/20 transition-colors">
+                      <tr key={k.handle} className="border-b border-white/[0.06] hover:bg-white/[0.03] transition-colors">
                         <td className="px-4 py-3">
-                          <div className="flex items-center gap-2">
-                            <span className={`text-xs px-1.5 py-0.5 rounded border font-bold ${tierBadge(k.tier)}`}>{tierLabel(k.tier)}</span>
+                          <div className="flex items-center gap-2.5">
+                            <span className={`font-mono text-[10px] px-1.5 py-0.5 rounded-full border font-semibold ${tierBadge(k.tier)}`}>{tierLabel(k.tier)}</span>
                             <div>
-                              <a href={`https://x.com/${k.handle}`} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 font-medium hover:underline">
+                              <a href={`https://x.com/${k.handle}`} target="_blank" rel="noopener noreferrer" className="text-emerald-400 hover:text-emerald-300 font-medium hover:underline">
                                 @{k.handle}
                               </a>
-                              <div className="text-xs text-gray-600">{k.name}</div>
+                              <div className="text-xs text-[#5d665f]">{k.name}</div>
                             </div>
                           </div>
                         </td>
-                        <td className="px-4 py-3 text-right text-gray-300 tabular-nums font-medium">{fmtFollowers(k.followers)}</td>
+                        <td className="px-4 py-3 text-right text-[#c6cdc9] tabular-nums font-mono text-[13px]">{fmtFollowers(k.followers)}</td>
                         <td className="px-4 py-3 text-right">
-                          <span className="text-white font-bold tabular-nums">{k.subnets.length}</span>
-                          <div className="text-xs text-gray-600">SN{k.subnets.slice(0, 3).join(", SN")}{k.subnets.length > 3 ? "…" : ""}</div>
+                          <span className="text-white font-semibold tabular-nums font-mono text-[13px]">{k.subnets.length}</span>
+                          <div className="font-mono text-[10px] text-[#5d665f]">SN{k.subnets.slice(0, 3).join(", SN")}{k.subnets.length > 3 ? "…" : ""}</div>
                         </td>
-                        <td className="px-4 py-3 text-right text-gray-300 tabular-nums font-medium">{fmtEngagement(k.totalEngagement)}</td>
+                        <td className="px-4 py-3 text-right text-[#c6cdc9] tabular-nums font-mono text-[13px]">{fmtEngagement(k.totalEngagement)}</td>
                         <td className="px-4 py-3 text-right">
-                          <span className={`font-bold tabular-nums text-sm ${heatColor(k.topHeat).split(" ")[0]}`}>
-                            {k.topHeat} {heatFlame(k.topHeat)}
+                          <span className={`font-semibold tabular-nums font-mono text-[13px] ${heatColor(k.topHeat).split(" ")[0]}`}>
+                            {k.topHeat} <HeatFlames score={k.topHeat} />
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-right text-xs text-gray-500 hidden sm:table-cell">{timeAgo(k.latestAt)}</td>
+                        <td className="px-4 py-3 text-right font-mono text-[11px] text-[#5d665f] hidden sm:table-cell">{timeAgo(k.latestAt)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -770,17 +798,16 @@ function SocialBuzzLeaderboard({
 
   if (ranked.length === 0) return null;
 
-  const rankColors = ["text-yellow-400", "text-gray-300", "text-orange-400", "text-gray-500", "text-gray-600"];
+  const rankColors = ["text-emerald-400", "text-gray-300", "text-orange-400", "text-[#5d665f]", "text-[#5d665f]"];
 
   return (
-    <div className="border-b border-gray-800/50 px-4 md:px-6 py-4 max-w-screen-xl mx-auto">
-      <div className="flex items-center gap-2 mb-3">
-        <div className="w-1 h-5 bg-gradient-to-b from-green-500 to-emerald-600 rounded-full" />
-        <span className="text-xs font-bold uppercase tracking-widest text-green-500/80">Most Buzzing Right Now</span>
-        <span className="text-[10px] text-gray-600">combined X + Discord heat</span>
+    <div className="px-4 md:px-6 py-5 max-w-screen-xl mx-auto">
+      <div className="flex items-baseline gap-2.5 mb-3">
+        <h2 className="font-display font-semibold text-white text-lg tracking-tight">Most Buzzing Right Now</h2>
+        <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-[#5d665f]">combined X + Discord heat</span>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-5 gap-1.5">
+      <div className="grid grid-cols-1 sm:grid-cols-5 gap-3">
         {ranked.map((entry, i) => {
           const hasX = entry.xScore > 0;
           const hasDiscord = entry.discordScore > 0;
@@ -790,30 +817,30 @@ function SocialBuzzLeaderboard({
             <button
               key={entry.netuid}
               onClick={() => onNavigate(entry.netuid)}
-              className="flex sm:flex-col items-center sm:items-start gap-2.5 sm:gap-2 px-3 py-2.5 rounded-xl bg-gray-900/60 border border-gray-700/50 hover:border-green-500/30 hover:bg-gray-800/60 transition-all text-left group"
+              className="ag-glass ag-glass-hover flex sm:flex-col items-center sm:items-start gap-2.5 sm:gap-2.5 px-4 py-3 text-left group"
             >
               {/* Rank + logo + name */}
               <div className="flex items-center gap-2 w-full">
-                <span className={`text-xs font-black tabular-nums flex-shrink-0 ${rankColors[i]}`}>#{i + 1}</span>
+                <span className={`font-display text-sm font-semibold tabular-nums flex-shrink-0 ${rankColors[i]} ${i === 0 ? "[text-shadow:0_0_18px_rgba(52,211,153,.35)]" : ""}`}>#{i + 1}</span>
                 <SubnetLogo netuid={entry.netuid} name={entry.name} size={24} />
-                <span className="font-semibold text-white text-xs truncate min-w-0 flex-1 group-hover:text-green-300 transition-colors">{entry.name}</span>
-                <span className="text-[10px] text-gray-600 font-mono flex-shrink-0 sm:hidden">SN{entry.netuid}</span>
+                <span className="font-semibold text-white text-xs truncate min-w-0 flex-1 group-hover:text-emerald-300 transition-colors">{entry.name}</span>
+                <span className="font-mono text-[10px] text-[#5d665f] flex-shrink-0 sm:hidden">SN{entry.netuid}</span>
               </div>
 
               {/* Signal badges + score */}
               <div className="flex items-center gap-1.5 flex-wrap w-full sm:w-auto">
                 {hasX && (
-                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-800 border border-gray-700 text-gray-400 flex-shrink-0">
+                  <span className="font-mono text-[10px] px-1.5 py-0.5 rounded-full bg-white/[0.05] border border-white/[0.08] text-[#9aa39e] flex-shrink-0">
                     𝕏 {entry.xScore}
                   </span>
                 )}
                 {hasDiscord && entry.topDiscordSignal && (
-                  <span className={`text-[10px] px-1.5 py-0.5 rounded border flex-shrink-0 ${entry.topDiscordSignal === "alpha" ? "bg-green-500/15 border-green-500/30 text-green-400" : "bg-blue-500/15 border-blue-500/30 text-blue-400"}`}>
-                    💬 {entry.topDiscordSignal}
+                  <span className={`font-mono text-[10px] px-1.5 py-0.5 rounded-full border flex-shrink-0 ${entry.topDiscordSignal === "alpha" ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400" : "bg-blue-500/10 border-blue-500/30 text-blue-400"}`}>
+                    <span className="inline-flex items-center gap-1"><AgIcon name="chat" className="w-3 h-3" /> {entry.topDiscordSignal}</span>
                   </span>
                 )}
                 {tweetHeat >= 60 && (
-                  <span className="text-[10px] flex-shrink-0">{heatFlame(tweetHeat)}</span>
+                  <span className="text-[10px] flex-shrink-0 text-orange-400"><HeatFlames score={tweetHeat} /></span>
                 )}
               </div>
             </button>
@@ -829,29 +856,29 @@ function DiscordRow({ d, index, isWatched, onSubnetClick }: {
   d: DiscordEntry; index: number; isWatched: boolean; onSubnetClick: () => void;
 }) {
   return (
-    <div className={`px-4 py-3.5 hover:bg-gray-800/30 transition-colors ${isWatched ? "bg-blue-950/40 ring-inset ring-1 ring-blue-400/30" : ""}`}>
+    <div className={`px-4 py-3.5 hover:bg-white/[0.03] transition-colors ${isWatched ? "bg-blue-950/40 ring-inset ring-1 ring-blue-400/30" : ""}`}>
       <div className="flex items-start gap-3">
-        <span className="text-xs text-gray-600 w-5 text-right tabular-nums mt-1 shrink-0 font-mono">{index + 1}</span>
+        <span className="font-display text-sm font-semibold text-[#5d665f] w-5 text-right tabular-nums mt-1 shrink-0">{index + 1}</span>
         <div className="flex-1 min-w-0">
           {/* Header row */}
           <div className="flex items-center gap-2 flex-wrap mb-1">
-            <button onClick={onSubnetClick} className="flex items-center gap-1.5 hover:text-green-400 transition-colors">
-              <span className="text-xs text-gray-600 bg-gray-800 px-1.5 py-0.5 rounded font-mono">SN{d.netuid}</span>
+            <button onClick={onSubnetClick} className="flex items-center gap-1.5 hover:text-emerald-400 transition-colors">
+              <span className="font-mono text-[10.5px] text-[#5d665f] bg-white/[0.05] border border-white/[0.08] px-1.5 py-0.5 rounded">SN{d.netuid}</span>
               <span className="font-semibold text-sm text-gray-100">{d.name}</span>
             </button>
-            <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold shrink-0 ${discordSignalStyle(d.signal)}`}>{d.signal.toUpperCase()}</span>
+            <span className={`font-mono text-[10px] px-2 py-0.5 rounded-full font-semibold tracking-[0.08em] shrink-0 ${discordSignalStyle(d.signal)}`}>{d.signal.toUpperCase()}</span>
             {d.releaseHint && (
-              <span className="text-[10px] px-1.5 py-0.5 rounded font-bold bg-yellow-500/20 text-yellow-300 border border-yellow-500/40 shrink-0">🚀 RELEASE HINT</span>
+              <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold bg-yellow-500/15 text-yellow-300 border border-yellow-500/40 shrink-0 inline-flex items-center gap-1"><AgIcon name="rocket" className="w-3 h-3" /> RELEASE HINT</span>
             )}
             {d.alphaTypes?.filter((t, i, arr) => arr.indexOf(t) === i).filter(t => t !== "general").map(type => (
-              <span key={type} className="text-[10px] px-1.5 py-0.5 rounded bg-gray-800/80 text-gray-400 border border-gray-700 shrink-0">
+              <span key={type} className="text-[10px] px-1.5 py-0.5 rounded-full bg-white/[0.04] text-[#9aa39e] border border-white/[0.08] shrink-0">
                 {alphaTypeTag(type)}
               </span>
             ))}
           </div>
 
           {/* Meta */}
-          <div className="text-xs text-gray-600 mb-2">
+          <div className="font-mono text-[11px] text-[#5d665f] mb-2">
             {d.messageCount} msgs · {d.uniquePosters} posters · {timeAgo(d.lastActivityAt ?? d.scannedAt)}
           </div>
 
@@ -862,8 +889,8 @@ function DiscordRow({ d, index, isWatched, onSubnetClick }: {
           {d.keyInsights && d.keyInsights.length > 0 && (
             <ul className="space-y-1 mb-2">
               {d.keyInsights.map((insight, ii) => (
-                <li key={ii} className="flex items-start gap-1.5 text-sm text-gray-300 leading-relaxed">
-                  <span className="text-green-400 mt-0.5 shrink-0">›</span>
+                <li key={ii} className="flex items-start gap-1.5 text-sm text-[#c6cdc9] leading-relaxed">
+                  <span className="text-emerald-400 mt-0.5 shrink-0">›</span>
                   <span>{insight}</span>
                 </li>
               ))}
@@ -872,8 +899,8 @@ function DiscordRow({ d, index, isWatched, onSubnetClick }: {
 
           {/* AlphaGap Take */}
           {d.alphaTake && (
-            <div className="border-l-2 border-green-500/40 bg-green-500/5 rounded-r-lg px-3 py-2.5">
-              <p className="text-[10px] font-bold text-green-400 uppercase tracking-widest mb-1">AlphaGap Take</p>
+            <div className="border-l-2 border-emerald-500/40 bg-emerald-500/5 rounded-r-lg px-3 py-2.5">
+              <p className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest mb-1">AlphaGap Take</p>
               <p className="text-xs text-gray-200 leading-relaxed">{d.alphaTake}</p>
             </div>
           )}
@@ -886,8 +913,8 @@ function DiscordRow({ d, index, isWatched, onSubnetClick }: {
   );
 }
 
-// ── Tweet Table (extracted for sneak-peek reuse) ───────────────────
-function TweetTable({ tweets, expandedTweet, onExpand, onSubnetClick, isWatched, showHeader }: {
+// ── Tweet Grid (extracted for sneak-peek reuse) ────────────────────
+function TweetTable({ tweets, expandedTweet, onExpand, onSubnetClick, isWatched }: {
   tweets: HotTweet[];
   expandedTweet: string | null;
   onExpand: (id: string | null) => void;
@@ -915,90 +942,74 @@ function TweetTable({ tweets, expandedTweet, onExpand, onSubnetClick, isWatched,
   }
 
   return (
-    <table className="w-full text-sm">
-      {showHeader && (
-        <thead>
-          <tr className="text-left text-xs text-gray-600 border-b border-gray-800 bg-gray-950/40">
-            <th className="px-4 py-2.5 font-semibold uppercase tracking-wide w-20">Score</th>
-            <th className="px-4 py-2.5 font-semibold uppercase tracking-wide">KOL</th>
-            <th className="px-4 py-2.5 font-semibold uppercase tracking-wide">Subnet</th>
-            <th className="px-4 py-2.5 font-semibold uppercase tracking-wide hidden lg:table-cell">Tweet</th>
-            <th className="px-4 py-2.5 text-right font-semibold uppercase tracking-wide">Engagement</th>
-            <th className="px-4 py-2.5 text-right font-semibold uppercase tracking-wide hidden sm:table-cell">aGap</th>
-            <th className="px-4 py-2.5 text-right font-semibold uppercase tracking-wide">Time</th>
-          </tr>
-        </thead>
-      )}
-      <tbody>
-        {tweets.map((t) => {
-          const isExpanded = expandedTweet === t.tweet_id;
-          const score = t.momentum_score ?? t.heat_score;
-          return (
-            <tr
-              key={t.tweet_id}
-              className={`border-b border-gray-800/60 hover:bg-gray-800/30 cursor-pointer transition-colors ${isWatched(t.netuid) ? "bg-blue-950/40 ring-inset ring-1 ring-blue-400/30" : ""}`}
-              onClick={() => onExpand(isExpanded ? null : t.tweet_id)}
-            >
-              {/* Score */}
-              <td className="px-4 py-3">
-                <div className="flex flex-col items-start gap-1">
-                  {t.is_trending_now && (
-                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-green-500/20 text-green-400 border border-green-500/40 leading-none">🟢 LIVE</span>
-                  )}
-                  <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded border text-xs font-bold ${heatColor(score)}`}>
-                    {score}
-                  </div>
-                </div>
-              </td>
-
-              {/* KOL */}
-              <td className="px-4 py-3">
-                <div className="flex items-center gap-2">
-                  <span className={`text-xs px-1.5 py-0.5 rounded border font-bold ${tierBadge(t.kol_tier)}`}>{tierLabel(t.kol_tier)}</span>
-                  <div>
-                    <a href={`https://x.com/${t.kol_handle}`} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 font-medium hover:underline" onClick={e => e.stopPropagation()}>
-                      @{t.kol_handle}
-                    </a>
-                    <div className="text-xs text-gray-600">{fmtFollowers(t.kol_followers)} followers</div>
-                  </div>
-                </div>
-              </td>
-
-              {/* Subnet */}
-              <td className="px-4 py-3">
-                <button className="text-left hover:text-green-400 transition-colors" onClick={e => { e.stopPropagation(); onSubnetClick(t.netuid); }}>
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-xs text-gray-600 bg-gray-800 px-1.5 py-0.5 rounded font-mono">SN{t.netuid}</span>
-                    <span className="font-medium text-gray-100 text-sm">{t.subnet_name}</span>
-                  </div>
-                </button>
-              </td>
-
-              {/* Tweet */}
-              <td className="px-4 py-3 hidden lg:table-cell max-w-xs">
-                <div className={`text-xs text-gray-400 leading-relaxed ${isExpanded ? "" : "line-clamp-2"}`}>{t.tweet_text}</div>
-                <a href={t.tweet_url} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-500 hover:underline mt-0.5 block" onClick={e => e.stopPropagation()}>
-                  {isExpanded ? "Open tweet ↗" : "View on X ↗"}
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      {tweets.map((t) => {
+        const isExpanded = expandedTweet === t.tweet_id;
+        const score = t.momentum_score ?? t.heat_score;
+        return (
+          <div
+            key={t.tweet_id}
+            className={`ag-glass ag-glass-hover p-5 cursor-pointer flex flex-col ${isWatched(t.netuid) ? "ring-1 ring-blue-400/30" : ""}`}
+            onClick={() => onExpand(isExpanded ? null : t.tweet_id)}
+          >
+            {/* Who row */}
+            <div className="flex items-center gap-3 mb-3">
+              <span className="w-9 h-9 rounded-full shrink-0 flex items-center justify-center font-semibold text-xs text-emerald-400 border border-white/[0.14] bg-gradient-to-br from-[#1c2f28] to-[#0d1713]">
+                {monogram(t.kol_name, t.kol_handle)}
+              </span>
+              <div className="min-w-0 flex-1">
+                <a
+                  href={`https://x.com/${t.kol_handle}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block font-semibold text-[13.5px] text-white hover:text-emerald-300 truncate transition-colors"
+                  onClick={e => e.stopPropagation()}
+                >
+                  {t.kol_name || `@${t.kol_handle}`}
                 </a>
-              </td>
+                <div className="font-mono text-[10.5px] text-[#5d665f] truncate">
+                  @{t.kol_handle} · {tierLabel(t.kol_tier)} · w{t.kol_weight} · {fmtFollowers(t.kol_followers)}
+                </div>
+              </div>
+              <div className="flex flex-col items-end gap-1 shrink-0">
+                <span className={`font-mono text-[11px] px-2.5 py-1 rounded-full border ${heatColor(score)}`}>
+                  <span className="inline-flex items-center gap-1"><AgIcon name="flame" className="w-3 h-3" /> {score}</span>
+                </span>
+                {t.is_trending_now && (
+                  <span className="flex items-center gap-1 font-mono text-[9px] tracking-[0.14em] text-emerald-400">
+                    <span className="ag-live-dot" style={{ width: 4, height: 4 }} />LIVE
+                  </span>
+                )}
+              </div>
+            </div>
 
-              {/* Engagement */}
-              <td className="px-4 py-3 text-right">
-                <span className="text-white font-bold tabular-nums">{fmtEng(t.engagement)}</span>
-                <div className="text-xs text-gray-600">interactions</div>
-              </td>
+            {/* Tweet text */}
+            <p className={`text-[13.5px] text-[#9aa39e] leading-relaxed ${isExpanded ? "" : "line-clamp-3"}`}>{t.tweet_text}</p>
+            <a
+              href={t.tweet_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs text-emerald-500/80 hover:text-emerald-400 hover:underline mt-1.5 block"
+              onClick={e => e.stopPropagation()}
+            >
+              {isExpanded ? "Open tweet ↗" : "View on X ↗"}
+            </a>
 
-              {/* aGap */}
-              <td className="px-4 py-3 text-right hidden sm:table-cell">
-                <span className={`font-bold tabular-nums ${agapColor(t.subnet_agap)}`}>{t.subnet_agap ?? "—"}</span>
-              </td>
-
-              {/* Time */}
-              <td className="px-4 py-3 text-right text-xs text-gray-500 whitespace-nowrap">{timeAgoLocal(t.detected_at)}</td>
-            </tr>
-          );
-        })}
-      </tbody>
-    </table>
+            {/* Meta row */}
+            <div className="flex items-center gap-4 mt-auto pt-3.5 font-mono text-[10.5px] text-[#5d665f]">
+              <span title="total interactions" className="inline-flex items-center gap-1"><AgIcon name="heart" className="w-3 h-3" /><AgIcon name="repost" className="w-3 h-3" /> {fmtEng(t.engagement)}</span>
+              <span className={agapColor(t.subnet_agap)}>aGap {t.subnet_agap ?? "—"}</span>
+              <button
+                className="hover:text-emerald-400 transition-colors truncate"
+                onClick={e => { e.stopPropagation(); onSubnetClick(t.netuid); }}
+              >
+                SN{t.netuid} · {t.subnet_name}
+              </button>
+              <span className="ml-auto whitespace-nowrap">{timeAgoLocal(t.detected_at)}</span>
+            </div>
+          </div>
+        );
+      })}
+    </div>
   );
 }

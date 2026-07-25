@@ -5,6 +5,7 @@ import { useSession } from "next-auth/react";
 import BlurGate from "@/components/BlurGate";
 import { getTier, canAccessPro } from "@/lib/subscription";
 import { useWatchlist } from "@/components/dashboard/WatchlistProvider";
+import AgIcon from "@/components/AgIcon";
 
 interface ReportMeta {
   date: string;
@@ -39,10 +40,10 @@ function splitAtSection(content: string, showSections: number) {
 
 function renderLines(lines: string[]) {
   return lines.map((line, i) => {
-    if (line.startsWith("# ")) return <h1 key={i} className="text-xl font-bold text-green-400 mt-6 mb-3 border-b border-gray-800 pb-2">{line.slice(2)}</h1>;
-    if (line.startsWith("## ")) return <h2 key={i} className="text-lg font-bold text-green-400 mt-5 mb-2">{line.slice(3)}</h2>;
-    if (line.startsWith("### ")) return <h3 key={i} className="text-md font-semibold text-green-300 mt-4 mb-2">{line.slice(4)}</h3>;
-    if (line.startsWith("---")) return <hr key={i} className="border-gray-800 my-4" />;
+    if (line.startsWith("# ")) return <h1 key={i} className="font-display text-xl font-semibold text-emerald-400 mt-6 mb-3 border-b border-white/[0.08] pb-2">{line.slice(2)}</h1>;
+    if (line.startsWith("## ")) return <h2 key={i} className="font-display text-lg font-semibold text-emerald-400 mt-5 mb-2">{line.slice(3)}</h2>;
+    if (line.startsWith("### ")) return <h3 key={i} className="font-display text-md font-semibold text-emerald-300 mt-4 mb-2">{line.slice(4)}</h3>;
+    if (line.startsWith("---")) return <hr key={i} className="border-white/[0.08] my-4" />;
     if (line.startsWith("- ") || line.startsWith("* ")) return <li key={i} className="text-gray-300 ml-4 list-disc">{line.slice(2)}</li>;
     if (line.startsWith("**") && line.endsWith("**")) return <p key={i} className="text-white font-semibold mt-2">{line.replace(/\*\*/g, "")}</p>;
     if (line.trim() === "") return <div key={i} className="h-2" />;
@@ -129,43 +130,33 @@ export default function ReportsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0a0a0f] text-white">
+    <div className="min-h-screen ag-aurora text-white">
       {/* ── Hero ───────────────────────────────────────────────── */}
-      <div className="relative border-b border-gray-800/50 overflow-hidden">
-        <div
-          className="absolute inset-0 opacity-[0.03]"
-          style={{
-            backgroundImage: "linear-gradient(rgba(255,255,255,0.8) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.8) 1px,transparent 1px)",
-            backgroundSize: "32px 32px",
-          }}
-        />
-        <div className="absolute top-0 right-1/4 w-80 h-40 bg-green-600/8 rounded-full blur-3xl pointer-events-none" />
-
-        <div className="relative px-4 md:px-6 py-8">
-          <div className="flex items-start justify-between gap-4 mb-4">
-            <div>
-              <h1 className="text-3xl font-bold bg-gradient-to-r from-green-400 via-emerald-300 to-white bg-clip-text text-transparent leading-tight mb-1">
-                📊 Deep Dive Reports
-              </h1>
-              <p className="text-sm text-gray-400 max-w-xl">
-                Daily deep-dives on the top-ranked subnet. Product maturity, developer velocity, market position, and key catalysts — published every morning at 7am PT.
-              </p>
+      <div className="relative px-4 md:px-6 pt-9 pb-5">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="font-display text-3xl md:text-[40px] font-semibold tracking-[-0.03em] text-white leading-tight mb-2">
+              Deep Dive <span className="ag-gradient-text">Reports</span>
+            </h1>
+            <p className="text-sm md:text-[14.5px] text-gray-400 max-w-xl leading-[1.65] mb-4">
+              Daily deep-dives on the top-ranked subnet. Product maturity, developer velocity, market position, and key catalysts — published every morning at 7am PT.
+            </p>
+            <div className="inline-flex items-center gap-2 font-mono text-[11px] tracking-wider text-gray-500 uppercase mb-4">
+              <span className="ag-live-dot" />
+              <span className="tabular-nums">{reports.length} REPORTS · PUBLISHED DAILY 7AM PT</span>
             </div>
-          </div>
 
-          {/* Filters row */}
-          <div className="flex flex-wrap items-center gap-2">
-            {!isPro && (
-              <span className="flex items-center gap-1.5 bg-gray-800/60 border border-gray-700/40 rounded-full px-3 py-1.5 text-xs text-gray-400">
-                🔒 Analysis sections — Pro only
+            {/* Filters row */}
+            <div className="flex flex-wrap items-center gap-2">
+              {!isPro && (
+                <span className="flex items-center gap-1.5 bg-white/[0.04] border border-white/[0.08] backdrop-blur-[14px] rounded-full px-3.5 py-1.5 font-mono text-[10.5px] uppercase tracking-wider text-gray-500">
+                  <AgIcon name="lock" /> Analysis sections — Pro only
+                </span>
+              )}
+              <span className="flex items-center gap-1.5 bg-white/[0.04] border border-white/[0.08] backdrop-blur-[14px] rounded-full px-3.5 py-1.5 font-mono text-[10.5px] uppercase tracking-wider text-gray-500">
+                <AgIcon name="clock" /> Auto-generated daily
               </span>
-            )}
-            <span className="flex items-center gap-1.5 bg-gray-800/60 border border-gray-700/40 rounded-full px-3 py-1.5 text-xs text-gray-400">
-              🕐 Auto-generated daily
-            </span>
-            <span className="flex items-center gap-1.5 bg-gray-800/60 border border-gray-700/40 rounded-full px-3 py-1.5 text-xs text-gray-400">
-              {reports.length} reports
-            </span>
+            </div>
           </div>
         </div>
       </div>
@@ -182,28 +173,26 @@ export default function ReportsPage() {
               placeholder="Search reports..."
               value={reportSearch}
               onChange={(e) => setReportSearch(e.target.value)}
-              className="w-full bg-gray-800/60 border border-gray-700/60 text-sm rounded-lg pl-9 pr-3 py-2 text-gray-300 placeholder-gray-600 focus:outline-none focus:border-green-600/60 focus:ring-1 focus:ring-green-600/20"
+              className="w-full bg-white/[0.035] border border-white/[0.08] text-sm rounded-full pl-9 pr-4 py-2.5 text-gray-200 placeholder-gray-500 backdrop-blur-[14px] focus:outline-none focus:border-emerald-400/40 focus:ring-1 focus:ring-emerald-400/20"
             />
           </div>
-          <button
-            onClick={() => setWatchlistOnly(v => !v)}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors border ${
-              watchlistOnly
-                ? "bg-blue-600 border-blue-500 text-white"
-                : "bg-gray-800/60 border-gray-700/60 text-gray-400 hover:text-white"
-            }`}
-          >
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
-            </svg>
-            My Watchlist
-          </button>
+          <div className="ag-pill-tabs">
+            <button
+              onClick={() => setWatchlistOnly(v => !v)}
+              className={`ag-pill-tab inline-flex items-center gap-1.5 ${watchlistOnly ? "ag-pill-tab-on" : ""}`}
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+              </svg>
+              My Watchlist
+            </button>
+          </div>
         </div>
 
         {!loadingReport && reports.length === 0 && (
-          <div className="bg-gray-900/50 border border-gray-800 rounded-xl p-10 text-center">
-            <div className="text-4xl mb-3">📊</div>
-            <h3 className="text-lg font-bold mb-2">No Reports Yet</h3>
+          <div className="ag-glass p-10 text-center">
+            <div className="text-4xl mb-3 flex justify-center text-gray-400"><AgIcon name="chart" /></div>
+            <h3 className="font-display text-lg font-semibold mb-2">No Reports Yet</h3>
             <p className="text-gray-500 text-sm">Reports are auto-generated daily at 7am PT on the top aGap subnet.</p>
           </div>
         )}
@@ -215,25 +204,25 @@ export default function ReportsPage() {
             const dateLabel = new Date(r.date + "T12:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" });
             const isWatchedReport = r.netuid != null && isWatched(r.netuid);
             return (
-              <div key={r.date} className={`border rounded-xl overflow-hidden transition-all ${
+              <div key={r.date} className={`ag-glass overflow-hidden transition-all ${
                 isWatchedReport
-                  ? "border-blue-400/70 ring-2 ring-blue-400/60 bg-blue-950/20 shadow-lg shadow-blue-500/20"
-                  : "border-gray-700/60 bg-gray-900/50"
+                  ? "ring-2 ring-blue-400/60 shadow-lg shadow-blue-500/20"
+                  : ""
               }`}>
                 <button
-                  className="w-full flex items-start sm:items-center justify-between px-5 py-3.5 hover:bg-gray-800/40 transition-colors text-left gap-3"
+                  className="w-full flex items-start sm:items-center justify-between px-5 py-3.5 hover:bg-white/[0.03] transition-colors text-left gap-3"
                   onClick={() => isExpanded ? setCurrentReport(null) : loadReport(r.date)}
                 >
                   <div className="flex items-center gap-3 min-w-0">
                     <div className="w-1 h-8 bg-gradient-to-b from-green-500 to-emerald-600 rounded-full flex-shrink-0" />
-                    <span className="text-sm font-semibold text-white truncate">
+                    <span className="font-display text-sm font-semibold text-white truncate">
                       {r.subnet_name ? `${r.subnet_name} — ${dateLabel}` : dateLabel}
                     </span>
-                    <span className="text-[10px] bg-green-500/15 border border-green-500/30 text-green-400 px-2 py-0.5 rounded-full font-medium flex-shrink-0">Latest</span>
+                    <span className="ag-badge ag-badge-buy flex-shrink-0">Latest</span>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     {r.composite_score != null && (
-                      <span className="text-green-400 font-bold text-sm tabular-nums">{r.composite_score} aGap</span>
+                      <span className="font-mono text-emerald-400 font-semibold text-sm tabular-nums">{r.composite_score} aGap</span>
                     )}
                     {loadingReport && isExpanded
                       ? <div className="w-4 h-4 border-2 border-green-500/30 border-t-green-400 rounded-full animate-spin" />
@@ -243,7 +232,7 @@ export default function ReportsPage() {
                 </button>
 
                 {isExpanded && currentReport && (
-                  <div className="border-t border-gray-800/60">
+                  <div className="border-t border-white/[0.08]">
                     {renderReportContent(currentReport)}
                     <div className="px-6 pb-4 text-xs text-gray-600">
                       Generated {new Date(currentReport.generated_at).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
@@ -263,31 +252,31 @@ export default function ReportsPage() {
                   const dateLabel = new Date(r.date + "T12:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" });
                   const isWatchedReport = r.netuid != null && isWatched(r.netuid);
                   return (
-                    <div key={r.date} className={`border rounded-xl overflow-hidden transition-all ${
+                    <div key={r.date} className={`ag-glass overflow-hidden transition-all ${
                       isWatchedReport
-                        ? "border-blue-400/70 ring-2 ring-blue-400/60 bg-blue-950/20 shadow-lg shadow-blue-500/20"
-                        : "border-gray-700/60 bg-gray-900/50"
+                        ? "ring-2 ring-blue-400/60 shadow-lg shadow-blue-500/20"
+                        : ""
                     }`}>
                       <button
-                        className="w-full flex items-start sm:items-center justify-between px-5 py-3.5 hover:bg-gray-800/40 transition-colors text-left gap-3"
+                        className="w-full flex items-start sm:items-center justify-between px-5 py-3.5 hover:bg-white/[0.03] transition-colors text-left gap-3"
                         onClick={() => isExpanded ? setCurrentReport(null) : loadReport(r.date)}
                       >
                         <div className="flex items-center gap-3 min-w-0">
                           <div className="w-1 h-8 bg-gradient-to-b from-gray-600 to-gray-700 rounded-full flex-shrink-0" />
-                          <span className="text-sm font-semibold text-white truncate">
+                          <span className="font-display text-sm font-semibold text-white truncate">
                             {r.subnet_name ? `${r.subnet_name} — ${dateLabel}` : dateLabel}
                           </span>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
                           {r.composite_score != null && (
-                            <span className="text-green-400 font-bold text-sm tabular-nums">{r.composite_score} aGap</span>
+                            <span className="font-mono text-emerald-400 font-semibold text-sm tabular-nums">{r.composite_score} aGap</span>
                           )}
                           <span className="text-gray-600 text-xs">{isExpanded ? "▲" : "▼"}</span>
                         </div>
                       </button>
 
                       {isExpanded && currentReport && (
-                        <div className="border-t border-gray-800/60">
+                        <div className="border-t border-white/[0.08]">
                           <div className="px-6 py-5 prose prose-invert prose-sm max-w-none">
                             {renderLines(currentReport.content.split("\n"))}
                           </div>

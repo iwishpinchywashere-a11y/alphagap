@@ -8,6 +8,7 @@ import { useWatchlist } from "@/components/dashboard/WatchlistProvider";
 import { getTier, canAccessPro } from "@/lib/subscription";
 import SubnetLogo from "@/components/dashboard/SubnetLogo";
 import Link from "next/link";
+import AgIcon from "@/components/AgIcon";
 
 function ScoreRing({ score }: { score: number }) {
   const color =
@@ -17,7 +18,7 @@ function ScoreRing({ score }: { score: number }) {
   const dash = (score / 100) * circ;
   return (
     <svg width="36" height="36" className="flex-shrink-0">
-      <circle cx="18" cy="18" r={r} fill="none" stroke="#1f2937" strokeWidth="3" />
+      <circle cx="18" cy="18" r={r} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="3" />
       <circle
         cx="18" cy="18" r={r} fill="none"
         stroke={color} strokeWidth="3"
@@ -121,12 +122,12 @@ export default function WatchlistPage() {
   // Gate: must be logged in and Pro/Premium
   if (!session) {
     return (
-      <main className="flex-1 flex items-center justify-center p-6">
-        <div className="text-center">
-          <div className="text-5xl mb-4">🔒</div>
-          <h2 className="text-xl font-bold mb-2">Sign In Required</h2>
-          <p className="text-gray-400 mb-4">Sign in to manage your watchlist.</p>
-          <Link href="/auth/signin" className="px-6 py-2.5 bg-green-600 hover:bg-green-500 text-black font-bold rounded-lg transition-colors">
+      <main className="flex-1 flex items-center justify-center p-6 ag-aurora">
+        <div className="ag-glass text-center px-8 py-10 max-w-sm w-full">
+          <div className="text-5xl mb-4 flex justify-center text-gray-300"><AgIcon name="lock" /></div>
+          <h2 className="font-display text-xl font-semibold text-white mb-2">Sign In Required</h2>
+          <p className="text-gray-400 text-sm leading-relaxed mb-6">Sign in to manage your watchlist.</p>
+          <Link href="/auth/signin" className="inline-block px-7 py-2.5 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-400 hover:to-emerald-500 text-black font-bold rounded-full text-sm transition-all shadow-lg shadow-green-500/25">
             Sign In
           </Link>
         </div>
@@ -136,12 +137,12 @@ export default function WatchlistPage() {
 
   if (!isPro) {
     return (
-      <main className="flex-1 flex items-center justify-center p-6">
-        <div className="text-center max-w-md">
-          <div className="text-5xl mb-4">⭐</div>
-          <h2 className="text-xl font-bold mb-2">Pro Feature</h2>
-          <p className="text-gray-400 mb-6">The Watchlist is available on Pro and Premium plans. Track your favourite subnets and get highlighted alerts across every page.</p>
-          <Link href="/pricing" className="px-6 py-2.5 bg-gradient-to-r from-green-500 to-emerald-600 text-black font-bold rounded-lg transition-colors hover:from-green-400 hover:to-emerald-500">
+      <main className="flex-1 flex items-center justify-center p-6 ag-aurora">
+        <div className="ag-glass text-center max-w-md px-8 py-10">
+          <div className="text-5xl mb-4 flex justify-center text-yellow-400"><AgIcon name="star" /></div>
+          <h2 className="font-display text-xl font-semibold text-white mb-2">Pro Feature</h2>
+          <p className="text-gray-400 text-sm leading-relaxed mb-6">The Watchlist is available on Pro and Premium plans. Track your favourite subnets and get highlighted alerts across every page.</p>
+          <Link href="/pricing" className="inline-block px-7 py-2.5 bg-gradient-to-r from-green-500 to-emerald-600 text-black font-bold rounded-full text-sm transition-all hover:from-green-400 hover:to-emerald-500 shadow-lg shadow-green-500/25">
             Upgrade to Pro →
           </Link>
         </div>
@@ -153,26 +154,27 @@ export default function WatchlistPage() {
   const watchedSubnets = leaderboard.filter((s) => pending.has(s.netuid));
 
   return (
-    <main className="flex-1 overflow-auto p-4 md:p-6">
-      <div className="max-w-3xl mx-auto space-y-8">
+    <main className="flex-1 overflow-auto p-4 md:p-6 ag-aurora">
+      <div className="max-w-3xl mx-auto space-y-8 pt-3">
 
         {/* Header */}
         <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <svg className="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
-            </svg>
-            My Watchlist
+          <h1 className="font-display text-3xl md:text-[40px] font-semibold tracking-[-0.03em] text-white leading-tight mb-2">
+            My <span className="ag-gradient-text">Watchlist</span>
           </h1>
-          <p className="text-sm text-gray-500 mt-1">
+          <p className="text-sm md:text-[14.5px] text-gray-400 max-w-xl leading-[1.65] mb-4">
             Subnets on your watchlist are highlighted with a blue glow across the dashboard, signals, reports, and more.
           </p>
+          <div className="inline-flex items-center gap-2 font-mono text-[11px] tracking-wider text-gray-500 uppercase">
+            <span className="ag-live-dot" />
+            <span className="tabular-nums">{loading ? "…" : pending.size} WATCHED · {leaderboard.length} SUBNETS TRACKED</span>
+          </div>
         </div>
 
         {/* Current saved Watchlist */}
         <section>
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
+            <h2 className="font-mono text-[10px] font-medium text-gray-500 uppercase tracking-widest">
               Currently Watching {loading ? "…" : `(${pending.size})`}
             </h2>
             {watchedSubnets.length > 0 && (
@@ -182,16 +184,15 @@ export default function WatchlistPage() {
                   const q = `Analyze my watchlist: ${names}. Rank them by conviction for long-term investing. Flag any I should consider trimming and explain why. Which one has the most momentum right now?`;
                   router.push(`/oracle?q=${encodeURIComponent(q)}`);
                 }}
-                className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border bg-violet-500/10 border-violet-500/30 text-violet-400 hover:bg-violet-500/20 transition-colors"
+                className="flex items-center gap-1.5 text-xs font-medium px-4 py-2 rounded-full border bg-violet-500/10 border-violet-500/30 text-violet-300 hover:bg-violet-500/20 backdrop-blur-[14px] transition-colors"
               >
-                🔮 Analyze with Oracle
+                <AgIcon name="oracle" /> Analyze with Oracle
               </button>
             )}
           </div>
 
           {watchlist.size === 0 && !loading && (
-            <div className="border border-gray-800 rounded-xl p-6 text-center text-gray-500">
-              <div className="text-3xl mb-2">👇</div>
+            <div className="ag-glass p-6 text-center text-gray-500">
               <p className="text-sm">No subnets saved yet. Check some below and hit Save.</p>
             </div>
           )}
@@ -201,7 +202,7 @@ export default function WatchlistPage() {
               {watchedSubnets.map((sub) => (
                 <div
                   key={sub.netuid}
-                  className="flex items-center gap-3 bg-blue-950/20 border border-blue-500/30 rounded-xl px-4 py-3 ring-1 ring-blue-500/20 shadow-sm shadow-blue-500/10"
+                  className="flex items-center gap-3 ag-glass !rounded-2xl px-4 py-3 ring-2 ring-blue-400/60 shadow-lg shadow-blue-500/20"
                 >
                   <SubnetLogo netuid={sub.netuid} name={sub.name} size={32} />
                   <div className="flex-1 min-w-0">
@@ -234,20 +235,20 @@ export default function WatchlistPage() {
         {/* Add / Edit section */}
         <section>
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
+            <h2 className="font-mono text-[10px] font-medium text-gray-500 uppercase tracking-widest">
               Add Subnets
             </h2>
             <div className="flex items-center gap-2">
-              <span className="text-xs text-gray-600">{scanning ? "Refreshing…" : `${leaderboard.length} subnets`}</span>
+              <span className="font-mono text-[10px] uppercase tracking-wider text-gray-600">{scanning ? "Refreshing…" : `${leaderboard.length} subnets`}</span>
               <button
                 onClick={handleSave}
                 disabled={saving || (!hasChanges && !savedFlash)}
-                className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                className={`px-5 py-2 rounded-full text-xs font-semibold transition-all ${
                   savedFlash
-                    ? "bg-green-600 text-white"
+                    ? "bg-gradient-to-r from-green-500 to-emerald-600 text-black shadow-lg shadow-green-500/25"
                     : hasChanges
-                    ? "bg-blue-600 hover:bg-blue-500 text-white"
-                    : "bg-gray-800 text-gray-600 cursor-default"
+                    ? "bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-400 hover:to-emerald-500 text-black shadow-lg shadow-green-500/25"
+                    : "bg-white/[0.035] border border-white/[0.08] text-gray-600 cursor-default"
                 }`}
               >
                 {saving ? "Saving…" : savedFlash ? "✓ Saved!" : "Save"}
@@ -265,13 +266,13 @@ export default function WatchlistPage() {
               placeholder="Search by name or subnet number…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full bg-gray-900 border border-gray-700 rounded-lg pl-9 pr-4 py-2 text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30"
+              className="w-full bg-white/[0.035] border border-white/[0.08] rounded-full pl-9 pr-4 py-2.5 text-sm text-gray-200 placeholder-gray-500 backdrop-blur-[14px] focus:outline-none focus:border-emerald-400/40 focus:ring-1 focus:ring-emerald-400/20"
             />
           </div>
 
           {/* Pending changes banner */}
           {hasChanges && (
-            <div className="flex items-center justify-between bg-blue-950/30 border border-blue-500/30 rounded-lg px-3 py-2 mb-3 text-xs text-blue-300">
+            <div className="flex items-center justify-between bg-blue-500/[0.08] border border-blue-400/25 backdrop-blur-[14px] rounded-full px-4 py-2 mb-3 text-xs text-blue-300">
               <span>You have unsaved changes</span>
               <button onClick={handleSave} disabled={saving} className="font-semibold underline underline-offset-2 hover:text-white transition-colors">
                 {saving ? "Saving…" : "Save now"}
@@ -285,10 +286,10 @@ export default function WatchlistPage() {
               return (
                 <div
                   key={sub.netuid}
-                  className={`flex items-center gap-3 rounded-xl px-4 py-3 transition-colors cursor-pointer ${
+                  className={`flex items-center gap-3 rounded-2xl px-4 py-3 backdrop-blur-[14px] transition-colors cursor-pointer ${
                     checked
-                      ? "bg-blue-950/20 border border-blue-500/30"
-                      : "bg-gray-900/40 border border-gray-800/60 hover:border-gray-700 hover:bg-gray-900/70"
+                      ? "bg-blue-500/[0.07] border border-blue-400/30"
+                      : "bg-white/[0.03] border border-white/[0.07] hover:border-white/[0.16] hover:bg-white/[0.05]"
                   }`}
                   onClick={() => togglePending(sub.netuid)}
                 >

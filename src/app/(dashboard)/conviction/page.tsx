@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import SubnetLogo from "@/components/dashboard/SubnetLogo";
+import AgIcon from "@/components/AgIcon";
 
 // ── Types ─────────────────────────────────────────────────────────
 
@@ -136,7 +137,7 @@ function LockPill({ type }: { type?: "perpetual" | "decaying" }) {
 function SignalChip({ signal, row }: { signal?: string; row?: ConvictionRow }) {
   if (!signal || signal === "neutral") return null;
   const cfg = {
-    strong_buy: { label: "Strong Buy", cls: "bg-green-500/20 text-green-300 border-green-500/40", icon: "⚡" },
+    strong_buy: { label: "Strong Buy", cls: "bg-green-500/20 text-green-300 border-green-500/40", icon: <AgIcon name="bolt" /> },
     buy:        { label: "Buy",         cls: "bg-green-500/10 text-green-400/90 border-green-500/25", icon: "↑" },
     watch:      { label: "Watch",       cls: "bg-yellow-500/10 text-yellow-400 border-yellow-500/25", icon: "◎" },
   }[signal];
@@ -211,9 +212,9 @@ function FeaturedCard({
   const ringSize = 80;
 
   const glowClass =
-    row.agap_signal === "strong_buy" ? "shadow-lg shadow-green-900/30 border-green-500/35" :
-    row.agap_signal === "buy"        ? "border-green-500/20" :
-    "border-white/6";
+    row.agap_signal === "strong_buy" ? "shadow-lg shadow-green-900/30 !border-green-500/35" :
+    row.agap_signal === "buy"        ? "!border-green-500/20" :
+    "";
 
   const topBarClass =
     row.agap_signal === "strong_buy" ? "bg-gradient-to-r from-green-400 to-emerald-500" :
@@ -224,7 +225,7 @@ function FeaturedCard({
   return (
     <button
       onClick={() => router.push(`/subnets/${row.netuid}`)}
-      className={`flex-shrink-0 w-44 flex flex-col rounded-2xl border overflow-hidden transition-all group text-left bg-[#0d1610] ${glowClass} hover:border-green-500/30 hover:bg-[#101a12]`}
+      className={`ag-glass ag-glass-hover flex-shrink-0 w-44 flex flex-col overflow-hidden transition-all group text-left ${glowClass}`}
     >
       {/* Top accent line */}
       <div className={`h-[2px] w-full ${topBarClass}`} />
@@ -232,7 +233,7 @@ function FeaturedCard({
       <div className="p-4 flex flex-col items-center gap-3 flex-1">
         {/* Rank + badges */}
         <div className="flex items-center justify-between w-full">
-          <span className={`text-xs font-black ${rank === 1 ? "text-green-400" : rank <= 3 ? "text-gray-400" : "text-gray-600"}`}>
+          <span className={`font-display text-xs font-bold ${rank === 1 ? "text-emerald-400" : rank <= 3 ? "text-gray-400" : "text-gray-600"}`}>
             #{rank}
           </span>
           <div className="flex items-center gap-1">
@@ -250,7 +251,7 @@ function FeaturedCard({
           {cvPct !== null && <ConvictionRing pct={cvPct} size={ringSize} />}
           <SubnetLogo netuid={row.netuid} name={row.name} size={50} />
           {cvPct !== null && (
-            <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 bg-[#0d1610] border border-white/10 rounded-full px-1.5 py-px">
+            <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 bg-[#07090b] border border-white/10 rounded-full px-1.5 py-px">
               <span className={`text-[8px] font-bold tabular-nums ${cvPct >= 70 ? "text-green-400" : cvPct >= 40 ? "text-yellow-400" : "text-gray-500"}`}>
                 {cvPct}%
               </span>
@@ -260,13 +261,13 @@ function FeaturedCard({
 
         {/* Name */}
         <div className="text-center">
-          <div className="text-sm font-bold text-white group-hover:text-green-300 transition-colors truncate max-w-[160px]">{row.name}</div>
+          <div className="font-display text-sm font-semibold text-white group-hover:text-emerald-300 transition-colors truncate max-w-[160px]">{row.name}</div>
           <div className="text-[10px] text-gray-600 font-mono">SN{row.netuid}</div>
         </div>
 
         {/* Locked amount */}
         <div className="text-center">
-          <div className={`font-black tabular-nums ${rank === 1 ? "text-green-300 text-lg" : "text-green-400 text-base"}`}>
+          <div className={`font-display font-semibold tabular-nums ${rank === 1 ? "text-emerald-300 text-lg" : "text-emerald-400 text-base"}`}>
             {fmtAlpha(row.totalLockedAlpha, currency, taoPrice)}
           </div>
           <div className="mt-1"><LockPill type={row.king?.lockType} /></div>
@@ -283,15 +284,15 @@ function FeaturedCard({
 
         {/* aGap + Invest score pills */}
         <div className="flex gap-1.5 w-full">
-          <div className="flex-1 text-center bg-green-500/15 border border-green-500/35 rounded-lg py-2">
-            <div className={`text-base font-black ${
+          <div className="flex-1 text-center bg-emerald-500/10 border border-emerald-500/30 rounded-xl py-2 backdrop-blur-md">
+            <div className={`font-display text-base font-semibold ${
               row.agap_score != null && row.agap_score >= 70 ? "text-green-300" :
               row.agap_score != null && row.agap_score >= 50 ? "text-green-400" : "text-gray-400"
             }`}>{row.agap_score ?? "—"}</div>
             <div className="text-[9px] text-gray-400 uppercase tracking-widest mt-0.5">aGap</div>
           </div>
-          <div className="flex-1 text-center bg-purple-500/15 border border-purple-500/35 rounded-lg py-2">
-            <div className={`text-base font-black ${
+          <div className="flex-1 text-center bg-purple-500/10 border border-purple-500/30 rounded-xl py-2 backdrop-blur-md">
+            <div className={`font-display text-base font-semibold ${
               row.invest_score != null && row.invest_score >= 70 ? "text-purple-300" :
               row.invest_score != null && row.invest_score >= 50 ? "text-purple-400" : "text-gray-400"
             }`}>{row.invest_score ?? "—"}</div>
@@ -338,10 +339,10 @@ function LeaderboardRow({
   }[row.agap_signal ?? "neutral"] ?? "bg-white/4";
 
   return (
-    <div className={`rounded-xl border overflow-hidden transition-all ${
-      row.agap_signal === "strong_buy" ? "border-green-500/25 bg-green-950/10" :
-      row.agap_signal === "buy"        ? "border-green-500/12 bg-green-950/5" :
-      "border-white/5 bg-[#0d1610]/60"
+    <div className={`ag-glass !rounded-2xl overflow-hidden transition-all ${
+      row.agap_signal === "strong_buy" ? "!border-green-500/25" :
+      row.agap_signal === "buy"        ? "!border-green-500/[0.12]" :
+      ""
     }`}>
       <button onClick={onToggle} className="w-full flex items-stretch text-left hover:bg-white/[0.02] transition-colors">
         {/* Left signal bar */}
@@ -350,7 +351,7 @@ function LeaderboardRow({
         <div className="flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-3 flex-1 min-w-0">
           {/* Rank */}
           <div className="w-5 flex-shrink-0 text-center">
-            <span className={`text-xs font-black tabular-nums ${rank <= 3 ? "text-green-400" : "text-gray-600"}`}>{rank}</span>
+            <span className={`font-display text-xs font-bold tabular-nums ${rank <= 3 ? "text-emerald-400" : "text-gray-600"}`}>{rank}</span>
           </div>
 
           {/* Logo + name */}
@@ -370,7 +371,7 @@ function LeaderboardRow({
 
           {/* Locked + bars */}
           <div className="flex-1 min-w-0">
-            <div className="text-sm font-bold text-green-400 tabular-nums">
+            <div className="font-display text-sm font-semibold text-emerald-400 tabular-nums">
               {fmtAlpha(row.totalLockedAlpha, currency, taoPrice)}
             </div>
             {/* Conviction maturity bar */}
@@ -404,7 +405,7 @@ function LeaderboardRow({
 
           {/* aGap score */}
           <div className="hidden lg:flex flex-col items-center gap-0.5 flex-shrink-0 w-14">
-            <span className={`text-base font-black tabular-nums ${
+            <span className={`font-display text-base font-semibold tabular-nums ${
               row.agap_score != null && row.agap_score >= 70 ? "text-green-300" :
               row.agap_score != null && row.agap_score >= 50 ? "text-green-400" : "text-gray-400"
             }`}>{row.agap_score ?? "—"}</span>
@@ -413,7 +414,7 @@ function LeaderboardRow({
 
           {/* Invest score */}
           <div className="hidden lg:flex flex-col items-center gap-0.5 flex-shrink-0 w-14">
-            <span className={`text-base font-black tabular-nums ${
+            <span className={`font-display text-base font-semibold tabular-nums ${
               row.invest_score != null && row.invest_score >= 70 ? "text-purple-300" :
               row.invest_score != null && row.invest_score >= 50 ? "text-purple-400" : "text-gray-400"
             }`}>{row.invest_score ?? "—"}</span>
@@ -464,7 +465,7 @@ function LeaderboardRow({
               )}
               {row.whale_signal && (
                 <span className={row.whale_signal === "accumulating" ? "text-cyan-400 font-medium" : "text-orange-400 font-medium"}>
-                  🐋 Whales {row.whale_signal}
+                  <AgIcon name="whale" /> Whales {row.whale_signal}
                 </span>
               )}
               {row.emission_pct != null && (
@@ -484,7 +485,7 @@ function LeaderboardRow({
                 }}
                 className="flex-1 sm:flex-none text-center text-xs font-medium px-3 py-2 rounded-lg border border-purple-500/30 bg-purple-500/10 text-purple-400 hover:bg-purple-500/20 transition-colors"
               >
-                🔮 Ask Oracle
+                <AgIcon name="oracle" /> Ask Oracle
               </button>
             </div>
           </div>
@@ -505,16 +506,16 @@ function IntelligenceSidebar({ rows, events }: { rows: ConvictionRow[]; events: 
   return (
     <div className="space-y-4">
       {/* Intelligence panel */}
-      <div className="bg-[#0d1610] border border-green-500/12 rounded-2xl overflow-hidden">
+      <div className="ag-glass !border-green-500/[0.12] overflow-hidden">
         <div className="flex items-center gap-2 px-4 py-3 border-b border-white/5">
-          <span className="text-sm">🧠</span>
-          <span className="text-xs font-bold text-white">aGap Intelligence</span>
+          <span className="text-sm text-emerald-400"><AgIcon name="brain" /></span>
+          <span className="font-display text-xs font-semibold text-white">aGap Intelligence</span>
           <span className="ml-auto text-[9px] font-bold text-green-400 bg-green-500/10 border border-green-500/20 px-2 py-0.5 rounded-full uppercase tracking-widest">Exclusive</span>
         </div>
 
         {strongBuys.length > 0 && (
           <div className="px-4 py-3 border-b border-white/5">
-            <div className="text-[9px] font-bold text-green-400 uppercase tracking-widest mb-2.5">⚡ Strong Conviction</div>
+            <div className="text-[9px] font-bold text-green-400 uppercase tracking-widest mb-2.5"><AgIcon name="bolt" /> Strong Conviction</div>
             <div className="space-y-1.5">
               {strongBuys.slice(0, 4).map(r => (
                 <Link key={r.netuid} href={`/subnets/${r.netuid}`}
@@ -552,7 +553,7 @@ function IntelligenceSidebar({ rows, events }: { rows: ConvictionRow[]; events: 
 
         {whaleAligned.length > 0 && (
           <div className="px-4 py-3 border-b border-white/5">
-            <div className="text-[9px] font-bold text-cyan-400/80 uppercase tracking-widest mb-2.5">🐋 Whale + Conviction</div>
+            <div className="text-[9px] font-bold text-cyan-400/80 uppercase tracking-widest mb-2.5"><AgIcon name="whale" /> Whale + Conviction</div>
             <div className="space-y-1.5">
               {whaleAligned.slice(0, 3).map(r => (
                 <Link key={r.netuid} href={`/subnets/${r.netuid}`}
@@ -567,7 +568,7 @@ function IntelligenceSidebar({ rows, events }: { rows: ConvictionRow[]; events: 
 
         {highConvLowScore.length > 0 && (
           <div className="px-4 py-3">
-            <div className="text-[9px] font-bold text-yellow-400/70 uppercase tracking-widest mb-2.5">⚠ High Lock, Low Score</div>
+            <div className="text-[9px] font-bold text-yellow-400/70 uppercase tracking-widest mb-2.5"><AgIcon name="warning" /> High Lock, Low Score</div>
             <div className="space-y-1.5">
               {highConvLowScore.slice(0, 3).map(r => (
                 <Link key={r.netuid} href={`/subnets/${r.netuid}`}
@@ -587,10 +588,10 @@ function IntelligenceSidebar({ rows, events }: { rows: ConvictionRow[]; events: 
       </div>
 
       {/* Activity feed */}
-      <div className="bg-[#0d1610] border border-white/5 rounded-2xl overflow-hidden">
+      <div className="ag-glass overflow-hidden">
         <div className="flex items-center gap-2 px-4 py-3 border-b border-white/5">
-          <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse flex-shrink-0" />
-          <span className="text-xs font-bold text-white">Recent Activity</span>
+          <span className="ag-live-dot flex-shrink-0" />
+          <span className="font-display text-xs font-semibold text-white">Recent Activity</span>
         </div>
         <div className="divide-y divide-white/4 max-h-72 overflow-y-auto">
           {events.length === 0 ? (
@@ -651,9 +652,9 @@ export default function ConvictionPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#070d0a] flex items-center justify-center">
+      <div className="min-h-screen bg-[#07090b] ag-aurora flex items-center justify-center">
         <div className="text-center">
-          <div className="w-8 h-8 border-2 border-green-500/30 border-t-green-400 rounded-full animate-spin mx-auto mb-3" />
+          <div className="w-8 h-8 border-2 border-emerald-500/30 border-t-emerald-400 rounded-full animate-spin mx-auto mb-3" />
           <p className="text-gray-500 text-sm">Loading conviction data…</p>
         </div>
       </div>
@@ -662,7 +663,7 @@ export default function ConvictionPage() {
 
   if (error || !data) {
     return (
-      <div className="min-h-screen bg-[#070d0a] flex items-center justify-center">
+      <div className="min-h-screen bg-[#07090b] ag-aurora flex items-center justify-center">
         <div className="text-red-400 text-sm">{error ?? "No data"}</div>
       </div>
     );
@@ -672,40 +673,34 @@ export default function ConvictionPage() {
   const top5 = data.rows.slice(0, 5);
 
   return (
-    <div className="min-h-screen bg-[#070d0a] text-white">
+    <div className="min-h-screen bg-[#07090b] ag-aurora text-white">
 
       {/* ── Hero ─────────────────────────────────────────── */}
-      <div className="relative border-b border-white/5 overflow-hidden">
-        <div className="absolute top-0 left-1/3 w-96 h-32 bg-green-600/8 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute top-0 right-1/4 w-64 h-24 bg-purple-600/6 rounded-full blur-3xl pointer-events-none" />
-
-        <div className="relative px-4 md:px-12 py-6 max-w-screen-2xl mx-auto">
+      <div className="relative overflow-hidden">
+        <div className="relative px-4 md:px-12 pt-9 pb-6 max-w-screen-2xl mx-auto">
           {/* Title row — stacks on mobile */}
-          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-5">
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-3 mb-2">
-                <h1 className="text-2xl sm:text-3xl font-black bg-gradient-to-r from-green-400 via-emerald-300 to-white bg-clip-text text-transparent leading-tight">
-                  Conviction
+                <h1 className="font-display text-4xl font-semibold tracking-[-0.03em] leading-tight">
+                  Whale <span className="ag-gradient-text">Conviction</span>
                 </h1>
-                <span className="text-xs font-bold text-purple-400 bg-purple-500/10 border border-purple-500/20 px-2.5 py-1 rounded-full whitespace-nowrap">Intelligence</span>
+                <span className="ag-badge ag-badge-info !text-purple-300 !border-purple-500/25 !bg-purple-500/[0.07] whitespace-nowrap">Intelligence</span>
               </div>
-              <p className="text-sm text-gray-400 leading-relaxed max-w-lg">
+              <p className="text-[14.5px] text-gray-400 leading-relaxed max-w-xl">
                 Founders and investors lock α on-chain to signal long-term commitment. Conviction grows the longer it stays locked — cross-referenced with aGap scores to surface where smart money aligns with fundamentals.
               </p>
-              <p className="text-xs text-gray-600 mt-2">
-                BIT-0011 · Block #{data.observedAtBlock.toLocaleString()} · Data via SubnetRadar
-              </p>
+              <div className="flex items-center gap-2.5 mt-4 font-mono text-[11px] uppercase tracking-[0.08em] text-gray-500">
+                <span className="ag-live-dot flex-shrink-0" />
+                <span>BIT-0011 · BLOCK #{data.observedAtBlock.toLocaleString()} · DATA VIA SUBNETRADAR</span>
+              </div>
             </div>
 
             {/* Currency toggle — sits right on desktop, below text on mobile */}
-            <div className="flex items-center gap-0.5 bg-black/40 border border-white/8 rounded-xl p-1 self-start flex-shrink-0">
+            <div className="ag-pill-tabs self-start flex-shrink-0">
               {(["alpha", "usd"] as Currency[]).map(c => (
                 <button key={c} onClick={() => setCurrency(c)}
-                  className={`px-3 py-2 rounded-lg text-sm font-bold transition-all ${
-                    currency === c
-                      ? "bg-green-500/20 text-green-300 border border-green-500/30"
-                      : "text-gray-600 hover:text-gray-400"
-                  }`}>
+                  className={`ag-pill-tab !px-4 !py-2 !text-sm !font-semibold ${currency === c ? "ag-pill-tab-on" : ""}`}>
                   {c === "alpha" ? "α Alpha" : "$ USD"}
                 </button>
               ))}
@@ -721,7 +716,7 @@ export default function ConvictionPage() {
         {top5.length > 0 && (
           <div className="mb-8">
             <div className="flex items-center gap-3 mb-4">
-              <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Top 5 by conviction</span>
+              <span className="font-mono text-[11px] font-semibold text-gray-400 uppercase tracking-[0.16em]">Top 5 by conviction</span>
               <div className="flex-1 h-px bg-white/5" />
               <span className="hidden sm:block text-[10px] text-gray-600">ring = maturity · tap signal for reason</span>
             </div>
@@ -747,7 +742,7 @@ export default function ConvictionPage() {
           {/* ── Full leaderboard ───────────────────────── */}
           <div className="flex-1 min-w-0">
             <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-4">
-              <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Full leaderboard</span>
+              <span className="font-mono text-[11px] font-semibold text-gray-400 uppercase tracking-[0.16em]">Full leaderboard</span>
               <div className="hidden sm:block flex-1 h-px bg-white/5" />
               {/* Search — full width on mobile */}
               <div className="relative flex items-center w-full sm:w-auto">
@@ -757,7 +752,7 @@ export default function ConvictionPage() {
                 <input
                   type="text" value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
                   placeholder="Search subnet…"
-                  className="pl-8 pr-7 py-2 rounded-xl text-sm bg-[#0d1610] border border-white/8 text-gray-300 placeholder-gray-600 focus:outline-none focus:border-green-500/30 w-full sm:w-44"
+                  className="pl-8 pr-7 py-2 rounded-full text-sm bg-white/[0.035] border border-white/[0.08] backdrop-blur-md text-gray-300 placeholder-gray-600 focus:outline-none focus:border-emerald-500/40 w-full sm:w-44"
                 />
                 {searchQuery && (
                   <button onClick={() => setSearchQuery("")} className="absolute right-3 text-gray-600 hover:text-gray-400">
@@ -769,7 +764,7 @@ export default function ConvictionPage() {
             </div>
 
             {/* Column headers */}
-            <div className="hidden lg:flex items-center gap-3 pl-4 pr-4 mb-1.5 text-[9px] text-gray-700 uppercase tracking-widest">
+            <div className="hidden lg:flex items-center gap-3 pl-4 pr-4 mb-1.5 font-mono text-[9px] text-gray-600 uppercase tracking-[0.14em]">
               <div className="w-1 flex-shrink-0" />
               <div className="w-5 ml-3" />
               <div className="w-40">Subnet</div>

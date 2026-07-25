@@ -6,6 +6,7 @@ import { getAllSubnetRows, findBySlug, getSubnetDbInfo } from "@/lib/tao-pages-s
 import { computeLeaderboard } from "@/lib/signals";
 import { getSubnetDescription } from "@/lib/subnet-plain-english";
 import { SUBNET_LOGOS, subnetAvatarColor } from "@/lib/subnet-logos";
+import AgIcon, { type AgIconName } from "@/components/AgIcon";
 
 export const revalidate = 3600;
 
@@ -101,24 +102,24 @@ const SUBNET_TYPE_COLORS: Record<string, { pill: string; glow: string; border: s
 
 const DEFAULT_COLORS = { pill: "bg-gray-500/15 text-gray-300", glow: "shadow-gray-500/15", border: "border-gray-500/20", accent: "text-gray-400", iconBg: "bg-gray-500/10" };
 
-const CATEGORY_ICONS: Record<string, string> = {
-  "AI Infrastructure": "⚡", "Privacy AI": "🔐", "AI Model Evaluation": "🔬",
-  "GPU Compute": "🖥", "Prop Trading": "📈", "AI Dev Tools": "🤖",
-  "Computer Vision": "👁", "AI Model Training": "🧠", "Decentralized Cloud": "☁️",
-  "AutoML": "⚙️", "Drug Discovery AI": "💊", "3D Generative AI": "🎨",
+const CATEGORY_ICONS: Record<string, AgIconName> = {
+  "AI Infrastructure": "bolt", "Privacy AI": "lock", "AI Model Evaluation": "scope",
+  "GPU Compute": "signal", "Prop Trading": "trendUp", "AI Dev Tools": "robot",
+  "Computer Vision": "eye", "AI Model Training": "brain", "Decentralized Cloud": "globe",
+  "AutoML": "target", "Drug Discovery AI": "heart", "3D Generative AI": "gem",
 };
 
-const SUBNET_TYPE_ICONS: Record<string, string> = {
-  Inference: "⚡",
-  Training:  "🧠",
-  Compute:   "🖥",
-  Storage:   "☁️",
-  Agents:    "🤖",
-  Data:      "📊",
-  Finance:   "📈",
-  Science:   "🔬",
-  Creative:  "🎨",
-  Tools:     "🔧",
+const SUBNET_TYPE_ICONS: Record<string, AgIconName> = {
+  Inference: "bolt",
+  Training:  "brain",
+  Compute:   "signal",
+  Storage:   "globe",
+  Agents:    "robot",
+  Data:      "chart",
+  Finance:   "trendUp",
+  Science:   "scope",
+  Creative:  "gem",
+  Tools:     "target",
 };
 
 // Simple SVG score ring
@@ -144,7 +145,7 @@ function ScoreRing({ score, size = 100 }: { score: number; size?: number }) {
 
 function PageNav({ name }: { name: string }) {
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 backdrop-blur-xl bg-[#0a0a0f]/80 border-b border-white/5">
+    <nav className="fixed top-0 left-0 right-0 z-50 backdrop-blur-xl bg-[#07090b]/80 border-b border-white/[0.08]">
       <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Link href="https://www.alphagap.io" className="flex items-center">
@@ -160,7 +161,7 @@ function PageNav({ name }: { name: string }) {
         </div>
         <Link
           href="https://www.alphagap.io/subscribe"
-          className="px-5 py-2.5 bg-gradient-to-r from-green-500 to-emerald-600 text-black font-semibold rounded-lg hover:from-green-400 hover:to-emerald-500 transition-all shadow-lg shadow-green-500/20 text-sm"
+          className="px-5 py-2.5 bg-gradient-to-r from-green-500 to-emerald-600 text-black font-semibold rounded-full hover:from-green-400 hover:to-emerald-500 transition-all shadow-lg shadow-green-500/20 text-sm"
         >
           Get Access →
         </Link>
@@ -210,7 +211,7 @@ function MetricsCard({
 }) {
   if (mcap === 0 && compositeScore === 0) return null;
   return (
-    <div className={`shrink-0 bg-[#0d0d14] border ${colors.border} rounded-2xl p-6 min-w-[220px] shadow-xl ${colors.glow}`}>
+    <div className={`shrink-0 ag-glass p-6 min-w-[220px] shadow-xl ${colors.glow}`}>
       {compositeScore > 0 && (
         <div className="flex flex-col items-center mb-4">
           <ScoreRing score={compositeScore} size={96} />
@@ -264,10 +265,10 @@ function CtaSection({ name }: { name: string }) {
   return (
     <section className="py-24 px-6">
       <div className="max-w-3xl mx-auto text-center">
-        <h2 className="text-4xl sm:text-5xl font-bold mb-6">
+        <h2 className="font-display text-4xl sm:text-5xl font-semibold tracking-[-0.03em] mb-6">
           Want real-time intelligence
           <br />
-          <span className="text-green-400">on {name}?</span>
+          <span className="ag-gradient-text">on {name}?</span>
         </h2>
         <p className="text-gray-400 text-lg mb-10 max-w-xl mx-auto">
           AlphaGap tracks signals, whale flows, developer commits, and the aGap score
@@ -277,13 +278,13 @@ function CtaSection({ name }: { name: string }) {
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-8">
           <Link
             href="https://www.alphagap.io/powerrankings"
-            className="inline-flex px-10 py-5 bg-gradient-to-r from-green-500 to-emerald-600 text-black font-bold rounded-xl hover:from-green-400 hover:to-emerald-500 transition-all shadow-2xl shadow-green-500/30 text-xl"
+            className="inline-flex px-10 py-5 bg-gradient-to-r from-green-500 to-emerald-600 text-black font-bold rounded-full hover:from-green-400 hover:to-emerald-500 transition-all shadow-2xl shadow-green-500/30 text-xl"
           >
             Start for Free →
           </Link>
           <Link
             href="https://www.alphagap.io/subscribe"
-            className="inline-flex px-8 py-5 border border-green-500/30 text-green-400 hover:border-green-500/60 transition-all rounded-xl text-lg font-medium"
+            className="inline-flex px-8 py-5 border border-green-500/30 text-green-400 hover:border-green-500/60 transition-all rounded-full text-lg font-medium bg-white/[0.02] backdrop-blur-[14px]"
           >
             Explore Premium
           </Link>
@@ -301,8 +302,8 @@ function HowBittensorSection({ name, subnetType }: { name: string; subnetType: s
   return (
     <section className="py-20 px-6 bg-white/[0.01]">
       <div className="max-w-4xl mx-auto">
-        <h2 className="text-3xl sm:text-4xl font-bold text-center mb-4">
-          How does <span className="text-green-400">Bittensor</span> make this possible?
+        <h2 className="font-display text-3xl sm:text-4xl font-semibold tracking-[-0.02em] text-center mb-4">
+          How does <span className="ag-gradient-text">Bittensor</span> make this possible?
         </h2>
         <p className="text-gray-400 text-center max-w-xl mx-auto mb-16">
           {name} uses Bittensor&apos;s incentive layer to build something no single company could run alone.
@@ -335,7 +336,7 @@ function HowBittensorSection({ name, subnetType }: { name: string; subnetType: s
                 {item.step}
               </div>
               <div>
-                <h3 className="text-xl font-bold mb-2">{item.title}</h3>
+                <h3 className="font-display text-xl font-semibold mb-2">{item.title}</h3>
                 <p className="text-gray-400 leading-relaxed">{item.desc}</p>
               </div>
             </div>
@@ -368,17 +369,17 @@ function RelatedSubnets({
   return (
     <section className="py-16 px-6 bg-white/[0.01] border-t border-white/5">
       <div className="max-w-5xl mx-auto">
-        <h2 className="text-2xl font-bold mb-8 text-center">More TAO Pages</h2>
+        <h2 className="font-display text-2xl font-semibold tracking-[-0.02em] mb-8 text-center">More TAO Pages</h2>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
           {related.map((s) => {
             const logoUrl = SUBNET_LOGOS[s.netuid];
-            const icon = SUBNET_TYPE_ICONS[s.subnetType] ?? "🔷";
+            const icon = SUBNET_TYPE_ICONS[s.subnetType] ?? "gem";
             const tc = SUBNET_TYPE_COLORS[s.subnetType] ?? DEFAULT_COLORS;
             return (
               <Link
                 key={s.netuid}
                 href={`/taopages/${s.slug}`}
-                className={`group bg-[#0d0d14] border border-white/[0.06] hover:${tc.border} rounded-xl p-4 text-center transition-all hover:scale-[1.03]`}
+                className="group ag-glass ag-glass-hover !rounded-xl p-4 text-center"
               >
                 <div className={`w-10 h-10 mx-auto rounded-full flex items-center justify-center mb-2 group-hover:scale-110 transition-transform overflow-hidden ${logoUrl ? "bg-white/5" : subnetAvatarColor(s.netuid)}`}>
                   {logoUrl ? (
@@ -452,7 +453,7 @@ export default async function TaoPageDetail({ params }: { params: Promise<{ slug
   const icon =
     (richData ? CATEGORY_ICONS[richData.category] : null) ??
     SUBNET_TYPE_ICONS[subnetType] ??
-    "🔷";
+    "gem";
 
   // ── RICH PAGE (featured subnets) ─────────────────────────────────
   if (richData) {
@@ -462,7 +463,7 @@ export default async function TaoPageDetail({ params }: { params: Promise<{ slug
       .slice(0, 5);
 
     return (
-      <div className="min-h-screen bg-[#0a0a0f] text-white overflow-x-hidden">
+      <div className="min-h-screen bg-[#07090b] text-white overflow-x-hidden ag-aurora">
         <PageNav name={name} />
 
         {/* ── Hero ───────────────────────────────────────────────── */}
@@ -478,7 +479,7 @@ export default async function TaoPageDetail({ params }: { params: Promise<{ slug
           <div className="relative max-w-5xl mx-auto">
             <div className="flex flex-wrap items-center gap-2 mb-6">
               <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full border ${colors.border} ${colors.pill}`}>
-                <span className="text-base">{icon}</span> {richData.category}
+                <AgIcon name={icon} className="w-3.5 h-3.5" /> {richData.category}
               </span>
               <span className="text-xs font-mono text-gray-600 bg-white/5 px-2.5 py-1.5 rounded-full border border-white/8">
                 SN{netuid}
@@ -492,10 +493,10 @@ export default async function TaoPageDetail({ params }: { params: Promise<{ slug
 
             <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-8">
               <div className="max-w-2xl">
-                <h1 className="text-5xl sm:text-6xl md:text-7xl font-bold tracking-tight leading-[1.05] mb-5">
+                <h1 className="font-display text-5xl sm:text-6xl md:text-7xl font-semibold tracking-[-0.03em] leading-[1.05] mb-5">
                   {name}
                   <br />
-                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-emerald-300 text-4xl sm:text-5xl md:text-6xl">
+                  <span className="ag-gradient-text text-4xl sm:text-5xl md:text-6xl">
                     {richData.tagline}
                   </span>
                 </h1>
@@ -522,9 +523,9 @@ export default async function TaoPageDetail({ params }: { params: Promise<{ slug
         <section className="px-6 pb-16">
           <div className="max-w-5xl mx-auto">
             <div className="bg-gradient-to-r from-green-500/10 to-emerald-500/5 border border-green-500/20 rounded-2xl px-8 py-6 flex items-start gap-4">
-              <span className="text-3xl shrink-0 mt-0.5">💡</span>
+              <AgIcon name="bulb" className="w-7 h-7 text-yellow-400 shrink-0 mt-0.5" />
               <div>
-                <p className="text-xs font-semibold text-green-500 uppercase tracking-widest mb-2">The simplest explanation</p>
+                <p className="font-mono text-[11px] font-semibold text-emerald-400/80 uppercase tracking-[0.16em] mb-2">The simplest explanation</p>
                 <p className="text-lg sm:text-xl text-white font-medium leading-relaxed">
                   {desc.analogy}
                 </p>
@@ -536,24 +537,24 @@ export default async function TaoPageDetail({ params }: { params: Promise<{ slug
         {/* ── Three-column: Problem / What it does / Edge ────────── */}
         <section className="py-20 px-6 bg-white/[0.01]">
           <div className="max-w-5xl mx-auto">
-            <h2 className="text-3xl sm:text-4xl font-bold text-center mb-3">
-              Everything you need to <span className="text-green-400">understand {name}</span>
+            <h2 className="font-display text-3xl sm:text-4xl font-semibold tracking-[-0.02em] text-center mb-3">
+              Everything you need to <span className="ag-gradient-text">understand {name}</span>
             </h2>
             <p className="text-gray-500 text-center text-sm mb-12">No jargon. No whitepapers. Just the facts.</p>
             <div className="grid sm:grid-cols-3 gap-6">
-              <div className="bg-white/[0.03] border border-white/5 rounded-xl p-6 hover:border-amber-500/20 transition-colors">
-                <div className="w-12 h-12 rounded-xl bg-amber-500/10 flex items-center justify-center text-2xl mb-4">🎯</div>
-                <h3 className="font-bold text-lg mb-3 text-amber-300">The Problem</h3>
+              <div className="ag-glass p-6 hover:border-amber-500/20 transition-colors">
+                <div className="w-12 h-12 rounded-xl bg-amber-500/10 flex items-center justify-center mb-4"><AgIcon name="target" className="w-6 h-6 text-amber-400" /></div>
+                <h3 className="font-display font-semibold text-lg mb-3 text-amber-300">The Problem</h3>
                 <p className="text-gray-400 text-sm leading-relaxed">{richData.problem}</p>
               </div>
-              <div className="bg-white/[0.03] border border-white/5 rounded-xl p-6 hover:border-green-500/20 transition-colors">
-                <div className={`w-12 h-12 rounded-xl ${colors.iconBg} flex items-center justify-center text-2xl mb-4`}>{icon}</div>
-                <h3 className={`font-bold text-lg mb-3 ${colors.accent}`}>What {name} Does</h3>
+              <div className="ag-glass p-6 hover:border-green-500/20 transition-colors">
+                <div className={`w-12 h-12 rounded-xl ${colors.iconBg} flex items-center justify-center mb-4`}><AgIcon name={icon} className={`w-6 h-6 ${colors.accent}`} /></div>
+                <h3 className={`font-display font-semibold text-lg mb-3 ${colors.accent}`}>What {name} Does</h3>
                 <p className="text-gray-400 text-sm leading-relaxed">{desc.blurb}</p>
               </div>
-              <div className="bg-white/[0.03] border border-white/5 rounded-xl p-6 hover:border-blue-500/20 transition-colors">
-                <div className="w-12 h-12 rounded-xl bg-blue-500/10 flex items-center justify-center text-2xl mb-4">⚔️</div>
-                <h3 className="font-bold text-lg mb-3 text-blue-300">The Edge</h3>
+              <div className="ag-glass p-6 hover:border-blue-500/20 transition-colors">
+                <div className="w-12 h-12 rounded-xl bg-blue-500/10 flex items-center justify-center mb-4"><AgIcon name="shield" className="w-6 h-6 text-blue-400" /></div>
+                <h3 className="font-display font-semibold text-lg mb-3 text-blue-300">The Edge</h3>
                 <p className="text-gray-400 text-sm leading-relaxed">{richData.differentiator}</p>
               </div>
             </div>
@@ -563,14 +564,14 @@ export default async function TaoPageDetail({ params }: { params: Promise<{ slug
         {/* ── Mainstream comparison ───────────────────────────── */}
         <section className="py-20 px-6">
           <div className="max-w-5xl mx-auto">
-            <h2 className="text-3xl sm:text-4xl font-bold text-center mb-3">
-              What&apos;s the closest <span className="text-green-400">mainstream equivalent?</span>
+            <h2 className="font-display text-3xl sm:text-4xl font-semibold tracking-[-0.02em] text-center mb-3">
+              What&apos;s the closest <span className="ag-gradient-text">mainstream equivalent?</span>
             </h2>
             <p className="text-gray-500 text-center text-sm mb-12">The best way to understand a new technology is to compare it to something familiar.</p>
             <div className="grid sm:grid-cols-3 gap-6 items-center mb-12">
-              <div className="bg-white/[0.03] border border-white/5 rounded-xl p-6 text-center">
-                <div className="text-4xl mb-3">🏢</div>
-                <div className="text-xs text-gray-600 uppercase tracking-widest mb-2">Mainstream</div>
+              <div className="ag-glass p-6 text-center">
+                <div className="mb-3 flex justify-center"><AgIcon name="globe" className="w-9 h-9 text-gray-400" /></div>
+                <div className="font-mono text-[11px] text-gray-600 uppercase tracking-[0.16em] mb-2">Mainstream</div>
                 <div className="text-lg font-bold text-white">{richData.mainstream}</div>
                 <div className="mt-3 space-y-1.5 text-left">
                   {["Centralized & controlled", "Single company profit", "Terms can change anytime"].map((d) => (
@@ -585,14 +586,14 @@ export default async function TaoPageDetail({ params }: { params: Promise<{ slug
                   VS
                 </div>
               </div>
-              <div className={`bg-[#0d0d14] border ${colors.border} rounded-xl p-6 text-center shadow-lg`}>
-                <div className="text-4xl mb-3">{icon}</div>
-                <div className="text-xs text-gray-600 uppercase tracking-widest mb-2">Bittensor</div>
+              <div className={`ag-glass !rounded-xl border ${colors.border} p-6 text-center shadow-lg ${colors.glow}`}>
+                <div className="mb-3 flex justify-center"><AgIcon name={icon} className={`w-9 h-9 ${colors.accent}`} /></div>
+                <div className="font-mono text-[11px] text-gray-600 uppercase tracking-[0.16em] mb-2">Bittensor</div>
                 <div className={`text-lg font-bold ${colors.accent}`}>{name}</div>
                 <div className="mt-3 space-y-1.5 text-left">
                   {["Decentralized & open", "Rewards flow to miners", "No single point of failure"].map((d) => (
                     <div key={d} className="flex items-center gap-2 text-xs text-gray-400">
-                      <span className="text-green-400">✓</span> {d}
+                      <span className="ag-gradient-text">✓</span> {d}
                     </div>
                   ))}
                 </div>
@@ -607,8 +608,8 @@ export default async function TaoPageDetail({ params }: { params: Promise<{ slug
         {/* ── How Bittensor makes it work ───────────────────────── */}
         <section className="py-20 px-6 bg-white/[0.01]">
           <div className="max-w-4xl mx-auto">
-            <h2 className="text-3xl sm:text-4xl font-bold text-center mb-4">
-              How does <span className="text-green-400">Bittensor</span> make this possible?
+            <h2 className="font-display text-3xl sm:text-4xl font-semibold tracking-[-0.02em] text-center mb-4">
+              How does <span className="ag-gradient-text">Bittensor</span> make this possible?
             </h2>
             <p className="text-gray-400 text-center max-w-xl mx-auto mb-16">
               {name} uses Bittensor&apos;s incentive layer to build something no single company could run alone.
@@ -641,7 +642,7 @@ export default async function TaoPageDetail({ params }: { params: Promise<{ slug
                     {item.step}
                   </div>
                   <div>
-                    <h3 className="text-xl font-bold mb-2">{item.title}</h3>
+                    <h3 className="font-display text-xl font-semibold mb-2">{item.title}</h3>
                     <p className="text-gray-400 leading-relaxed">{item.desc}</p>
                   </div>
                 </div>
@@ -654,8 +655,8 @@ export default async function TaoPageDetail({ params }: { params: Promise<{ slug
         {compositeScore > 0 && (
           <section className="py-20 px-6">
             <div className="max-w-4xl mx-auto">
-              <h2 className="text-3xl sm:text-4xl font-bold text-center mb-4">
-                The <span className="text-green-400">aGap Score</span> for {name}
+              <h2 className="font-display text-3xl sm:text-4xl font-semibold tracking-[-0.02em] text-center mb-4">
+                The <span className="ag-gradient-text">aGap Score</span> for {name}
               </h2>
               <p className="text-gray-400 text-center max-w-xl mx-auto mb-12">
                 AlphaGap&apos;s proprietary composite score — how undervalued is this subnet right now?
@@ -668,7 +669,7 @@ export default async function TaoPageDetail({ params }: { params: Promise<{ slug
                   { label: "Dev", score: devScore, desc: "GitHub & development activity" },
                   { label: "Social", score: socialScore, desc: "Community & social buzz" },
                 ].map(({ label, score, desc: sdesc }) => (
-                  <div key={label} className="bg-[#0d0d14] border border-white/[0.06] rounded-xl p-5 text-center">
+                  <div key={label} className="ag-glass !rounded-xl p-5 text-center">
                     <div className="flex justify-center mb-2">
                       <ScoreRing score={score} size={72} />
                     </div>
@@ -688,8 +689,8 @@ export default async function TaoPageDetail({ params }: { params: Promise<{ slug
         {/* ── FAQ ─────────────────────────────────────────────── */}
         <section className="py-20 px-6 bg-white/[0.01]">
           <div className="max-w-3xl mx-auto">
-            <h2 className="text-3xl sm:text-4xl font-bold text-center mb-12">
-              Frequently Asked Questions about <span className="text-green-400">{name}</span>
+            <h2 className="font-display text-3xl sm:text-4xl font-semibold tracking-[-0.02em] text-center mb-12">
+              Frequently Asked Questions about <span className="ag-gradient-text">{name}</span>
             </h2>
             <div className="space-y-6">
               {[
@@ -728,17 +729,17 @@ export default async function TaoPageDetail({ params }: { params: Promise<{ slug
         {/* ── More TAO Pages ─────────────────────────────────── */}
         <section className="py-16 px-6 bg-white/[0.01] border-t border-white/5">
           <div className="max-w-5xl mx-auto">
-            <h2 className="text-2xl font-bold mb-8 text-center">More TAO Pages</h2>
+            <h2 className="font-display text-2xl font-semibold tracking-[-0.02em] mb-8 text-center">More TAO Pages</h2>
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
               {related.map((s) => {
                 const rLogoUrl = SUBNET_LOGOS[s.netuid];
-                const rIcon = SUBNET_TYPE_ICONS[s.subnetType] ?? "🔷";
+                const rIcon = SUBNET_TYPE_ICONS[s.subnetType] ?? "gem";
                 const rc = SUBNET_TYPE_COLORS[s.subnetType] ?? DEFAULT_COLORS;
                 return (
                   <Link
                     key={s.netuid}
                     href={`/taopages/${s.slug}`}
-                    className={`group bg-[#0d0d14] border border-white/[0.06] hover:border-opacity-50 ${rc.border} rounded-xl p-4 text-center transition-all hover:scale-[1.03]`}
+                    className="group ag-glass ag-glass-hover !rounded-xl p-4 text-center"
                   >
                     <div className={`w-10 h-10 mx-auto rounded-full flex items-center justify-center mb-2 group-hover:scale-110 transition-transform overflow-hidden ${rLogoUrl ? "bg-white/5" : subnetAvatarColor(s.netuid)}`}>
                       {rLogoUrl ? (
@@ -772,7 +773,7 @@ export default async function TaoPageDetail({ params }: { params: Promise<{ slug
   const tagline = desc.blurb;
 
   return (
-    <div className="min-h-screen bg-[#0a0a0f] text-white overflow-x-hidden">
+    <div className="min-h-screen bg-[#07090b] text-white overflow-x-hidden ag-aurora">
       <PageNav name={name} />
 
       {/* ── Hero ─────────────────────────────────────────────────── */}
@@ -789,7 +790,7 @@ export default async function TaoPageDetail({ params }: { params: Promise<{ slug
           {/* Top badges row */}
           <div className="flex flex-wrap items-center gap-2 mb-6">
             <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full border ${colors.border} ${colors.pill}`}>
-              <span className="text-base">{icon}</span> {subnetType}
+              <AgIcon name={icon} className="w-3.5 h-3.5" /> {subnetType}
             </span>
             <span className="text-xs font-mono text-gray-600 bg-white/5 px-2.5 py-1.5 rounded-full border border-white/8">
               SN{netuid}
@@ -814,10 +815,10 @@ export default async function TaoPageDetail({ params }: { params: Promise<{ slug
                   </span>
                 )}
               </div>
-              <h1 className="text-5xl sm:text-6xl md:text-7xl font-bold tracking-tight leading-[1.05] mb-5">
+              <h1 className="font-display text-5xl sm:text-6xl md:text-7xl font-semibold tracking-[-0.03em] leading-[1.05] mb-5">
                 {name}
                 <br />
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-emerald-300 text-4xl sm:text-5xl md:text-6xl">
+                <span className="ag-gradient-text text-4xl sm:text-5xl md:text-6xl">
                   {tagline}
                 </span>
               </h1>
@@ -842,9 +843,9 @@ export default async function TaoPageDetail({ params }: { params: Promise<{ slug
         <section className="px-6 pb-16">
           <div className="max-w-5xl mx-auto">
             <div className="bg-gradient-to-r from-green-500/10 to-emerald-500/5 border border-green-500/20 rounded-2xl px-8 py-6 flex items-start gap-4">
-              <span className="text-3xl shrink-0 mt-0.5">💡</span>
+              <AgIcon name="bulb" className="w-7 h-7 text-yellow-400 shrink-0 mt-0.5" />
               <div>
-                <p className="text-xs font-semibold text-green-500 uppercase tracking-widest mb-2">The simplest explanation</p>
+                <p className="font-mono text-[11px] font-semibold text-emerald-400/80 uppercase tracking-[0.16em] mb-2">The simplest explanation</p>
                 <p className="text-lg sm:text-xl text-white font-medium leading-relaxed">
                   {desc.analogy}
                 </p>
@@ -858,13 +859,13 @@ export default async function TaoPageDetail({ params }: { params: Promise<{ slug
       {(dbInfo?.description || dbInfo?.website || dbInfo?.github_url || dbInfo?.discord) && (
         <section className="py-20 px-6 bg-white/[0.01]">
           <div className="max-w-4xl mx-auto">
-            <h2 className="text-3xl sm:text-4xl font-bold mb-3">
-              What the team says about <span className="text-green-400">{name}</span>
+            <h2 className="font-display text-3xl sm:text-4xl font-semibold tracking-[-0.02em] mb-3">
+              What the team says about <span className="ag-gradient-text">{name}</span>
             </h2>
             <p className="text-gray-500 text-sm mb-8">From the official subnet registry on Bittensor.</p>
 
             {dbInfo.description && (
-              <div className="bg-[#0d0d14] border border-white/[0.06] rounded-2xl p-8 mb-6">
+              <div className="ag-glass p-8 mb-6">
                 <p className="text-gray-300 text-base leading-relaxed">{dbInfo.description}</p>
               </div>
             )}
@@ -876,9 +877,9 @@ export default async function TaoPageDetail({ params }: { params: Promise<{ slug
                   href={dbInfo.website}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-sm text-gray-300 hover:text-white hover:border-white/20 transition-all"
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-white/[0.035] border border-white/[0.08] rounded-full backdrop-blur-[14px] text-sm text-gray-300 hover:text-white hover:border-emerald-400/35 transition-all"
                 >
-                  <span>🌐</span>
+                  <AgIcon name="globe" className="w-4 h-4 text-green-400" />
                   Website
                 </a>
               )}
@@ -887,9 +888,9 @@ export default async function TaoPageDetail({ params }: { params: Promise<{ slug
                   href={dbInfo.github_url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-sm text-gray-300 hover:text-white hover:border-white/20 transition-all"
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-white/[0.035] border border-white/[0.08] rounded-full backdrop-blur-[14px] text-sm text-gray-300 hover:text-white hover:border-emerald-400/35 transition-all"
                 >
-                  <span>💻</span>
+                  <AgIcon name="doc" className="w-4 h-4 text-gray-400" />
                   GitHub
                 </a>
               )}
@@ -898,9 +899,9 @@ export default async function TaoPageDetail({ params }: { params: Promise<{ slug
                   href={dbInfo.discord}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-sm text-gray-300 hover:text-white hover:border-white/20 transition-all"
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-white/[0.035] border border-white/[0.08] rounded-full backdrop-blur-[14px] text-sm text-gray-300 hover:text-white hover:border-emerald-400/35 transition-all"
                 >
-                  <span>💬</span>
+                  <AgIcon name="chat" className="w-4 h-4 text-indigo-400" />
                   Discord
                 </a>
               )}
@@ -916,8 +917,8 @@ export default async function TaoPageDetail({ params }: { params: Promise<{ slug
       {compositeScore > 0 && (
         <section className="py-20 px-6">
           <div className="max-w-4xl mx-auto">
-            <h2 className="text-3xl sm:text-4xl font-bold text-center mb-4">
-              The <span className="text-green-400">aGap Score</span> for {name}
+            <h2 className="font-display text-3xl sm:text-4xl font-semibold tracking-[-0.02em] text-center mb-4">
+              The <span className="ag-gradient-text">aGap Score</span> for {name}
             </h2>
             <p className="text-gray-400 text-center max-w-xl mx-auto mb-12">
               AlphaGap&apos;s proprietary composite score — how undervalued is this subnet right now?
@@ -930,7 +931,7 @@ export default async function TaoPageDetail({ params }: { params: Promise<{ slug
                 { label: "Dev", score: devScore, desc: "GitHub & development activity" },
                 { label: "Social", score: socialScore, desc: "Community & social buzz" },
               ].map(({ label, score, desc: sdesc }) => (
-                <div key={label} className="bg-[#0d0d14] border border-white/[0.06] rounded-xl p-5 text-center">
+                <div key={label} className="ag-glass !rounded-xl p-5 text-center">
                   <div className="flex justify-center mb-2">
                     <ScoreRing score={score} size={72} />
                   </div>
@@ -950,8 +951,8 @@ export default async function TaoPageDetail({ params }: { params: Promise<{ slug
       {/* ── FAQ ──────────────────────────────────────────────────── */}
       <section className="py-20 px-6 bg-white/[0.01]">
         <div className="max-w-3xl mx-auto">
-          <h2 className="text-3xl sm:text-4xl font-bold text-center mb-12">
-            Frequently Asked Questions about <span className="text-green-400">{name}</span>
+          <h2 className="font-display text-3xl sm:text-4xl font-semibold tracking-[-0.02em] text-center mb-12">
+            Frequently Asked Questions about <span className="ag-gradient-text">{name}</span>
           </h2>
           <div className="space-y-6">
             {[

@@ -4,6 +4,7 @@ import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import Link from "next/link";
+import AgIcon from "@/components/AgIcon";
 
 export default function AccountPage() {
   const { data: session, status } = useSession();
@@ -27,8 +28,8 @@ export default function AccountPage() {
 
   if (status === "loading") {
     return (
-      <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center">
-        <div className="text-green-400 text-2xl animate-spin">⟳</div>
+      <div className="min-h-screen bg-[#07090b] ag-aurora flex items-center justify-center">
+        <div className="text-emerald-400 text-2xl animate-spin">⟳</div>
       </div>
     );
   }
@@ -128,13 +129,13 @@ export default function AccountPage() {
     active: { label: "Active", color: "text-green-400 bg-green-500/10 border-green-500/30" },
     trialing: { label: "Trial", color: "text-blue-400 bg-blue-500/10 border-blue-500/30" },
     past_due: { label: "Payment Past Due", color: "text-yellow-400 bg-yellow-500/10 border-yellow-500/30" },
-    canceled: { label: "Canceled", color: "text-gray-400 bg-gray-800 border-gray-700" },
-    none: { label: "No Subscription", color: "text-gray-400 bg-gray-800 border-gray-700" },
+    canceled: { label: "Canceled", color: "text-gray-400 bg-white/[0.05] border-white/[0.12]" },
+    none: { label: "No Subscription", color: "text-gray-400 bg-white/[0.05] border-white/[0.12]" },
   };
-  const statusConfig = statusConfigMap[subscriptionStatus as keyof typeof statusConfigMap] ?? { label: subscriptionStatus, color: "text-gray-400 bg-gray-800 border-gray-700" };
+  const statusConfig = statusConfigMap[subscriptionStatus as keyof typeof statusConfigMap] ?? { label: subscriptionStatus, color: "text-gray-400 bg-white/[0.05] border-white/[0.12]" };
 
   return (
-    <div className="min-h-screen bg-[#0a0a0f] px-4 py-12">
+    <div className="min-h-screen bg-[#07090b] ag-aurora px-4 py-12">
       <div className="max-w-lg mx-auto">
         {/* Nav */}
         <div className="flex items-center justify-between mb-10">
@@ -146,11 +147,11 @@ export default function AccountPage() {
           </Link>
         </div>
 
-        <h1 className="text-2xl font-bold text-white mb-8">Account Settings</h1>
+        <h1 className="font-display text-3xl font-semibold tracking-[-0.03em] text-white mb-8">Account Settings</h1>
 
         {/* Profile */}
-        <div className="bg-gray-900/60 border border-gray-800 rounded-2xl p-6 mb-4">
-          <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-4">Profile</h2>
+        <div className="ag-glass p-6 mb-4">
+          <h2 className="font-mono text-[11px] font-semibold text-gray-500 uppercase tracking-[0.16em] mb-4">Profile</h2>
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 rounded-full bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center text-black font-bold text-lg">
               {session?.user?.name?.[0]?.toUpperCase() ?? "?"}
@@ -163,8 +164,8 @@ export default function AccountPage() {
         </div>
 
         {/* Subscription */}
-        <div className="bg-gray-900/60 border border-gray-800 rounded-2xl p-6 mb-4">
-          <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-4">Subscription</h2>
+        <div className="ag-glass p-6 mb-4">
+          <h2 className="font-mono text-[11px] font-semibold text-gray-500 uppercase tracking-[0.16em] mb-4">Subscription</h2>
 
           <div className="flex items-center justify-between mb-4">
             <span className="text-gray-300 text-sm">Status</span>
@@ -177,23 +178,23 @@ export default function AccountPage() {
             <>
               <div className="flex items-center justify-between mb-4">
                 <span className="text-gray-300 text-sm">Plan</span>
-                <span className="text-white font-semibold">
+                <span className="font-display text-white font-semibold">
                   {isUltra ? "AlphaGap Ultra — $99/mo" : isPremium ? "AlphaGap Premium — $49/mo" : "AlphaGap Pro — $29/mo"}
                 </span>
               </div>
 
               {/* Upgrade to Premium (only shown for Pro users) */}
               {isPro && (
-                <div className="bg-purple-500/5 border border-purple-500/20 rounded-xl p-4 mb-4">
+                <div className="bg-white/[0.03] border border-emerald-500/20 rounded-2xl p-4 mb-4 backdrop-blur-[14px]">
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <div className="text-sm font-semibold text-purple-300 mb-1">Upgrade to Premium — $49/mo</div>
+                      <div className="text-sm font-semibold text-emerald-300 mb-1">Upgrade to Premium — $49/mo</div>
                       <div className="text-xs text-gray-500">Unlocks Whale Tracker, KOL Radar, Pump Lab, Discord Scanner & more</div>
                     </div>
                   </div>
                   <a
                     href="/checkout?plan=premium"
-                    className="mt-3 w-full inline-block text-center bg-gradient-to-r from-purple-500 to-violet-600 text-white font-bold rounded-lg py-2.5 text-sm hover:from-purple-400 hover:to-violet-500 transition-all shadow-lg shadow-purple-500/20"
+                    className="mt-3 w-full inline-block text-center bg-gradient-to-r from-green-500 to-emerald-600 text-black font-bold rounded-full py-2.5 text-sm hover:from-green-400 hover:to-emerald-500 transition-all shadow-lg shadow-green-500/20"
                   >
                     Upgrade to Premium →
                   </a>
@@ -202,7 +203,7 @@ export default function AccountPage() {
 
               {/* Upgrade to Ultra (only shown for Premium users) */}
               {isPremium && (
-                <div className="bg-amber-500/5 border border-amber-500/20 rounded-xl p-4 mb-4">
+                <div className="bg-white/[0.03] border border-amber-500/20 rounded-2xl p-4 mb-4 backdrop-blur-[14px]">
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <div className="text-sm font-semibold text-amber-300 mb-1">Upgrade to Ultra — $99/mo</div>
@@ -211,7 +212,7 @@ export default function AccountPage() {
                   </div>
                   <a
                     href="/checkout?plan=ultra"
-                    className="mt-3 w-full inline-block text-center bg-gradient-to-r from-amber-500 to-orange-500 text-black font-bold rounded-lg py-2.5 text-sm hover:from-amber-400 hover:to-orange-400 transition-all shadow-lg shadow-amber-500/20"
+                    className="mt-3 w-full inline-block text-center bg-gradient-to-r from-amber-500 to-orange-500 text-black font-bold rounded-full py-2.5 text-sm hover:from-amber-400 hover:to-orange-400 transition-all shadow-lg shadow-amber-500/20"
                   >
                     Upgrade to Ultra →
                   </a>
@@ -222,7 +223,7 @@ export default function AccountPage() {
               <button
                 onClick={openPortal}
                 disabled={portalLoading}
-                className="w-full bg-gray-800 hover:bg-gray-700 border border-gray-700 text-gray-200 rounded-lg py-2.5 text-sm font-medium transition-colors disabled:opacity-50"
+                className="w-full bg-white/[0.05] hover:bg-white/[0.08] border border-white/[0.12] text-gray-200 rounded-full py-2.5 text-sm font-medium transition-colors disabled:opacity-50 backdrop-blur-[14px]"
               >
                 {portalLoading ? "Opening…" : "Manage Billing & Invoices →"}
               </button>
@@ -232,17 +233,17 @@ export default function AccountPage() {
               )}
 
               {/* Cancel subscription */}
-              <div className="border-t border-gray-800 mt-5 pt-5">
+              <div className="border-t border-white/[0.08] mt-5 pt-5">
                 {discountApplied ? (
                   /* ── Discount claimed ── */
-                  <div className="bg-green-500/5 border border-green-500/20 rounded-lg px-4 py-4 text-center">
-                    <p className="text-lg mb-1">🎉</p>
+                  <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-2xl px-4 py-4 text-center">
+                    <p className="text-lg mb-1 flex justify-center text-green-400"><AgIcon name="star" /></p>
                     <p className="text-sm text-green-400 font-semibold">40% discount applied!</p>
                     <p className="text-xs text-gray-500 mt-1">Your next 3 invoices will be 40% off. Thanks for staying.</p>
                   </div>
                 ) : cancelDate ? (
                   /* ── Already cancelled ── */
-                  <div className="bg-yellow-500/5 border border-yellow-500/20 rounded-lg px-4 py-3 text-center">
+                  <div className="bg-yellow-500/5 border border-yellow-500/20 rounded-2xl px-4 py-3 text-center">
                     <p className="text-sm text-yellow-400 font-medium">Subscription cancelled</p>
                     <p className="text-xs text-gray-500 mt-1">
                       You&apos;ll keep full access until <span className="text-gray-300">{cancelDate}</span>
@@ -250,16 +251,16 @@ export default function AccountPage() {
                   </div>
                 ) : showSaveOffer ? (
                   /* ── Save offer ── */
-                  <div className="bg-gradient-to-b from-purple-950/40 to-gray-900/60 border border-purple-500/30 rounded-xl px-4 py-5">
-                    <p className="text-xs text-purple-400 font-semibold uppercase tracking-widest mb-2 text-center">Before you go</p>
-                    <p className="text-base font-bold text-white text-center mb-1">Get 40% off for 3 months</p>
+                  <div className="bg-white/[0.03] border border-emerald-500/30 rounded-2xl px-4 py-5 backdrop-blur-[14px]">
+                    <p className="font-mono text-[10.5px] text-emerald-400 font-semibold uppercase tracking-[0.16em] mb-2 text-center">Before you go</p>
+                    <p className="font-display text-base font-semibold text-white text-center mb-1">Get 40% off for 3 months</p>
                     <p className="text-xs text-gray-400 text-center mb-4">
                       Stay on AlphaGap at a discount — applied instantly to your next 3 invoices. No strings attached.
                     </p>
                     <button
                       onClick={claimDiscount}
                       disabled={discountLoading}
-                      className="w-full bg-gradient-to-r from-purple-500 to-violet-600 hover:from-purple-400 hover:to-violet-500 text-white font-bold rounded-lg py-2.5 text-sm transition-all shadow-lg shadow-purple-500/20 disabled:opacity-50 mb-2"
+                      className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-400 hover:to-emerald-500 text-black font-bold rounded-full py-2.5 text-sm transition-all shadow-lg shadow-green-500/20 disabled:opacity-50 mb-2"
                     >
                       {discountLoading ? "Applying…" : "Claim 40% off →"}
                     </button>
@@ -273,7 +274,7 @@ export default function AccountPage() {
                   </div>
                 ) : cancelConfirm ? (
                   /* ── Final cancel confirm ── */
-                  <div className="bg-red-500/5 border border-red-500/20 rounded-lg px-4 py-4">
+                  <div className="bg-red-500/5 border border-red-500/20 rounded-2xl px-4 py-4">
                     <p className="text-sm text-red-400 font-medium mb-1">Are you sure?</p>
                     <p className="text-xs text-gray-500 mb-4">
                       You&apos;ll keep access until your current billing period ends. This cannot be undone.
@@ -282,14 +283,14 @@ export default function AccountPage() {
                       <button
                         onClick={cancelSubscription}
                         disabled={cancelLoading}
-                        className="flex-1 bg-red-500/20 hover:bg-red-500/30 border border-red-500/30 text-red-400 rounded-lg py-2 text-sm font-medium transition-colors disabled:opacity-50"
+                        className="flex-1 bg-red-500/20 hover:bg-red-500/30 border border-red-500/30 text-red-400 rounded-full py-2 text-sm font-medium transition-colors disabled:opacity-50"
                       >
                         {cancelLoading ? "Cancelling…" : "Yes, cancel my subscription"}
                       </button>
                       <button
                         onClick={() => setCancelConfirm(false)}
                         disabled={cancelLoading}
-                        className="px-4 bg-gray-800 hover:bg-gray-700 border border-gray-700 text-gray-400 rounded-lg py-2 text-sm transition-colors"
+                        className="px-4 bg-white/[0.05] hover:bg-white/[0.08] border border-white/[0.12] text-gray-400 rounded-full py-2 text-sm transition-colors"
                       >
                         Keep it
                       </button>
@@ -313,13 +314,13 @@ export default function AccountPage() {
               </p>
               <a
                 href="/checkout?plan=premium"
-                className="w-full inline-block text-center bg-gradient-to-r from-purple-500 to-violet-600 text-white font-bold rounded-lg py-2.5 text-sm hover:from-purple-400 hover:to-violet-500 transition-all shadow-lg shadow-purple-500/20"
+                className="w-full inline-block text-center bg-gradient-to-r from-green-500 to-emerald-600 text-black font-bold rounded-full py-2.5 text-sm hover:from-green-400 hover:to-emerald-500 transition-all shadow-lg shadow-green-500/20"
               >
                 Get Premium — $49/mo →
               </a>
               <a
                 href="/checkout?plan=ultra"
-                className="w-full inline-block text-center mt-2 bg-gradient-to-r from-amber-500 to-orange-500 text-black font-bold rounded-lg py-2.5 text-sm hover:from-amber-400 hover:to-orange-400 transition-all shadow-lg shadow-amber-500/20"
+                className="w-full inline-block text-center mt-2 bg-gradient-to-r from-amber-500 to-orange-500 text-black font-bold rounded-full py-2.5 text-sm hover:from-amber-400 hover:to-orange-400 transition-all shadow-lg shadow-amber-500/20"
               >
                 Get Ultra — $99/mo →
               </a>
@@ -328,10 +329,10 @@ export default function AccountPage() {
         </div>
 
         {/* Security */}
-        <div className="bg-gray-900/60 border border-gray-800 rounded-2xl p-6 mb-4">
-          <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-4">Security</h2>
+        <div className="ag-glass p-6 mb-4">
+          <h2 className="font-mono text-[11px] font-semibold text-gray-500 uppercase tracking-[0.16em] mb-4">Security</h2>
           {resetSent ? (
-            <div className="bg-green-500/10 border border-green-500/20 rounded-lg px-4 py-3 text-green-400 text-sm text-center">
+            <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-2xl px-4 py-3 text-emerald-400 text-sm text-center">
               Password reset email sent — check your inbox.
             </div>
           ) : (
@@ -342,7 +343,7 @@ export default function AccountPage() {
               <button
                 onClick={sendPasswordReset}
                 disabled={resetLoading}
-                className="w-full bg-gray-800 hover:bg-gray-700 border border-gray-700 text-gray-200 rounded-lg py-2.5 text-sm font-medium transition-colors disabled:opacity-50"
+                className="w-full bg-white/[0.05] hover:bg-white/[0.08] border border-white/[0.12] text-gray-200 rounded-full py-2.5 text-sm font-medium transition-colors disabled:opacity-50 backdrop-blur-[14px]"
               >
                 {resetLoading ? "Sending…" : "Send Password Reset Email"}
               </button>
@@ -351,11 +352,11 @@ export default function AccountPage() {
         </div>
 
         {/* Sign out */}
-        <div className="bg-gray-900/60 border border-gray-800 rounded-2xl p-6">
-          <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-4">Session</h2>
+        <div className="ag-glass p-6">
+          <h2 className="font-mono text-[11px] font-semibold text-gray-500 uppercase tracking-[0.16em] mb-4">Session</h2>
           <button
             onClick={() => signOut({ callbackUrl: "/" })}
-            className="w-full bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 rounded-lg py-2.5 text-sm font-medium transition-colors"
+            className="w-full bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 rounded-full py-2.5 text-sm font-medium transition-colors"
           >
             Sign Out
           </button>

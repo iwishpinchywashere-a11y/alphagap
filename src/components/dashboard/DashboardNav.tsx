@@ -13,6 +13,7 @@ export default function DashboardNav() {
 
   const tabs = [
     { href: "/dashboard", label: "Alpha Leaderboard" },
+    { href: "/feeds", label: "The Feed" },
     { href: "/powerrankings", label: "Power Rankings" },
     { href: "/alphagapindex", label: "AlphaGap Index" },
     { href: "/oracle", label: "Oracle" },
@@ -46,22 +47,24 @@ export default function DashboardNav() {
   }, [open]);
 
   return (
-    <div ref={menuRef} className="relative border-b border-gray-800">
+    <div ref={menuRef} className="relative border-b border-white/[0.06] bg-[#07090b]/60">
       {/* Trigger bar */}
       <button
         data-tour="nav-trigger"
         onClick={() => setOpen(v => !v)}
-        className="flex items-center gap-2.5 w-full px-4 py-3 text-left hover:bg-gray-900/40 transition-colors"
+        className="flex items-center gap-3 w-full px-4 py-2.5 text-left hover:bg-white/[0.03] transition-colors"
       >
         {/* Hamburger icon */}
         <div className="flex flex-col gap-[4px] flex-shrink-0">
-          <span className={`block h-[2px] w-4 rounded-full transition-colors ${open ? "bg-green-400" : "bg-gray-500"}`} />
-          <span className={`block h-[2px] w-4 rounded-full transition-colors ${open ? "bg-green-400" : "bg-gray-500"}`} />
-          <span className={`block h-[2px] w-4 rounded-full transition-colors ${open ? "bg-green-400" : "bg-gray-500"}`} />
+          <span className={`block h-[2px] w-4 rounded-full transition-colors ${open ? "bg-emerald-400" : "bg-gray-500"}`} />
+          <span className={`block h-[2px] w-4 rounded-full transition-colors ${open ? "bg-emerald-400" : "bg-gray-500"}`} />
+          <span className={`block h-[2px] w-4 rounded-full transition-colors ${open ? "bg-emerald-400" : "bg-gray-500"}`} />
         </div>
 
-        {/* Current page name */}
-        <span className="text-sm font-medium text-green-400 flex-1">{activeTab.label}</span>
+        {/* Current page name — active pill */}
+        <span className="ag-pill-tabs flex-1 max-w-full">
+          <span className="ag-pill-tab ag-pill-tab-on inline-flex items-center">{activeTab.label}</span>
+        </span>
 
         {/* Chevron */}
         <svg
@@ -74,7 +77,7 @@ export default function DashboardNav() {
 
       {/* Expanded menu */}
       {open && (
-        <div className="absolute top-full left-0 right-0 z-50 bg-[#0a0a0f] border-b border-gray-800 shadow-xl">
+        <div className="absolute top-full left-0 right-0 z-50 bg-[#07090b]/95 backdrop-blur-xl border-b border-white/[0.08] shadow-2xl">
           {tabs.map((tab, i) => {
             const isActive = pathname === tab.href;
             return (
@@ -82,23 +85,23 @@ export default function DashboardNav() {
                 key={tab.href}
                 href={tab.href}
                 onClick={() => { setSelectedSubnet(null); setOpen(false); }}
-                className={`flex items-center justify-between px-4 py-3 text-sm transition-colors border-b border-gray-800/50 ${
+                className={`flex items-center justify-between px-4 py-3 text-sm transition-colors border-b border-white/[0.05] ${
                   tab.href === "/watchlist" ? "font-bold" : tab.href === "/oracle" || tab.href === "/alphagapindex" ? "font-semibold" : tab.href === "/alerts" ? "font-semibold" : "font-normal"
                 } ${
                   isActive
                     ? tab.href === "/watchlist" ? "text-blue-400 bg-blue-500/5"
-                      : tab.href === "/oracle" || tab.href === "/alphagapindex" ? "text-green-400 bg-green-500/5"
+                      : tab.href === "/oracle" || tab.href === "/alphagapindex" ? "text-emerald-400 bg-emerald-500/5"
                       : tab.href === "/alerts" ? "text-red-400 bg-red-500/5"
-                      : "text-green-400 bg-green-500/5"
-                    : tab.href === "/watchlist" ? "text-blue-400 hover:text-blue-300 hover:bg-blue-900/20"
-                      : tab.href === "/oracle" || tab.href === "/alphagapindex" ? "text-green-400 hover:text-green-300 hover:bg-green-900/20"
-                      : tab.href === "/alerts" ? "text-red-400 hover:text-red-300 hover:bg-red-900/20"
-                      : "text-gray-400 hover:text-white hover:bg-gray-900/60"
+                      : "text-emerald-400 bg-emerald-500/5"
+                    : tab.href === "/watchlist" ? "text-blue-400 hover:text-blue-300 hover:bg-blue-500/10"
+                      : tab.href === "/oracle" || tab.href === "/alphagapindex" ? "text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10"
+                      : tab.href === "/alerts" ? "text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                      : "text-gray-400 hover:text-white hover:bg-white/[0.04]"
                 } ${i === tabs.length - 1 ? "border-b-0" : ""}`}
               >
                 <span>{tab.label}</span>
                 {isActive && (
-                  <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${tab.href === "/watchlist" ? "bg-blue-400" : tab.href === "/alerts" ? "bg-red-400" : "bg-green-400"}`} />
+                  <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${tab.href === "/watchlist" ? "bg-blue-400" : tab.href === "/alerts" ? "bg-red-400" : "bg-emerald-400"}`} />
 
 
                 )}

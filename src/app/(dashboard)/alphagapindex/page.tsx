@@ -503,39 +503,37 @@ export default function AlphaGapIndexPage() {
   const liveApy = strategyData?.apy ?? null;
 
   return (
-    <main className="flex-1 overflow-auto bg-[#080810]">
+    <main className="flex-1 overflow-auto bg-[#07090b] text-white ag-aurora">
 
       {/* ── HERO ─────────────────────────────────────────────────────────── */}
       <section className="relative overflow-hidden border-b border-white/5">
-        <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse 80% 50% at 50% -10%, rgba(16,185,129,0.08) 0%, transparent 70%)" }} />
-        <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse 40% 60% at 80% 50%, rgba(245,158,11,0.04) 0%, transparent 60%)" }} />
         <div className="absolute inset-0 opacity-[0.018]" style={{ backgroundImage: "linear-gradient(rgba(255,255,255,1) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,1) 1px,transparent 1px)", backgroundSize: "40px 40px" }} />
 
         <div className="relative w-full px-6 md:px-16 lg:px-24 pt-12 pb-10 text-center flex flex-col items-center">
           <div className="flex flex-wrap justify-center gap-2 mb-8">
-            <span className="inline-flex items-center gap-1.5 text-[11px] font-bold tracking-widest uppercase px-3 py-1.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20">
+            <span className="inline-flex items-center gap-1.5 font-mono text-[10px] tracking-[0.14em] uppercase px-3.5 py-1.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/25 backdrop-blur-md">
               <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
               Ultra Exclusive
             </span>
-            <span className="inline-flex items-center gap-1.5 text-[11px] font-medium px-3 py-1.5 rounded-full bg-white/5 text-gray-400 border border-white/8">
+            <span className="ag-glass !rounded-full inline-flex items-center gap-1.5 font-mono text-[10px] tracking-[0.14em] uppercase px-3.5 py-1.5 text-gray-400">
               <IconShield className="w-3 h-3" /> Non-Custodial
             </span>
-            <span className="inline-flex items-center gap-1.5 text-[11px] font-medium px-3 py-1.5 rounded-full bg-white/5 text-gray-400 border border-white/8">
+            <span className="ag-glass !rounded-full inline-flex items-center gap-1.5 font-mono text-[10px] tracking-[0.14em] uppercase px-3.5 py-1.5 text-gray-400">
               <IconRefresh className="w-3 h-3" /> Weekly Rebalance
             </span>
-            <span className="inline-flex items-center gap-1.5 text-[11px] font-medium px-3 py-1.5 rounded-full bg-white/5 text-gray-400 border border-white/8">
+            <span className="ag-glass !rounded-full inline-flex items-center gap-1.5 font-mono text-[10px] tracking-[0.14em] uppercase px-3.5 py-1.5 text-gray-400">
               Powered by TrustedStake
             </span>
           </div>
 
-          <h1 className="text-6xl sm:text-7xl lg:text-8xl xl:text-9xl font-extrabold tracking-tight leading-[1.0] mb-6">
+          <h1 className="font-display text-5xl sm:text-6xl lg:text-7xl xl:text-8xl font-semibold tracking-[-0.03em] leading-[1.02] mb-6">
             <span className="block text-white">AlphaGap</span>
-            <span className="block bg-gradient-to-r from-emerald-300 via-green-400 to-emerald-500 bg-clip-text text-transparent">Subnet Index</span>
+            <span className="block ag-gradient-text">Subnet Index</span>
           </h1>
 
-          <p className="text-white text-2xl sm:text-3xl font-semibold max-w-4xl leading-snug mb-4">
+          <p className="font-display text-white text-2xl sm:text-3xl font-medium tracking-tight max-w-4xl leading-snug mb-4">
             Connect your wallet. Deploy your TAO.<br />
-            <span className="text-emerald-400">We do everything else.</span>
+            <span className="ag-gradient-text">We do everything else.</span>
           </p>
           <p className="text-gray-400 text-sm sm:text-base max-w-3xl leading-relaxed mb-8">
             aGap picks the top 10 subnets. TrustedStake auto-buys the tokens, manages the portfolio, and rebalances weekly. You sit back, collect APY, and let the formula do the work.
@@ -544,10 +542,10 @@ export default function AlphaGapIndexPage() {
           {/* ── Live stats pills ── */}
           {liveApy != null && (
             <div className="flex flex-wrap justify-center gap-3 mb-8">
-              <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+              <div className="ag-glass !rounded-full flex items-center gap-2 px-4 py-2 text-emerald-400">
                 <IconTrend className="w-4 h-4" />
-                <span className="font-bold text-sm tabular-nums">{liveApy.toFixed(2)}% APY</span>
-                <span className="text-emerald-600 text-xs">14d</span>
+                <span className="font-mono font-semibold text-sm tabular-nums">{liveApy.toFixed(2)}% APY</span>
+                <span className="font-mono text-emerald-600 text-[10px] uppercase tracking-[0.14em]">14d</span>
               </div>
             </div>
           )}
@@ -555,14 +553,14 @@ export default function AlphaGapIndexPage() {
           {/* 3-step visual */}
           <div className="flex flex-wrap justify-center items-center gap-3 mb-10">
             {[
-              { n: "1", label: "Connect wallet", icon: <IconShield className="w-4 h-4" />, color: "text-emerald-400 border-emerald-500/30 bg-emerald-500/10" },
-              { n: "2", label: "Deploy your TAO", icon: <IconZap className="w-4 h-4" />, color: "text-emerald-400 border-emerald-500/30 bg-emerald-500/10" },
-              { n: "3", label: "Collect APY & relax", icon: <IconTrend className="w-4 h-4" />, color: "text-emerald-400 border-emerald-500/30 bg-emerald-500/10" },
+              { n: "1", label: "Connect wallet", icon: <IconShield className="w-4 h-4" /> },
+              { n: "2", label: "Deploy your TAO", icon: <IconZap className="w-4 h-4" /> },
+              { n: "3", label: "Collect APY & relax", icon: <IconTrend className="w-4 h-4" /> },
             ].map((step, i) => (
               <React.Fragment key={step.n}>
-                <div className={`flex items-center gap-2.5 px-4 py-2.5 rounded-xl border ${step.color} font-semibold text-sm`}>
-                  {step.icon}
-                  <span className="text-white/50 text-xs font-bold">{step.n}</span>
+                <div className="ag-glass !rounded-full flex items-center gap-2.5 px-4 py-2.5 font-medium text-sm text-gray-200">
+                  <span className="text-emerald-400">{step.icon}</span>
+                  <span className="font-mono text-white/40 text-xs">{step.n}</span>
                   <span>{step.label}</span>
                 </div>
                 {i < 2 && <IconArrow className="w-4 h-4 text-gray-700 hidden sm:block" />}
@@ -610,7 +608,7 @@ export default function AlphaGapIndexPage() {
             </div>
           ) : (
             <div className="flex flex-col items-center gap-3 mb-8">
-              <div className="flex items-center gap-2 text-xs text-gray-400 border border-white/8 rounded-lg px-3 py-1.5">
+              <div className="ag-glass !rounded-full flex items-center gap-2 text-xs text-gray-400 px-3.5 py-1.5">
                 <IconWallet className="w-3.5 h-3.5" />
                 <span className="font-mono">{selectedAddress.slice(0, 10)}…{selectedAddress.slice(-6)}</span>
                 <button onClick={disconnectWallet} className="text-gray-600 hover:text-gray-400 ml-1 transition-colors"><IconX className="w-3.5 h-3.5" /></button>
@@ -623,9 +621,9 @@ export default function AlphaGapIndexPage() {
           {showAccountPicker && walletAccounts.length > 1 && (
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
               <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setShowAccountPicker(false)} />
-              <div className="relative z-10 w-full max-w-sm rounded-2xl border border-white/10 bg-[#0e0e1a] p-6 shadow-2xl">
+              <div className="relative z-10 w-full max-w-sm rounded-[20px] border border-white/10 bg-[#0b0e10] p-6 shadow-2xl">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="font-bold text-white text-lg">Select Account</h3>
+                  <h3 className="font-display font-semibold text-white text-lg">Select Account</h3>
                   <button onClick={() => setShowAccountPicker(false)} className="text-gray-500 hover:text-gray-300 transition-colors"><IconX className="w-4 h-4" /></button>
                 </div>
                 <div className="space-y-2">
@@ -655,7 +653,7 @@ export default function AlphaGapIndexPage() {
 
           <div className="flex items-center gap-4 w-full max-w-lg">
             <div className="h-px flex-1 bg-gradient-to-r from-transparent to-emerald-500/30" />
-            <span className="text-xs text-gray-500 font-medium tracking-widest uppercase whitespace-nowrap">Fundamental · Systematic · Non-custodial</span>
+            <span className="font-mono text-[10px] text-gray-500 tracking-[0.2em] uppercase whitespace-nowrap">Fundamental · Systematic · Non-custodial</span>
             <div className="h-px flex-1 bg-gradient-to-l from-transparent to-emerald-500/30" />
           </div>
         </div>
@@ -667,18 +665,18 @@ export default function AlphaGapIndexPage() {
         <section className="py-16 border-b border-white/5">
           <div className="flex flex-wrap items-end justify-between gap-4 mb-8">
             <div>
-              <p className="text-xs font-bold text-emerald-400/80 uppercase tracking-widest mb-2">Live Portfolio</p>
-              <h2 className="text-3xl font-black text-white">Current Index Holdings</h2>
+              <p className="font-mono text-[11px] text-emerald-400/80 uppercase tracking-[0.18em] mb-2">Live Portfolio</p>
+              <h2 className="font-display text-3xl font-semibold tracking-tight text-white">Current Index <span className="ag-gradient-text">Holdings</span></h2>
             </div>
             <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2 text-xs text-gray-400 border border-white/6 rounded-lg px-3 py-2">
+              <div className="ag-glass !rounded-full flex items-center gap-2 font-mono text-[11px] text-gray-400 px-4 py-2">
                 <IconRefresh className="w-3 h-3" />
                 Last rebalanced: <span className="text-gray-300 font-medium ml-1">{lastRebalancedLabel}</span>
               </div>
             </div>
           </div>
 
-          <div className="rounded-2xl border border-white/6 bg-white/[0.02] overflow-hidden relative">
+          <div className="ag-glass overflow-hidden relative">
             <div className="flex h-[3px] w-full">
               {holdings.map((h, i) => (
                 <div key={h.subnet.netuid} style={{ width: `${h.weight}%`, background: `hsl(${150 - i * 10}, 65%, ${52 - i * 1.5}%)` }} />
@@ -733,8 +731,8 @@ export default function AlphaGapIndexPage() {
                               </div>
                               <div className="flex items-center gap-2 mb-3">
                                 <span className="text-xs text-gray-500">aGap</span>
-                                <div className="flex-1 h-1.5 rounded-full bg-white/5 overflow-hidden">
-                                  <div className="h-full rounded-full bg-gradient-to-r from-emerald-600 to-emerald-400" style={{ width: `${h.score}%` }} />
+                                <div className="ag-scorebar flex-1 !h-1.5">
+                                  <i style={{ width: `${h.score}%` }} />
                                 </div>
                                 <span className={`text-xs font-bold tabular-nums ${scoreColor(h.score)}`}>{h.score}</span>
                               </div>
@@ -751,15 +749,15 @@ export default function AlphaGapIndexPage() {
                     <table className="w-full">
                       <thead>
                         <tr className="border-b border-white/5">
-                          <th className="px-6 py-4 text-left text-xs font-bold text-gray-400 uppercase tracking-wider w-10">#</th>
-                          <th className="px-4 py-4 text-left text-xs font-bold text-gray-400 uppercase tracking-wider">Subnet</th>
-                          <th className="px-4 py-4 text-left text-xs font-bold text-gray-400 uppercase tracking-wider hidden lg:table-cell">Category</th>
-                          <th className="px-4 py-4 text-right text-xs font-bold text-gray-400 uppercase tracking-wider">aGap</th>
-                          <th className="px-4 py-4 text-right text-xs font-bold text-gray-400 uppercase tracking-wider">Weight</th>
-                          <th className="px-4 py-4 text-right text-xs font-bold text-gray-400 uppercase tracking-wider">24h</th>
-                          <th className="px-4 py-4 text-right text-xs font-bold text-gray-400 uppercase tracking-wider hidden lg:table-cell">30d</th>
-                          <th className="px-4 py-4 text-right text-xs font-bold text-gray-400 uppercase tracking-wider hidden lg:table-cell">EM %</th>
-                          <th className="px-4 py-4 text-right text-xs font-bold text-gray-400 uppercase tracking-wider hidden lg:table-cell">APY</th>
+                          <th className="px-6 py-4 text-left font-mono text-[10.5px] font-medium text-gray-500 uppercase tracking-[0.16em] w-10">#</th>
+                          <th className="px-4 py-4 text-left font-mono text-[10.5px] font-medium text-gray-500 uppercase tracking-[0.16em]">Subnet</th>
+                          <th className="px-4 py-4 text-left font-mono text-[10.5px] font-medium text-gray-500 uppercase tracking-[0.16em] hidden lg:table-cell">Category</th>
+                          <th className="px-4 py-4 text-right font-mono text-[10.5px] font-medium text-gray-500 uppercase tracking-[0.16em]">aGap</th>
+                          <th className="px-4 py-4 text-right font-mono text-[10.5px] font-medium text-gray-500 uppercase tracking-[0.16em]">Weight</th>
+                          <th className="px-4 py-4 text-right font-mono text-[10.5px] font-medium text-gray-500 uppercase tracking-[0.16em]">24h</th>
+                          <th className="px-4 py-4 text-right font-mono text-[10.5px] font-medium text-gray-500 uppercase tracking-[0.16em] hidden lg:table-cell">30d</th>
+                          <th className="px-4 py-4 text-right font-mono text-[10.5px] font-medium text-gray-500 uppercase tracking-[0.16em] hidden lg:table-cell">EM %</th>
+                          <th className="px-4 py-4 text-right font-mono text-[10.5px] font-medium text-gray-500 uppercase tracking-[0.16em] hidden lg:table-cell">APY</th>
                           <th className="px-4 py-4 w-8"></th>
                         </tr>
                       </thead>
@@ -788,8 +786,8 @@ export default function AlphaGapIndexPage() {
                                 <td className="px-4 py-4 hidden lg:table-cell"><span className="text-xs text-gray-400 font-medium">{s.category ?? s.benchmark_category ?? "—"}</span></td>
                                 <td className="px-4 py-4 text-right">
                                   <div className="flex items-center justify-end gap-2">
-                                    <div className="w-14 h-1 rounded-full bg-white/5 overflow-hidden">
-                                      <div className="h-full rounded-full bg-gradient-to-r from-emerald-600 to-emerald-400" style={{ width: `${h.score}%` }} />
+                                    <div className="ag-scorebar w-14 !h-1">
+                                      <i style={{ width: `${h.score}%` }} />
                                     </div>
                                     <span className={`text-sm font-bold tabular-nums ${scoreColor(h.score)}`}>{h.score}</span>
                                   </div>
@@ -860,8 +858,8 @@ export default function AlphaGapIndexPage() {
 
         {/* ── JOIN THE INDEX (first occurrence — right under holdings) ────── */}
         <section id="join-section" className="py-16 border-b border-white/5">
-          <p className="text-xs font-bold text-emerald-400/80 uppercase tracking-widest mb-4">Delegation</p>
-          <h2 className="text-3xl sm:text-4xl font-black text-white mb-3">Deploy Your TAO</h2>
+          <p className="font-mono text-[11px] text-emerald-400/80 uppercase tracking-[0.18em] mb-4">Delegation</p>
+          <h2 className="font-display text-3xl sm:text-4xl font-semibold tracking-tight text-white mb-3">Deploy Your <span className="ag-gradient-text">TAO</span></h2>
           <p className="text-gray-400 text-base mb-8 max-w-2xl">
             {isUltra
               ? "Two steps to start earning. First, set up your wallet proxy (one-time, on-chain). Then join the strategy through our private invite link on TrustedStake — no TAO leaves your wallet."
@@ -875,9 +873,9 @@ export default function AlphaGapIndexPage() {
           )}
 
           {isUltra && !selectedAddress && (
-            <div className="rounded-2xl border border-white/8 bg-white/[0.02] p-8 flex flex-col sm:flex-row items-center justify-between gap-6">
+            <div className="ag-glass p-8 flex flex-col sm:flex-row items-center justify-between gap-6">
               <div>
-                <p className="font-bold text-white text-lg mb-1">Connect your wallet to get started</p>
+                <p className="font-display font-semibold text-white text-lg mb-1">Connect your wallet to get started</p>
                 <p className="text-gray-400 text-sm">Supports Talisman and SubWallet browser extensions.</p>
               </div>
               <button onClick={connectWallet} disabled={walletConnecting} className="flex-shrink-0 inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-emerald-400 to-green-400 hover:from-emerald-300 hover:to-green-300 disabled:opacity-60 disabled:cursor-not-allowed text-black font-bold text-sm rounded-xl transition-all shadow-lg shadow-emerald-500/20 active:scale-95">
@@ -887,7 +885,7 @@ export default function AlphaGapIndexPage() {
           )}
 
           {isUltra && selectedAddress && isMember && (
-            <div className="rounded-2xl border border-emerald-500/25 bg-emerald-500/5 p-8">
+            <div className="rounded-[20px] border border-emerald-500/25 bg-emerald-500/5 backdrop-blur-xl p-8">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div>
                   <div className="flex items-center gap-2 mb-2">
@@ -912,13 +910,13 @@ export default function AlphaGapIndexPage() {
 
           {isUltra && selectedAddress && !isMember && (
             <div className="space-y-4">
-              <div className={`rounded-2xl border p-6 transition-all ${proxyStep === "proxy-done" ? "border-emerald-500/25 bg-emerald-500/5 opacity-70" : proxyStep === "proxy-connecting" || proxyStep === "proxy-pending" ? "border-emerald-500/20 bg-emerald-500/5" : "border-white/8 bg-white/[0.02]"}`}>
+              <div className={`rounded-[20px] border p-6 backdrop-blur-xl transition-all ${proxyStep === "proxy-done" ? "border-emerald-500/25 bg-emerald-500/5 opacity-70" : proxyStep === "proxy-connecting" || proxyStep === "proxy-pending" ? "border-emerald-500/20 bg-emerald-500/5" : "border-white/[0.08] bg-white/[0.035]"}`}>
                 <div className="flex items-start gap-4">
                   <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 font-bold text-sm ${proxyStep === "proxy-done" ? "bg-emerald-500/20 text-emerald-400" : proxyStep === "proxy-connecting" || proxyStep === "proxy-pending" ? "bg-emerald-500/15 text-emerald-400" : "bg-white/5 text-gray-400"}`}>
                     {proxyStep === "proxy-done" ? <IconCheck className="w-4 h-4" /> : proxyStep === "proxy-connecting" || proxyStep === "proxy-pending" ? <IconLoader className="w-4 h-4 animate-spin" /> : "1"}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-bold text-white text-base mb-1">Authorise TrustedStake as Proxy</p>
+                    <p className="font-display font-semibold text-white text-base mb-1">Authorise TrustedStake as Proxy</p>
                     <p className="text-gray-400 text-sm mb-4">One-time on-chain transaction. Your wallet signs a message authorising TrustedStake to execute staking on your behalf — your TAO never moves without your instruction.</p>
                     {proxyStep === "idle" && <button onClick={handleSetupProxy} className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-emerald-500 to-green-500 hover:from-emerald-400 hover:to-green-400 text-black font-bold text-sm rounded-xl transition-all shadow-lg shadow-emerald-500/20 active:scale-95">Set Up Proxy <IconArrow className="w-3.5 h-3.5" /></button>}
                     {proxyStep === "proxy-connecting" && <p className="text-gray-400 text-sm flex items-center gap-2"><IconLoader className="w-4 h-4 animate-spin text-emerald-400" /> Connecting to Bittensor network…</p>}
@@ -928,13 +926,13 @@ export default function AlphaGapIndexPage() {
                   </div>
                 </div>
               </div>
-              <div className={`rounded-2xl border p-6 transition-all ${proxyStep !== "proxy-done" ? "border-white/5 bg-white/[0.01] opacity-40 pointer-events-none" : registerStep === "success" ? "border-emerald-500/25 bg-emerald-500/5" : "border-white/8 bg-white/[0.02]"}`}>
+              <div className={`rounded-[20px] border p-6 backdrop-blur-xl transition-all ${proxyStep !== "proxy-done" ? "border-white/5 bg-white/[0.01] opacity-40 pointer-events-none" : registerStep === "success" ? "border-emerald-500/25 bg-emerald-500/5" : "border-white/[0.08] bg-white/[0.035]"}`}>
                 <div className="flex items-start gap-4">
                   <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 font-bold text-sm ${registerStep === "success" ? "bg-emerald-500/20 text-emerald-400" : "bg-white/5 text-gray-400"}`}>
                     {registerStep === "success" ? <IconCheck className="w-4 h-4" /> : "2"}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-bold text-white text-base mb-1">Join via Private Invite</p>
+                    <p className="font-display font-semibold text-white text-base mb-1">Join via Private Invite</p>
                     <p className="text-gray-400 text-sm mb-4">The AlphaGap Index is a private strategy — access is invite-only through AlphaGap. Click below to open our invite on TrustedStake, connect this same wallet there, and confirm the join. We&apos;ll detect your membership automatically.</p>
                     <p className="text-xs text-gray-500 font-mono mb-4 break-all">Wallet: {selectedAddress}</p>
                     {registerStep === "success" ? (
@@ -969,11 +967,11 @@ export default function AlphaGapIndexPage() {
 
         {/* ── THE PROBLEM ─────────────────────────────────────────────────── */}
         <section className="py-16 border-b border-white/5">
-          <p className="text-xs font-bold text-emerald-400/80 uppercase tracking-widest mb-4">Why This Exists</p>
-          <h2 className="text-3xl sm:text-4xl font-black text-white leading-tight mb-8">
+          <p className="font-mono text-[11px] text-emerald-400/80 uppercase tracking-[0.18em] mb-4">Why This Exists</p>
+          <h2 className="font-display text-3xl sm:text-4xl font-semibold tracking-tight text-white leading-tight mb-8">
             128 subnets.<br />
             <span className="text-gray-500">One portfolio.</span><br />
-            Zero guesswork.
+            <span className="ag-gradient-text">Zero guesswork.</span>
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {[
@@ -981,10 +979,10 @@ export default function AlphaGapIndexPage() {
               { icon: <IconShield className="w-5 h-5" />, color: "text-amber-400 bg-amber-500/10 border-amber-500/20", title: "Too Much Complexity", desc: "Validator selection, dTAO mechanics, stake allocation — it takes 1,400+ hours to master." },
               { icon: <IconChart className="w-5 h-5" />, color: "text-blue-400 bg-blue-500/10 border-blue-500/20", title: "Impossible To React", desc: "The Bittensor ecosystem evolves faster than any human can track. Our AI scores every subnet in real time — so the index always reflects what's happening now, not last week." },
             ].map(p => (
-              <div key={p.title} className="flex gap-4 p-5 rounded-xl border border-white/5 bg-white/[0.02]">
+              <div key={p.title} className="ag-glass ag-glass-hover flex gap-4 p-5">
                 <div className={`w-10 h-10 rounded-xl border flex items-center justify-center flex-shrink-0 ${p.color}`}>{p.icon}</div>
                 <div>
-                  <div className="font-bold text-white text-lg mb-1">{p.title}</div>
+                  <div className="font-display font-semibold text-white text-lg mb-1">{p.title}</div>
                   <p className="text-base text-gray-400 leading-relaxed">{p.desc}</p>
                 </div>
               </div>
@@ -994,8 +992,8 @@ export default function AlphaGapIndexPage() {
 
         {/* ── APY SECTION ──────────────────────────────────────────────────── */}
         <section className="py-16 border-b border-white/5">
-          <p className="text-xs font-bold text-emerald-400/80 uppercase tracking-widest mb-4">The Yield</p>
-          <h2 className="text-3xl sm:text-4xl font-black text-white mb-3">APY compounds fast.<br /><span className="text-emerald-400">Really fast.</span></h2>
+          <p className="font-mono text-[11px] text-emerald-400/80 uppercase tracking-[0.18em] mb-4">The Yield</p>
+          <h2 className="font-display text-3xl sm:text-4xl font-semibold tracking-tight text-white mb-3">APY compounds fast.<br /><span className="ag-gradient-text">Really fast.</span></h2>
           <p className="text-gray-400 text-lg mb-10 max-w-2xl">Bittensor subnets pay out emissions continuously. When that yield is automatically reinvested — across 10 of the highest-performing subnets — it compounds in ways most TAO holders never experience.</p>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
@@ -1004,10 +1002,10 @@ export default function AlphaGapIndexPage() {
               { label: "10 TAO invested", apy: 30, years: 3, result: "~21.9 TAO", note: "at 30% APY, 3 years" },
               { label: "100 TAO invested", apy: 35, years: 5, result: "~452 TAO", note: "at 35% APY, 5 years" },
             ].map(c => (
-              <div key={c.label} className="p-6 rounded-2xl border border-emerald-500/15 bg-emerald-500/5 text-center">
-                <p className="text-gray-400 text-sm mb-2">{c.label}</p>
-                <p className="text-4xl font-black text-emerald-400 mb-1">{c.result}</p>
-                <p className="text-xs text-gray-500">{c.note}</p>
+              <div key={c.label} className="ag-glass ag-glass-hover p-6 text-center">
+                <p className="text-[10.5px] uppercase tracking-[0.16em] text-gray-500 mb-2.5">{c.label}</p>
+                <p className="font-display text-4xl font-semibold tracking-tight ag-gradient-text mb-1.5 tabular-nums">{c.result}</p>
+                <p className="font-mono text-[10.5px] text-gray-500">{c.note}</p>
               </div>
             ))}
           </div>
@@ -1018,10 +1016,10 @@ export default function AlphaGapIndexPage() {
               { icon: <IconRefresh className="w-5 h-5" />, color: "text-blue-400 bg-blue-500/10 border-blue-500/20", title: "Auto-compounded", desc: "Gain exposure to a curated basket of high-yielding alpha tokens — aGap's top picks — while earning sustainable, healthy yields that compound automatically across every position." },
               { icon: <IconDollar className="w-5 h-5" />, color: "text-amber-400 bg-amber-500/10 border-amber-500/20", title: "Spread across top 10", desc: "10 high-conviction subnets means your APY isn't riding on any single subnet's performance." },
             ].map(f => (
-              <div key={f.title} className="flex gap-4 p-5 rounded-xl border border-white/6 bg-white/[0.02]">
+              <div key={f.title} className="ag-glass ag-glass-hover flex gap-4 p-5">
                 <div className={`w-10 h-10 rounded-xl border flex items-center justify-center flex-shrink-0 ${f.color}`}>{f.icon}</div>
                 <div>
-                  <div className="font-bold text-white text-lg mb-1">{f.title}</div>
+                  <div className="font-display font-semibold text-white text-lg mb-1">{f.title}</div>
                   <p className="text-base text-gray-400">{f.desc}</p>
                 </div>
               </div>
@@ -1032,8 +1030,8 @@ export default function AlphaGapIndexPage() {
 
         {/* ── HOW IT WORKS ─────────────────────────────────────────────────── */}
         <section className="py-16 border-b border-white/5">
-          <p className="text-xs font-bold text-emerald-400/80 uppercase tracking-widest mb-4">The System</p>
-          <h2 className="text-3xl sm:text-4xl font-black text-white mb-10">How it works</h2>
+          <p className="font-mono text-[11px] text-emerald-400/80 uppercase tracking-[0.18em] mb-4">The System</p>
+          <h2 className="font-display text-3xl sm:text-4xl font-semibold tracking-tight text-white mb-10">How it <span className="ag-gradient-text">works</span></h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {[
               { n: "01", icon: <IconChart className="w-5 h-5" />, color: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20", title: "AlphaGap Watches All 128", body: "Live data across every subnet — benchmarks, whale flows, founder signals, emissions." },
@@ -1041,12 +1039,12 @@ export default function AlphaGapIndexPage() {
               { n: "03", icon: <IconTrend className="w-5 h-5" />, color: "text-violet-400 bg-violet-500/10 border-violet-500/20", title: "Top 10 Selected", body: "Weekly, the 10 highest-conviction subnets form the index. No emotion — only data." },
               { n: "04", icon: <IconZap className="w-5 h-5" />, color: "text-amber-400 bg-amber-500/10 border-amber-500/20", title: "TrustedStake Executes", body: "Your TAO is deployed and rebalanced automatically. Yield compounded. You do nothing." },
             ].map(s => (
-              <div key={s.n} className="relative p-5 rounded-2xl border border-white/6 bg-white/[0.025] hover:bg-white/[0.04] transition-all">
+              <div key={s.n} className="ag-glass ag-glass-hover relative p-5">
                 <div className="flex items-center justify-between mb-4">
                   <div className={`w-10 h-10 rounded-xl border flex items-center justify-center ${s.color}`}>{s.icon}</div>
-                  <span className="text-sm font-black text-white/20 tabular-nums">{s.n}</span>
+                  <span className="font-mono text-xs text-white/25 tabular-nums">{s.n}</span>
                 </div>
-                <div className="font-bold text-white text-lg mb-2">{s.title}</div>
+                <div className="font-display font-semibold text-white text-lg mb-2">{s.title}</div>
                 <p className="text-base text-gray-400 leading-relaxed">{s.body}</p>
               </div>
             ))}
@@ -1055,8 +1053,8 @@ export default function AlphaGapIndexPage() {
 
         {/* ── aGAP METHODOLOGY ─────────────────────────────────────────────── */}
         <section className="py-16 border-b border-white/5">
-          <p className="text-xs font-bold text-emerald-400/80 uppercase tracking-widest mb-4">The Formula</p>
-          <h2 className="text-3xl sm:text-4xl font-black text-white mb-3">aGap Investing Methodology</h2>
+          <p className="font-mono text-[11px] text-emerald-400/80 uppercase tracking-[0.18em] mb-4">The Formula</p>
+          <h2 className="font-display text-3xl sm:text-4xl font-semibold tracking-tight text-white mb-3">aGap Investing <span className="ag-gradient-text">Methodology</span></h2>
           <p className="text-gray-400 text-lg mb-10 max-w-2xl">Built for long-term investing — not trading. We back subnets with real products, real customers, and real teams.</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {[
@@ -1065,10 +1063,10 @@ export default function AlphaGapIndexPage() {
               { icon: <IconTrend className="w-5 h-5" />, color: "text-blue-400 bg-blue-500/10 border-blue-500/20", label: "On-Chain Signals", detail: "Whale accumulation, stake velocity, and validator confidence — before narratives catch up." },
               { icon: <IconUsers className="w-5 h-5" />, color: "text-violet-400 bg-violet-500/10 border-violet-500/20", label: "Team & Execution", detail: "Shipping cadence, founder track record, and real community health." },
             ].map(f => (
-              <div key={f.label} className="flex gap-4 p-5 rounded-xl border border-white/6 bg-white/[0.02] hover:bg-white/[0.04] transition-colors">
+              <div key={f.label} className="ag-glass ag-glass-hover flex gap-4 p-5">
                 <div className={`w-10 h-10 rounded-xl border flex items-center justify-center flex-shrink-0 ${f.color}`}>{f.icon}</div>
                 <div>
-                  <div className="font-bold text-white text-lg mb-1">{f.label}</div>
+                  <div className="font-display font-semibold text-white text-lg mb-1">{f.label}</div>
                   <p className="text-base text-gray-400 leading-relaxed">{f.detail}</p>
                 </div>
               </div>
@@ -1078,8 +1076,8 @@ export default function AlphaGapIndexPage() {
 
         {/* ── TRUSTEDSTAKE ─────────────────────────────────────────────────── */}
         <section className="py-16 border-b border-white/5">
-          <p className="text-xs font-bold text-emerald-400/80 uppercase tracking-widest mb-4">Our Partner</p>
-          <h2 className="text-3xl sm:text-4xl font-black text-white mb-3">TrustedStake Infrastructure</h2>
+          <p className="font-mono text-[11px] text-emerald-400/80 uppercase tracking-[0.18em] mb-4">Our Partner</p>
+          <h2 className="font-display text-3xl sm:text-4xl font-semibold tracking-tight text-white mb-3">TrustedStake <span className="ag-gradient-text">Infrastructure</span></h2>
           <p className="text-gray-400 text-lg mb-10 max-w-2xl">Non-custodial enterprise staking for Bittensor. Trusted by Kraken Institutional, Talisman, and SubWallet.
             <a href="https://trustedstake.ai" target="_blank" rel="noopener noreferrer" className="ml-2 text-emerald-400 hover:text-emerald-300 transition-colors">trustedstake.ai →</a>
           </p>
@@ -1092,10 +1090,10 @@ export default function AlphaGapIndexPage() {
               { icon: <IconTarget className="w-5 h-5" />, color: "text-cyan-400 bg-cyan-500/10 border-cyan-500/20", title: "Best Validators", desc: "Continuous monitoring picks the highest-yielding validators per subnet." },
               { icon: <IconGlobe className="w-5 h-5" />, color: "text-rose-400 bg-rose-500/10 border-rose-500/20", title: "Enterprise Security", desc: "Same standards as their Kraken Institutional partnership." },
             ].map(f => (
-              <div key={f.title} className="flex gap-4 p-5 rounded-xl border border-white/6 bg-white/[0.02] hover:bg-white/[0.04] transition-colors">
+              <div key={f.title} className="ag-glass ag-glass-hover flex gap-4 p-5">
                 <div className={`w-10 h-10 rounded-xl border flex items-center justify-center flex-shrink-0 ${f.color}`}>{f.icon}</div>
                 <div>
-                  <div className="font-bold text-white text-lg mb-1">{f.title}</div>
+                  <div className="font-display font-semibold text-white text-lg mb-1">{f.title}</div>
                   <p className="text-base text-gray-400">{f.desc}</p>
                 </div>
               </div>
@@ -1105,12 +1103,12 @@ export default function AlphaGapIndexPage() {
 
         {/* ── JOIN THE INDEX (second occurrence — compact mid-page CTA) ──── */}
         <section className="py-16 border-b border-white/5">
-          <div className="relative rounded-2xl overflow-hidden border border-emerald-500/20 p-8 md:p-10" style={{ background: "radial-gradient(ellipse 80% 80% at 50% 0%, rgba(16,185,129,0.07) 0%, transparent 60%)" }}>
+          <div className="relative rounded-[20px] overflow-hidden border border-emerald-500/20 backdrop-blur-xl p-8 md:p-10" style={{ background: "radial-gradient(ellipse 80% 80% at 50% 0%, rgba(52,211,153,0.08) 0%, rgba(255,255,255,0.03) 60%)" }}>
             <div className="absolute inset-0 opacity-[0.015]" style={{ backgroundImage: "linear-gradient(rgba(255,255,255,1) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,1) 1px,transparent 1px)", backgroundSize: "30px 30px" }} />
             <div className="relative flex flex-col md:flex-row items-center justify-between gap-8">
               <div>
-                <p className="text-xs font-bold text-emerald-400/80 uppercase tracking-widest mb-3">Start Earning</p>
-                <h2 className="text-3xl font-black text-white mb-2">Ready to deploy your TAO?</h2>
+                <p className="font-mono text-[11px] text-emerald-400/80 uppercase tracking-[0.18em] mb-3">Start Earning</p>
+                <h2 className="font-display text-3xl font-semibold tracking-tight text-white mb-2">Ready to deploy your <span className="ag-gradient-text">TAO</span>?</h2>
                 <p className="text-gray-400 text-base max-w-md">Connect your wallet and join the AlphaGap Index — aGap picks the top 10, TrustedStake handles everything else.</p>
               </div>
               <div className="flex-shrink-0">
@@ -1139,12 +1137,12 @@ export default function AlphaGapIndexPage() {
 
         {/* ── ORACLE SECTION ───────────────────────────────────────────────── */}
         <section className="py-16 border-b border-white/5">
-          <div className="relative rounded-2xl overflow-hidden border border-emerald-500/15 p-8 md:p-12" style={{ background: "radial-gradient(ellipse 80% 80% at 0% 50%, rgba(16,185,129,0.06) 0%, transparent 60%)" }}>
+          <div className="relative rounded-[20px] overflow-hidden border border-emerald-500/15 backdrop-blur-xl p-8 md:p-12" style={{ background: "radial-gradient(ellipse 80% 80% at 0% 50%, rgba(52,211,153,0.07) 0%, rgba(255,255,255,0.03) 60%)" }}>
             <div className="absolute top-0 right-0 w-48 h-48 bg-emerald-500/5 rounded-full blur-3xl pointer-events-none" />
             <div className="relative flex flex-col md:flex-row gap-8 items-center justify-between">
               <div>
-                <p className="text-xs font-bold text-emerald-400/80 uppercase tracking-widest mb-4">Intelligence Layer</p>
-                <h2 className="text-3xl sm:text-4xl font-black text-white mb-3">AlphaGap watches.<br />The Index acts.</h2>
+                <p className="font-mono text-[11px] text-emerald-400/80 uppercase tracking-[0.18em] mb-4">Intelligence Layer</p>
+                <h2 className="font-display text-3xl sm:text-4xl font-semibold tracking-tight text-white mb-3">AlphaGap watches.<br />The Index <span className="ag-gradient-text">acts</span>.</h2>
                 <p className="text-gray-400 text-lg mb-6 max-w-lg">Scores stay current between rebalances — live data, whale movements, founder signals, benchmark updates. Not a spreadsheet.</p>
                 <a href="/oracle" className="inline-flex items-center gap-2 px-6 py-3 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/25 text-emerald-400 text-base font-semibold rounded-xl transition-colors">
                   Ask the Oracle <IconArrow className="w-4 h-4" />
@@ -1156,8 +1154,8 @@ export default function AlphaGapIndexPage() {
 
         {/* ── FAQ ──────────────────────────────────────────────────────────── */}
         <section className="py-16 border-b border-white/5">
-          <p className="text-xs font-bold text-emerald-400/80 uppercase tracking-widest mb-4 text-center">Questions</p>
-          <h2 className="text-3xl sm:text-4xl font-black text-white mb-8 text-center">Common questions</h2>
+          <p className="font-mono text-[11px] text-emerald-400/80 uppercase tracking-[0.18em] mb-4 text-center">Questions</p>
+          <h2 className="font-display text-3xl sm:text-4xl font-semibold tracking-tight text-white mb-8 text-center">Common <span className="ag-gradient-text">questions</span></h2>
           <div className="space-y-2 max-w-3xl mx-auto">
             {[
               { q: "Is my TAO safe?", a: "Yes. Non-custodial — your TAO never leaves your wallet. TrustedStake only executes delegations on your behalf via a proxy you control." },
@@ -1167,12 +1165,12 @@ export default function AlphaGapIndexPage() {
               { q: "What is a proxy address?", a: "A TrustedStake proxy is a Bittensor account you authorize to move stake on your behalf. You set it up once in the TrustedStake app, and it allows automated rebalancing without needing your signature every time." },
               { q: "How do I leave the strategy?", a: "Click 'Leave Strategy' in the delegation section above. Your TAO stays in your wallet — you're just unregistering from the automated strategy." },
             ].map((faq, i) => (
-              <div key={faq.q} className="rounded-xl border border-white/6 overflow-hidden">
+              <div key={faq.q} className="ag-glass !rounded-2xl overflow-hidden">
                 <button
                   className="w-full flex items-center justify-between gap-4 px-5 py-4 text-left hover:bg-white/[0.02] transition-colors"
                   onClick={() => setExpandedFaq(expandedFaq === i ? null : i)}
                 >
-                  <span className="font-semibold text-white text-base">{faq.q}</span>
+                  <span className="font-display font-semibold text-white text-base">{faq.q}</span>
                   <IconChevron className={`w-4 h-4 text-gray-600 flex-shrink-0 transition-transform ${expandedFaq === i ? "rotate-180" : ""}`} />
                 </button>
                 {expandedFaq === i && (
@@ -1187,7 +1185,7 @@ export default function AlphaGapIndexPage() {
 
         {/* ── CTA ──────────────────────────────────────────────────────────── */}
         <section className="py-16">
-          <div className="relative rounded-2xl overflow-hidden border border-amber-500/20 p-10 text-center" style={{ background: "radial-gradient(ellipse 80% 80% at 50% 0%, rgba(245,158,11,0.07) 0%, transparent 60%)" }}>
+          <div className="relative rounded-[20px] overflow-hidden border border-amber-500/20 backdrop-blur-xl p-10 text-center" style={{ background: "radial-gradient(ellipse 80% 80% at 50% 0%, rgba(245,158,11,0.07) 0%, rgba(255,255,255,0.03) 60%)" }}>
             <div className="absolute inset-0 opacity-[0.015]" style={{ backgroundImage: "linear-gradient(rgba(255,255,255,1) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,1) 1px,transparent 1px)", backgroundSize: "30px 30px" }} />
             <div className="relative">
               <div className="w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mx-auto mb-6">
@@ -1195,7 +1193,7 @@ export default function AlphaGapIndexPage() {
               </div>
               {isUltra ? (
                 <>
-                  <h2 className="text-3xl font-black text-white mb-3">You&apos;re ready to deploy</h2>
+                  <h2 className="font-display text-3xl font-semibold tracking-tight text-white mb-3">You&apos;re ready to deploy</h2>
                   <p className="text-gray-500 text-sm mb-7 max-w-md mx-auto leading-relaxed">
                     {isMember
                       ? "Your wallet is registered with the AlphaGap Subnet Index. Sit back — TrustedStake handles everything from here."
@@ -1216,7 +1214,7 @@ export default function AlphaGapIndexPage() {
                 </>
               ) : (
                 <>
-                  <h2 className="text-3xl font-black text-white mb-3">Unlock the Index</h2>
+                  <h2 className="font-display text-3xl font-semibold tracking-tight text-white mb-3">Unlock the Index</h2>
                   <p className="text-gray-500 text-sm mb-7 max-w-md mx-auto leading-relaxed">The AlphaGap Subnet Index is exclusive to Ultra. Upgrade for live holdings, portfolio deploy, and 20 Oracle queries per day.</p>
                   <a href="/pricing" className="inline-block bg-gradient-to-r from-amber-400 to-orange-400 hover:from-amber-300 hover:to-orange-300 text-black text-sm font-bold px-8 py-3.5 rounded-xl transition-all shadow-lg shadow-amber-500/20 active:scale-95">
                     Upgrade to Ultra →

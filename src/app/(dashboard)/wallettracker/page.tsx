@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import React from "react";
 import { useSession } from "next-auth/react";
 import SubnetLogo from "@/components/dashboard/SubnetLogo";
+import AgIcon, { type AgIconName } from "@/components/AgIcon";
 import { getTier, canAccessPremium } from "@/lib/subscription";
 
 // ── Types ─────────────────────────────────────────────────────────
@@ -117,8 +118,8 @@ function AddWalletInput({ fromTab }: { fromTab: string }) {
       <div className="flex items-center gap-2">
         <div className="relative flex-1 max-w-2xl group">
           {/* glow ring on focus */}
-          <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-green-500/20 via-emerald-500/20 to-cyan-500/20 opacity-0 group-focus-within:opacity-100 blur-sm transition-opacity duration-300 pointer-events-none" />
-          <div className="relative flex items-center bg-gray-950/80 border border-gray-700/60 rounded-xl overflow-hidden focus-within:border-green-500/50 transition-colors">
+          <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-emerald-500/20 via-emerald-400/20 to-cyan-500/20 opacity-0 group-focus-within:opacity-100 blur-sm transition-opacity duration-300 pointer-events-none" />
+          <div className="relative flex items-center bg-white/[0.035] border border-white/[0.08] backdrop-blur-md rounded-2xl overflow-hidden focus-within:border-emerald-500/40 transition-colors">
             <span className="pl-3 text-gray-600 flex-shrink-0">
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -136,7 +137,7 @@ function AddWalletInput({ fromTab }: { fromTab: string }) {
             <button
               onClick={handleGo}
               disabled={!value.trim()}
-              className="flex items-center gap-1.5 px-4 py-2.5 bg-green-500/20 hover:bg-green-500/30 text-green-300 border-l border-gray-700/60 text-xs font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0"
+              className="flex items-center gap-1.5 px-4 py-2.5 bg-gradient-to-b from-emerald-500/25 to-emerald-500/10 hover:from-emerald-500/35 hover:to-emerald-500/15 text-emerald-300 border-l border-white/[0.08] text-xs font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0"
             >
               <span className="hidden sm:inline">View</span>
               <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -239,7 +240,7 @@ function AlertSettingsPanel({ trackedWallets }: { trackedWallets: string[] }) {
   const isDirty = enabled !== prefs.walletTracker.enabled || minUsd !== prefs.walletTracker.minUsdAmount;
 
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-gray-800/60 bg-gray-950/70 backdrop-blur-sm">
+    <div className="ag-glass relative overflow-hidden">
       {/* subtle blue glow in top-right when active */}
       {isConnected && enabled && (
         <div className="pointer-events-none absolute -top-8 -right-8 w-32 h-32 rounded-full bg-blue-500/10 blur-2xl" />
@@ -252,12 +253,12 @@ function AlertSettingsPanel({ trackedWallets }: { trackedWallets: string[] }) {
           <div className={`w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 ${
             isConnected && enabled
               ? "bg-blue-500/20 border border-blue-500/30"
-              : "bg-gray-800/60 border border-gray-700/50"
+              : "bg-white/[0.06] border border-white/[0.08]"
           }`}>
-            <span className="text-sm">🚨</span>
+            <AgIcon name="bell" className="w-4 h-4 text-blue-400" />
           </div>
           <div>
-            <div className="text-sm font-semibold text-white">Telegram Wallet Alerts</div>
+            <div className="font-display text-sm font-semibold text-white">Telegram Wallet Alerts</div>
             <div className="text-[10px] text-gray-500 mt-0.5">
               {!isConnected
                 ? "Connect to get notified when tracked wallets move"
@@ -284,7 +285,7 @@ function AlertSettingsPanel({ trackedWallets }: { trackedWallets: string[] }) {
       </button>
 
       {expanded && (
-        <div className="border-t border-gray-800/50 px-5 py-4 space-y-4">
+        <div className="border-t border-white/[0.08] px-5 py-4 space-y-4">
           {!isConnected ? (
             <div className="space-y-3">
               {!code ? (
@@ -295,7 +296,7 @@ function AlertSettingsPanel({ trackedWallets }: { trackedWallets: string[] }) {
                     disabled={connecting}
                     className="flex items-center gap-2 px-4 py-2.5 bg-blue-500/15 hover:bg-blue-500/25 text-blue-400 border border-blue-500/30 rounded-xl text-sm font-medium transition-colors disabled:opacity-50"
                   >
-                    {connecting ? <span className="w-3.5 h-3.5 border-2 border-blue-400/30 border-t-blue-400 rounded-full animate-spin" /> : "🚨"}
+                    {connecting ? <span className="w-3.5 h-3.5 border-2 border-blue-400/30 border-t-blue-400 rounded-full animate-spin" /> : <AgIcon name="bell" className="w-3.5 h-3.5" />}
                     Connect Telegram
                   </button>
                 </>
@@ -321,7 +322,7 @@ function AlertSettingsPanel({ trackedWallets }: { trackedWallets: string[] }) {
                       <span className="text-gray-300 pt-0.5">Copy and send this message:</span>
                     </li>
                   </ol>
-                  <div className="flex items-center gap-2 bg-gray-900/80 border border-gray-700/60 rounded-xl px-4 py-3">
+                  <div className="flex items-center gap-2 bg-white/[0.035] border border-white/[0.08] backdrop-blur-md rounded-xl px-4 py-3">
                     <code className="text-sm font-mono flex-1"><span className="text-gray-400">/start </span><span className="text-green-400 font-bold tracking-widest">{code}</span></code>
                     <button
                       onClick={() => navigator.clipboard.writeText(`/start ${code}`).catch(() => {})}
@@ -365,7 +366,7 @@ function AlertSettingsPanel({ trackedWallets }: { trackedWallets: string[] }) {
                     <input
                       type="number" min={0} step={100} value={minUsd}
                       onChange={e => setMinUsd(Math.max(0, parseInt(e.target.value) || 0))}
-                      className="w-32 bg-gray-900/80 border border-gray-700/60 rounded-lg px-3 py-1.5 text-sm text-white tabular-nums focus:outline-none focus:border-green-500/50 transition-colors"
+                      className="w-32 bg-white/[0.035] border border-white/[0.08] backdrop-blur-md rounded-lg px-3 py-1.5 text-sm text-white tabular-nums focus:outline-none focus:border-emerald-500/40 transition-colors"
                     />
                     <span className="text-[11px] text-gray-600">USD equivalent</span>
                   </div>
@@ -429,9 +430,9 @@ function timeAgo(iso: string) {
 
 // rank medal
 function RankBadge({ rank }: { rank: number }) {
-  if (rank === 1) return <span className="text-sm">🥇</span>;
-  if (rank === 2) return <span className="text-sm">🥈</span>;
-  if (rank === 3) return <span className="text-sm">🥉</span>;
+  if (rank === 1) return <AgIcon name="crown" className="w-4 h-4 text-yellow-400" />;
+  if (rank === 2) return <AgIcon name="star" className="w-4 h-4 text-gray-300" />;
+  if (rank === 3) return <AgIcon name="star" className="w-4 h-4 text-amber-600" />;
   return <span className={`text-xs tabular-nums font-mono ${rank <= 10 ? "text-amber-500/80" : "text-gray-600"}`}>#{rank}</span>;
 }
 
@@ -444,7 +445,7 @@ function TrackButton({ tracked, onToggle }: { tracked: boolean; onToggle: () => 
       className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center transition-all duration-150 ${
         tracked
           ? "bg-blue-500/20 text-blue-400 border border-blue-500/40 hover:bg-red-500/15 hover:text-red-400 hover:border-red-500/40"
-          : "bg-gray-800/60 text-gray-600 border border-gray-700/40 hover:bg-blue-500/15 hover:text-blue-400 hover:border-blue-500/40"
+          : "bg-white/[0.04] text-gray-600 border border-white/[0.08] hover:bg-blue-500/15 hover:text-blue-400 hover:border-blue-500/40"
       }`}
     >
       {tracked ? (
@@ -489,7 +490,7 @@ function PositionDrawer({ positions, highlightName }: { positions: AlphaPosition
     : positions;
 
   return (
-    <div className="bg-gray-950/90 border-b border-gray-800/40 px-4 py-4">
+    <div className="bg-white/[0.02] border-b border-white/[0.08] px-4 py-4">
       <div className="flex items-center gap-3 mb-3">
         <span className="text-[10px] font-semibold text-green-400 uppercase tracking-wider">
           {positions.length} alpha position{positions.length !== 1 ? "s" : ""}
@@ -512,7 +513,7 @@ function PositionDrawer({ positions, highlightName }: { positions: AlphaPosition
               className={`flex items-center gap-2.5 rounded-xl px-3 py-2.5 transition-colors ${
                 isMatch
                   ? "bg-emerald-950/50 border border-emerald-500/40 ring-1 ring-emerald-500/15"
-                  : "bg-gray-900/60 border border-gray-800/60 hover:border-green-500/20"
+                  : "bg-white/[0.03] border border-white/[0.08] hover:border-emerald-500/25"
               }`}
             >
               <SubnetLogo netuid={pos.netuid} name={pos.name} size={24} />
@@ -533,7 +534,7 @@ function PositionDrawer({ positions, highlightName }: { positions: AlphaPosition
                     <span className="text-[9px] text-gray-500 tabular-nums">{fmtUsd(pos.staked_usd)}</span>
                   )}
                 </div>
-                <div className="mt-1.5 h-0.5 bg-gray-800 rounded-full overflow-hidden">
+                <div className="mt-1.5 h-0.5 bg-white/[0.06] rounded-full overflow-hidden">
                   <div
                     className={`h-full rounded-full transition-all ${isMatch ? "bg-emerald-500/70" : "bg-green-500/50"}`}
                     style={{ width: `${Math.min(100, pct)}%` }}
@@ -568,18 +569,18 @@ function OnDemandPositionDrawer({ address }: { address: string }) {
   }, [address]);
 
   if (loading) return (
-    <div className="bg-gray-950/90 border-b border-gray-800/40 px-4 py-5 flex items-center gap-2">
+    <div className="bg-white/[0.02] border-b border-white/[0.08] px-4 py-5 flex items-center gap-2">
       <div className="w-3.5 h-3.5 border-2 border-green-400/30 border-t-green-400 rounded-full animate-spin" />
       <span className="text-xs text-gray-500">Loading portfolio…</span>
     </div>
   );
   if (error) return (
-    <div className="bg-gray-950/90 border-b border-gray-800/40 px-4 py-4">
+    <div className="bg-white/[0.02] border-b border-white/[0.08] px-4 py-4">
       <p className="text-xs text-gray-600">{error}</p>
     </div>
   );
   if (!positions?.length) return (
-    <div className="bg-gray-950/90 border-b border-gray-800/40 px-4 py-4">
+    <div className="bg-white/[0.02] border-b border-white/[0.08] px-4 py-4">
       <p className="text-xs text-gray-600">No alpha positions found for this wallet.</p>
     </div>
   );
@@ -600,7 +601,7 @@ function WalletRow({
   return (
     <div
       onClick={() => router.push(`/wallettracker/${wallet.address}?from=${fromTab}`)}
-      className={`group relative flex items-center gap-3 px-4 py-3.5 border-b border-gray-800/30 cursor-pointer transition-all duration-150
+      className={`group relative flex items-center gap-3 px-4 py-3.5 border-b border-white/[0.06] cursor-pointer transition-all duration-150
         ${tracked
           ? "bg-blue-950/20 border-l-2 border-l-blue-500/60 pl-3.5"
           : "hover:bg-white/[0.02] border-l-2 border-l-transparent"}`}
@@ -685,7 +686,7 @@ function WinnerRow({
 
   return (
     <div
-      className={`group relative flex items-center gap-3 px-4 py-3.5 border-b border-gray-800/30 transition-all duration-150 cursor-pointer
+      className={`group relative flex items-center gap-3 px-4 py-3.5 border-b border-white/[0.06] transition-all duration-150 cursor-pointer
         ${tracked
           ? "bg-blue-950/20 border-l-2 border-l-blue-500/60 pl-3.5"
           : "hover:bg-white/[0.02] border-l-2 border-l-transparent"}`}
@@ -750,7 +751,7 @@ function TSWhaleRow({
 
   return (
     <div
-      className={`group relative flex items-center gap-3 px-4 py-3.5 border-b border-gray-800/30 transition-all duration-150 cursor-pointer
+      className={`group relative flex items-center gap-3 px-4 py-3.5 border-b border-white/[0.06] transition-all duration-150 cursor-pointer
         ${tracked ? "bg-blue-950/20 border-l-2 border-l-blue-500/60 pl-3.5" : "hover:bg-white/[0.02] border-l-2 border-l-transparent"}`}
       onClick={() => router.push(`/wallettracker/${wallet.address}?from=${fromTab}`)}
     >
@@ -820,7 +821,7 @@ function SRWhaleRow({
 
   return (
     <div
-      className={`group relative flex items-center gap-3 px-4 py-3.5 border-b border-gray-800/30 transition-all duration-150 cursor-pointer
+      className={`group relative flex items-center gap-3 px-4 py-3.5 border-b border-white/[0.06] transition-all duration-150 cursor-pointer
         ${tracked ? "bg-blue-950/20 border-l-2 border-l-blue-500/60 pl-3.5" : "hover:bg-white/[0.02] border-l-2 border-l-transparent"}`}
       onClick={() => router.push(`/wallettracker/${wallet.address}?from=${fromTab}`)}
     >
@@ -882,19 +883,19 @@ function SkeletonRows() {
   return (
     <>
       {Array.from({ length: 8 }).map((_, i) => (
-        <div key={i} className="flex items-center gap-3 px-4 py-3.5 border-b border-gray-800/30 animate-pulse">
+        <div key={i} className="flex items-center gap-3 px-4 py-3.5 border-b border-white/[0.06] animate-pulse">
           <div className="w-7 hidden sm:block">
-            <div className="h-3 w-6 bg-gray-800/80 rounded mx-auto" />
+            <div className="h-3 w-6 bg-white/[0.06] rounded mx-auto" />
           </div>
           <div className="flex-1 space-y-1.5">
-            <div className="h-3 w-36 bg-gray-800/80 rounded" />
-            <div className="h-2.5 w-20 bg-gray-800/50 rounded" />
+            <div className="h-3 w-36 bg-white/[0.06] rounded" />
+            <div className="h-2.5 w-20 bg-white/[0.04] rounded" />
           </div>
           <div className="hidden sm:flex flex-col items-end gap-1">
-            <div className="h-3 w-16 bg-gray-800/80 rounded" />
-            <div className="h-2 w-10 bg-gray-800/50 rounded" />
+            <div className="h-3 w-16 bg-white/[0.06] rounded" />
+            <div className="h-2 w-10 bg-white/[0.04] rounded" />
           </div>
-          <div className="w-8 h-8 rounded-full bg-gray-800/60" />
+          <div className="w-8 h-8 rounded-full bg-white/[0.05]" />
         </div>
       ))}
     </>
@@ -905,35 +906,40 @@ function SkeletonRows() {
 const TAB_CONFIG = [
   {
     key: "top"     as TabKey,
-    label: "🎯 Top Wallets",
+    icon: "target" as AgIconName,
+    label: "Top Wallets",
     info: "Biggest alpha portfolio holders right now — wallets with the most TAO staked across 2+ subnets.",
     accent: "green",
     activeClass: "bg-green-500/15 text-green-300 border-green-500/30",
   },
   {
     key: "winners" as TabKey,
-    label: "🚀 Big Winners",
+    icon: "rocket" as AgIconName,
+    label: "Big Winners",
     info: "Who made the most TAO in the last 24h. Useful for spotting wallets riding current momentum.",
     accent: "emerald",
     activeClass: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
   },
   {
     key: "sr"      as TabKey,
-    label: "🐋 Active Movers",
+    icon: "whale" as AgIconName,
+    label: "Active Movers",
     info: "Wallets actively staking or unstaking right now. Great for seeing what's being bought or sold in real time.",
     accent: "cyan",
     activeClass: "bg-cyan-500/15 text-cyan-300 border-cyan-500/30",
   },
   {
     key: "ts"      as TabKey,
-    label: "📊 Big Deployers",
+    icon: "chart" as AgIconName,
+    label: "Big Deployers",
     info: "Wallets that deployed the most capital into alpha subnets over the last 30 days — the biggest committed buyers.",
     accent: "green",
     activeClass: "bg-green-500/15 text-green-300 border-green-500/30",
   },
   {
     key: "known"   as TabKey,
-    label: "👑 Known",
+    icon: "crown" as AgIconName,
+    label: "Known",
     info: "Labelled wallets belonging to known founders, teams, or notable figures in the Bittensor ecosystem.",
     accent: "amber",
     activeClass: "bg-amber-500/15 text-amber-300 border-amber-500/30",
@@ -954,8 +960,9 @@ function TabBar({
     ...TAB_CONFIG,
     {
       key: "tracked" as TabKey,
-      label: `🔔 Tracked${trackedCount > 0 ? ` (${trackedCount})` : ""}`,
-      info: "Wallets you're personally tracking. Tap the 🔔 bell on any wallet to add it here.",
+      icon: "bell" as AgIconName,
+      label: `Tracked${trackedCount > 0 ? ` (${trackedCount})` : ""}`,
+      info: "Wallets you're personally tracking. Tap the bell on any wallet to add it here.",
       accent: "blue",
       activeClass: "bg-blue-500/15 text-blue-300 border-blue-500/30",
     },
@@ -967,7 +974,7 @@ function TabBar({
     <div className="flex-1 space-y-2">
       {/* Scrollable tab row */}
       <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
-        <div className="flex gap-1 w-max">
+        <div className="ag-pill-tabs w-max !rounded-2xl">
           {allTabs.map(t => {
             const isOpen = openInfo === t.key;
             return (
@@ -975,24 +982,23 @@ function TabBar({
                 {/* Tab button */}
                 <button
                   onClick={() => { changeTab(t.key); setOpenInfo(null); }}
-                  className={`whitespace-nowrap px-3.5 py-2 rounded-l-lg text-xs font-semibold border-y border-l transition-all duration-150 ${
-                    tab === t.key
-                      ? t.activeClass
-                      : "border-transparent text-gray-500 hover:text-gray-300 hover:bg-white/[0.04]"
+                  className={`ag-pill-tab whitespace-nowrap !px-3.5 !py-2 !text-xs !rounded-r-none inline-flex items-center gap-1.5 ${
+                    tab === t.key ? "ag-pill-tab-on" : ""
                   }`}
                 >
+                  <AgIcon name={t.icon} className="w-3.5 h-3.5" />
                   {t.label}
                 </button>
                 {/* Info button — inline, never clipped */}
                 <button
                   onClick={() => setOpenInfo(isOpen ? null : t.key)}
                   aria-label={`About ${t.label}`}
-                  className={`flex items-center justify-center w-6 h-[34px] rounded-r-lg border-y border-r text-[10px] font-bold transition-all duration-150 ${
+                  className={`ag-pill-tab !px-0 !py-2 !text-[10px] !rounded-l-none w-6 flex items-center justify-center font-bold ${
                     isOpen
-                      ? "bg-green-500/30 text-green-300 border-green-500/40"
+                      ? "ag-pill-tab-on"
                       : tab === t.key
-                      ? t.activeClass + " opacity-60 hover:opacity-100"
-                      : "border-transparent text-gray-700 hover:text-gray-400 hover:bg-white/[0.04]"
+                      ? "ag-pill-tab-on opacity-60 hover:opacity-100"
+                      : ""
                   }`}
                 >
                   i
@@ -1005,8 +1011,8 @@ function TabBar({
 
       {/* Info strip — rendered outside the overflow container, never clipped */}
       {openTab && (
-        <div className="flex items-start gap-3 px-3.5 py-2.5 bg-gray-900/80 border border-gray-700/50 rounded-xl text-xs text-gray-300 leading-relaxed">
-          <span className="font-semibold text-white whitespace-nowrap">{openTab.label}</span>
+        <div className="ag-glass flex items-start gap-3 px-3.5 py-2.5 !rounded-xl text-xs text-gray-300 leading-relaxed">
+          <span className="font-semibold text-white whitespace-nowrap inline-flex items-center gap-1.5"><AgIcon name={openTab.icon} className="w-3.5 h-3.5" />{openTab.label}</span>
           <span className="text-gray-500">—</span>
           <span className="flex-1">{openTab.info}</span>
           <button
@@ -1213,39 +1219,39 @@ export default function WalletTrackerPage() {
   // ── Premium gate ────────────────────────────────────────────────
   if (sessionStatus !== "loading" && !isPremium) {
     const isSignedOut = sessionStatus === "unauthenticated";
-    const walletFeatures = [
+    const walletFeatures: { icon: AgIconName; label: string; description: string }[] = [
       {
-        icon: "🎯",
+        icon: "target",
         label: "Top 200 Whale Wallets",
         description: "See the biggest alpha portfolio holders in real time — ranked by how much TAO they have staked across all alpha subnets. Updated every hour.",
       },
       {
-        icon: "🚀",
+        icon: "rocket",
         label: "Big Winners",
         description: "Wallets with the largest 24h TAO gains. Spot smart money making moves before the price catches up.",
       },
       {
-        icon: "🌊",
+        icon: "wave",
         label: "Active Movers",
         description: "Who's staking and unstaking RIGHT NOW. Live SubnetRadar data showing real-time whale activity across every subnet.",
       },
       {
-        icon: "🏗️",
+        icon: "chart",
         label: "Big Deployers",
         description: "The largest capital deployments in the last 30 days. See which wallets are putting serious money into which subnets.",
       },
       {
-        icon: "👛",
+        icon: "money",
         label: "Full Portfolio View",
         description: "Click any wallet to see their complete alpha portfolio — every subnet they're staked in, size of each position, and full trade history.",
       },
       {
-        icon: "🔔",
+        icon: "bell",
         label: "Telegram Alerts on Moves",
         description: "Track any whale and get a Telegram ping the moment they stake or unstake. Set a minimum USD threshold so you only get alerts that matter.",
       },
       {
-        icon: "🔍",
+        icon: "search",
         label: "Paste Any Wallet Address",
         description: "Not on the list? Paste any TAO wallet address to instantly see their full portfolio, positions, and recent activity.",
       },
@@ -1257,7 +1263,7 @@ export default function WalletTrackerPage() {
 
           {/* Hero */}
           <div className="text-center mb-12">
-            <div className="text-6xl mb-5">🐋</div>
+            <div className="mb-5 flex justify-center"><AgIcon name="whale" className="w-16 h-16 text-green-400" /></div>
             <h1 className="text-4xl font-bold text-white mb-4 leading-tight">
               Follow the Biggest TAO Wallets<br />
               <span className="text-green-400">Track Every Move They Make</span>
@@ -1296,7 +1302,7 @@ export default function WalletTrackerPage() {
             <div className="space-y-5">
               {walletFeatures.map(f => (
                 <div key={f.label} className="flex items-start gap-4 pb-5 border-b border-gray-800/60 last:border-0 last:pb-0">
-                  <span className="text-2xl w-8 flex-shrink-0 leading-none pt-0.5">{f.icon}</span>
+                  <span className="w-8 flex-shrink-0 pt-0.5"><AgIcon name={f.icon} className="w-6 h-6 text-green-400" /></span>
                   <div>
                     <p className="text-sm font-semibold text-white mb-1">{f.label}</p>
                     <p className="text-xs text-gray-500 leading-relaxed">{f.description}</p>
@@ -1308,7 +1314,7 @@ export default function WalletTrackerPage() {
 
           {/* Callout */}
           <div className="flex items-start gap-3 bg-green-500/5 border border-green-500/20 rounded-xl px-5 py-4 mb-10">
-            <span className="text-xl flex-shrink-0 mt-0.5">👑</span>
+            <AgIcon name="crown" className="w-5 h-5 flex-shrink-0 mt-0.5 text-green-400" />
             <div>
               <p className="text-sm font-semibold text-white mb-1">Including Const &amp; known team wallets</p>
               <p className="text-xs text-gray-400 leading-relaxed">
@@ -1345,89 +1351,68 @@ export default function WalletTrackerPage() {
 
   // ── Render ──────────────────────────────────────────────────────
   return (
-    <main className="flex-1 overflow-auto">
+    <main className="flex-1 overflow-auto min-h-screen bg-[#07090b] text-white ag-aurora">
       {/* ── Hero header ─────────────────────────────────────────── */}
-      <div className="relative overflow-hidden border-b border-gray-800/60 bg-gray-950">
-        {/* Background grid */}
-        <div className="absolute inset-0 opacity-[0.04]"
-          style={{
-            backgroundImage: "linear-gradient(rgba(139,92,246,0.6) 1px, transparent 1px), linear-gradient(90deg, rgba(139,92,246,0.6) 1px, transparent 1px)",
-            backgroundSize: "40px 40px",
-          }}
-        />
-        {/* Glow orbs */}
-        <div className="absolute -top-20 -left-20 w-64 h-64 rounded-full bg-green-600/10 blur-3xl pointer-events-none" />
-        <div className="absolute -top-10 right-1/4 w-48 h-48 rounded-full bg-cyan-500/8 blur-3xl pointer-events-none" />
+      <div className="max-w-[1400px] mx-auto px-4 md:px-8 pt-9 pb-2">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+          <div>
+            {/* Title */}
+            <h1 className="font-display text-4xl font-semibold tracking-[-0.03em] leading-tight mb-2">
+              Wallet <span className="ag-gradient-text">Tracker</span>
+            </h1>
+            <p className="text-[14.5px] text-gray-400 max-w-lg leading-relaxed">
+              Follow the biggest TAO wallets — see their full portfolio, track their moves, and get Telegram alerts when they stake or unstake.
+            </p>
 
-        <div className="relative max-w-[1400px] mx-auto px-4 md:px-8 py-7">
-          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-            <div>
-              {/* Badge row */}
-              <div className="flex items-center gap-2 mb-2.5">
-                <span className="inline-flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-1 rounded-full bg-green-500/15 text-green-400 border border-green-500/25 uppercase tracking-wider">
-                  <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
-                  Live · Wallet Tracker
-                </span>
-                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400/80 border border-amber-500/20 uppercase tracking-wide">
-                  Alpha Intelligence
-                </span>
-              </div>
-
-              {/* Title */}
-              <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
-                <span className="bg-gradient-to-r from-white via-gray-100 to-gray-300 bg-clip-text text-transparent">
-                  Wallet Tracker
-                </span>
-              </h1>
-              <p className="text-sm text-gray-500 mt-1.5 max-w-lg">
-                Follow the biggest TAO wallets — see their full portfolio, track their moves, and get Telegram alerts when they stake or unstake.
-              </p>
-
-              {/* Feature chips */}
-              <div className="flex flex-wrap gap-2 mt-3">
-                <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold px-2.5 py-1 rounded-full bg-green-500/10 text-green-400 border border-green-500/20">
-                  👛 View whale portfolios &amp; performance
-                </span>
-                <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold px-2.5 py-1 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20">
-                  🚨 Custom Telegram alerts on moves
-                </span>
-                <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                  🔍 Paste any wallet address to analyze
-                </span>
-              </div>
+            {/* LIVE row */}
+            <div className="flex items-center gap-2.5 mt-4 font-mono text-[11px] uppercase tracking-[0.08em] text-gray-500">
+              <span className="ag-live-dot flex-shrink-0" />
+              <span>LIVE · ALPHA INTELLIGENCE · REFRESHES EVERY 45 MIN</span>
             </div>
 
-            {/* Quick stats */}
-            {!loading && !error && (
-              <div className="flex gap-2.5 sm:gap-3 flex-shrink-0">
-                {[
-                  { label: "Wallets", value: wallets.length.toString(), icon: "👛", color: "green" },
-                  { label: "Avg tokens", value: wallets.length > 0 ? (wallets.reduce((s, w) => s + w.alpha_count, 0) / wallets.length).toFixed(1) : "—", icon: "⚡", color: "cyan" },
-                  { label: "Tracking", value: trackedCount.toString(), icon: "🔔", color: "blue" },
-                ].map(({ label, value, icon, color }) => (
-                  <div key={label}
-                    className={`bg-gray-900/60 border rounded-xl px-3.5 py-2.5 text-center min-w-[72px] backdrop-blur-sm ${
-                      color === "green" ? "border-green-500/20" :
-                      color === "cyan"   ? "border-cyan-500/20" :
-                      "border-blue-500/20"
-                    }`}>
-                    <div className="text-base mb-0.5">{icon}</div>
-                    <div className={`text-lg font-black tabular-nums ${
-                      color === "green" ? "text-green-300" :
-                      color === "cyan"   ? "text-cyan-300" :
-                      "text-blue-300"
-                    }`}>{value}</div>
-                    <div className="text-[9px] text-gray-600 uppercase tracking-wide font-semibold mt-0.5">{label}</div>
-                  </div>
-                ))}
-              </div>
-            )}
+            {/* Feature chips */}
+            <div className="flex flex-wrap gap-2 mt-4">
+              <span className="ag-glass !rounded-full inline-flex items-center gap-1.5 text-[10px] font-semibold px-3 py-1 text-emerald-400">
+                <AgIcon name="money" className="w-3 h-3" /> View whale portfolios &amp; performance
+              </span>
+              <span className="ag-glass !rounded-full inline-flex items-center gap-1.5 text-[10px] font-semibold px-3 py-1 text-blue-400">
+                <AgIcon name="bell" className="w-3 h-3" /> Custom Telegram alerts on moves
+              </span>
+              <span className="ag-glass !rounded-full inline-flex items-center gap-1.5 text-[10px] font-semibold px-3 py-1 text-emerald-400">
+                <AgIcon name="search" className="w-3 h-3" /> Paste any wallet address to analyze
+              </span>
+            </div>
           </div>
 
-          {/* Search bar */}
-          <div className="mt-5">
-            <AddWalletInput fromTab={tab} />
-          </div>
+          {/* Quick stats */}
+          {!loading && !error && (
+            <div className="flex gap-2.5 sm:gap-3 flex-shrink-0">
+              {[
+                { label: "Wallets", value: wallets.length.toString(), icon: "money" as AgIconName, color: "green" },
+                { label: "Avg tokens", value: wallets.length > 0 ? (wallets.reduce((s, w) => s + w.alpha_count, 0) / wallets.length).toFixed(1) : "—", icon: "bolt" as AgIconName, color: "cyan" },
+                { label: "Tracking", value: trackedCount.toString(), icon: "bell" as AgIconName, color: "blue" },
+              ].map(({ label, value, icon, color }) => (
+                <div key={label} className="ag-glass ag-glass-hover px-4 py-3 text-center min-w-[84px]">
+                  <div className="mb-1 flex justify-center"><AgIcon name={icon} className={`w-4 h-4 ${
+                    color === "green" ? "text-emerald-400" :
+                    color === "cyan"   ? "text-cyan-400" :
+                    "text-blue-400"
+                  }`} /></div>
+                  <div className={`font-display text-xl font-semibold tabular-nums tracking-tight ${
+                    color === "green" ? "text-emerald-300" :
+                    color === "cyan"   ? "text-cyan-300" :
+                    "text-blue-300"
+                  }`}>{value}</div>
+                  <div className="text-[9px] text-gray-600 uppercase tracking-[0.16em] font-semibold mt-0.5">{label}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Search bar */}
+        <div className="mt-5">
+          <AddWalletInput fromTab={tab} />
         </div>
       </div>
 
@@ -1456,15 +1441,15 @@ export default function WalletTrackerPage() {
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder={tab === "top" ? "Search subnet, wallet…" : "Search address…"}
-              className="bg-gray-900/60 border border-gray-700/50 rounded-xl pl-8 pr-3 py-2 text-xs text-gray-300 placeholder-gray-600 focus:outline-none focus:border-gray-600/80 w-full sm:w-48 transition-colors"
+              className="bg-white/[0.035] border border-white/[0.08] backdrop-blur-md rounded-full pl-8 pr-3 py-2 text-xs text-gray-300 placeholder-gray-600 focus:outline-none focus:border-emerald-500/40 w-full sm:w-48 transition-colors"
             />
           </div>
         </div>
 
         {/* Subnet filter banner */}
         {!loading && !error && tab !== "winners" && subnetSearchName && displayWallets.length > 0 && (
-          <div className="flex items-center gap-2 px-4 py-2.5 bg-emerald-950/30 border border-emerald-800/30 rounded-xl">
-            <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider">🔍 Subnet filter</span>
+          <div className="flex items-center gap-2 px-4 py-2.5 bg-emerald-500/[0.05] border border-emerald-500/20 backdrop-blur-md rounded-xl">
+            <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider inline-flex items-center gap-1"><AgIcon name="search" className="w-3 h-3" /> Subnet filter</span>
             <span className="text-gray-700 text-[10px]">—</span>
             <span className="text-[10px] text-emerald-300">
               {displayWallets.length} wallet{displayWallets.length !== 1 ? "s" : ""} holding{" "}
@@ -1475,9 +1460,9 @@ export default function WalletTrackerPage() {
         )}
 
         {/* Main list card */}
-        <div className="bg-gray-950/60 border border-gray-800/50 rounded-2xl overflow-hidden backdrop-blur-sm">
+        <div className="ag-glass overflow-hidden">
           {/* Column header */}
-          <div className="flex items-center gap-3 px-4 py-2.5 border-b border-gray-800/50 bg-gray-900/40">
+          <div className="flex items-center gap-3 px-4 py-2.5 border-b border-white/[0.08] bg-white/[0.02]">
             <div className="w-7 hidden sm:block" />
             <div className="flex-1 text-[9px] font-bold text-gray-600 uppercase tracking-widest">Wallet</div>
             {tab === "winners" && <div className="hidden sm:block text-right w-28 text-[9px] font-bold text-emerald-700/70 uppercase tracking-widest">24h Gain</div>}
@@ -1495,7 +1480,7 @@ export default function WalletTrackerPage() {
           {/* Errors */}
           {error && !loading && (
             <div className="py-10 px-6 text-center">
-              <div className="text-2xl mb-2">⚠️</div>
+              <div className="mb-2 flex justify-center"><AgIcon name="warning" className="w-6 h-6 text-red-400" /></div>
               <p className="text-red-400 text-sm">{error}</p>
             </div>
           )}
@@ -1518,12 +1503,12 @@ export default function WalletTrackerPage() {
           {/* Empty states */}
           {!tabIsLoading && !error && tab !== "winners" && tab !== "sr" && tab !== "ts" && displayWallets.length === 0 && (
             <div className="py-16 text-center">
-              <div className="text-3xl mb-3">{tab === "tracked" ? "🔔" : "🔍"}</div>
+              <div className="mb-3 flex justify-center"><AgIcon name={tab === "tracked" ? "bell" : "search"} className="w-8 h-8 text-gray-600" /></div>
               <p className="text-gray-500 text-sm font-medium">
                 {tab === "tracked" ? "No wallets tracked yet" : "No wallets found"}
               </p>
               {tab === "tracked" && (
-                <p className="text-gray-600 text-xs mt-1">Click the 🔔 bell next to any wallet to start tracking</p>
+                <p className="text-gray-600 text-xs mt-1">Click the bell next to any wallet to start tracking</p>
               )}
             </div>
           )}
@@ -1582,10 +1567,10 @@ export default function WalletTrackerPage() {
         {/* Footer hints */}
         {!loading && !error && (
           <div className="flex flex-wrap gap-x-6 gap-y-1 text-[10px] text-gray-700 px-1 pb-2">
-            <span>🐋 Holding alpha tokens · sorted by alpha stake · refreshes every 45 min</span>
-            <span>💡 Click any row to view full wallet profile</span>
-            <span>🔔 Tracking is saved locally in your browser</span>
-            {session?.user && <span className="text-green-700/60">🔒 Alerts are private to your account</span>}
+            <span className="inline-flex items-center gap-1.5"><AgIcon name="whale" className="w-3 h-3" /> Holding alpha tokens · sorted by alpha stake · refreshes every 45 min</span>
+            <span className="inline-flex items-center gap-1.5"><AgIcon name="bulb" className="w-3 h-3" /> Click any row to view full wallet profile</span>
+            <span className="inline-flex items-center gap-1.5"><AgIcon name="bell" className="w-3 h-3" /> Tracking is saved locally in your browser</span>
+            {session?.user && <span className="text-green-700/60 inline-flex items-center gap-1.5"><AgIcon name="lock" className="w-3 h-3" /> Alerts are private to your account</span>}
           </div>
         )}
       </div>

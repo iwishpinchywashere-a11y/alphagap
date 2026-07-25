@@ -77,16 +77,18 @@ export default function DashboardHeader() {
 
   return (
     <>
-      <header className="border-b border-gray-800 px-4 md:px-6 py-3 md:py-4 flex items-center justify-between flex-wrap gap-2 max-w-full overflow-x-auto">
+      <header className="sticky top-0 z-40 bg-[#07090b]/80 backdrop-blur-xl border-b border-white/[0.08] px-4 md:px-6 py-3 md:py-4 flex items-center justify-between flex-wrap gap-2 max-w-full">
         <div className="flex items-center gap-4">
           <a href="/dashboard">
             <img src="/alphagap_logo_dark.svg" alt="AlphaGap" className="h-12 w-auto" />
           </a>
-          <span className="text-xs text-gray-500 border border-gray-700 rounded px-2 py-0.5 hidden sm:inline">
+          <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-gray-500 border border-white/[0.08] bg-white/[0.02] rounded-full px-3 py-1 hidden sm:inline">
             Bittensor Subnet Intelligence
           </span>
           {taoPrice != null && (
-            <span className="text-xs text-gray-400">TAO ${taoPrice.toFixed(2)}</span>
+            <span className="font-mono text-xs text-gray-400 bg-white/[0.035] border border-white/[0.08] rounded-full px-4 py-1.5 backdrop-blur-[14px] inline-flex items-center gap-1.5">
+              τ <b className="font-semibold text-emerald-400">${taoPrice.toFixed(2)}</b>
+            </span>
           )}
         </div>
 
@@ -97,7 +99,7 @@ export default function DashboardHeader() {
             </span>
           )}
           {scanning && (
-            <span className="text-xs text-green-400 animate-pulse hidden sm:inline">Refreshing…</span>
+            <span className="text-xs text-emerald-400 animate-pulse hidden sm:inline">Refreshing…</span>
           )}
 
           {/* Notification bell */}
@@ -107,11 +109,11 @@ export default function DashboardHeader() {
           <button
             ref={btnRef}
             onClick={() => open ? closeDropdown() : openDropdown()}
-            className="flex items-center justify-center w-8 h-8 rounded-full bg-gray-800 border border-gray-700 hover:border-green-500/50 transition-colors flex-shrink-0"
+            className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br from-[#123b2c] to-[#0a1f18] border border-emerald-400/40 hover:border-emerald-400/70 backdrop-blur-[14px] transition-colors flex-shrink-0"
             title={session ? (session.user?.name ?? "Account") : "Sign in"}
           >
             {initials ? (
-              <span className="text-xs font-bold text-green-400">{initials}</span>
+              <span className="text-xs font-semibold text-emerald-400">{initials}</span>
             ) : (
               <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
@@ -126,12 +128,12 @@ export default function DashboardHeader() {
         <div
           ref={dropdownRef}
           style={{ position: "fixed", top: pos.top, right: pos.right, zIndex: 9999 }}
-          className="w-56 bg-gray-900 border border-gray-700 rounded-xl shadow-2xl overflow-hidden"
+          className="w-56 bg-[#0c0f13]/90 backdrop-blur-xl border border-white/[0.1] rounded-2xl shadow-2xl overflow-hidden"
         >
           {session ? (
             <>
               {/* User info */}
-              <div className="px-4 py-3 border-b border-gray-800">
+              <div className="px-4 py-3 border-b border-white/[0.08]">
                 <div className="flex items-center gap-3">
                   <div className="w-9 h-9 rounded-full bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center text-black font-bold text-sm flex-shrink-0">
                     {initials ?? "?"}
@@ -149,7 +151,7 @@ export default function DashboardHeader() {
                         ? "text-purple-400 bg-purple-500/10 border-purple-500/30"
                         : isActive
                           ? "text-green-400 bg-green-500/10 border-green-500/30"
-                          : "text-gray-500 bg-gray-800 border-gray-700"
+                          : "text-gray-500 bg-white/[0.04] border-white/[0.14]"
                   }`}>
                     {isUltra ? "✓ Ultra" : isPremium ? "✓ Premium" : isActive ? "✓ Pro" : "No subscription"}
                   </span>
@@ -161,7 +163,7 @@ export default function DashboardHeader() {
                 <Link
                   href="/account"
                   onClick={closeDropdown}
-                  className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-300 hover:bg-gray-800 hover:text-white transition-colors"
+                  className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-300 hover:bg-white/[0.06] hover:text-white transition-colors"
                 >
                   <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
@@ -194,7 +196,7 @@ export default function DashboardHeader() {
                   <Link
                     href="/pricing"
                     onClick={closeDropdown}
-                    className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-green-400 hover:bg-gray-800 transition-colors"
+                    className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-green-400 hover:bg-white/[0.06] transition-colors"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
@@ -218,7 +220,7 @@ export default function DashboardHeader() {
                   <Link
                     href="/admin"
                     onClick={closeDropdown}
-                    className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-red-400 hover:bg-gray-800 transition-colors"
+                    className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-red-400 hover:bg-white/[0.06] transition-colors"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
@@ -229,13 +231,13 @@ export default function DashboardHeader() {
               </div>
 
               {/* Refresh session + Sign out */}
-              <div className="border-t border-gray-800 py-1">
+              <div className="border-t border-white/[0.08] py-1">
                 <button
                   onClick={() => {
                     closeDropdown();
                     signOut({ callbackUrl: "/auth/signin?hint=subscription-updated" });
                   }}
-                  className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm text-gray-400 hover:bg-gray-800 hover:text-blue-400 transition-colors text-left"
+                  className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm text-gray-400 hover:bg-white/[0.06] hover:text-blue-400 transition-colors text-left"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -244,7 +246,7 @@ export default function DashboardHeader() {
                 </button>
                 <button
                   onClick={() => { closeDropdown(); signOut({ callbackUrl: "/" }); }}
-                  className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm text-gray-400 hover:bg-gray-800 hover:text-red-400 transition-colors text-left"
+                  className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm text-gray-400 hover:bg-white/[0.06] hover:text-red-400 transition-colors text-left"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
@@ -258,14 +260,14 @@ export default function DashboardHeader() {
               <Link
                 href="/auth/signin"
                 onClick={closeDropdown}
-                className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-300 hover:bg-gray-800 hover:text-white transition-colors"
+                className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-300 hover:bg-white/[0.06] hover:text-white transition-colors"
               >
                 Sign In
               </Link>
               <Link
                 href="/pricing"
                 onClick={closeDropdown}
-                className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-green-400 hover:bg-gray-800 transition-colors"
+                className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-green-400 hover:bg-white/[0.06] transition-colors"
               >
                 Create Account
               </Link>

@@ -5,6 +5,7 @@ import { useSession } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import SubnetLogo from "@/components/dashboard/SubnetLogo";
+import AgIcon from "@/components/AgIcon";
 
 // ── Custom plan feature icons ────────────────────────────────────
 function PIcon({ name, className = "w-3.5 h-3.5" }: { name: string; className?: string }) {
@@ -76,8 +77,8 @@ function MockRow({ rank, name, netuid, agap, flow, dev, eval: evalScore, velo, p
           <SubnetLogo netuid={netuid} name={name} size={20} />
           <span className="text-[10px] text-gray-600 font-mono">SN{netuid}</span>
           <span className="font-semibold text-gray-100 text-sm">{name}</span>
-          {whale && <span className="text-xs">🐋</span>}
-          {surge && <span className="text-xs">🤑</span>}
+          {whale && <AgIcon name="whale" className="w-3.5 h-3.5 text-cyan-300" />}
+          {surge && <AgIcon name="money" className="w-3.5 h-3.5 text-yellow-300" />}
           <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-gray-800 text-gray-500 border border-gray-700">{category}</span>
         </div>
       </td>
@@ -99,11 +100,11 @@ function MockSignal({ type, subnet, title, insight, time }: {
   type: "github" | "hf"; subnet: string; title: string; insight: string; time: string;
 }) {
   return (
-    <div className="bg-gray-900/80 border border-gray-700/60 rounded-xl p-4">
+    <div className="bg-white/[0.03] border border-white/[0.08] backdrop-blur-[14px] rounded-xl p-4">
       <div className="flex items-start justify-between gap-3 mb-3">
         <div className="flex items-center gap-2">
           <span className={`text-xs px-2 py-0.5 rounded-full border font-semibold ${type === "github" ? "bg-gray-800 text-gray-300 border-gray-700" : "bg-yellow-500/10 text-yellow-400 border-yellow-500/30"}`}>
-            {type === "github" ? "⌥ GitHub" : "🤗 HuggingFace"}
+            {type === "github" ? "⌥ GitHub" : "HuggingFace"}
           </span>
           <span className="text-xs font-semibold text-green-400 bg-green-500/10 border border-green-500/20 px-2 py-0.5 rounded-full">{subnet}</span>
         </div>
@@ -155,11 +156,11 @@ function FeatureCard({ icon, title, badge, children }: {
   icon: string; title: string; badge?: string; children: React.ReactNode;
 }) {
   return (
-    <div className="bg-[#0d0d14] border border-white/[0.07] rounded-2xl overflow-hidden">
+    <div className="ag-glass overflow-hidden">
       <div className="px-6 py-5 border-b border-white/[0.05]">
         <div className="flex items-center gap-3 mb-1">
           <span className="text-green-400 flex-shrink-0"><PIcon name={icon} className="w-5 h-5" /></span>
-          <h3 className="font-bold text-lg text-white">{title}</h3>
+          <h3 className="font-display font-bold text-lg text-white">{title}</h3>
           {badge && (
             <span className="text-[10px] font-bold bg-green-500/15 text-green-400 border border-green-500/25 px-2 py-0.5 rounded-full ml-auto">
               {badge}
@@ -200,7 +201,7 @@ function UpgradeModal({ plan, proratedAmount, onConfirm, onCancel, loading }: {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4" style={{ background: "rgba(0,0,0,0.75)" }}>
-      <div className="bg-[#111118] border border-gray-700 rounded-2xl w-full max-w-md p-6 shadow-2xl">
+      <div className="bg-[#0d1110] border border-white/[0.12] backdrop-blur-[18px] rounded-2xl w-full max-w-md p-6 shadow-2xl">
         <div className="flex items-center gap-3 mb-5">
           <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isUltra ? "bg-amber-400/15 border border-amber-400/30 text-amber-400" : "bg-green-500/15 border border-green-500/30 text-green-400"}`}>
             <PIcon name={isUltra ? "priority" : "check"} className="w-5 h-5" />
@@ -350,7 +351,7 @@ function SubscribeContent() {
     : "Get Started →";
 
   return (
-    <div className="min-h-screen bg-[#0a0a0f] text-white overflow-x-hidden">
+    <div className="min-h-screen bg-[#07090b] text-white overflow-x-hidden ag-aurora">
       {showUpgradeModal && (
         <UpgradeModal
           plan={upgradePlan}
@@ -362,7 +363,7 @@ function SubscribeContent() {
       )}
 
       {/* ── Sticky Nav ── */}
-      <nav className="fixed top-0 left-0 right-0 z-50 backdrop-blur-xl bg-[#0a0a0f]/85 border-b border-white/5">
+      <nav className="fixed top-0 left-0 right-0 z-50 backdrop-blur-xl bg-[#07090b]/85 border-b border-white/5">
         <div className="max-w-6xl mx-auto px-5 py-3.5 flex items-center justify-between">
           <Link href="/">
             <img src="/alphagap_logo_dark.svg" alt="AlphaGap" className="h-9 w-auto" />
@@ -378,7 +379,7 @@ function SubscribeContent() {
                 <Link href="/auth/signin" className="text-sm text-gray-400 hover:text-white transition-colors">Sign In</Link>
                 <button
                   onClick={() => handleSubscribe("premium")}
-                  className="text-sm bg-gradient-to-r from-green-500 to-emerald-600 text-black font-bold px-4 py-1.5 rounded-lg hover:from-green-400 hover:to-emerald-500 transition-all shadow-md shadow-green-500/20"
+                  className="text-sm bg-gradient-to-r from-emerald-400 to-green-400 text-black font-bold px-4 py-1.5 rounded-lg hover:from-emerald-300 hover:to-green-300 transition-all shadow-md shadow-green-500/20"
                 >
                   Get Access
                 </button>
@@ -405,19 +406,19 @@ function SubscribeContent() {
         </div>
 
         <div className="relative max-w-4xl mx-auto text-center">
-          <div className="inline-flex items-center gap-2 bg-green-500/10 border border-green-500/20 text-green-400 text-xs font-semibold px-4 py-2 rounded-full mb-6">
-            <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" />
+          <div className="inline-flex items-center gap-2 bg-green-500/10 border border-green-500/20 text-green-400 font-mono text-xs font-semibold px-4 py-2 rounded-full mb-6 backdrop-blur-[14px]">
+            <span className="ag-live-dot" />
             tracking millions of data points LIVE
           </div>
 
-          <h1 className="text-5xl sm:text-6xl md:text-7xl font-bold tracking-tight leading-[1.08] mb-6">
+          <h1 className="font-display text-5xl sm:text-6xl md:text-7xl font-semibold tracking-[-0.03em] leading-[1.08] mb-6">
             Find the next
             <br />
             <span className="flame-text">HOT</span>
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-green-400 via-emerald-300 to-green-400"> Bittensor</span>
+            <span className="ag-gradient-text"> Bittensor</span>
             {/* On sm+, explicit break after "Bittensor" */}
             <br className="hidden sm:block" />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-green-400 via-emerald-300 to-green-400">{" "}subnet</span>
+            <span className="ag-gradient-text">{" "}subnet</span>
             {" "}before
             {/* On mobile, break after "before" so "subnet before" share a line */}
             <br className="sm:hidden" />
@@ -434,9 +435,9 @@ function SubscribeContent() {
           <div className="grid sm:grid-cols-3 gap-5 max-w-5xl mx-auto mb-12 text-left pt-5">
 
             {/* Free */}
-            <div className="bg-[#0d0d14] border border-gray-800 rounded-3xl p-7 flex flex-col">
+            <div className="ag-glass !rounded-3xl p-7 flex flex-col">
               <div className="mb-6">
-                <div className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Free</div>
+                <div className="font-mono text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-2">Free</div>
                 <div className="flex items-baseline gap-1 mb-1">
                   <span className="text-4xl font-bold text-white">$0</span>
                   <span className="text-gray-600">/month</span>
@@ -466,14 +467,14 @@ function SubscribeContent() {
             </div>
 
             {/* Premium */}
-            <div className="relative bg-[#0d0d14] border border-purple-500/40 rounded-3xl p-7 pt-9 flex flex-col shadow-xl shadow-purple-500/10">
+            <div className="relative ag-glass !rounded-3xl !border-purple-500/40 p-7 pt-9 flex flex-col shadow-xl shadow-purple-500/10">
               <div className="absolute -top-3 left-1/2 -translate-x-1/2">
                 <span className="bg-gradient-to-r from-purple-500 to-violet-600 text-white text-[10px] font-bold px-3 py-1 rounded-full">
                   MOST POPULAR
                 </span>
               </div>
               <div className="mb-6">
-                <div className="text-xs font-bold text-purple-400 uppercase tracking-wider mb-2">Premium</div>
+                <div className="font-mono text-[11px] font-bold text-purple-400 uppercase tracking-wider mb-2">Premium</div>
                 <div className="flex items-baseline gap-1 mb-1">
                   <span className="text-4xl font-bold text-white">$49</span>
                   <span className="text-gray-500">/month</span>
@@ -513,14 +514,14 @@ function SubscribeContent() {
             </div>
 
             {/* Ultra */}
-            <div className="relative bg-gradient-to-b from-amber-950/40 to-[#0d0d14] border border-amber-400/40 rounded-3xl p-7 pt-9 flex flex-col shadow-xl shadow-amber-400/10">
+            <div className="relative bg-gradient-to-b from-amber-950/40 to-white/[0.03] backdrop-blur-[18px] border border-amber-400/40 rounded-3xl p-7 pt-9 flex flex-col shadow-xl shadow-amber-400/10">
               <div className="absolute -top-3 left-1/2 -translate-x-1/2">
                 <span className="bg-gradient-to-r from-amber-400 to-orange-400 text-black text-[10px] font-bold px-3 py-1 rounded-full">
                   MOST POWERFUL
                 </span>
               </div>
               <div className="mb-6">
-                <div className="text-xs font-bold text-amber-400 uppercase tracking-wider mb-2">Ultra</div>
+                <div className="font-mono text-[11px] font-bold text-amber-400 uppercase tracking-wider mb-2">Ultra</div>
                 <div className="flex items-baseline gap-1 mb-1">
                   <span className="text-4xl font-bold text-white">$99</span>
                   <span className="text-gray-500">/month</span>
@@ -536,7 +537,7 @@ function SubscribeContent() {
                     {f.text}
                   </li>
                 ))}
-                <li className="mt-3 mb-1 text-[10px] font-bold text-amber-400 uppercase tracking-wider">AlphaGap Index</li>
+                <li className="mt-3 mb-1 font-mono text-[10px] font-bold text-amber-400 uppercase tracking-wider">AlphaGap Index</li>
                 {([
                   { icon: "index",     text: "Auto-invest your TAO into the top 10 subnets" },
                   { icon: "rebalance", text: "Weekly auto-rebalancing as scores shift" },
@@ -549,7 +550,7 @@ function SubscribeContent() {
                     {f.text}
                   </li>
                 ))}
-                <li className="mt-3 mb-1 text-[10px] font-bold text-amber-400 uppercase tracking-wider">Oracle</li>
+                <li className="mt-3 mb-1 font-mono text-[10px] font-bold text-amber-400 uppercase tracking-wider">Oracle</li>
                 {([
                   { icon: "oracle",    text: "20 queries/day — 2× more than Premium" },
                 ] as { icon: string; text: string }[]).map(f => (
@@ -572,7 +573,7 @@ function SubscribeContent() {
           </div>
 
           {/* What we monitor — graphic boxes */}
-          <p className="text-sm font-semibold text-gray-500 uppercase tracking-widest text-center mb-4">Harness The Power Of:</p>
+          <p className="font-mono text-xs font-semibold text-gray-500 uppercase tracking-widest text-center mb-4">Harness The Power Of:</p>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 max-w-3xl mx-auto text-left">
             {([
               { icon: "dev",       title: "Dev Activity",        desc: "Every GitHub commit, release, and engineering milestone across all subnets" },
@@ -582,7 +583,7 @@ function SubscribeContent() {
               { icon: "rocket",    title: "Product Launches",    desc: "New feature releases, live apps, and real-world deployments detected automatically" },
               { icon: "time",      title: "128 Subnets · 24/7",  desc: "Every active Bittensor subnet tracked continuously — nothing slips through" },
             ] as { icon: string; title: string; desc: string }[]).map(item => (
-              <div key={item.title} className="bg-white/[0.03] border border-white/[0.07] rounded-xl p-4 hover:border-green-500/20 hover:bg-white/[0.05] transition-colors">
+              <div key={item.title} className="ag-glass ag-glass-hover !rounded-xl p-4">
                 <div className="mb-2 text-green-400"><PIcon name={item.icon} className="w-6 h-6" /></div>
                 <div className="text-sm font-semibold text-white mb-1">{item.title}</div>
                 <div className="text-xs text-gray-500 leading-relaxed">{item.desc}</div>
@@ -595,7 +596,7 @@ function SubscribeContent() {
       {/* ── The Problem ── */}
       <section className="py-20 px-5">
         <div className="max-w-4xl mx-auto">
-          <h2 className="text-3xl sm:text-4xl font-bold text-center mb-4">
+          <h2 className="font-display text-3xl sm:text-4xl font-semibold tracking-[-0.02em] text-center mb-4">
             Tracking Bittensor manually<br />
             <span className="text-gray-500">is a full-time job.</span>
           </h2>
@@ -621,7 +622,7 @@ function SubscribeContent() {
                 desc: "Token prices lag behind fundamentals by days or weeks. The window between a team shipping real progress and the market pricing it in — that's where the alpha lives. But only if you find it first.",
               },
             ] as { icon: string; title: string; desc: string }[]).map(c => (
-              <div key={c.title} className="bg-white/[0.02] border border-white/[0.06] rounded-xl p-6">
+              <div key={c.title} className="ag-glass ag-glass-hover p-6">
                 <div className="mb-4 text-gray-400"><PIcon name={c.icon} className="w-7 h-7" /></div>
                 <h3 className="font-bold text-white mb-2">{c.title}</h3>
                 <p className="text-gray-500 text-sm leading-relaxed">{c.desc}</p>
@@ -634,7 +635,7 @@ function SubscribeContent() {
       {/* ── Feature Showcase ── */}
       <section className="py-20 px-5 bg-white/[0.01]">
         <div className="max-w-5xl mx-auto">
-          <h2 className="text-3xl sm:text-4xl font-bold text-center mb-3">
+          <h2 className="font-display text-3xl sm:text-4xl font-semibold tracking-[-0.02em] text-center mb-3">
             Everything inside AlphaGap
           </h2>
           <p className="text-gray-500 text-center mb-14">Every page. Every feature. Built to give you an unfair advantage.</p>
@@ -651,13 +652,21 @@ function SubscribeContent() {
                   The highest scores = the biggest opportunities right now.
                 </p>
                 <div className="flex flex-wrap gap-2 mb-4">
-                  {["Sort by any metric", "9 smart filters", "🐋 Whale signals", "🤑 Volume surges", "⚡ aGap Velocity score", "⚠️ Risk flags", "Category filters"].map(t => (
-                    <span key={t} className="text-xs px-2 py-1 bg-gray-800 border border-gray-700 rounded-full text-gray-400">{t}</span>
+                  {[
+                    { icon: null, label: "Sort by any metric" },
+                    { icon: null, label: "9 smart filters" },
+                    { icon: <AgIcon name="whale" className="w-3 h-3 text-cyan-300" />, label: "Whale signals" },
+                    { icon: <AgIcon name="money" className="w-3 h-3 text-yellow-300" />, label: "Volume surges" },
+                    { icon: <AgIcon name="bolt" className="w-3 h-3 text-yellow-400" />, label: "aGap Velocity score" },
+                    { icon: <AgIcon name="warning" className="w-3 h-3 text-orange-400" />, label: "Risk flags" },
+                    { icon: null, label: "Category filters" },
+                  ].map(t => (
+                    <span key={t.label} className="text-xs px-2 py-1 bg-gray-800 border border-gray-700 rounded-full text-gray-400 inline-flex items-center gap-1">{t.icon}{t.label}</span>
                   ))}
                 </div>
               </div>
               {/* Mock dashboard table */}
-              <div className="bg-gray-950 rounded-xl border border-gray-800 overflow-hidden">
+              <div className="bg-black/30 backdrop-blur-[14px] rounded-xl border border-white/[0.08] overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
@@ -665,7 +674,7 @@ function SubscribeContent() {
                         <th className="px-3 py-2 w-6">#</th>
                         <th className="px-3 py-2">Subnet</th>
                         <th className="px-3 py-2 text-right">aGap</th>
-                        <th className="px-3 py-2 text-right">Velo ⚡</th>
+                        <th className="px-3 py-2 text-right">Velo <AgIcon name="bolt" className="w-2.5 h-2.5 text-yellow-400" /></th>
                         <th className="px-3 py-2 text-right">Flow</th>
                         <th className="px-3 py-2 text-right">Dev</th>
                         <th className="px-3 py-2 text-right">eVal</th>
@@ -724,7 +733,7 @@ function SubscribeContent() {
                 Plus, our AI reads every subnet channel in the Bittensor Discord every 3 hours —
                 flagging genuine <span className="text-green-400">ALPHA</span> before it spreads.
               </p>
-              <div className="bg-gray-950 rounded-xl border border-gray-800 p-4">
+              <div className="bg-black/30 backdrop-blur-[14px] rounded-xl border border-white/[0.08] p-4">
                 <div className="text-xs text-gray-600 mb-3 font-medium uppercase tracking-wide flex items-center gap-1.5"><PIcon name="signals" className="w-3 h-3 text-orange-400" /> Hot KOL Activity</div>
                 <MockKolEvent kol="const" tier={1} subnet="Score" heat={97} text="SN44 Score just signed PwC France as a strategic partner. Enterprise physical AI is the unlock — this is the real world use case we've been waiting for..." time="1h ago" />
                 <MockKolEvent kol="taoshi_" tier={1} subnet="Chutes" heat={91} text="Chutes (SN64) just crossed 9 trillion tokens served. 85% cheaper than AWS and growing 40% month over month. The infra layer is won." time="2h ago" />
@@ -740,11 +749,11 @@ function SubscribeContent() {
                 covering the team, tech stack, recent progress, on-chain position, and investment thesis.
                 All in plain English. Ready when you wake up.
               </p>
-              <div className="bg-gray-950 rounded-xl border border-gray-800 p-5">
+              <div className="bg-black/30 backdrop-blur-[14px] rounded-xl border border-white/[0.08] p-5">
                 <div className="flex items-center justify-between mb-4">
                   <div>
                     <div className="text-xs text-gray-600 font-medium uppercase tracking-wide mb-1">Daily Report · {new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</div>
-                    <h4 className="font-bold text-white text-lg">Score (SN44) — Deep Dive</h4>
+                    <h4 className="font-display font-bold text-white text-lg">Score (SN44) — Deep Dive</h4>
                   </div>
                   <div className="text-right">
                     <div className="text-2xl font-bold text-green-400">91</div>
@@ -782,7 +791,7 @@ function SubscribeContent() {
                   { icon: "social",    label: "Team & social links", desc: "GitHub, X, Discord" },
                   { icon: "analytics", label: "Price & market data", desc: "Live from TaoStats" },
                 ] as { icon: string; label: string; desc: string }[]).map(f => (
-                  <div key={f.label} className="bg-gray-900/60 border border-gray-800 rounded-lg p-3 text-center">
+                  <div key={f.label} className="bg-white/[0.03] border border-white/[0.08] rounded-lg p-3 text-center">
                     <div className="mb-1.5 flex justify-center text-green-400"><PIcon name={f.icon} className="w-5 h-5" /></div>
                     <div className="text-xs font-semibold text-gray-200">{f.label}</div>
                     <div className="text-[10px] text-gray-600 mt-0.5">{f.desc}</div>
@@ -803,25 +812,25 @@ function SubscribeContent() {
                   { icon: "trending", label: "Volume Surges", desc: "Detects 2.5x+ spikes vs 5-day rolling buy average" },
                   { icon: "signals",  label: "Flow Signals", desc: "Catches when net flow flips positive or spikes sharply" },
                 ] as { icon: string; label: string; desc: string }[]).map(f => (
-                  <div key={f.label} className="bg-gray-900/60 border border-gray-800 rounded-lg p-3">
+                  <div key={f.label} className="bg-white/[0.03] border border-white/[0.08] rounded-lg p-3">
                     <div className="mb-1.5 text-green-400"><PIcon name={f.icon} className="w-5 h-5" /></div>
                     <div className="text-xs font-semibold text-gray-200 mb-0.5">{f.label}</div>
                     <div className="text-[10px] text-gray-600">{f.desc}</div>
                   </div>
                 ))}
               </div>
-              <div className="bg-gray-950 rounded-xl border border-gray-800 divide-y divide-gray-800/60">
+              <div className="bg-black/30 backdrop-blur-[14px] rounded-xl border border-white/[0.08] divide-y divide-gray-800/60">
                 {[
-                  { netuid: 44, name: "Score", badge: "🐋 WHALE BUY", badgeColor: "text-cyan-300", detail: "2.34x avg buy size vs sells · Net +$142K in 24h", velo: 91 },
-                  { netuid: 64, name: "Chutes", badge: "🤑 VOL SURGE", badgeColor: "text-yellow-300", detail: "5.2x rolling average buy volume · Net +$89K in 24h", velo: 88 },
-                  { netuid: 66, name: "ninja", badge: "⚡ FLOW SPIKE", badgeColor: "text-purple-300", detail: "Flow spiked 3.1x vs yesterday · Accelerating inflows", velo: 76 },
+                  { netuid: 44, name: "Score", badgeIcon: <AgIcon name="whale" className="w-3 h-3" />, badge: "WHALE BUY", badgeColor: "text-cyan-300", detail: "2.34x avg buy size vs sells · Net +$142K in 24h", velo: 91 },
+                  { netuid: 64, name: "Chutes", badgeIcon: <AgIcon name="money" className="w-3 h-3" />, badge: "VOL SURGE", badgeColor: "text-yellow-300", detail: "5.2x rolling average buy volume · Net +$89K in 24h", velo: 88 },
+                  { netuid: 66, name: "ninja", badgeIcon: <AgIcon name="bolt" className="w-3 h-3" />, badge: "FLOW SPIKE", badgeColor: "text-purple-300", detail: "Flow spiked 3.1x vs yesterday · Accelerating inflows", velo: 76 },
                 ].map(r => (
                   <div key={r.netuid} className="flex items-center justify-between px-4 py-3">
                     <div>
                       <div className="flex items-center gap-2 mb-0.5">
                         <span className="text-[10px] text-gray-600 font-mono">SN{r.netuid}</span>
                         <span className="font-semibold text-sm text-white">{r.name}</span>
-                        <span className={`text-[10px] font-bold ${r.badgeColor}`}>{r.badge}</span>
+                        <span className={`text-[10px] font-bold inline-flex items-center gap-1 ${r.badgeColor}`}>{r.badgeIcon}{r.badge}</span>
                       </div>
                       <span className="text-xs text-gray-500">{r.detail}</span>
                     </div>
@@ -838,14 +847,21 @@ function SubscribeContent() {
                 Pump Lab monitors a curated watchlist for unusual staking inflows, volume acceleration, and social heat all converging at once.
                 It&apos;s the closest thing to a heads-up the market will give you.
               </p>
-              <div className="bg-gray-950 rounded-xl border border-gray-800 overflow-hidden">
+              <div className="bg-black/30 backdrop-blur-[14px] rounded-xl border border-white/[0.08] overflow-hidden">
                 <div className="px-4 py-2.5 border-b border-gray-800 flex items-center justify-between">
                   <span className="text-xs text-gray-500 font-medium uppercase tracking-wide flex items-center gap-1.5"><PIcon name="pumplab" className="w-3 h-3" /> Active Watch</span>
                   <span className="text-[10px] text-gray-600">Auto-detected · Updated every scan</span>
                 </div>
                 {[
-                  { netuid: 44, name: "Score", signals: ["🐋 Whales buying", "📈 Emissions +21%", "🔥 KOL heat 97"], score: 91 },
-                  { netuid: 97, name: "distil", signals: ["🤑 5.2x vol surge", "⚡ Flow spiked 3x"], score: 82 },
+                  { netuid: 44, name: "Score", signals: [
+                    { icon: <AgIcon name="whale" className="w-3 h-3 text-cyan-300" />, label: "Whales buying" },
+                    { icon: <AgIcon name="trendUp" className="w-3 h-3 text-green-400" />, label: "Emissions +21%" },
+                    { icon: <AgIcon name="flame" className="w-3 h-3 text-orange-400" />, label: "KOL heat 97" },
+                  ], score: 91 },
+                  { netuid: 97, name: "distil", signals: [
+                    { icon: <AgIcon name="money" className="w-3 h-3 text-yellow-300" />, label: "5.2x vol surge" },
+                    { icon: <AgIcon name="bolt" className="w-3 h-3 text-purple-300" />, label: "Flow spiked 3x" },
+                  ], score: 82 },
                 ].map(r => (
                   <div key={r.netuid} className="px-4 py-3 border-b border-gray-800/60 last:border-0">
                     <div className="flex items-center justify-between mb-1.5">
@@ -857,7 +873,7 @@ function SubscribeContent() {
                     </div>
                     <div className="flex flex-wrap gap-1.5">
                       {r.signals.map(s => (
-                        <span key={s} className="text-[10px] px-2 py-0.5 bg-gray-800 border border-gray-700 rounded-full text-gray-400">{s}</span>
+                        <span key={s.label} className="text-[10px] px-2 py-0.5 bg-gray-800 border border-gray-700 rounded-full text-gray-400 inline-flex items-center gap-1">{s.icon}{s.label}</span>
                       ))}
                     </div>
                   </div>
@@ -879,27 +895,27 @@ function SubscribeContent() {
                   { icon: "index",       label: "Alpha Positions", desc: "See exactly which subnets a wallet is staked into and for how much" },
                   { icon: "search",      label: "Any Address",    desc: "Look up any SS58 address instantly to reveal their full portfolio" },
                 ] as { icon: string; label: string; desc: string }[]).map(f => (
-                  <div key={f.label} className="bg-gray-900/60 border border-gray-800 rounded-lg p-3">
+                  <div key={f.label} className="bg-white/[0.03] border border-white/[0.08] rounded-lg p-3">
                     <div className="mb-1.5 text-green-400"><PIcon name={f.icon} className="w-5 h-5" /></div>
                     <div className="text-xs font-semibold text-gray-200 mb-0.5">{f.label}</div>
                     <div className="text-[10px] text-gray-600">{f.desc}</div>
                   </div>
                 ))}
               </div>
-              <div className="bg-gray-950 rounded-xl border border-gray-800 divide-y divide-gray-800/60">
+              <div className="bg-black/30 backdrop-blur-[14px] rounded-xl border border-white/[0.08] divide-y divide-gray-800/60">
                 <div className="px-4 py-2 flex items-center justify-between border-b border-gray-800">
                   <span className="text-[10px] text-gray-600 font-medium uppercase tracking-wide">Top Movers · Last 24h</span>
                   <span className="text-[10px] text-gray-600">TAO staked</span>
                 </div>
                 {[
-                  { label: "🐋 const", address: "5CXs...9h4J", category: "Founder", tao: "24,812 τ", change: "+1,240 τ", pos: true, subnets: "SN1, SN9, SN64" },
-                  { label: "🏦 Opentensor Foundation", address: "5HZ9...2mWq", category: "Foundation", tao: "18,340 τ", change: "+890 τ", pos: true, subnets: "SN3, SN44, SN97" },
-                  { label: "⚡ Unknown Whale", address: "5EkQ...7rPx", category: "Whale", tao: "8,204 τ", change: "-2,100 τ", pos: false, subnets: "SN64, SN66" },
+                  { labelIcon: <AgIcon name="whale" className="w-3.5 h-3.5 text-cyan-300" />, label: "const", address: "5CXs...9h4J", category: "Founder", tao: "24,812 τ", change: "+1,240 τ", pos: true, subnets: "SN1, SN9, SN64" },
+                  { labelIcon: <AgIcon name="shield" className="w-3.5 h-3.5 text-blue-300" />, label: "Opentensor Foundation", address: "5HZ9...2mWq", category: "Foundation", tao: "18,340 τ", change: "+890 τ", pos: true, subnets: "SN3, SN44, SN97" },
+                  { labelIcon: <AgIcon name="bolt" className="w-3.5 h-3.5 text-yellow-300" />, label: "Unknown Whale", address: "5EkQ...7rPx", category: "Whale", tao: "8,204 τ", change: "-2,100 τ", pos: false, subnets: "SN64, SN66" },
                 ].map(r => (
                   <div key={r.address} className="flex items-center justify-between px-4 py-3">
                     <div>
                       <div className="flex items-center gap-2 mb-0.5">
-                        <span className="text-sm font-semibold text-white">{r.label}</span>
+                        <span className="text-sm font-semibold text-white inline-flex items-center gap-1.5">{r.labelIcon}{r.label}</span>
                         <span className="text-[9px] px-1.5 py-0.5 bg-gray-800 border border-gray-700 rounded text-gray-500">{r.category}</span>
                       </div>
                       <span className="text-[10px] text-gray-600">{r.subnets}</span>
@@ -920,7 +936,7 @@ function SubscribeContent() {
                 tokens when a subnet hits aGap 80+ for the first time, then tracks how the position performs over time.
                 See the real-world returns of following our signals — updated every scan.
               </p>
-              <div className="bg-gray-950 rounded-xl border border-gray-800 overflow-hidden">
+              <div className="bg-black/30 backdrop-blur-[14px] rounded-xl border border-white/[0.08] overflow-hidden">
                 <div className="px-4 py-3 border-b border-gray-800">
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-gray-500 font-medium">Simulated Portfolio · Following aGap Signals</span>
@@ -958,7 +974,7 @@ function SubscribeContent() {
             </FeatureCard>
 
             {/* Feature 7: AlphaGap Index — Ultra Exclusive */}
-            <div className="bg-gradient-to-b from-amber-950/30 to-[#0d0d14] border border-amber-400/25 rounded-2xl overflow-hidden">
+            <div className="bg-gradient-to-b from-amber-950/30 to-white/[0.03] backdrop-blur-[18px] border border-amber-400/25 rounded-2xl overflow-hidden">
               <div className="px-6 py-5 border-b border-amber-400/10">
                 <div className="flex items-center gap-3 mb-1">
                   <span className="text-amber-400"><PIcon name="index" className="w-5 h-5" /></span>
@@ -1002,8 +1018,8 @@ function SubscribeContent() {
       {/* ── Scoring breakdown ── */}
       <section className="py-20 px-5">
         <div className="max-w-4xl mx-auto">
-          <h2 className="text-3xl font-bold text-center mb-3">
-            The <span className="text-green-400">aGap Score</span> — 5 signals. One number.
+          <h2 className="font-display text-3xl font-semibold tracking-[-0.02em] text-center mb-3">
+            The <span className="ag-gradient-text">aGap Score</span> — 5 signals. One number.
           </h2>
           <p className="text-gray-500 text-center text-sm mb-12 max-w-xl mx-auto">
             Every subnet is evaluated across five independent dimensions to produce the composite alpha gap score.
@@ -1030,7 +1046,7 @@ function SubscribeContent() {
       {/* ── vs manually ── */}
       <section className="py-20 px-5 bg-white/[0.01]">
         <div className="max-w-3xl mx-auto">
-          <h2 className="text-3xl font-bold text-center mb-12">
+          <h2 className="font-display text-3xl font-semibold tracking-[-0.02em] text-center mb-12">
             AlphaGap vs. doing it yourself
           </h2>
           <div className="grid sm:grid-cols-2 gap-4">
@@ -1088,7 +1104,7 @@ function SubscribeContent() {
       {/* ── FAQ ── */}
       <section className="py-20 px-5 bg-white/[0.01]">
         <div className="max-w-2xl mx-auto">
-          <h2 className="text-2xl font-bold text-center mb-10">Frequently asked questions</h2>
+          <h2 className="font-display text-2xl font-semibold tracking-[-0.02em] text-center mb-10">Frequently asked questions</h2>
           <div className="space-y-4">
             {[
               {
@@ -1116,7 +1132,7 @@ function SubscribeContent() {
                 a: "All major credit and debit cards via Stripe. The payment is handled entirely by Stripe — we never see or store your card details.",
               },
             ].map(faq => (
-              <details key={faq.q} className="group bg-white/[0.02] border border-white/[0.06] rounded-xl">
+              <details key={faq.q} className="group ag-glass">
                 <summary className="flex items-center justify-between px-5 py-4 cursor-pointer font-medium text-white text-sm list-none select-none">
                   {faq.q}
                   <span className="text-gray-600 group-open:rotate-180 transition-transform">▾</span>
@@ -1131,10 +1147,10 @@ function SubscribeContent() {
       {/* ── Final CTA ── */}
       <section className="py-24 px-5">
         <div className="max-w-3xl mx-auto text-center">
-          <h2 className="text-4xl sm:text-5xl font-bold mb-6">
+          <h2 className="font-display text-4xl sm:text-5xl font-semibold tracking-[-0.03em] mb-6">
             The market is inefficient.
             <br />
-            <span className="text-green-400">That&apos;s your edge.</span>
+            <span className="ag-gradient-text">That&apos;s your edge.</span>
           </h2>
           <p className="text-gray-400 text-lg mb-4 max-w-xl mx-auto leading-relaxed">
             Every day, Bittensor teams ship breakthroughs that the market takes days or weeks to price in.

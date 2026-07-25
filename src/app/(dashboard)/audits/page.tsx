@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import SubnetLogo from "@/components/dashboard/SubnetLogo";
+import AgIcon, { type AgIconName } from "@/components/AgIcon";
 import { getTier, canAccessPremium } from "@/lib/subscription";
 import { useWatchlist } from "@/components/dashboard/WatchlistProvider";
 import { useDashboard } from "@/components/dashboard/DashboardProvider";
@@ -123,7 +124,7 @@ function InfoTip({ text }: { text: string }) {
       {open && typeof document !== "undefined" && createPortal(
         <div
           style={{ position: "fixed", top: pos.top, left: pos.left, zIndex: 9999, width: 224 }}
-          className="bg-gray-950 border border-gray-600 rounded-lg px-3 py-2.5 text-[12px] text-gray-200 leading-relaxed shadow-2xl"
+          className="bg-[#0b0f0d] border border-white/[0.14] rounded-xl px-3 py-2.5 text-[12px] text-gray-200 leading-relaxed shadow-2xl backdrop-blur-[14px]"
         >
           {text}
         </div>,
@@ -143,14 +144,14 @@ function ColHeader({ label, sub, tooltip, onClick, sorted }: {
 }) {
   return (
     <th
-      className={`px-1.5 py-2 text-right whitespace-nowrap cursor-pointer select-none ${sorted ? "text-green-400" : "text-gray-500 hover:text-gray-300"} transition-colors`}
+      className={`px-1.5 py-2 text-right whitespace-nowrap cursor-pointer select-none ${sorted ? "text-emerald-400" : "text-gray-500 hover:text-gray-300"} transition-colors`}
       onClick={onClick}
     >
       <div className="flex items-center justify-end gap-1">
         {tooltip && <InfoTip text={tooltip} />}
-        <div className="text-xs font-semibold uppercase tracking-wide">{label}</div>
+        <div className="font-mono text-[10.5px] font-semibold uppercase tracking-wider">{label}</div>
       </div>
-      {sub && <div className="text-[10px] font-normal text-gray-600 text-right">{sub}</div>}
+      {sub && <div className="font-mono text-[9.5px] font-normal text-gray-600 text-right">{sub}</div>}
     </th>
   );
 }
@@ -160,7 +161,7 @@ function ExpandedDetail({ audit }: { audit: SubnetAudit }) {
   const critFlags = audit.flags.filter(f => f.severity === "critical");
   const warnFlags = audit.flags.filter(f => f.severity === "warning");
   return (
-    <div className="px-4 py-3 bg-gray-950/60 border-t border-gray-800/50 space-y-3">
+    <div className="px-4 py-3 bg-white/[0.02] border-t border-white/[0.06] space-y-3">
       {/* Flag messages */}
       {[...critFlags, ...warnFlags].length > 0 && (
         <div className="space-y-1.5">
@@ -170,7 +171,7 @@ function ExpandedDetail({ audit }: { audit: SubnetAudit }) {
                 ? "text-red-300 bg-red-500/5 border-red-500/20"
                 : "text-yellow-300 bg-yellow-500/5 border-yellow-500/20"
             }`}>
-              <span className="shrink-0">{flag.severity === "critical" ? "🔴" : "⚠️"}</span>
+              <span className="shrink-0">{flag.severity === "critical" ? <span className="inline-block w-2 h-2 rounded-full bg-red-500 mt-1" /> : <AgIcon name="warning" className="w-3.5 h-3.5 text-yellow-400" />}</span>
               <span>{flag.message}</span>
             </div>
           ))}
@@ -184,8 +185,8 @@ function ExpandedDetail({ audit }: { audit: SubnetAudit }) {
           { label: "Zero-Inc Miners",  value: `${audit.zeroIncentiveMinerCount} / ${audit.minerCount}` },
           { label: "Top-3 Trust",      value: `${audit.top3ValidatorTrustShare}%` },
         ].map(({ label, value }) => (
-          <div key={label} className="bg-gray-900/60 border border-gray-800 rounded-lg px-3 py-2">
-            <div className="text-gray-600 text-[10px] mb-0.5">{label}</div>
+          <div key={label} className="bg-white/[0.035] border border-white/[0.08] rounded-lg px-3 py-2 backdrop-blur-[14px]">
+            <div className="font-mono text-gray-600 text-[9.5px] uppercase tracking-wider mb-0.5">{label}</div>
             <div className="text-gray-300 font-mono font-semibold">{value}</div>
           </div>
         ))}
@@ -469,25 +470,25 @@ export default function AuditsPage() {
 
       {/* Search + watchlist */}
       <div className="flex items-center gap-2 flex-wrap">
-        <button
-          onClick={() => setWatchlistOnly(v => !v)}
-          className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium border flex-shrink-0 transition-colors ${
-            watchlistOnly ? "bg-blue-600 border-blue-500 text-white" : "bg-gray-900/60 border-gray-700 text-gray-400 hover:border-gray-500 hover:text-white"
-          }`}
-        >
-          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
-          </svg>
-          My Watchlist
-        </button>
+        <div className="ag-pill-tabs flex-shrink-0">
+          <button
+            onClick={() => setWatchlistOnly(v => !v)}
+            className={`ag-pill-tab inline-flex items-center gap-1.5 ${watchlistOnly ? "ag-pill-tab-on" : ""}`}
+          >
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+            </svg>
+            My Watchlist
+          </button>
+        </div>
         <input
           type="text"
           placeholder="Search subnets…"
           value={search}
           onChange={e => setSearch(e.target.value)}
-          className="w-48 md:w-56 bg-gray-800/60 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:border-green-600 focus:ring-1 focus:ring-green-600/30"
+          className="w-48 md:w-56 bg-white/[0.035] border border-white/[0.08] rounded-full px-4 py-2 text-sm text-gray-200 placeholder-gray-500 backdrop-blur-[14px] focus:outline-none focus:border-emerald-400/40 focus:ring-1 focus:ring-emerald-400/20"
         />
-        <span className="text-xs text-gray-600 flex-shrink-0">{filtered.length} subnets</span>
+        <span className="font-mono text-[10.5px] uppercase tracking-wider text-gray-600 flex-shrink-0 tabular-nums">{filtered.length} subnets</span>
       </div>
 
       {/* Table */}
@@ -500,14 +501,14 @@ export default function AuditsPage() {
       ) : filtered.length === 0 ? (
         <div className="text-center py-16 text-gray-600 text-sm">No subnets match your search.</div>
       ) : (
-        <div className="bg-gray-900/60 border border-gray-800 rounded-xl overflow-x-auto">
+        <div className="ag-glass overflow-x-auto">
           <div>
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-gray-800 bg-gray-950/40">
+                <tr className="border-b border-white/[0.08] bg-white/[0.02]">
                   {/* Fixed left: rank + subnet */}
-                  <th className="px-2 py-2 text-left w-6 text-xs text-gray-600 uppercase tracking-wide">#</th>
-                  <th className="px-2 py-2 text-left text-xs text-gray-600 uppercase tracking-wide min-w-[130px]">Subnet</th>
+                  <th className="px-2 py-2 text-left w-6 font-mono text-[10.5px] text-gray-600 uppercase tracking-wider">#</th>
+                  <th className="px-2 py-2 text-left font-mono text-[10.5px] text-gray-600 uppercase tracking-wider min-w-[130px]">Subnet</th>
 
                   {/* Audit Score */}
                   <ColHeader label="Audit Score" sub="0-100"
@@ -571,7 +572,7 @@ export default function AuditsPage() {
 
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-800/50">
+              <tbody className="divide-y divide-white/[0.06]">
                 {filtered.map((audit, i) => {
                   const watched  = isWatched(audit.netuid);
 
@@ -584,7 +585,7 @@ export default function AuditsPage() {
                       className={`cursor-pointer transition-colors ${
                         watched ? "bg-blue-950/30 hover:bg-blue-950/50" :
                         critFlags.length > 0 ? "bg-red-950/10 hover:bg-red-950/20" :
-                        "hover:bg-gray-800/30"
+                        "hover:bg-white/[0.03]"
                       }`}
                     >
                       {/* Rank */}
@@ -597,7 +598,7 @@ export default function AuditsPage() {
                           <div>
                             <button
                               onClick={e => { e.stopPropagation(); router.push(`/subnets/${audit.netuid}`); }}
-                              className="font-semibold text-white hover:text-green-400 transition-colors text-sm leading-tight block text-left"
+                              className="font-semibold text-white hover:text-emerald-400 transition-colors text-sm leading-tight block text-left"
                             >
                               {audit.name}
                             </button>
@@ -770,7 +771,7 @@ export default function AuditsPage() {
       )}
 
       {/* Legend */}
-      <div className="flex items-center gap-4 text-[10px] text-gray-600 px-1 flex-wrap">
+      <div className="flex items-center gap-4 font-mono text-[10px] uppercase tracking-wider text-gray-600 px-1 flex-wrap">
         <span className="flex items-center gap-1"><span className="inline-block w-2 h-2 rounded-full bg-emerald-400" /> Good</span>
         <span className="flex items-center gap-1"><span className="inline-block w-2 h-2 rounded-full bg-yellow-400" /> Caution</span>
         <span className="flex items-center gap-1"><span className="inline-block w-2 h-2 rounded-full bg-red-400" /> Risk</span>
@@ -793,30 +794,30 @@ export default function AuditsPage() {
     const isSignedOut = !session;
     // Build a fake filtered list using placeholder data
     const previewTable = (
-      <div className="bg-gray-900/60 border border-gray-800 rounded-xl overflow-hidden">
+      <div className="ag-glass overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm min-w-[900px]">
             <thead>
-              <tr className="border-b border-gray-800 bg-gray-950/40">
-                <th className="px-3 py-2.5 text-left w-8 text-xs text-gray-600 uppercase tracking-wide">#</th>
-                <th className="px-3 py-2.5 text-left text-xs text-gray-600 uppercase tracking-wide min-w-[140px]">Subnet</th>
-                <th className="px-2.5 py-2 text-right text-xs text-gray-600 uppercase tracking-wide">Audit Score</th>
-                <th className="px-2.5 py-2 text-right text-xs text-gray-600 uppercase tracking-wide">aGap</th>
-                <th className="px-2.5 py-2 text-right text-xs text-gray-600 uppercase tracking-wide">Mkt Cap</th>
-                <th className="px-2.5 py-2 text-right text-xs text-gray-600 uppercase tracking-wide">Holders</th>
-                <th className="px-2.5 py-2 text-right text-xs text-gray-600 uppercase tracking-wide">Nakamoto</th>
-                <th className="px-2.5 py-2 text-right text-xs text-gray-600 uppercase tracking-wide">HHI</th>
-                <th className="px-2.5 py-2 text-right text-xs text-gray-600 uppercase tracking-wide">Miner Burn</th>
-                <th className="px-2.5 py-2 text-right text-xs text-gray-600 uppercase tracking-wide">Stale Val%</th>
-                <th className="px-2.5 py-2 text-right text-xs text-gray-600 uppercase tracking-wide">ZI Miners%</th>
+              <tr className="border-b border-white/[0.08] bg-white/[0.02]">
+                <th className="px-3 py-2.5 text-left w-8 font-mono text-[10.5px] text-gray-600 uppercase tracking-wider">#</th>
+                <th className="px-3 py-2.5 text-left font-mono text-[10.5px] text-gray-600 uppercase tracking-wider min-w-[140px]">Subnet</th>
+                <th className="px-2.5 py-2 text-right font-mono text-[10.5px] text-gray-600 uppercase tracking-wider">Audit Score</th>
+                <th className="px-2.5 py-2 text-right font-mono text-[10.5px] text-gray-600 uppercase tracking-wider">aGap</th>
+                <th className="px-2.5 py-2 text-right font-mono text-[10.5px] text-gray-600 uppercase tracking-wider">Mkt Cap</th>
+                <th className="px-2.5 py-2 text-right font-mono text-[10.5px] text-gray-600 uppercase tracking-wider">Holders</th>
+                <th className="px-2.5 py-2 text-right font-mono text-[10.5px] text-gray-600 uppercase tracking-wider">Nakamoto</th>
+                <th className="px-2.5 py-2 text-right font-mono text-[10.5px] text-gray-600 uppercase tracking-wider">HHI</th>
+                <th className="px-2.5 py-2 text-right font-mono text-[10.5px] text-gray-600 uppercase tracking-wider">Miner Burn</th>
+                <th className="px-2.5 py-2 text-right font-mono text-[10.5px] text-gray-600 uppercase tracking-wider">Stale Val%</th>
+                <th className="px-2.5 py-2 text-right font-mono text-[10.5px] text-gray-600 uppercase tracking-wider">ZI Miners%</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-800/50">
+            <tbody className="divide-y divide-white/[0.06]">
               {PREVIEW_ROWS.map((audit, i) => {
                 const agap = agapMap.get(audit.netuid);
                 const mcap = marketCapUsdMap.get(audit.netuid);
                 return (
-                  <tr key={audit.netuid} className="hover:bg-gray-800/20">
+                  <tr key={audit.netuid} className="hover:bg-white/[0.03]">
                     <td className="px-2 py-2 text-gray-600 text-sm tabular-nums text-center">{i + 1}</td>
                     <td className="px-2 py-2">
                       <div className="flex items-center gap-2">
@@ -850,31 +851,30 @@ export default function AuditsPage() {
     );
 
     return (
-      <main className="flex-1 overflow-auto">
+      <main className="flex-1 overflow-auto ag-aurora">
 
         {/* ── Hero header ─────────────────────────────────────────── */}
-        <div className="relative overflow-hidden border-b border-gray-800/50">
-          <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: "linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)", backgroundSize: "40px 40px" }} />
-          <div className="absolute -top-20 left-1/4 w-96 h-96 bg-green-600/10 rounded-full blur-3xl pointer-events-none" />
-          <div className="relative max-w-screen-2xl mx-auto px-4 md:px-6 pt-10 pb-7">
-            <div className="flex items-center gap-3 mb-2">
-              <h1 className="text-3xl font-bold bg-gradient-to-r from-green-400 via-emerald-300 to-white bg-clip-text text-transparent">
-                🔍 Subnet Audits
+        <div className="relative overflow-hidden">
+          <div className="relative max-w-screen-2xl mx-auto px-4 md:px-6 pt-9 pb-5">
+            <div className="flex items-center gap-3 mb-2 flex-wrap">
+              <h1 className="font-display text-3xl md:text-[40px] font-semibold tracking-[-0.03em] text-white leading-tight flex items-center gap-2.5">
+                <AgIcon name="search" className="w-7 h-7 text-emerald-400" />
+                <span>Subnet <span className="ag-gradient-text">Audits</span></span>
               </h1>
-              <span className="text-xs bg-yellow-900/50 text-yellow-400 border border-yellow-800/40 rounded-full px-2 py-0.5 font-medium">Premium</span>
+              <span className="ag-badge text-yellow-400 border-yellow-500/30 bg-yellow-500/[0.06]">Premium</span>
             </div>
-            <p className="text-gray-500 text-sm max-w-2xl mb-5">
+            <p className="text-sm md:text-[14.5px] text-gray-400 max-w-2xl leading-[1.65] mb-4">
               Deep operational health across every active subnet — decentralisation scores, miner burn economics, validator freshness, liquidity, and adoption. On-chain data you can't get anywhere else.
             </p>
             <div className="flex flex-wrap items-center gap-2">
               {[
-                { label: "Decentralisation", icon: "🌐" },
-                { label: "Miner Economics", icon: "⛏️" },
-                { label: "Validator Health", icon: "✅" },
-                { label: "Liquidity", icon: "💧" },
+                { label: "Decentralisation", icon: "globe" as AgIconName },
+                { label: "Miner Economics", icon: "money" as AgIconName },
+                { label: "Validator Health", icon: "shield" as AgIconName },
+                { label: "Liquidity", icon: "wave" as AgIconName },
               ].map(({ label, icon }) => (
-                <span key={label} className="text-xs bg-gray-800/60 border border-gray-700/40 rounded-full px-3 py-1.5 text-gray-400">
-                  {icon} {label}
+                <span key={label} className="font-mono text-[10.5px] uppercase tracking-wider bg-white/[0.035] border border-white/[0.08] backdrop-blur-[14px] rounded-full px-3 py-1.5 text-gray-400 inline-flex items-center gap-1.5">
+                  <AgIcon name={icon} className="w-3.5 h-3.5" /> {label}
                 </span>
               ))}
             </div>
@@ -891,13 +891,13 @@ export default function AuditsPage() {
             </div>
 
             {/* Gradient fade at bottom */}
-            <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-gray-950 to-transparent pointer-events-none" />
+            <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-[#07090b] to-transparent pointer-events-none" />
 
             {/* Overlay CTA */}
             <div className="absolute inset-0 flex items-center justify-center z-10">
-              <div className="bg-gray-950/90 border border-gray-700/60 rounded-2xl p-6 md:p-8 text-center max-w-sm mx-4 shadow-2xl backdrop-blur-sm">
-                <div className="text-4xl mb-3">📊</div>
-                <h2 className="text-lg font-bold text-white mb-2">Subnet Audits</h2>
+              <div className="bg-[#0a0f0d]/90 border border-white/[0.10] rounded-2xl p-6 md:p-8 text-center max-w-sm mx-4 shadow-2xl backdrop-blur-md">
+                <div className="mb-3 flex justify-center"><AgIcon name="chart" className="w-10 h-10 text-green-400" /></div>
+                <h2 className="font-display text-lg font-semibold text-white mb-2">Subnet <span className="ag-gradient-text">Audits</span></h2>
                 <p className="text-gray-400 text-sm mb-1 leading-relaxed">
                   Deep operational intelligence — decentralisation scores, miner burn economics, validator health, and more across all {PREVIEW_ROWS.length > 0 ? "119" : ""} active subnets.
                 </p>
@@ -908,13 +908,13 @@ export default function AuditsPage() {
                   <div className="flex flex-col gap-2">
                     <Link
                       href="/subscribe"
-                      className="block w-full py-3 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-400 hover:to-emerald-500 text-black font-bold rounded-xl transition-all shadow-lg shadow-green-500/30 text-sm"
+                      className="block w-full py-3 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-400 hover:to-emerald-500 text-black font-bold rounded-full transition-all shadow-lg shadow-green-500/30 text-sm"
                     >
                       Upgrade to Premium →
                     </Link>
                     <Link
                       href="/auth/signin"
-                      className="block w-full py-2.5 bg-gray-800 hover:bg-gray-700 text-white font-semibold rounded-xl transition-colors text-sm border border-gray-700"
+                      className="block w-full py-2.5 bg-white/[0.05] hover:bg-white/[0.09] text-white font-semibold rounded-full transition-colors text-sm border border-white/[0.10]"
                     >
                       Sign In
                     </Link>
@@ -922,7 +922,7 @@ export default function AuditsPage() {
                 ) : (
                   <Link
                     href="/subscribe"
-                    className="block w-full py-3 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-400 hover:to-emerald-500 text-black font-bold rounded-xl transition-all shadow-lg shadow-green-500/30 text-sm"
+                    className="block w-full py-3 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-400 hover:to-emerald-500 text-black font-bold rounded-full transition-all shadow-lg shadow-green-500/30 text-sm"
                   >
                     Upgrade to Premium →
                   </Link>
@@ -938,30 +938,36 @@ export default function AuditsPage() {
   }
 
   return (
-    <main className="flex-1 overflow-auto">
+    <main className="flex-1 overflow-auto ag-aurora">
 
       {/* ── Hero header ─────────────────────────────────────────── */}
-      <div className="relative overflow-hidden border-b border-gray-800/50">
-        <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: "linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)", backgroundSize: "40px 40px" }} />
-        <div className="absolute -top-20 left-1/4 w-96 h-96 bg-green-600/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="relative max-w-screen-2xl mx-auto px-4 md:px-6 pt-10 pb-7">
+      <div className="relative overflow-hidden">
+        <div className="relative max-w-screen-2xl mx-auto px-4 md:px-6 pt-9 pb-5">
           <div className="flex items-center gap-3 mb-2">
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-green-400 via-emerald-300 to-white bg-clip-text text-transparent">
-              🔍 Subnet Audits
+            <h1 className="font-display text-3xl md:text-[40px] font-semibold tracking-[-0.03em] text-white leading-tight flex items-center gap-2.5">
+              <AgIcon name="search" className="w-7 h-7 text-emerald-400" />
+              <span>Subnet <span className="ag-gradient-text">Audits</span></span>
             </h1>
           </div>
-          <p className="text-gray-500 text-sm max-w-2xl mb-5">
+          <p className="text-sm md:text-[14.5px] text-gray-400 max-w-2xl leading-[1.65] mb-4">
             Deep operational health across every active subnet — decentralisation, miner burn economics, validator freshness, liquidity and adoption. Click any column header to sort.
           </p>
+          <div className="inline-flex items-center gap-2 font-mono text-[11px] tracking-wider text-gray-500 uppercase mb-4">
+            <span className="ag-live-dot" />
+            <span className="tabular-nums">
+              {subnets.length > 0 ? `${subnets.length} SUBNETS AUDITED` : "LIVE ON-CHAIN AUDITS"}
+              {updatedAt ? ` · UPDATED ${fmtTime(updatedAt)}` : ""}
+            </span>
+          </div>
           <div className="flex flex-wrap items-center gap-2">
             {[
-              { label: "Decentralisation", icon: "🌐" },
-              { label: "Miner Economics", icon: "⛏️" },
-              { label: "Validator Health", icon: "✅" },
-              { label: "Liquidity", icon: "💧" },
+              { label: "Decentralisation", icon: "globe" as AgIconName },
+              { label: "Miner Economics", icon: "money" as AgIconName },
+              { label: "Validator Health", icon: "shield" as AgIconName },
+              { label: "Liquidity", icon: "wave" as AgIconName },
             ].map(({ label, icon }) => (
-              <span key={label} className="text-xs bg-gray-800/60 border border-gray-700/40 rounded-full px-3 py-1.5 text-gray-400">
-                {icon} {label}
+              <span key={label} className="font-mono text-[10.5px] uppercase tracking-wider bg-white/[0.035] border border-white/[0.08] backdrop-blur-[14px] rounded-full px-3 py-1.5 text-gray-400 inline-flex items-center gap-1.5">
+                <AgIcon name={icon} className="w-3.5 h-3.5" /> {label}
               </span>
             ))}
           </div>

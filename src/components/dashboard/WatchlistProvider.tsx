@@ -7,6 +7,8 @@ import { getTier, canAccessPro } from "@/lib/subscription";
 interface WatchlistContextValue {
   watchlist: Set<number>;
   loading: boolean;
+  /** True once the initial account watchlist fetch has resolved (success or failure). */
+  loaded: boolean;
   toggle: (netuid: number) => Promise<void>;
   isWatched: (netuid: number) => boolean;
 }
@@ -14,6 +16,7 @@ interface WatchlistContextValue {
 const WatchlistContext = createContext<WatchlistContextValue>({
   watchlist: new Set(),
   loading: false,
+  loaded: false,
   toggle: async () => {},
   isWatched: () => false,
 });
@@ -29,6 +32,7 @@ export function WatchlistProvider({ children }: { children: ReactNode }) {
 
   const [watchlist, setWatchlist] = useState<Set<number>>(new Set());
   const [loading, setLoading] = useState(false);
+  const [loaded, setLoaded] = useState(false);
 
   const fetchWatchlist = useCallback(() => {
     if (!isPro) return;
@@ -50,7 +54,10 @@ export function WatchlistProvider({ children }: { children: ReactNode }) {
         if (Array.isArray(d.netuids)) setWatchlist(new Set(d.netuids));
       })
       .catch(() => {})
-      .finally(() => setLoading(false));
+      .finally(() => {
+        setLoading(false);
+        setLoaded(true);
+      });
   }, [isPro]);
 
   // Re-fetch whenever the tab becomes visible — picks up changes made on other devices
@@ -110,7 +117,7 @@ export function WatchlistProvider({ children }: { children: ReactNode }) {
   const isWatched = useCallback((netuid: number) => watchlist.has(netuid), [watchlist]);
 
   return (
-    <WatchlistContext.Provider value={{ watchlist, loading, toggle, isWatched }}>
+    <WatchlistContext.Provider value={{ watchlist, loading, loaded, toggle, isWatched }}>
       {children}
     </WatchlistContext.Provider>
   );

@@ -60,3 +60,99 @@ html {
   display: inline-block;
   animation: flame 2.4s ease-in-out infinite;
 }
+
+/* ══════════ Obsidian Glass design system (2026-07 redesign) ══════════ */
+/* Shared by /powerrankings, /signals, /flow, /social */
+
+.ag-aurora {
+  position: relative;
+}
+.ag-aurora::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(900px 500px at 75% -10%, rgba(52, 211, 153, 0.10), transparent 60%),
+    radial-gradient(700px 500px at -10% 30%, rgba(74, 222, 128, 0.05), transparent 60%),
+    radial-gradient(800px 600px at 50% 110%, rgba(52, 211, 153, 0.06), transparent 60%);
+  pointer-events: none;
+  z-index: 0;
+}
+.ag-aurora > * { position: relative; z-index: 1; }
+
+.font-display { font-family: var(--font-display), var(--font-inter), sans-serif; }
+
+.ag-glass {
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 20px;
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  transition: border-color 0.25s, transform 0.25s, box-shadow 0.25s;
+}
+.ag-glass-hover:hover {
+  border-color: rgba(52, 211, 153, 0.35);
+  box-shadow: 0 10px 40px -18px rgba(52, 211, 153, 0.35);
+  transform: translateY(-2px);
+}
+
+.ag-pill-tabs {
+  display: inline-flex;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  padding: 5px;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+.ag-pill-tab {
+  border: none;
+  background: transparent;
+  color: #9aa39e;
+  font-size: 12.5px;
+  font-weight: 500;
+  padding: 9px 20px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: 0.2s;
+  white-space: nowrap;
+}
+.ag-pill-tab:hover:not(.ag-pill-tab-on) { color: #eef2f0; }
+.ag-pill-tab-on {
+  background: linear-gradient(180deg, rgba(52, 211, 153, 0.18), rgba(52, 211, 153, 0.08));
+  color: #d9fbe9;
+  box-shadow: 0 0 0 1px rgba(52, 211, 153, 0.25), 0 6px 18px -8px rgba(52, 211, 153, 0.35);
+}
+
+.ag-live-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: #34d399;
+  box-shadow: 0 0 10px rgba(52, 211, 153, 0.35);
+  animation: pulse-glow 2s infinite;
+}
+
+.ag-gradient-text {
+  background: linear-gradient(90deg, #34d399, #4ade80);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.ag-scorebar { height: 6px; border-radius: 4px; background: rgba(255,255,255,0.06); overflow: hidden; }
+.ag-scorebar > i { display: block; height: 100%; border-radius: 4px; background: linear-gradient(90deg, #34d399, #4ade80); }
+
+.ag-badge {
+  font-family: var(--font-mono), monospace;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  padding: 5px 12px;
+  border-radius: 999px;
+  border: 1px solid;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.ag-badge-buy  { color: #34d399; border-color: rgba(52,211,153,0.35);  background: rgba(52,211,153,0.07); }
+.ag-badge-dev  { color: #4ade80; border-color: rgba(74,222,128,0.30);  background: rgba(74,222,128,0.06); }
+.ag-badge-warn { color: #f87171; border-color: rgba(248,113,113,0.30); background: rgba(248,113,113,0.06); }
+.ag-badge-info { color: #9aa39e; border-color: rgba(255,255,255,0.14); background: rgba(255,255,255,0.04); }

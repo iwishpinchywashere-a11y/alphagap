@@ -8,7 +8,8 @@ import SubnetLogo from "@/components/dashboard/SubnetLogo";
 import { formatNum } from "@/lib/formatters";
 import type { SubnetScore } from "@/lib/types";
 import BlurGate from "@/components/BlurGate";
-import { getTier } from "@/lib/subscription";
+import AgIcon, { type AgIconName } from "@/components/AgIcon";
+import { getTier, canAccessPremium } from "@/lib/subscription";
 import { useWatchlist } from "@/components/dashboard/WatchlistProvider";
 import type { PersistedFlowEvent } from "@/app/api/cron/flow-snapshot/route";
 
@@ -23,10 +24,10 @@ function StrengthBar({ value }: { value: number }) {
     "bg-orange-500";
   return (
     <div className="flex items-center gap-2">
-      <div className="w-16 h-1.5 bg-gray-800 rounded-full overflow-hidden">
+      <div className="w-16 h-1 bg-white/[0.06] rounded-full overflow-hidden">
         <div className={`h-full rounded-full ${color}`} style={{ width: `${pct}%` }} />
       </div>
-      <span className="text-xs text-gray-500 tabular-nums w-6">{pct}</span>
+      <span className="font-mono text-[10.5px] text-gray-500 tabular-nums w-6">{pct}</span>
     </div>
   );
 }
@@ -39,6 +40,7 @@ interface FlowEvent {
   headline: string;
   detail: string;
   badge: string;
+  badgeIcon?: AgIconName;
   badgeColor: string;
   netFlow?: number;
   whaleRatio?: number;
@@ -55,6 +57,22 @@ interface FlowEvent {
   isConstEvent?: boolean;
   constWallet?: string;
   constType?: "buy" | "sell";
+}
+
+/** Persisted flow-event badges may still contain legacy emoji prefixes — strip them for display. */
+const BADGE_EMOJI_ICONS: [string, AgIconName][] = [
+  ["\u{1F40B}", "whale"], ["\u{1F525}", "flame"], ["\u{1F53B}", "trendDown"], ["\u{1F911}", "money"],
+  ["\u{1F4C8}", "trendUp"], ["\u{1F4C9}", "trendDown"], ["\u{26A1}", "bolt"], ["\u{26A0}", "warning"],
+  ["\u{1F504}", "repost"], ["\u{1F451}", "crown"], ["\u{1F680}", "rocket"], ["\u{1F30A}", "wave"],
+];
+function sanitizeBadge(badge: string): string {
+  return badge.replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}]/gu, "").trim();
+}
+function badgeIconFor(badge: string): AgIconName | undefined {
+  for (const [emoji, icon] of BADGE_EMOJI_ICONS) {
+    if (badge.includes(emoji)) return icon;
+  }
+  return undefined;
 }
 
 function timeAgoShort(iso: string): string {
@@ -89,6 +107,11 @@ export default function FlowPage() {
   const { isWatched, watchlist } = useWatchlist();
   const [watchlistOnly, setWatchlistOnly] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  // Feed pagination — the 72h window can hold hundreds of events; rendering
+  // them all at once produced a 165k-px page (unusable on mobile).
+  const FEED_PAGE = 40;
+  const [visibleLimit, setVisibleLimit] = useState(FEED_PAGE);
+  useEffect(() => { setVisibleLimit(FEED_PAGE); }, [filter, sortBy, watchlistOnly, searchQuery]);
 
   // ── Historical flow events (persisted 72h rolling window) ─────
   const [historicalEvents, setHistoricalEvents] = useState<PersistedFlowEvent[]>([]);
@@ -139,7 +162,8 @@ export default function FlowPage() {
           detail: flowUsd != null
             ? `Net ${flowUsd > 0 ? "+" : ""}$${formatNum(Math.abs(Math.round(flowUsd)))} in 24h · ${sub.whale_ratio}x whale buy/sell ratio`
             : `${sub.whale_ratio}x whale buy/sell ratio detected`,
-          badge: "🐋 WHALE BUY",
+          badge: "WHALE BUY",
+          badgeIcon: "whale",
           badgeColor: "bg-cyan-500/20 text-cyan-300 border-cyan-500/30",
           netFlow: sub.net_flow_24h ?? undefined,
           whaleRatio: sub.whale_ratio,
@@ -165,7 +189,8 @@ export default function FlowPage() {
           detail: flowUsd != null
             ? `+$${formatNum(Math.abs(Math.round(flowUsd)))} 24h net flow — primarily automated emission recycling, not whale buying. Miner burn rate: ${sub.miner_burn_pct?.toFixed(0)}%.`
             : `Miner burn recycled as on-chain buys — ${sub.miner_burn_pct?.toFixed(0)}% of miner emissions burned and re-spent.`,
-          badge: "🔥 CHAIN BUY",
+          badge: "CHAIN BUY",
+          badgeIcon: "flame",
           badgeColor: "bg-orange-500/20 text-orange-400 border-orange-500/30",
           netFlow: sub.net_flow_24h ?? undefined,
           price: sub.alpha_price ?? undefined,
@@ -192,7 +217,8 @@ export default function FlowPage() {
           detail: flowUsd != null
             ? `Net ${flowUsd >= 0 ? "+" : ""}$${formatNum(Math.round(flowUsd))} in 24h · avg sells ${sellRatio}x larger than buys`
             : `Avg sells ${sellRatio}x larger than buys — significant distribution pressure`,
-          badge: "🔻 WHALE SELL",
+          badge: "WHALE SELL",
+          badgeIcon: "trendDown",
           badgeColor: "bg-red-500/20 text-red-400 border-red-500/30",
           netFlow: sub.net_flow_24h ?? undefined,
           whaleRatio: sub.whale_ratio,
@@ -227,7 +253,8 @@ export default function FlowPage() {
             : buyVolUsd != null
             ? `+$${formatNum(Math.round(buyVolUsd))} net buying · ${sub.volume_surge_ratio}x rolling avg volume`
             : `${sub.volume_surge_ratio}x rolling average buy volume`,
-          badge: isEmissionDriven ? "🔥 CHAIN BUY" : "🤑 VOL SURGE",
+          badge: isEmissionDriven ? "CHAIN BUY" : "VOL SURGE",
+          badgeIcon: isEmissionDriven ? "flame" : "money",
           badgeColor: isEmissionDriven
             ? "bg-orange-500/20 text-orange-400 border-orange-500/30"
             : "bg-yellow-500/20 text-yellow-300 border-yellow-500/30",
@@ -258,7 +285,8 @@ export default function FlowPage() {
             strength: Math.round(strength),
             headline: `Staking yield spiked ${pctAbove}% above 30-day baseline`,
             detail: `1H APY ${apy1hPct}% vs 30d avg ${apy30dPct}% — sudden shift in staking dynamics. Could signal validator exit, emissions change, or stake redistribution.`,
-            badge: "📈 YIELD SPIKE",
+            badge: "YIELD SPIKE",
+            badgeIcon: "trendUp",
             badgeColor: "bg-lime-500/20 text-lime-300 border-lime-500/30",
             price: sub.alpha_price ?? undefined,
             change24h: sub.price_change_24h ?? undefined,
@@ -277,7 +305,8 @@ export default function FlowPage() {
             strength: Math.round(Math.max(30, strength)),
             headline: `Staking yield compressed ${pctBelow}% below 30-day baseline`,
             detail: `1H APY ${apy1hPct}% vs 30d avg ${apy30dPct}% — yield compression often follows large stake inflows or increased competition among validators.`,
-            badge: "📉 YIELD DIP",
+            badge: "YIELD DIP",
+            badgeIcon: "trendDown",
             badgeColor: "bg-orange-500/20 text-orange-400 border-orange-500/30",
             price: sub.alpha_price ?? undefined,
             change24h: sub.price_change_24h ?? undefined,
@@ -320,7 +349,7 @@ export default function FlowPage() {
         out.push({
           netuid: sig.netuid, name, type: "flow_spike", strength: sig.strength,
           headline: sig.title, detail: sig.description,
-          badge: "⚡ FLOW SPIKE", badgeColor: "bg-purple-500/20 text-purple-300 border-purple-500/30",
+          badge: "FLOW SPIKE", badgeIcon: "bolt", badgeColor: "bg-purple-500/20 text-purple-300 border-purple-500/30",
           price: sub?.alpha_price ?? undefined, change24h: sub?.price_change_24h ?? undefined,
           signalDate: sig.signal_date || sig.created_at,
         });
@@ -328,7 +357,7 @@ export default function FlowPage() {
         out.push({
           netuid: sig.netuid, name, type: "flow_warning", strength: sig.strength,
           headline: sig.title, detail: sig.description,
-          badge: "⚠️ FLOW WARN", badgeColor: "bg-orange-500/20 text-orange-400 border-orange-500/30",
+          badge: "FLOW WARN", badgeIcon: "warning", badgeColor: "bg-orange-500/20 text-orange-400 border-orange-500/30",
           price: sub?.alpha_price ?? undefined, change24h: sub?.price_change_24h ?? undefined,
           signalDate: sig.signal_date || sig.created_at,
         });
@@ -336,7 +365,7 @@ export default function FlowPage() {
         out.push({
           netuid: sig.netuid, name, type: "distributing", strength: sig.strength,
           headline: sig.title, detail: sig.description,
-          badge: "🔻 WHALE SELL", badgeColor: "bg-red-500/20 text-red-400 border-red-500/30",
+          badge: "WHALE SELL", badgeIcon: "trendDown", badgeColor: "bg-red-500/20 text-red-400 border-red-500/30",
           price: sig.price_at_signal ?? sub?.alpha_price ?? undefined,
           change24h: sub?.price_change_24h ?? undefined,
           signalDate: sig.signal_date || sig.created_at,
@@ -364,7 +393,8 @@ export default function FlowPage() {
         strength: h.strength,
         headline: h.headline,
         detail: h.detail,
-        badge: h.badge,
+        badge: sanitizeBadge(h.badge),
+        badgeIcon: badgeIconFor(h.badge),
         badgeColor: h.badgeColor,
         netFlow: h.netFlow,
         whaleRatio: h.whaleRatio,
@@ -402,7 +432,8 @@ export default function FlowPage() {
           strength: 50,
           headline: `Const re-delegated stake on ${subName} — validator swap, not exit`,
           detail: `Const unstaked ${sellAmt} and re-staked ${buyAmt} on ${subName}. This is a validator re-delegation (moving stake between validators), not a position change. No buy/sell signal.`,
-          badge: "🔄 CONST SWAP",
+          badge: "CONST SWAP",
+          badgeIcon: "repost",
           badgeColor: "bg-blue-500/20 text-blue-300 border-blue-500/30",
           price: sub?.alpha_price,
           change24h: sub?.price_change_24h,
@@ -426,7 +457,8 @@ export default function FlowPage() {
           detail: ev.type === "buy"
             ? `Bittensor founder added ${amtStr} to ${ev.subnetName ?? `SN${ev.netuid}`}. Const's buys are historically significant signals.`
             : `Bittensor founder withdrew ${amtStr} from ${ev.subnetName ?? `SN${ev.netuid}`}.`,
-          badge: ev.type === "buy" ? "👑 CONST BUY" : "👑 CONST SELL",
+          badge: ev.type === "buy" ? "CONST BUY" : "CONST SELL",
+          badgeIcon: "crown",
           badgeColor: ev.type === "buy"
             ? "bg-yellow-500/20 text-yellow-300 border-yellow-500/30"
             : "bg-orange-500/20 text-orange-400 border-orange-500/30",
@@ -495,77 +527,73 @@ export default function FlowPage() {
     ).length,
   [leaderboard]);
 
-  const FILTERS: { key: FilterType; label: string; count?: number }[] = [
+  const FILTERS: { key: FilterType; label: string; icon?: AgIconName; count?: number }[] = [
     { key: "all",          label: "All Signals" },
-    { key: "accumulating", label: "🐋 Buying",       count: leaderboard.filter(s => s.whale_signal === "accumulating").length },
-    { key: "distributing", label: "🔻 Selling",      count: leaderboard.filter(s => s.whale_signal === "distributing").length },
-    { key: "volume",       label: "🤑 Vol Surge",    count: leaderboard.filter(s => s.volume_surge).length },
-    { key: "flow",         label: "⚡ Flow Signals" },
-    { key: "yield",        label: "📈 Yield",        count: yieldEventCount },
-    { key: "const",        label: "👑 Const",        count: constEvents.length },
+    { key: "accumulating", label: "Buying",       icon: "whale",     count: leaderboard.filter(s => s.whale_signal === "accumulating").length },
+    { key: "distributing", label: "Selling",      icon: "trendDown", count: leaderboard.filter(s => s.whale_signal === "distributing").length },
+    { key: "volume",       label: "Vol Surge",    icon: "money",     count: leaderboard.filter(s => s.volume_surge).length },
+    { key: "flow",         label: "Flow Signals", icon: "bolt" },
+    { key: "yield",        label: "Yield",        icon: "trendUp",   count: yieldEventCount },
+    { key: "const",        label: "Const",        icon: "crown",     count: constEvents.length },
   ];
 
+  const netPositive = (stats.totalUsd ?? stats.totalNetFlow) >= 0;
+  const netFlowStr = stats.totalUsd != null
+    ? `${stats.totalUsd >= 0 ? "+" : "−"}$${formatNum(Math.abs(Math.round(stats.totalUsd)))}`
+    : `${stats.totalNetFlow >= 0 ? "+" : "−"}${formatNum(Math.abs(stats.totalNetFlow), 1)}τ`;
+
   return (
-    <div className="min-h-screen bg-[#0a0a0f] text-white">
+    <div className="min-h-screen bg-[#07090b] text-white ag-aurora">
       {/* ── Hero ───────────────────────────────────────────────── */}
-      <div className="relative border-b border-gray-800/50 overflow-hidden">
-        {/* Grid texture */}
-        <div
-          className="absolute inset-0 opacity-[0.03]"
-          style={{
-            backgroundImage: "linear-gradient(rgba(255,255,255,0.8) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.8) 1px,transparent 1px)",
-            backgroundSize: "32px 32px",
-          }}
-        />
-        {/* Glow blob */}
-        <div className="absolute top-0 left-1/3 w-96 h-40 bg-green-600/8 rounded-full blur-3xl pointer-events-none" />
-
-        <div className="relative px-4 md:px-6 py-8">
-          <div className="flex items-start justify-between gap-4 mb-4">
-            <div>
-              <h1 className="text-3xl font-bold bg-gradient-to-r from-green-400 via-emerald-300 to-white bg-clip-text text-transparent leading-tight mb-1">
-                🌊 Flow &amp; Smart Money
-              </h1>
-              <p className="text-sm text-gray-400 max-w-xl">
-                Whale movements, smart money flows, unusual volume, and staking yield anomalies — live and from the last 72 hours.
-              </p>
-            </div>
-            {scanning && (
-              <div className="flex items-center gap-2 mt-1 flex-shrink-0">
-                <div className="w-4 h-4 border-2 border-green-500/30 border-t-green-400 rounded-full animate-spin" />
-                <span className="text-xs text-gray-500">scanning</span>
-              </div>
-            )}
+      <div className="px-4 md:px-6 pt-9 pb-6">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="font-display text-4xl font-semibold tracking-[-0.03em] leading-tight mb-2">
+              Capital <span className="ag-gradient-text">Flow</span>
+            </h1>
+            <p className="text-[14.5px] text-gray-400 max-w-xl leading-relaxed">
+              Whale movements, smart money flows, unusual volume, and staking yield anomalies — live and from the last 72 hours.
+            </p>
           </div>
+          {scanning && (
+            <div className="flex items-center gap-2 mt-1 flex-shrink-0">
+              <div className="w-4 h-4 border-2 border-emerald-500/30 border-t-emerald-400 rounded-full animate-spin" />
+              <span className="text-xs text-gray-500">scanning</span>
+            </div>
+          )}
+        </div>
 
-          {/* Stat chips */}
-          <div className="flex flex-wrap gap-2">
-            <div className="flex items-center gap-2 bg-cyan-500/10 border border-cyan-500/25 rounded-full px-3 py-1.5">
-              <span className="text-lg font-bold text-cyan-300 tabular-nums">{stats.accumCount}</span>
-              <span className="text-xs text-gray-400">Whale buys</span>
-            </div>
-            <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/25 rounded-full px-3 py-1.5">
-              <span className="text-lg font-bold text-red-400 tabular-nums">{stats.distCount}</span>
-              <span className="text-xs text-gray-400">Whale sells</span>
-            </div>
-            <div className="flex items-center gap-2 bg-yellow-500/10 border border-yellow-500/25 rounded-full px-3 py-1.5">
-              <span className="text-lg font-bold text-yellow-300 tabular-nums">{stats.surgeCount}</span>
-              <span className="text-xs text-gray-400">Vol surges</span>
-            </div>
-            <div className={`flex items-center gap-2 rounded-full px-3 py-1.5 border ${
-              (stats.totalUsd ?? stats.totalNetFlow) >= 0
-                ? "bg-green-500/10 border-green-500/25"
-                : "bg-red-500/10 border-red-500/25"
-            }`}>
-              <span className={`text-lg font-bold tabular-nums ${
-                (stats.totalUsd ?? stats.totalNetFlow) >= 0 ? "text-green-400" : "text-red-400"
-              }`}>
-                {stats.totalUsd != null
-                  ? `${stats.totalUsd >= 0 ? "+" : ""}$${formatNum(Math.abs(Math.round(stats.totalUsd)))}`
-                  : `${stats.totalNetFlow >= 0 ? "+" : ""}${formatNum(Math.abs(stats.totalNetFlow), 1)}τ`}
-              </span>
-              <span className="text-xs text-gray-400">24h net flow</span>
-            </div>
+        {/* LIVE row */}
+        <div className="flex items-center gap-2.5 mt-4 font-mono text-[11px] uppercase tracking-[0.08em] text-gray-500">
+          <span className="ag-live-dot flex-shrink-0" />
+          <span>
+            NET NETWORK FLOW{" "}
+            <span className={`tabular-nums ${netPositive ? "text-emerald-400" : "text-red-400"}`}>
+              {netFlowStr}
+            </span>
+            {" "}· 24H
+          </span>
+        </div>
+
+        {/* Stat chips */}
+        <div className="flex flex-wrap gap-2 mt-5">
+          <div className="ag-glass !rounded-full flex items-center gap-2 px-4 py-1.5">
+            <span className="font-mono text-sm font-semibold text-cyan-300 tabular-nums">{stats.accumCount}</span>
+            <span className="text-xs text-gray-400">Whale buys</span>
+          </div>
+          <div className="ag-glass !rounded-full flex items-center gap-2 px-4 py-1.5">
+            <span className="font-mono text-sm font-semibold text-red-400 tabular-nums">{stats.distCount}</span>
+            <span className="text-xs text-gray-400">Whale sells</span>
+          </div>
+          <div className="ag-glass !rounded-full flex items-center gap-2 px-4 py-1.5">
+            <span className="font-mono text-sm font-semibold text-yellow-300 tabular-nums">{stats.surgeCount}</span>
+            <span className="text-xs text-gray-400">Vol surges</span>
+          </div>
+          <div className="ag-glass !rounded-full flex items-center gap-2 px-4 py-1.5">
+            <span className={`font-mono text-sm font-semibold tabular-nums ${netPositive ? "text-emerald-400" : "text-red-400"}`}>
+              {netFlowStr}
+            </span>
+            <span className="text-xs text-gray-400">24h net flow</span>
           </div>
         </div>
       </div>
@@ -576,29 +604,24 @@ export default function FlowPage() {
       )}
 
       <main className="flex-1 overflow-auto p-4 md:p-6">
+        <h2 className="font-display text-lg font-semibold mb-3.5">Signal Feed</h2>
+
         {/* Filter + sort bar */}
         <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
-          <div className="flex flex-wrap gap-1.5">
+          <div className="ag-pill-tabs flex-wrap !rounded-2xl">
             {FILTERS.map(f => (
               <button
                 key={f.key}
                 onClick={() => setFilter(f.key)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
-                  filter === f.key
-                    ? "bg-green-500/20 border-green-500/40 text-green-400"
-                    : "bg-gray-800/60 border-gray-700 text-gray-400 hover:text-gray-200 hover:border-gray-600"
-                }`}
+                className={`ag-pill-tab !px-3.5 !py-2 !text-xs ${f.icon ? "flex items-center gap-1.5" : ""} ${filter === f.key ? "ag-pill-tab-on" : ""}`}
               >
+                {f.icon && <AgIcon name={f.icon} className="w-3.5 h-3.5" />}
                 {f.label}{f.count != null ? ` · ${f.count}` : ""}
               </button>
             ))}
             <button
               onClick={() => setWatchlistOnly(v => !v)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border ${
-                watchlistOnly
-                  ? "bg-blue-600 border-blue-500 text-white"
-                  : "bg-gray-800/60 border-gray-700 text-gray-400 hover:text-white"
-              }`}
+              className={`ag-pill-tab !px-3.5 !py-2 !text-xs flex items-center gap-1.5 ${watchlistOnly ? "ag-pill-tab-on" : ""}`}
             >
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
@@ -609,7 +632,7 @@ export default function FlowPage() {
           <div className="flex items-center gap-2 flex-wrap">
             {/* Search bar */}
             <div className="relative flex items-center">
-              <svg className="absolute left-2.5 w-3.5 h-3.5 text-gray-500 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <svg className="absolute left-3 w-3.5 h-3.5 text-gray-500 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z" />
               </svg>
               <input
@@ -617,35 +640,35 @@ export default function FlowPage() {
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
                 placeholder="Search subnet…"
-                className="pl-7 pr-7 py-1 rounded-md text-xs bg-gray-900/60 border border-gray-800 text-gray-300 placeholder-gray-600 focus:outline-none focus:border-gray-600 w-36"
+                className="pl-8 pr-7 py-1.5 rounded-full text-xs bg-white/[0.035] border border-white/[0.08] text-gray-300 placeholder-gray-600 focus:outline-none focus:border-emerald-500/40 backdrop-blur-md w-36"
               />
               {searchQuery && (
-                <button onClick={() => setSearchQuery("")} className="absolute right-2 text-gray-500 hover:text-gray-300">
+                <button onClick={() => setSearchQuery("")} className="absolute right-2.5 text-gray-500 hover:text-gray-300">
                   <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
                 </button>
               )}
             </div>
             <span className="text-xs text-gray-600 mr-0.5">Sort:</span>
-            {(["date", "strength", "flow", "volume"] as const).map(s => (
-              <button
-                key={s}
-                onClick={() => setSortBy(s)}
-                className={`px-2.5 py-1 rounded-md text-xs border transition-colors ${
-                  sortBy === s
-                    ? "bg-gray-700 border-gray-600 text-gray-200"
-                    : "border-gray-800 text-gray-600 hover:text-gray-400"
-                }`}
-              >
-                {s === "date" ? "🕐 Latest" : s === "strength" ? "Signal strength" : s === "flow" ? "Net flow" : "Volume"}
-              </button>
-            ))}
+            <div className="ag-pill-tabs">
+              {(["date", "strength", "flow", "volume"] as const).map(s => (
+                <button
+                  key={s}
+                  onClick={() => setSortBy(s)}
+                  className={`ag-pill-tab !px-3 !py-1.5 !text-xs ${sortBy === s ? "ag-pill-tab-on" : ""}`}
+                >
+                  {s === "date" ? (
+                    <span className="flex items-center gap-1"><AgIcon name="clock" className="w-3 h-3" /> Latest</span>
+                  ) : s === "strength" ? "Signal strength" : s === "flow" ? "Net flow" : "Volume"}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
         {/* Event feed */}
         {visibleEvents.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-64 text-center">
-            <div className="text-4xl mb-3">🌊</div>
+          <div className="ag-glass flex flex-col items-center justify-center h-64 text-center">
+            <AgIcon name="wave" className="w-10 h-10 text-gray-500 mb-3" />
             <p className="text-gray-500 text-sm">No flow activity detected right now.</p>
             <p className="text-gray-600 text-xs mt-1">Scanning.</p>
           </div>
@@ -661,7 +684,7 @@ export default function FlowPage() {
             {visibleEvents.length > 1 && (
               <BlurGate tier={tier} required="premium" minHeight="300px">
                 <div className="flex flex-col gap-2">
-                  {visibleEvents.slice(1).map((ev, i) => (
+                  {(canAccessPremium(tier) ? visibleEvents.slice(1, visibleLimit) : visibleEvents.slice(1, 7)).map((ev, i) => (
                     <FlowCard
                       key={`${ev.netuid}-${ev.type}-${i + 1}`}
                       event={ev}
@@ -672,6 +695,14 @@ export default function FlowPage() {
                   ))}
                 </div>
               </BlurGate>
+            )}
+            {canAccessPremium(tier) && visibleEvents.length > visibleLimit && (
+              <button
+                onClick={() => setVisibleLimit(v => v + FEED_PAGE)}
+                className="ag-glass ag-glass-hover mt-1 py-3.5 text-sm text-emerald-400 font-semibold"
+              >
+                Load more · {visibleEvents.length - visibleLimit} older events
+              </button>
             )}
           </div>
         )}
@@ -711,58 +742,106 @@ function FlowMiniLeaderboard({
     return `${abs.toFixed(1)} τ`;
   }
 
-  return (
-    <div className="border-b border-gray-800/50 px-4 md:px-6 py-4">
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+  // Combined book: strongest inflow → strongest outflow
+  const book = [...top5, ...[...bottom5].reverse()];
+  const maxAbs = Math.max(1e-9, ...book.map(s => Math.abs(s.net_flow_24h ?? 0)));
 
-        {/* Top 5 — most inflow */}
-        <div>
-          <div className="flex items-center gap-2 mb-2">
-            <div className="w-1.5 h-1.5 rounded-full bg-green-400" />
-            <span className="text-[11px] font-bold uppercase tracking-widest text-green-500/80">Top Inflow</span>
-            <span className="text-[10px] text-gray-600">24h net buy flow</span>
-          </div>
-          <div className="space-y-1">
-            {top5.map((s, i) => {
+  const strongest = top5[0];
+  const heaviest = bottom5[0];
+  const inflowCount = withFlow.filter(s => (s.net_flow_24h ?? 0) > 0).length;
+  const outflowCount = withFlow.filter(s => (s.net_flow_24h ?? 0) < 0).length;
+
+  return (
+    <div className="px-4 md:px-6 pb-2">
+      <div className="grid grid-cols-1 lg:grid-cols-[1.15fr_0.85fr] gap-4">
+
+        {/* Flow Book — diverging bars */}
+        <div className="ag-glass p-5 md:p-6">
+          <h2 className="font-display text-lg font-semibold mb-2">Flow Book — Top Movers</h2>
+          <div>
+            {book.map((s, i) => {
               const flow = s.net_flow_24h ?? 0;
               const isPositive = flow >= 0;
+              const pct = Math.max(2, (Math.abs(flow) / maxAbs) * 48);
               return (
-                <div key={s.netuid} className="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-green-500/5 border border-green-500/15 hover:bg-green-500/10 transition-colors">
-                  <span className="text-[10px] font-bold text-gray-600 tabular-nums w-4 flex-shrink-0">#{i + 1}</span>
-                  <SubnetLogo netuid={s.netuid} name={s.name} size={22} />
-                  <span className="flex-1 text-xs font-semibold text-white truncate min-w-0">{s.name}</span>
-                  <span className="text-[10px] text-gray-500 font-mono flex-shrink-0">SN{s.netuid}</span>
-                  <span className="text-xs font-bold text-green-400 tabular-nums flex-shrink-0">
-                    +{fmtFlow(flow)}
+                <div
+                  key={s.netuid}
+                  className="grid grid-cols-[16px_28px_minmax(0,1fr)_minmax(72px,150px)_92px] items-center gap-3 py-3 border-b border-white/[0.06] last:border-b-0"
+                >
+                  <span className="font-mono text-[10px] text-gray-600 tabular-nums">#{i + 1}</span>
+                  <SubnetLogo netuid={s.netuid} name={s.name} size={26} />
+                  <div className="min-w-0">
+                    <div className="text-[13px] font-semibold text-white truncate">{s.name}</div>
+                    <div className="font-mono text-[10px] text-gray-500">SN{s.netuid}</div>
+                  </div>
+                  <div className="relative h-2 rounded-full bg-white/[0.05]">
+                    {isPositive ? (
+                      <div
+                        className="absolute inset-y-0 left-1/2 rounded-r-full bg-gradient-to-r from-emerald-500/70 to-emerald-400"
+                        style={{ width: `${pct}%` }}
+                      />
+                    ) : (
+                      <div
+                        className="absolute inset-y-0 right-1/2 rounded-l-full bg-gradient-to-l from-red-500/70 to-red-400"
+                        style={{ width: `${pct}%` }}
+                      />
+                    )}
+                    <div className="absolute left-1/2 -top-0.5 -bottom-0.5 w-px bg-white/[0.14]" />
+                  </div>
+                  <span className={`font-mono text-[13px] text-right tabular-nums ${isPositive ? "text-emerald-400" : "text-red-400"}`}>
+                    {isPositive ? "+" : "−"}{fmtFlow(flow)}
                   </span>
                 </div>
               );
             })}
+          </div>
+          {/* Legend */}
+          <div className="flex gap-5 mt-4">
+            <span className="inline-flex items-center gap-2 text-[11.5px] text-gray-400">
+              <i className="w-2.5 h-2.5 rounded-[3px] bg-emerald-400" />Inflow · 24h net buy flow
+            </span>
+            <span className="inline-flex items-center gap-2 text-[11.5px] text-gray-400">
+              <i className="w-2.5 h-2.5 rounded-[3px] bg-red-400" />Outflow · 24h net sell flow
+            </span>
           </div>
         </div>
 
-        {/* Bottom 5 — most outflow */}
-        <div>
-          <div className="flex items-center gap-2 mb-2">
-            <div className="w-1.5 h-1.5 rounded-full bg-red-400" />
-            <span className="text-[11px] font-bold uppercase tracking-widest text-red-500/80">Top Outflow</span>
-            <span className="text-[10px] text-gray-600">24h net sell flow</span>
-          </div>
-          <div className="space-y-1">
-            {bottom5.map((s, i) => {
-              const flow = s.net_flow_24h ?? 0;
-              return (
-                <div key={s.netuid} className="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-red-500/5 border border-red-500/15 hover:bg-red-500/10 transition-colors">
-                  <span className="text-[10px] font-bold text-gray-600 tabular-nums w-4 flex-shrink-0">#{i + 1}</span>
-                  <SubnetLogo netuid={s.netuid} name={s.name} size={22} />
-                  <span className="flex-1 text-xs font-semibold text-white truncate min-w-0">{s.name}</span>
-                  <span className="text-[10px] text-gray-500 font-mono flex-shrink-0">SN{s.netuid}</span>
-                  <span className="text-xs font-bold text-red-400 tabular-nums flex-shrink-0">
-                    -{fmtFlow(flow)}
-                  </span>
-                </div>
-              );
-            })}
+        {/* KPI cards */}
+        <div className="flex flex-col gap-4">
+          {strongest && (
+            <div className="ag-glass ag-glass-hover p-6">
+              <div className="text-[10.5px] uppercase tracking-[0.16em] text-gray-500 mb-2.5">Strongest Book</div>
+              <div className="font-display text-[28px] font-semibold tracking-tight leading-none flex items-center gap-2.5">
+                <SubnetLogo netuid={strongest.netuid} name={strongest.name} size={28} />
+                <span className="truncate">{strongest.name}</span>
+              </div>
+              <div className="font-mono text-[11px] text-emerald-400 mt-2.5 tabular-nums">
+                +{fmtFlow(strongest.net_flow_24h ?? 0)} · SN{strongest.netuid} · 24h net buy flow
+              </div>
+            </div>
+          )}
+          {heaviest && (
+            <div className="ag-glass ag-glass-hover p-6">
+              <div className="text-[10.5px] uppercase tracking-[0.16em] text-gray-500 mb-2.5">Heaviest Exit</div>
+              <div className="font-display text-[28px] font-semibold tracking-tight leading-none flex items-center gap-2.5">
+                <SubnetLogo netuid={heaviest.netuid} name={heaviest.name} size={28} />
+                <span className="truncate">{heaviest.name}</span>
+              </div>
+              <div className="font-mono text-[11px] text-red-400 mt-2.5 tabular-nums">
+                −{fmtFlow(heaviest.net_flow_24h ?? 0)} · SN{heaviest.netuid} · 24h net sell flow
+              </div>
+            </div>
+          )}
+          <div className="ag-glass ag-glass-hover p-6">
+            <div className="text-[10.5px] uppercase tracking-[0.16em] text-gray-500 mb-2.5">Book Balance</div>
+            <div className="font-display text-[28px] font-semibold tracking-tight leading-none tabular-nums">
+              <span className="text-emerald-400">{inflowCount}</span>
+              <span className="text-gray-600 text-lg font-normal mx-1.5">vs</span>
+              <span className="text-red-400">{outflowCount}</span>
+            </div>
+            <div className="font-mono text-[11px] text-gray-500 mt-2.5">
+              subnets net-buying vs net-selling · 24h
+            </div>
           </div>
         </div>
 
@@ -806,9 +885,9 @@ function FlowCard({
   return (
     <div
       onClick={onClick}
-      className={`relative group cursor-pointer border ${borderColor} rounded-xl bg-gray-900/60 hover:bg-gray-900/90 transition-all px-4 py-3.5 overflow-hidden ${watched ? "ring-2 ring-blue-400/60 bg-blue-950/40 shadow-lg shadow-blue-500/30 border-blue-400/70" : ""}`}
+      className={`ag-glass ag-glass-hover relative group cursor-pointer !rounded-2xl px-4 py-3.5 overflow-hidden ${watched ? "ring-2 ring-blue-400/60 !border-blue-400/70 shadow-lg shadow-blue-500/20" : `border ${borderColor}`}`}
     >
-      <div className={`absolute left-0 top-0 bottom-0 w-0.5 rounded-l-xl ${accentColor}`} />
+      <div className={`absolute left-0 top-0 bottom-0 w-0.5 rounded-l-2xl ${accentColor}`} />
 
       <div className="flex items-start gap-3 pl-2">
         <div className="flex-shrink-0 mt-0.5">
@@ -818,12 +897,13 @@ function FlowCard({
         <div className="flex-1 min-w-0">
           <div className="flex flex-wrap items-center gap-2 mb-1">
             <span className="text-[10px] font-mono text-gray-600">SN{ev.netuid}</span>
-            <span className="font-bold text-white text-sm">{ev.name}</span>
-            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${ev.badgeColor}`}>
+            <span className="font-display font-semibold text-white text-sm">{ev.name}</span>
+            <span className={`font-mono text-[10px] font-bold tracking-[0.1em] px-2.5 py-0.5 rounded-full border inline-flex items-center gap-1 ${ev.badgeColor}`}>
+              {ev.badgeIcon && <AgIcon name={ev.badgeIcon} className="w-3 h-3" />}
               {ev.badge}
             </span>
             {ev.signalDate && (
-              <span className="text-[10px] ml-1 text-gray-500 tabular-nums">
+              <span className="font-mono text-[10px] ml-1 text-gray-500 tabular-nums">
                 {timeAgoShort(ev.signalDate)}
               </span>
             )}
@@ -834,13 +914,13 @@ function FlowCard({
 
         <div className="flex-shrink-0 text-right flex flex-col items-end gap-1.5">
           {ev.price != null && (
-            <span className="text-sm font-medium text-gray-300 tabular-nums">
+            <span className="font-mono text-sm font-medium text-gray-300 tabular-nums">
               ${formatNum(ev.price, 2)}
             </span>
           )}
           {ev.change24h != null && (
-            <span className={`text-xs font-medium tabular-nums ${
-              ev.change24h > 0 ? "text-green-400" : ev.change24h < 0 ? "text-red-400" : "text-gray-500"
+            <span className={`font-mono text-xs font-medium tabular-nums ${
+              ev.change24h > 0 ? "text-emerald-400" : ev.change24h < 0 ? "text-red-400" : "text-gray-500"
             }`}>
               {ev.change24h > 0 ? "+" : ""}{ev.change24h.toFixed(1)}%
             </span>

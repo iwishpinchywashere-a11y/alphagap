@@ -6,6 +6,7 @@ import { useSession } from "next-auth/react";
 import type { SubnetScore } from "@/lib/types";
 import type { TrackedPumper } from "@/app/api/testing/route";
 import BlurGate from "@/components/BlurGate";
+import AgIcon, { type AgIconName } from "@/components/AgIcon";
 import { getTier } from "@/lib/subscription";
 
 // ── Types ─────────────────────────────────────────────────────────────────
@@ -32,6 +33,17 @@ interface PumpEvent {
   peakPrice: number;
   daysAgo: number;
 }
+
+// Branded icon per finding label — keyed by label so cached findings
+// (which may still carry legacy emoji `icon` values) render correctly.
+const FINDING_ICONS: Record<string, AgIconName> = {
+  "AlphaGap Score": "target",
+  "Dev Spike": "bolt",
+  "Social / KOL": "signal",
+  "Volume Surge": "chart",
+  "Whale Accumulation": "whale",
+  "Emission Momentum": "radar",
+};
 
 interface SignalFinding {
   icon: string;
@@ -160,7 +172,7 @@ function buildFindings(
   const effectiveAgap = Math.max(agapAtPump, agapNow);
   const agapFired = effectiveAgap >= 65;
   findings.push({
-    icon: "🎯",
+    icon: "target",
     label: "AlphaGap Score",
     detail: effectiveAgap >= 80
       ? `aGap score ${effectiveAgap}/100 before pump — top-tier signal`
@@ -186,7 +198,7 @@ function buildFindings(
     return t < pumpMs && t > pumpMs - 14 * 86400000;
   });
   findings.push({
-    icon: "⚡",
+    icon: "bolt",
     label: "Dev Spike",
     detail: devPrePump.length > 0
       ? `${devPrePump.length} dev-spike signal${devPrePump.length > 1 ? "s" : ""} fired before pump`
@@ -208,7 +220,7 @@ function buildFindings(
     return t < pumpMs + 86400000 && t > pumpMs - 10 * 86400000;
   });
   findings.push({
-    icon: "📢",
+    icon: "signal",
     label: "Social / KOL",
     detail: socialPrePump.length > 0
       ? `${socialPrePump.length} social signal${socialPrePump.length > 1 ? "s" : ""} — KOLs active pre-pump`
@@ -229,7 +241,7 @@ function buildFindings(
     return t < pumpMs + 2 * 86400000 && t > pumpMs - 7 * 86400000;
   });
   findings.push({
-    icon: "📊",
+    icon: "chart",
     label: "Volume Surge",
     detail: volPrePump.length > 0
       ? `Volume spike detected around pump start`
@@ -250,7 +262,7 @@ function buildFindings(
     return t < pumpMs + 86400000 && t > pumpMs - 14 * 86400000;
   });
   findings.push({
-    icon: "🐋",
+    icon: "whale",
     label: "Whale Accumulation",
     detail: whalePrePump.length > 0
       ? `Whale accumulation signal detected before pump`
@@ -272,7 +284,7 @@ function buildFindings(
     return t < pumpMs && t > pumpMs - 14 * 86400000;
   });
   findings.push({
-    icon: "⚛️",
+    icon: "radar",
     label: "Emission Momentum",
     detail: emPrePump.length > 0
       ? `Emission rising signal fired ${emPrePump.length}× before pump`
@@ -421,37 +433,37 @@ function AutopsyCard({ autopsy, onRemove }: { autopsy: Autopsy; onRemove: () => 
   const firedCount = firedFindings.length;
 
   const signalBubbleColor = firedCount >= 3
-    ? "bg-green-900/60 border-green-700/50 text-green-400"
+    ? "bg-emerald-500/[0.08] border-emerald-500/35 text-emerald-400"
     : firedCount === 2
-    ? "bg-yellow-900/60 border-yellow-700/50 text-yellow-400"
-    : "bg-orange-900/60 border-orange-700/50 text-orange-400";
+    ? "bg-yellow-500/[0.08] border-yellow-500/35 text-yellow-400"
+    : "bg-orange-500/[0.08] border-orange-500/35 text-orange-400";
 
   if (loading) {
     return (
-      <div className="bg-gray-950/70 border border-gray-800/40 rounded-2xl overflow-hidden animate-pulse">
-        <div className="px-5 py-4 flex items-center justify-between border-b border-gray-800/40">
-          <div className="h-5 w-32 bg-gray-800 rounded-lg" />
-          <div className="h-8 w-16 bg-gray-800 rounded-lg" />
+      <div className="ag-glass overflow-hidden animate-pulse">
+        <div className="px-5 py-4 flex items-center justify-between border-b border-white/[0.08]">
+          <div className="h-5 w-32 bg-white/[0.06] rounded-lg" />
+          <div className="h-8 w-16 bg-white/[0.06] rounded-lg" />
         </div>
-        <div className="h-[160px] mx-5 my-4 bg-gray-900/50 rounded-xl" />
+        <div className="h-[160px] mx-5 my-4 bg-white/[0.03] rounded-xl" />
       </div>
     );
   }
 
   return (
-    <div className="bg-gray-950/70 border border-gray-800/50 rounded-2xl overflow-hidden backdrop-blur-sm">
+    <div className="ag-glass ag-glass-hover overflow-hidden">
 
       {/* Header */}
-      <div className="relative flex items-center justify-between px-5 py-4 bg-gradient-to-r from-green-950/30 via-emerald-950/10 to-transparent border-b border-gray-800/50">
-        <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-green-500 to-emerald-600 rounded-l-2xl" />
+      <div className="relative flex items-center justify-between px-5 py-4 bg-gradient-to-r from-emerald-500/[0.07] via-emerald-500/[0.02] to-transparent border-b border-white/[0.08]">
+        <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-gradient-to-b from-emerald-400/70 to-emerald-600/40 rounded-l-2xl" />
 
         <div className="pl-3 flex items-center gap-3 min-w-0">
           <div>
             <div className="flex items-center gap-2 mb-0.5">
-              <span className="text-white font-bold text-lg">{pumper.name}</span>
+              <span className="text-white font-display font-semibold text-lg">{pumper.name}</span>
               {pumper.netuid != null && (
                 <Link href={`/subnets/${pumper.netuid}`}
-                  className="text-[11px] text-green-400 bg-green-900/40 border border-green-800/40 rounded-md px-2 py-0.5 hover:text-green-300 transition-colors">
+                  className="text-[11px] font-mono text-emerald-400 bg-emerald-500/[0.07] border border-emerald-500/25 rounded-full px-2 py-0.5 hover:text-emerald-300 transition-colors">
                   SN{pumper.netuid}
                 </Link>
               )}
@@ -472,15 +484,15 @@ function AutopsyCard({ autopsy, onRemove }: { autopsy: Autopsy; onRemove: () => 
         <div className="flex items-center gap-3 flex-shrink-0">
           {pumpEvent && (
             <div className="text-right">
-              <div className="text-green-400 font-bold text-2xl leading-none tabular-nums">+{pumpEvent.gain.toFixed(0)}%</div>
-              <div className="text-gray-600 text-[10px] mt-0.5">peak pump</div>
+              <div className="text-emerald-400 font-display font-semibold text-2xl leading-none tabular-nums">+{pumpEvent.gain.toFixed(0)}%</div>
+              <div className="text-gray-600 font-mono text-[10px] mt-0.5 uppercase tracking-wider">peak pump</div>
             </div>
           )}
           <div className={`flex flex-col items-center justify-center w-11 h-11 rounded-xl border ${signalBubbleColor}`}>
             <span className="font-bold text-base leading-none">{firedCount}</span>
             <span className="text-[9px] leading-none mt-0.5 opacity-70">signals</span>
           </div>
-          <button onClick={onRemove} className="text-gray-700 hover:text-red-500 transition-colors p-1 rounded-lg hover:bg-gray-800/60" title="Remove">✕</button>
+          <button onClick={onRemove} className="text-gray-700 hover:text-red-500 transition-colors p-1 rounded-lg hover:bg-white/[0.06]" title="Remove">✕</button>
         </div>
       </div>
 
@@ -490,14 +502,14 @@ function AutopsyCard({ autopsy, onRemove }: { autopsy: Autopsy; onRemove: () => 
           <span className="uppercase tracking-widest font-semibold">90-Day Price</span>
           {pumpEvent && <><span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-yellow-400 inline-block" />pump start</span><span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-400 inline-block" />pump peak</span></>}
         </div>
-        <div className="bg-gray-900/40 rounded-xl p-3 border border-gray-800/30">
+        <div className="bg-white/[0.02] rounded-xl p-3 border border-white/[0.06]">
           <MiniPriceChart prices={detail?.priceHistory ?? []} pump={pumpEvent} chartLoading={chartLoading} />
         </div>
         {pumpEvent && (
           <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-xs text-gray-500">
             <span>{new Date(pumpEvent.startDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })} → {new Date(pumpEvent.endDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
             <span className="text-green-400 font-medium">+{pumpEvent.gain.toFixed(1)}% ({fmtPrice(pumpEvent.startPrice)} → {fmtPrice(pumpEvent.peakPrice)})</span>
-            <span className={pumpEvent.daysAgo <= 7 ? "text-yellow-400" : ""}>{pumpEvent.daysAgo <= 3 ? "🔥 Recent!" : pumpEvent.daysAgo <= 7 ? "Recent" : `~${pumpEvent.daysAgo}d ago`}</span>
+            <span className={pumpEvent.daysAgo <= 7 ? "text-yellow-400" : ""}>{pumpEvent.daysAgo <= 3 ? <span className="inline-flex items-center gap-1"><AgIcon name="flame" className="w-3 h-3" /> Recent!</span> : pumpEvent.daysAgo <= 7 ? "Recent" : `~${pumpEvent.daysAgo}d ago`}</span>
           </div>
         )}
       </div>
@@ -510,15 +522,15 @@ function AutopsyCard({ autopsy, onRemove }: { autopsy: Autopsy; onRemove: () => 
             {firedFindings.map((f) => {
               const isStrong = f.strength === "strong" || f.strength === "high";
               return (
-                <div key={f.label} className={`flex items-start gap-3 rounded-xl px-4 py-3 border ${
-                  isStrong ? "border-green-800/40 bg-green-950/20" : "border-yellow-800/30 bg-yellow-950/10"
+                <div key={f.label} className={`flex items-start gap-3 rounded-xl px-4 py-3 border backdrop-blur-md ${
+                  isStrong ? "border-emerald-500/25 bg-emerald-500/[0.05]" : "border-yellow-500/20 bg-yellow-500/[0.04]"
                 }`}>
-                  <span className="text-xl leading-none mt-0.5 flex-shrink-0">{f.icon}</span>
+                  <AgIcon name={FINDING_ICONS[f.label] ?? "target"} className="w-5 h-5 mt-0.5 flex-shrink-0 text-emerald-400" />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap mb-1">
-                      <span className="text-white font-bold text-sm">{f.label}</span>
-                      <span className={`text-xs font-bold rounded-full px-2 py-0.5 border ${
-                        isStrong ? "bg-green-900/60 text-green-400 border-green-800/40" : "bg-yellow-900/50 text-yellow-400 border-yellow-800/40"
+                      <span className="text-white font-display font-semibold text-sm">{f.label}</span>
+                      <span className={`font-mono text-[10px] font-bold tracking-[0.1em] rounded-full px-2 py-0.5 border ${
+                        isStrong ? "bg-emerald-500/[0.07] text-emerald-400 border-emerald-500/35" : "bg-yellow-500/[0.06] text-yellow-400 border-yellow-500/30"
                       }`}>
                         {f.strength === "strong" ? "STRONG" : f.strength === "high" ? "HIGH" : "MOD"}
                       </span>
@@ -532,7 +544,7 @@ function AutopsyCard({ autopsy, onRemove }: { autopsy: Autopsy; onRemove: () => 
           </div>
           <div className="mt-3 text-xs text-gray-600 flex items-center gap-2 flex-wrap">
             {pumper.reason && pumper.reason.includes("aGap score") && (
-              <span className="bg-green-950/40 border border-green-800/30 text-green-500 rounded-md px-2 py-0.5 text-[10px] font-semibold">🎯 {pumper.reason.split("→")[0].trim()}</span>
+              <span className="bg-emerald-500/[0.06] border border-emerald-500/25 text-emerald-500 rounded-full px-2 py-0.5 text-[10px] font-semibold inline-flex items-center gap-1"><AgIcon name="target" className="w-3 h-3" /> {pumper.reason.split("→")[0].trim()}</span>
             )}
             <span>Added {pumper.added_at}</span>
             {pumper.netuid != null && <Link href={`/subnets/${pumper.netuid}`} className="hover:text-gray-400 transition-colors">Full subnet →</Link>}
@@ -871,45 +883,48 @@ export default function PumpLabPage() {
     : null;
 
   return (
-    <div className="min-h-screen bg-[#0a0a0f] text-white">
+    <div className="min-h-screen bg-[#07090b] text-white ag-aurora">
 
       {/* Hero header */}
-      <div className="relative overflow-hidden border-b border-gray-800/50">
-        <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: "linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)", backgroundSize: "40px 40px" }} />
-        <div className="absolute -top-20 left-1/3 w-96 h-96 bg-green-600/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="max-w-screen-xl mx-auto px-4 md:px-6 pt-9 pb-2">
+        <div className="flex items-center gap-3 mb-2 flex-wrap">
+          <h1 className="font-display text-4xl font-semibold tracking-[-0.03em] leading-tight flex items-center gap-2.5">
+            <AgIcon name="scope" className="w-7 h-7 text-emerald-400" />
+            <span>Pump <span className="ag-gradient-text">Lab</span></span>
+          </h1>
+          <span className="ag-badge ag-badge-warn !text-yellow-400 !border-yellow-500/30 !bg-yellow-500/[0.06]">BETA</span>
+        </div>
+        <p className="text-[14.5px] text-gray-400 max-w-2xl leading-relaxed">
+          Which signals fired before each pump? Backtesting the AlphaGap algo against real price moves.
+        </p>
 
-        <div className="relative max-w-screen-xl mx-auto px-4 md:px-6 pt-10 pb-7">
-          <div className="flex items-center gap-3 mb-2">
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-green-400 via-emerald-300 to-white bg-clip-text text-transparent">
-              🔬 Pump Autopsy Lab
-            </h1>
-            <span className="text-xs bg-yellow-900/50 text-yellow-400 border border-yellow-800/40 rounded-full px-2 py-0.5 font-medium">BETA</span>
-          </div>
-          <p className="text-gray-500 text-sm max-w-2xl mb-5">
-            Which signals fired before each pump? Backtesting the AlphaGap algo against real price moves.
-          </p>
+        {/* LIVE row */}
+        <div className="flex items-center gap-2.5 mt-4 font-mono text-[11px] uppercase tracking-[0.08em] text-gray-500">
+          <span className="ag-live-dot flex-shrink-0" />
+          <span>{totalCases} CASES ANALYZED{avgPump ? ` · AVG +${avgPump}% PUMP` : ""}</span>
+        </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs bg-gray-800/60 border border-gray-700/40 rounded-full px-3 py-1.5 text-gray-300">
-              <span className="font-bold text-white">{totalCases}</span> cases
-            </span>
-            <span className="text-gray-700">·</span>
-            <span className="text-xs bg-green-900/30 border border-green-800/30 rounded-full px-3 py-1.5 text-gray-300">
-              <span className="font-bold text-green-400">{totalStrong}</span> strong signals
-            </span>
-            {avgPump && (
-              <><span className="text-gray-700">·</span>
-              <span className="text-xs bg-gray-800/60 border border-gray-700/40 rounded-full px-3 py-1.5 text-gray-300">
-                avg <span className="font-bold text-green-400">+{avgPump}%</span> pump
-              </span></>
-            )}
-            {loading && (
-              <><span className="text-gray-700">·</span>
-              <span className="text-xs bg-gray-800/60 border border-gray-700/40 rounded-full px-3 py-1.5 text-gray-500 animate-pulse">
-                Computing {autopsies.filter((a) => a.loading).length} new…
-              </span></>
-            )}
+        {/* Stat chips */}
+        <div className="flex flex-wrap items-center gap-2 mt-5">
+          <div className="ag-glass !rounded-full flex items-center gap-2 px-4 py-1.5">
+            <span className="font-mono text-sm font-semibold text-white tabular-nums">{totalCases}</span>
+            <span className="text-xs text-gray-400">cases</span>
           </div>
+          <div className="ag-glass !rounded-full flex items-center gap-2 px-4 py-1.5">
+            <span className="font-mono text-sm font-semibold text-emerald-400 tabular-nums">{totalStrong}</span>
+            <span className="text-xs text-gray-400">strong signals</span>
+          </div>
+          {avgPump && (
+            <div className="ag-glass !rounded-full flex items-center gap-2 px-4 py-1.5">
+              <span className="font-mono text-sm font-semibold text-emerald-400 tabular-nums">+{avgPump}%</span>
+              <span className="text-xs text-gray-400">avg pump</span>
+            </div>
+          )}
+          {loading && (
+            <div className="ag-glass !rounded-full flex items-center gap-2 px-4 py-1.5 animate-pulse">
+              <span className="text-xs text-gray-500">Computing {autopsies.filter((a) => a.loading).length} new…</span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -917,17 +932,17 @@ export default function PumpLabPage() {
         <div className="max-w-screen-xl mx-auto px-4 md:px-6 py-8 space-y-6">
 
           {autoDetected.length > 0 && (
-            <div className="bg-green-950/20 border border-green-800/30 rounded-2xl p-4">
+            <div className="ag-glass !border-emerald-500/25 p-4">
               <div className="flex items-center gap-2 mb-3">
-                <span className="text-green-400 font-semibold text-sm">🚀 Auto-added {autoDetected.length} new pumper{autoDetected.length > 1 ? "s" : ""}</span>
+                <span className="text-emerald-400 font-display font-semibold text-sm inline-flex items-center gap-1.5"><AgIcon name="rocket" className="w-4 h-4" /> Auto-added {autoDetected.length} new pumper{autoDetected.length > 1 ? "s" : ""}</span>
                 <span className="text-xs text-gray-500">Detected &gt;20% 7D gain</span>
               </div>
               <div className="flex flex-wrap gap-2">
                 {autoDetected.map((p) => (
-                  <div key={p.netuid ?? p.name} className="flex items-center gap-2 bg-green-950/30 border border-green-800/20 rounded-xl px-3 py-2">
+                  <div key={p.netuid ?? p.name} className="flex items-center gap-2 bg-emerald-500/[0.05] border border-emerald-500/20 rounded-xl px-3 py-2">
                     <span className="text-white font-medium text-sm">{p.name}</span>
-                    {p.netuid != null && <span className="text-xs text-gray-500">SN{p.netuid}</span>}
-                    {p.pump_pct != null && <span className="text-green-400 font-bold text-sm">+{p.pump_pct.toFixed(0)}%</span>}
+                    {p.netuid != null && <span className="font-mono text-xs text-gray-500">SN{p.netuid}</span>}
+                    {p.pump_pct != null && <span className="text-emerald-400 font-mono font-semibold text-sm tabular-nums">+{p.pump_pct.toFixed(0)}%</span>}
                   </div>
                 ))}
               </div>

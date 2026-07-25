@@ -59,33 +59,31 @@ function SignInForm() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0a0a0f] flex flex-col items-center justify-center px-4">
+    <div className="min-h-screen bg-[#07090b] ag-aurora flex flex-col items-center justify-center px-4">
       {/* Background glow */}
-      <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[400px] bg-green-500/5 rounded-full blur-[100px] pointer-events-none" />
-
       <div className="relative w-full max-w-sm">
         {/* Logo */}
         <div className="text-center mb-8">
           <Link href="/">
             <img src="/alphagap_logo_dark.svg" alt="AlphaGap" className="h-10 w-auto mx-auto mb-4" />
           </Link>
-          <h1 className="text-2xl font-bold text-white">Welcome back</h1>
+          <h1 className="font-display text-2xl font-semibold tracking-[-0.02em] text-white">Welcome back</h1>
           <p className="text-gray-500 text-sm mt-1">Sign in to your AlphaGap account</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="bg-gray-900/60 border border-gray-800 rounded-2xl p-6 space-y-4">
+        <form onSubmit={handleSubmit} className="ag-glass p-6 space-y-4">
           {params.get("hint") === "subscription-updated" && (
-            <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg px-4 py-3 text-blue-300 text-sm">
+            <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl px-4 py-3 text-blue-300 text-sm">
               Sign back in to apply your updated subscription.
             </div>
           )}
           {params.get("error") === "Callback" && (
-            <div className="bg-red-500/10 border border-red-500/30 rounded-lg px-4 py-3 text-red-400 text-sm">
+            <div className="bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3 text-red-400 text-sm">
               Session expired. Please sign in again.
             </div>
           )}
           {error && (
-            <div className="bg-red-500/10 border border-red-500/30 rounded-lg px-4 py-3 text-red-400 text-sm">
+            <div className="bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3 text-red-400 text-sm">
               {error}
             </div>
           )}
@@ -99,7 +97,7 @@ function SignInForm() {
               required
               autoComplete="email"
               placeholder="you@example.com"
-              className="w-full bg-gray-800/60 border border-gray-700 rounded-lg px-3.5 py-2.5 text-base text-gray-100 placeholder-gray-600 focus:outline-none focus:border-green-600 focus:ring-1 focus:ring-green-600/30 transition-colors"
+              className="w-full bg-white/[0.04] border border-white/[0.10] rounded-xl px-3.5 py-2.5 backdrop-blur-[14px] text-base text-gray-100 placeholder-gray-600 focus:outline-none focus:border-emerald-400/40 focus:ring-1 focus:ring-emerald-400/20 transition-colors"
             />
           </div>
 
@@ -113,7 +111,7 @@ function SignInForm() {
                 required
                 autoComplete="current-password"
                 placeholder="••••••••"
-                className="w-full bg-gray-800/60 border border-gray-700 rounded-lg px-3.5 py-2.5 pr-10 text-base text-gray-100 placeholder-gray-600 focus:outline-none focus:border-green-600 focus:ring-1 focus:ring-green-600/30 transition-colors"
+                className="w-full bg-white/[0.04] border border-white/[0.10] rounded-xl px-3.5 py-2.5 backdrop-blur-[14px] pr-10 text-base text-gray-100 placeholder-gray-600 focus:outline-none focus:border-emerald-400/40 focus:ring-1 focus:ring-emerald-400/20 transition-colors"
               />
               <button
                 type="button"
@@ -138,13 +136,13 @@ function SignInForm() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-gradient-to-r from-green-500 to-emerald-600 text-black font-bold rounded-lg py-2.5 text-sm hover:from-green-400 hover:to-emerald-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-green-500/20"
+            className="w-full bg-gradient-to-r from-green-500 to-emerald-600 text-black font-bold rounded-full py-2.5 text-sm hover:from-green-400 hover:to-emerald-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-green-500/20"
           >
             {loading ? "Signing in…" : "Sign In"}
           </button>
 
           {forgotSent ? (
-            <div className="bg-green-500/10 border border-green-500/20 rounded-lg px-4 py-3 text-green-400 text-sm text-center">
+            <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-4 py-3 text-emerald-400 text-sm text-center">
               Password reset email sent — check your inbox.
             </div>
           ) : (
@@ -162,7 +160,7 @@ function SignInForm() {
 
           <p className="text-center text-xs text-gray-600">
             Don&apos;t have an account?{" "}
-            <Link href="/subscribe" className="text-green-400 hover:text-green-300 transition-colors">
+            <Link href="/subscribe" className="text-emerald-400 hover:text-emerald-300 transition-colors">
               Get started free
             </Link>
           </p>

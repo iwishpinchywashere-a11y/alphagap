@@ -5,6 +5,7 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useState, useEffect, useCallback } from "react";
 import { getTier, canAccessPremium } from "@/lib/subscription";
+import AgIcon from "@/components/AgIcon";
 import type { AlertSettings } from "@/lib/telegram-alerts";
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
@@ -54,7 +55,7 @@ function CopyBlock({
     return (
       <button
         onClick={copy}
-        className="flex items-center gap-1.5 bg-[#1a1f2e] border border-gray-700 hover:border-green-500/50 px-2.5 py-1 rounded text-sm font-mono text-green-400 transition-colors"
+        className="flex items-center gap-1.5 bg-white/[0.04] border border-white/[0.10] hover:border-emerald-400/40 px-3 py-1 rounded-full text-sm font-mono text-emerald-400 backdrop-blur-[14px] transition-colors"
       >
         <span className="tracking-widest">{value}</span>
         <span className="text-gray-500 text-xs">{copied ? "✓" : "copy"}</span>
@@ -62,15 +63,15 @@ function CopyBlock({
     );
   }
   return (
-    <div className="bg-[#0a0a0f] border border-green-500/30 rounded-lg p-4">
-      {label && <p className="text-xs text-gray-500 mb-2">{label}</p>}
+    <div className="bg-white/[0.03] border border-emerald-400/25 rounded-2xl p-4 backdrop-blur-[14px]">
+      {label && <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-gray-500 mb-2">{label}</p>}
       <div className="flex items-center justify-between gap-3">
         <p className="text-xl font-mono font-semibold">
           {displayValue ?? <span className="text-green-400 tracking-widest">{value}</span>}
         </p>
         <button
           onClick={copy}
-          className="flex-shrink-0 px-3 py-1.5 bg-green-500/10 hover:bg-green-500/20 border border-green-500/30 text-green-400 text-xs font-medium rounded-lg transition-colors"
+          className="flex-shrink-0 px-3.5 py-1.5 bg-emerald-400/10 hover:bg-emerald-400/20 border border-emerald-400/30 text-emerald-400 text-xs font-medium rounded-full transition-colors"
         >
           {copied ? "✓ Copied" : "Copy"}
         </button>
@@ -112,7 +113,7 @@ function ThresholdInput({
           setDraft(String(clamped));
           onChange(clamped);
         }}
-        className="w-14 px-2 py-1 bg-[#0f1117] border border-gray-700 rounded text-sm text-green-400 text-center focus:outline-none focus:border-green-500"
+        className="w-14 px-2 py-1 bg-white/[0.04] border border-white/[0.10] rounded-lg text-sm text-emerald-400 text-center focus:outline-none focus:border-emerald-400/50"
       />
       <span className="text-gray-500 text-sm">{suffix}</span>
     </div>
@@ -212,7 +213,7 @@ export default function AlertsPage() {
 
   if (status === "loading") {
     return (
-      <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center">
+      <div className="min-h-screen ag-aurora flex items-center justify-center">
         <div className="w-10 h-10 border-2 border-green-500/30 border-t-green-400 rounded-full animate-spin" />
       </div>
     );
@@ -222,29 +223,29 @@ export default function AlertsPage() {
 
   if (status === "unauthenticated" || !isPremium) {
     const isSignedOut = status === "unauthenticated";
-    const alertFeatures = [
+    const alertFeatures: { icon: React.ReactNode; label: string; description: string }[] = [
       {
-        icon: "📊",
+        icon: <AgIcon name="chart" className="w-5 h-5 text-green-400" />,
         label: "aGap Score Change",
         description: "Get notified the moment a subnet's composite aGap score moves by your threshold — catch momentum shifts before the market reacts.",
       },
       {
-        icon: "⚡",
+        icon: <AgIcon name="bolt" className="w-5 h-5 text-green-400" />,
         label: "Emissions Change",
         description: "Instant alert when a subnet's emission % allocation shifts significantly. Be first to know when validators rotate weight.",
       },
       {
-        icon: "🔮",
+        icon: <AgIcon name="oracle" className="w-5 h-5 text-green-400" />,
         label: "Development Updates",
         description: "Fires every time a GitHub commit spike or HuggingFace model update is detected for subnets on your watchlist. Set a minimum score threshold so you only see the most significant updates.",
       },
       {
-        icon: "🐋",
+        icon: <AgIcon name="whale" className="w-5 h-5 text-green-400" />,
         label: "Whale Activity",
         description: "Large wallets accumulating or distributing on your subnets trigger an immediate alert. See the flow page data before it's priced in.",
       },
       {
-        icon: "💬",
+        icon: <AgIcon name="chat" className="w-5 h-5 text-green-400" />,
         label: "Discord Alpha",
         description: "AlphaGap scans every Bittensor subnet Discord in real time. When high-quality alpha is posted, you get it straight to Telegram.",
       },
@@ -254,36 +255,31 @@ export default function AlertsPage() {
         description: "Top KOLs in the Bittensor ecosystem are tracked 24/7. When a subnet post catches fire, you'll know within minutes.",
       },
       {
-        icon: "💰",
+        icon: <AgIcon name="money" className="w-5 h-5 text-green-400" />,
         label: "Price Movement",
         description: "Set your own % threshold. Only fires once per 24h per subnet, with a smart delta guard so you won't get spammed by small fluctuations.",
       },
     ];
 
     return (
-      <div className="min-h-screen bg-[#0a0a0f] text-gray-100">
+      <div className="min-h-screen ag-aurora text-gray-100">
         {/* ── Hero ─────────────────────────────────────────────── */}
-        <div className="relative border-b border-gray-800/50 overflow-hidden">
-          <div
-            className="absolute inset-0 opacity-[0.03]"
-            style={{
-              backgroundImage: "linear-gradient(rgba(255,255,255,0.8) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.8) 1px,transparent 1px)",
-              backgroundSize: "32px 32px",
-            }}
-          />
-          <div className="absolute top-0 left-1/3 w-96 h-48 bg-green-600/8 rounded-full blur-3xl pointer-events-none" />
-
+        <div className="relative overflow-hidden">
           <div className="relative max-w-2xl mx-auto px-4 py-14 text-center">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-green-500/10 border border-green-500/20 mb-5">
-              <span className="text-3xl">📡</span>
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-white/[0.04] border border-emerald-400/25 backdrop-blur-[14px] mb-5">
+              <AgIcon name="radar" className="w-8 h-8 text-emerald-400" />
             </div>
-            <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-green-400 via-emerald-300 to-white bg-clip-text text-transparent leading-tight mb-4">
-              Real-Time Bittensor Alerts<br />
+            <h1 className="font-display text-3xl md:text-[40px] font-semibold tracking-[-0.03em] text-white leading-tight mb-4">
+              Real-Time Bittensor <span className="ag-gradient-text">Alerts</span><br />
               Straight to Telegram
             </h1>
-            <p className="text-gray-400 text-base leading-relaxed max-w-xl mx-auto mb-6">
+            <p className="text-sm md:text-[14.5px] text-gray-400 leading-[1.65] max-w-xl mx-auto mb-4">
               Stop refreshing dashboards. AlphaGap monitors every subnet on your watchlist around the clock and pings you the moment something worth acting on happens.
             </p>
+            <div className="inline-flex items-center gap-2 font-mono text-[11px] tracking-wider text-gray-500 uppercase mb-6">
+              <span className="ag-live-dot" />
+              <span>7 ALERT TYPES · WATCHLIST-SCOPED · INSTANT DELIVERY</span>
+            </div>
 
             {/* How it works steps */}
             <div className="flex items-center justify-center gap-2 flex-wrap">
@@ -294,8 +290,8 @@ export default function AlertsPage() {
                 { step: "4", text: "Alerts arrive instantly" },
               ].map((s, i, arr) => (
                 <React.Fragment key={s.step}>
-                  <div className="flex items-center gap-1.5">
-                    <span className="w-6 h-6 rounded-full bg-green-500/20 border border-green-500/40 text-green-400 text-xs font-bold flex items-center justify-center flex-shrink-0">
+                  <div className="flex items-center gap-1.5 bg-white/[0.035] border border-white/[0.08] rounded-full pl-1.5 pr-3 py-1 backdrop-blur-[14px]">
+                    <span className="w-6 h-6 rounded-full bg-emerald-400/15 border border-emerald-400/35 text-emerald-400 text-xs font-bold flex items-center justify-center flex-shrink-0">
                       {s.step}
                     </span>
                     <span className="text-xs text-gray-400">{s.text}</span>
@@ -309,16 +305,13 @@ export default function AlertsPage() {
 
         <div className="max-w-2xl mx-auto px-4 py-10">
           {/* Alert types */}
-          <div className="mb-3">
-            <div className="flex items-center gap-3 px-5 py-4 bg-gradient-to-r from-green-950/30 via-emerald-950/10 to-transparent border border-gray-700/60 rounded-t-xl">
-              <div className="w-1 h-6 bg-gradient-to-b from-green-500 to-emerald-600 rounded-full" />
-              <h2 className="text-sm font-bold text-white">7 alert types, all customisable</h2>
-            </div>
-            <div className="bg-gray-900/50 border border-t-0 border-gray-700/60 rounded-b-xl p-5">
+          <div className="ag-glass p-5 md:p-6 mb-3">
+            <h2 className="font-mono text-[11px] uppercase tracking-[0.16em] text-emerald-400/80 mb-5">7 alert types · all customisable</h2>
+            <div>
               <div className="space-y-5">
                 {alertFeatures.map(f => (
-                  <div key={f.label} className="flex items-start gap-4 pb-5 border-b border-gray-800/60 last:border-0 last:pb-0">
-                    <div className="w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-xl bg-gray-800/60 border border-gray-700/40">
+                  <div key={f.label} className="flex items-start gap-4 pb-5 border-b border-white/[0.06] last:border-0 last:pb-0">
+                    <div className="w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-xl bg-white/[0.04] border border-white/[0.08]">
                       <span className="text-lg leading-none">{f.icon}</span>
                     </div>
                     <div>
@@ -332,8 +325,8 @@ export default function AlertsPage() {
           </div>
 
           {/* Watchlist callout */}
-          <div className="flex items-start gap-3 bg-green-500/5 border border-green-500/20 rounded-xl px-5 py-4 mb-8">
-            <span className="text-xl flex-shrink-0 mt-0.5">🎯</span>
+          <div className="flex items-start gap-3 bg-emerald-400/[0.05] border border-emerald-400/20 rounded-2xl backdrop-blur-[14px] px-5 py-4 mb-8">
+            <AgIcon name="target" className="w-5 h-5 flex-shrink-0 mt-0.5 text-green-400" />
             <div>
               <p className="text-sm font-semibold text-white mb-1">Only the subnets you care about</p>
               <p className="text-xs text-gray-400 leading-relaxed">
@@ -346,7 +339,7 @@ export default function AlertsPage() {
           <div className="text-center">
             <a
               href="/pricing"
-              className="inline-block px-10 py-4 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-400 hover:to-emerald-500 text-black font-bold text-lg rounded-xl transition-all shadow-xl shadow-green-500/25"
+              className="inline-block px-10 py-4 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-400 hover:to-emerald-500 text-black font-bold text-lg rounded-full transition-all shadow-xl shadow-green-500/25"
             >
               Upgrade to Premium →
             </a>
@@ -354,7 +347,7 @@ export default function AlertsPage() {
               <div className="mt-3">
                 <a
                   href="/auth/signin"
-                  className="inline-block px-8 py-3 bg-gray-800 hover:bg-gray-700 text-white font-semibold rounded-xl transition-colors border border-gray-700 text-sm"
+                  className="inline-block px-8 py-3 bg-white/[0.05] hover:bg-white/[0.09] text-white font-semibold rounded-full transition-colors border border-white/[0.10] backdrop-blur-[14px] text-sm"
                 >
                   Sign In
                 </a>
@@ -440,32 +433,28 @@ export default function AlertsPage() {
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
-    <div className="min-h-screen bg-[#0a0a0f] text-gray-100">
+    <div className="min-h-screen ag-aurora text-gray-100">
       {/* ── Hero ─────────────────────────────────────────────── */}
-      <div className="relative border-b border-gray-800/50 overflow-hidden">
-        <div
-          className="absolute inset-0 opacity-[0.03]"
-          style={{
-            backgroundImage: "linear-gradient(rgba(255,255,255,0.8) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.8) 1px,transparent 1px)",
-            backgroundSize: "32px 32px",
-          }}
-        />
-        <div className="absolute top-0 left-1/3 w-80 h-36 bg-green-600/8 rounded-full blur-3xl pointer-events-none" />
-
-        <div className="relative max-w-2xl mx-auto px-4 py-8">
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-green-400 via-emerald-300 to-white bg-clip-text text-transparent leading-tight mb-1">
-            📡 Telegram Alerts
+      <div className="relative overflow-hidden">
+        <div className="relative max-w-2xl mx-auto px-4 pt-9 pb-5">
+          <h1 className="font-display text-3xl md:text-[40px] font-semibold tracking-[-0.03em] text-white leading-tight mb-2 flex items-center gap-2.5">
+            <AgIcon name="radar" className="w-7 h-7 text-emerald-400" />
+            <span>Telegram <span className="ag-gradient-text">Alerts</span></span>
           </h1>
-          <p className="text-sm text-gray-400">
+          <p className="text-sm md:text-[14.5px] text-gray-400 leading-[1.65] mb-4">
             Get real-time notifications in Telegram when your subnets hit your thresholds.
           </p>
+          <div className="inline-flex items-center gap-2 font-mono text-[11px] tracking-wider text-gray-500 uppercase">
+            <span className="ag-live-dot" />
+            <span>{connected ? "CONNECTED" : "NOT CONNECTED"} · {settings.enabled ? "ALERTS ACTIVE" : "ALERTS PAUSED"} · WATCHLIST-SCOPED</span>
+          </div>
         </div>
       </div>
 
       <div className="max-w-2xl mx-auto px-4 py-8">
         {/* Watchlist explainer */}
-        <div className="flex items-start gap-3 bg-green-500/5 border border-green-500/20 rounded-xl px-4 py-3 mb-6">
-          <span className="text-lg flex-shrink-0 mt-0.5">👁</span>
+        <div className="flex items-start gap-3 bg-emerald-400/[0.05] border border-emerald-400/20 rounded-2xl backdrop-blur-[14px] px-4 py-3 mb-6">
+          <AgIcon name="eye" className="w-5 h-5 flex-shrink-0 mt-0.5 text-green-400" />
           <p className="text-sm text-gray-300 leading-relaxed">
             Alerts fire only for subnets on{" "}
             <a href="/watchlist" className="text-green-400 hover:text-green-300 underline underline-offset-2">your watchlist</a>.
@@ -474,18 +463,17 @@ export default function AlertsPage() {
         </div>
 
         {/* ── Connection section ────────────────────────────────────────── */}
-        <div className="mb-4">
-          <div className="flex items-center gap-3 px-5 py-4 bg-gradient-to-r from-green-950/30 via-emerald-950/10 to-transparent border border-gray-700/60 rounded-t-xl">
-            <div className="w-1 h-6 bg-gradient-to-b from-green-500 to-emerald-600 rounded-full" />
-            <h2 className="text-sm font-bold text-white">Connection</h2>
+        <div className="ag-glass p-5 mb-4">
+          <div className="flex items-center gap-3 mb-4">
+            <h2 className="font-mono text-[11px] uppercase tracking-[0.16em] text-emerald-400/80">Connection</h2>
             {connected && (
               <div className="ml-auto flex items-center gap-1.5">
-                <div className="w-2 h-2 rounded-full bg-green-400 shadow shadow-green-500/50" />
-                <span className="text-xs text-green-400 font-medium">Connected</span>
+                <span className="ag-live-dot" />
+                <span className="font-mono text-[10.5px] uppercase tracking-wider text-emerald-400">Connected</span>
               </div>
             )}
           </div>
-          <div className="bg-gray-900/50 border border-t-0 border-gray-700/60 rounded-b-xl p-5">
+          <div>
             {connected ? (
               <div>
                 <div className="flex items-center gap-3 mb-2">
@@ -501,14 +489,14 @@ export default function AlertsPage() {
                 <div className="flex gap-3 flex-wrap">
                   <button
                     onClick={sendTest}
-                    className="px-4 py-2 text-sm bg-green-500/10 border border-green-500/30 text-green-400 rounded-lg hover:bg-green-500/20 transition-colors"
+                    className="px-4 py-2 text-sm bg-emerald-400/10 border border-emerald-400/30 text-emerald-400 rounded-full hover:bg-emerald-400/20 transition-colors"
                   >
                     {testSent ? "✓ Test sent!" : "Send test message"}
                   </button>
                   <button
                     onClick={disconnect}
                     disabled={disconnecting}
-                    className="px-4 py-2 text-sm bg-red-500/10 border border-red-500/20 text-red-400 rounded-lg hover:bg-red-500/20 transition-colors"
+                    className="px-4 py-2 text-sm bg-red-500/10 border border-red-500/20 text-red-400 rounded-full hover:bg-red-500/20 transition-colors"
                   >
                     {disconnecting ? "Disconnecting…" : "Disconnect"}
                   </button>
@@ -525,7 +513,7 @@ export default function AlertsPage() {
                     <button
                       onClick={generateCode}
                       disabled={generating}
-                      className="px-5 py-2.5 bg-green-500 hover:bg-green-400 disabled:opacity-50 text-black font-semibold rounded-lg transition-colors text-sm"
+                      className="px-6 py-2.5 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-400 hover:to-emerald-500 disabled:opacity-50 text-black font-bold rounded-full transition-all shadow-lg shadow-green-500/25 text-sm"
                     >
                       {generating ? "Generating…" : "Get connect code"}
                     </button>
@@ -587,11 +575,10 @@ export default function AlertsPage() {
         {connected && (
           <>
             {/* Master toggle */}
-            <div className="mb-4">
-              <div className="flex items-center gap-3 px-5 py-4 bg-gradient-to-r from-green-950/30 via-emerald-950/10 to-transparent border border-gray-700/60 rounded-t-xl">
-                <div className="w-1 h-6 bg-gradient-to-b from-green-500 to-emerald-600 rounded-full" />
-                <h2 className="text-sm font-bold text-white">Alerts</h2>
-                <span className="text-xs text-gray-500 ml-1">
+            <div className="ag-glass mb-4">
+              <div className="flex items-center gap-3 px-5 py-4">
+                <h2 className="font-mono text-[11px] uppercase tracking-[0.16em] text-emerald-400/80">Alerts</h2>
+                <span className="font-mono text-[10.5px] uppercase tracking-wider text-gray-500 ml-1">
                   {settings.enabled ? "Active" : "Paused"}
                 </span>
                 <div className="ml-auto">
@@ -601,20 +588,16 @@ export default function AlertsPage() {
                   />
                 </div>
               </div>
-              <div className="h-1 bg-gray-800/60 border-x border-gray-700/60" />
             </div>
 
             {/* Alert types */}
-            <div className="mb-6">
-              <div className="flex items-center gap-3 px-5 py-4 bg-gradient-to-r from-green-950/30 via-emerald-950/10 to-transparent border border-gray-700/60 rounded-t-xl">
-                <div className="w-1 h-6 bg-gradient-to-b from-green-500 to-emerald-600 rounded-full" />
-                <h2 className="text-sm font-bold text-white">Alert types</h2>
-              </div>
-              <div className="bg-gray-900/50 border border-t-0 border-gray-700/60 rounded-b-xl p-5">
+            <div className="ag-glass p-5 mb-6">
+              <h2 className="font-mono text-[11px] uppercase tracking-[0.16em] text-emerald-400/80 mb-5">Alert types</h2>
+              <div>
                 <div className="space-y-5">
 
                   <AlertRow
-                    icon="📊"
+                    icon={<AgIcon name="chart" className="w-5 h-5 text-green-400" />}
                     label="aGap score change"
                     description="Fire when a subnet's aGap score moves by at least"
                     enabled={settings.scoreChange.enabled}
@@ -625,7 +608,7 @@ export default function AlertsPage() {
                   />
 
                   <AlertRow
-                    icon="⚡"
+                    icon={<AgIcon name="bolt" className="w-5 h-5 text-green-400" />}
                     label="Emissions change"
                     description="Fire when a subnet's emission % changes by at least"
                     enabled={settings.emissionChange.enabled}
@@ -635,7 +618,7 @@ export default function AlertsPage() {
                   />
 
                   <AlertRow
-                    icon="🔮"
+                    icon={<AgIcon name="oracle" className="w-5 h-5 text-green-400" />}
                     label="Development Updates"
                     description="Fire when a new GitHub commit spike or HuggingFace model update is detected for a subnet on your watchlist"
                     enabled={settings.newSignal.enabled}
@@ -645,7 +628,7 @@ export default function AlertsPage() {
                   />
 
                   <AlertRow
-                    icon="🐋"
+                    icon={<AgIcon name="whale" className="w-5 h-5 text-green-400" />}
                     label="Whale activity / volume spike"
                     description="Fire when a large trade or unusual volume spike is detected on the flow page"
                     enabled={settings.whaleActivity.enabled}
@@ -653,7 +636,7 @@ export default function AlertsPage() {
                   />
 
                   <AlertRow
-                    icon="💬"
+                    icon={<AgIcon name="chat" className="w-5 h-5 text-green-400" />}
                     label="Discord entry"
                     description="Fire when a notable new Discord post appears on the social page"
                     enabled={settings.discordEntry.enabled}
@@ -673,7 +656,7 @@ export default function AlertsPage() {
                   />
 
                   <AlertRow
-                    icon="👑"
+                    icon={<AgIcon name="crown" className="w-5 h-5 text-green-400" />}
                     label="Const Tracker"
                     description="Fire when Bittensor founder Const stakes into or unstakes from any subnet"
                     enabled={settings.constActivity?.enabled ?? false}
@@ -681,7 +664,7 @@ export default function AlertsPage() {
                   />
 
                   <AlertRow
-                    icon="💰"
+                    icon={<AgIcon name="money" className="w-5 h-5 text-green-400" />}
                     label="Price movement"
                     description="Fire when the subnet token price moves by at least"
                     enabled={settings.priceMove.enabled}
@@ -699,7 +682,7 @@ export default function AlertsPage() {
               <button
                 onClick={saveSettings}
                 disabled={saving}
-                className="px-6 py-2.5 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-400 hover:to-emerald-500 disabled:opacity-50 text-black font-bold rounded-lg transition-all text-sm"
+                className="px-7 py-3 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-400 hover:to-emerald-500 disabled:opacity-50 text-black font-bold rounded-full transition-all shadow-xl shadow-green-500/25 text-sm"
               >
                 {saving ? "Saving…" : "Save settings"}
               </button>
@@ -731,7 +714,7 @@ function AlertRow({
   onThreshold,
   onMinScore,
 }: {
-  icon: string;
+  icon: React.ReactNode;
   label: string;
   description: string;
   enabled: boolean;
@@ -743,7 +726,7 @@ function AlertRow({
   onMinScore?: (v: number) => void;
 }) {
   return (
-    <div className={`flex items-start justify-between gap-4 pb-5 border-b border-gray-800/60 last:border-0 last:pb-0 ${!enabled ? "opacity-50" : ""}`}>
+    <div className={`flex items-start justify-between gap-4 pb-5 border-b border-white/[0.06] last:border-0 last:pb-0 ${!enabled ? "opacity-50" : ""}`}>
       <div className="flex items-start gap-3 flex-1">
         <span className="w-7 h-7 flex-shrink-0 flex items-center justify-center text-xl leading-none">{icon}</span>
         <div>

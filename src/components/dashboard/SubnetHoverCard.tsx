@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import SubnetLogo from "@/components/dashboard/SubnetLogo";
+import AgIcon from "@/components/AgIcon";
 import { scoreColor, formatNum } from "@/lib/formatters";
 import type { SubnetScore } from "@/lib/types";
 
@@ -246,7 +247,7 @@ export default function SubnetHoverCard({ sub, mouseX, mouseY, taoPrice, onKeepA
                 <div className="flex items-center gap-1.5">
                   <span className="text-[10px] text-gray-600 font-mono">SN{sub.netuid}</span>
                   <span className="font-bold text-white text-sm truncate">{sub.name}</span>
-                  {sub.has_campaign && <span className="text-xs">🔥</span>}
+                  {sub.has_campaign && <span className="text-xs text-orange-400"><AgIcon name="flame" className="w-3 h-3" /></span>}
                 </div>
                 {sub.category && (
                   <span className="text-[9px] text-gray-500 uppercase tracking-wider">{sub.category}</span>
@@ -413,10 +414,10 @@ export default function SubnetHoverCard({ sub, mouseX, mouseY, taoPrice, onKeepA
           <div className="px-4 py-2 border-t border-gray-800/40 flex items-center justify-between">
             <span className="text-[9px] text-gray-700">Click row to open full analysis</span>
             {sub.whale_signal === "accumulating" && (
-              <span className="text-[9px] text-green-400 font-medium">🐋 Whale accumulating</span>
+              <span className="text-[9px] text-green-400 font-medium inline-flex items-center gap-1"><AgIcon name="whale" className="w-2.5 h-2.5" /> Whale accumulating</span>
             )}
             {sub.whale_signal === "distributing" && (
-              <span className="text-[9px] text-red-400 font-medium">🔻 Whale distributing</span>
+              <span className="text-[9px] text-red-400 font-medium inline-flex items-center gap-1"><AgIcon name="trendDown" className="w-2.5 h-2.5" /> Whale distributing</span>
             )}
           </div>
         </div>

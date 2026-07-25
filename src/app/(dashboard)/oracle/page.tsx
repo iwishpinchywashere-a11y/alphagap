@@ -6,6 +6,7 @@ import { useSession } from "next-auth/react";
 import { getTier, canAccessPremium } from "@/lib/subscription";
 import Link from "next/link";
 import Image from "next/image";
+import AgIcon from "@/components/AgIcon";
 
 interface Message {
   role: "user" | "assistant";
@@ -160,7 +161,7 @@ function InputBar({
   };
 
   return (
-    <div className={`flex gap-3 bg-[#111118] border-2 border-green-500/25 hover:border-green-500/40 focus-within:border-green-400/60 focus-within:shadow-[0_0_24px_rgba(34,197,94,0.12)] rounded-2xl transition-all duration-200 ${large ? "items-center px-5 py-4" : "items-end px-4 py-3"}`}>
+    <div className={`flex gap-3 bg-white/[0.035] border border-white/[0.08] backdrop-blur-[14px] hover:border-white/[0.16] focus-within:border-emerald-400/50 focus-within:shadow-[0_0_24px_rgba(52,211,153,0.12)] rounded-[28px] transition-all duration-200 ${large ? "items-center px-5 py-4" : "items-end px-4 py-3"}`}>
       <textarea
         ref={inputRef}
         value={input}
@@ -175,7 +176,7 @@ function InputBar({
       <button
         onClick={() => onSend(input)}
         disabled={loading || !input.trim()}
-        className={`flex-shrink-0 rounded-xl bg-gradient-to-br from-green-400 to-emerald-500 hover:from-green-300 hover:to-emerald-400 text-black flex items-center justify-center transition-all shadow-lg shadow-green-500/30 disabled:opacity-25 disabled:cursor-not-allowed disabled:shadow-none active:scale-95 ${large ? "w-11 h-11" : "w-9 h-9 mb-0.5"}`}
+        className={`flex-shrink-0 rounded-full bg-gradient-to-br from-green-400 to-emerald-500 hover:from-green-300 hover:to-emerald-400 text-black flex items-center justify-center transition-all shadow-lg shadow-green-500/30 disabled:opacity-25 disabled:cursor-not-allowed disabled:shadow-none active:scale-95 ${large ? "w-11 h-11" : "w-9 h-9 mb-0.5"}`}
       >
         {loading ? (
           <div className={`border-2 border-black/30 border-t-black rounded-full animate-spin ${large ? "w-4 h-4" : "w-3.5 h-3.5"}`} />
@@ -305,7 +306,7 @@ export default function OraclePage() {
 
   if (status === "loading") {
     return (
-      <div className="min-h-screen bg-[#080810] flex items-center justify-center">
+      <div className="min-h-screen bg-[#07090b] ag-aurora flex items-center justify-center">
         <div className="w-8 h-8 border-2 border-green-500/30 border-t-green-400 rounded-full animate-spin" />
       </div>
     );
@@ -316,10 +317,10 @@ export default function OraclePage() {
   ───────────────────────────────────────────── */
   if (hasMessages) {
     return (
-      <div className="fixed inset-0 flex flex-col bg-[#080810] overflow-hidden z-50">
+      <div className="fixed inset-0 flex flex-col bg-[#07090b] ag-aurora overflow-hidden z-50">
 
         {/* Header */}
-        <div className="flex-shrink-0 border-b border-white/5 bg-[#080810]/95 backdrop-blur-md">
+        <div className="flex-shrink-0 border-b border-white/[0.08] bg-[#07090b]/90 backdrop-blur-md">
           <div className="max-w-3xl mx-auto px-4 sm:px-6 py-3.5 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <Link href="/dashboard" className="text-xs text-gray-500 hover:text-gray-300 transition-colors font-medium flex items-center gap-1">
@@ -330,12 +331,12 @@ export default function OraclePage() {
               <div className="w-7 h-7 rounded-lg bg-green-500/15 border border-green-500/25 flex items-center justify-center">
                 <Image src="/alphagap_icon.svg" alt="Oracle" width={16} height={16} />
               </div>
-              <span className="font-bold text-white text-sm tracking-wide">AlphaGap Oracle</span>
-              <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-green-400/10 text-green-400 border border-green-400/20 uppercase tracking-widest">Beta</span>
+              <span className="font-display font-semibold text-white text-sm tracking-wide">AlphaGap Oracle</span>
+              <span className="ag-badge ag-badge-buy !text-[9px] !px-2 !py-0.5">Beta</span>
             </div>
             <div className="flex items-center gap-4">
               {isPremium && remaining !== null && (
-                <span className={`text-xs tabular-nums font-medium ${
+                <span className={`font-mono text-[11px] tabular-nums tracking-wider ${
                   remaining <= 5 ? "text-yellow-400" : "text-gray-500"
                 }`}>
                   {remaining}/{dailyLimit} left
@@ -361,10 +362,10 @@ export default function OraclePage() {
                     <Image src="/alphagap_icon.svg" alt="" width={15} height={15} />
                   </div>
                 )}
-                <div className={`rounded-2xl px-4 py-3 leading-relaxed ${
+                <div className={`rounded-2xl px-4 py-3 leading-relaxed backdrop-blur-[18px] ${
                   msg.role === "user"
-                    ? "max-w-[85%] sm:max-w-[75%] bg-green-500/10 border border-green-500/20 text-white text-[15px]"
-                    : "w-full bg-white/[0.03] border border-white/8 text-gray-200"
+                    ? "max-w-[85%] sm:max-w-[75%] bg-emerald-500/[0.08] border border-emerald-400/25 text-white text-[15px]"
+                    : "w-full bg-white/[0.035] border border-white/[0.08] text-gray-200"
                 }`}>
                   {msg.role === "assistant" && msg.content === "" ? (
                     <div className="flex items-center gap-1.5 py-1">
@@ -388,7 +389,7 @@ export default function OraclePage() {
         </div>
 
         {/* Input at bottom */}
-        <div className="flex-shrink-0 border-t border-white/5 bg-[#080810]/95 backdrop-blur-md px-4 sm:px-6 py-4">
+        <div className="flex-shrink-0 border-t border-white/[0.08] bg-[#07090b]/90 backdrop-blur-md px-4 sm:px-6 py-4">
           <div className="max-w-3xl mx-auto">
             {rateLimited ? (
               <div className="text-center text-sm text-yellow-400 bg-yellow-500/5 border border-yellow-500/15 rounded-2xl px-5 py-4 font-medium">
@@ -410,7 +411,7 @@ export default function OraclePage() {
      EMPTY STATE
   ───────────────────────────────────────────── */
   return (
-    <div className="min-h-screen bg-[#080810] flex flex-col relative overflow-hidden">
+    <div className="min-h-screen bg-[#07090b] ag-aurora flex flex-col relative overflow-hidden">
 
       {/* Green radial glow atmosphere */}
       <div className="pointer-events-none absolute inset-0 flex items-center justify-center" aria-hidden>
@@ -432,7 +433,7 @@ export default function OraclePage() {
             <span className="text-sm text-gray-400 font-medium">AlphaGap Oracle</span>
           </div>
           {isPremium && remaining !== null && (
-            <span className={`text-xs font-medium tabular-nums ${remaining <= 5 ? "text-yellow-400" : "text-gray-500"}`}>
+            <span className={`font-mono text-[11px] tracking-wider tabular-nums ${remaining <= 5 ? "text-yellow-400" : "text-gray-500"}`}>
               {remaining}/{dailyLimit} queries left
             </span>
           )}
@@ -453,16 +454,20 @@ export default function OraclePage() {
               </div>
             </div>
 
-            <h1 className="text-4xl sm:text-5xl font-bold text-white mb-3 tracking-tight">
+            <h1 className="font-display text-4xl sm:text-5xl font-semibold tracking-[-0.03em] text-white mb-3">
               Ask the{" "}
-              <span className="bg-gradient-to-r from-green-400 via-emerald-300 to-green-400 bg-clip-text text-transparent">
+              <span className="ag-gradient-text">
                 Oracle
               </span>
             </h1>
-            <p className="text-gray-300 text-base sm:text-lg leading-relaxed max-w-lg mx-auto">
+            <p className="text-gray-400 text-base sm:text-lg leading-relaxed max-w-lg mx-auto mb-4">
               Live data from every Bittensor subnet — scores, signals,
               whale activity, and more.
             </p>
+            <div className="inline-flex items-center gap-2 font-mono text-[11px] tracking-wider text-gray-500 uppercase">
+              <span className="ag-live-dot" />
+              <span>LIVE SUBNET DATA · SCORES · SIGNALS · WHALES</span>
+            </div>
           </div>
 
           {/* Auto-fire query from ?q= URL param */}
@@ -474,17 +479,17 @@ export default function OraclePage() {
 
           {/* Premium gate OR input + chips */}
           {!isPremium ? (
-            <div className="rounded-2xl border border-green-500/20 bg-[#0d0d14] shadow-xl shadow-green-500/5 px-8 py-10 text-center">
+            <div className="ag-glass shadow-xl shadow-green-500/5 px-8 py-10 text-center">
               <div className="w-14 h-14 rounded-2xl bg-green-500/10 border border-green-500/20 flex items-center justify-center text-2xl mx-auto mb-5">
-                🔮
+                <AgIcon name="oracle" />
               </div>
-              <p className="text-xl font-bold text-white mb-3">Premium members only</p>
+              <p className="font-display text-xl font-semibold text-white mb-3">Premium members only</p>
               <p className="text-gray-400 text-sm leading-relaxed max-w-sm mx-auto mb-7">
                 Live chat using data from every Bittensor subnet — scores, signals, whale activity, dev momentum, and more. Ask anything, get instant answers.
               </p>
               <a
                 href="/pricing"
-                className="inline-block bg-gradient-to-r from-green-400 to-emerald-500 hover:from-green-300 hover:to-emerald-400 text-black text-sm font-bold px-7 py-3 rounded-xl transition-all shadow-lg shadow-green-500/25 active:scale-95"
+                className="inline-block bg-gradient-to-r from-green-400 to-emerald-500 hover:from-green-300 hover:to-emerald-400 text-black text-sm font-bold px-7 py-3 rounded-full transition-all shadow-lg shadow-green-500/25 active:scale-95"
               >
                 Upgrade Now →
               </a>
@@ -508,7 +513,7 @@ export default function OraclePage() {
               {/* Divider */}
               <div className="flex items-center gap-4 mb-5">
                 <div className="flex-1 h-px bg-white/5" />
-                <span className="text-xs text-gray-500 uppercase tracking-widest font-semibold">or try one of these</span>
+                <span className="font-mono text-[10px] text-gray-500 uppercase tracking-widest font-medium">or try one of these</span>
                 <div className="flex-1 h-px bg-white/5" />
               </div>
 
@@ -518,7 +523,7 @@ export default function OraclePage() {
                   <button
                     key={text}
                     onClick={() => sendMessage(text)}
-                    className="group flex items-start gap-3 text-left bg-white/[0.03] hover:bg-green-500/[0.07] border border-white/8 hover:border-green-500/30 rounded-xl px-4 py-3.5 transition-all duration-150 active:scale-[0.98] shadow-sm"
+                    className="group flex items-start gap-3 text-left bg-white/[0.035] hover:bg-emerald-500/[0.06] border border-white/[0.08] hover:border-emerald-400/35 backdrop-blur-[14px] rounded-2xl px-4 py-3.5 transition-all duration-150 active:scale-[0.98]"
                   >
                     <span className={`w-7 h-7 rounded-lg ${bg} ${color} flex items-center justify-center flex-shrink-0 mt-0.5`}>{icon}</span>
                     <span className="text-sm text-gray-300 group-hover:text-white leading-relaxed transition-colors font-medium">{text}</span>

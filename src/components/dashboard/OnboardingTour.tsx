@@ -2,12 +2,13 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
+import AgIcon, { type AgIconName } from "@/components/AgIcon";
 
 const TOUR_KEY = "alphagap_tour_v1";
 
-const STEPS = [
+const STEPS: { title: string; icon?: AgIconName; body: string; target: string | null; arrow?: boolean }[] = [
   {
-    title: "Welcome to AlphaGap 👋",
+    title: "Welcome to AlphaGap",
     body: "The only tool built to surface alpha in Bittensor subnets before the market catches on. Our AI scans product development updates, on-chain signals, whale and smart money movement, X posts, Discord chatter, and price reversal signals to rank subnets by how undervalued they actually are.",
     target: null,
   },
@@ -18,67 +19,78 @@ const STEPS = [
     arrow: true,
   },
   {
-    title: "🏆 Alpha Leaderboard",
+    title: "Alpha Leaderboard",
+    icon: "crown",
     body: "Your home base. Every subnet ranked by aGap score — the higher the score, the bigger the gap between real value and market price. Tap any i button in the column headers to learn what each score means. Use the Trading toggle for short-term opportunities and Investing for a long-term outlook.",
     target: "nav-trigger",
     arrow: true,
   },
   {
-    title: "🔖 My Watchlist",
+    title: "My Watchlist",
+    icon: "star",
     body: "Pin the subnets you care about and AlphaGap builds a personalised feed around them. Watched subnets are highlighted blue across every page, and you get smart alerts when scores move 20+ points, new reports drop, whale or volume flow signals fire, or major buzz hits Discord or X. Hit 'My Watchlist' in the menu any time to add or remove subnets.",
     target: "nav-trigger",
     arrow: true,
   },
   {
-    title: "⚡ Signals",
+    title: "Signals",
+    icon: "bolt",
     body: "AI-scored developer activity updated in real time. When a team ships a meaningful upgrade, new model, or protocol change — it shows up here, often before the price reacts.",
     target: "nav-trigger",
     arrow: true,
   },
   {
-    title: "📋 Reports",
+    title: "Reports",
+    icon: "doc",
     body: "Daily AI-written deep-dives on the highest-ranked subnet. Covers product maturity, dev velocity, market position, and the key catalysts and risks worth knowing about.",
     target: "nav-trigger",
     arrow: true,
   },
   {
-    title: "📡 Social Intelligence",
+    title: "Social Intelligence",
+    icon: "radar",
     body: "Track what 300+ KOLs are saying on X and scan subnet Discord channels for early signals. Catch narratives and announcements before they hit the price.",
     target: "nav-trigger",
     arrow: true,
   },
   {
-    title: "📊 Benchmarks",
+    title: "Benchmarks",
+    icon: "chart",
     body: "Real performance data comparing Bittensor subnets against centralized competitors like AWS, Google Cloud, and OpenAI, and more. Know which ones are genuinely better — not just hyped.",
     target: "nav-trigger",
     arrow: true,
   },
   {
-    title: "🐋 Whales",
+    title: "Whales",
+    icon: "whale",
     body: "Follow smart money. Monitor large wallet accumulation patterns, buy/sell ratios, and staking conviction across the ecosystem in real time.",
     target: "nav-trigger",
     arrow: true,
   },
   {
-    title: "📈 Analytics",
+    title: "Analytics",
+    icon: "trendUp",
     body: "Dive into historical aGap score trends, subnet rankings over time, and signal activity charts. See how opportunities have evolved and spot patterns before they repeat.",
     target: "nav-trigger",
     arrow: true,
   },
   {
-    title: "🎯 Performance",
+    title: "Performance",
+    icon: "target",
     body: "Track how AlphaGap's calls have played out. See which high-scoring subnets followed through with price action — and use the track record to sharpen your conviction.",
     target: "nav-trigger",
     arrow: true,
   },
   {
-    title: "🧪 Pump Lab",
+    title: "Pump Lab",
+    icon: "scope",
     body: "Test your thesis before you commit. Simulate how changes in dev activity, social momentum, or whale accumulation would affect a subnet's aGap score — your personal alpha sandbox.",
     target: "nav-trigger",
     arrow: true,
   },
   {
-    title: "You're all set 🚀",
+    title: "You're all set",
+    icon: "rocket",
     body: "Head to the Alpha Leaderboard and find your first opportunity. A high aGap score means the market is sleeping on something — your edge is waking up before everyone else does.",
     target: null,
   },
@@ -236,7 +248,8 @@ export default function OnboardingTour() {
               </button>
             </div>
 
-            <h3 className="font-bold text-white text-base mb-2 leading-snug">
+            <h3 className="font-bold text-white text-base mb-2 leading-snug flex items-center gap-2">
+              {currentStep.icon && <AgIcon name={currentStep.icon} className="w-4.5 h-4.5 text-emerald-400 flex-shrink-0" />}
               {currentStep.title}
             </h3>
             <p className="text-sm text-gray-400 leading-relaxed">

@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import SocialLinks from "@/components/dashboard/SocialLinks";
 import SubnetLogo from "@/components/dashboard/SubnetLogo";
+import AgIcon from "@/components/AgIcon";
+import { BENCHMARK_MAP } from "@/lib/benchmarks";
 
 // ── Types ─────────────────────────────────────────────────────────
 interface ScoreRow { date: string; agap: number; flow: number; dev: number; eval: number; social: number; price: number; mcap: number; emission_pct: number }
@@ -39,6 +41,31 @@ interface SubnetData {
 }
 
 type Timeframe = "1D" | "7D" | "1M" | "3M" | "1Y";
+
+// ── Hub section types (audit + KOL chatter) ──────────────────────
+interface AuditFlagRow { type: string; severity: string; message: string }
+interface AuditDetail {
+  grade: "A" | "B" | "C" | "D" | "F";
+  operationalScore: number;
+  nakamotoCoefficient: number;
+  top10Share: number;
+  holdersCount: number | null;
+  flags: AuditFlagRow[];
+}
+interface HotTweet {
+  tweet_id: string; netuid: number;
+  kol_handle: string; kol_name: string;
+  tweet_text: string; tweet_url?: string;
+  heat_score: number;
+}
+
+const GRADE_COLORS: Record<string, string> = {
+  A: "text-emerald-400",
+  B: "text-green-400",
+  C: "text-yellow-400",
+  D: "text-orange-400",
+  F: "text-red-400",
+};
 
 // ── Formatters ───────────────────────────────────────────────────
 function fmtUsd(v: number, decimals?: number): string {
@@ -510,15 +537,15 @@ function TaoFlowChart({ allData }: { allData: { x: string; y: number }[] }) {
     <div className="space-y-3">
       {/* Timeframe buttons */}
       <div className="flex items-center gap-1.5">
-        {(["1D", "7D", "1M", "3M"] as FlowTf[]).map(t => (
-          <button key={t} onClick={() => { setTf(t); setHoverIdx(null); }}
-            className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${
-              tf === t ? "bg-gray-700 text-white" : "text-gray-500 hover:text-gray-300"
-            }`}>
-            {t}
-          </button>
-        ))}
-        <span className="ml-auto text-xs text-gray-600">{data.length} data points</span>
+        <div className="ag-pill-tabs">
+          {(["1D", "7D", "1M", "3M"] as FlowTf[]).map(t => (
+            <button key={t} onClick={() => { setTf(t); setHoverIdx(null); }}
+              className={`ag-pill-tab !px-4 !py-1.5 text-xs ${tf === t ? "ag-pill-tab-on" : ""}`}>
+              {t}
+            </button>
+          ))}
+        </div>
+        <span className="ml-auto font-mono text-[10.5px] text-gray-600 tabular-nums">{data.length} data points</span>
       </div>
 
       {/* Chart */}
@@ -599,7 +626,7 @@ function TaoFlowChart({ allData }: { allData: { x: string; y: number }[] }) {
 // ── Stat row item ─────────────────────────────────────────────────
 function StatItem({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
-    <div className="flex items-center justify-between py-1.5 border-b border-gray-800/50 last:border-0">
+    <div className="flex items-center justify-between py-1.5 border-b border-white/[0.06] last:border-0">
       <span className="text-xs text-gray-500">{label}</span>
       <div className="text-right">
         <span className="text-xs text-white font-medium">{value}</span>
@@ -660,6 +687,29 @@ export default function SubnetDetailPage({ params }: { params: Promise<{ netuid:
       setWatchlistBusy(false);
     }
   }, [watchlist, watchlistBusy]);
+
+  // ── Hub sections: audit grade + KOL chatter (defensive, non-blocking) ──
+  const [audit, setAudit] = useState<AuditDetail | null>(null);
+  const [hotTweets, setHotTweets] = useState<HotTweet[]>([]);
+  useEffect(() => {
+    const id = Number(netuid);
+    if (!Number.isFinite(id)) return;
+    fetch(`/api/audits?netuid=${id}`)
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => { if (d?.audit?.grade) setAudit(d.audit as AuditDetail); })
+      .catch(() => {});
+    fetch("/api/social")
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => {
+        if (!Array.isArray(d?.hotTweets)) return;
+        const mine = (d.hotTweets as HotTweet[])
+          .filter(t => t.netuid === id && !!t.tweet_text)
+          .sort((a, b) => b.heat_score - a.heat_score)
+          .slice(0, 3);
+        setHotTweets(mine);
+      })
+      .catch(() => {});
+  }, [netuid]);
 
   // 1Y price history lazy-loads only when the user picks 1Y
   const [yearHistory, setYearHistory] = useState<PricePoint[]>([]);
@@ -736,20 +786,20 @@ export default function SubnetDetailPage({ params }: { params: Promise<{ netuid:
   }, [data, timeframe]);
 
   if (loading) return (
-    <div className="min-h-screen bg-[#0a0a0f] text-gray-100 flex items-center justify-center">
+    <div className="min-h-screen bg-[#07090b] text-gray-100 ag-aurora flex items-center justify-center">
       <div className="text-center">
-        <div className="text-4xl animate-spin mb-4 text-green-400">⟳</div>
+        <div className="text-4xl animate-spin mb-4 text-emerald-400">⟳</div>
         <p className="text-gray-500 text-sm">Loading subnet data…</p>
       </div>
     </div>
   );
 
   if (error || !data) return (
-    <div className="min-h-screen bg-[#0a0a0f] text-gray-100 flex items-center justify-center">
+    <div className="min-h-screen bg-[#07090b] text-gray-100 ag-aurora flex items-center justify-center">
       <div className="text-center">
-        <div className="text-4xl mb-4">⚠️</div>
+        <div className="text-4xl mb-4 flex justify-center text-yellow-400"><AgIcon name="warning" /></div>
         <p className="text-gray-400">{error || "Subnet not found"}</p>
-        <Link href="/dashboard" className="mt-4 inline-block text-green-400 hover:underline text-sm">← Back to Dashboard</Link>
+        <Link href="/dashboard" className="mt-4 inline-block text-emerald-400 hover:underline text-sm">← Back to Dashboard</Link>
       </div>
     </div>
   );
@@ -778,10 +828,20 @@ export default function SubnetDetailPage({ params }: { params: Promise<{ netuid:
 
   const TIMEFRAMES: Timeframe[] = ["1D", "7D", "1M", "3M", "1Y"];
 
+  // ── Hub: benchmark entry + similar subnets (same category) ─────
+  const bench = BENCHMARK_MAP.get(data.netuid);
+  const similarSubnets = bench
+    ? [...BENCHMARK_MAP.values()]
+        .filter(b => b.benchmark_category === bench.benchmark_category && b.subnet_id !== bench.subnet_id)
+        .sort((a, b) => b.benchmark_score - a.benchmark_score)
+        .slice(0, 3)
+    : [];
+  const auditFlags = (audit?.flags ?? []).slice(0, 3);
+
   return (
-    <div className="min-h-screen bg-[#0a0a0f] text-gray-100">
+    <div className="min-h-screen bg-[#07090b] text-gray-100 ag-aurora">
       {/* Nav */}
-      <div className="border-b border-gray-800 px-4 md:px-6 py-3 flex items-center gap-4">
+      <div className="border-b border-white/[0.08] px-4 md:px-6 py-3 flex items-center gap-4">
         <a href="/dashboard">
           <img src="/alphagap_logo_dark.svg" alt="AlphaGap" className="h-10 w-auto" />
         </a>
@@ -799,27 +859,27 @@ export default function SubnetDetailPage({ params }: { params: Promise<{ netuid:
           <div className="space-y-5">
 
             {/* Header */}
-            <div className="flex items-start gap-4">
+            <div className="ag-glass p-5 flex items-start gap-4">
               <div className="mt-1 flex-shrink-0">
                 <SubnetLogo netuid={data.netuid} name={data.name} size={48} />
               </div>
               <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-2">
-                <span className="text-xs bg-gray-800 rounded px-2 py-0.5 text-gray-400">SN{data.netuid}</span>
-                {ms?.symbol && <span className="text-xs bg-gray-800 rounded px-2 py-0.5 text-gray-500">{ms.symbol}</span>}
+              <div className="flex items-center gap-2 mb-2 flex-wrap">
+                <span className="font-mono text-[10.5px] uppercase tracking-[0.14em] bg-white/[0.05] border border-white/[0.08] rounded-full px-2.5 py-0.5 text-gray-400">SN{data.netuid}</span>
+                {ms?.symbol && <span className="font-mono text-[10.5px] uppercase tracking-[0.14em] bg-white/[0.05] border border-white/[0.08] rounded-full px-2.5 py-0.5 text-gray-500">{ms.symbol}</span>}
                 {data.identity?.tags?.map((tag) => (
-                  <span key={tag} className="text-xs bg-gray-800/60 rounded px-2 py-0.5 text-gray-600">{tag}</span>
+                  <span key={tag} className="font-mono text-[10.5px] uppercase tracking-[0.14em] bg-white/[0.04] border border-white/[0.06] rounded-full px-2.5 py-0.5 text-gray-600">{tag}</span>
                 ))}
               </div>
               <div className="flex items-center gap-3 mt-1 flex-wrap">
-                <h1 className="text-2xl font-bold text-white">{data.name}</h1>
+                <h1 className="font-display text-2xl md:text-3xl font-semibold tracking-[-0.02em] text-white">{data.name}</h1>
                 <button
                   onClick={() => toggleWatchlist(data.netuid)}
                   disabled={watchlistBusy}
                   className={`flex items-center gap-1.5 text-xs font-medium rounded-full px-3 py-1 border transition-colors disabled:opacity-50 ${
                     isWatched(data.netuid)
-                      ? "bg-green-500/10 border-green-500/40 text-green-400 hover:bg-red-500/10 hover:border-red-500/40 hover:text-red-400"
-                      : "bg-gray-800/60 border-gray-700 text-gray-400 hover:bg-green-500/10 hover:border-green-500/40 hover:text-green-400"
+                      ? "bg-emerald-500/10 border-emerald-500/40 text-emerald-400 hover:bg-red-500/10 hover:border-red-500/40 hover:text-red-400"
+                      : "bg-white/[0.05] border-white/[0.12] text-gray-400 hover:bg-emerald-500/10 hover:border-emerald-500/40 hover:text-emerald-400"
                   }`}
                   title={isWatched(data.netuid) ? "Remove from watchlist" : "Add to watchlist"}
                 >
@@ -833,7 +893,7 @@ export default function SubnetDetailPage({ params }: { params: Promise<{ netuid:
                   className="flex items-center gap-1.5 text-xs font-medium rounded-full px-3 py-1 border bg-violet-500/10 border-violet-500/40 text-violet-400 hover:bg-violet-500/20 transition-colors"
                   title="Ask Oracle about this subnet"
                 >
-                  🔮 Ask Oracle
+                  <AgIcon name="oracle" /> Ask Oracle
                 </button>
                 {watchlistError && (
                   <span className="text-xs text-red-400">{watchlistError}</span>
@@ -844,32 +904,32 @@ export default function SubnetDetailPage({ params }: { params: Promise<{ netuid:
               <div className="flex flex-wrap items-center gap-2 mt-3">
                 {data.identity?.website && (
                   <a href={data.identity.website} target="_blank" rel="noopener noreferrer"
-                    className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-white border border-gray-700 rounded-full px-3 py-1 transition-colors">
-                    🌐 Website
+                    className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-white bg-white/[0.04] border border-white/[0.10] hover:border-white/[0.18] rounded-full px-3 py-1 transition-colors backdrop-blur-[14px]">
+                    <AgIcon name="globe" /> Website
                   </a>
                 )}
                 {data.identity?.github_repo && (
                   <a href={data.identity.github_repo} target="_blank" rel="noopener noreferrer"
-                    className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-white border border-gray-700 rounded-full px-3 py-1 transition-colors">
+                    className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-white bg-white/[0.04] border border-white/[0.10] hover:border-white/[0.18] rounded-full px-3 py-1 transition-colors backdrop-blur-[14px]">
                     ⎇ GitHub
                   </a>
                 )}
                 {data.identity?.twitter && (
                   <a href={`https://x.com/${data.identity.twitter.replace("@", "")}`} target="_blank" rel="noopener noreferrer"
-                    className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-white border border-gray-700 rounded-full px-3 py-1 transition-colors">
+                    className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-white bg-white/[0.04] border border-white/[0.10] hover:border-white/[0.18] rounded-full px-3 py-1 transition-colors backdrop-blur-[14px]">
                     𝕏 X
                   </a>
                 )}
                 {data.identity?.discord && (
                   <a href={data.identity.discord} target="_blank" rel="noopener noreferrer"
-                    className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-white border border-gray-700 rounded-full px-3 py-1 transition-colors">
+                    className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-white bg-white/[0.04] border border-white/[0.10] hover:border-white/[0.18] rounded-full px-3 py-1 transition-colors backdrop-blur-[14px]">
                     Discord
                   </a>
                 )}
                 {(SUBNET_DASHBOARDS[data.netuid] ?? []).map((d, i) => (
                   <a key={i} href={d.url} target="_blank" rel="noopener noreferrer"
                     className="flex items-center gap-1.5 text-xs text-emerald-400 hover:text-emerald-300 border border-emerald-500/40 bg-emerald-500/10 hover:bg-emerald-500/20 rounded-full px-3 py-1 transition-colors">
-                    📊 {d.label}
+                    <AgIcon name="chart" /> {d.label}
                   </a>
                 ))}
               </div>
@@ -877,9 +937,9 @@ export default function SubnetDetailPage({ params }: { params: Promise<{ netuid:
             </div>
 
             {/* Price hero */}
-            <div className="bg-gray-900/60 border border-gray-800 rounded-xl p-5">
+            <div className="ag-glass p-5">
               <div className="flex items-end gap-4 mb-1">
-                <span className="text-4xl font-bold text-white">
+                <span className="font-display text-4xl md:text-5xl font-semibold tracking-[-0.02em] text-white tabular-nums">
                   {ms ? fmtPrice(ms.priceUsd) : "—"}
                 </span>
                 {ms && (
@@ -907,8 +967,8 @@ export default function SubnetDetailPage({ params }: { params: Promise<{ netuid:
                     { label: "7d", val: ms.priceChangePct7d },
                     { label: "30d", val: ms.priceChangePct30d },
                   ].map(({ label, val }) => (
-                    <div key={label} className="text-xs">
-                      <span className="text-gray-600 mr-1">{label}</span>
+                    <div key={label} className="font-mono text-[11px] tabular-nums">
+                      <span className="text-gray-600 mr-1 uppercase">{label}</span>
                       <span className={pctColor(val)}>{fmtPct(val)}</span>
                     </div>
                   ))}
@@ -916,16 +976,12 @@ export default function SubnetDetailPage({ params }: { params: Promise<{ netuid:
               )}
 
               {/* Timeframe toggle */}
-              <div className="flex items-center gap-1 mb-3">
+              <div className="ag-pill-tabs mb-3">
                 {TIMEFRAMES.map((tf) => (
                   <button
                     key={tf}
                     onClick={() => setTimeframe(tf)}
-                    className={`px-3 py-1 text-xs rounded-md font-medium transition-colors ${
-                      timeframe === tf
-                        ? "bg-green-500/20 text-green-400 border border-green-500/40"
-                        : "text-gray-500 hover:text-gray-300 hover:bg-gray-800"
-                    }`}
+                    className={`ag-pill-tab !px-4 !py-1.5 text-xs ${timeframe === tf ? "ag-pill-tab-on" : ""}`}
                   >
                     {tf}
                   </button>
@@ -944,7 +1000,7 @@ export default function SubnetDetailPage({ params }: { params: Promise<{ netuid:
               {ms && ms.high24hUsd > 0 && (
                 <div className="mt-3 flex items-center gap-3 text-xs text-gray-500">
                   <span>24h Low: <span className="text-red-400">{fmtPrice(ms.low24hUsd)}</span></span>
-                  <div className="flex-1 h-1 bg-gray-800 rounded-full overflow-hidden">
+                  <div className="flex-1 h-1 bg-white/[0.06] rounded-full overflow-hidden">
                     <div className="h-full bg-gradient-to-r from-red-500 to-green-500 rounded-full" style={{
                       width: ms.high24hUsd > ms.low24hUsd
                         ? `${((ms.priceUsd - ms.low24hUsd) / (ms.high24hUsd - ms.low24hUsd) * 100).toFixed(1)}%`
@@ -959,7 +1015,7 @@ export default function SubnetDetailPage({ params }: { params: Promise<{ netuid:
             {/* ── AlphaGap score charts ─────────────────────────── */}
             <div>
               <div className="flex items-center gap-2 mb-3">
-                <h2 className="text-sm font-semibold text-gray-300 uppercase tracking-wider">AlphaGap Score History</h2>
+                <h2 className="font-mono text-[11px] font-semibold text-gray-500 uppercase tracking-[0.16em]">AlphaGap Score History</h2>
                 <span className="text-xs text-gray-600">
                   {data.scoreHistory.length > 0
                     ? `${data.scoreHistory.length} snapshot${data.scoreHistory.length !== 1 ? "s" : ""}`
@@ -974,10 +1030,10 @@ export default function SubnetDetailPage({ params }: { params: Promise<{ netuid:
                   { label: "eVal", data: evalSeries, color: "#a78bfa", current: evalScore },
                   { label: "Social", data: socialSeries, color: "#22d3ee", current: social },
                 ].map(({ label, data: d, color, current: cur, formatY }: { label: string; data: { x: string; y: number }[]; color: string; current: number; formatY?: (v: number) => string }) => (
-                  <div key={label} className="bg-gray-900/60 border border-gray-800 rounded-xl p-3">
+                  <div key={label} className="ag-glass p-3">
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs text-gray-500 uppercase tracking-wide">{label}</span>
-                      <span className={`text-lg font-bold tabular-nums ${scoreColor(cur)}`}>
+                      <span className="font-mono text-[10.5px] text-gray-500 uppercase tracking-[0.16em]">{label}</span>
+                      <span className={`font-display text-lg font-semibold tabular-nums ${scoreColor(cur)}`}>
                         {formatY ? formatY(cur) : Math.round(cur)}
                       </span>
                     </div>
@@ -985,13 +1041,13 @@ export default function SubnetDetailPage({ params }: { params: Promise<{ netuid:
                   </div>
                 ))}
                 {/* aGap Rank chart — inverted y-axis, rank 1 = top */}
-                <div className="bg-gray-900/60 border border-gray-800 rounded-xl p-3">
+                <div className="ag-glass p-3">
                   <div className="flex items-center justify-between mb-2">
                     <div>
-                      <span className="text-xs text-gray-500 uppercase tracking-wide">aGap Rank</span>
+                      <span className="font-mono text-[10.5px] text-gray-500 uppercase tracking-[0.16em]">aGap Rank</span>
                       <span className="text-[10px] text-gray-600 ml-1.5">best rank per day</span>
                     </div>
-                    <span className="text-lg font-bold tabular-nums text-amber-400">
+                    <span className="font-display text-lg font-semibold tabular-nums text-amber-400">
                       {currentRank != null ? `#${currentRank}` : "—"}
                     </span>
                   </div>
@@ -1007,9 +1063,9 @@ export default function SubnetDetailPage({ params }: { params: Promise<{ netuid:
             </div>
 
             {/* ── TAO Flow EMA Chart ──────────────────────────────── */}
-            <div className="bg-gray-900/60 border border-gray-800 rounded-xl p-4">
+            <div className="ag-glass p-4 md:p-5">
               <div className="flex items-center gap-2 mb-4">
-                <h2 className="text-sm font-semibold text-gray-300 uppercase tracking-wider">TAO Flow EMA</h2>
+                <h2 className="font-mono text-[11px] font-semibold text-gray-500 uppercase tracking-[0.16em]">TAO Flow EMA</h2>
                 <span className="text-xs text-gray-600">emission trajectory indicator</span>
               </div>
               <TaoFlowChart allData={data.flowHistory ?? []} />
@@ -1017,16 +1073,16 @@ export default function SubnetDetailPage({ params }: { params: Promise<{ netuid:
 
             {/* ── Emission Trajectory ─────────────────────────────── */}
             {emissionSeries.length > 0 && (
-              <div className="bg-gray-900/60 border border-amber-500/20 rounded-xl p-4">
+              <div className="ag-glass !border-amber-500/20 p-4 md:p-5">
                 <div className="flex items-start justify-between mb-1">
                   <div>
-                    <h2 className="text-sm font-semibold text-gray-300 uppercase tracking-wider">Emission Trajectory</h2>
+                    <h2 className="font-mono text-[11px] font-semibold text-gray-500 uppercase tracking-[0.16em]">Emission Trajectory</h2>
                     <p className="text-xs text-gray-500 mt-0.5">
                       This subnet&apos;s share of total TAO emissions over time. Rising emissions = network is rewarding this subnet more heavily — often a leading indicator of price action.
                     </p>
                   </div>
                   <div className="text-right flex-shrink-0 ml-4">
-                    <span className="text-2xl font-bold tabular-nums text-amber-400">
+                    <span className="font-display text-2xl font-semibold tabular-nums text-amber-400">
                       {(emissionPct * 100).toFixed(2)}%
                     </span>
                     {emissionSeries.length >= 2 && (() => {
@@ -1062,14 +1118,14 @@ export default function SubnetDetailPage({ params }: { params: Promise<{ netuid:
             {/* ── Recent signals ─────────────────────────────────── */}
             {data.signals.length > 0 && (
               <div>
-                <h2 className="text-sm font-semibold text-gray-300 uppercase tracking-wider mb-3">Recent Signals</h2>
+                <h2 className="font-mono text-[11px] font-semibold text-gray-500 uppercase tracking-[0.16em] mb-3">Recent Signals</h2>
                 <div className="space-y-2">
                   {data.signals.slice(0, 8).map((sig, i) => (
-                    <div key={i} className={`bg-gray-900/50 border rounded-lg px-4 py-3 flex items-start gap-3 ${
-                      sig.strength >= 80 ? "border-green-800/50" : sig.strength >= 50 ? "border-yellow-900/30" : "border-gray-800"
+                    <div key={i} className={`ag-glass !rounded-2xl px-4 py-3 flex items-start gap-3 ${
+                      sig.strength >= 80 ? "!border-emerald-500/25" : sig.strength >= 50 ? "!border-yellow-500/15" : ""
                     }`}>
                       <div className="shrink-0 text-base">
-                        {sig.signal_type === "dev_spike" ? "🔨" : sig.signal_type === "release" ? "🚀" : sig.signal_type === "hf_update" ? "🤗" : sig.signal_type === "flow_inflection" ? "↗" : "•"}
+                        {sig.signal_type === "dev_spike" ? <AgIcon name="bolt" /> : sig.signal_type === "release" ? <AgIcon name="rocket" /> : sig.signal_type === "hf_update" ? <AgIcon name="robot" /> : sig.signal_type === "flow_inflection" ? "↗" : "•"}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-0.5">
@@ -1092,23 +1148,173 @@ export default function SubnetDetailPage({ params }: { params: Promise<{ netuid:
                 </div>
               </div>
             )}
+
+            {/* ── Product Benchmark ──────────────────────────────── */}
+            {bench && (
+              <div>
+                <h2 className="font-mono text-[11px] font-semibold text-gray-500 uppercase tracking-[0.16em] mb-3">Product Benchmark</h2>
+                <div className="ag-glass p-4 md:p-5">
+                  <div className="flex flex-wrap items-start gap-x-5 gap-y-3">
+                    <div className="shrink-0">
+                      <span className={`font-display text-4xl md:text-5xl font-semibold tabular-nums ${scoreColor(bench.benchmark_score)}`}>
+                        {bench.benchmark_score}
+                      </span>
+                      <span className="text-xs text-gray-600 ml-1.5">/ 100</span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-mono text-[10.5px] uppercase tracking-[0.14em] bg-white/[0.05] border border-white/[0.08] rounded-full px-2.5 py-0.5 text-gray-400">
+                          {bench.benchmark_category}
+                        </span>
+                        <span className="text-xs text-gray-500">vs {bench.vs_provider}</span>
+                      </div>
+                      <p className="text-sm text-emerald-400/90 mt-1.5">{bench.perf_delta}</p>
+                    </div>
+                  </div>
+                  <p className="text-sm text-gray-400 leading-relaxed mt-3">{bench.benchmark_summary}</p>
+                  {(bench.dashboards?.length ?? 0) > 0 && (
+                    <div className="flex flex-wrap gap-2 mt-3">
+                      {(bench.dashboards ?? []).map((d, i) => (
+                        <a key={i} href={d.url} target="_blank" rel="noopener noreferrer"
+                          className="flex items-center gap-1.5 text-xs text-emerald-400 hover:text-emerald-300 border border-emerald-500/40 bg-emerald-500/10 hover:bg-emerald-500/20 rounded-full px-3 py-1 transition-colors">
+                          <AgIcon name="chart" /> {d.label}
+                        </a>
+                      ))}
+                    </div>
+                  )}
+                  <div className="font-mono text-[10px] text-gray-600 uppercase tracking-[0.16em] mt-4">
+                    Last verified {bench.last_updated}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ── Operational Audit ──────────────────────────────── */}
+            {audit && (
+              <div>
+                <h2 className="font-mono text-[11px] font-semibold text-gray-500 uppercase tracking-[0.16em] mb-3">Operational Audit</h2>
+                <div className="ag-glass p-4 md:p-5">
+                  <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
+                    <span className={`font-display text-5xl font-semibold leading-none ${GRADE_COLORS[audit.grade] ?? "text-gray-400"}`}>
+                      {audit.grade}
+                    </span>
+                    <div>
+                      <div className="flex items-baseline gap-1.5">
+                        <span className={`font-display text-2xl font-semibold tabular-nums ${scoreColor(audit.operationalScore)}`}>
+                          {Math.round(audit.operationalScore)}
+                        </span>
+                        <span className="text-xs text-gray-600">/ 100</span>
+                      </div>
+                      <div className="font-mono text-[10px] text-gray-600 uppercase tracking-[0.16em] mt-0.5">Operational Score</div>
+                    </div>
+                    <div className="flex flex-wrap gap-x-4 gap-y-1 sm:ml-auto font-mono text-[11px] tabular-nums">
+                      <div>
+                        <span className="text-gray-600 uppercase mr-1.5">Nakamoto</span>
+                        <span className="text-gray-300">{audit.nakamotoCoefficient}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-600 uppercase mr-1.5">Top 10</span>
+                        <span className="text-gray-300">{(audit.top10Share * 100).toFixed(1)}%</span>
+                      </div>
+                      {audit.holdersCount != null && (
+                        <div>
+                          <span className="text-gray-600 uppercase mr-1.5">Holders</span>
+                          <span className="text-gray-300">{fmtNum(audit.holdersCount)}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  {auditFlags.length > 0 && (
+                    <div className="space-y-2 mt-4">
+                      {auditFlags.map((f, i) => (
+                        <div key={i} className={`flex items-start gap-2.5 rounded-xl border px-3 py-2 ${
+                          f.severity === "critical"
+                            ? "border-red-500/25 bg-red-500/[0.06]"
+                            : "border-amber-500/20 bg-amber-500/[0.05]"
+                        }`}>
+                          <span className={`shrink-0 mt-0.5 ${f.severity === "critical" ? "text-red-400" : "text-amber-400"}`}>
+                            <AgIcon name="warning" />
+                          </span>
+                          <div className="min-w-0">
+                            <span className={`font-mono text-[10px] uppercase tracking-[0.14em] mr-2 ${
+                              f.severity === "critical" ? "text-red-400" : "text-amber-400"
+                            }`}>{f.severity}</span>
+                            <span className="text-xs text-gray-400">{f.message}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* ── KOL Chatter ────────────────────────────────────── */}
+            {hotTweets.length > 0 && (
+              <div>
+                <h2 className="font-mono text-[11px] font-semibold text-gray-500 uppercase tracking-[0.16em] mb-3">KOL Chatter</h2>
+                <div className="space-y-2">
+                  {hotTweets.map((t) => (
+                    <div key={t.tweet_id} className="ag-glass !rounded-2xl px-4 py-3 flex items-start gap-3">
+                      <div className="shrink-0 w-9 h-9 rounded-full bg-white/[0.06] border border-white/[0.10] flex items-center justify-center font-display font-semibold text-sm text-gray-300">
+                        {(t.kol_name || t.kol_handle || "?").trim().charAt(0).toUpperCase()}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap mb-1">
+                          <span className="text-sm text-white font-medium">{t.kol_name}</span>
+                          <span className="font-mono text-[10.5px] text-gray-500">@{t.kol_handle.replace(/^@/, "")}</span>
+                          <span className="font-mono text-[10px] tabular-nums text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 rounded-full px-2 py-0.5">
+                            HEAT {Math.round(t.heat_score)}
+                          </span>
+                        </div>
+                        <p className="text-sm text-gray-400 leading-relaxed" style={{
+                          display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden",
+                        }}>{t.tweet_text}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* ── Similar Subnets ────────────────────────────────── */}
+            {similarSubnets.length > 0 && (
+              <div>
+                <h2 className="font-mono text-[11px] font-semibold text-gray-500 uppercase tracking-[0.16em] mb-3">Similar Subnets</h2>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {similarSubnets.map((s) => (
+                    <Link key={s.subnet_id} href={`/subnets/${s.subnet_id}`}
+                      className="ag-glass ag-glass-hover p-3.5 flex items-center gap-3 group">
+                      <SubnetLogo netuid={s.subnet_id} name={s.subnet_name} size={32} />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm text-gray-300 group-hover:text-white transition-colors truncate">{s.subnet_name}</div>
+                        <div className="font-mono text-[10px] text-gray-600 uppercase tracking-[0.14em]">SN{s.subnet_id}</div>
+                      </div>
+                      <span className={`font-display text-lg font-semibold tabular-nums shrink-0 ${scoreColor(s.benchmark_score)}`}>
+                        {s.benchmark_score}
+                      </span>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* ── RIGHT: Compact sidebar ───────────────────────────── */}
           <div className="space-y-3">
 
             {/* aGap score badge */}
-            <div className="bg-gray-900/60 border border-green-900/30 rounded-xl p-3">
-              <div className="text-[10px] font-semibold text-green-400/70 uppercase tracking-wider mb-1.5">AlphaGap Score</div>
+            <div className="ag-glass !border-emerald-500/25 p-3.5">
+              <div className="font-mono text-[10px] font-semibold text-emerald-400/70 uppercase tracking-[0.16em] mb-1.5">AlphaGap Score</div>
               <div className="flex items-baseline gap-2">
-                <span className={`text-3xl font-bold tabular-nums ${scoreColor(agap)}`}>{agap}</span>
+                <span className={`font-display text-3xl font-semibold tabular-nums ${scoreColor(agap)}`}>{agap}</span>
                 <span className="text-xs text-gray-600">/ 100</span>
               </div>
             </div>
 
             {/* Market data */}
-            <div className="bg-gray-900/60 border border-gray-800 rounded-xl p-3">
-              <div className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-2">Market Data</div>
+            <div className="ag-glass p-3.5">
+              <div className="font-mono text-[10px] font-semibold text-gray-500 uppercase tracking-[0.16em] mb-2">Market Data</div>
               <StatItem label="Market Cap" value={ms ? fmtUsd(ms.marketCapUsd) : "—"} />
               <StatItem label="FDV" value={ms ? fmtUsd(ms.fdvUsd) : "—"} />
               <StatItem label="24h Volume" value={ms ? fmtUsd(ms.volume24hUsd) : "—"} />
@@ -1120,8 +1326,8 @@ export default function SubnetDetailPage({ params }: { params: Promise<{ netuid:
 
             {/* Fear & Greed */}
             {ms && ms.fearGreedIndex > 0 && (
-              <div className="bg-gray-900/60 border border-gray-800 rounded-xl p-3">
-                <div className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-2">Fear &amp; Greed</div>
+              <div className="ag-glass p-3.5">
+                <div className="font-mono text-[10px] font-semibold text-gray-500 uppercase tracking-[0.16em] mb-2">Fear &amp; Greed</div>
                 <div className="flex items-center justify-between mb-1.5">
                   <span className={`text-lg font-bold ${ms.fearGreedIndex >= 75 ? "text-green-400" : ms.fearGreedIndex >= 50 ? "text-yellow-400" : ms.fearGreedIndex >= 25 ? "text-orange-400" : "text-red-400"}`}>
                     {Math.round(ms.fearGreedIndex)}
@@ -1130,7 +1336,7 @@ export default function SubnetDetailPage({ params }: { params: Promise<{ netuid:
                     {ms.fearGreedSentiment}
                   </span>
                 </div>
-                <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
+                <div className="h-1.5 bg-white/[0.06] rounded-full overflow-hidden">
                   <div className="h-full rounded-full bg-gradient-to-r from-red-500 via-yellow-500 to-green-400"
                     style={{ width: `${ms.fearGreedIndex}%` }} />
                 </div>
@@ -1140,10 +1346,10 @@ export default function SubnetDetailPage({ params }: { params: Promise<{ netuid:
             {/* TAO Pages link */}
             <Link
               href={`/taopages/${taoPageSlug(data.netuid, data.name)}`}
-              className="flex items-center justify-between bg-gray-900/60 border border-emerald-500/20 hover:border-emerald-500/40 rounded-xl p-3 transition-colors group"
+              className="ag-glass ag-glass-hover !border-emerald-500/20 flex items-center justify-between p-3.5 group"
             >
               <div>
-                <div className="text-[10px] font-semibold text-emerald-600 uppercase tracking-wider mb-0.5">TAO Pages</div>
+                <div className="font-mono text-[10px] font-semibold text-emerald-500 uppercase tracking-[0.16em] mb-0.5">TAO Pages</div>
                 <div className="text-xs text-gray-400 group-hover:text-white transition-colors">Plain-English explainer for {data.name}</div>
               </div>
               <svg className="w-4 h-4 text-emerald-600 group-hover:text-emerald-400 transition-colors shrink-0 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -1152,8 +1358,8 @@ export default function SubnetDetailPage({ params }: { params: Promise<{ netuid:
             </Link>
 
             {/* Network */}
-            <div className="bg-gray-900/60 border border-gray-800 rounded-xl p-3">
-              <div className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-2">Network</div>
+            <div className="ag-glass p-3.5">
+              <div className="font-mono text-[10px] font-semibold text-gray-500 uppercase tracking-[0.16em] mb-2">Network</div>
               <StatItem label="Validators" value={String(data.metagraph.validators)} />
               <StatItem label="Miners" value={String(data.metagraph.miners)} />
               <StatItem label="Neurons" value={String(data.metagraph.totalNeurons)} />
@@ -1170,7 +1376,7 @@ export default function SubnetDetailPage({ params }: { params: Promise<{ netuid:
       </div>
 
       {/* Footer */}
-      <footer className="border-t border-gray-800 px-6 py-3 flex flex-wrap items-center justify-between gap-3 text-xs text-gray-600">
+      <footer className="border-t border-white/[0.08] px-6 py-3 flex flex-wrap items-center justify-between gap-3 text-xs text-gray-600">
         <span>AlphaGap v0.3 — Bittensor Subnet Intelligence</span>
         <SocialLinks />
       </footer>

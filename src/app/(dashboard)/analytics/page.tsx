@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useDashboard } from "@/components/dashboard/DashboardProvider";
 import type { SubnetScore } from "@/lib/types";
 import BlurGate from "@/components/BlurGate";
+import AgIcon from "@/components/AgIcon";
 import { getTier } from "@/lib/subscription";
 import { useWatchlist } from "@/components/dashboard/WatchlistProvider";
 
@@ -63,8 +64,8 @@ function ScatterPlot({
   formatX, formatY,
   yLog = false, xLog = false, xMax100 = false,
   alphaX = "right", alphaY = "bottom",
-  alphaLabel = "Alpha Zone 🔥",
-  overLabel = "Overvalued ⚠️",
+  alphaLabel = "Alpha Zone",
+  overLabel = "Overvalued",
   isWatched,
 }: {
   points: ScatterPoint[];
@@ -91,8 +92,8 @@ function ScatterPlot({
   const valid = points.filter(p => p.x > 0 && p.y > 0 && isFinite(p.x) && isFinite(p.y));
   if (valid.length < 2) {
     return (
-      <div className="bg-gray-900/60 border border-gray-800 rounded-xl p-6">
-        <h3 className="font-semibold text-white mb-1">{title}</h3>
+      <div className="ag-glass p-6">
+        <h3 className="font-display font-semibold text-white mb-1">{title}</h3>
         <p className="text-gray-600 text-sm">Not enough data to render chart.</p>
       </div>
     );
@@ -158,8 +159,13 @@ function ScatterPlot({
   const overY1 = alphaY === "bottom" ? PAD.top : yMidSvg;
   const overY2 = alphaY === "bottom" ? yMidSvg : PAD.top + cH;
 
-  // Hover handling: find nearest point
-  const handleMouseMove = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
+  // Hover handling: find nearest point.
+  // NOTE: deliberately a plain function, not useCallback — the old useCallback
+  // sat AFTER the `valid.length < 2` early return, which is a Rules-of-Hooks
+  // violation that crashed this page ("Rendered more hooks than during the
+  // previous render") the moment data arrived. Its deps (valid/xS/yS) are
+  // recreated every render anyway, so the memoization was a no-op.
+  const handleMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
     if (!svgRef.current) return;
     const rect = svgRef.current.getBoundingClientRect();
     const mx = ((e.clientX - rect.left) / rect.width) * W;
@@ -171,7 +177,7 @@ function ScatterPlot({
       if (d2 < bestDist) { bestDist = d2; best = i; }
     });
     setHoverIdx(best >= 0 ? best : null);
-  }, [valid, xS, yS]);
+  };
 
   const hp = hoverIdx !== null ? valid[hoverIdx] : null;
 
@@ -184,14 +190,14 @@ function ScatterPlot({
   }
 
   return (
-    <div className="bg-gray-900/60 border border-gray-800 rounded-xl p-5">
+    <div className="ag-glass p-5">
       <div className="mb-3">
-        <h3 className="text-base font-bold text-white">{title}</h3>
-        <p className="text-xs text-gray-500 mt-0.5">{subtitle}</p>
+        <h3 className="font-display text-[17px] font-semibold text-white">{title}</h3>
+        <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">{subtitle}</p>
       </div>
 
       {/* Legend */}
-      <div className="flex items-center gap-4 mb-3 text-xs text-gray-500">
+      <div className="flex items-center gap-4 mb-3 font-mono text-[10.5px] uppercase tracking-wider text-gray-500">
         {[["≥75", "#4ade80"], ["50–74", "#86efac"], ["35–49", "#fbbf24"], ["<35", "#6b7280"]].map(([lbl, col]) => (
           <span key={lbl} className="flex items-center gap-1.5">
             <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ background: col }} />
@@ -373,16 +379,16 @@ function Top10List({
   const maxRatio = ranked[0].ratio;
 
   return (
-    <div className="bg-gray-900/40 border border-gray-800/60 rounded-xl p-4 mt-3">
-      <div className="flex items-center justify-between mb-3">
-        <h4 className="text-sm font-semibold text-gray-300">Top 10 — Best {ratioLabel}</h4>
-        <span className="text-[10px] text-gray-600">ranked by {scoreLabel} ÷ log(market cap)</span>
+    <div className="ag-glass p-4 mt-3">
+      <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
+        <h4 className="font-mono text-[11px] uppercase tracking-[0.16em] text-emerald-400/80">Top 10 — Best {ratioLabel}</h4>
+        <span className="font-mono text-[10px] uppercase tracking-wider text-gray-600">ranked by {scoreLabel} ÷ log(market cap)</span>
       </div>
       <div className="space-y-1.5">
         {ranked.map((p, i) => (
           <div
             key={p.netuid}
-            className={`flex items-center gap-3 cursor-pointer hover:bg-gray-800/40 rounded-lg px-2 py-1.5 transition-colors group ${isWatched && isWatched(p.netuid) ? "bg-blue-950/40 ring-2 ring-blue-400/60 shadow-md shadow-blue-500/20" : ""}`}
+            className={`flex items-center gap-3 cursor-pointer hover:bg-white/[0.04] rounded-lg px-2 py-1.5 transition-colors group ${isWatched && isWatched(p.netuid) ? "bg-blue-950/40 ring-2 ring-blue-400/60 shadow-md shadow-blue-500/20" : ""}`}
             onClick={() => router.push(`/subnets/${p.netuid}`)}
           >
             {/* Rank */}
@@ -405,7 +411,7 @@ function Top10List({
 
             {/* Ratio bar */}
             <div className="w-20 flex-shrink-0 hidden sm:block">
-              <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
+              <div className="h-1.5 bg-white/[0.06] rounded-full overflow-hidden">
                 <div
                   className="h-full rounded-full"
                   style={{
@@ -425,7 +431,7 @@ function Top10List({
           </div>
         ))}
       </div>
-      <div className="mt-2 pt-2 border-t border-gray-800/50 flex items-center gap-4 text-[10px] text-gray-600">
+      <div className="mt-2 pt-2 border-t border-white/[0.06] flex items-center gap-4 font-mono text-[10px] text-gray-600">
         <span>{scoreLabel}: raw score value</span>
         <span>·</span>
         <span>MCap: market capitalisation</span>
@@ -478,38 +484,34 @@ export default function AnalyticsPage() {
     .map(s => ({ netuid: s.netuid, name: s.name, x: s.social_score, y: s.market_cap!, agap: s.composite_score }));
 
   return (
-    <main className="flex-1 overflow-auto">
+    <main className="flex-1 overflow-auto ag-aurora">
 
       {/* ── Hero header ───────────────────────────────────────────── */}
-      <div className="relative overflow-hidden border-b border-gray-800/50">
-        <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: "linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)", backgroundSize: "40px 40px" }} />
-        <div className="absolute -top-20 right-1/3 w-96 h-96 bg-green-600/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute -top-10 left-1/4 w-64 h-64 bg-emerald-500/5 rounded-full blur-3xl pointer-events-none" />
-
-        <div className="relative max-w-screen-xl mx-auto px-4 md:px-6 pt-10 pb-7">
-          <div className="flex items-center gap-3 mb-2">
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-green-400 via-emerald-300 to-white bg-clip-text text-transparent">
-              📊 Analytics
+      <div className="relative overflow-hidden">
+        <div className="relative max-w-screen-xl mx-auto px-4 md:px-6 pt-9 pb-5">
+          <div className="flex items-center gap-3 mb-2 flex-wrap">
+            <h1 className="font-display text-3xl md:text-[40px] font-semibold tracking-[-0.03em] text-white leading-tight flex items-center gap-2.5">
+              <AgIcon name="chart" className="w-7 h-7 text-emerald-400" />
+              <span>Network <span className="ag-gradient-text">Analytics</span></span>
             </h1>
-            <span className="text-xs bg-green-900/40 text-green-400 border border-green-800/40 rounded-full px-2.5 py-0.5 font-semibold uppercase tracking-wide">
+            <span className="ag-badge ag-badge-buy">
               {n} Subnets
             </span>
           </div>
-          <p className="text-gray-500 text-sm max-w-2xl mb-5">
-            Scatter plots revealing where alpha is hiding. The <span className="text-green-400 font-medium">bottom-right quadrant</span> is the alpha zone — high signal, low market cap. Click any dot to open the subnet.
+          <p className="text-sm md:text-[14.5px] text-gray-400 max-w-2xl leading-[1.65] mb-4">
+            Scatter plots revealing where alpha is hiding. The <span className="text-emerald-400 font-medium">bottom-right quadrant</span> is the alpha zone — high signal, low market cap. Click any dot to open the subnet.
           </p>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs bg-gray-800/60 border border-gray-700/40 rounded-full px-3 py-1.5 text-gray-300">
-              <span className="font-bold text-white">{n}</span> subnets plotted
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+            <span className="inline-flex items-center gap-2 font-mono text-[11px] tracking-wider text-gray-500 uppercase">
+              <span className="ag-live-dot" />
+              <span className="tabular-nums"><span className="text-white font-semibold">{n}</span> SUBNETS PLOTTED · <span className="text-emerald-400 font-semibold">4</span> SIGNAL CHARTS</span>
             </span>
             <span className="text-gray-700">·</span>
-            <span className="text-xs bg-green-900/30 border border-green-800/30 rounded-full px-3 py-1.5 text-gray-300">
-              <span className="font-bold text-green-400">4</span> signal charts
-            </span>
-            <span className="text-gray-700">·</span>
-            <span className="text-xs bg-gray-800/60 border border-gray-700/40 rounded-full px-3 py-1.5 text-gray-400">
-              🔵 Watchlisted · 🟢 High aGap · 🟡 Mid
+            <span className="font-mono text-[10.5px] uppercase tracking-wider bg-white/[0.035] border border-white/[0.08] backdrop-blur-[14px] rounded-full px-3 py-1.5 text-gray-400 inline-flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-blue-400 inline-block" /> Watchlisted ·
+              <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block" /> High aGap ·
+              <span className="w-2 h-2 rounded-full bg-yellow-400 inline-block" /> Mid
             </span>
           </div>
         </div>
@@ -521,7 +523,7 @@ export default function AnalyticsPage() {
         {/* Chart 1: aGap Score vs Market Cap — SIGNATURE */}
         <div>
           <div className="flex items-center gap-2 mb-3">
-            <span className="text-xs font-semibold bg-green-500/20 text-green-400 border border-green-500/30 rounded px-2 py-0.5">Signature Chart</span>
+            <span className="ag-badge ag-badge-buy">Signature Chart</span>
           </div>
           <BlurGate tier={tier} required="premium" minHeight="300px">
             <ScatterPlot
@@ -535,8 +537,8 @@ export default function AnalyticsPage() {
               xMax100
               yLog
               alphaX="right" alphaY="bottom"
-              alphaLabel="Alpha 🔥"
-              overLabel="Priced In ⚠️"
+              alphaLabel="Alpha"
+              overLabel="Priced In"
               isWatched={isWatched}
             />
             <Top10List points={agapVsMcap} scoreLabel="aGap Score" ratioLabel="aGap Value per $ MCap" isWatched={isWatched} watchlist={watchlist} />
@@ -557,8 +559,8 @@ export default function AnalyticsPage() {
               xMax100
               yLog
               alphaX="right" alphaY="bottom"
-              alphaLabel="High Dev, Low Cap 🔥"
-              overLabel="Overhyped ⚠️"
+              alphaLabel="High Dev, Low Cap"
+              overLabel="Overhyped"
               isWatched={isWatched}
             />
             <Top10List points={devVsMcap} scoreLabel="Dev Score" ratioLabel="Dev Activity per $ MCap" isWatched={isWatched} watchlist={watchlist} />
@@ -578,8 +580,8 @@ export default function AnalyticsPage() {
               formatY={fmtMcap}
               yLog xLog
               alphaX="right" alphaY="bottom"
-              alphaLabel="Undervalued 🔥"
-              overLabel="Overvalued ⚠️"
+              alphaLabel="Undervalued"
+              overLabel="Overvalued"
               isWatched={isWatched}
             />
             <Top10List points={emVsMcap} scoreLabel="Emission %" ratioLabel="Emission Yield per $ MCap" isWatched={isWatched} watchlist={watchlist} />
@@ -600,8 +602,8 @@ export default function AnalyticsPage() {
               xMax100
               yLog
               alphaX="right" alphaY="bottom"
-              alphaLabel="Hidden Gem 🔥"
-              overLabel="Overhyped ⚠️"
+              alphaLabel="Hidden Gem"
+              overLabel="Overhyped"
               isWatched={isWatched}
             />
             <Top10List points={socialVsMcap} scoreLabel="Social Score" ratioLabel="Social Buzz per $ MCap" isWatched={isWatched} watchlist={watchlist} />

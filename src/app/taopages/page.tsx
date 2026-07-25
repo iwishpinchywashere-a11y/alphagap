@@ -57,9 +57,9 @@ export default function TaoPagesIndex() {
     .map((s, i) => ({ ...s, rank: i + 1 }));
 
   return (
-    <div className="min-h-screen bg-[#0a0a0f] text-white">
+    <div className="min-h-screen bg-[#07090b] text-white ag-aurora">
       {/* ── Nav ─────────────────────────────────────────────────── */}
-      <nav className="sticky top-0 z-50 backdrop-blur-xl bg-[#0a0a0f]/90 border-b border-white/5">
+      <nav className="sticky top-0 z-50 backdrop-blur-xl bg-[#07090b]/80 border-b border-white/[0.08]">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Link href="https://www.alphagap.io">
@@ -86,9 +86,9 @@ export default function TaoPagesIndex() {
               <path className="text-green-400" d="M13.1,17.7V8.3c0-2.4-1.9-4.3-4.3-4.3v15.1c0,2.2,1.7,4,3.9,4c0.1,0,0.1,0,0.2,0c1,0.1,2.1-0.2,2.9-0.9C13.3,22,13.1,20.5,13.1,17.7L13.1,17.7z"/>
               <path className="text-green-400" d="M3.9,0C1.8,0,0,1.8,0,4h17.6c2.2,0,3.9-1.8,3.9-4C21.6,0,3.9,0,3.9,0z"/>
             </svg>
-            <h1 className="text-2xl sm:text-3xl font-bold text-white">TAO Pages</h1>
+            <h1 className="font-display text-3xl sm:text-[40px] font-semibold tracking-[-0.03em] text-white leading-tight">TAO <span className="ag-gradient-text">Pages</span></h1>
           </div>
-          <p className="text-gray-400 text-sm sm:text-base leading-relaxed max-w-2xl">
+          <p className="text-gray-400 text-sm sm:text-[14.5px] leading-[1.65] max-w-2xl">
             The yellow pages for the Bittensor network. Plain-English explanations for every
             subnet — what it does, the problem it solves, and what mainstream product
             it most resembles. No jargon required.
@@ -100,7 +100,7 @@ export default function TaoPagesIndex() {
       </main>
 
       {/* ── Footer ───────────────────────────────────────────────── */}
-      <footer className="border-t border-white/5 py-8 mt-8">
+      <footer className="border-t border-white/[0.08] py-8 mt-8">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="flex items-center gap-2 text-gray-600 text-xs">
             <div className="w-4 h-4 rounded bg-gradient-to-br from-green-400 to-emerald-600 flex items-center justify-center text-[8px] font-bold text-black">α</div>

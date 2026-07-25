@@ -209,7 +209,7 @@ export default function DashboardProvider({ children }: { children: React.ReactN
     const unanalyzed = signals.filter(
       (s) =>
         !s.analysis &&
-        !(s.description || "").includes("🔧") &&
+        !(s.description || "").includes("\u{1F527}") &&
         (s.signal_type === "dev_spike" || s.signal_type === "hf_update") &&
         !analyzingRef.current.has(s.id)
     );

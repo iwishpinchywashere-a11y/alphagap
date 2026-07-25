@@ -6,6 +6,7 @@ import { useSession } from "next-auth/react";
 import type { PortfolioData } from "@/lib/types";
 import BlurGate from "@/components/BlurGate";
 import { getTier } from "@/lib/subscription";
+import AgIcon from "@/components/AgIcon";
 
 // Pure SVG chart — no external deps
 // Narrower viewBox (500 wide) so text scales better on mobile screens.
@@ -126,13 +127,19 @@ export default function PerformancePage() {
   }, []);
 
   return (
-    <main className="flex-1 overflow-auto p-4 md:p-6">
+    <main className="flex-1 overflow-auto min-h-screen bg-[#07090b] ag-aurora text-white p-4 md:p-6 pt-9">
       {/* Header always visible */}
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-white mb-1">Portfolio Performance</h1>
-        <p className="text-sm text-gray-500 max-w-2xl">
-          Every time a subnet&apos;s aGap score crosses <span className="text-green-400 font-semibold">80</span>, we auto-buy ${POSITION_SIZE.toLocaleString()} of its alpha token. Hit rate counts picks that returned +30% or more — once a position hits {MATURITY_DAYS}+ days it&apos;s scored.
+        <h1 className="font-display text-4xl font-semibold tracking-[-0.03em] leading-tight mb-2">
+          Signal <span className="ag-gradient-text">Performance</span>
+        </h1>
+        <p className="text-[14.5px] text-gray-400 max-w-2xl leading-relaxed">
+          Every time a subnet&apos;s aGap score crosses <span className="text-emerald-400 font-semibold">80</span>, we auto-buy ${POSITION_SIZE.toLocaleString()} of its alpha token. Hit rate counts picks that returned +30% or more — once a position hits {MATURITY_DAYS}+ days it&apos;s scored.
         </p>
+        <div className="flex items-center gap-2.5 mt-4 font-mono text-[11px] uppercase tracking-[0.08em] text-gray-500">
+          <span className="ag-live-dot flex-shrink-0" />
+          <span>SIMULATED PORTFOLIO · AUTO-BUY AT AGAP ≥ 80 · REAL ALPHA PRICES</span>
+        </div>
       </div>
       <BlurGate tier={tier} required="premium" minHeight="500px">
       <div className="space-y-6">
@@ -145,9 +152,9 @@ export default function PerformancePage() {
         )}
 
         {!portfolioLoading && portfolioData && portfolioData.positions.length === 0 && (
-          <div className="bg-gray-900/50 border border-gray-800 rounded-xl p-10 text-center">
-            <div className="text-5xl mb-4">📈</div>
-            <h3 className="text-lg font-bold mb-2">Portfolio Starts Building Soon</h3>
+          <div className="ag-glass p-10 text-center">
+            <div className="text-5xl mb-4 flex justify-center text-emerald-400"><AgIcon name="trendUp" /></div>
+            <h3 className="font-display text-lg font-semibold mb-2">Portfolio Starts Building Soon</h3>
             <p className="text-gray-500 text-sm max-w-md mx-auto">
               Every time a subnet&apos;s aGap score crosses <span className="text-green-400 font-semibold">80</span>, we auto-buy ${POSITION_SIZE.toLocaleString()} of its alpha token.
             </p>
@@ -191,12 +198,12 @@ export default function PerformancePage() {
             {/* ── KPI grid: 2×2 on mobile, 4 across on desktop ── */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
               {/* Hit Rate */}
-              <div className="bg-gray-900/70 border border-gray-800 rounded-xl p-4">
-                <div className="text-xs text-gray-500 uppercase tracking-wider mb-2">Hit Rate</div>
+              <div className="ag-glass p-4">
+                <div className="text-[10.5px] text-gray-500 uppercase tracking-[0.16em] mb-2">Hit Rate</div>
                 {eligibleCount > 0 ? (
                   <>
                     <div className="flex items-baseline gap-1.5">
-                      <span className="text-4xl font-black text-green-400 tabular-nums leading-none">{hitCount}</span>
+                      <span className="font-display text-4xl font-semibold tracking-[-0.02em] text-emerald-400 tabular-nums leading-none">{hitCount}</span>
                       <span className="text-xl font-bold text-gray-500">/ {eligibleCount}</span>
                     </div>
                     <div className="text-xs text-gray-500 mt-1.5">picks hit +{HIT_THRESHOLD_PCT}%+ at peak</div>
@@ -207,11 +214,11 @@ export default function PerformancePage() {
               </div>
 
               {/* Success Rate */}
-              <div className="bg-gray-900/70 border border-gray-800 rounded-xl p-4">
-                <div className="text-xs text-gray-500 uppercase tracking-wider mb-2">Success Rate</div>
+              <div className="ag-glass p-4">
+                <div className="text-[10.5px] text-gray-500 uppercase tracking-[0.16em] mb-2">Success Rate</div>
                 {eligibleCount > 0 ? (
                   <>
-                    <div className="text-4xl font-black text-green-400 leading-none">
+                    <div className="font-display text-4xl font-semibold tracking-[-0.02em] text-emerald-400 leading-none">
                       {Math.round((hitCount / eligibleCount) * 100)}%
                     </div>
                     <div className="text-xs text-gray-500 mt-1.5">of scored picks</div>
@@ -222,11 +229,11 @@ export default function PerformancePage() {
               </div>
 
               {/* Avg Peak Return */}
-              <div className="bg-gray-900/70 border border-gray-800 rounded-xl p-4">
-                <div className="text-xs text-gray-500 uppercase tracking-wider mb-2">Avg Peak Return</div>
+              <div className="ag-glass p-4">
+                <div className="text-[10.5px] text-gray-500 uppercase tracking-[0.16em] mb-2">Avg Peak Return</div>
                 {matureAvgPeak != null ? (
                   <>
-                    <div className="text-4xl font-black text-green-400 leading-none">
+                    <div className="font-display text-4xl font-semibold tracking-[-0.02em] text-emerald-400 leading-none">
                       +{matureAvgPeak.toFixed(0)}%
                     </div>
                     <div className="text-xs text-gray-500 mt-1.5">across {eligibleCount} scored picks</div>
@@ -237,9 +244,9 @@ export default function PerformancePage() {
               </div>
 
               {/* Peak Profit */}
-              <div className="bg-gray-900/70 border border-gray-800 rounded-xl p-4">
-                <div className="text-xs text-gray-500 uppercase tracking-wider mb-2">Peak Profit</div>
-                <div className="text-4xl font-black text-green-400 leading-none">
+              <div className="ag-glass p-4">
+                <div className="text-[10.5px] text-gray-500 uppercase tracking-[0.16em] mb-2">Peak Profit</div>
+                <div className="font-display text-4xl font-semibold tracking-[-0.02em] text-emerald-400 leading-none">
                   {formatDollarKM(totalPeakProfit)}
                 </div>
                 <div className="text-xs text-gray-500 mt-1.5">
@@ -296,14 +303,14 @@ export default function PerformancePage() {
               const totalMaxPnl = buyPoints[buyPoints.length - 1]?.cum ?? 0;
 
               return (
-                <div className="bg-gray-900/70 border border-gray-800 rounded-xl p-4 md:p-5">
+                <div className="ag-glass p-4 md:p-5">
                   <div className="flex items-start justify-between mb-3 md:mb-4 gap-3">
                     <div>
-                      <div className="text-xs text-gray-500 uppercase tracking-wider">Cumulative Max Profit</div>
+                      <div className="text-[10.5px] text-gray-500 uppercase tracking-[0.16em]">Cumulative Max Profit</div>
                       <div className="text-xs text-gray-600 mt-0.5">Total if every pick sold at its all-time high · never goes down</div>
                     </div>
                     <div className="text-right shrink-0">
-                      <div className="text-3xl font-black text-green-400">{formatDollarKM(totalMaxPnl)}</div>
+                      <div className="font-display text-3xl font-semibold tracking-[-0.02em] text-emerald-400">{formatDollarKM(totalMaxPnl)}</div>
                       <div className="text-xs text-gray-500">peak total</div>
                     </div>
                   </div>
@@ -315,22 +322,22 @@ export default function PerformancePage() {
                 </div>
               );
             })() : (
-              <div className="bg-gray-900/70 border border-gray-800 rounded-xl p-5">
-                <div className="text-xs text-gray-500 uppercase tracking-wider mb-2">Performance Chart</div>
-                <div className="text-center py-6 text-gray-600 text-sm">Chart builds as picks mature — check back in a few weeks 📊</div>
+              <div className="ag-glass p-5">
+                <div className="text-[10.5px] text-gray-500 uppercase tracking-[0.16em] mb-2">Performance Chart</div>
+                <div className="text-center py-6 text-gray-600 text-sm">Chart builds as picks mature — check back in a few weeks</div>
               </div>
             )}
 
             {/* Holdings table */}
-            <div className="bg-gray-900/70 border border-gray-800 rounded-xl overflow-hidden">
-              <div className="px-5 py-4 border-b border-gray-800 flex items-center justify-between">
-                <h3 className="font-semibold text-sm">Holdings</h3>
-                <span className="text-xs text-gray-600">${POSITION_SIZE.toLocaleString()} auto-buy when aGap ≥ 80</span>
+            <div className="ag-glass overflow-hidden">
+              <div className="px-5 py-4 border-b border-white/[0.06] flex items-center justify-between">
+                <h3 className="font-display font-semibold text-sm">Holdings</h3>
+                <span className="font-mono text-[11px] text-gray-600">${POSITION_SIZE.toLocaleString()} auto-buy when aGap ≥ 80</span>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="text-xs text-gray-500 uppercase border-b border-gray-800/60">
+                    <tr className="font-mono text-[10.5px] tracking-[0.08em] text-gray-500 uppercase border-b border-white/[0.06]">
                       <th className="text-left px-5 py-3">Subnet</th>
                       {(["maxPnl","agap","bought","buyPrice","currentPrice","maxPrice","value","taoPnl","change24h"] as SortKey[]).map((key, i) => {
                         const labels: Record<SortKey, string> = { maxPnl:"Max P&L", agap:"aGap", bought:"Bought", buyPrice:"Buy Price", currentPrice:"Current", maxPrice:"Max Price", value:"Value", taoPnl:"Max τ PnL", change24h:"24h P&L" };
@@ -344,11 +351,11 @@ export default function PerformancePage() {
                       })}
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-800/40">
+                  <tbody className="divide-y divide-white/[0.05]">
                     {sortedPositions(portfolioData.positions, portfolioData.summary.taoPrice ?? 0).map((pos) => (
                       <tr
                         key={pos.netuid}
-                        className="hover:bg-gray-800/30 transition-colors cursor-pointer"
+                        className="hover:bg-white/[0.04] transition-colors cursor-pointer"
                         onClick={() => router.push(`/subnets/${pos.netuid}`)}
                       >
                         <td className="px-5 py-3">
@@ -403,7 +410,7 @@ export default function PerformancePage() {
                       </tr>
                     ))}
                   </tbody>
-                  <tfoot className="border-t border-gray-700">
+                  <tfoot className="border-t border-white/[0.10]">
                     <tr className="text-sm font-semibold">
                       <td className="px-5 py-3 text-gray-400">Total</td>
                       <td className="text-right px-3 py-3">

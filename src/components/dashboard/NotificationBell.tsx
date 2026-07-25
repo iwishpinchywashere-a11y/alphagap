@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useNotifications } from "./NotificationProvider";
 import type { AppNotification, NotificationType } from "@/lib/notification-types";
+import AgIcon, { type AgIconName } from "@/components/AgIcon";
 
 function timeAgo(timestamp: string): string {
   const diff = Date.now() - new Date(timestamp).getTime();
@@ -15,13 +16,13 @@ function timeAgo(timestamp: string): string {
   return `${Math.floor(hours / 24)}d ago`;
 }
 
-const TYPE_CONFIG: Record<NotificationType, { emoji: string; label: string; color: string }> = {
-  score:     { emoji: "📊", label: "Score",     color: "text-green-400" },
-  signal:    { emoji: "🔔", label: "Signal",    color: "text-yellow-400" },
-  whale:     { emoji: "🐋", label: "Whale",     color: "text-blue-400" },
-  report:    { emoji: "📄", label: "Report",    color: "text-purple-400" },
-  social:    { emoji: "🐦", label: "Social",    color: "text-sky-400" },
-  benchmark: { emoji: "⚡", label: "Benchmark", color: "text-orange-400" },
+const TYPE_CONFIG: Record<NotificationType, { icon: AgIconName; label: string; color: string }> = {
+  score:     { icon: "chart",  label: "Score",     color: "text-green-400" },
+  signal:    { icon: "bell",   label: "Signal",    color: "text-yellow-400" },
+  whale:     { icon: "whale",  label: "Whale",     color: "text-blue-400" },
+  report:    { icon: "doc",    label: "Report",    color: "text-purple-400" },
+  social:    { icon: "chat",   label: "Social",    color: "text-sky-400" },
+  benchmark: { icon: "bolt",   label: "Benchmark", color: "text-orange-400" },
 };
 
 export default function NotificationBell() {
@@ -82,7 +83,7 @@ export default function NotificationBell() {
       <button
         ref={btnRef}
         onClick={() => open ? closeDropdown() : openDropdown()}
-        className="relative flex items-center justify-center w-8 h-8 rounded-full bg-gray-800 border border-gray-700 hover:border-yellow-400/60 transition-colors flex-shrink-0"
+        className="relative flex items-center justify-center w-8 h-8 rounded-full bg-white/[0.035] border border-white/[0.14] backdrop-blur-[14px] hover:border-yellow-400/60 transition-colors flex-shrink-0"
         title="Notifications"
       >
         <svg className="w-4 h-4 text-yellow-400/80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -103,10 +104,10 @@ export default function NotificationBell() {
         <div
           ref={dropdownRef}
           style={{ position: "fixed", top: pos.top, right: pos.right, zIndex: 9999 }}
-          className="w-80 bg-gray-900 border border-gray-700 rounded-xl shadow-2xl overflow-hidden"
+          className="w-80 bg-[#0c0f13]/90 backdrop-blur-xl border border-white/[0.1] rounded-2xl shadow-2xl overflow-hidden"
         >
           {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.08]">
             <div className="flex items-center gap-2">
               <span className="text-sm font-semibold text-white">Notifications</span>
               {unreadCount > 0 && (
@@ -139,7 +140,7 @@ export default function NotificationBell() {
           <div className="max-h-[420px] overflow-y-auto">
             {notifications.length === 0 ? (
               <div className="py-10 text-center px-4">
-                <div className="text-3xl mb-2">🔔</div>
+                <AgIcon name="bell" className="w-8 h-8 text-gray-500 mb-2 mx-auto" />
                 <p className="text-sm text-gray-400 font-medium">No notifications yet</p>
                 <p className="text-xs text-gray-600 mt-1">
                   Activity from your watched subnets will appear here — score moves, new signals, whale activity, reports, social mentions, and benchmark updates.
@@ -153,11 +154,11 @@ export default function NotificationBell() {
                     <button
                       key={n.id}
                       onClick={() => handleClick(n)}
-                      className={`w-full flex items-start gap-3 px-4 py-3 text-left transition-colors border-b border-gray-800/50 last:border-b-0 hover:bg-gray-800/60 ${
-                        !n.read ? "bg-gray-800/25" : ""
+                      className={`w-full flex items-start gap-3 px-4 py-3 text-left transition-colors border-b border-white/[0.05] last:border-b-0 hover:bg-white/[0.05] ${
+                        !n.read ? "bg-white/[0.03]" : ""
                       }`}
                     >
-                      <span className="text-xl flex-shrink-0 mt-0.5">{cfg.emoji}</span>
+                      <span className={`flex-shrink-0 mt-0.5 ${cfg.color}`}><AgIcon name={cfg.icon} className="w-5 h-5" /></span>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1.5 mb-0.5">
                           <span className={`text-[10px] font-bold uppercase tracking-wider ${cfg.color}`}>
@@ -181,8 +182,8 @@ export default function NotificationBell() {
           </div>
 
           {/* Footer */}
-          <div className="border-t border-gray-800 px-4 py-2">
-            <p className="text-[10px] text-gray-600 text-center">
+          <div className="border-t border-white/[0.08] px-4 py-2">
+            <p className="text-[10px] font-mono text-gray-500 text-center">
               Watchlist activity only · Pro &amp; Premium
             </p>
           </div>

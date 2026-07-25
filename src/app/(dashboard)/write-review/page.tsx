@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
+import AgIcon from "@/components/AgIcon";
 
 export default function WriteReviewPage() {
   const { data: session, status } = useSession();
@@ -17,7 +18,7 @@ export default function WriteReviewPage() {
 
   if (status === "loading") {
     return (
-      <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center">
+      <div className="min-h-screen bg-[#07090b] ag-aurora flex items-center justify-center">
         <div className="w-5 h-5 border-2 border-green-500 border-t-transparent rounded-full animate-spin" />
       </div>
     );
@@ -25,12 +26,12 @@ export default function WriteReviewPage() {
 
   if (status === "unauthenticated") {
     return (
-      <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center px-4">
+      <div className="min-h-screen bg-[#07090b] ag-aurora flex items-center justify-center px-4">
         <div className="text-center">
-          <div className="text-4xl mb-4">🔒</div>
+          <div className="text-4xl mb-4 flex justify-center text-gray-300"><AgIcon name="lock" /></div>
           <p className="text-white font-semibold mb-2">Sign in required</p>
           <p className="text-gray-500 text-sm mb-6">Please sign in to write a review.</p>
-          <Link href="/auth/signin" className="px-6 py-2.5 bg-green-500 text-black font-bold rounded-xl text-sm hover:bg-green-400 transition-colors">
+          <Link href="/auth/signin" className="px-6 py-2.5 bg-gradient-to-r from-emerald-400 to-green-400 text-black font-bold rounded-full text-sm hover:opacity-90 transition-opacity">
             Sign In
           </Link>
         </div>
@@ -40,12 +41,12 @@ export default function WriteReviewPage() {
 
   if (!isActive) {
     return (
-      <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center px-4">
+      <div className="min-h-screen bg-[#07090b] ag-aurora flex items-center justify-center px-4">
         <div className="text-center max-w-sm">
-          <div className="text-4xl mb-4">⭐</div>
+          <div className="text-4xl mb-4 flex justify-center text-yellow-400"><AgIcon name="star" /></div>
           <p className="text-white font-semibold mb-2">Pro or Premium required</p>
           <p className="text-gray-500 text-sm mb-6">Only active subscribers can write a review.</p>
-          <Link href="/pricing" className="px-6 py-2.5 bg-green-500 text-black font-bold rounded-xl text-sm hover:bg-green-400 transition-colors">
+          <Link href="/pricing" className="px-6 py-2.5 bg-gradient-to-r from-emerald-400 to-green-400 text-black font-bold rounded-full text-sm hover:opacity-90 transition-opacity">
             View Plans →
           </Link>
         </div>
@@ -78,12 +79,12 @@ export default function WriteReviewPage() {
 
   if (result?.ok) {
     return (
-      <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center px-4">
+      <div className="min-h-screen bg-[#07090b] ag-aurora flex items-center justify-center px-4">
         <div className="text-center max-w-sm">
-          <div className="text-5xl mb-5">🎉</div>
-          <h2 className="text-white text-xl font-bold mb-2">Thanks for your review!</h2>
+          <div className="text-5xl mb-5 flex justify-center text-green-400"><AgIcon name="star" /></div>
+          <h2 className="font-display text-white text-xl font-semibold mb-2">Thanks for your review!</h2>
           <p className="text-gray-400 text-sm mb-8">{result.message}</p>
-          <Link href="/dashboard" className="px-6 py-2.5 bg-green-500 text-black font-bold rounded-xl text-sm hover:bg-green-400 transition-colors">
+          <Link href="/dashboard" className="px-6 py-2.5 bg-gradient-to-r from-emerald-400 to-green-400 text-black font-bold rounded-full text-sm hover:opacity-90 transition-opacity">
             Back to Dashboard
           </Link>
         </div>
@@ -92,16 +93,18 @@ export default function WriteReviewPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0a0a0f] text-white">
+    <div className="min-h-screen bg-[#07090b] ag-aurora text-white">
       <div className="max-w-lg mx-auto px-4 py-14">
         {/* Header */}
         <div className="text-center mb-10">
           <Link href="/dashboard" className="inline-flex items-center gap-1.5 text-gray-500 hover:text-gray-300 text-sm mb-8 transition-colors">
             ← Back to Dashboard
           </Link>
-          <div className="text-4xl mb-4">⭐</div>
-          <h1 className="text-2xl font-bold text-white mb-2">Write a Review</h1>
-          <p className="text-gray-500 text-sm">Share your experience with AlphaGap. Reviews are subject to approval before appearing on the site.</p>
+          <div className="text-4xl mb-4 flex justify-center text-yellow-400"><AgIcon name="star" /></div>
+          <h1 className="font-display text-4xl font-semibold tracking-[-0.03em] text-white mb-2">
+            Write a <span className="ag-gradient-text">Review</span>
+          </h1>
+          <p className="text-[14.5px] text-gray-400 leading-relaxed">Share your experience with AlphaGap. Reviews are subject to approval before appearing on the site.</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-5">
@@ -117,7 +120,7 @@ export default function WriteReviewPage() {
               placeholder="e.g. Alex M."
               maxLength={80}
               required
-              className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-green-500/60 transition-colors"
+              className="w-full bg-white/[0.035] border border-white/[0.08] backdrop-blur-md rounded-full px-4 py-3 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-emerald-500/40 transition-colors"
             />
           </div>
 
@@ -134,7 +137,7 @@ export default function WriteReviewPage() {
                 onChange={e => setXHandle(e.target.value.replace(/^@/, ""))}
                 placeholder="yourhandle"
                 maxLength={50}
-                className="w-full bg-gray-900 border border-gray-700 rounded-xl pl-8 pr-4 py-3 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-green-500/60 transition-colors"
+                className="w-full bg-white/[0.035] border border-white/[0.08] backdrop-blur-md rounded-full pl-8 pr-4 py-3 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-emerald-500/40 transition-colors"
               />
             </div>
           </div>
@@ -151,7 +154,7 @@ export default function WriteReviewPage() {
               maxLength={1000}
               required
               rows={5}
-              className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-green-500/60 transition-colors resize-none"
+              className="w-full bg-white/[0.035] border border-white/[0.08] backdrop-blur-md rounded-2xl px-4 py-3 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-emerald-500/40 transition-colors resize-none"
             />
             <div className="text-right text-xs text-gray-600 mt-1">{review.length}/1000</div>
           </div>
@@ -165,7 +168,7 @@ export default function WriteReviewPage() {
           <button
             type="submit"
             disabled={submitting || !review.trim() || !name.trim()}
-            className="w-full py-3.5 bg-gradient-to-r from-green-500 to-emerald-600 text-black font-bold rounded-xl text-sm hover:from-green-400 hover:to-emerald-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-green-500/20"
+            className="w-full py-3.5 bg-gradient-to-r from-emerald-400 to-green-400 text-black font-bold rounded-full text-sm hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-emerald-500/20"
           >
             {submitting ? "Submitting…" : "Submit Review →"}
           </button>
