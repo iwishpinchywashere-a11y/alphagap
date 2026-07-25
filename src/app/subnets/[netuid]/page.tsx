@@ -4,6 +4,7 @@ import { use, useEffect, useRef, useState, useMemo, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import SocialLinks from "@/components/dashboard/SocialLinks";
+import SubnetLogo from "@/components/dashboard/SubnetLogo";
 
 // ── Types ─────────────────────────────────────────────────────────
 interface ScoreRow { date: string; agap: number; flow: number; dev: number; eval: number; social: number; price: number; mcap: number; emission_pct: number }
@@ -798,7 +799,11 @@ export default function SubnetDetailPage({ params }: { params: Promise<{ netuid:
           <div className="space-y-5">
 
             {/* Header */}
-            <div>
+            <div className="flex items-start gap-4">
+              <div className="mt-1 flex-shrink-0">
+                <SubnetLogo netuid={data.netuid} name={data.name} size={48} />
+              </div>
+              <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-2">
                 <span className="text-xs bg-gray-800 rounded px-2 py-0.5 text-gray-400">SN{data.netuid}</span>
                 {ms?.symbol && <span className="text-xs bg-gray-800 rounded px-2 py-0.5 text-gray-500">{ms.symbol}</span>}
@@ -867,6 +872,7 @@ export default function SubnetDetailPage({ params }: { params: Promise<{ netuid:
                     📊 {d.label}
                   </a>
                 ))}
+              </div>
               </div>
             </div>
 
