@@ -159,21 +159,6 @@ function AlphaScore({ score }: { score: number }) {
   );
 }
 
-// ── KPI Card ───────────────────────────────────────────────────────
-function KpiCard({ label, value, small, sub, subClass }: {
-  label: string; value: React.ReactNode; small?: string; sub?: React.ReactNode; subClass?: string;
-}) {
-  return (
-    <div className="ag-glass ag-glass-hover p-6">
-      <div className="text-[10.5px] tracking-[0.16em] uppercase text-[#5d665f] mb-2.5">{label}</div>
-      <div className="font-display text-2xl md:text-3xl font-semibold tracking-tight text-white truncate">
-        {value}{small && <small className="text-[13px] text-[#5d665f] font-normal ml-0.5">{small}</small>}
-      </div>
-      {sub && <div className={`font-mono text-[11px] mt-1.5 truncate ${subClass ?? "text-[#5d665f]"}`}>{sub}</div>}
-    </div>
-  );
-}
-
 // ── Section Header ─────────────────────────────────────────────────
 function SectionHeader({
   icon, title, subtitle, right,
@@ -262,9 +247,7 @@ export default function SocialPage() {
     </main>
   );
 
-  const { hotTweets: rawHotTweets, xLeaderboard: rawXLeaderboard, discordLeaderboard: rawDiscordLeaderboard, kolRadar, lastPulse, stats } = data;
-  const pulseAge = lastPulse ? Math.floor((Date.now() - new Date(lastPulse).getTime()) / 60000) : null;
-  const pulseFresh = pulseAge !== null && pulseAge < 15;
+  const { hotTweets: rawHotTweets, xLeaderboard: rawXLeaderboard, discordLeaderboard: rawDiscordLeaderboard, kolRadar } = data;
 
   const subnetMatchesSearch = (name: string | undefined, netuid: number | null | undefined) => {
     if (!searchQuery.trim()) return true;
@@ -289,12 +272,6 @@ export default function SocialPage() {
     );
   const xLeaderboard = (watchlistOnly ? rawXLeaderboard.filter(s => watchlist.has(s.netuid)) : rawXLeaderboard)
     .filter(s => subnetMatchesSearch(s.name, s.netuid));
-
-  // KPI derivations (display only — no new data)
-  const mostDiscussed = rawXLeaderboard[0] ?? null;
-  const topHeatTweet = rawHotTweets.length > 0
-    ? rawHotTweets.reduce((best, t) => ((t.heat_score ?? 0) > (best.heat_score ?? 0) ? t : best), rawHotTweets[0])
-    : null;
 
   return (
     <div className="min-h-screen bg-[#07090b] text-white ag-aurora">
@@ -322,26 +299,6 @@ export default function SocialPage() {
             </button>
           </div>
 
-          {/* KPI row */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <KpiCard
-              label="KOLs Tracked"
-              value={stats.kolsTracked}
-              sub={`TIER-1: ${stats.tier1Count} · TIER-2: ${stats.tier2Count}`}
-            />
-            <KpiCard
-              label="Most Discussed"
-              value={mostDiscussed ? mostDiscussed.name : "—"}
-              sub={mostDiscussed ? `${mostDiscussed.tweet_count} event${mostDiscussed.tweet_count !== 1 ? "s" : ""} · SN${mostDiscussed.netuid}` : "no X data yet"}
-              subClass={mostDiscussed ? "text-emerald-400" : undefined}
-            />
-            <KpiCard
-              label="Top Heat"
-              value={topHeatTweet ? topHeatTweet.heat_score : "—"}
-              small={topHeatTweet ? "/100" : undefined}
-              sub={topHeatTweet ? `@${topHeatTweet.kol_handle.toUpperCase()} → SN${topHeatTweet.netuid}` : "no heat events yet"}
-            />
-          </div>
         </div>
       </div>
 
