@@ -306,7 +306,7 @@ export default function OraclePage() {
 
   if (status === "loading") {
     return (
-      <div className="min-h-screen bg-[#07090b] ag-aurora flex items-center justify-center">
+      <div className="flex-1 bg-[#07090b] ag-aurora flex items-center justify-center">
         <div className="w-8 h-8 border-2 border-green-500/30 border-t-green-400 rounded-full animate-spin" />
       </div>
     );
@@ -409,9 +409,12 @@ export default function OraclePage() {
 
   /* ─────────────────────────────────────────────
      EMPTY STATE
+     Root uses flex-1, NOT min-h-screen: this renders inside the dashboard
+     layout's flex column, so min-h-screen stacks a full viewport below the
+     header/nav and shoves the centered content far down the page.
   ───────────────────────────────────────────── */
   return (
-    <div className="min-h-screen bg-[#07090b] ag-aurora flex flex-col relative overflow-hidden">
+    <div className="flex-1 bg-[#07090b] ag-aurora flex flex-col relative overflow-hidden">
 
       {/* Green radial glow atmosphere */}
       <div className="pointer-events-none absolute inset-0 flex items-center justify-center" aria-hidden>
@@ -440,8 +443,10 @@ export default function OraclePage() {
         </div>
       </div>
 
-      {/* Main centered content */}
-      <div className="flex-1 flex items-center justify-center px-5 py-10 relative">
+      {/* Main content — top-anchored (items-start), NOT vertically centered:
+          centering inside a content-tall flex column pushed the hero below
+          the fold and left a large blank band under the nav */}
+      <div className="flex-1 flex items-start justify-center px-5 pt-8 sm:pt-12 pb-16 relative">
         <div className="w-full max-w-2xl">
 
           {/* Hero */}
