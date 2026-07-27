@@ -310,16 +310,6 @@ export default function SocialPage() {
               <p className="text-[#9aa39e] text-sm md:text-[14.5px] max-w-xl leading-relaxed mb-3">
                 Real-time KOL activity, Twitter heat, and Discord alpha across all Bittensor subnets.
               </p>
-              <div className="flex items-center gap-2 font-mono text-[11px] text-[#5d665f] uppercase tracking-wide flex-wrap mb-6">
-                <span className={`ag-live-dot shrink-0 ${pulseFresh ? "" : "opacity-40"}`} />
-                <span className={pulseFresh ? "text-emerald-400" : ""}>
-                  {pulseAge !== null ? `Last pulse ${pulseAge}m ago` : "Pulse pending"}
-                </span>
-                <span>· {stats.totalHotEvents} hot events</span>
-                <span>· {stats.subnetsWithHeat} subnets buzzing</span>
-                <span>· {stats.discordChannelsScanned} channels scanned</span>
-                <span>· {stats.discordAlphaCount} alpha signals</span>
-              </div>
             </div>
             <button
               onClick={() => {

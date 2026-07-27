@@ -275,12 +275,6 @@ export default function LeaderboardPage() {
                   )}
                 </div>
 
-                {/* Mono LIVE row */}
-                <div className="inline-flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.12em] text-white/35 mb-4">
-                  <span className="ag-live-dot" />
-                  Live · Updates every 10 min · {leaderboard.length} subnets
-                </div>
-
                 {/* Controls row */}
                 <div className="flex items-center gap-2 flex-wrap">
               <input

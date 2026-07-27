@@ -53,7 +53,19 @@ export async function GET() {
 
   const leaderboard: LeaderboardEntry[] = scanLatest?.leaderboard ?? [];
   const hotEvents: HeatEvent[] = socialHot?.events ?? [];
-  const discordData: DiscordResult[] = discordRaw?.results ?? [];
+
+  // Dedupe Discord results by channel — overlapping discord-scan runs can
+  // leave the same channel twice in discord-latest.json, which rendered
+  // duplicate cards on /social. Keep the most recently scanned entry.
+  const byChannel = new Map<string, DiscordResult>();
+  for (const d of discordRaw?.results ?? []) {
+    const key = (d as { channelId?: string }).channelId || `${d.netuid}-${d.channelName}`;
+    const prev = byChannel.get(key);
+    if (!prev || new Date(d.scannedAt).getTime() > new Date(prev.scannedAt).getTime()) {
+      byChannel.set(key, d);
+    }
+  }
+  const discordData: DiscordResult[] = [...byChannel.values()];
 
   const leaderMap = new Map(leaderboard.map(s => [s.netuid, s]));
 
