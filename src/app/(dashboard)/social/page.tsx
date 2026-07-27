@@ -811,9 +811,9 @@ function DiscordRow({ d, index, isWatched, onSubnetClick }: {
         <div className="flex-1 min-w-0">
           {/* Header row */}
           <div className="flex items-center gap-2 flex-wrap mb-1">
-            <button onClick={onSubnetClick} className="flex items-center gap-1.5 hover:text-emerald-400 transition-colors">
+            <button onClick={onSubnetClick} className="flex items-center gap-2 hover:text-emerald-400 transition-colors">
               <span className="font-mono text-[10.5px] text-[#5d665f] bg-white/[0.05] border border-white/[0.08] px-1.5 py-0.5 rounded">SN{d.netuid}</span>
-              <span className="font-semibold text-sm text-gray-100">{d.name}</span>
+              <span className="font-display font-bold text-lg md:text-xl tracking-[-0.01em] text-white">{d.name}</span>
             </button>
             <span className={`font-mono text-[10px] px-2 py-0.5 rounded-full font-semibold tracking-[0.08em] shrink-0 ${discordSignalStyle(d.signal)}`}>{d.signal.toUpperCase()}</span>
             {d.releaseHint && (
@@ -831,8 +831,8 @@ function DiscordRow({ d, index, isWatched, onSubnetClick }: {
             {d.messageCount} msgs · {d.uniquePosters} posters · {timeAgo(d.lastActivityAt ?? d.scannedAt)}
           </div>
 
-          {/* Summary */}
-          {d.summary && <p className="text-sm text-gray-100 leading-relaxed mb-2">{d.summary}</p>}
+          {/* Summary — the headline of the entry, deliberately bigger + bolder */}
+          {d.summary && <p className="text-[15.5px] md:text-base font-semibold text-white leading-relaxed mb-2">{d.summary}</p>}
 
           {/* Key insights */}
           {d.keyInsights && d.keyInsights.length > 0 && (
