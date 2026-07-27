@@ -65,7 +65,18 @@ export async function GET() {
       byChannel.set(key, d);
     }
   }
-  const discordData: DiscordResult[] = [...byChannel.values()];
+  // Second pass: collapse entries with identical content — the same community
+  // can be scanned under two different channelIds (e.g. an id change between
+  // scan runs) producing twin cards with byte-identical summaries.
+  const byContent = new Map<string, DiscordResult>();
+  for (const d of byChannel.values()) {
+    const key = `${d.netuid}:${(d.summary || "").slice(0, 120)}`;
+    const prev = byContent.get(key);
+    if (!prev || new Date(d.scannedAt).getTime() > new Date(prev.scannedAt).getTime()) {
+      byContent.set(key, d);
+    }
+  }
+  const discordData: DiscordResult[] = [...byContent.values()];
 
   const leaderMap = new Map(leaderboard.map(s => [s.netuid, s]));
 
