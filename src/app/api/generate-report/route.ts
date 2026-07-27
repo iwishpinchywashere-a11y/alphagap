@@ -131,8 +131,23 @@ async function generateReport(forceNetuid?: number, forceDate?: string) {
     const cutoffDate = new Date(Date.now() - REPORT_COOLDOWN_DAYS * 24 * 60 * 60 * 1000)
       .toISOString().slice(0, 10); // YYYY-MM-DD
 
+    // Index entries are EITHER a bare netuid (legacy/bootstrap format) or a
+    // rich object {netuid, subnet_name, composite_score} (current save format).
+    // The cooldown MUST normalize both — reading the object as if it were a
+    // number keyed the cooldown map on objects, .has(netuid) never matched,
+    // and the picker chose the #1 aGap subnet every single day (Leadpoet ×4).
+    const indexNetuid = (v: unknown): number | null => {
+      if (typeof v === "number") return v;
+      if (v && typeof v === "object" && typeof (v as { netuid?: unknown }).netuid === "number") {
+        return (v as { netuid: number }).netuid;
+      }
+      return null;
+    };
+
     const recentNetuids = new Map<number, string>(); // netuid → most recent report date
-    for (const [date, netuid] of Object.entries(reportIndex)) {
+    for (const [date, raw] of Object.entries(reportIndex)) {
+      const netuid = indexNetuid(raw);
+      if (netuid === null) continue;
       if (date >= cutoffDate) {
         const prev = recentNetuids.get(netuid);
         if (!prev || date > prev) recentNetuids.set(netuid, date);
@@ -143,8 +158,9 @@ async function generateReport(forceNetuid?: number, forceDate?: string) {
     // ── Idempotency: skip if today's report already exists ───────────────
     const today = forceDate || new Date().toISOString().split("T")[0];
     if (!forceNetuid && !forceDate && reportIndex[today] !== undefined) {
-      console.log(`[report] Today's report (${today}) already exists for SN${reportIndex[today]} — skipping`);
-      return NextResponse.json({ skipped: true, date: today, netuid: reportIndex[today] });
+      const todayNetuid = indexNetuid(reportIndex[today]);
+      console.log(`[report] Today's report (${today}) already exists for SN${todayNetuid} — skipping`);
+      return NextResponse.json({ skipped: true, date: today, netuid: todayNetuid });
     }
 
     if (forceNetuid) {

@@ -858,81 +858,16 @@ export default function SubnetDetailPage({ params }: { params: Promise<{ netuid:
           {/* ── LEFT: Price chart + scores ───────────────────────── */}
           <div className="space-y-5">
 
-            {/* Header */}
-            <div className="ag-glass p-5 flex items-start gap-4">
-              <div className="mt-1 flex-shrink-0">
-                <SubnetLogo netuid={data.netuid} name={data.name} size={48} />
+            {/* Header — intentionally minimal (logo · SN · name) so mobile
+                screenshots of the chart are clean and shareable; every action
+                and link lives in the row below the chart */}
+            <div className="ag-glass p-5 flex items-center gap-4">
+              <div className="flex-shrink-0">
+                <SubnetLogo netuid={data.netuid} name={data.name} size={52} />
               </div>
-              <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-2 flex-wrap">
-                <span className="font-mono text-[10.5px] uppercase tracking-[0.14em] bg-white/[0.05] border border-white/[0.08] rounded-full px-2.5 py-0.5 text-gray-400">SN{data.netuid}</span>
-                {ms?.symbol && <span className="font-mono text-[10.5px] uppercase tracking-[0.14em] bg-white/[0.05] border border-white/[0.08] rounded-full px-2.5 py-0.5 text-gray-500">{ms.symbol}</span>}
-                {data.identity?.tags?.map((tag) => (
-                  <span key={tag} className="font-mono text-[10.5px] uppercase tracking-[0.14em] bg-white/[0.04] border border-white/[0.06] rounded-full px-2.5 py-0.5 text-gray-600">{tag}</span>
-                ))}
-              </div>
-              <div className="flex items-center gap-3 mt-1 flex-wrap">
-                <h1 className="font-display text-2xl md:text-3xl font-semibold tracking-[-0.02em] text-white">{data.name}</h1>
-                <button
-                  onClick={() => toggleWatchlist(data.netuid)}
-                  disabled={watchlistBusy}
-                  className={`flex items-center gap-1.5 text-xs font-medium rounded-full px-3 py-1 border transition-colors disabled:opacity-50 ${
-                    isWatched(data.netuid)
-                      ? "bg-emerald-500/10 border-emerald-500/40 text-emerald-400 hover:bg-red-500/10 hover:border-red-500/40 hover:text-red-400"
-                      : "bg-white/[0.05] border-white/[0.12] text-gray-400 hover:bg-emerald-500/10 hover:border-emerald-500/40 hover:text-emerald-400"
-                  }`}
-                  title={isWatched(data.netuid) ? "Remove from watchlist" : "Add to watchlist"}
-                >
-                  {watchlistBusy ? "…" : isWatched(data.netuid) ? "★ Watching" : "☆ Watchlist"}
-                </button>
-                <button
-                  onClick={() => {
-                    const q = `Give me a full investment analysis of ${data.name} (SN${data.netuid}). Cover: aGap score (${agap}/100), dev score (${dev}/100), social score (${social}/100), flow score (${flow}/100), current price action, emission %, whale activity, and whether this belongs in a long-term portfolio right now.`;
-                    router.push(`/oracle?q=${encodeURIComponent(q)}`);
-                  }}
-                  className="flex items-center gap-1.5 text-xs font-medium rounded-full px-3 py-1 border bg-violet-500/10 border-violet-500/40 text-violet-400 hover:bg-violet-500/20 transition-colors"
-                  title="Ask Oracle about this subnet"
-                >
-                  <AgIcon name="oracle" /> Ask Oracle
-                </button>
-                {watchlistError && (
-                  <span className="text-xs text-red-400">{watchlistError}</span>
-                )}
-              </div>
-
-              {/* Links */}
-              <div className="flex flex-wrap items-center gap-2 mt-3">
-                {data.identity?.website && (
-                  <a href={data.identity.website} target="_blank" rel="noopener noreferrer"
-                    className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-white bg-white/[0.04] border border-white/[0.10] hover:border-white/[0.18] rounded-full px-3 py-1 transition-colors backdrop-blur-[14px]">
-                    <AgIcon name="globe" /> Website
-                  </a>
-                )}
-                {data.identity?.github_repo && (
-                  <a href={data.identity.github_repo} target="_blank" rel="noopener noreferrer"
-                    className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-white bg-white/[0.04] border border-white/[0.10] hover:border-white/[0.18] rounded-full px-3 py-1 transition-colors backdrop-blur-[14px]">
-                    ⎇ GitHub
-                  </a>
-                )}
-                {data.identity?.twitter && (
-                  <a href={`https://x.com/${data.identity.twitter.replace("@", "")}`} target="_blank" rel="noopener noreferrer"
-                    className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-white bg-white/[0.04] border border-white/[0.10] hover:border-white/[0.18] rounded-full px-3 py-1 transition-colors backdrop-blur-[14px]">
-                    𝕏 X
-                  </a>
-                )}
-                {data.identity?.discord && (
-                  <a href={data.identity.discord} target="_blank" rel="noopener noreferrer"
-                    className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-white bg-white/[0.04] border border-white/[0.10] hover:border-white/[0.18] rounded-full px-3 py-1 transition-colors backdrop-blur-[14px]">
-                    Discord
-                  </a>
-                )}
-                {(SUBNET_DASHBOARDS[data.netuid] ?? []).map((d, i) => (
-                  <a key={i} href={d.url} target="_blank" rel="noopener noreferrer"
-                    className="flex items-center gap-1.5 text-xs text-emerald-400 hover:text-emerald-300 border border-emerald-500/40 bg-emerald-500/10 hover:bg-emerald-500/20 rounded-full px-3 py-1 transition-colors">
-                    <AgIcon name="chart" /> {d.label}
-                  </a>
-                ))}
-              </div>
+              <div className="min-w-0">
+                <span className="inline-block font-mono text-[10.5px] uppercase tracking-[0.14em] bg-white/[0.05] border border-white/[0.08] rounded-full px-2.5 py-0.5 text-gray-400">SN{data.netuid}</span>
+                <h1 className="font-display text-2xl md:text-3xl font-semibold tracking-[-0.02em] text-white mt-1.5 truncate">{data.name}</h1>
               </div>
             </div>
 
@@ -1009,6 +944,65 @@ export default function SubnetDetailPage({ params }: { params: Promise<{ netuid:
                   </div>
                   <span>24h High: <span className="text-green-400">{fmtPrice(ms.high24hUsd)}</span></span>
                 </div>
+              )}
+            </div>
+
+            {/* ── Actions & links (moved below the chart for clean shareable headers) ── */}
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={() => toggleWatchlist(data.netuid)}
+                disabled={watchlistBusy}
+                className={`flex items-center gap-1.5 text-xs font-medium rounded-full px-3.5 py-1.5 border transition-colors disabled:opacity-50 ${
+                  isWatched(data.netuid)
+                    ? "bg-emerald-500/10 border-emerald-500/40 text-emerald-400 hover:bg-red-500/10 hover:border-red-500/40 hover:text-red-400"
+                    : "bg-white/[0.05] border-white/[0.12] text-gray-400 hover:bg-emerald-500/10 hover:border-emerald-500/40 hover:text-emerald-400"
+                }`}
+                title={isWatched(data.netuid) ? "Remove from watchlist" : "Add to watchlist"}
+              >
+                {watchlistBusy ? "…" : isWatched(data.netuid) ? "★ Watching" : "☆ Watchlist"}
+              </button>
+              <button
+                onClick={() => {
+                  const q = `Give me a full investment analysis of ${data.name} (SN${data.netuid}). Cover: aGap score (${agap}/100), dev score (${dev}/100), social score (${social}/100), flow score (${flow}/100), current price action, emission %, whale activity, and whether this belongs in a long-term portfolio right now.`;
+                  router.push(`/oracle?q=${encodeURIComponent(q)}`);
+                }}
+                className="flex items-center gap-1.5 text-xs font-medium rounded-full px-3.5 py-1.5 border bg-violet-500/10 border-violet-500/40 text-violet-400 hover:bg-violet-500/20 transition-colors"
+                title="Ask Oracle about this subnet"
+              >
+                <AgIcon name="oracle" /> Ask Oracle
+              </button>
+              {data.identity?.website && (
+                <a href={data.identity.website} target="_blank" rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-white bg-white/[0.04] border border-white/[0.10] hover:border-white/[0.18] rounded-full px-3.5 py-1.5 transition-colors backdrop-blur-[14px]">
+                  <AgIcon name="globe" /> Website
+                </a>
+              )}
+              {data.identity?.github_repo && (
+                <a href={data.identity.github_repo} target="_blank" rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-white bg-white/[0.04] border border-white/[0.10] hover:border-white/[0.18] rounded-full px-3.5 py-1.5 transition-colors backdrop-blur-[14px]">
+                  ⎇ GitHub
+                </a>
+              )}
+              {data.identity?.twitter && (
+                <a href={`https://x.com/${data.identity.twitter.replace("@", "")}`} target="_blank" rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-white bg-white/[0.04] border border-white/[0.10] hover:border-white/[0.18] rounded-full px-3.5 py-1.5 transition-colors backdrop-blur-[14px]">
+                  𝕏 X
+                </a>
+              )}
+              {data.identity?.discord && (
+                <a href={data.identity.discord} target="_blank" rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-white bg-white/[0.04] border border-white/[0.10] hover:border-white/[0.18] rounded-full px-3.5 py-1.5 transition-colors backdrop-blur-[14px]">
+                  Discord
+                </a>
+              )}
+              {(SUBNET_DASHBOARDS[data.netuid] ?? []).map((d, i) => (
+                <a key={i} href={d.url} target="_blank" rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 text-xs text-emerald-400 hover:text-emerald-300 border border-emerald-500/40 bg-emerald-500/10 hover:bg-emerald-500/20 rounded-full px-3.5 py-1.5 transition-colors">
+                  <AgIcon name="chart" /> {d.label}
+                </a>
+              ))}
+              {watchlistError && (
+                <span className="text-xs text-red-400">{watchlistError}</span>
               )}
             </div>
 
