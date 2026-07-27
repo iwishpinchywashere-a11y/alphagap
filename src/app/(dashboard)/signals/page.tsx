@@ -198,8 +198,23 @@ export default function SignalsPage() {
                     }`}
                     onClick={() => !isLocked && router.push(`/subnets/${sig.netuid}`)}
                   >
+                    {/* Score — top-right corner (higher = better update) */}
+                    <div
+                      className={`absolute top-4 right-4 z-10 flex flex-col items-center px-2.5 py-1.5 rounded-lg border font-mono tabular-nums ${
+                        sig.strength >= 80
+                          ? "text-emerald-400 border-emerald-500/40 bg-emerald-500/10"
+                          : sig.strength >= 60
+                          ? "text-yellow-300 border-yellow-500/40 bg-yellow-500/10"
+                          : "text-gray-400 border-white/[0.14] bg-white/[0.04]"
+                      }`}
+                      title="Signal strength — how significant this update is (0–100)"
+                    >
+                      <span className="text-lg font-bold leading-none">{sig.strength}</span>
+                      <span className="text-[8.5px] tracking-[0.14em] mt-0.5 opacity-70">SCORE</span>
+                    </div>
+
                     {/* Header row: badge + time */}
-                    <div className="flex items-center gap-2.5 mb-3">
+                    <div className="flex items-center gap-2.5 mb-3 pr-14">
                       <span className={`ag-badge ${badgeVariant(sig.signal_type)}`}>
                         {sig.signal_type.replace(/_/g, " ")}
                       </span>
