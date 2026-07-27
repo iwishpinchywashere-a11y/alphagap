@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import BlurGate from "@/components/BlurGate";
 import AgIcon from "@/components/AgIcon";
-import { getTier } from "@/lib/subscription";
+import { getTier, canAccessPremium } from "@/lib/subscription";
 import { useWatchlist } from "@/components/dashboard/WatchlistProvider";
 import SubnetLogo from "@/components/dashboard/SubnetLogo";
 
@@ -498,7 +498,9 @@ export default function SocialPage() {
           />
 
           {/* Sneak peek for non-premium */}
-          {discordLeaderboard.length > 0 && tier !== "premium" && (() => { const d = discordLeaderboard[0]; return (
+          {/* !canAccessPremium (NOT tier !== "premium") — the string check
+              showed the sneak-peek to ULTRA users too, duplicating card #1 */}
+          {discordLeaderboard.length > 0 && !canAccessPremium(tier) && (() => { const d = discordLeaderboard[0]; return (
             <div className="divide-y divide-white/[0.06] border-b border-white/[0.06]">
               <DiscordRow d={d} index={0} isWatched={isWatched(d.netuid)} onSubnetClick={() => router.push(`/subnets/${d.netuid}`)} />
             </div>
@@ -582,7 +584,7 @@ export default function SocialPage() {
           </div>
 
           {/* Sneak peek */}
-          {hotTweets.length > 0 && tier !== "premium" && (() => { const t = hotTweets[0]; return (
+          {hotTweets.length > 0 && !canAccessPremium(tier) && (() => { const t = hotTweets[0]; return (
             <div className="mb-4">
               <TweetTable tweets={[t]} expandedTweet={expandedTweet} onExpand={setExpandedTweet} onSubnetClick={(n) => router.push(`/subnets/${n}`)} isWatched={() => false} showHeader />
             </div>
