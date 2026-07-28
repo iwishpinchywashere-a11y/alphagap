@@ -3,18 +3,14 @@ import { get } from "@vercel/blob";
 
 export const dynamic = "force-dynamic";
 
-// ── Hard score overrides ──────────────────────────────────────────
-// These subnets had large token dumps (Apr 9 2026).
-// Scores are locked here at the API layer until manually removed.
-// This runs on EVERY response so no scan can override them.
-const SCORE_OVERRIDES = new Map<number, number>([
-  [3,  40], // Templar
-  [39, 34], // Basilica
-  [81, 29], // Grail
-]);
+// NOTE: the hard SCORE_OVERRIDES for SN3/39/81 (Apr 9 2026 dump episode)
+// were removed on 2026-07-28 at the owner's request — all subnets now score
+// naturally from live scan data. applyScoreOverrides is kept as a no-op
+// passthrough so a future manual lock can be reinstated in one place.
+const SCORE_OVERRIDES = new Map<number, number>([]);
 
 function applyScoreOverrides(data: Record<string, unknown>) {
-  if (!Array.isArray(data.leaderboard)) return data;
+  if (SCORE_OVERRIDES.size === 0 || !Array.isArray(data.leaderboard)) return data;
   for (const entry of data.leaderboard as Array<Record<string, unknown>>) {
     const override = SCORE_OVERRIDES.get(entry.netuid as number);
     if (override !== undefined) entry.composite_score = override;
