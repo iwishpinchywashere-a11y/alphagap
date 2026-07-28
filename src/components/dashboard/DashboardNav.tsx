@@ -13,6 +13,7 @@ export default function DashboardNav() {
 
   const tabs = [
     { href: "/dashboard", label: "Alpha Leaderboard" },
+    { href: "/feed", label: "The Feed" },
     { href: "/powerrankings", label: "Power Rankings" },
     { href: "/alphagapindex", label: "AlphaGap Index" },
     { href: "/oracle", label: "Oracle" },
