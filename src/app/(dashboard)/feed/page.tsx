@@ -3,10 +3,9 @@
 /**
  * /feed — The Feed. One page for everything that matters.
  *
- * Merges the MOST significant events from every AlphaGap surface — dev
- * signals, capital flow, social, audit, benchmarks, whale tracker,
- * conviction — into a single chronological timeline. Default thresholds are
- * deliberately strict (flow especially: only very large transactions);
+ * A focused timeline of the three signal families that matter most —
+ * DEV, SOCIAL and FLOW — merged into one chronological stream. Thresholds
+ * are deliberately strict (flow especially: only very large transactions);
  * users can customize sources + sensitivity at the top, persisted per
  * browser.
  */
@@ -19,11 +18,10 @@ import SubnetLogo from "@/components/dashboard/SubnetLogo";
 import AgIcon, { type AgIconName } from "@/components/AgIcon";
 import BlurGate from "@/components/BlurGate";
 import { getTier, canAccessPremium } from "@/lib/subscription";
-import { BENCHMARK_DATA } from "@/lib/benchmarks";
 
 /* ── Types ────────────────────────────────────────────────────────── */
 
-type SourceKey = "dev" | "flow" | "social" | "audit" | "benchmark" | "whales" | "conviction" | "moves";
+type SourceKey = "dev" | "flow" | "social";
 type Sensitivity = "strict" | "high" | "all";
 
 interface FeedItem {
@@ -53,52 +51,51 @@ interface DiscordEntry {
   netuid: number; name?: string; alphaScore?: number; summary?: string;
   lastActivityAt?: string; scannedAt?: string; releaseHint?: boolean; founderPost?: boolean;
 }
-interface WhaleEntry { netuid: number; subnetName?: string; signal?: string; entryAt?: string; status?: string; }
 /** Minimal leaderboard shape used by the market rail cards. */
 interface SubnetScoreLite {
   netuid: number; name: string; composite_score: number;
   price_change_24h?: number; sparkline_prices?: number[];
+  emission_change_pct?: number; apy_7d?: number;
 }
-interface ConvictionRow { netuid: number; name?: string; priceUsd?: number; totalConvictionAlpha?: number; }
-interface AuditRow { netuid: number; name?: string; grade?: string; operationalScore?: number; flags?: { type: string; severity: string; message: string }[]; updatedAt?: string; }
+
+/** Top 5 by an arbitrary numeric field, ignoring missing values. */
+function topBy(
+  rows: SubnetScoreLite[],
+  pick: (r: SubnetScoreLite) => number | undefined,
+  dir: "asc" | "desc",
+): { netuid: number; name: string; value: number }[] {
+  return rows
+    .map(r => ({ netuid: r.netuid, name: r.name, value: pick(r) }))
+    .filter((r): r is { netuid: number; name: string; value: number } => r.value != null && Number.isFinite(r.value) && r.value !== 0)
+    .sort((a, b) => (dir === "desc" ? b.value - a.value : a.value - b.value))
+    .slice(0, 5);
+}
 
 /* ── Thresholds per sensitivity ───────────────────────────────────── */
 // STRICT is the default: only the biggest events survive. Flow is
 // intentionally extreme — only very large net transactions appear.
 const THRESHOLDS: Record<Sensitivity, {
   dev: number; flowUsd: number; heat: number; discord: number;
-  scoreMove: number; priceMove: number; benchDays: number; auditSev: "critical" | "warning";
 }> = {
-  strict: { dev: 85, flowUsd: 500_000, heat: 85, discord: 85, scoreMove: 12, priceMove: 25, benchDays: 10, auditSev: "critical" },
-  high:   { dev: 70, flowUsd: 150_000, heat: 70, discord: 72, scoreMove: 8,  priceMove: 15, benchDays: 21, auditSev: "critical" },
-  all:    { dev: 55, flowUsd: 50_000,  heat: 55, discord: 60, scoreMove: 5,  priceMove: 10, benchDays: 45, auditSev: "warning" },
+  strict: { dev: 90, flowUsd: 500_000, heat: 88, discord: 88 },
+  high:   { dev: 80, flowUsd: 150_000, heat: 78, discord: 78 },
+  all:    { dev: 65, flowUsd: 50_000,  heat: 62, discord: 65 },
 };
 
 const SOURCES: { key: SourceKey; label: string; icon: AgIconName }[] = [
-  { key: "dev",        label: "Dev",        icon: "bolt" },
-  { key: "flow",       label: "Flow",       icon: "wave" },
-  { key: "social",     label: "Social",     icon: "flame" },
-  { key: "audit",      label: "Audit",      icon: "shield" },
-  { key: "benchmark",  label: "Benchmarks", icon: "crown" },
-  { key: "whales",     label: "Whales",     icon: "whale" },
-  { key: "conviction", label: "Conviction", icon: "lock" },
-  { key: "moves",      label: "Big Moves",  icon: "trendUp" },
+  { key: "dev",    label: "Dev",    icon: "bolt" },
+  { key: "flow",   label: "Flow",   icon: "wave" },
+  { key: "social", label: "Social", icon: "flame" },
 ];
 
 const SOURCE_TONE: Record<SourceKey, { text: string; ring: string; bg: string }> = {
-  dev:        { text: "text-emerald-300", ring: "border-emerald-400/35", bg: "bg-emerald-500/10" },
-  flow:       { text: "text-teal-300",    ring: "border-teal-400/35",    bg: "bg-teal-500/10" },
-  social:     { text: "text-amber-300",   ring: "border-amber-400/35",   bg: "bg-amber-500/10" },
-  audit:      { text: "text-red-300",     ring: "border-red-400/35",     bg: "bg-red-500/10" },
-  benchmark:  { text: "text-sky-300",     ring: "border-sky-400/35",     bg: "bg-sky-500/10" },
-  whales:     { text: "text-violet-300",  ring: "border-violet-400/35",  bg: "bg-violet-500/10" },
-  conviction: { text: "text-fuchsia-300", ring: "border-fuchsia-400/35", bg: "bg-fuchsia-500/10" },
-  moves:      { text: "text-emerald-300", ring: "border-emerald-400/35", bg: "bg-emerald-500/10" },
+  dev:    { text: "text-emerald-300", ring: "border-emerald-400/35", bg: "bg-emerald-500/10" },
+  flow:   { text: "text-teal-300",    ring: "border-teal-400/35",    bg: "bg-teal-500/10" },
+  social: { text: "text-amber-300",   ring: "border-amber-400/35",   bg: "bg-amber-500/10" },
 };
 
 const SOURCE_ICON: Record<SourceKey, AgIconName> = {
-  dev: "bolt", flow: "wave", social: "flame", audit: "shield",
-  benchmark: "crown", whales: "whale", conviction: "lock", moves: "trendUp",
+  dev: "bolt", flow: "wave", social: "flame",
 };
 
 /* ── Helpers ──────────────────────────────────────────────────────── */
@@ -171,18 +168,12 @@ export default function FeedPage() {
   const [flowEvents, setFlowEvents] = useState<FlowEvent[]>([]);
   const [hotTweets, setHotTweets] = useState<HotTweet[]>([]);
   const [discord, setDiscord] = useState<DiscordEntry[]>([]);
-  const [whales, setWhales] = useState<WhaleEntry[]>([]);
-  const [conviction, setConviction] = useState<ConvictionRow[]>([]);
-  const [audits, setAudits] = useState<AuditRow[]>([]);
   useEffect(() => {
     fetch("/api/flow-events").then(r => r.ok ? r.json() : []).then(d => setFlowEvents(Array.isArray(d) ? d : d?.events ?? [])).catch(() => {});
     fetch("/api/social").then(r => r.ok ? r.json() : null).then(d => {
       if (d?.hotTweets) setHotTweets(d.hotTweets);
       if (d?.discordLeaderboard) setDiscord(d.discordLeaderboard);
     }).catch(() => {});
-    fetch("/api/whale-tracker").then(r => r.ok ? r.json() : null).then(d => { if (d?.entries) setWhales(d.entries); }).catch(() => {});
-    fetch("/api/conviction").then(r => r.ok ? r.json() : null).then(d => { if (d?.rows) setConviction(d.rows); }).catch(() => {});
-    fetch("/api/audits").then(r => r.ok ? r.json() : null).then(d => { if (d?.subnets) setAudits(d.subnets); }).catch(() => {});
   }, []);
 
   const [visibleLimit, setVisibleLimit] = useState(30);
@@ -263,123 +254,9 @@ export default function FeedPage() {
       }
     }
 
-    // AUDIT — flagged operational problems (critical by default)
-    if (sources.has("audit")) {
-      for (const a of audits) {
-        const flags = (a.flags ?? []).filter(f =>
-          t.auditSev === "critical" ? f.severity === "critical" : f.severity === "critical" || f.severity === "warning"
-        );
-        if (flags.length === 0) continue;
-        const worst = flags.find(f => f.severity === "critical") ?? flags[0];
-        out.push({
-          id: `aud-${a.netuid}-${worst.type}`,
-          source: "audit", kind: worst.severity === "critical" ? "CRITICAL AUDIT" : "AUDIT WARNING",
-          netuid: a.netuid, name: a.name || nameOf(a.netuid),
-          ts: new Date(a.updatedAt || scanTs).getTime(),
-          title: stripEmoji(worst.message),
-          metric: a.grade || "—", metricTone: "down",
-          weight: worst.severity === "critical" ? 90 : 70,
-        });
-      }
-    }
-
-    // BENCHMARK — recently verified product benchmarks
-    if (sources.has("benchmark")) {
-      const cutoff = Date.now() - t.benchDays * 86_400_000;
-      for (const b of BENCHMARK_DATA) {
-        const ts = new Date(b.last_updated).getTime();
-        if (!ts || ts < cutoff) continue;
-        out.push({
-          id: `bench-${b.subnet_id}-${b.last_updated}`,
-          source: "benchmark", kind: "BENCHMARK VERIFIED",
-          netuid: b.subnet_id, name: b.subnet_name, ts,
-          title: stripEmoji(b.perf_delta || `${b.benchmark_category} benchmark updated`),
-          metric: `${b.benchmark_score}`, metricTone: b.benchmark_score >= 80 ? "up" : "flat",
-          weight: b.benchmark_score,
-        });
-      }
-    }
-
-    // WHALES — fresh tracker entries (accumulating/distributing)
-    if (sources.has("whales")) {
-      const cutoff = Date.now() - 72 * 3_600_000;
-      for (const w of whales) {
-        const ts = new Date(w.entryAt || 0).getTime();
-        if (w.status !== "active" || !ts || ts < cutoff) continue;
-        const acc = w.signal === "accumulating";
-        out.push({
-          id: `wh-${w.netuid}-${w.entryAt}`,
-          source: "whales", kind: acc ? "WHALE ACCUMULATION" : "WHALE DISTRIBUTION",
-          netuid: w.netuid, name: w.subnetName || nameOf(w.netuid), ts,
-          title: acc
-            ? "Smart-money wallets are net accumulating this subnet"
-            : "Smart-money wallets are net distributing this subnet",
-          metric: acc ? "ACC" : "DIST", metricTone: acc ? "up" : "down",
-          weight: 75,
-        });
-      }
-    }
-
-    // CONVICTION — largest active conviction lockups (top 3, USD-gated)
-    if (sources.has("conviction") && conviction.length) {
-      const rows = conviction
-        .map(c => ({ ...c, usd: (c.totalConvictionAlpha ?? 0) * (c.priceUsd ?? 0) }))
-        .filter(c => c.usd >= 1_000_000)
-        .sort((a, b) => b.usd - a.usd)
-        .slice(0, 3);
-      for (const c of rows) {
-        out.push({
-          id: `conv-${c.netuid}`,
-          source: "conviction", kind: "CONVICTION LOCK",
-          netuid: c.netuid, name: c.name || nameOf(c.netuid), ts: scanTs,
-          title: `${fmtUsd(c.usd).replace("+", "")} of alpha voluntarily locked — holders committing long-term`,
-          metric: fmtUsd(c.usd).replace("+", ""), metricTone: "up",
-          weight: Math.min(95, 60 + c.usd / 1_000_000),
-        });
-      }
-    }
-
-    // BIG MOVES — synthesized from the leaderboard (score + price swings).
-    // Collected separately and capped: every one of these carries the same
-    // scan timestamp, so uncapped they'd flood the top of today's feed and
-    // bury the rarer, genuinely bigger events (whales, flow, dev).
-    const moveItems: FeedItem[] = [];
-    if (sources.has("moves")) {
-      for (const l of leaderboard) {
-        const dScore = (l as { score_delta_24h?: number }).score_delta_24h ?? 0;
-        if (Math.abs(dScore) >= t.scoreMove) {
-          moveItems.push({
-            id: `mv-s-${l.netuid}`,
-            source: "moves", kind: dScore > 0 ? "SCORE SURGE" : "SCORE DROP",
-            netuid: l.netuid, name: l.name, ts: scanTs,
-            title: `aGap score ${dScore > 0 ? "jumped" : "fell"} ${Math.abs(Math.round(dScore))} points in 24h — now ${Math.round(l.composite_score)}`,
-            metric: `${dScore > 0 ? "+" : ""}${Math.round(dScore)}`, metricTone: dScore > 0 ? "up" : "down",
-            weight: 50 + Math.min(40, Math.abs(dScore) * 2),
-          });
-        }
-        const dPrice = l.price_change_24h ?? 0;
-        if (Math.abs(dPrice) >= t.priceMove) {
-          moveItems.push({
-            id: `mv-p-${l.netuid}`,
-            source: "moves", kind: dPrice > 0 ? "PRICE SURGE" : "PRICE DUMP",
-            netuid: l.netuid, name: l.name, ts: scanTs,
-            title: `Price ${dPrice > 0 ? "up" : "down"} ${Math.abs(dPrice).toFixed(0)}% in 24 hours`,
-            metric: `${dPrice > 0 ? "+" : ""}${dPrice.toFixed(0)}%`, metricTone: dPrice > 0 ? "up" : "down",
-            weight: 50 + Math.min(40, Math.abs(dPrice)),
-          });
-        }
-      }
-    }
-
-    // Keep only the biggest moves so they punctuate the feed instead of
-    // flooding it (8 at strict, more as sensitivity loosens).
-    const moveCap = sensitivity === "strict" ? 8 : sensitivity === "high" ? 14 : 24;
-    moveItems.sort((a, b) => b.weight - a.weight);
-    out.push(...moveItems.slice(0, moveCap));
 
     // Dedupe by id, then sort by DAY (newest first) and by significance
-    // WITHIN each day. Pure timestamp sorting buried real events under the
-    // synthesized leaderboard "moves", which all share the scan timestamp.
+    // WITHIN each day, so the biggest events of a day lead it.
     const seen = new Map<string, FeedItem>();
     for (const it of out) {
       const prev = seen.get(it.id);
@@ -392,7 +269,7 @@ export default function FeedPage() {
       if (db !== da) return db - da;
       return (b.weight - a.weight) || (b.ts - a.ts);
     });
-  }, [sources, sensitivity, signals, leaderboard, taoPrice, lastScanAt, flowEvents, hotTweets, discord, whales, conviction, audits]);
+  }, [sources, sensitivity, signals, leaderboard, taoPrice, lastScanAt, flowEvents, hotTweets, discord]);
 
   /* ── Grouping by day ── */
   const visible = isPremium ? items.slice(0, visibleLimit) : items.slice(0, 3);
@@ -506,6 +383,30 @@ export default function FeedPage() {
         <div className="sticky top-6 space-y-4">
           <TaoCard taoPrice={taoPrice} leaderboard={leaderboard} />
           <MoversCard leaderboard={leaderboard} onOpen={(n) => router.push(`/subnets/${n}`)} />
+          <RankBoard
+            title="Top price gainers · 24h"
+            rows={topBy(leaderboard, l => l.price_change_24h, "desc")}
+            format={v => `${v >= 0 ? "+" : ""}${v.toFixed(1)}%`}
+            tone="up" onOpen={(n) => router.push(`/subnets/${n}`)}
+          />
+          <RankBoard
+            title="Top price losers · 24h"
+            rows={topBy(leaderboard, l => l.price_change_24h, "asc")}
+            format={v => `${v.toFixed(1)}%`}
+            tone="down" onOpen={(n) => router.push(`/subnets/${n}`)}
+          />
+          <RankBoard
+            title="Top emission gainers"
+            rows={topBy(leaderboard, l => l.emission_change_pct, "desc")}
+            format={v => `${v >= 0 ? "+" : ""}${v.toFixed(1)}%`}
+            tone="up" onOpen={(n) => router.push(`/subnets/${n}`)}
+          />
+          <RankBoard
+            title="Top APY · 7d"
+            rows={topBy(leaderboard, l => (l.apy_7d != null ? l.apy_7d * 100 : undefined), "desc")}
+            format={v => `${v.toFixed(0)}%`}
+            tone="up" onOpen={(n) => router.push(`/subnets/${n}`)}
+          />
           <TopScoresCard leaderboard={leaderboard} onOpen={(n) => router.push(`/subnets/${n}`)} />
         </div>
       </aside>
@@ -599,6 +500,35 @@ function MoversCard({ leaderboard, onOpen }: { leaderboard: SubnetScoreLite[]; o
             </button>
           );
         })}
+      </div>
+    </div>
+  );
+}
+
+/** Compact ranked list used for the gainers/losers/emission/APY boards. */
+function RankBoard({
+  title, rows, format, tone, onOpen,
+}: {
+  title: string;
+  rows: { netuid: number; name: string; value: number }[];
+  format: (v: number) => string;
+  tone: "up" | "down";
+  onOpen: (n: number) => void;
+}) {
+  if (!rows.length) return null;
+  const valueColor = tone === "up" ? "text-emerald-400" : "text-red-400";
+  return (
+    <div className="ag-glass p-5">
+      <div className="font-mono text-[9.5px] uppercase tracking-[0.2em] text-[#5d665f] mb-3.5">{title}</div>
+      <div className="space-y-2.5">
+        {rows.map((r, i) => (
+          <button key={r.netuid} onClick={() => onOpen(r.netuid)} className="w-full flex items-center gap-2.5 group">
+            <span className="font-display text-[12px] font-bold text-[#5d665f] w-3.5 flex-shrink-0">{i + 1}</span>
+            <SubnetLogo netuid={r.netuid} name={r.name} size={20} />
+            <span className="font-semibold text-[13.5px] truncate flex-1 text-left group-hover:text-emerald-400 transition-colors">{r.name}</span>
+            <span className={`font-mono text-[12px] font-semibold tabular-nums flex-shrink-0 ${valueColor}`}>{format(r.value)}</span>
+          </button>
+        ))}
       </div>
     </div>
   );
