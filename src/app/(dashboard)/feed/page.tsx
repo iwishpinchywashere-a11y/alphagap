@@ -176,8 +176,22 @@ export default function FeedPage() {
     }).catch(() => {});
   }, []);
 
-  const [visibleLimit, setVisibleLimit] = useState(30);
-  useEffect(() => { setVisibleLimit(30); }, [sources, sensitivity]);
+  // Infinite scroll — 30 to start, another page each time the sentinel near
+  // the bottom of the list scrolls into view (X-style, no button press).
+  const PAGE = 30;
+  const [visibleLimit, setVisibleLimit] = useState(PAGE);
+  useEffect(() => { setVisibleLimit(PAGE); }, [sources, sensitivity]);
+
+  const [sentinelEl, setSentinelEl] = useState<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!sentinelEl || typeof IntersectionObserver === "undefined") return;
+    const io = new IntersectionObserver(
+      entries => { if (entries.some(e => e.isIntersecting)) setVisibleLimit(v => v + PAGE); },
+      { rootMargin: "600px 0px" }, // begin loading before it reaches the viewport
+    );
+    io.observe(sentinelEl);
+    return () => io.disconnect();
+  }, [sentinelEl, visibleLimit]);
 
   /* ── Build the merged feed ── */
   const items = useMemo<FeedItem[]>(() => {
@@ -368,11 +382,27 @@ export default function FeedPage() {
               </div>
             )}
 
+            {/* Infinite-scroll sentinel + spinner. The button is a
+                keyboard/no-IntersectionObserver fallback, not the main path. */}
             {isPremium && items.length > visibleLimit && (
-              <button onClick={() => setVisibleLimit(v => v + 30)}
-                className="ag-glass ag-glass-hover w-full mt-5 py-3.5 text-sm text-emerald-400 font-semibold">
-                Load more · {items.length - visibleLimit} earlier events
-              </button>
+              <div ref={setSentinelEl} className="mt-6 flex flex-col items-center gap-3">
+                <div className="flex items-center gap-2 text-[#5d665f]">
+                  <span className="w-4 h-4 rounded-full border-2 border-emerald-400/30 border-t-emerald-400 animate-spin" />
+                  <span className="font-mono text-[10.5px] uppercase tracking-[0.16em]">
+                    Loading {Math.min(PAGE, items.length - visibleLimit)} more
+                  </span>
+                </div>
+                <button onClick={() => setVisibleLimit(v => v + PAGE)}
+                  className="sr-only focus:not-sr-only focus:ag-glass focus:px-4 focus:py-2 text-sm text-emerald-400">
+                  Load more events
+                </button>
+              </div>
+            )}
+
+            {isPremium && items.length > 0 && items.length <= visibleLimit && (
+              <div className="mt-8 text-center font-mono text-[10px] uppercase tracking-[0.18em] text-[#5d665f]">
+                You&apos;re all caught up
+              </div>
             )}
           </div>
         )}
