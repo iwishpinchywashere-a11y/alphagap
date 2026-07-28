@@ -626,6 +626,27 @@ export async function GET() {
   // Build TMC emission map (accurate emission % from TaoMarketCap)
   const tmcMap = new Map<number, TMCSubnet>(tmcSubnets.map(s => [s.subnet, s]));
 
+  // ── Stale on-chain identity overrides ─────────────────────────────
+  // Some LIVE subnets never updated their on-chain identity: SN3/39/81 are
+  // Covenant AI's Templar / Basilica / Grail, but their chain identity still
+  // reads "deprecated" — which the deprecated-name filter below would drop
+  // from the leaderboard entirely. Patch them here so every downstream
+  // consumer (name filter, GitHub scan, signals, alerts) sees the real
+  // project. Applied ONLY while the chain name is still a placeholder — if
+  // the team sets a real identity on-chain, the chain wins.
+  const STALE_IDENTITY_OVERRIDES: Record<number, Partial<SubnetIdentity>> = {
+    3:  { subnet_name: "Templar",  github_repo: "https://github.com/one-covenant/templar",  subnet_url: "https://www.tplr.ai" },
+    39: { subnet_name: "Basilica", github_repo: "https://github.com/one-covenant/basilica", subnet_url: "https://www.covenant.ai" },
+    81: { subnet_name: "Grail",    github_repo: "https://github.com/one-covenant/grail",    subnet_url: "https://www.covenant.ai" },
+  };
+  identities = identities.map(id => {
+    const o = STALE_IDENTITY_OVERRIDES[id.netuid];
+    const chainName = (id.subnet_name || "").trim().toLowerCase();
+    return o && (chainName === "" || chainName === "deprecated" || chainName === "unknown")
+      ? { ...id, ...o }
+      : id;
+  });
+
   // ── Step 2: Build lookup maps ───────────────────────────────────
   const identityMap = new Map<number, SubnetIdentity>(identities.map((i) => [i.netuid, i]));
   const poolMap = new Map<number, SubnetPool>(pools.map((p) => [p.netuid, p]));
