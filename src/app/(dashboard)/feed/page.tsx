@@ -23,6 +23,7 @@ import { getTier, canAccessPremium } from "@/lib/subscription";
 
 type SourceKey = "dev" | "social" | "flow" | "agap" | "emissions" | "price";
 type Sensitivity = "strict" | "high" | "all";
+type SortBy = "newest" | "strength";
 
 interface FeedItem {
   id: string;
@@ -88,7 +89,12 @@ const THRESHOLDS: Record<Sensitivity, {
 
 // Per-category caps so the synthesized market items punctuate the feed
 // instead of burying the dev/social substance.
-const MOVE_CAP: Record<Sensitivity, number> = { strict: 6, high: 10, all: 16 };
+//
+// WEIGHT SCALE (used by the "Strongest" sort): dev + social items carry
+// their RAW score (typically 30-95), so market-derived moves are mapped
+// into a 35-75 band deliberately — a genuinely strong dev/social signal
+// should outrank a routine price or score swing.
+const MOVE_CAP: Record<Sensitivity, number> = { strict: 5, high: 8, all: 10 };
 
 const SOURCES: { key: SourceKey; label: string; icon: AgIconName }[] = [
   { key: "dev",       label: "Dev",       icon: "bolt" },
@@ -156,6 +162,7 @@ export default function FeedPage() {
   // ── Filters (persisted) ──
   const [sources, setSources] = useState<Set<SourceKey>>(new Set(SOURCES.map(s => s.key)));
   const [sensitivity, setSensitivity] = useState<Sensitivity>("strict");
+  const [sortBy, setSortBy] = useState<SortBy>("newest");
   const [filtersLoaded, setFiltersLoaded] = useState(false);
   useEffect(() => {
     try {
@@ -164,14 +171,15 @@ export default function FeedPage() {
         const p = JSON.parse(raw);
         if (Array.isArray(p.sources) && p.sources.length) setSources(new Set(p.sources));
         if (p.sensitivity === "strict" || p.sensitivity === "high" || p.sensitivity === "all") setSensitivity(p.sensitivity);
+        if (p.sortBy === "newest" || p.sortBy === "strength") setSortBy(p.sortBy);
       }
     } catch { /* defaults */ }
     setFiltersLoaded(true);
   }, []);
   useEffect(() => {
     if (!filtersLoaded) return;
-    try { localStorage.setItem(FILTER_LS_KEY, JSON.stringify({ sources: [...sources], sensitivity })); } catch { /* ignore */ }
-  }, [sources, sensitivity, filtersLoaded]);
+    try { localStorage.setItem(FILTER_LS_KEY, JSON.stringify({ sources: [...sources], sensitivity, sortBy })); } catch { /* ignore */ }
+  }, [sources, sensitivity, sortBy, filtersLoaded]);
 
   const toggleSource = (k: SourceKey) => setSources(prev => {
     const next = new Set(prev);
@@ -195,7 +203,7 @@ export default function FeedPage() {
   // the bottom of the list scrolls into view (X-style, no button press).
   const PAGE = 30;
   const [visibleLimit, setVisibleLimit] = useState(PAGE);
-  useEffect(() => { setVisibleLimit(PAGE); }, [sources, sensitivity]);
+  useEffect(() => { setVisibleLimit(PAGE); }, [sources, sensitivity, sortBy]);
 
   const [sentinelEl, setSentinelEl] = useState<HTMLDivElement | null>(null);
   useEffect(() => {
@@ -246,7 +254,7 @@ export default function FeedPage() {
           title: stripEmoji(ev.headline || "Very large net flow"),
           body: ev.detail ? stripEmoji(ev.detail) : undefined,
           metric: fmtUsd(usd), metricTone: usd >= 0 ? "up" : "down",
-          weight: Math.min(100, 60 + Math.abs(usd) / 50_000),
+          weight: Math.min(88, 55 + Math.abs(usd) / 60_000),
         });
       }
     }
@@ -297,7 +305,7 @@ export default function FeedPage() {
           netuid: l.netuid, name: l.name, ts: scanTs,
           title: `aGap score ${d > 0 ? "jumped" : "fell"} ${Math.abs(Math.round(d))} points in 24h — now ${Math.round(l.composite_score)}/100`,
           metric: `${d > 0 ? "+" : ""}${Math.round(d)}`, metricTone: d > 0 ? "up" : "down",
-          weight: 50 + Math.min(45, Math.abs(d) * 1.6),
+          weight: 35 + Math.min(40, Math.abs(d) * 1.4),
         });
       }
       out.push(...capped(moves));
@@ -315,7 +323,7 @@ export default function FeedPage() {
           netuid: l.netuid, name: l.name, ts: scanTs,
           title: `Emission share ${d > 0 ? "up" : "down"} ${Math.abs(d).toFixed(0)}% — validators are ${d > 0 ? "rewarding" : "pulling back from"} this subnet`,
           metric: `${d > 0 ? "+" : ""}${d.toFixed(0)}%`, metricTone: d > 0 ? "up" : "down",
-          weight: 50 + Math.min(45, Math.abs(d) / 2.5),
+          weight: 35 + Math.min(40, Math.abs(d) / 3),
         });
       }
       out.push(...capped(moves));
@@ -333,32 +341,34 @@ export default function FeedPage() {
           netuid: l.netuid, name: l.name, ts: scanTs,
           title: `Price ${d > 0 ? "up" : "down"} ${Math.abs(d).toFixed(1)}% in 24 hours`,
           metric: `${d > 0 ? "+" : ""}${d.toFixed(1)}%`, metricTone: d > 0 ? "up" : "down",
-          weight: 50 + Math.min(45, Math.abs(d) * 1.8),
+          weight: 35 + Math.min(40, Math.abs(d) * 1.6),
         });
       }
       out.push(...capped(moves));
     }
 
-    // Dedupe by id, then sort by DAY (newest first) and by significance
-    // WITHIN each day, so the biggest events of a day lead it.
+    // Dedupe by id, then order by the user's choice: strictly newest-first
+    // (default) or by raw signal strength.
     const seen = new Map<string, FeedItem>();
     for (const it of out) {
       const prev = seen.get(it.id);
       if (!prev || it.weight > prev.weight) seen.set(it.id, it);
     }
-    const dayOf = (ts: number) => new Date(ts).toDateString();
-    return [...seen.values()].sort((a, b) => {
-      const da = new Date(dayOf(a.ts)).getTime();
-      const db = new Date(dayOf(b.ts)).getTime();
-      if (db !== da) return db - da;
-      return (b.weight - a.weight) || (b.ts - a.ts);
-    });
-  }, [sources, sensitivity, signals, leaderboard, taoPrice, lastScanAt, flowEvents, hotTweets, discord]);
+    const arr = [...seen.values()];
+    return sortBy === "strength"
+      ? arr.sort((a, b) => (b.weight - a.weight) || (b.ts - a.ts))
+      : arr.sort((a, b) => (b.ts - a.ts) || (b.weight - a.weight));
+  }, [sources, sensitivity, sortBy, signals, leaderboard, taoPrice, lastScanAt, flowEvents, hotTweets, discord]);
 
   /* ── Grouping by day ── */
   const visible = isPremium ? items.slice(0, visibleLimit) : items.slice(0, 3);
   const gatedPreview = isPremium ? [] : items.slice(3, 9);
   const groups = useMemo(() => {
+    // Day headers only make sense chronologically — when sorting by strength
+    // the stream jumps across days, so render it as one continuous list.
+    if (sortBy === "strength") {
+      return visible.length ? [{ label: "Strongest first", items: visible }] : [];
+    }
     const g: { label: string; items: FeedItem[] }[] = [];
     for (const it of visible) {
       const label = dayLabel(it.ts);
@@ -367,7 +377,7 @@ export default function FeedPage() {
       else g.push({ label, items: [it] });
     }
     return g;
-  }, [visible]);
+  }, [visible, sortBy]);
 
   /* ── Render ── */
   return (
@@ -385,20 +395,33 @@ export default function FeedPage() {
         </p>
         <div className="flex items-center gap-2 font-mono text-[10.5px] uppercase tracking-[0.1em] text-[#5d665f] mt-3 mb-6">
           <span className="ag-live-dot" />
-          {items.length} significant events · {sensitivity === "strict" ? "strict" : sensitivity === "high" ? "high" : "everything"} sensitivity
+          {items.length} significant events · {sortBy === "newest" ? "newest first" : "strongest first"} · {sensitivity === "strict" ? "strict" : sensitivity === "high" ? "high" : "everything"}
         </div>
 
         {/* ── Filter bar ── */}
         <div className="ag-glass p-3.5 sm:p-4 mb-8 space-y-3">
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <span className="font-mono text-[9.5px] uppercase tracking-[0.2em] text-[#5d665f]">Your feed</span>
-            <div className="ag-pill-tabs !p-1">
-              {(["strict", "high", "all"] as Sensitivity[]).map(s => (
-                <button key={s} onClick={() => setSensitivity(s)}
-                  className={`ag-pill-tab !px-3.5 !py-1 !text-[11px] capitalize ${sensitivity === s ? "ag-pill-tab-on" : ""}`}>
-                  {s === "all" ? "Everything" : s}
-                </button>
-              ))}
+            <div className="flex items-center gap-2 flex-wrap">
+              <div className="ag-pill-tabs !p-1">
+                {([
+                  { k: "newest" as SortBy, label: "Newest" },
+                  { k: "strength" as SortBy, label: "Strongest" },
+                ]).map(o => (
+                  <button key={o.k} onClick={() => setSortBy(o.k)}
+                    className={`ag-pill-tab !px-3.5 !py-1 !text-[11px] ${sortBy === o.k ? "ag-pill-tab-on" : ""}`}>
+                    {o.label}
+                  </button>
+                ))}
+              </div>
+              <div className="ag-pill-tabs !p-1">
+                {(["strict", "high", "all"] as Sensitivity[]).map(s => (
+                  <button key={s} onClick={() => setSensitivity(s)}
+                    className={`ag-pill-tab !px-3.5 !py-1 !text-[11px] capitalize ${sensitivity === s ? "ag-pill-tab-on" : ""}`}>
+                    {s === "all" ? "Everything" : s}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
           <div className="flex gap-1.5 overflow-x-auto pb-1 -mb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
