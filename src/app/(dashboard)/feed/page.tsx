@@ -21,7 +21,7 @@ import { getTier, canAccessPremium } from "@/lib/subscription";
 
 /* ── Types ────────────────────────────────────────────────────────── */
 
-type SourceKey = "dev" | "flow" | "social";
+type SourceKey = "dev" | "social" | "flow" | "agap" | "emissions" | "price";
 type Sensitivity = "strict" | "high" | "all";
 
 interface FeedItem {
@@ -72,30 +72,45 @@ function topBy(
 }
 
 /* ── Thresholds per sensitivity ───────────────────────────────────── */
-// STRICT is the default: only the biggest events survive. Flow is
-// intentionally extreme — only very large net transactions appear.
+// DEV and SOCIAL are intentionally UNGATED — every dev signal and every
+// X/Discord entry reaches the feed, because those are the substance.
+// The market-derived sources (flow, aGap score, emissions, price) are the
+// noisy ones, so only high-level moves qualify. Percentages below are
+// calibrated against the live distribution (emission p90 ≈ 92%,
+// price p90 ≈ 15%, score-delta p90 ≈ 22pts).
 const THRESHOLDS: Record<Sensitivity, {
-  dev: number; flowUsd: number; heat: number; discord: number;
+  flowUsd: number; scoreMove: number; emissionPct: number; pricePct: number;
 }> = {
-  strict: { dev: 90, flowUsd: 500_000, heat: 88, discord: 88 },
-  high:   { dev: 80, flowUsd: 150_000, heat: 78, discord: 78 },
-  all:    { dev: 65, flowUsd: 50_000,  heat: 62, discord: 65 },
+  strict: { flowUsd: 500_000, scoreMove: 20, emissionPct: 50, pricePct: 20 },
+  high:   { flowUsd: 250_000, scoreMove: 15, emissionPct: 35, pricePct: 15 },
+  all:    { flowUsd: 100_000, scoreMove: 10, emissionPct: 25, pricePct: 10 },
 };
 
+// Per-category caps so the synthesized market items punctuate the feed
+// instead of burying the dev/social substance.
+const MOVE_CAP: Record<Sensitivity, number> = { strict: 6, high: 10, all: 16 };
+
 const SOURCES: { key: SourceKey; label: string; icon: AgIconName }[] = [
-  { key: "dev",    label: "Dev",    icon: "bolt" },
-  { key: "flow",   label: "Flow",   icon: "wave" },
-  { key: "social", label: "Social", icon: "flame" },
+  { key: "dev",       label: "Dev",       icon: "bolt" },
+  { key: "social",    label: "Social",    icon: "flame" },
+  { key: "flow",      label: "Flow",      icon: "wave" },
+  { key: "agap",      label: "aGap",      icon: "trendUp" },
+  { key: "emissions", label: "Emissions", icon: "radar" },
+  { key: "price",     label: "Price",     icon: "chart" },
 ];
 
 const SOURCE_TONE: Record<SourceKey, { text: string; ring: string; bg: string }> = {
-  dev:    { text: "text-emerald-300", ring: "border-emerald-400/35", bg: "bg-emerald-500/10" },
-  flow:   { text: "text-teal-300",    ring: "border-teal-400/35",    bg: "bg-teal-500/10" },
-  social: { text: "text-amber-300",   ring: "border-amber-400/35",   bg: "bg-amber-500/10" },
+  dev:       { text: "text-emerald-300", ring: "border-emerald-400/35", bg: "bg-emerald-500/10" },
+  social:    { text: "text-amber-300",   ring: "border-amber-400/35",   bg: "bg-amber-500/10" },
+  flow:      { text: "text-teal-300",    ring: "border-teal-400/35",    bg: "bg-teal-500/10" },
+  agap:      { text: "text-sky-300",     ring: "border-sky-400/35",     bg: "bg-sky-500/10" },
+  emissions: { text: "text-violet-300",  ring: "border-violet-400/35",  bg: "bg-violet-500/10" },
+  price:     { text: "text-fuchsia-300", ring: "border-fuchsia-400/35", bg: "bg-fuchsia-500/10" },
 };
 
 const SOURCE_ICON: Record<SourceKey, AgIconName> = {
-  dev: "bolt", flow: "wave", social: "flame",
+  dev: "bolt", social: "flame", flow: "wave",
+  agap: "trendUp", emissions: "radar", price: "chart",
 };
 
 /* ── Helpers ──────────────────────────────────────────────────────── */
@@ -201,11 +216,11 @@ export default function FeedPage() {
       leaderboard.find(l => l.netuid === netuid)?.name || fallback || `SN${netuid}`;
     const out: FeedItem[] = [];
 
-    // DEV — high-strength dev signals only
+    // DEV — EVERY dev signal, ungated (this is the substance)
     if (sources.has("dev")) {
       for (const s of signals) {
         const isDev = /dev|commit|github|release/i.test(s.signal_type);
-        if (!isDev || (s.strength ?? 0) < t.dev) continue;
+        if (!isDev) continue;
         const ts = new Date(s.signal_date || s.created_at || scanTs).getTime();
         out.push({
           id: `dev-${s.netuid}-${(s.signal_date || s.created_at || "").slice(0, 10)}`,
@@ -236,10 +251,9 @@ export default function FeedPage() {
       }
     }
 
-    // SOCIAL — hottest tweets + top discord alpha only
+    // SOCIAL — EVERY X post and Discord entry, ungated
     if (sources.has("social")) {
       for (const tw of hotTweets) {
-        if ((tw.heat_score ?? 0) < t.heat) continue;
         out.push({
           id: `tw-${tw.netuid}-${tw.detected_at}`,
           source: "social", kind: "VIRAL KOL", netuid: tw.netuid,
@@ -254,8 +268,6 @@ export default function FeedPage() {
       for (const d of discord) {
         if (d.founderPost) continue;
         const score = d.alphaScore ?? 0;
-        const qualifies = score >= t.discord || (d.releaseHint && score >= t.discord - 10);
-        if (!qualifies) continue;
         out.push({
           id: `dc-${d.netuid}-${(d.lastActivityAt || d.scannedAt || "").slice(0, 13)}`,
           source: "social", kind: d.releaseHint ? "RELEASE HINT" : "DISCORD ALPHA",
@@ -268,6 +280,64 @@ export default function FeedPage() {
       }
     }
 
+
+    // ── Market-derived moves: high-level only, each capped ────────────
+    const capped = (arr: FeedItem[]) =>
+      arr.sort((a, b) => b.weight - a.weight).slice(0, MOVE_CAP[sensitivity]);
+
+    // aGAP — significant composite-score movement
+    if (sources.has("agap")) {
+      const moves: FeedItem[] = [];
+      for (const l of leaderboard) {
+        const d = (l as { score_delta_24h?: number }).score_delta_24h ?? 0;
+        if (Math.abs(d) < t.scoreMove) continue;
+        moves.push({
+          id: `agap-${l.netuid}`, source: "agap",
+          kind: d > 0 ? "AGAP SURGE" : "AGAP DROP",
+          netuid: l.netuid, name: l.name, ts: scanTs,
+          title: `aGap score ${d > 0 ? "jumped" : "fell"} ${Math.abs(Math.round(d))} points in 24h — now ${Math.round(l.composite_score)}/100`,
+          metric: `${d > 0 ? "+" : ""}${Math.round(d)}`, metricTone: d > 0 ? "up" : "down",
+          weight: 50 + Math.min(45, Math.abs(d) * 1.6),
+        });
+      }
+      out.push(...capped(moves));
+    }
+
+    // EMISSIONS — significant emission-share change
+    if (sources.has("emissions")) {
+      const moves: FeedItem[] = [];
+      for (const l of leaderboard) {
+        const d = (l as { emission_change_pct?: number }).emission_change_pct ?? 0;
+        if (!Number.isFinite(d) || Math.abs(d) < t.emissionPct) continue;
+        moves.push({
+          id: `em-${l.netuid}`, source: "emissions",
+          kind: d > 0 ? "EMISSION SURGE" : "EMISSION CUT",
+          netuid: l.netuid, name: l.name, ts: scanTs,
+          title: `Emission share ${d > 0 ? "up" : "down"} ${Math.abs(d).toFixed(0)}% — validators are ${d > 0 ? "rewarding" : "pulling back from"} this subnet`,
+          metric: `${d > 0 ? "+" : ""}${d.toFixed(0)}%`, metricTone: d > 0 ? "up" : "down",
+          weight: 50 + Math.min(45, Math.abs(d) / 2.5),
+        });
+      }
+      out.push(...capped(moves));
+    }
+
+    // PRICE — significant 24h price movement
+    if (sources.has("price")) {
+      const moves: FeedItem[] = [];
+      for (const l of leaderboard) {
+        const d = l.price_change_24h ?? 0;
+        if (!Number.isFinite(d) || Math.abs(d) < t.pricePct) continue;
+        moves.push({
+          id: `px-${l.netuid}`, source: "price",
+          kind: d > 0 ? "PRICE SURGE" : "PRICE DUMP",
+          netuid: l.netuid, name: l.name, ts: scanTs,
+          title: `Price ${d > 0 ? "up" : "down"} ${Math.abs(d).toFixed(1)}% in 24 hours`,
+          metric: `${d > 0 ? "+" : ""}${d.toFixed(1)}%`, metricTone: d > 0 ? "up" : "down",
+          weight: 50 + Math.min(45, Math.abs(d) * 1.8),
+        });
+      }
+      out.push(...capped(moves));
+    }
 
     // Dedupe by id, then sort by DAY (newest first) and by significance
     // WITHIN each day, so the biggest events of a day lead it.
