@@ -15,14 +15,10 @@ const TS_STRATEGY_TABLE = "custom_strategies";
 // We grant "Staking" only — the least-privilege type, and the one TrustedStake
 // documents. It lets them rebalance stake but NOT transfer the user's TAO.
 const TS_PROXY_TYPE = "Staking";
-// Joining a PRIVATE strategy still requires an invite — the register endpoint
-// rejects it otherwise ("Cannot join private strategy without a share link").
-// The signed data takes the share link's UUID as `shareLinkId`; it does NOT
-// take the token. Passing the token under any name (shareToken / shareLink /
-// inviteToken / …) is rejected by the schema whitelist — that mismatch is why
-// every earlier attempt failed. Both values below identify the same link.
-const TS_SHARE_LINK_ID = "d17c4847-6316-4bec-a709-0f1cb63ecd73";
-// Fallback only: the same invite as a link, if on-site registration ever fails.
+// Joining a PRIVATE strategy goes through POST /share-links/{token}/join, NOT
+// /membership/register — see src/app/api/trustedstake/join/route.ts. The invite
+// token lives server-side in that route, so it is deliberately absent here.
+// Fallback only: the same invite as a link, if on-site joining ever fails.
 const TS_INVITE_URL = "https://app.trustedstake.ai/strat/invite/e6efd855f520660338db05c14baf5fd38a15c0e83e12b6c43b8307b2b9c9d237";
 
 /* ── SVG Icons ───────────────────────────────────────────────────────────── */
@@ -403,76 +399,19 @@ export default function AlphaGapIndexPage() {
     setRegisterStep("awaiting");
     setRegisterError(null);
 
-    // Already in? Never make an existing member sign anything.
-    if (await checkMembership(selectedAddress)) { confirmMembership(selectedAddress); return; }
-
-    const { ApiPromise, WsProvider } = await import("@polkadot/api");
-    const { signMessage } = await import("@/lib/polkadot-wallet");
-    const api = await ApiPromise.create({
-      provider: new WsProvider("wss://entrypoint-finney.opentensor.ai:443"),
-      noInitWarn: true,
-    });
-
     try {
-      // ── Find an anchor block that is BOTH finalized on TrustedStake's node
-      //    and old enough to contain the proxy — before touching the wallet.
-      //
-      // Registration signatures are single-use, so every failed attempt costs
-      // the user a fresh popup. We therefore do all the waiting up front and
-      // request exactly one signature, when we know it can succeed.
-      let anchor: number | null = null;
+      // Already in? Never make an existing member sign anything.
+      if (await checkMembership(selectedAddress)) { confirmMembership(selectedAddress); return; }
 
-      for (let attempt = 0; attempt < 40; attempt++) {
-        if (attempt > 0) await new Promise(r => setTimeout(r, 12_000));
-
-        // TrustedStake's node runs behind chain finality. Ask how far.
-        // If the probe is unavailable, fall back to a conservative margin.
-        const tsRes = await fetch("/api/trustedstake/anchor").catch(() => null);
-        const tsBlock = tsRes?.ok ? (await tsRes.json().catch(() => ({})))?.finalizedBlock : null;
-
-        const ourHash = await api.rpc.chain.getFinalizedHead();
-        const ourBlock = (await api.rpc.chain.getHeader(ourHash)).number.toNumber();
-        const candidate = typeof tsBlock === "number"
-          ? Math.min(tsBlock, ourBlock)
-          : ourBlock - 40;
-
-        // The proxy must be visible in state at that exact block.
-        const apiAt = await api.at(await api.rpc.chain.getBlockHash(candidate));
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const [defs] = (await apiAt.query.proxy.proxies(selectedAddress)) as any;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const hasProxy = defs?.toJSON?.()?.some?.((p: any) => p.delegate === TS_PROXY_ADDRESS);
-
-        setRegisterWaitNote(
-          hasProxy
-            ? null
-            : "Waiting for the network to confirm your proxy — this usually takes a few minutes."
-        );
-
-        if (hasProxy) { anchor = candidate; break; }
-      }
-
-      if (anchor === null) {
-        setRegisterError("The network hasn't confirmed your proxy yet. Your proxy transaction is safe — click Try Again in a few minutes.");
-        setRegisterStep("register-error");
-        return;
-      }
-
-      setRegisterWaitNote(null);
-
-      // ── One signature, one attempt. ──────────────────────────────────────
+      // Joining is a pure API call against the invite: one signature, no chain
+      // reads, no anchor block. The server holds the invite token and puts it
+      // in the URL, so nothing about it is signed or shipped to the browser.
+      const { signMessage } = await import("@/lib/polkadot-wallet");
       const message = JSON.stringify({
-        action: "register_membership",
+        action: "join_via_share_link",
         timestamp: Date.now(),
         nonce: crypto.randomUUID(),
-        data: {
-          proxy: TS_PROXY_ADDRESS,
-          strategyId: TS_STRATEGY_ID,
-          strategyTable: TS_STRATEGY_TABLE,
-          shareLinkId: TS_SHARE_LINK_ID,
-          fromBlock: anchor,
-          fromTimestamp: Date.now(),
-        },
+        data: {},
       });
       const signature = await signMessage(selectedAddress, message);
 
@@ -488,11 +427,7 @@ export default function AlphaGapIndexPage() {
       // It may still have landed even if the response looked unhappy.
       if (await checkMembership(selectedAddress)) { confirmMembership(selectedAddress); return; }
 
-      setRegisterError(
-        data?.code === "PROXY_CHAIN_NOT_READY"
-          ? "TrustedStake's node is still catching up to the network. Nothing is wrong with your wallet — click Try Again in a few minutes."
-          : (data?.message ?? data?.error ?? `Registration failed (${res.status})`)
-      );
+      setRegisterError(data?.error ?? data?.message ?? `Join failed (${res.status})`);
       setRegisterStep("register-error");
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -501,7 +436,6 @@ export default function AlphaGapIndexPage() {
       setRegisterStep("register-error");
     } finally {
       setRegisterWaitNote(null);
-      api.disconnect().catch(() => {});
     }
   }, [selectedAddress, checkMembership, confirmMembership, stopPolling]);
 
