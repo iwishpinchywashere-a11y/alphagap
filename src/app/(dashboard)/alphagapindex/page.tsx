@@ -189,6 +189,7 @@ export default function AlphaGapIndexPage() {
   // Step 2: membership register (independent of Step 1)
   const [registerStep, setRegisterStep] = useState<RegisterStep>("idle");
   const [registerError, setRegisterError] = useState<string | null>(null);
+  const [registerWaitNote, setRegisterWaitNote] = useState<string | null>(null);
   const [leaveStep, setLeaveStep] = useState<LeaveStep>("idle");
   const [leaveError, setLeaveError] = useState<string | null>(null);
 
@@ -396,6 +397,9 @@ export default function AlphaGapIndexPage() {
     setRegisterStep("awaiting");
     setRegisterError(null);
 
+    // Already in? Never make an existing member sign anything.
+    if (await checkMembership(selectedAddress)) { confirmMembership(selectedAddress); return; }
+
     const { ApiPromise, WsProvider } = await import("@polkadot/api");
     const { signMessage } = await import("@/lib/polkadot-wallet");
     const api = await ApiPromise.create({
@@ -404,63 +408,84 @@ export default function AlphaGapIndexPage() {
     });
 
     try {
-      // Up to ~4 min: Bittensor blocks are ~12s and finalization lags the head
-      // by a block or two, so a proxy tx signed moments ago needs a short wait.
-      for (let attempt = 0; attempt < 20; attempt++) {
+      // ── Find an anchor block that is BOTH finalized on TrustedStake's node
+      //    and old enough to contain the proxy — before touching the wallet.
+      //
+      // Registration signatures are single-use, so every failed attempt costs
+      // the user a fresh popup. We therefore do all the waiting up front and
+      // request exactly one signature, when we know it can succeed.
+      let anchor: number | null = null;
+
+      for (let attempt = 0; attempt < 40; attempt++) {
         if (attempt > 0) await new Promise(r => setTimeout(r, 12_000));
 
-        // 1. Finalized head — the anchor block TrustedStake will verify against.
-        const finalizedHash = await api.rpc.chain.getFinalizedHead();
-        const finalizedHeader = await api.rpc.chain.getHeader(finalizedHash);
-        const fromBlock = finalizedHeader.number.toNumber();
+        // TrustedStake's node runs behind chain finality. Ask how far.
+        // If the probe is unavailable, fall back to a conservative margin.
+        const tsRes = await fetch("/api/trustedstake/anchor").catch(() => null);
+        const tsBlock = tsRes?.ok ? (await tsRes.json().catch(() => ({})))?.finalizedBlock : null;
 
-        // 2. Is the proxy actually in state at that block? If not, keep waiting
-        //    rather than burning a signature request on a call that must fail.
-        const apiAt = await api.at(finalizedHash);
+        const ourHash = await api.rpc.chain.getFinalizedHead();
+        const ourBlock = (await api.rpc.chain.getHeader(ourHash)).number.toNumber();
+        const candidate = typeof tsBlock === "number"
+          ? Math.min(tsBlock, ourBlock)
+          : ourBlock - 40;
+
+        // The proxy must be visible in state at that exact block.
+        const apiAt = await api.at(await api.rpc.chain.getBlockHash(candidate));
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const [defs] = (await apiAt.query.proxy.proxies(selectedAddress)) as any;
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const hasProxy = defs?.toJSON?.()?.some?.((p: any) => p.delegate === TS_PROXY_ADDRESS);
-        if (!hasProxy) continue;
 
-        // 3. Sign the strict-schema payload.
-        const message = JSON.stringify({
-          action: "register_membership",
-          timestamp: Date.now(),
-          nonce: crypto.randomUUID(),
-          data: {
-            proxy: TS_PROXY_ADDRESS,
-            strategyId: TS_STRATEGY_ID,
-            strategyTable: TS_STRATEGY_TABLE,
-            fromBlock,
-            fromTimestamp: Date.now(),
-          },
-        });
-        const signature = await signMessage(selectedAddress, message);
+        setRegisterWaitNote(
+          hasProxy
+            ? null
+            : "Waiting for the network to confirm your proxy — this usually takes a few minutes."
+        );
 
-        // 4. Register through our Ultra-gated proxy route.
-        const res = await fetch("/api/trustedstake/join", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ walletAddress: selectedAddress, signature, message }),
-        });
-        const data = await res.json().catch(() => ({}));
+        if (hasProxy) { anchor = candidate; break; }
+      }
 
-        if (res.ok) {
-          confirmMembership(selectedAddress);
-          return;
-        }
-        // The chain simply hasn't caught up yet — wait and re-anchor.
-        if (data?.retryable || data?.code === "PROXY_NOT_FOUND") continue;
-
-        setRegisterError(data?.message ?? data?.error ?? `Registration failed (${res.status})`);
+      if (anchor === null) {
+        setRegisterError("The network hasn't confirmed your proxy yet. Your proxy transaction is safe — click Try Again in a few minutes.");
         setRegisterStep("register-error");
         return;
       }
 
-      // Ran out of attempts — the membership may still have landed.
+      setRegisterWaitNote(null);
+
+      // ── One signature, one attempt. ──────────────────────────────────────
+      const message = JSON.stringify({
+        action: "register_membership",
+        timestamp: Date.now(),
+        nonce: crypto.randomUUID(),
+        data: {
+          proxy: TS_PROXY_ADDRESS,
+          strategyId: TS_STRATEGY_ID,
+          strategyTable: TS_STRATEGY_TABLE,
+          fromBlock: anchor,
+          fromTimestamp: Date.now(),
+        },
+      });
+      const signature = await signMessage(selectedAddress, message);
+
+      const res = await fetch("/api/trustedstake/join", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ walletAddress: selectedAddress, signature, message }),
+      });
+      const data = await res.json().catch(() => ({}));
+
+      if (res.ok) { confirmMembership(selectedAddress); return; }
+
+      // It may still have landed even if the response looked unhappy.
       if (await checkMembership(selectedAddress)) { confirmMembership(selectedAddress); return; }
-      setRegisterError("The network is taking longer than usual to confirm your proxy. Your proxy transaction is safe — click Try Again in a minute.");
+
+      setRegisterError(
+        data?.code === "PROXY_CHAIN_NOT_READY"
+          ? "TrustedStake's node is still catching up to the network. Nothing is wrong with your wallet — click Try Again in a few minutes."
+          : (data?.message ?? data?.error ?? `Registration failed (${res.status})`)
+      );
       setRegisterStep("register-error");
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -468,6 +493,7 @@ export default function AlphaGapIndexPage() {
       setRegisterError(msg);
       setRegisterStep("register-error");
     } finally {
+      setRegisterWaitNote(null);
       api.disconnect().catch(() => {});
     }
   }, [selectedAddress, checkMembership, confirmMembership, stopPolling]);
@@ -937,7 +963,7 @@ export default function AlphaGapIndexPage() {
           <h2 className="font-display text-3xl sm:text-4xl font-semibold tracking-tight text-white mb-3">Deploy Your <span className="ag-gradient-text">TAO</span></h2>
           <p className="text-gray-400 text-base mb-8 max-w-2xl">
             {isUltra
-              ? "Two steps to start earning. First, set up your wallet proxy (one-time, on-chain). Then join the strategy through our private invite link on TrustedStake — no TAO leaves your wallet."
+              ? "Two steps to start earning. First, set up your wallet proxy (one-time, on-chain). Then sign one message to join — all without leaving AlphaGap. No TAO leaves your wallet."
               : "The AlphaGap Index is exclusive to Ultra subscribers. Upgrade to deploy your TAO into the top 10 subnets automatically."}
           </p>
 
@@ -1009,6 +1035,10 @@ export default function AlphaGapIndexPage() {
                   <div className="flex-1 min-w-0">
                     <p className="font-display font-semibold text-white text-base mb-1">Join the Index</p>
                     <p className="text-gray-400 text-sm mb-4">The AlphaGap Index is a private strategy — access is exclusive to AlphaGap Ultra. Sign one message to confirm your membership. You stay right here; no other site, no extra account.</p>
+                    <div className="rounded-xl border border-amber-500/20 bg-amber-500/[0.06] p-4 mb-4">
+                      <p className="text-amber-200/90 text-sm font-semibold mb-1">There is no &ldquo;amount&rdquo; to set</p>
+                      <p className="text-gray-400 text-sm">TrustedStake&apos;s rebalancer sizes positions to the wallet it manages — it has no per-member allocation setting, so the index works with the stakeable TAO in the wallet you connect. <strong className="text-gray-300">To cap your exposure, connect a wallet holding only what you want in the index.</strong> The Staking proxy can never transfer your TAO, and you can leave at any time.</p>
+                    </div>
                     <p className="text-xs text-gray-500 font-mono mb-4 break-all">Wallet: {selectedAddress}</p>
                     {registerStep === "success" ? (
                       <div className="flex items-center gap-2 text-emerald-400 font-semibold text-sm"><IconCheck className="w-4 h-4" /> Membership confirmed — you&apos;re in!</div>
@@ -1023,8 +1053,8 @@ export default function AlphaGapIndexPage() {
                       </div>
                     ) : registerStep === "awaiting" ? (
                       <div className="space-y-3">
-                        <div className="flex items-center gap-2 text-gray-400 text-sm"><IconLoader className="w-4 h-4 animate-spin text-emerald-400" /> Confirming your proxy on-chain, then registering…</div>
-                        <p className="text-xs text-gray-500">This waits for block finalization and can take up to a couple of minutes. Keep this tab open — your wallet will ask you to sign once.</p>
+                        <div className="flex items-center gap-2 text-gray-400 text-sm"><IconLoader className="w-4 h-4 animate-spin text-emerald-400" /> {registerWaitNote ?? "Registering your membership…"}</div>
+                        <p className="text-xs text-gray-500">Keep this tab open. Your wallet will ask you to sign <strong className="text-gray-400">once</strong>, and only when the network is ready — if no popup has appeared yet, nothing is stuck.</p>
                       </div>
                     ) : (
                       <button onClick={handleJoin} disabled={proxyStep !== "proxy-done"} className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-emerald-400 to-green-400 hover:from-emerald-300 hover:to-green-300 disabled:opacity-40 disabled:cursor-not-allowed text-black font-bold text-sm rounded-xl transition-all shadow-lg shadow-emerald-500/20 active:scale-95">
