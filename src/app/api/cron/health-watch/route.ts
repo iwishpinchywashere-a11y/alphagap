@@ -7,6 +7,8 @@
  * stale dashboard can never go unnoticed for days again:
  *   - scan-latest.json older than STALE_AFTER_MIN → "scan pipeline stale"
  *     (the usual cause is TaoStats credits hitting 0)
+ *   - index-rebalance-latest.json older than REBALANCE_STALE_DAYS → "index not
+ *     rebalancing" (the strategy is MANUAL_ONLY, so our cron is the only trigger)
  *   - re-alerts at most every REALERT_HOURS while the condition persists
  *   - sends a one-time "recovered" email when freshness returns
  */
@@ -20,6 +22,10 @@ export const maxDuration = 30;
 
 const STALE_AFTER_MIN = 45; // scan cron runs every 10 min — 45 min means several consecutive failures
 const REALERT_HOURS = 6;
+// Index rebalance: the cron self-heals via a 5-day catch-up, so only alarm well
+// past that — >9 days means the Sunday run AND the catch-up both failed.
+const REBALANCE_STALE_DAYS = 9;
+const REBALANCE_REALERT_HOURS = 24;
 
 const TOKEN = () => process.env.BLOB_READ_WRITE_TOKEN || "";
 
@@ -41,6 +47,7 @@ async function readBlob<T>(name: string): Promise<T | null> {
 interface HealthState {
   alerting: boolean;
   lastAlertAt: string | null;
+  lastRebalanceAlertAt?: string | null;
 }
 
 export async function GET(req: NextRequest) {
@@ -82,10 +89,48 @@ export async function GET(req: NextRequest) {
     emailed = "recovered";
   }
 
+  // ── Index rebalance staleness ────────────────────────────────────
+  //
+  // The strategy is set to MANUAL_ONLY on TrustedStake, so their engine never
+  // rebalances on its own — /api/cron/index-rebalance is the ONLY thing that
+  // triggers it. If that cron dies, the index silently stops tracking the
+  // leaderboard with nothing to indicate it. This is the alarm for that.
+  //
+  // The cron self-heals via its own 5-day catch-up, so only alert well past
+  // that: >9 days means both the Sunday run and the catch-up have failed.
+  const reb = await readBlob<{ rebalancedAt?: string }>("index-rebalance-latest.json");
+  const lastReb = reb?.rebalancedAt ? new Date(reb.rebalancedAt).getTime() : 0;
+  const rebDays = lastReb ? (Date.now() - lastReb) / 86_400_000 : Infinity;
+  const rebStale = rebDays > REBALANCE_STALE_DAYS;
+
+  if (rebStale) {
+    const since = state.lastRebalanceAlertAt ? Date.now() - new Date(state.lastRebalanceAlertAt).getTime() : Infinity;
+    if (since > REBALANCE_REALERT_HOURS * 3600_000) {
+      const label = Number.isFinite(rebDays) ? `${rebDays.toFixed(1)} days` : "unknown (no rebalance blob)";
+      await sendSystemAlertEmail("AlphaGap Index has NOT rebalanced", [
+        `The last index rebalance was <strong style="color:#f59e0b;">${label} ago</strong> (${reb?.rebalancedAt ?? "never"}).`,
+        `The strategy is set to <strong style="color:#ffffff;">MANUAL_ONLY</strong> on TrustedStake, so nothing rebalances it except our own cron — the index is drifting from the Investing leaderboard until this is fixed.`,
+        `Check the Vercel cron logs for <strong style="color:#ffffff;">/api/cron/index-rebalance</strong> (runs 12:00 UTC, acts on Sundays).`,
+        `To rebalance immediately, POST /api/admin/trigger-index-rebalance.`,
+      ]).catch(err => console.error("[health-watch] rebalance email failed:", err));
+      state.lastRebalanceAlertAt = new Date().toISOString();
+      emailed = emailed ? `${emailed}+rebalance` : "rebalance";
+    }
+  } else if (state.lastRebalanceAlertAt) {
+    state.lastRebalanceAlertAt = null; // recovered — arm the alert again
+  }
+
   await blobPut(stateKey, JSON.stringify(state), {
     access: "private", token: TOKEN(),
     addRandomSuffix: false, allowOverwrite: true, contentType: "application/json",
   }).catch(() => {});
 
-  return NextResponse.json({ ok: true, ageMin: Number.isFinite(ageMin) ? ageMin : null, isStale, emailed });
+  return NextResponse.json({
+    ok: true,
+    ageMin: Number.isFinite(ageMin) ? ageMin : null,
+    isStale,
+    rebalanceDays: Number.isFinite(rebDays) ? Number(rebDays.toFixed(2)) : null,
+    rebStale,
+    emailed,
+  });
 }
