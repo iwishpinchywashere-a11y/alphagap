@@ -152,7 +152,17 @@ export default function AlphaGapIndexPage() {
   const isUltra = canAccessUltra(tier);
   const [expandedRow, setExpandedRow] = useState<number | null>(null);
   const [expandedFaq, setExpandedFaq] = useState<number | null>(null);
-  const { leaderboard } = useDashboard();
+  const { leaderboard, taoPrice } = useDashboard();
+
+  // ── The member's REAL positions, read straight off the chain ────────────
+  // TrustedStake exposes no per-delegator holdings (positions/balances/
+  // performance are all 404, and the strategy's performanceSource is
+  // THEORETICAL — modelled index performance, not this wallet's). So we read
+  // the coldkey's actual stake from the runtime instead. Note this is the whole
+  // coldkey: for an index member that IS the managed wallet, but any unrelated
+  // stake in the same wallet shows up here too.
+  const [positions, setPositions] = useState<Array<{ netuid: number; alpha: number }> | null>(null);
+  const [positionsError, setPositionsError] = useState<string | null>(null);
 
   // Last rebalance date + ACTUAL strategy holdings from TrustedStake cron
   const [lastRebalancedAt, setLastRebalancedAt] = useState<string | null>(null);
@@ -223,6 +233,45 @@ export default function AlphaGapIndexPage() {
     });
     return () => { cancelled = true; };
   }, [selectedAddress, checkMembership]);
+
+  // Load real positions once the wallet is a confirmed member.
+  useEffect(() => {
+    if (!selectedAddress || !isMember) { setPositions(null); return; }
+
+    let cancelled = false;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let api: any = null;
+
+    (async () => {
+      try {
+        const { ApiPromise, WsProvider } = await import("@polkadot/api");
+        api = await ApiPromise.create({
+          provider: new WsProvider("wss://entrypoint-finney.opentensor.ai:443"),
+          noInitWarn: true,
+        });
+        const raw = await api.call.stakeInfoRuntimeApi.getStakeInfoForColdkey(selectedAddress);
+
+        // One row per hotkey+subnet — fold to a single figure per subnet.
+        const bySubnet = new Map<number, number>();
+        for (const r of (raw.toJSON() as Array<{ netuid: number; stake: number }>) ?? []) {
+          const alpha = Number(r.stake) / 1e9;
+          if (!Number.isFinite(alpha) || alpha <= 0.0001) continue; // skip dust
+          bySubnet.set(r.netuid, (bySubnet.get(r.netuid) ?? 0) + alpha);
+        }
+
+        if (cancelled) return;
+        setPositions([...bySubnet.entries()]
+          .map(([netuid, alpha]) => ({ netuid, alpha }))
+          .sort((a, b) => b.alpha - a.alpha));
+        setPositionsError(null);
+      } catch (err) {
+        if (cancelled) return;
+        setPositionsError(err instanceof Error ? err.message : "Couldn't read your positions");
+      }
+    })();
+
+    return () => { cancelled = true; api?.disconnect?.().catch(() => {}); };
+  }, [selectedAddress, isMember]);
 
   // ── Connect wallet ──────────────────────────────────────────────────────
   const connectWallet = useCallback(async () => {
@@ -438,6 +487,39 @@ export default function AlphaGapIndexPage() {
       setRegisterWaitNote(null);
     }
   }, [selectedAddress, checkMembership, confirmMembership, stopPolling]);
+
+  // Value each position and compare its real weight to the index target.
+  const portfolio = useMemo(() => {
+    if (!positions || positions.length === 0) return null;
+
+    const rows = positions.map(p => {
+      const sn = leaderboard.find(l => l.netuid === p.netuid);
+      const price = sn?.alpha_price ?? null;
+      return {
+        netuid: p.netuid,
+        name: sn?.name ?? `Subnet ${p.netuid}`,
+        alpha: p.alpha,
+        valueUsd: price != null ? p.alpha * price : null,
+        change24h: sn?.price_change_24h ?? null,
+        targetWeight: strategyData?.constituents?.[String(p.netuid)] ?? null,
+      };
+    });
+
+    // Only positions we could price contribute to the total, so the weights
+    // below always sum against a like-for-like base.
+    const totalUsd = rows.reduce((sum, r) => sum + (r.valueUsd ?? 0), 0);
+    const unpriced = rows.filter(r => r.valueUsd == null).length;
+
+    return {
+      rows: rows.map(r => ({
+        ...r,
+        weight: totalUsd > 0 && r.valueUsd != null ? (r.valueUsd / totalUsd) * 100 : null,
+      })),
+      totalUsd,
+      totalTao: taoPrice ? totalUsd / taoPrice : null,
+      unpriced,
+    };
+  }, [positions, leaderboard, strategyData, taoPrice]);
 
   const handleCheckStatus = useCallback(async () => {
     if (!selectedAddress) return;
@@ -938,14 +1020,82 @@ export default function AlphaGapIndexPage() {
                   <p className="text-gray-500 text-xs mt-1">Your wallet is registered with the AlphaGap Subnet Index strategy.</p>
                 </div>
                 <div className="flex flex-col gap-2 flex-shrink-0">
-                  <a href={`https://app.trustedstake.ai/?strategy=${TS_STRATEGY_ID}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/25 text-emerald-400 text-sm font-semibold rounded-xl transition-colors">
-                    Manage on TrustedStake <IconArrow className="w-3.5 h-3.5" />
-                  </a>
                   <button onClick={handleLeave} disabled={leaveStep === "leaving"} className="inline-flex items-center justify-center gap-2 px-5 py-2 bg-white/[0.03] hover:bg-red-500/10 border border-white/8 hover:border-red-500/25 text-gray-500 hover:text-red-400 text-sm rounded-xl transition-all">
                     {leaveStep === "leaving" ? <><IconLoader className="w-3.5 h-3.5 animate-spin" /> Leaving…</> : "Leave Strategy"}
                   </button>
                   {leaveError && <p className="text-xs text-red-400 text-center">{leaveError}</p>}
                 </div>
+              </div>
+
+              {/* ── Your actual holdings, read from the chain ──────────────── */}
+              <div className="mt-8 pt-8 border-t border-emerald-500/15">
+                {positionsError ? (
+                  <p className="text-sm text-gray-500">Couldn&apos;t load your holdings right now. They&apos;re unaffected — this is only a display issue.</p>
+                ) : !positions ? (
+                  <p className="text-sm text-gray-400 flex items-center gap-2"><IconLoader className="w-4 h-4 animate-spin text-emerald-400" /> Reading your positions from the chain…</p>
+                ) : !portfolio || portfolio.rows.length === 0 ? (
+                  <p className="text-sm text-gray-400">No stake yet. Once the next rebalance runs, your positions appear here automatically.</p>
+                ) : (
+                  <>
+                    <div className="flex flex-wrap items-end justify-between gap-4 mb-5">
+                      <div>
+                        <p className="font-mono text-[11px] text-emerald-400/80 uppercase tracking-[0.18em] mb-1.5">Your Holdings</p>
+                        <p className="font-display text-2xl font-semibold text-white tabular-nums">
+                          ${portfolio.totalUsd.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                          {portfolio.totalTao != null && (
+                            <span className="text-gray-500 text-base font-normal ml-2">{portfolio.totalTao.toFixed(2)} τ</span>
+                          )}
+                        </p>
+                      </div>
+                      <p className="text-xs text-gray-500 max-w-xs sm:text-right">
+                        Live from the Bittensor chain — your wallet&apos;s real stake, not a modelled figure.
+                      </p>
+                    </div>
+
+                    <div className="overflow-x-auto -mx-2 px-2">
+                      <table className="w-full text-sm min-w-[520px]">
+                        <thead>
+                          <tr className="text-left text-[11px] font-mono uppercase tracking-wider text-gray-500 border-b border-white/[0.06]">
+                            <th className="pb-2 font-normal">Subnet</th>
+                            <th className="pb-2 font-normal text-right">Alpha</th>
+                            <th className="pb-2 font-normal text-right">Value</th>
+                            <th className="pb-2 font-normal text-right">24h</th>
+                            <th className="pb-2 font-normal text-right">Weight</th>
+                            <th className="pb-2 font-normal text-right">Target</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {portfolio.rows.map(r => (
+                            <tr key={r.netuid} className="border-b border-white/[0.04] last:border-0">
+                              <td className="py-2.5">
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <SubnetLogo netuid={r.netuid} name={r.name} size={20} />
+                                  <span className="text-white font-medium truncate">{r.name}</span>
+                                  <span className="text-gray-600 font-mono text-xs flex-shrink-0">SN{r.netuid}</span>
+                                </div>
+                              </td>
+                              <td className="py-2.5 text-right tabular-nums text-gray-300">{r.alpha.toLocaleString(undefined, { maximumFractionDigits: 2 })}</td>
+                              <td className="py-2.5 text-right tabular-nums text-white">
+                                {r.valueUsd != null ? `$${r.valueUsd.toLocaleString(undefined, { maximumFractionDigits: 2 })}` : <span className="text-gray-600">—</span>}
+                              </td>
+                              <td className={`py-2.5 text-right tabular-nums ${r.change24h == null ? "text-gray-600" : r.change24h >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                                {r.change24h == null ? "—" : `${r.change24h >= 0 ? "▲" : "▼"} ${Math.abs(r.change24h).toFixed(1)}%`}
+                              </td>
+                              <td className="py-2.5 text-right tabular-nums text-gray-300">{r.weight != null ? `${r.weight.toFixed(1)}%` : "—"}</td>
+                              <td className="py-2.5 text-right tabular-nums text-gray-500">{r.targetWeight != null ? `${r.targetWeight}%` : <span className="text-gray-700">—</span>}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    <p className="text-xs text-gray-600 mt-4">
+                      Shows every position in this wallet, so any stake you hold outside the index appears here too.
+                      {portfolio.unpriced > 0 && ` ${portfolio.unpriced} position${portfolio.unpriced > 1 ? "s" : ""} couldn't be priced and ${portfolio.unpriced > 1 ? "are" : "is"} excluded from the total.`}
+                      {" "}Rebalancing is automatic — there is nothing to manage by hand.
+                    </p>
+                  </>
+                )}
               </div>
             </div>
           )}

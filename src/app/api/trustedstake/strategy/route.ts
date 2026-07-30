@@ -38,14 +38,35 @@ export async function GET() {
     let strategyTable = "custom_strategies";
     let lastUpdated: string | null = null;
 
-    if (strategyRes.status === "fulfilled" && strategyRes.value.ok) {
-      const d = await strategyRes.value.json();
-      const s = d.data ?? d;
+    const applyStrategy = (s: Record<string, any>) => { // eslint-disable-line @typescript-eslint/no-explicit-any
       name = s.name ?? name;
-      constituents = s.targetConstituents?.subnetWeights ?? {};
+      constituents = s.targetConstituents?.subnetWeights ?? constituents;
       proxyAddress = s.pureProxyAddress ?? proxyAddress;
       strategyTable = s.strategyTable ?? strategyTable;
-      lastUpdated = s.updatedAt ?? null;
+      lastUpdated = s.updatedAt ?? lastUpdated;
+    };
+
+    if (strategyRes.status === "fulfilled" && strategyRes.value.ok) {
+      const d = await strategyRes.value.json();
+      applyStrategy(d.data ?? d);
+    }
+
+    // The public endpoint 404s for a PRIVATE strategy, which left target
+    // weights empty. Fall back to the authenticated manager API.
+    if (Object.keys(constituents).length === 0 && process.env.TRUSTEDSTAKE_API_KEY) {
+      try {
+        const res = await fetch(`${TS_BASE}/api/v1/manager-api/strategies/${TS_STRATEGY_ID}`, {
+          headers: { Authorization: `Bearer ${process.env.TRUSTEDSTAKE_API_KEY}` },
+          next: { revalidate: 300 },
+          signal: AbortSignal.timeout(10000),
+        });
+        if (res.ok) {
+          const d = await res.json();
+          applyStrategy(d.data ?? d);
+        }
+      } catch {
+        // Non-fatal: the page renders without target weights.
+      }
     }
 
     // APY — response shape: { strategyId, strategyName, weightedApy, ... }
