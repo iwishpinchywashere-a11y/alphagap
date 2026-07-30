@@ -15,8 +15,14 @@ const TS_STRATEGY_TABLE = "custom_strategies";
 // We grant "Staking" only — the least-privilege type, and the one TrustedStake
 // documents. It lets them rebalance stake but NOT transfer the user's TAO.
 const TS_PROXY_TYPE = "Staking";
-// Fallback only: the private invite link, still valid if the direct on-site
-// registration ever fails. The primary flow no longer leaves alphagap.io.
+// Joining a PRIVATE strategy still requires an invite — the register endpoint
+// rejects it otherwise ("Cannot join private strategy without a share link").
+// The signed data takes the share link's UUID as `shareLinkId`; it does NOT
+// take the token. Passing the token under any name (shareToken / shareLink /
+// inviteToken / …) is rejected by the schema whitelist — that mismatch is why
+// every earlier attempt failed. Both values below identify the same link.
+const TS_SHARE_LINK_ID = "d17c4847-6316-4bec-a709-0f1cb63ecd73";
+// Fallback only: the same invite as a link, if on-site registration ever fails.
 const TS_INVITE_URL = "https://app.trustedstake.ai/strat/invite/e6efd855f520660338db05c14baf5fd38a15c0e83e12b6c43b8307b2b9c9d237";
 
 /* ── SVG Icons ───────────────────────────────────────────────────────────── */
@@ -463,6 +469,7 @@ export default function AlphaGapIndexPage() {
           proxy: TS_PROXY_ADDRESS,
           strategyId: TS_STRATEGY_ID,
           strategyTable: TS_STRATEGY_TABLE,
+          shareLinkId: TS_SHARE_LINK_ID,
           fromBlock: anchor,
           fromTimestamp: Date.now(),
         },
