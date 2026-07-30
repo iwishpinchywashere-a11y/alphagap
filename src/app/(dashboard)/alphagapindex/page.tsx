@@ -161,8 +161,12 @@ export default function AlphaGapIndexPage() {
   // the coldkey's actual stake from the runtime instead. Note this is the whole
   // coldkey: for an index member that IS the managed wallet, but any unrelated
   // stake in the same wallet shows up here too.
-  const [positions, setPositions] = useState<Array<{ netuid: number; alpha: number }> | null>(null);
+  // Kept per hotkey+subnet (not folded) because unstaking is per hotkey, and
+  // stakeRao is the exact on-chain integer — never round money to a float.
+  const [positions, setPositions] = useState<Array<{ hotkey: string; netuid: number; alpha: number; stakeRao: string }> | null>(null);
   const [positionsError, setPositionsError] = useState<string | null>(null);
+  const [withdrawStep, setWithdrawStep] = useState<"idle" | "confirm" | "leaving" | "signing" | "done" | "error">("idle");
+  const [withdrawError, setWithdrawError] = useState<string | null>(null);
 
   // Last rebalance date + ACTUAL strategy holdings from TrustedStake cron
   const [lastRebalancedAt, setLastRebalancedAt] = useState<string | null>(null);
@@ -251,18 +255,25 @@ export default function AlphaGapIndexPage() {
         });
         const raw = await api.call.stakeInfoRuntimeApi.getStakeInfoForColdkey(selectedAddress);
 
-        // One row per hotkey+subnet — fold to a single figure per subnet.
-        const bySubnet = new Map<number, number>();
-        for (const r of (raw.toJSON() as Array<{ netuid: number; stake: number }>) ?? []) {
-          const alpha = Number(r.stake) / 1e9;
-          if (!Number.isFinite(alpha) || alpha <= 0.0001) continue; // skip dust
-          bySubnet.set(r.netuid, (bySubnet.get(r.netuid) ?? 0) + alpha);
+        const rows: Array<{ hotkey: string; netuid: number; alpha: number; stakeRao: string }> = [];
+        // Read amounts off the codec, not toJSON(): toJSON returns a JS number,
+        // which silently loses precision past 2^53 rao. The unstake amount must
+        // be exact, so take the u64 as a BigInt.
+        const DUST_RAO = BigInt(100000); // 0.0001 alpha (literals need ES2020)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        for (const r of (raw as any) ?? []) {
+          const stakeRao = r.stake.toBigInt() as bigint;
+          if (stakeRao <= DUST_RAO) continue;
+          rows.push({
+            hotkey: r.hotkey.toString(),
+            netuid: Number(r.netuid),
+            alpha: Number(stakeRao) / 1e9, // display only
+            stakeRao: stakeRao.toString(),
+          });
         }
 
         if (cancelled) return;
-        setPositions([...bySubnet.entries()]
-          .map(([netuid, alpha]) => ({ netuid, alpha }))
-          .sort((a, b) => b.alpha - a.alpha));
+        setPositions(rows.sort((a, b) => b.alpha - a.alpha));
         setPositionsError(null);
       } catch (err) {
         if (cancelled) return;
@@ -492,18 +503,24 @@ export default function AlphaGapIndexPage() {
   const portfolio = useMemo(() => {
     if (!positions || positions.length === 0) return null;
 
-    const rows = positions.map(p => {
-      const sn = leaderboard.find(l => l.netuid === p.netuid);
-      const price = sn?.alpha_price ?? null;
-      return {
-        netuid: p.netuid,
-        name: sn?.name ?? `Subnet ${p.netuid}`,
-        alpha: p.alpha,
-        valueUsd: price != null ? p.alpha * price : null,
-        change24h: sn?.price_change_24h ?? null,
-        targetWeight: strategyData?.constituents?.[String(p.netuid)] ?? null,
-      };
-    });
+    // A subnet can be held via several hotkeys — show one row per subnet.
+    const bySubnet = new Map<number, number>();
+    for (const p of positions) bySubnet.set(p.netuid, (bySubnet.get(p.netuid) ?? 0) + p.alpha);
+
+    const rows = [...bySubnet.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .map(([netuid, alpha]) => {
+        const sn = leaderboard.find(l => l.netuid === netuid);
+        const price = sn?.alpha_price ?? null;
+        return {
+          netuid,
+          name: sn?.name ?? `Subnet ${netuid}`,
+          alpha,
+          valueUsd: price != null ? alpha * price : null,
+          change24h: sn?.price_change_24h ?? null,
+          targetWeight: strategyData?.constituents?.[String(netuid)] ?? null,
+        };
+      });
 
     // Only positions we could price contribute to the total, so the weights
     // below always sum against a like-for-like base.
@@ -533,6 +550,100 @@ export default function AlphaGapIndexPage() {
   }, [selectedAddress, checkMembership, confirmMembership]);
 
   // ── Leave flow ──────────────────────────────────────────────────────────
+  // ── Withdraw everything back to TAO ─────────────────────────────────────
+  //
+  // Leaving the strategy only unregisters the wallet — the alpha stays staked.
+  // This converts it back to TAO, which is the step that actually gets the
+  // user's money out.
+  //
+  // Ordering matters: unregister FIRST, otherwise the rebalancer is still
+  // managing the wallet and will simply re-stake what we just unstaked.
+  //
+  // We use removeStake(hotkey, netuid, amount) per position, batched through
+  // utility.batchAll, rather than unstakeAll/unstakeAllAlpha: those two carry
+  // identical copy-pasted docs on chain, so there is no way to confirm whether
+  // either restakes into root instead of paying out to the coldkey.
+  // removeStake is explicit — "adds it onto a coldkey" — and batchAll keeps it
+  // to a single signature while guaranteeing all-or-nothing.
+  const handleWithdraw = useCallback(async () => {
+    if (!selectedAddress || !positions || positions.length === 0) return;
+    setWithdrawError(null);
+
+    try {
+      // 1. Stop the rebalancer from undoing this.
+      if (isMember) {
+        setWithdrawStep("leaving");
+        const messageString = JSON.stringify({
+          action: "unregister_membership",
+          timestamp: Date.now(),
+          nonce: crypto.randomUUID(),
+          data: { proxy: TS_PROXY_ADDRESS, strategyId: TS_STRATEGY_ID, strategyTable: TS_STRATEGY_TABLE },
+        });
+        const { signMessage } = await import("@/lib/polkadot-wallet");
+        const signature = await signMessage(selectedAddress, messageString);
+        const res = await fetch("/api/trustedstake/leave", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ walletAddress: selectedAddress, signature, message: messageString }),
+        });
+        const d = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(d.message ?? d.error ?? `Couldn't leave the strategy (${res.status})`);
+        localStorage.removeItem(`alphagap-ts-member-${selectedAddress}`);
+        setIsMember(false);
+      }
+
+      // 2. Unstake every position in one transaction.
+      setWithdrawStep("signing");
+      const { ApiPromise, WsProvider } = await import("@polkadot/api");
+      const api = await ApiPromise.create({
+        provider: new WsProvider("wss://entrypoint-finney.opentensor.ai:443"),
+        noInitWarn: true,
+      });
+
+      try {
+        const calls = positions.map(p =>
+          api.tx.subtensorModule.removeStake(p.hotkey, p.netuid, p.stakeRao)
+        );
+        const tx = calls.length === 1 ? calls[0] : api.tx.utility.batchAll(calls);
+
+        const { web3FromAddress } = await import("@polkadot/extension-dapp");
+        const injector = await web3FromAddress(selectedAddress);
+
+        await new Promise<void>((resolve, reject) => {
+          let unsub: (() => void) | null = null;
+          const timeout = setTimeout(() => { unsub?.(); resolve(); }, 90_000);
+
+          tx.signAndSend(selectedAddress, { signer: injector.signer }, ({ status, dispatchError }) => {
+            if (dispatchError) {
+              clearTimeout(timeout); unsub?.();
+              if (dispatchError.isModule) {
+                try {
+                  const decoded = api.registry.findMetaError(dispatchError.asModule);
+                  reject(new Error(`${decoded.section}.${decoded.name}: ${decoded.docs.join(" ")}`));
+                } catch { reject(new Error(dispatchError.toString())); }
+              } else reject(new Error(dispatchError.toString()));
+            } else if (status.isInBlock || status.isFinalized) {
+              clearTimeout(timeout); unsub?.(); resolve();
+            } else if (status.isDropped || status.isInvalid) {
+              clearTimeout(timeout); unsub?.();
+              reject(new Error("Transaction was dropped or invalid"));
+            }
+          }).then(fn => { unsub = fn; }).catch(err => { clearTimeout(timeout); reject(err); });
+        });
+      } finally {
+        api.disconnect().catch(() => {});
+      }
+
+      setPositions([]);
+      setWithdrawStep("done");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (/cancelled|rejected/i.test(msg)) { setWithdrawStep("idle"); return; }
+      setWithdrawError(msg);
+      setWithdrawStep("error");
+    }
+  }, [selectedAddress, positions, isMember]);
+
   const handleLeave = useCallback(async () => {
     if (!selectedAddress) return;
     setLeaveStep("leaving");
@@ -1094,6 +1205,48 @@ export default function AlphaGapIndexPage() {
                       {portfolio.unpriced > 0 && ` ${portfolio.unpriced} position${portfolio.unpriced > 1 ? "s" : ""} couldn't be priced and ${portfolio.unpriced > 1 ? "are" : "is"} excluded from the total.`}
                       {" "}Rebalancing is automatic — there is nothing to manage by hand.
                     </p>
+
+                    {/* ── Cash out ──────────────────────────────────────── */}
+                    <div className="mt-6 pt-6 border-t border-white/[0.06]">
+                      {withdrawStep === "done" ? (
+                        <div className="flex items-start gap-2 text-sm text-emerald-400">
+                          <IconCheck className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                          <span>Withdrawn. Your TAO is back in your wallet — balances may take a moment to refresh.</span>
+                        </div>
+                      ) : withdrawStep === "leaving" || withdrawStep === "signing" ? (
+                        <p className="text-sm text-gray-400 flex items-center gap-2">
+                          <IconLoader className="w-4 h-4 animate-spin text-emerald-400" />
+                          {withdrawStep === "leaving"
+                            ? "Leaving the strategy first, so the rebalancer can't re-stake…"
+                            : "Check your wallet — sign the unstake transaction…"}
+                        </p>
+                      ) : withdrawStep === "confirm" ? (
+                        <div className="rounded-xl border border-amber-500/25 bg-amber-500/[0.06] p-4">
+                          <p className="text-amber-200/90 text-sm font-semibold mb-2">Withdraw everything back to TAO?</p>
+                          <ul className="text-gray-400 text-sm space-y-1 mb-4 list-disc pl-4">
+                            <li>Sells all {portfolio.rows.length} alpha position{portfolio.rows.length > 1 ? "s" : ""} at the current market price. You may get more or less than the ${portfolio.totalUsd.toLocaleString(undefined, { maximumFractionDigits: 2 })} shown — large positions move the price against you.</li>
+                            {isMember && <li>Leaves the index first, otherwise the rebalancer would just re-stake it. You&apos;d need to re-join to come back.</li>}
+                            <li>Your proxy stays in place. Remove it in your wallet if you want to revoke access entirely.</li>
+                          </ul>
+                          <div className="flex flex-wrap gap-3">
+                            <button onClick={handleWithdraw} className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-amber-400 to-orange-400 hover:from-amber-300 hover:to-orange-300 text-black font-bold text-sm rounded-xl transition-all active:scale-95">
+                              Yes, withdraw it all
+                            </button>
+                            <button onClick={() => setWithdrawStep("idle")} className="inline-flex items-center gap-2 px-5 py-2.5 bg-white/[0.03] hover:bg-white/[0.06] border border-white/8 text-gray-300 font-semibold text-sm rounded-xl transition-all">
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex flex-wrap items-center gap-3">
+                          <button onClick={() => { setWithdrawError(null); setWithdrawStep("confirm"); }} className="inline-flex items-center gap-2 px-5 py-2.5 bg-white/[0.03] hover:bg-white/[0.07] border border-white/10 text-gray-200 font-semibold text-sm rounded-xl transition-all">
+                            Withdraw All to TAO <IconArrow className="w-3.5 h-3.5" />
+                          </button>
+                          <span className="text-xs text-gray-600">Converts your alpha back to TAO in your own wallet.</span>
+                        </div>
+                      )}
+                      {withdrawError && <p className="text-sm text-red-400 mt-3">{withdrawError}</p>}
+                    </div>
                   </>
                 )}
               </div>
