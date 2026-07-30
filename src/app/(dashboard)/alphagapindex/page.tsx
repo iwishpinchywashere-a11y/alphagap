@@ -1036,8 +1036,8 @@ export default function AlphaGapIndexPage() {
                     <p className="font-display font-semibold text-white text-base mb-1">Join the Index</p>
                     <p className="text-gray-400 text-sm mb-4">The AlphaGap Index is a private strategy — access is exclusive to AlphaGap Ultra. Sign one message to confirm your membership. You stay right here; no other site, no extra account.</p>
                     <div className="rounded-xl border border-amber-500/20 bg-amber-500/[0.06] p-4 mb-4">
-                      <p className="text-amber-200/90 text-sm font-semibold mb-1">There is no &ldquo;amount&rdquo; to set</p>
-                      <p className="text-gray-400 text-sm">TrustedStake&apos;s rebalancer sizes positions to the wallet it manages — it has no per-member allocation setting, so the index works with the stakeable TAO in the wallet you connect. <strong className="text-gray-300">To cap your exposure, connect a wallet holding only what you want in the index.</strong> The Staking proxy can never transfer your TAO, and you can leave at any time.</p>
+                      <p className="text-amber-200/90 text-sm font-semibold mb-1">How much TAO goes in?</p>
+                      <p className="text-gray-400 text-sm">All of it. The index uses whatever TAO is in the wallet you connect — there&apos;s no amount to type in. <strong className="text-gray-300">So connect a wallet holding only what you want invested.</strong> Your TAO never leaves your wallet, and you can pull out any time.</p>
                     </div>
                     <p className="text-xs text-gray-500 font-mono mb-4 break-all">Wallet: {selectedAddress}</p>
                     {registerStep === "success" ? (
