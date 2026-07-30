@@ -24,7 +24,8 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 const BLOB_TOKEN = process.env.BLOB_READ_WRITE_TOKEN || "";
-const REBALANCE_INTERVAL_DAYS = 5; // rebalance if last run was >5 days ago
+const REBALANCE_INTERVAL_DAYS = 5; // catch-up: rebalance if last run was >5 days ago
+const MIN_INTERVAL_DAYS = 2;       // floor: never rebalance twice within 2 days
 
 interface LeaderboardEntry {
   netuid: number;
@@ -63,22 +64,38 @@ export async function GET(req: NextRequest) {
   }
 
   // ── Guard: only rebalance on Sunday or if overdue ────────────────
-  if (isVercelCron) {
-    const now = new Date();
-    const isSunday = now.getUTCDay() === 0;
-    const lastRun = await getLastRebalancedAt();
-    const daysSinceLast = lastRun
-      ? (now.getTime() - lastRun.getTime()) / (1000 * 60 * 60 * 24)
-      : Infinity;
-    const isOverdue = daysSinceLast > REBALANCE_INTERVAL_DAYS;
+  //
+  // This runs for EVERY scheduled invocation, however it authenticated. It used
+  // to be nested inside `if (isVercelCron)`, so any invocation that didn't
+  // carry `x-vercel-cron: 1` skipped the guard entirely and rebalanced — which
+  // is what actually happened: the index was rebalancing daily at 12:00 UTC
+  // instead of weekly, paying trading fees and slippage on members' funds every
+  // day. Manual runs bypass this by calling runRebalance() directly (see
+  // /api/admin/trigger-index-rebalance).
+  const now = new Date();
+  const isSunday = now.getUTCDay() === 0;
+  const lastRun = await getLastRebalancedAt();
+  const daysSinceLast = lastRun
+    ? (now.getTime() - lastRun.getTime()) / (1000 * 60 * 60 * 24)
+    : null;
 
-    if (!isSunday && !isOverdue) {
-      console.log(`[index-rebalance] Skipping — not Sunday and last run was ${daysSinceLast.toFixed(1)}d ago`);
-      return NextResponse.json({ skipped: true, reason: "not Sunday", daysSinceLast });
-    }
-    console.log(`[index-rebalance] Running — isSunday=${isSunday}, daysSinceLast=${daysSinceLast.toFixed(1)}`);
+  // Hard floor: never rebalance twice in quick succession, even on a Sunday.
+  if (daysSinceLast !== null && daysSinceLast < MIN_INTERVAL_DAYS) {
+    console.log(`[index-rebalance] Skipping — last run was only ${daysSinceLast.toFixed(1)}d ago`);
+    return NextResponse.json({ skipped: true, reason: "too soon", daysSinceLast });
   }
 
+  // A null daysSinceLast means we could not read the last run. Treat that as
+  // "unknown", NOT as "overdue" — the old Infinity default turned an unreadable
+  // blob into a daily rebalance. Unknown falls back to the Sunday rule.
+  const isOverdue = daysSinceLast !== null && daysSinceLast > REBALANCE_INTERVAL_DAYS;
+
+  if (!isSunday && !isOverdue) {
+    console.log(`[index-rebalance] Skipping — not Sunday (last run ${daysSinceLast?.toFixed(1) ?? "unknown"}d ago)`);
+    return NextResponse.json({ skipped: true, reason: "not Sunday", daysSinceLast });
+  }
+
+  console.log(`[index-rebalance] Running — isSunday=${isSunday}, daysSinceLast=${daysSinceLast?.toFixed(1) ?? "unknown"}`);
   return runRebalance();
 }
 
