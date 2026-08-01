@@ -37,8 +37,10 @@ const WIN_CACHE_TTL_MS  = 20 * 60 * 1000; // 20 min
 export const KNOWN_WALLETS: Record<string, { label: string; emoji: string; category: string }> = {
 
   // ── Founders ──────────────────────────────────────────────────────
-  "5G62K98tpNqsaffgyJmTvDSTCEFzva8WkmMqB2CEFSDgawrS": { label: "Const",        emoji: "👑", category: "founder" },
-  "5GH2aUTMRUh1RprCgH4x3tRyCaKeUi5BfmYCfs1NARA8R54n": { label: "Const #2",     emoji: "👑", category: "founder" },
+  // Only add an address here with a verifiable public source — these labels are
+  // broadcast as founder activity. 5G62K98tpNqsaffgyJmTvDSTCEFzva8WkmMqB2CEFSDgawrS
+  // was removed 2026-08-01: unsourced, and publicly corrected as not Const's.
+  "5GH2aUTMRUh1RprCgH4x3tRyCaKeUi5BfmYCfs1NARA8R54n": { label: "Const",        emoji: "👑", category: "founder" },
 
   // ── Opentensor Foundation ─────────────────────────────────────────
   "5HBtpwxuGNL1gwzwomwR7sjwUt8WXYSuWcLYN6f9KpTZkP4k": { label: "OTF",          emoji: "🏛️", category: "otf" },

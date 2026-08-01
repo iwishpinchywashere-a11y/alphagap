@@ -51,8 +51,15 @@ interface ConstTracker {
   updatedAt: string;
 }
 
+// Wallets attributed to Const (Bittensor founder). Anything in here is
+// broadcast publicly as the founder's activity, so ONLY add an address with a
+// verifiable public source — never a plausible-looking whale.
+//
+// REMOVED 2026-08-01: 5G62K98tpNqsaffgyJmTvDSTCEFzva8WkmMqB2CEFSDgawrS. It was
+// added unsourced alongside the other in the original Const Tracker commit and
+// was publicly corrected on X ("Not a Const wallet") after we alerted on its
+// 346 TAO Quasar unstake. No source ties it to Const.
 const CONST_WALLETS = new Set([
-  "5G62K98tpNqsaffgyJmTvDSTCEFzva8WkmMqB2CEFSDgawrS",
   "5GH2aUTMRUh1RprCgH4x3tRyCaKeUi5BfmYCfs1NARA8R54n",
 ]);
 async function fetchSRSubnets(): Promise<SRSubnet[]> {
