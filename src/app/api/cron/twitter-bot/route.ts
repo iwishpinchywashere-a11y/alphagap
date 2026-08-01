@@ -8,7 +8,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { get as blobGet, put as blobPut } from "@vercel/blob";
 import { pickBestPost, type BotData } from "@/lib/twitter-content";
-import { postTweet, postThread } from "@/lib/twitter-bot";
+import { postTweet, postThread, fetchOwnRecentTweets } from "@/lib/twitter-bot";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
@@ -412,6 +412,50 @@ export async function GET(req: NextRequest) {
       dryRun: true,
       wouldPost: { type: post.type, dedupId: post.dedupId, subjects: post.subjectKeys ?? [], rationale: post.rationale, text: post.tweets },
     });
+  }
+
+  // ── FINAL GATE: ask X what we have actually posted ────────────────
+  //
+  // Everything above this point reads Vercel Blob, which is eventually
+  // consistent and has no atomic compare-and-swap. A second invocation
+  // arriving seconds after the first reads stale state, passes every guard,
+  // and posts again — which is exactly the observed double-posting, and why
+  // adding more blob-based checks never fixed it.
+  //
+  // X is the system of record and returns a tweet the moment it exists, so
+  // this is the one check that can see a post the blob guards cannot.
+  const ownTweets = await fetchOwnRecentTweets(10);
+
+  if (ownTweets === null) {
+    // Fail CLOSED. If we cannot confirm what we have already posted, not
+    // posting costs one slot; posting risks another duplicate.
+    console.warn("[twitter-bot] Could not read own timeline — skipping slot to avoid a duplicate.");
+    return NextResponse.json({ ok: true, posted: false, reason: "timeline unavailable — failing closed" });
+  }
+
+  // Hard cooldown against X itself. Cron slots are ≥5h apart, so anything
+  // posted in the last 4h means another invocation of THIS slot already ran.
+  const recentCutoff = Date.now() - 4 * 60 * 60 * 1000;
+  const veryRecent = ownTweets.find(t => t.createdAt && new Date(t.createdAt).getTime() > recentCutoff);
+  if (veryRecent) {
+    const mins = ((Date.now() - new Date(veryRecent.createdAt).getTime()) / 60000).toFixed(0);
+    console.warn(`[twitter-bot] Already tweeted ${mins}m ago (${veryRecent.id}) — skipping slot.`);
+    return NextResponse.json({ ok: true, posted: false, reason: `already tweeted ${mins}m ago per X` });
+  }
+
+  // Near-duplicate check against what is actually on the timeline, using the
+  // same 70% word-overlap rule applied to the blob log above.
+  const candWords = new Set(post.tweets[0].toLowerCase().split(/\W+/).filter(w => w.length > 3));
+  for (const t of ownTweets) {
+    const prevWords = new Set(t.text.toLowerCase().split(/\W+/).filter(w => w.length > 3));
+    if (candWords.size === 0 || prevWords.size === 0) continue;
+    let overlap = 0;
+    for (const w of candWords) if (prevWords.has(w)) overlap++;
+    const sim = overlap / Math.min(candWords.size, prevWords.size);
+    if (sim >= 0.7) {
+      console.warn(`[twitter-bot] Near-duplicate of live tweet ${t.id} (${(sim * 100).toFixed(0)}%) — skipping.`);
+      return NextResponse.json({ ok: true, posted: false, reason: `near-duplicate of live tweet ${t.id}` });
+    }
   }
 
   const postedAt = new Date().toISOString();

@@ -50,6 +50,59 @@ function oauthSign(
   );
 }
 
+// ── Read our own recent tweets ────────────────────────────────────
+//
+// This is the duplicate-post guard of last resort, and the only one that can
+// actually work. Every blob-based guard (slot lock, dedupId, cooldown) reads
+// from Vercel Blob, which is EVENTUALLY CONSISTENT — a second invocation
+// arriving seconds later reads stale data, sees no previous post, and tweets
+// again. Blob also has no atomic compare-and-swap, so no amount of
+// read-check-write can serialise two invocations.
+//
+// X itself is the system of record: a tweet that exists is visible here
+// immediately. Checking it before posting closes the case the blob guards
+// structurally cannot.
+export async function fetchOwnRecentTweets(
+  maxResults = 10
+): Promise<Array<{ id: string; text: string; createdAt: string }> | null> {
+  const apiKey       = process.env.TWITTER_API_KEY       || "";
+  const apiSecret    = process.env.TWITTER_API_SECRET    || "";
+  const accessToken  = process.env.TWITTER_ACCESS_TOKEN  || "";
+  const accessSecret = process.env.TWITTER_ACCESS_SECRET || "";
+  if (!apiKey || !apiSecret || !accessToken || !accessSecret) return null;
+
+  try {
+    // Resolve our own user id first (OAuth 1.0a user context).
+    const meUrl = "https://api.twitter.com/2/users/me";
+    const meAuth = oauthSign("GET", meUrl, {}, apiKey, apiSecret, accessToken, accessSecret);
+    const meRes = await fetch(meUrl, { headers: { Authorization: meAuth }, signal: AbortSignal.timeout(10000) });
+    if (!meRes.ok) {
+      console.error("[twitter] users/me failed:", meRes.status, await meRes.text());
+      return null;
+    }
+    const me = await meRes.json() as { data?: { id?: string } };
+    const userId = me.data?.id;
+    if (!userId) return null;
+
+    // GET params must be part of the OAuth signature base string.
+    const params = { max_results: String(maxResults), "tweet.fields": "created_at" };
+    const tlUrl = `https://api.twitter.com/2/users/${userId}/tweets`;
+    const tlAuth = oauthSign("GET", tlUrl, params, apiKey, apiSecret, accessToken, accessSecret);
+    const qs = new URLSearchParams(params).toString();
+    const tlRes = await fetch(`${tlUrl}?${qs}`, { headers: { Authorization: tlAuth }, signal: AbortSignal.timeout(10000) });
+    if (!tlRes.ok) {
+      console.error("[twitter] timeline fetch failed:", tlRes.status, await tlRes.text());
+      return null;
+    }
+
+    const tl = await tlRes.json() as { data?: Array<{ id: string; text: string; created_at?: string }> };
+    return (tl.data ?? []).map(t => ({ id: t.id, text: t.text, createdAt: t.created_at ?? "" }));
+  } catch (e) {
+    console.error("[twitter] fetchOwnRecentTweets error:", String(e));
+    return null;
+  }
+}
+
 // ── Post a single tweet ───────────────────────────────────────────
 
 export async function postTweet(
