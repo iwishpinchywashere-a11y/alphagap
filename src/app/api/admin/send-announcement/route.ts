@@ -10,6 +10,11 @@ import { getUserList } from "@/lib/users";
 import { sendTelegramAnnouncementEmail, sendWalletTrackerAnnouncementEmail, sendOracleAnnouncementEmail, sendConvictionAnnouncementEmail, sendIndexAnnouncementEmail } from "@/lib/email";
 import { isOptedOut } from "@/lib/unsubscribe";
 
+// A blast of ~400 at a 500ms throttle needs ~3.5 minutes. Without this the
+// function is killed partway through, delivering to a fraction of the list
+// with no record of who received it — and no safe way to retry.
+export const maxDuration = 300;
+
 const ADMIN_EMAIL = "iwishpinchywashere@gmail.com";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
