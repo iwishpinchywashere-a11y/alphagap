@@ -1,4 +1,5 @@
 import { Resend } from "resend";
+import { unsubToken } from "./unsubscribe";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 const FROM = "AlphaGap <noreply@alphagap.io>";
@@ -878,5 +879,151 @@ export async function sendSystemAlertEmail(subject: string, lines: string[]) {
     to: "iwishpinchywashere@gmail.com",
     subject: `[AlphaGap] ${subject}`,
     html,
+  });
+}
+
+
+/* ══════════════ AlphaGap Index launch announcement ══════════════
+ *
+ * Two versions. The non-Ultra one deliberately does NOT list the holdings:
+ * they are blurred behind the paywall on the Index page, so emailing them in
+ * plain text would hand over the exact thing Ultra pays for. Not seeing them
+ * is the reason to subscribe, so withholding them IS the pitch.
+ *
+ * Both carry an unsubscribe link. Announcements are commercial email and
+ * legally need a working opt-out; without one recipients hit "spam" instead,
+ * which damages the domain that also sends billing receipts.
+ */
+
+const IDX_HOLDINGS: Array<[string, number]> = [
+  ["lium.io", 11], ["Affine", 11], ["Chutes", 11], ["Score", 11], ["NOVA", 10],
+  ["Targon", 10], ["Leadpoet", 9], ["Ridges", 9], ["Synth", 9], ["BitMind", 9],
+];
+
+function idxShell(inner: string, email: string): string {
+  const unsub = `${BASE_URL}/unsubscribe?t=${unsubToken(email)}`;
+  return `
+<div style="background:#0a0a0f;padding:32px 16px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
+  <div style="max-width:560px;margin:0 auto;background:#0d1017;border:1px solid #1a2235;border-radius:20px;overflow:hidden;">
+    <div style="padding:28px 32px 0;">
+      <span style="font-size:17px;font-weight:700;color:#ffffff;letter-spacing:-0.3px;">AlphaGap<span style="color:#34d399;"> Index</span></span>
+    </div>
+    ${inner}
+    <div style="padding:22px 32px 30px;border-top:1px solid #1a2235;">
+      <p style="margin:0 0 10px;font-size:11px;line-height:1.7;color:#5b6472;">
+        The AlphaGap Index is a non-custodial staking strategy executed by TrustedStake. Your TAO never leaves your
+        wallet &mdash; the proxy you grant permits staking only and cannot transfer or withdraw your funds. You can
+        leave at any time.
+      </p>
+      <p style="margin:0 0 12px;font-size:11px;line-height:1.7;color:#5b6472;">
+        For information only. Not investment advice and not a recommendation to buy or sell any asset. Yields shown
+        are current weighted figures reported by TrustedStake, vary continuously, and are not a promise of future
+        returns. Subnet tokens are volatile and you can lose money. Do your own research.
+      </p>
+      <p style="margin:0;font-size:11px;color:#3f4754;">
+        <a href="${BASE_URL}" style="color:#5b6472;text-decoration:none;">alphagap.io</a>
+        &nbsp;·&nbsp;
+        <a href="${unsub}" style="color:#5b6472;text-decoration:underline;">Unsubscribe from announcements</a>
+      </p>
+    </div>
+  </div>
+</div>`;
+}
+
+const idxApyBlock = (big: boolean) => `
+    <div style="background:#111722;border:1px solid #1e2839;border-radius:14px;padding:20px;margin:0 0 24px;${big ? "text-align:center;" : ""}">
+      <p style="margin:0 0 4px;font-size:11px;letter-spacing:1.4px;text-transform:uppercase;color:#6b7484;">Current weighted APY</p>
+      <p style="margin:0 0 2px;font-size:${big ? 36 : 30}px;font-weight:700;color:#34d399;letter-spacing:-1.2px;">59.5%</p>
+      <p style="margin:0;font-size:11.5px;color:#5b6472;">Reported by TrustedStake &middot; moves with the market &middot; not a promise</p>
+    </div>`;
+
+const idxBullet = (title: string, body: string) => `
+  <tr>
+    <td style="padding:13px 0;border-bottom:1px solid #151b28;vertical-align:top;">
+      <p style="margin:0 0 3px;font-size:14px;font-weight:600;color:#e8edf4;">${title}</p>
+      <p style="margin:0;font-size:13.5px;line-height:1.6;color:#98a2b1;">${body}</p>
+    </td>
+  </tr>`;
+
+export async function sendIndexAnnouncementEmail(name: string, email: string, isUltra: boolean) {
+  const inner = isUltra ? `
+  <div style="padding:22px 32px 30px;">
+    <p style="margin:0 0 6px;font-size:11px;letter-spacing:1.6px;text-transform:uppercase;color:#34d399;">Now live &middot; Included with Ultra</p>
+    <h1 style="margin:0 0 16px;font-size:26px;line-height:1.25;color:#ffffff;letter-spacing:-0.5px;">
+      The AlphaGap Index is open &mdash; and you already have access
+    </h1>
+    <p style="margin:0 0 16px;font-size:15px;line-height:1.65;color:#aab3c0;">
+      You&rsquo;ve been using the aGap score to find subnets the market hasn&rsquo;t repriced yet. The Index simply
+      acts on it: your TAO is staked across the <strong style="color:#e8edf4;">top 10 subnets by aGap Investing
+      Score</strong>, and rebalanced every Sunday as those scores move.
+    </p>
+    <p style="margin:0 0 22px;font-size:15px;line-height:1.65;color:#aab3c0;">
+      No spreadsheet, no manual re-staking, no watching the leaderboard on a Sunday night.
+    </p>
+    ${idxApyBlock(false)}
+    <p style="margin:0 0 4px;font-size:13px;font-weight:600;color:#e8edf4;">This week&rsquo;s holdings</p>
+    <p style="margin:0 0 2px;font-size:12px;color:#6b7484;">Rebalanced Sunday 2 August</p>
+    <table style="width:100%;border-collapse:collapse;margin:6px 0 4px;">
+      ${IDX_HOLDINGS.map(([n, w]) => `
+      <tr>
+        <td style="padding:7px 0;border-bottom:1px solid #151b28;font-size:13px;color:#c8cfda;">${n}</td>
+        <td style="padding:7px 0;border-bottom:1px solid #151b28;font-size:13px;color:#34d399;text-align:right;">${w}%</td>
+      </tr>`).join("")}
+    </table>
+    <div style="margin:26px 0 22px;padding:18px 20px;background:#0f1520;border:1px solid #1e2839;border-radius:14px;">
+      <p style="margin:0 0 10px;font-size:13px;font-weight:600;color:#e8edf4;">Joining takes about two minutes</p>
+      <p style="margin:0 0 6px;font-size:13.5px;line-height:1.6;color:#aab3c0;"><strong style="color:#34d399;">1.</strong> Connect your wallet on the Index page</p>
+      <p style="margin:0 0 6px;font-size:13.5px;line-height:1.6;color:#aab3c0;"><strong style="color:#34d399;">2.</strong> Authorise the staking proxy &mdash; one on-chain transaction</p>
+      <p style="margin:0;font-size:13.5px;line-height:1.6;color:#aab3c0;"><strong style="color:#34d399;">3.</strong> Sign one message to join</p>
+      <p style="margin:12px 0 0;font-size:12px;line-height:1.6;color:#6b7484;">All of it happens on alphagap.io. You don&rsquo;t need an account anywhere else.</p>
+    </div>
+    <a href="${BASE_URL}/alphagapindex" style="display:inline-block;background:#34d399;color:#04140d;font-size:14.5px;font-weight:700;text-decoration:none;padding:13px 26px;border-radius:12px;">Join the Index &rarr;</a>
+    <p style="margin:22px 0 0;font-size:12.5px;line-height:1.7;color:#6b7484;">
+      One thing worth knowing before you do: there&rsquo;s no amount to set. The Index works with the stakeable TAO in
+      whichever wallet you connect, so if you want to cap your exposure, connect a wallet holding only what you want
+      deployed.
+    </p>
+  </div>` : `
+  <div style="padding:22px 32px 30px;">
+    <p style="margin:0 0 8px;font-size:11px;letter-spacing:1.6px;text-transform:uppercase;color:#34d399;">Now live</p>
+    <h1 style="margin:0 0 16px;font-size:29px;line-height:1.2;color:#ffffff;letter-spacing:-0.6px;">
+      The Bittensor TAO Index<br/>has launched
+    </h1>
+    <p style="margin:0 0 16px;font-size:15.5px;line-height:1.65;color:#aab3c0;">
+      One position, holding the ten highest-scoring subnets on Bittensor &mdash; rebalanced every Sunday, automatically.
+    </p>
+    <p style="margin:0 0 24px;font-size:15px;line-height:1.65;color:#98a2b1;">
+      It runs on the same aGap score you already read on the leaderboard: how hard a subnet is building, measured
+      against how much the market has already priced in. You stake once. The Index handles the rest.
+    </p>
+    ${idxApyBlock(true)}
+    <table style="width:100%;border-collapse:collapse;margin:0 0 24px;">
+      ${idxBullet("Completely hands-off", "Ten subnets, staked and rebalanced every Sunday as the scores move. You never touch it.")}
+      ${idxBullet("Driven by the aGap score", "The same ranking you already read &mdash; building activity versus market recognition &mdash; applied automatically.")}
+      ${idxBullet("Your TAO never leaves your wallet", "Non-custodial. You grant a staking-only permission that cannot transfer or withdraw your funds.")}
+      ${idxBullet("Leave whenever you want", "No lock-up. Unwind in a couple of clicks and your stake is yours again.")}
+      ${idxBullet("Set up in about two minutes", "Connect a wallet, approve once on-chain, sign one message. All of it on alphagap.io.")}
+    </table>
+    <div style="margin:0 0 22px;padding:18px 20px;background:#0f1520;border:1px solid #1e2839;border-radius:14px;">
+      <p style="margin:0 0 8px;font-size:13px;font-weight:600;color:#e8edf4;">Included with Ultra &mdash; $99/mo</p>
+      <p style="margin:0;font-size:13px;line-height:1.65;color:#aab3c0;">
+        Ultra unlocks the Index, its live holdings and every position as it rebalances &mdash; on top of everything in
+        Premium. Cancel any time.
+      </p>
+    </div>
+    <a href="${BASE_URL}/pricing" style="display:inline-block;background:#34d399;color:#04140d;font-size:14.5px;font-weight:700;text-decoration:none;padding:13px 26px;border-radius:12px;">Unlock the Index &rarr;</a>
+    <p style="margin:22px 0 0;font-size:12.5px;line-height:1.7;color:#6b7484;">
+      Not ready? The leaderboard, dev signals and flow data stay free. The Index is simply the automated version of
+      what you can already do by hand.
+    </p>
+  </div>`;
+
+  return resend.emails.send({
+    from: FROM,
+    to: email,
+    subject: isUltra
+      ? "The AlphaGap Index is live — you already have access"
+      : "The Bittensor TAO Index has launched",
+    html: idxShell(inner, email),
   });
 }

@@ -26,7 +26,7 @@ function emailHash(email: string): string {
 
 const TOKEN = () => process.env.BLOB_READ_WRITE_TOKEN || "";
 
-async function readBlob<T>(name: string): Promise<T | null> {
+export async function readBlob<T>(name: string): Promise<T | null> {
   try {
     const result = await blobGet(name, { token: TOKEN(), access: "private" });
     if (!result?.stream) return null;
@@ -43,7 +43,7 @@ async function readBlob<T>(name: string): Promise<T | null> {
   }
 }
 
-async function writeBlob(name: string, data: unknown): Promise<void> {
+export async function writeBlob(name: string, data: unknown): Promise<void> {
   await put(name, JSON.stringify(data), {
     access: "private",
     token: TOKEN(),

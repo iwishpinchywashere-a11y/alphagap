@@ -7,7 +7,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { getUserList } from "@/lib/users";
-import { sendTelegramAnnouncementEmail, sendWalletTrackerAnnouncementEmail, sendOracleAnnouncementEmail, sendConvictionAnnouncementEmail } from "@/lib/email";
+import { sendTelegramAnnouncementEmail, sendWalletTrackerAnnouncementEmail, sendOracleAnnouncementEmail, sendConvictionAnnouncementEmail, sendIndexAnnouncementEmail } from "@/lib/email";
+import { isOptedOut } from "@/lib/unsubscribe";
 
 const ADMIN_EMAIL = "iwishpinchywashere@gmail.com";
 
@@ -44,6 +45,10 @@ export async function POST(req: NextRequest) {
     const testEmail: string = body.testEmail || ADMIN_EMAIL;
     const tier: "free" | "pro" | "premium" = body.tier || "premium";
     try {
+      if (emailType === "index") {
+        await sendIndexAnnouncementEmail("Shane", testEmail, body.ultra === true);
+        return NextResponse.json({ ok: true, sent: 1, to: testEmail, type: emailType, ultra: body.ultra === true });
+      }
       await getSendFn(tier)("Shane", testEmail);
       return NextResponse.json({ ok: true, sent: 1, to: testEmail, type: emailType, tier });
     } catch (err) {
@@ -58,14 +63,26 @@ export async function POST(req: NextRequest) {
     let failed = 0;
     const errors: string[] = [];
 
+    let skipped = 0;
+
     for (const u of users) {
+      // Announcements are marketing: never send to someone who opted out.
+      if (await isOptedOut(u.email)) { skipped++; continue; }
+
       const tier: "free" | "pro" | "premium" =
         u.subscriptionTier === "premium" ? "premium"
         : u.subscriptionTier === "pro" ? "pro"
         : "free";
 
       try {
-        await getSendFn(tier)(u.name, u.email);
+        if (emailType === "index") {
+          // The Index email segments on Ultra, not the three legacy tiers:
+          // Ultra subscribers already have access, everyone else gets the
+          // launch announcement WITHOUT the paywalled holdings.
+          await sendIndexAnnouncementEmail(u.name, u.email, u.subscriptionTier === "ultra");
+        } else {
+          await getSendFn(tier)(u.name, u.email);
+        }
         sent++;
         await new Promise(r => setTimeout(r, 500));
       } catch (err) {
@@ -74,7 +91,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    return NextResponse.json({ ok: true, total: users.length, sent, failed, errors });
+    return NextResponse.json({ ok: true, total: users.length, sent, skipped, failed, errors });
   }
 
   return NextResponse.json({ error: "Pass test: true or test: false" }, { status: 400 });
