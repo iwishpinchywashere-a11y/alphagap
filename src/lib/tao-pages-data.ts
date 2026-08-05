@@ -2583,7 +2583,7 @@ export const TAO_PAGES_SUBNETS: TaoPageSubnet[] = [
   problem:
     "Sending prompts to frontier-model APIs exposes potentially sensitive data to the provider and any intermediary aggregator, and there is no cryptographic guarantee about what code is handling your request or your keys. Teams that need privacy have few drop-in options.",
   differentiator:
-    "Every request runs through an Intel TDX-attested enclave with Intel-signed measurements verifying the exact gateway code, so operators cannot see prompts or upstream keys. It is OpenAI-API-compatible (works with Cursor, Cline, Claude Code) and prices models at or below official provider rates.",
+    "Built by Taostats, the team behind Bittensor's primary block explorer, which is unusual provenance for a subnet. Every request runs through an Intel TDX-attested enclave on Phala Cloud with Intel-signed measurements verifying the exact gateway code, so neither operators nor hosts see prompts or upstream keys. 38 models live including Claude Opus, GPT-5.5, Gemini 2.5 Pro and Kimi K3, priced at or below official maker rates, across eight upstream provider routes. OpenAI-API-compatible so it drops into Cursor, Cline, Claude Code and the Vercel AI SDK unchanged, and it takes USDC or a bank card rather than requiring TAO.",
   keywords: [
     "confidential inference",
     "bittensor gm",
@@ -2591,6 +2591,9 @@ export const TAO_PAGES_SUBNETS: TaoPageSubnet[] = [
     "Intel TDX",
     "private AI API",
     "OpenAI compatible",
+    "taostats",
+    "Kimi K3",
+    "confidential compute",
   ],
 },
 

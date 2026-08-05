@@ -30,6 +30,7 @@ export const SUBNET_LOGOS: Record<number, string> = {
   25: "https://www.macrocosmos.ai/images/mc_logo_black.png",
   26: "https://kinitro.ai/k-tiny.png",
   27: "https://console.nodexo.ai/assets/images/logo/logo-dark.svg",
+  28: "/subnets/sn28-gm.svg",   // gm — official mark from saygm.com/favicon.svg, vendored
   31: "https://x.ai/images/noise.png",
   32: "https://raw.githubusercontent.com/It-s-AI/llm-detection/main/full_logo.png",
   35: "https://storage.googleapis.com/cartha-assets/cartha_logo.png",
