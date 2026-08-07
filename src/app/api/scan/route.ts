@@ -203,6 +203,7 @@ async function fetchTMCValidators(): Promise<Map<number, number>> {
 import { scanAllSubnetGitHub, type GitHubScanResult } from "@/lib/github-scanner";
 import { scanAllSubnetsHF, type HFScanResult } from "@/lib/hf-scanner";
 import { fitGate, readGate, emissionChangeFor } from "@/lib/emission-gate";
+import { readRootWeightStatus } from "@/lib/root-weights";
 import { fetchRecentCommits, fetchRecentPRs, fetchLatestRelease } from "@/lib/context-fetcher";
 import { computeProductScore, BENCHMARK_MAP, MILESTONE_MAP, type WebsiteSignalData } from "@/lib/benchmarks";
 import type { WebsiteProductCache } from "@/app/api/scan-websites/route";
@@ -1868,7 +1869,17 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
         const staked = alphaStaked > 0 ? alphaStaked : Math.max(0, totalAlpha - alphaInPool);
         return Math.round((staked / totalAlpha) * 100);
       })(),
-      rootProp: pool ? parseFloat(pool.root_prop || "0") : 0,
+      // TaoStats /dtao/pool returns root_prop as a 0-1 FRACTION (0.138 … 0.892
+      // as of 2026-08-07) and the thresholds below are written for that scale.
+      // TaoMarketCap returns the SAME quantity as a percent (13.79 … 89.21) —
+      // exactly 100x apart — and TMCSubnet also declares a root_prop field, so
+      // swapping the source would silently hand every subnet the maximum bonus
+      // rather than failing. Normalise defensively instead of trusting the feed.
+      rootProp: (() => {
+        const raw = pool ? parseFloat(pool.root_prop || "0") : 0;
+        if (!Number.isFinite(raw) || raw <= 0) return 0;
+        return raw > 1 ? raw / 100 : raw;
+      })(),
       // Keep 30 evenly-spaced points — enough shape for a sparkline, keeps blob lean.
       // If SubnetRadar has no sparkline, synthesize from known price-change percentages.
       sparklinePrices: (() => {
@@ -4076,6 +4087,29 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
       }
     } catch (e) { console.log("[scan] Flow signal diff skipped:", e); }
   }
+
+  // ── Root Reborn watch ───────────────────────────────────────────
+  // Root Reborn is live on mainnet (spec_version 443) but validator root-weight
+  // setting ships disabled. The day governance enables it, root_prop stops
+  // describing a passive stake distribution and starts describing active
+  // capital allocation — the same number meaning something different, which is
+  // exactly how v440 quietly changed eVal underneath us. Catch it on the day
+  // rather than discovering it in a backtest months later.
+  try {
+    const rootStatus = await readRootWeightStatus();
+    if (!rootStatus.read) {
+      console.log("[scan] Root-weight flag: RPC unreadable — state unknown (not assuming disabled)");
+    } else if (rootStatus.enabled) {
+      console.warn(
+        "[scan] *** RootWeightSettingEnabled IS NOW TRUE (spec " + rootStatus.specVersion + ") *** " +
+        "Validators are setting root weights. root_prop now measures active allocation, not passive " +
+        "stake — rootPropBonus and investDecen are calibrated for the old meaning and need review. " +
+        "Validator root-weight vectors are now readable and are the strongest available capital signal."
+      );
+    } else {
+      console.log(`[scan] Root-weight flag: still disabled (spec ${rootStatus.specVersion})`);
+    }
+  } catch (e) { console.log("[scan] Root-weight check skipped:", e); }
 
   // ── v440 Emission Gate signals ──────────────────────────────────
   // Since v440, emission = s * gate(s) rather than being linear in demand
