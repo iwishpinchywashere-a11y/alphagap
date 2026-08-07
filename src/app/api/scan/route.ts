@@ -2179,8 +2179,25 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
   }
 
   // ── eVal: Emissions-to-Valuation score ──────────────────────────
-  // Finds the gap between network emissions allocated to a subnet
-  // and its market cap valuation. High emissions + low mcap = undervalued.
+  // Compares the emission a subnet earns against what it costs — emission
+  // share over market-cap share.
+  //
+  // READ THIS BEFORE TRUSTING IT. This was designed pre-v440, when emission
+  // was linear in demand share and the ratio genuinely measured a divergence
+  // between what the network paid and what the market valued. Since the
+  // Emission Gate that is no longer what it measures: emission is now
+  // s*gate(s), so tail subnets keep a few percent of their linear share while
+  // their market cap is untouched, and the ratio collapses for them purely
+  // because they are small. Measured on live data the ratio correlates +0.182
+  // with log market cap, and the median is 4.68 above the bar against 0.32
+  // below. It is closer to a size proxy than a mispricing measure.
+  //
+  // It is NOT evidence of undervaluation. Whether it predicts returns at all
+  // is unknown — see docs/EVAL_BACKTEST_2026-08.md, where 30 days of history
+  // gave four non-overlapping cohorts and nothing significant in any cut.
+  // Its weight in the trading aGap was cut from 15 points to 5 on 2026-08-06
+  // for that reason. A size-neutral replacement is being shadow-recorded as
+  // eval_adj in the score history; do not wire it in without a head-to-head.
   //
   // Also factors in emission TREND — if emissions are rising but
   // price isn't following, that's a widening value gap.
@@ -2201,9 +2218,12 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     // Market cap share as fraction of total market cap
     const mcShare = totalMcapUsd > 0 ? mcapUsd / totalMcapUsd : 0;
 
-    // Core eVal ratio: emission share / market cap share
-    // > 1 = undervalued (network paying more than market realizes)
-    // < 1 = overvalued (market values it more than emissions justify)
+    // Core eVal ratio: emission share / market cap share.
+    // > 1 = earns more emission per dollar of market cap than the average
+    //       subnet. Post-v440 that is substantially a statement about size,
+    //       NOT about the market having mispriced it.
+    // < 1 = earns less emission per dollar. For tail subnets this is largely
+    //       the gate throttling their emission, not the market overpaying.
     const evalRatio = mcShare > 0.0001 ? emShare / mcShare : 0;
 
     // 1. EMISSION LEVEL (max 35 pts) — how much is the network emitting to this subnet?
@@ -4063,6 +4083,10 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
   // move is amplified several times over, and a subnet drifting below the
   // bar loses most of its emission. Neither was visible anywhere in AlphaGap
   // before this: the whole codebase had no concept of the bar.
+  // Hoisted so the score-history writer below can shadow-store the
+  // gate-adjusted eVal alongside the live one.
+  let gateParamsOuter: ReturnType<typeof fitGate> | null = null;
+  let gateReadingsOuter: ReturnType<typeof readGate> | null = null;
   try {
     const gateInputs = tmcSubnets
       .filter(t => t.emission_enabled !== false && Number(t.subnet_moving_price) > 0)
@@ -4075,6 +4099,8 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     if (gateInputs.length >= 20) {
       const gateParams = fitGate(gateInputs);
       const readings = readGate(gateInputs, gateParams);
+      gateParamsOuter = gateParams;
+      gateReadingsOuter = readings;
 
       // A fit this far off means governance moved the parameters into a shape
       // we do not model, or the feed changed. Publishing convexity numbers off
@@ -4156,7 +4182,15 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
   if (process.env.BLOB_READ_WRITE_TOKEN) {
     try {
       const { get: getBlob2 } = await import("@vercel/blob");
-      type ScoreRow = { agap: number; flow: number; dev: number; eval: number; social: number; price: number; mcap: number; emission_pct: number };
+      // eval_adj is a SHADOW metric — recorded, never scored on. The live eVal
+      // ratio is emissionShare/mcapShare, which post-v440 correlates with size
+      // (+0.182 against log mcap) because the gate crushes tail emission while
+      // market cap is untouched. eval_adj divides actual emission by what the
+      // gate predicts for that demand share instead, which removes the tilt
+      // (-0.071). Which one actually predicts returns is unknown and cannot be
+      // answered with the history we had; storing both is how that stops being
+      // true. Do not wire eval_adj into any score until there is a head-to-head.
+      type ScoreRow = { agap: number; flow: number; dev: number; eval: number; social: number; price: number; mcap: number; emission_pct: number; eval_adj?: number };
 
       // ── Load velo fallback (last-known-good VELO scores) ─────────────────
       // Prevents all-50 flash when: (a) blob read fails, (b) history is thin
@@ -4388,17 +4422,96 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
             price: entry.alpha_price || 0,
             mcap: entry.market_cap || 0,
             emission_pct: entry.emission_pct || 0,
+            // Undefined rather than 0 when the gate model does not explain this
+            // subnet — a wrong number is worse than a gap in the series.
+            eval_adj: (() => {
+              const gr = gateReadingsOuter?.get(entry.netuid);
+              if (!gr || gr.modelBroken || gr.predictedEmissionPct <= 0.001) return undefined;
+              const actual = entry.emission_pct;
+              if (actual == null || actual <= 0) return undefined;
+              return Math.round((actual / gr.predictedEmissionPct) * 1000) / 1000;
+            })(),
           };
         }
       } else {
         console.warn(`[scan] Skipping history write — unhealthy snapshot: ${leaderboard.length} subnets, mean composite=${meanComposite.toFixed(1)}`);
       }
 
-      // Trim to last 30 days — keeps blob well under 40MB limit
-      const cutoff30 = new Date(Date.now() - 30 * 86400000).toISOString();
-      for (const d of Object.keys(scoreHistory)) { if (d < cutoff30) delete scoreHistory[d]; }
+      // ── Retention: hourly for a week, daily beyond that ──────────────
+      // Was: 30 days of hourly, everything older deleted. That capped the
+      // whole archive at ~720 snapshots and made any real backtest impossible
+      // — a 7-day forward test over 30 days yields four non-overlapping
+      // cohorts, which is not enough to conclude anything (see
+      // docs/EVAL_BACKTEST_2026-08.md, where exactly that happened).
+      //
+      // Hourly resolution only earns its storage while it is recent, so keep
+      // 7 days of it and downsample everything older to one snapshot per day.
+      // ~168 hourly + ~730 daily is roughly 900 snapshots against today's 720,
+      // about 13.7MB at the current ~15.7KB per snapshot, still far under the
+      // 40MB blob limit — and it buys two years of history instead of one month.
+      const HOURLY_WINDOW_DAYS = 7;
+      const DAILY_RETENTION_DAYS = 730;
+      const nowMsHist = Date.now();
+      const hourlyCutoff = new Date(nowMsHist - HOURLY_WINDOW_DAYS * 86400000).toISOString();
+      const hardCutoff   = new Date(nowMsHist - DAILY_RETENTION_DAYS * 86400000).toISOString();
+
+      // For each older day keep the snapshot nearest midday UTC, so the daily
+      // series is evenly spaced rather than landing on whatever hour the scan
+      // happened to run — an uneven series would bias any forward-return work
+      // built on top of it.
+      const keepPerDay = new Map<string, string>();
+      for (const tsKey of Object.keys(scoreHistory)) {
+        if (tsKey >= hourlyCutoff) continue;
+        if (tsKey < hardCutoff) { delete scoreHistory[tsKey]; continue; }
+        const day = tsKey.slice(0, 10);
+        const hour = new Date(tsKey).getUTCHours();
+        const incumbent = keepPerDay.get(day);
+        if (incumbent == null) { keepPerDay.set(day, tsKey); continue; }
+        const incumbentHour = new Date(incumbent).getUTCHours();
+        if (Math.abs(hour - 12) < Math.abs(incumbentHour - 12)) keepPerDay.set(day, tsKey);
+      }
+      const survivors = new Set(keepPerDay.values());
+      let downsampled = 0;
+      for (const tsKey of Object.keys(scoreHistory)) {
+        if (tsKey >= hourlyCutoff) continue;
+        if (!survivors.has(tsKey)) { delete scoreHistory[tsKey]; downsampled++; }
+      }
+      if (downsampled > 0) console.log(`[scan] History downsampled: dropped ${downsampled} sub-daily snapshots older than ${HOURLY_WINDOW_DAYS}d`);
 
       await put("subnet-scores-history.json", JSON.stringify(scoreHistory), { access: "private", addRandomSuffix: false, allowOverwrite: true, token: process.env.BLOB_READ_WRITE_TOKEN });
+
+      // Gate parameters go in their OWN blob, deliberately not inside the
+      // score-history map. Two consumers (api/agapvsprice, api/portfolio/
+      // research-missed-buys) iterate that map's inner keys as netuids, so a
+      // sidecar key there would surface as a phantom subnet in both.
+      // Recording the fit matters because q and h are sudo-settable: without
+      // it, a governance retune would silently mix two regimes inside one
+      // backtest and look like a change in the data.
+      if (gateParamsOuter) {
+        try {
+          const gateHistBlob = await blobGet("gate-params-history.json", {
+            token: process.env.BLOB_READ_WRITE_TOKEN, access: "private", abortSignal: AbortSignal.timeout(8000),
+          }).catch(() => null);
+          let gateHist: Record<string, unknown> = {};
+          if (gateHistBlob?.stream) {
+            const rd = gateHistBlob.stream.getReader(); const cs: Uint8Array[] = [];
+            while (true) { const { done, value } = await rd.read(); if (done) break; cs.push(value); }
+            gateHist = JSON.parse(Buffer.concat(cs).toString("utf-8"));
+          }
+          gateHist[scanTs] = {
+            theta: gateParamsOuter.theta,
+            h: gateParamsOuter.exponent,
+            q: gateParamsOuter.quantile,
+            bar_rank: gateParamsOuter.barRank,
+            r2: gateParamsOuter.rSquared,
+          };
+          const gateCutoff = new Date(Date.now() - 730 * 86400000).toISOString();
+          for (const k of Object.keys(gateHist)) if (k < gateCutoff) delete gateHist[k];
+          await put("gate-params-history.json", JSON.stringify(gateHist), {
+            access: "private", addRandomSuffix: false, allowOverwrite: true, token: process.env.BLOB_READ_WRITE_TOKEN,
+          });
+        } catch (e) { console.log("[scan] Gate params history skipped:", e); }
+      }
       console.log(`[scan] Subnet score history: ${Object.keys(scoreHistory).length} snapshots stored`);
     } catch (e) { console.error("[scan] Subnet history save failed:", e); }
 
