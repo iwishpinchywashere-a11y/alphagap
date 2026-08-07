@@ -2972,28 +2972,40 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     // the top of the trading leaderboard even when there was no fresh catalyst.
     // For a trading lens (hours/days), slow-moving fundamentals should be secondary to
     // fresh activity signals. evalScore is already heavily weighted in the Investing formula.
+    // HALVED 2026-08-06 for v440. The weights did not change but the input did:
+    // across the gate (26 Jul -> 1 Aug) 39% of subnets moved >=10 eVal points, and
+    // the move went with size — the largest 20 by mcap gained +2.3 while the
+    // smallest 40 lost -8.4. Post-gate, emission share is a ~5th-power function of
+    // demand share, so a ratio documented as "network pays more than the market
+    // values" now partly reads as "this subnet is big". Holding the old weight while
+    // the metric re-sorted itself was the real change; this restores the intent.
+    // Backtest could not validate eVal either way (docs/EVAL_BACKTEST_2026-08.md) —
+    // this is risk reduction under uncertainty, not a proven improvement.
     let evalBoost = 0;
-    if (evalScore >= 80) evalBoost = 9;
-    else if (evalScore >= 60) evalBoost = 7;
-    else if (evalScore >= 45) evalBoost = 5;
-    else if (evalScore >= 30) evalBoost = 3;
+    if (evalScore >= 80) evalBoost = 5;
+    else if (evalScore >= 60) evalBoost = 4;
+    else if (evalScore >= 45) evalBoost = 3;
+    else if (evalScore >= 30) evalBoost = 2;
     else if (evalScore >= 15) evalBoost = 1;
     // Net inflow = money flowing in alongside good eval = stronger signal
-    if (d.netFlow24h && d.netFlow24h > 0) evalBoost = Math.min(9, evalBoost + 2);
+    if (d.netFlow24h && d.netFlow24h > 0) evalBoost = Math.min(5, evalBoost + 1);
 
-    // EVAL VS PRICE BONUS (0-6 pts) — THE REAL EVAL GAP SIGNAL
-    // High validator quality score + price still underwater = market hasn't caught up to
-    // what validators already know. This is the pure "informed money vs. dumb money" gap.
-    let evalVsPriceBonus = 0;
-    if      (evalScore >= 65 && pch30d <= -20) evalVsPriceBonus = 6;
-    else if (evalScore >= 55 && pch30d <= -15) evalVsPriceBonus = 5;
-    else if (evalScore >= 50 && pch30d <= -10) evalVsPriceBonus = 4;
-    else if (evalScore >= 45 && pch7d  <= -10) evalVsPriceBonus = 3;
-    else if (evalScore >= 40 && pch7d  <= -5)  evalVsPriceBonus = 2;
-    // Halve eval-vs-price bonus under sustained decline: if the market has been
-    // consistently disagreeing with validators for weeks, the "informed money" thesis
-    // gets weaker — maybe validators are wrong, or their conviction is fading.
-    if (sustainedDecline) evalVsPriceBonus = Math.floor(evalVsPriceBonus / 2);
+    // EVAL VS PRICE BONUS — RETIRED 2026-08-06, was 0-6 pts.
+    //
+    // The thesis was "high eval + price underwater = market hasn't caught up to
+    // what validators know". Two independent reasons to stop paying for it:
+    //
+    // 1. The same shape was tested directly on the stocks side and was the only
+    //    statistically significant result in that study, running the wrong way:
+    //    ranking on "has fallen, therefore cheap" returned -7.03% per quarter,
+    //    t = -2.28 (see alphagap-stocks/docs/BACKTEST_2026-08.md).
+    // 2. Post-v440 it partly reads as "large subnet whose price fell", because
+    //    eVal now correlates with size.
+    //
+    // Kept as a zero rather than deleted so the wiring below is untouched and
+    // restoring it is a one-line change if a real backtest ever supports it.
+    // (The old sustained-decline halving that followed is moot at zero.)
+    const evalVsPriceBonus = 0;
 
     // 5. MARKET CAP VIABILITY — too small = uninvestable / too illiquid to act on
     // Subnets under $1M are hard to enter/exit without moving the price significantly.
