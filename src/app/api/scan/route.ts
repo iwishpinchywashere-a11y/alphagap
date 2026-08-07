@@ -151,6 +151,8 @@ interface TMCSubnet {
   circulating_supply: number;
   neuron_regs_burned_24h: number;
   subnet_ema_tao_flow: number | null; // EMA of net TAO flow (rao); positive=inflow, negative=outflow
+  subnet_moving_price?: number | null; // de-manipulated moving price — what the v440 gate acts on
+  emission_enabled?: boolean;          // subnets with emission off are not in the gate distribution
   tao_liquidity: number | null;       // TAO in the liquidity pool (rao)
 }
 async function fetchTMCSubnets(): Promise<TMCSubnet[]> {
@@ -200,6 +202,7 @@ async function fetchTMCValidators(): Promise<Map<number, number>> {
 }
 import { scanAllSubnetGitHub, type GitHubScanResult } from "@/lib/github-scanner";
 import { scanAllSubnetsHF, type HFScanResult } from "@/lib/hf-scanner";
+import { fitGate, readGate, emissionChangeFor } from "@/lib/emission-gate";
 import { fetchRecentCommits, fetchRecentPRs, fetchLatestRelease } from "@/lib/context-fetcher";
 import { computeProductScore, BENCHMARK_MAP, MILESTONE_MAP, type WebsiteSignalData } from "@/lib/benchmarks";
 import type { WebsiteProductCache } from "@/app/api/scan-websites/route";
@@ -4041,6 +4044,98 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
       }
     } catch (e) { console.log("[scan] Flow signal diff skipped:", e); }
   }
+
+  // ── v440 Emission Gate signals ──────────────────────────────────
+  // Since v440, emission = s * gate(s) rather than being linear in demand
+  // share s. Near the bar the curve is steep enough that a modest demand
+  // move is amplified several times over, and a subnet drifting below the
+  // bar loses most of its emission. Neither was visible anywhere in AlphaGap
+  // before this: the whole codebase had no concept of the bar.
+  try {
+    const gateInputs = tmcSubnets
+      .filter(t => t.emission_enabled !== false && Number(t.subnet_moving_price) > 0)
+      .map(t => ({
+        netuid: t.subnet,
+        movingPrice: Number(t.subnet_moving_price),
+        emissionPct: t.emission ?? null,
+      }));
+
+    if (gateInputs.length >= 20) {
+      const gateParams = fitGate(gateInputs);
+      const readings = readGate(gateInputs, gateParams);
+
+      // A fit this far off means governance moved the parameters into a shape
+      // we do not model, or the feed changed. Publishing convexity numbers off
+      // a broken fit would be worse than publishing nothing.
+      if ((gateParams.rSquared ?? 0) < 0.85) {
+        console.log(`[scan] Emission gate fit too weak (R2=${gateParams.rSquared?.toFixed(3)}) — signals skipped`);
+      } else {
+        console.log(`[scan] Emission gate: q=${gateParams.quantile} h=${gateParams.exponent} bar@rank${gateParams.barRank} R2=${gateParams.rSquared?.toFixed(3)}`);
+        const gateToday = new Date().toISOString().slice(0, 10);
+
+        for (const entry of leaderboard) {
+          const g = readings.get(entry.netuid);
+          // modelBroken: something other than the gate is driving this
+          // subnet's emission, so its gate reading is not trustworthy.
+          if (!g || g.modelBroken) continue;
+
+          const demand7d = entry.price_change_7d ?? null;
+          const uplift10 = emissionChangeFor(g, gateParams, 10);
+
+          // Climbing into the steep part of the curve.
+          if (g.barRatio >= 0.7 && g.barRatio <= 1.6 && demand7d != null && demand7d > 3) {
+            addSignal({
+              netuid: entry.netuid,
+              subnet_name: entry.name,
+              signal_type: "gate_convexity",
+              // Strength rises as the payoff per unit of demand rises.
+              strength: Math.min(95, Math.round(45 + (g.elasticity - 1) * 16)),
+              title: `Near the emission bar — ${g.elasticity.toFixed(1)}x payoff on demand`,
+              description:
+                `Sits at ${g.barRatio.toFixed(2)}x the v440 emission bar with demand up ${demand7d.toFixed(0)}% over 7d. ` +
+                `At this point on the gate a further +10% in demand share converts to roughly +${uplift10.toFixed(0)}% emission, ` +
+                `against +10% for subnets well above the bar. This is mechanical, not a forecast — it follows from the ` +
+                `gate function itself. It says nothing about whether demand will actually grow.`,
+              source: "v440-gate",
+              signal_date: gateToday,
+            });
+          }
+
+          // Above the bar but sliding toward it. The same steepness that pays
+          // on the way up takes it back on the way down.
+          //
+          // Both windows, worst case wins. A single bad week is noisy, and a
+          // sustained slide is the more dangerous shape: ORO on 2026-08-05 was
+          // only -7% on the week (under the threshold) but -39% over 30 days
+          // while sitting 1.85x above the bar, which is the case worth warning
+          // about. 7d alone would have said nothing.
+          const demand30d = entry.price_change_30d ?? null;
+          const slide =
+            demand7d != null && demand7d < -8 ? demand7d
+            : demand30d != null && demand30d < -20 ? demand30d
+            : null;
+          if (g.barRatio >= 1.0 && g.barRatio <= 1.9 && slide != null) {
+            const window = slide === demand7d ? "7d" : "30d";
+            const drop = emissionChangeFor(g, gateParams, slide);
+            addSignal({
+              netuid: entry.netuid,
+              subnet_name: entry.name,
+              signal_type: "gate_cliff_risk",
+              strength: Math.min(95, Math.round(50 + Math.abs(drop) / 2)),
+              title: `Sliding toward the emission bar — ${g.barRatio.toFixed(2)}x and falling`,
+              description:
+                `Demand share is down ${Math.abs(slide).toFixed(0)}% over ${window} while sitting just ${g.barRatio.toFixed(2)}x above the ` +
+                `v440 bar. Repeating that move implies roughly ${drop.toFixed(0)}% emission. Below the bar the gate throttles ` +
+                `hard: the deep tail keeps only a few percent of its linear share. Falling price and falling emission now ` +
+                `reinforce each other, which was not true before v440.`,
+              source: "v440-gate",
+              signal_date: gateToday,
+            });
+          }
+        }
+      }
+    }
+  } catch (e) { console.log("[scan] Emission gate signals skipped:", e); }
 
   // ── Persist per-subnet score history (90-day daily snapshots) ──
   // NOTE: Early price snapshot is saved AFTER this block so agap_velo is included.
