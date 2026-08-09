@@ -730,18 +730,6 @@ export default function AlphaGapIndexPage() {
     }
   }, [selectedAddress]);
 
-  // The rebalance cron runs Sundays at 12:00 UTC, and a rebalance is what
-  // deploys any new TAO sitting in a member's wallet.
-  const nextRebalanceLabel = useMemo(() => {
-    const now = new Date();
-    const next = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 12, 0, 0));
-    while (next.getUTCDay() !== 0 || next.getTime() <= now.getTime()) {
-      next.setUTCDate(next.getUTCDate() + 1);
-      next.setUTCHours(12, 0, 0, 0);
-    }
-    return next.toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" });
-  }, []);
-
   const lastRebalancedLabel = useMemo(() => {
     if (!lastRebalancedAt) return "—";
     const d = new Date(lastRebalancedAt);
@@ -1217,9 +1205,15 @@ export default function AlphaGapIndexPage() {
                   <div className="mt-4 rounded-xl border border-white/8 bg-white/[0.02] p-4 max-w-md">
                     <p className="text-xs font-semibold text-gray-300 mb-2">Adding more TAO</p>
                     <p className="text-xs text-gray-500 leading-relaxed mb-3">
-                      Send TAO to this same wallet — there is nothing to sign and no need to leave the index.
-                      It is staked automatically at the next weekly rebalance{" "}
-                      <span className="text-gray-300">({nextRebalanceLabel}, 12:00 UTC)</span>.
+                      Send TAO to this same wallet — there is nothing to sign, and you should not need to leave
+                      and re-join. TrustedStake manages this wallet through the staking proxy you granted, so new
+                      TAO is picked up at the next rebalance rather than needing a deposit.
+                    </p>
+                    <p className="text-[11px] text-gray-600 leading-relaxed mb-3">
+                      Two thresholds worth knowing: the strategy holds a{" "}
+                      <span className="text-gray-400">2 TAO minimum balance</span> and only acts when an allocation
+                      has drifted more than <span className="text-gray-400">5%</span>. A small top-up can sit
+                      undeployed until a larger move triggers a rebalance.
                     </p>
                     <button
                       onClick={() => {
@@ -1237,7 +1231,8 @@ export default function AlphaGapIndexPage() {
                       <p className="text-xs mt-3">
                         {freeTao >= 0.01 ? (
                           <span className="text-amber-300/90">
-                            {freeTao.toFixed(4)} TAO in this wallet is not staked yet — it goes in on {nextRebalanceLabel}.
+                            {freeTao.toFixed(4)} TAO in this wallet is not staked yet — it is deployed on the next
+                            rebalance{freeTao < 2 ? ", though this is under the 2 TAO minimum" : ""}.
                           </span>
                         ) : (
                           <span className="text-gray-600">All TAO in this wallet is deployed.</span>
