@@ -196,6 +196,16 @@ export default function AlphaGapIndexPage() {
   const [walletConnecting, setWalletConnecting] = useState(false);
   const [walletError, setWalletError] = useState<string | null>(null);
   const [showAccountPicker, setShowAccountPicker] = useState(false);
+  // Free (unstaked) TAO sitting in the wallet. Members topping up had no way to
+  // see that their new TAO had arrived but not yet been deployed, so the only
+  // discoverable route was to leave the strategy and re-join.
+  const [freeTao, setFreeTao] = useState<number | null>(null);
+  const [copiedAddr, setCopiedAddr] = useState(false);
+  // Wallet (extension) picker, distinct from the account picker below it.
+  // With two extensions installed the old flow enabled both and whichever
+  // browser-injected first got to prompt, so the wrong wallet came up.
+  const [installedWallets, setInstalledWallets] = useState<Array<{ source: string; name: string }>>([]);
+  const [showWalletPicker, setShowWalletPicker] = useState(false);
 
   // ── Membership state ────────────────────────────────────────────────────
   const [isMember, setIsMember] = useState(false);
@@ -240,7 +250,7 @@ export default function AlphaGapIndexPage() {
 
   // Load real positions once the wallet is a confirmed member.
   useEffect(() => {
-    if (!selectedAddress || !isMember) { setPositions(null); return; }
+    if (!selectedAddress || !isMember) { setPositions(null); setFreeTao(null); return; }
 
     let cancelled = false;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -272,6 +282,13 @@ export default function AlphaGapIndexPage() {
           });
         }
 
+        // Free balance off the same connection — one socket, not two.
+        try {
+          const acct = await api.query.system.account(selectedAddress);
+          const free = (acct?.data?.free?.toBigInt?.() ?? BigInt(0)) as bigint;
+          if (!cancelled) setFreeTao(Number(free) / 1e9);
+        } catch { if (!cancelled) setFreeTao(null); }
+
         if (cancelled) return;
         setPositions(rows.sort((a, b) => b.alpha - a.alpha));
         setPositionsError(null);
@@ -285,29 +302,42 @@ export default function AlphaGapIndexPage() {
   }, [selectedAddress, isMember]);
 
   // ── Connect wallet ──────────────────────────────────────────────────────
-  const connectWallet = useCallback(async () => {
+  // Enables exactly one extension, then picks an account within it.
+  const connectTo = useCallback(async (source?: string) => {
     setWalletConnecting(true);
     setWalletError(null);
     try {
-      const { getWalletAccounts } = await import("@/lib/polkadot-wallet");
-      const accounts = await getWalletAccounts();
+      const { connectWallet: connect } = await import("@/lib/polkadot-wallet");
+      const accounts = await connect(source);
       setWalletAccounts(accounts);
-      if (accounts.length === 1) {
-        setSelectedAddress(accounts[0].address);
-      } else {
-        setShowAccountPicker(true);
-      }
+      setShowWalletPicker(false);
+      if (accounts.length === 1) setSelectedAddress(accounts[0].address);
+      else setShowAccountPicker(true);
     } catch (err) {
-      setWalletError(err instanceof Error ? err.message : "Failed to connect wallet");
+      const msg = err instanceof Error ? err.message : "Failed to connect wallet";
+      // More than one extension installed — ask which, rather than letting the
+      // browser's injection order decide for the user.
+      if (msg === "MULTIPLE_WALLETS") {
+        const { listWallets } = await import("@/lib/polkadot-wallet");
+        setInstalledWallets(await listWallets());
+        setShowWalletPicker(true);
+        return;
+      }
+      if (/cancelled|rejected|denied/i.test(msg)) { setWalletError(null); return; }
+      setWalletError(msg);
     } finally {
       setWalletConnecting(false);
     }
   }, []);
 
+  const connectWallet = useCallback(() => connectTo(undefined), [connectTo]);
+
   const disconnectWallet = useCallback(() => {
     if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
     setSelectedAddress(null);
     setWalletAccounts([]);
+    setShowWalletPicker(false);
+    setInstalledWallets([]);
     setIsMember(false);
     setRegisterStep("idle");
     setLeaveStep("idle");
@@ -325,7 +355,7 @@ export default function AlphaGapIndexPage() {
   //   1. Dynamic import @polkadot/api (browser only)
   //   2. WsProvider + ApiPromise.create() → connects to chain, downloads metadata
   //   3. api.tx.proxy.addProxy(TS_PROXY_ADDRESS, 0, 0) → build the call
-  //   4. web3FromAddress(selectedAddress) → get injector from Talisman/SubWallet
+  //   4. getSigner() → signer from the single wallet the user chose
   //   5. signAndSend with 45-second timeout race
   //   6. Resolve on isReady/isBroadcast/isInBlock/isFinalized (tx is on its way)
   //   7. api.disconnect()
@@ -361,8 +391,11 @@ export default function AlphaGapIndexPage() {
 
         // ── Build and sign the proxy.addProxy transaction ─────────────────
         const tx = api.tx.proxy.addProxy(TS_PROXY_ADDRESS, TS_PROXY_TYPE, 0);
-        const { web3FromAddress } = await import("@polkadot/extension-dapp");
-        const injector = await web3FromAddress(selectedAddress);
+        // getSigner() rather than web3FromAddress: we enable a single chosen
+        // extension instead of calling web3Enable, so the registry that
+        // web3FromAddress reads is never populated.
+        const { getSigner } = await import("@/lib/polkadot-wallet");
+        const injector = { signer: await getSigner() };
 
         setProxyStep("proxy-pending");
 
@@ -606,8 +639,11 @@ export default function AlphaGapIndexPage() {
         );
         const tx = calls.length === 1 ? calls[0] : api.tx.utility.batchAll(calls);
 
-        const { web3FromAddress } = await import("@polkadot/extension-dapp");
-        const injector = await web3FromAddress(selectedAddress);
+        // getSigner() rather than web3FromAddress: we enable a single chosen
+        // extension instead of calling web3Enable, so the registry that
+        // web3FromAddress reads is never populated.
+        const { getSigner } = await import("@/lib/polkadot-wallet");
+        const injector = { signer: await getSigner() };
 
         await new Promise<void>((resolve, reject) => {
           let unsub: (() => void) | null = null;
@@ -693,6 +729,18 @@ export default function AlphaGapIndexPage() {
       setLeaveStep("error");
     }
   }, [selectedAddress]);
+
+  // The rebalance cron runs Sundays at 12:00 UTC, and a rebalance is what
+  // deploys any new TAO sitting in a member's wallet.
+  const nextRebalanceLabel = useMemo(() => {
+    const now = new Date();
+    const next = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 12, 0, 0));
+    while (next.getUTCDay() !== 0 || next.getTime() <= now.getTime()) {
+      next.setUTCDate(next.getUTCDate() + 1);
+      next.setUTCHours(12, 0, 0, 0);
+    }
+    return next.toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" });
+  }, []);
 
   const lastRebalancedLabel = useMemo(() => {
     if (!lastRebalancedAt) return "—";
@@ -853,6 +901,37 @@ export default function AlphaGapIndexPage() {
           )}
 
           {/* Account picker modal */}
+          {showWalletPicker && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+              <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setShowWalletPicker(false)} />
+              <div className="relative z-10 w-full max-w-sm rounded-[20px] border border-white/10 bg-[#0b0e10] p-6 shadow-2xl">
+                <div className="flex items-center justify-between mb-1">
+                  <h3 className="font-display font-semibold text-white text-lg">Choose Wallet</h3>
+                  <button onClick={() => setShowWalletPicker(false)} className="text-gray-500 hover:text-gray-300 transition-colors"><IconX className="w-4 h-4" /></button>
+                </div>
+                <p className="text-xs text-gray-500 mb-4">You have more than one wallet installed. Only the one you pick will be asked to connect.</p>
+                <div className="space-y-2">
+                  {installedWallets.map(w => (
+                    <button
+                      key={w.source}
+                      onClick={() => connectTo(w.source)}
+                      disabled={walletConnecting}
+                      className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-white/6 bg-white/[0.02] hover:bg-white/[0.05] disabled:opacity-50 transition-colors text-left"
+                    >
+                      <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center flex-shrink-0">
+                        <IconWallet className="w-4 h-4 text-emerald-400" />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="text-sm font-semibold text-white truncate">{w.name}</div>
+                        <div className="text-xs text-gray-500 font-mono">{w.source}</div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
           {showAccountPicker && walletAccounts.length > 1 && (
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
               <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setShowAccountPicker(false)} />
@@ -1129,6 +1208,43 @@ export default function AlphaGapIndexPage() {
                   </div>
                   <p className="text-gray-400 text-sm font-mono">{selectedAddress}</p>
                   <p className="text-gray-500 text-xs mt-1">Your wallet is registered with the AlphaGap Subnet Index strategy.</p>
+                  {/* Topping up was the single biggest reported friction: there
+                      was no staking button here at all, because the strategy
+                      deploys your wallet's TAO for you via the proxy. Without
+                      saying so, the only discoverable way to add more was to
+                      leave and re-join. Show the address, what is already
+                      staked, what is waiting, and when it goes in. */}
+                  <div className="mt-4 rounded-xl border border-white/8 bg-white/[0.02] p-4 max-w-md">
+                    <p className="text-xs font-semibold text-gray-300 mb-2">Adding more TAO</p>
+                    <p className="text-xs text-gray-500 leading-relaxed mb-3">
+                      Send TAO to this same wallet — there is nothing to sign and no need to leave the index.
+                      It is staked automatically at the next weekly rebalance{" "}
+                      <span className="text-gray-300">({nextRebalanceLabel}, 12:00 UTC)</span>.
+                    </p>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard?.writeText(selectedAddress).then(() => {
+                          setCopiedAddr(true);
+                          setTimeout(() => setCopiedAddr(false), 2000);
+                        }).catch(() => {});
+                      }}
+                      className="w-full flex items-center gap-2 px-3 py-2 rounded-lg border border-white/8 bg-white/[0.03] hover:bg-white/[0.06] transition-colors text-left"
+                    >
+                      <span className="font-mono text-[11px] text-gray-400 truncate flex-1">{selectedAddress}</span>
+                      <span className="text-[10px] text-emerald-400 flex-shrink-0">{copiedAddr ? "Copied" : "Copy"}</span>
+                    </button>
+                    {freeTao != null && (
+                      <p className="text-xs mt-3">
+                        {freeTao >= 0.01 ? (
+                          <span className="text-amber-300/90">
+                            {freeTao.toFixed(4)} TAO in this wallet is not staked yet — it goes in on {nextRebalanceLabel}.
+                          </span>
+                        ) : (
+                          <span className="text-gray-600">All TAO in this wallet is deployed.</span>
+                        )}
+                      </p>
+                    )}
+                  </div>
                 </div>
                 <div className="flex flex-col gap-2 flex-shrink-0">
                   <button onClick={handleLeave} disabled={leaveStep === "leaving"} className="inline-flex items-center justify-center gap-2 px-5 py-2 bg-white/[0.03] hover:bg-red-500/10 border border-white/8 hover:border-red-500/25 text-gray-500 hover:text-red-400 text-sm rounded-xl transition-all">
