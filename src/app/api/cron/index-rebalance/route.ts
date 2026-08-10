@@ -18,7 +18,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { get as blobGet, put } from "@vercel/blob";
-import { buildWeights, updateStrategyWeights, triggerRebalance, type IndexHolding } from "@/lib/trustedstake";
+import { buildWeights, updateStrategyWeights, triggerRebalance, getStrategy, type IndexHolding } from "@/lib/trustedstake";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -26,6 +26,18 @@ export const maxDuration = 60;
 const BLOB_TOKEN = process.env.BLOB_READ_WRITE_TOKEN || "";
 const REBALANCE_INTERVAL_DAYS = 5; // catch-up: rebalance if last run was >5 days ago
 const MIN_INTERVAL_DAYS = 2;       // floor: never rebalance twice within 2 days
+// Vercel crons are best-effort, not to-the-second, and `rebalancedAt` is stamped
+// when the handler starts rather than when the cron fires. Both push the recorded
+// time a little PAST the hour, so a run exactly N days later measures fractionally
+// under N and trips the floor.
+//
+// That is not hypothetical. The Aug 7 run recorded 12:01:12; the Sunday Aug 9 cron
+// fired at 12:00:00 and measured 1.9992 days, so it was skipped as "too soon" —
+// blocked by 71 seconds. Worse, it cascades: the next run then lands mid-week on
+// the overdue rule, which pushes the following Sunday inside the floor as well,
+// and the schedule walks off Sunday permanently. A user reported exactly this as
+// "no automatic rebalance for the past week".
+const INTERVAL_JITTER_DAYS = 0.25; // 6h grace — absorbs cron jitter, still blocks same-day double runs
 
 interface LeaderboardEntry {
   netuid: number;
@@ -80,8 +92,8 @@ export async function GET(req: NextRequest) {
     : null;
 
   // Hard floor: never rebalance twice in quick succession, even on a Sunday.
-  if (daysSinceLast !== null && daysSinceLast < MIN_INTERVAL_DAYS) {
-    console.log(`[index-rebalance] Skipping — last run was only ${daysSinceLast.toFixed(1)}d ago`);
+  if (daysSinceLast !== null && daysSinceLast < MIN_INTERVAL_DAYS - INTERVAL_JITTER_DAYS) {
+    console.log(`[index-rebalance] Skipping — last run was only ${daysSinceLast.toFixed(3)}d ago`);
     return NextResponse.json({ skipped: true, reason: "too soon", daysSinceLast });
   }
 
@@ -152,6 +164,28 @@ export async function runRebalance(): Promise<NextResponse> {
   // ── 4 & 5. Push to TrustedStake ─────────────────────────────────
   let rebalanceResult: { queued: boolean; message: string } | null = null;
   let trustedStakeError: string | null = null;
+  let stuckWarning: string | null = null;
+
+  // A rebalance we queue can sit in TrustedStake's isRebalancing state without
+  // ever executing. That is what happened on Aug 7: queued successfully, still
+  // isRebalancing 79 hours later, no transactions produced — and because
+  // triggerRebalance only confirms the QUEUE accepted it, we recorded
+  // success:true and the page told members it had rebalanced. Check the real
+  // state so a stuck run is visible instead of being reported as a success.
+  try {
+    const pre = await getStrategy();
+    if (pre.isRebalancing && pre.lastRebalanceStartedAt) {
+      const stuckHours = (Date.now() - new Date(pre.lastRebalanceStartedAt).getTime()) / 3600000;
+      if (stuckHours > 6) {
+        stuckWarning =
+          `TrustedStake has been isRebalancing for ${stuckHours.toFixed(1)}h ` +
+          `(since ${pre.lastRebalanceStartedAt}) — the previous rebalance never completed.`;
+        console.error(`[index-rebalance] *** STUCK *** ${stuckWarning}`);
+      }
+    }
+  } catch (e) {
+    console.warn("[index-rebalance] Could not read strategy state:", e);
+  }
 
   try {
     await updateStrategyWeights(weights, {
@@ -170,7 +204,11 @@ export async function runRebalance(): Promise<NextResponse> {
   // ── 6. Write index-rebalance-latest.json ────────────────────────
   const output = {
     rebalancedAt: startedAt,
-    success: trustedStakeError === null,
+    // Success means the queue accepted it, NOT that it executed. When the
+    // previous run is still stuck, say so rather than showing a clean tick.
+    success: trustedStakeError === null && stuckWarning === null,
+    queuedOnly: trustedStakeError === null && stuckWarning !== null,
+    stuckWarning: stuckWarning ?? undefined,
     trustedStakeError: trustedStakeError ?? undefined,
     rebalanceMessage: rebalanceResult?.message ?? undefined,
     holdingCount: holdings.length,

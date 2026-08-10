@@ -30,6 +30,9 @@ export interface TSStrategy {
   };
   createdAt: string;
   updatedAt: string;
+  /** True while TrustedStake is executing a rebalance. Can get stuck. */
+  isRebalancing?: boolean;
+  lastRebalanceStartedAt?: string | null;
 }
 
 export interface TSRebalanceResult {
