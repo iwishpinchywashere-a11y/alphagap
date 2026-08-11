@@ -93,6 +93,21 @@ export async function POST(req: Request) {
       }
 
       case "invoice.payment_failed": {
+        // This handler used to mark the user past_due for ANY failed invoice,
+        // with none of the old-subscription protection that
+        // customer.subscription.updated already had. That is a real incident,
+        // not a theoretical gap:
+        //
+        //   A customer's April subscription went past_due. They bought a fresh
+        //   Ultra subscription on 2026-08-06 which went active correctly. But
+        //   Stripe keeps retrying the dead subscription's invoice for weeks,
+        //   and every retry landed here and knocked a fully paid-up customer
+        //   back to past_due. They lost access and it had to be fixed by hand.
+        //
+        // A failed invoice on a subscription the user has moved on from says
+        // nothing about whether they are currently paying. Only act when the
+        // invoice belongs to the subscription we actually have on file, and
+        // re-check Stripe for any other live subscription before downgrading.
         const invoice = event.data.object as Stripe.Invoice;
         const sub = (invoice as any).subscription
           ? await getStripe().subscriptions.retrieve((invoice as any).subscription as string).catch(() => null)
@@ -100,8 +115,26 @@ export async function POST(req: Request) {
         if (sub) {
           const user = await getUserByStripeCustomerId(sub.customer as string);
           if (user) {
+            if (user.stripeSubscriptionId && user.stripeSubscriptionId !== sub.id) {
+              console.log(`[webhook] payment_failed on stale sub ${sub.id} (current: ${user.stripeSubscriptionId}) — ignoring`);
+              break;
+            }
+            // Even for the sub on file, confirm the customer has nothing else
+            // live before removing access. Cheap call, and the failure mode it
+            // prevents is charging someone and locking them out.
+            const live = await getStripe().subscriptions.list({
+              customer: sub.customer as string,
+              status: "active",
+              limit: 10,
+            }).catch(() => null);
+            const otherActive = live?.data.find(s => s.id !== sub.id);
+            if (otherActive) {
+              console.log(`[webhook] payment_failed on ${sub.id} but ${otherActive.id} is active — keeping access`);
+              break;
+            }
             await updateUser(user.email, { subscriptionStatus: "past_due" });
             await updateUserListEntry(user.email, { subscriptionStatus: "past_due" });
+            console.log(`[webhook] ${user.email} → past_due (sub ${sub.id})`);
           }
         }
         break;
