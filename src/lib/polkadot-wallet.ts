@@ -97,6 +97,24 @@ export async function listWallets(): Promise<InstalledWallet[]> {
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
+/**
+ * Nothing in the extension API is guaranteed to settle.
+ *
+ * `enable()` resolves when the user approves the site in the wallet popup — but
+ * if that popup never opens, or opened behind the browser window, or the user
+ * previously dismissed or blocked this site (several wallets remember that and
+ * silently never re-prompt), the promise simply hangs. A customer sat on a
+ * spinner for ten minutes because of this. Never await an extension without a
+ * deadline and a message that says what to actually do.
+ */
+function withTimeout<T>(p: Promise<T>, ms: number, message: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(message)), ms);
+    p.then(v => { clearTimeout(timer); resolve(v); },
+           e => { clearTimeout(timer); reject(e); });
+  });
+}
+
 /** The injector we enabled, kept so signing does not need web3Enable. */
 let activeInjector: Awaited<ReturnType<InjectedLike["enable"]>> | null = null;
 let activeSource: string | null = null;
@@ -127,14 +145,27 @@ export async function connectWallet(source?: string): Promise<WalletAccount[]> {
   const target = injected[chosen];
   if (!target?.enable) throw new Error(`Wallet "${chosen}" is not available.`);
 
-  const ext = await target.enable("AlphaGap Subnet Index");
+  const label = WALLET_LABELS[chosen] ?? chosen;
+  const ext = await withTimeout(
+    target.enable("AlphaGap Subnet Index"),
+    30_000,
+    `${label} did not respond. Open the ${label} extension — there may be a pending ` +
+    `connection request waiting for approval, possibly behind this window. If you have ` +
+    `previously rejected this site, remove it from the wallet's connected-sites or trusted-apps ` +
+    `list and try again.`,
+  );
   activeInjector = ext;
   activeSource = chosen;
 
-  const accounts = await ext.accounts.get();
+  const accounts = await withTimeout(
+    ext.accounts.get(),
+    15_000,
+    `${label} connected but did not return any accounts. Make sure the wallet is unlocked, ` +
+    `then try again.`,
+  );
   if (!accounts || accounts.length === 0) {
     throw new Error(
-      `No accounts found in ${WALLET_LABELS[chosen] ?? chosen}. Create or import an account, ` +
+      `No accounts found in ${label}. Create or import an account, ` +
       `and make sure the account is visible to this site.`
     );
   }

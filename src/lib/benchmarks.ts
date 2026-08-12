@@ -18,7 +18,25 @@ export interface BenchmarkEntry {
   perf_delta: string;
   benchmark_summary: string;
   active_users: string;
-  annual_revenue_usd: number;    // 0 if pre-revenue
+  annual_revenue_usd: number;    // 0 if pre-revenue OR never researched — see revenue_confidence
+  /**
+   * How much weight annual_revenue_usd carries. Added 2026-08-12 because a bare
+   * 0 conflated two completely different things that the score treated
+   * identically: "we researched this and they genuinely have no revenue yet"
+   * and "nobody has ever looked". 61 of 72 benchmarked subnets carried 0, and
+   * every unbenchmarked subnet defaults to 0 too, so ~92% of the board was one
+   * indistinguishable bucket feeding awarenessRevScale.
+   *
+   *   confirmed            a specific figure is publicly disclosed, with a URL
+   *   estimated            derived from disclosed usage/pricing; arithmetic shown
+   *   confirmed_pre_revenue  actively checked; they state or clearly show none
+   *   unknown              could not establish either way
+   *
+   * Absent means never assessed — treat as "unknown", not as pre-revenue.
+   */
+  revenue_confidence?: "confirmed" | "estimated" | "confirmed_pre_revenue" | "unknown";
+  /** URL plus a quote or the arithmetic. Required whenever confidence is confirmed. */
+  revenue_evidence?: string;
   last_updated: string;
   sources: string[];
   dashboards?: BenchmarkDashboard[];   // official live stats/analytics pages
