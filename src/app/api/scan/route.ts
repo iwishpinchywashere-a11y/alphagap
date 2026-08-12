@@ -3411,13 +3411,24 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     //    A subnet with $100K ARR and low social may just be early-stage — market is accurately cautious.
     //    Scale both awareness and price bonuses proportionally so low-revenue subnets can't hit 100.
     const confirmedArrForAwareness = BENCHMARK_MAP.get(d.netuid)?.annual_revenue_usd ?? 0;
+    // The ladder must be MONOTONIC in revenue, and "we have no revenue figure"
+    // must not outrank a disclosed one. It used to do both wrong: unknown
+    // scored 0.85 — above $500K (0.72), nearly double $100K (0.45), and level
+    // with a $1M business. Since 62 of 73 benchmarked subnets carry
+    // annual_revenue_usd 0, and anything unbenchmarked defaults to 0 too, that
+    // handed the second-highest multiplier to ~85% of the board while
+    // penalising the handful who actually disclosed modest revenue.
+    //
+    // Absence of evidence was being scored as strong evidence. Unknown now sits
+    // mid-ladder: we discount a gap thesis we cannot corroborate, without
+    // punishing it harder than a disclosed pilot.
     const awarenessRevScale =
       confirmedArrForAwareness >= 5_000_000 ? 1.00  // proven business — full gap signal
       : confirmedArrForAwareness >= 1_000_000 ? 0.85  // strong traction
       : confirmedArrForAwareness >= 500_000   ? 0.72  // solid early revenue
-      : confirmedArrForAwareness >= 100_000   ? 0.45  // real but early — gap is smaller
-      : confirmedArrForAwareness >  0         ? 0.35  // pilot / minimal revenue
-      : 0.85;                                          // pre-revenue: pure product thesis, still strong
+      : confirmedArrForAwareness >= 100_000   ? 0.60  // real but early
+      : confirmedArrForAwareness >  0         ? 0.50  // pilot / minimal revenue
+      : 0.55;                                          // unknown or pre-revenue — unproven, not disqualified
 
     let productAwarenessGap = 0;
     if      (productScore >= 60 && socialScore <= 30) productAwarenessGap = Math.round(12 * awarenessRevScale);
