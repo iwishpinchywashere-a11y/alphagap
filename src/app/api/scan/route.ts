@@ -3430,20 +3430,35 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
       : confirmedArrForAwareness >  0         ? 0.50  // pilot / minimal revenue
       : 0.55;                                          // unknown or pre-revenue — unproven, not disqualified
 
+    // HALVED 2026-08-12 (was 12/6/4). This and productVsPriceBonus below are
+    // the "nobody has noticed / it has fallen, therefore cheap" thesis. That
+    // exact shape was the only statistically significant result in the stocks
+    // study and it ran the wrong way: -7.03% per quarter, t = -2.28
+    // (alphagap-stocks/docs/BACKTEST_2026-08.md).
+    //
+    // The base productAGapPts term is deliberately NOT cut. It scores product
+    // QUALITY, which the same study supported as a gate. What failed was
+    // paying extra for cheapness on top of quality, which is only these two.
+    //
+    // Cluster headroom drops 45 -> 35 of ~100. Product was the single largest
+    // input in the formula and, for the current top 10, 17-37% of their whole
+    // score.
     let productAwarenessGap = 0;
-    if      (productScore >= 60 && socialScore <= 30) productAwarenessGap = Math.round(12 * awarenessRevScale);
-    else if (productScore >= 60 && socialScore <= 50) productAwarenessGap = Math.round(6  * awarenessRevScale);
-    else if (productScore >= 80 && socialScore <= 60) productAwarenessGap = Math.round(4  * awarenessRevScale);
+    if      (productScore >= 60 && socialScore <= 30) productAwarenessGap = Math.round(6 * awarenessRevScale);
+    else if (productScore >= 60 && socialScore <= 50) productAwarenessGap = Math.round(3 * awarenessRevScale);
+    else if (productScore >= 80 && socialScore <= 60) productAwarenessGap = Math.round(2 * awarenessRevScale);
 
     // 3. Product vs price gap (0–8 pts) — mirrors evalVsPriceBonus but for product signal
     //    High product + price underwater = market pricing the asset as if the product doesn't exist.
     //    Uses raw pch30d/pch7d (not clamped priceLag) so thresholds are always reachable.
     //    Also revenue-scaled: a price-down signal on $100K ARR deserves less weight than $5M ARR.
     let productVsPriceBonus = 0;
-    if      (productScore >= 70 && pch30d <= -20) productVsPriceBonus = Math.round(8 * awarenessRevScale);
-    else if (productScore >= 70 && pch30d <= -10) productVsPriceBonus = Math.round(4 * awarenessRevScale);
-    else if (productScore >= 70 && pch7d  <= -10) productVsPriceBonus = Math.round(4 * awarenessRevScale);
-    else if (productScore >= 50 && pch30d <= -25) productVsPriceBonus = Math.round(3 * awarenessRevScale);
+    // Halved with productAwarenessGap above (was 8/4/4/3) — same "cheap
+    // because it fell" mechanic, same reason.
+    if      (productScore >= 70 && pch30d <= -20) productVsPriceBonus = Math.round(4 * awarenessRevScale);
+    else if (productScore >= 70 && pch30d <= -10) productVsPriceBonus = Math.round(2 * awarenessRevScale);
+    else if (productScore >= 70 && pch7d  <= -10) productVsPriceBonus = Math.round(2 * awarenessRevScale);
+    else if (productScore >= 50 && pch30d <= -25) productVsPriceBonus = Math.round(2 * awarenessRevScale);
 
     // ── GITHUB STAR VELOCITY (0-8 pts) ──────────────────────────────────────────
     // External developer discovery: other people starring / forking the repo precedes
