@@ -1,5 +1,7 @@
 "use client";
 
+import { createPortal } from "react-dom";
+
 import React, { useState, useMemo, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { getTier, canAccessUltra } from "@/lib/subscription";
@@ -146,6 +148,33 @@ type RegisterStep = "idle" | "awaiting" | "success" | "register-error";
 type LeaveStep = "idle" | "leaving" | "success" | "error";
 
 /* ── Component ───────────────────────────────────────────────────────────── */
+
+/**
+ * Modals MUST be portalled to <body>.
+ *
+ * This page is full of `backdrop-blur` / ag-aurora containers, and any
+ * ancestor with backdrop-filter (or transform, or filter) becomes the
+ * containing block for `position: fixed` descendants. The wallet picker was
+ * therefore not covering the viewport at all — it rendered trapped inside a
+ * blurred ancestor's stacking context, which is why a member reported the
+ * wallet list appearing but "I can't click any of them" for 24 hours.
+ * Portalling to document.body puts it outside every one of those contexts.
+ */
+function Modal({ onClose, children }: { onClose: () => void; children: React.ReactNode }) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
+  if (!mounted || typeof document === "undefined") return null;
+  return createPortal(
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4" style={{ pointerEvents: "auto" }}>
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative z-10 w-full max-w-sm rounded-[20px] border border-white/10 bg-[#0b0e10] p-6 shadow-2xl">
+        {children}
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
 export default function AlphaGapIndexPage() {
   const { data: session } = useSession();
   const tier = getTier(session);
@@ -890,9 +919,7 @@ export default function AlphaGapIndexPage() {
 
           {/* Account picker modal */}
           {showWalletPicker && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-              <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setShowWalletPicker(false)} />
-              <div className="relative z-10 w-full max-w-sm rounded-[20px] border border-white/10 bg-[#0b0e10] p-6 shadow-2xl">
+            <Modal onClose={() => setShowWalletPicker(false)}>
                 <div className="flex items-center justify-between mb-1">
                   <h3 className="font-display font-semibold text-white text-lg">Choose Wallet</h3>
                   <button onClick={() => setShowWalletPicker(false)} className="text-gray-500 hover:text-gray-300 transition-colors"><IconX className="w-4 h-4" /></button>
@@ -903,8 +930,7 @@ export default function AlphaGapIndexPage() {
                     <button
                       key={w.source}
                       onClick={() => connectTo(w.source)}
-                      disabled={walletConnecting}
-                      className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-white/6 bg-white/[0.02] hover:bg-white/[0.05] disabled:opacity-50 transition-colors text-left"
+                      className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-white/6 bg-white/[0.02] hover:bg-white/[0.05] transition-colors text-left"
                     >
                       <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center flex-shrink-0">
                         <IconWallet className="w-4 h-4 text-emerald-400" />
@@ -916,14 +942,11 @@ export default function AlphaGapIndexPage() {
                     </button>
                   ))}
                 </div>
-              </div>
-            </div>
+            </Modal>
           )}
 
           {showAccountPicker && walletAccounts.length > 1 && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-              <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setShowAccountPicker(false)} />
-              <div className="relative z-10 w-full max-w-sm rounded-[20px] border border-white/10 bg-[#0b0e10] p-6 shadow-2xl">
+            <Modal onClose={() => setShowAccountPicker(false)}>
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="font-display font-semibold text-white text-lg">Select Account</h3>
                   <button onClick={() => setShowAccountPicker(false)} className="text-gray-500 hover:text-gray-300 transition-colors"><IconX className="w-4 h-4" /></button>
@@ -949,8 +972,7 @@ export default function AlphaGapIndexPage() {
                     </button>
                   ))}
                 </div>
-              </div>
-            </div>
+            </Modal>
           )}
 
           <div className="flex items-center gap-4 w-full max-w-lg">
@@ -1205,15 +1227,16 @@ export default function AlphaGapIndexPage() {
                   <div className="mt-4 rounded-xl border border-white/8 bg-white/[0.02] p-4 max-w-md">
                     <p className="text-xs font-semibold text-gray-300 mb-2">Adding more TAO</p>
                     <p className="text-xs text-gray-500 leading-relaxed mb-3">
-                      Send TAO to this same wallet — there is nothing to sign, and you should not need to leave
-                      and re-join. TrustedStake manages this wallet through the staking proxy you granted, so new
-                      TAO is picked up at the next rebalance rather than needing a deposit.
+                      Send TAO to this same wallet — nothing to sign, and no need to leave and re-join.
+                      Top-ups are detected automatically and deployed{" "}
+                      <span className="text-gray-300">within about 24 hours</span>, independently of the weekly
+                      index rebalance.
                     </p>
-                    <p className="text-[11px] text-gray-600 leading-relaxed mb-3">
-                      Two thresholds worth knowing: the strategy holds a{" "}
-                      <span className="text-gray-400">2 TAO minimum balance</span> and only acts when an allocation
-                      has drifted more than <span className="text-gray-400">5%</span>. A small top-up can sit
-                      undeployed until a larger move triggers a rebalance.
+                    <p className="text-[11px] text-amber-300/80 leading-relaxed mb-3">
+                      Your wallet must hold at least <span className="font-semibold">2 TAO</span>. Below that
+                      minimum a delegate is <span className="font-semibold">not rebalanced at all</span> — the
+                      position simply sits idle rather than deploying late. If you are under 2 TAO, top up past it
+                      before expecting anything to happen.
                     </p>
                     <button
                       onClick={() => {
@@ -1227,12 +1250,17 @@ export default function AlphaGapIndexPage() {
                       <span className="font-mono text-[11px] text-gray-400 truncate flex-1">{selectedAddress}</span>
                       <span className="text-[10px] text-emerald-400 flex-shrink-0">{copiedAddr ? "Copied" : "Copy"}</span>
                     </button>
+                    {freeTao != null && freeTao < 2 && (
+                      <p className="text-xs mt-3 text-red-400">
+                        This wallet holds {freeTao.toFixed(4)} TAO, under the 2 TAO minimum — TrustedStake will not
+                        rebalance it. Top up above 2 TAO to start earning.
+                      </p>
+                    )}
                     {freeTao != null && (
                       <p className="text-xs mt-3">
                         {freeTao >= 0.01 ? (
                           <span className="text-amber-300/90">
-                            {freeTao.toFixed(4)} TAO in this wallet is not staked yet — it is deployed on the next
-                            rebalance{freeTao < 2 ? ", though this is under the 2 TAO minimum" : ""}.
+                            {freeTao.toFixed(4)} TAO here is not staked yet — it deploys automatically within ~24h.
                           </span>
                         ) : (
                           <span className="text-gray-600">All TAO in this wallet is deployed.</span>
