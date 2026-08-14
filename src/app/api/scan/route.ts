@@ -3837,12 +3837,35 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     // ── ZERO-EMISSION PENALTY ────────────────────────────────────────────────
     // A subnet with 0 emissions is at de-registration risk by definition.
     // This is a long-term structural threat that product quality cannot override.
+    // EMISSION FLOOR (v440-aware). d.emissionPct is a true percent here (Chutes
+    // ~12.7), unlike leaderboard.emission_pct which is divided by 100.
+    //
+    // Was a bare `=== 0` test worth -20. Two problems: it missed everything
+    // just above zero, and -20 was not enough to keep a subnet earning NOTHING
+    // out of the index — Data Universe sat at invest_agap 87 and rank 6 on
+    // exactly 0% emission with that penalty already applied.
+    //
+    // Since v440 emission is s*gate(s), and the bar sits near ~1.1% demand
+    // share, so a subnet under ~1% emission is at or below the gate and keeps
+    // only a fraction of its linear share. For a LONG-TERM investing index
+    // that is close to disqualifying: the position earns almost nothing no
+    // matter how good the product is.
     const isZeroEmission = d.emissionPct === 0;
-    const investZeroEmissionPenalty = isZeroEmission ? -20 : 0;
+    let investZeroEmissionPenalty = 0;
+    if      (d.emissionPct === 0)   investZeroEmissionPenalty = -40; // earns nothing at all
+    else if (d.emissionPct < 0.10)  investZeroEmissionPenalty = -30; // deep tail, throttled to ~nothing
+    else if (d.emissionPct < 0.50)  investZeroEmissionPenalty = -20;
+    else if (d.emissionPct < 1.00)  investZeroEmissionPenalty = -10; // approaching the bar
 
     // ── INVEST VIABILITY (replaces trading viability for investing formula) ──
     // The investing formula is for quality subnets. Small caps below $4M are
     // too illiquid and speculative to rank highly on a monthly investing thesis.
+    // The ladder used to stop dead at $4M, so a $4.1M subnet and a $96M subnet
+    // were treated identically on size. That cliff is why Swarm ($7.9M) and
+    // Data Universe ($6.4M) reached ranks 5 and 6, above Vanta ($29M) and
+    // Templar ($27.6M). The index concentrates real member funds into 10
+    // names — at single-digit millions the position cannot be entered or
+    // exited without moving the price, whatever the product score says.
     let investViability = 0;
     if      (mcap < 100_000)   investViability = -50; // ghost subnet
     else if (mcap < 500_000)   investViability = -40; // effectively uninvestable
@@ -3850,6 +3873,8 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     else if (mcap < 2_000_000) investViability = -24; // very illiquid
     else if (mcap < 3_000_000) investViability = -16; // below threshold
     else if (mcap < 4_000_000) investViability = -10; // borderline
+    else if (mcap < 8_000_000) investViability = -6;  // thin for a 10-name index
+    else if (mcap < 15_000_000) investViability = -3; // still smallcap
 
     const rawInvestAGap = pillarConviction + pillarAuditDecen + pillarDev + pillarProduct
                         + pillarNetwork
