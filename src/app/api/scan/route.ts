@@ -3064,7 +3064,20 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     else if (mcap < 250000) viability = -20;   // extreme illiquidity
     else if (mcap < 500000) viability = -15;   // very illiquid
     else if (mcap < 750000) viability = -10;   // illiquid, high slippage risk
-    else if (mcap < 1000000) viability = -7;   // borderline — below $1M threshold
+    else if (mcap < 1_000_000) viability = -7;    // borderline — below $1M threshold
+    // The ladder used to stop dead here, so a $1.0M subnet and a $96M subnet
+    // scored identically on size. That cliff put Harnyx ($1.38M) at rank 2 and
+    // Verathos ($1.44M) at rank 4 with no size penalty at all. At $1.4M a
+    // $10k position is ~0.7% of the entire market cap — the "gap" is real but
+    // it cannot be acted on without moving the price into your own trade.
+    //
+    // Kept deliberately gentler than the investing ladder: a trading signal is
+    // a shorter-horizon read and small caps are genuinely where gaps appear,
+    // so this taxes thinness rather than disqualifying it.
+    else if (mcap <  2_000_000) viability = -12;
+    else if (mcap <  3_000_000) viability = -8;
+    else if (mcap <  5_000_000) viability = -5;
+    else if (mcap < 10_000_000) viability = -2;
     // Note: no large/mid-cap bonus. Large caps are well-known and have the least gap upside.
 
     // ALPHA STAKING RATIO — high staked% = thin float = price sensitive to buy pressure
