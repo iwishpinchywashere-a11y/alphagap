@@ -3058,26 +3058,26 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     // Subnets under $1M are hard to enter/exit without moving the price significantly.
     // Penalties are steep below $1M. No bonus for large caps — they have the LEAST upside.
     const mcap = d.marketCapUsd || 0;
-    let viability = 0;
-    if (mcap < 50000) viability = -40;         // ghost subnet — no real market
-    else if (mcap < 100000) viability = -30;   // effectively uninvestable
-    else if (mcap < 250000) viability = -20;   // extreme illiquidity
-    else if (mcap < 500000) viability = -15;   // very illiquid
-    else if (mcap < 750000) viability = -10;   // illiquid, high slippage risk
-    else if (mcap < 1_000_000) viability = -7;    // borderline — below $1M threshold
-    // The ladder used to stop dead here, so a $1.0M subnet and a $96M subnet
-    // scored identically on size. That cliff put Harnyx ($1.38M) at rank 2 and
-    // Verathos ($1.44M) at rank 4 with no size penalty at all. At $1.4M a
-    // $10k position is ~0.7% of the entire market cap — the "gap" is real but
-    // it cannot be acted on without moving the price into your own trade.
+    // MONOTONIC IN SIZE. The whole ladder is restated rather than bolted onto,
+    // because bolting a stronger $1-2M tier onto the old one inverted it: a
+    // $999k subnet took -7 while a $1.1M subnet took -12, so growing bigger
+    // made the penalty worse. Any future edit must keep the penalty shrinking
+    // as market cap rises.
     //
-    // Kept deliberately gentler than the investing ladder: a trading signal is
-    // a shorter-horizon read and small caps are genuinely where gaps appear,
-    // so this taxes thinness rather than disqualifying it.
-    else if (mcap <  2_000_000) viability = -12;
-    else if (mcap <  3_000_000) viability = -8;
-    else if (mcap <  5_000_000) viability = -5;
-    else if (mcap < 10_000_000) viability = -2;
+    // Raised through the low-millions. Harnyx at $1.38M was ranking 2nd on a
+    // 46% one-month drawdown with no paying customers and a waitlist-only
+    // product; at that size a $10k position is ~0.7% of the entire market cap,
+    // so the "gap" cannot be traded without moving the price into your own
+    // order.
+    let viability = 0;
+    if      (mcap <    250_000) viability = -45; // ghost subnet — no real market
+    else if (mcap <    500_000) viability = -40; // effectively uninvestable
+    else if (mcap <    750_000) viability = -35; // extreme illiquidity
+    else if (mcap <  1_000_000) viability = -30; // very illiquid
+    else if (mcap <  2_000_000) viability = -22; // thin — cannot size a position
+    else if (mcap <  3_000_000) viability = -14;
+    else if (mcap <  5_000_000) viability = -8;
+    else if (mcap < 10_000_000) viability = -3;
     // Note: no large/mid-cap bonus. Large caps are well-known and have the least gap upside.
 
     // ALPHA STAKING RATIO — high staked% = thin float = price sensitive to buy pressure
