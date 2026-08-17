@@ -3551,7 +3551,29 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     else if (confluenceSignals >= 3) confluenceBonus = 8;  // 3/4 — Templar pattern
     else if (confluenceSignals >= 2) confluenceBonus = 2;  // 2 signals — early setup forming
 
-    const rawAGap = buildingPts + consistentBuilderBonus + devSpikeBonus + priceLag + floorReversalBonus + socialMomentum + evalBoost + evalVsPriceBonus + viability + campaignBoost + whaleBoost + whaleVelocityBonus + emissionBoost + volBoost + thinPoolBonus + stakingBoost + stakingTrendBonus + rootPropBonus + productAGapPts + productAwarenessGap + productVsPriceBonus + momentumBoost + gapClosurePenalty + starVelocityBonus + socialVelocityBonus + confluenceBonus;
+    // ── BREAKOUT BONUS (0-14) — the thesis actually playing out ──────────────
+    //
+    // Every "cheap" leg in this formula — productVsPriceBonus, evalVsPriceBonus,
+    // priceLag, floorReversalBonus — pays out while a subnet is FALLING and
+    // switches off the moment it rises. Nothing replaced them, so a subnet was
+    // penalised for succeeding.
+    //
+    // Observed on Bitcast (SN93) 2026-08-17: +7.8% on 24h, +26.0% on 7d, and
+    // +647 TAO of net inflow. flow_score correctly rose to 65 — and the aGap
+    // score FELL from 49 to 22, because the cheapness bonuses vanished. velo
+    // then read 36, since velo tracks aGap velocity and the score was
+    // collapsing. A clean breakout looked like a dying signal.
+    //
+    // Requires inflow as well as price: price up on net outflow is a bounce
+    // being sold into, not accumulation, and should not score here.
+    const breakoutInflow = (d.netFlow24h ?? 0) > 0;
+    let breakoutBonus = 0;
+    if      (pch7d >= 20 && breakoutInflow) breakoutBonus = 14;
+    else if (pch7d >= 10 && breakoutInflow) breakoutBonus = 10;
+    else if (pch7d >=  5 && breakoutInflow) breakoutBonus = 6;
+    else if (pch24h >= 5 && breakoutInflow) breakoutBonus = 4;
+
+    const rawAGap = buildingPts + consistentBuilderBonus + devSpikeBonus + priceLag + floorReversalBonus + socialMomentum + evalBoost + evalVsPriceBonus + viability + campaignBoost + whaleBoost + whaleVelocityBonus + emissionBoost + volBoost + thinPoolBonus + stakingBoost + stakingTrendBonus + rootPropBonus + productAGapPts + productAwarenessGap + productVsPriceBonus + momentumBoost + gapClosurePenalty + starVelocityBonus + socialVelocityBonus + confluenceBonus + breakoutBonus;
 
     // SUSTAINED DECLINE CEILING — hard cap on the final score for chronic bleeders.
     // Reducing individual components (priceLag, evalVsPriceBonus) wasn't enough because
