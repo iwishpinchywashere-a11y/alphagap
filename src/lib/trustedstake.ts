@@ -30,6 +30,8 @@ export interface TSStrategy {
   };
   createdAt: string;
   updatedAt: string;
+  /** Strategy pure proxy — the delegate members grant Staking rights to. */
+  pureProxyAddress?: string;
   /** True while TrustedStake is executing a rebalance. Can get stuck. */
   isRebalancing?: boolean;
   lastRebalanceStartedAt?: string | null;
