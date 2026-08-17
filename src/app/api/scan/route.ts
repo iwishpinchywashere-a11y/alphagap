@@ -320,6 +320,8 @@ interface LeaderboardEntry {
   market_cap?: number;
   volume_24h?: number;
   net_flow_24h?: number;
+  net_flow_7d?: number;        // sum of daily net_flow_24h readings, last 7 days
+  net_flow_7d_days?: number;  // how many daily readings that sum is based on
   emission_pct?: number;
   emission_trend?: "up" | "down" | null; // significant change detected
   emission_change_pct?: number; // % change from previous scan
@@ -4679,6 +4681,61 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
           flowHistory = JSON.parse(Buffer.concat(chunks).toString("utf-8"));
         }
       } catch { /* start fresh */ }
+
+      // ── Daily raw net flow, for a real 7-day window ──────────────────
+      // flow-history.json below stores subnet_ema_tao_flow, a rolling EMA. It
+      // cannot be summed into a multi-day total — Bitcast sat pinned at -0.003
+      // across 1,153 readings while its actual 24h net flow was +647 TAO.
+      //
+      // net_flow_24h (buyVol - sellVol) is the real per-period number and
+      // nothing persisted it, so the flow score only ever saw the last 24
+      // hours. A subnet that accumulated for six days and had one red day
+      // scored on the red day: Bitcast was +26% on the week with money coming
+      // in and still scored as an outflow.
+      //
+      // One reading per UTC day, keyed by date, so a rolling 24h figure is
+      // never double-counted. Builds to a full window over 7 days.
+      try {
+        const dailyKey = "net-flow-daily.json";
+        const today = new Date().toISOString().slice(0, 10);
+        let daily: Record<string, Record<string, number>> = {};
+        try {
+          const db = await blobGet(dailyKey, { token: process.env.BLOB_READ_WRITE_TOKEN, access: "private", abortSignal: AbortSignal.timeout(8000) });
+          if (db?.stream) {
+            const rd = db.stream.getReader(); const ch: Uint8Array[] = [];
+            while (true) { const { done, value } = await rd.read(); if (done) break; ch.push(value); }
+            daily = JSON.parse(Buffer.concat(ch).toString("utf-8"));
+          }
+        } catch { /* first run */ }
+
+        daily[today] = {};
+        for (const e of leaderboard) {
+          if (e.net_flow_24h != null) daily[today][String(e.netuid)] = Math.round(e.net_flow_24h * 100) / 100;
+        }
+        const dCut = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
+        for (const k of Object.keys(daily)) if (k < dCut) delete daily[k];
+
+        // Sum the last 7 daily readings onto the leaderboard.
+        const days = Object.keys(daily).sort().slice(-7);
+        const sums = new Map<string, { tao: number; n: number }>();
+        for (const d of days) {
+          for (const [uid, v] of Object.entries(daily[d])) {
+            const cur = sums.get(uid) ?? { tao: 0, n: 0 };
+            cur.tao += v; cur.n += 1; sums.set(uid, cur);
+          }
+        }
+        for (const e of leaderboard) {
+          const agg = sums.get(String(e.netuid));
+          // Expose the sample count so a partial window is never mistaken for
+          // a real 7-day total while this backfills.
+          if (agg && agg.n > 0) {
+            e.net_flow_7d = Math.round(agg.tao * 100) / 100;
+            e.net_flow_7d_days = agg.n;
+          }
+        }
+        await put(dailyKey, JSON.stringify(daily), { access: "private", addRandomSuffix: false, allowOverwrite: true, token: process.env.BLOB_READ_WRITE_TOKEN });
+        console.log(`[scan] net-flow-daily: ${days.length} day(s) of window, ${sums.size} subnets`);
+      } catch (e) { console.log("[scan] net-flow-daily skipped:", e); }
 
       const flowScanTs = new Date().toISOString();
       flowHistory[flowScanTs] = {};
