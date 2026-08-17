@@ -3069,15 +3069,27 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     // product; at that size a $10k position is ~0.7% of the entire market cap,
     // so the "gap" cannot be traded without moving the price into your own
     // order.
+    // CALIBRATED AGAINST THE ACTUAL DISTRIBUTION (checked 2026-08-17):
+    //   p25 $1.9M   median $3.4M   p75 $6.6M   p90 $16.6M
+    //
+    // The previous tiers were set without looking at that, and hit the MEDIAN
+    // subnet with -14: 41% of the board took -14 or worse and only 17% escaped
+    // untouched. That is not a small-cap penalty, it is a blanket deflation of
+    // every score, which is exactly how it looked on the leaderboard.
+    //
+    // Now the bite lands on the bottom quartile and the middle of the board is
+    // barely touched. Must stay monotonic — the penalty shrinks as size grows.
     let viability = 0;
-    if      (mcap <    250_000) viability = -45; // ghost subnet — no real market
-    else if (mcap <    500_000) viability = -40; // effectively uninvestable
-    else if (mcap <    750_000) viability = -35; // extreme illiquidity
-    else if (mcap <  1_000_000) viability = -30; // very illiquid
-    else if (mcap <  2_000_000) viability = -22; // thin — cannot size a position
-    else if (mcap <  3_000_000) viability = -14;
-    else if (mcap <  5_000_000) viability = -8;
-    else if (mcap < 10_000_000) viability = -3;
+    if      (mcap <    250_000) viability = -45; // ghost subnet
+    else if (mcap <    500_000) viability = -38;
+    else if (mcap <    750_000) viability = -32;
+    else if (mcap <  1_000_000) viability = -26;
+    else if (mcap <  2_000_000) viability = -22; // bottom quartile — genuinely thin,
+                                                 // and the tier that was keeping $1.4M names
+                                                 // like Harnyx out of the top 3. Independent
+                                                 // of the mid-board tiers below.
+    else if (mcap <  3_000_000) viability = -7;
+    else if (mcap <  5_000_000) viability = -3;
     // Note: no large/mid-cap bonus. Large caps are well-known and have the least gap upside.
 
     // ALPHA STAKING RATIO — high staked% = thin float = price sensitive to buy pressure
