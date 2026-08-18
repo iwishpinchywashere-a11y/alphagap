@@ -229,6 +229,12 @@ export default function AlphaGapIndexPage() {
   // see that their new TAO had arrived but not yet been deployed, so the only
   // discoverable route was to leave the strategy and re-join.
   const [freeTao, setFreeTao] = useState<number | null>(null);
+  // How long this wallet has been a member with nothing deployed. Telling
+  // someone their funds arrive "within ~24h" on day eight is worse than
+  // saying nothing.
+  const [memberSinceMs, setMemberSinceMs] = useState<number | null>(null);
+  const stalledHours = memberSinceMs != null ? (Date.now() - memberSinceMs) / 3_600_000 : null;
+  const isStalled = (positions?.length ?? 0) === 0 && (freeTao ?? 0) >= 2 && (stalledHours ?? 0) > 48;
   const [copiedAddr, setCopiedAddr] = useState(false);
   // Wallet (extension) picker, distinct from the account picker below it.
   // With two extensions installed the old flow enabled both and whichever
@@ -257,6 +263,12 @@ export default function AlphaGapIndexPage() {
       const res = await fetch(`/api/trustedstake/membership?address=${encodeURIComponent(address)}`);
       if (!res.ok) return false;
       const data = await res.json();
+      // joinedAt drives the stalled-state copy: after 48h with funds and no
+      // positions we stop promising "~24h" and say what is actually happening.
+      if (data?.joinedAt) {
+        const t = new Date(data.joinedAt).getTime();
+        if (!Number.isNaN(t)) setMemberSinceMs(t);
+      }
       return data.isMember === true;
     } catch {
       return false;
@@ -1301,7 +1313,9 @@ export default function AlphaGapIndexPage() {
                       <p className="text-xs mt-3">
                         {freeTao >= 0.01 ? (
                           <span className="text-amber-300/90">
-                            {freeTao.toFixed(4)} TAO here is not staked yet — it deploys automatically within ~24h.
+                            {isStalled
+                              ? `${freeTao.toFixed(4)} TAO here has not deployed. This is a known issue on TrustedStake's side, not something you need to fix — we are chasing it daily and your TAO has never left your wallet.`
+                              : `${freeTao.toFixed(4)} TAO here is not staked yet — it deploys automatically within ~24h.`}
                           </span>
                         ) : (
                           <span className="text-gray-600">All TAO in this wallet is deployed.</span>
@@ -1325,7 +1339,11 @@ export default function AlphaGapIndexPage() {
                 ) : !positions ? (
                   <p className="text-sm text-gray-400 flex items-center gap-2"><IconLoader className="w-4 h-4 animate-spin text-emerald-400" /> Reading your positions from the chain…</p>
                 ) : !portfolio || portfolio.rows.length === 0 ? (
-                  <p className="text-sm text-gray-400">No stake yet. Once the next rebalance runs, your positions appear here automatically.</p>
+                  <p className="text-sm text-gray-400">
+                    {isStalled
+                      ? "Your funds have not been deployed yet. This is an execution issue at TrustedStake that we have escalated with your wallet address — it is not something you have set up wrong, and nothing needs redoing. Your TAO stays in your own wallet throughout."
+                      : "No stake yet. Once the next rebalance runs, your positions appear here automatically."}
+                  </p>
                 ) : (
                   <>
                     <div className="flex flex-wrap items-end justify-between gap-4 mb-5">
