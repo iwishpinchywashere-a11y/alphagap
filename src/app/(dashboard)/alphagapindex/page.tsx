@@ -383,7 +383,8 @@ export default function AlphaGapIndexPage() {
   // Flow:
   //   1. Dynamic import @polkadot/api (browser only)
   //   2. WsProvider + ApiPromise.create() → connects to chain, downloads metadata
-  //   3. api.tx.proxy.addProxy(TS_PROXY_ADDRESS, 0, 0) → build the call
+  //   3. batchAll([proxy.addProxy(...), proxy.setRealPaysFee(..., true)])
+  //      — both are required; a proxy without the fee flag cannot execute
   //   4. getSigner() → signer from the single wallet the user chose
   //   5. signAndSend with 45-second timeout race
   //   6. Resolve on isReady/isBroadcast/isInBlock/isFinalized (tx is on its way)
@@ -418,8 +419,24 @@ export default function AlphaGapIndexPage() {
           return;
         }
 
-        // ── Build and sign the proxy.addProxy transaction ─────────────────
-        const tx = api.tx.proxy.addProxy(TS_PROXY_ADDRESS, TS_PROXY_TYPE, 0);
+        // ── Build and sign addProxy + setRealPaysFee, atomically ──────────
+        //
+        // addProxy ALONE IS NOT ENOUGH. TrustedStake traced the stuck members
+        // to this on 2026-08-17: a wallet could hold a correct Staking proxy
+        // and still be unable to execute, because the chain's real_pays_fee
+        // flag was never set for that delegate. Without it, fee-requiring
+        // operations fail — so the wallet looks perfectly configured from the
+        // outside (registered, active, proxied, funded) and simply never
+        // deploys. Two members sat like that for 5 and 8 days.
+        //
+        // batchAll, not batch: either both land or neither does. A wallet
+        // holding a proxy without the fee flag is exactly the broken
+        // half-state we are fixing, so it must not be reachable.
+        const proxyCalls = [
+          api.tx.proxy.addProxy(TS_PROXY_ADDRESS, TS_PROXY_TYPE, 0),
+          api.tx.proxy.setRealPaysFee(TS_PROXY_ADDRESS, true),
+        ];
+        const tx = api.tx.utility.batchAll(proxyCalls);
         // getSigner() rather than web3FromAddress: we enable a single chosen
         // extension instead of calling web3Enable, so the registry that
         // web3FromAddress reads is never populated.
