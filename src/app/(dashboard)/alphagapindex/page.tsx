@@ -249,6 +249,13 @@ export default function AlphaGapIndexPage() {
   const [isMember, setIsMember] = useState(false);
   // Step 1: proxy setup (independent of Step 2)
   const [proxyStep, setProxyStep] = useState<ProxyStep>("idle");
+  // Retro-fix for members who joined BEFORE we started batching
+  // proxy.setRealPaysFee with addProxy. Without that flag the strategy proxy
+  // cannot pay extrinsic fees, so their funds never deploy — they look
+  // perfectly set up and simply sit there. TrustedStake asked us to surface
+  // this rather than have them message support.
+  const [feeFixStep, setFeeFixStep] = useState<"idle" | "signing" | "done" | "error">("idle");
+  const [feeFixError, setFeeFixError] = useState<string | null>(null);
   const [proxyError, setProxyError] = useState<string | null>(null);
   // Step 2: membership register (independent of Step 1)
   const [registerStep, setRegisterStep] = useState<RegisterStep>("idle");
@@ -344,6 +351,43 @@ export default function AlphaGapIndexPage() {
 
     return () => { cancelled = true; api?.disconnect?.().catch(() => {}); };
   }, [selectedAddress, isMember]);
+
+  // Signs proxy.setRealPaysFee(strategyProxy, true) on its own — the one
+  // transaction an already-joined member needs. Deliberately NOT shown to
+  // everyone: only to members whose funds are actually sitting undeployed,
+  // so working members are not nagged into signing something they do not need.
+  const handleEnableFees = useCallback(async () => {
+    if (!selectedAddress) return;
+    setFeeFixStep("signing");
+    setFeeFixError(null);
+    try {
+      const { ApiPromise, WsProvider } = await import("@polkadot/api");
+      const api = await ApiPromise.create({
+        provider: new WsProvider("wss://entrypoint-finney.opentensor.ai:443"),
+        noInitWarn: true,
+      });
+      try {
+        const { getSigner } = await import("@/lib/polkadot-wallet");
+        const signer = await getSigner();
+        const tx = api.tx.proxy.setRealPaysFee(TS_PROXY_ADDRESS, true);
+        await new Promise<void>((resolve, reject) => {
+          const timer = setTimeout(() => reject(new Error("Timed out waiting for the wallet. Check the extension for a pending request.")), 90_000);
+          tx.signAndSend(selectedAddress, { signer }, (result: { status: { isInBlock: boolean; isFinalized: boolean }; dispatchError?: unknown }) => {
+            if (result.dispatchError) { clearTimeout(timer); reject(new Error("The transaction was rejected on chain.")); return; }
+            if (result.status.isInBlock || result.status.isFinalized) { clearTimeout(timer); resolve(); }
+          }).catch((e: unknown) => { clearTimeout(timer); reject(e); });
+        });
+        setFeeFixStep("done");
+      } finally {
+        await api.disconnect().catch(() => {});
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (/cancelled|rejected by user|Rejected/i.test(msg)) { setFeeFixStep("idle"); return; }
+      setFeeFixError(msg);
+      setFeeFixStep("error");
+    }
+  }, [selectedAddress]);
 
   // ── Connect wallet ──────────────────────────────────────────────────────
   // Enables exactly one extension, then picks an account within it.
@@ -952,6 +996,43 @@ export default function AlphaGapIndexPage() {
           )}
 
           {/* Account picker modal */}
+          {/* Shown ONLY to members whose funds are genuinely undeployed after
+              48h. TrustedStake asked for this so pre-fix members can repair
+              themselves; targeting it at the stalled avoids nagging the
+              members for whom everything already works. */}
+          {isStalled && feeFixStep !== "done" && (
+            <Modal onClose={() => {}}>
+              <h3 className="font-display font-semibold text-white text-lg mb-1">One transaction to unblock your TAO</h3>
+              <p className="text-sm text-gray-400 leading-relaxed mb-3">
+                Your wallet joined before a required on-chain setting was added to our sign-up. Without it the
+                strategy cannot pay network fees on your behalf, so your {freeTao?.toFixed(2) ?? ""} TAO has been
+                sitting undeployed.
+              </p>
+              <p className="text-xs text-gray-500 leading-relaxed mb-4">
+                This signs a single transaction — <span className="font-mono text-gray-400">proxy.setRealPaysFee</span> —
+                which lets the strategy proxy cover fees. It moves no funds, grants no new spending power, and your
+                TAO stays in your own wallet.
+              </p>
+              <button
+                onClick={handleEnableFees}
+                disabled={feeFixStep === "signing"}
+                className="w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 disabled:opacity-60 text-black font-bold text-sm transition-all"
+              >
+                {feeFixStep === "signing"
+                  ? <><IconLoader className="w-4 h-4 animate-spin" /> Confirm in your wallet…</>
+                  : "Enable and unblock"}
+              </button>
+              {feeFixError && (
+                <div className="mt-3 rounded-xl border border-red-500/30 bg-red-500/10 p-3">
+                  <p className="text-xs text-red-300 leading-relaxed">{feeFixError}</p>
+                </div>
+              )}
+              <p className="text-[11px] text-gray-600 mt-3 text-center">
+                Deployment follows within about 24 hours of the next rebalance.
+              </p>
+            </Modal>
+          )}
+
           {showWalletPicker && (
             <Modal onClose={() => setShowWalletPicker(false)}>
                 <div className="flex items-center justify-between mb-1">

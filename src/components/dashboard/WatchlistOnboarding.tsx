@@ -36,12 +36,30 @@ export default function WatchlistOnboarding() {
 
   // Trigger: signed-in Pro+ user, account watchlist has loaded and is empty,
   // and this account hasn't dismissed the first-run step before.
+  // Re-evaluate when the tour finishes so the watchlist step appears straight
+  // after it rather than only on the next page load.
+  const [tourDone, setTourDone] = useState(false);
+  useEffect(() => {
+    if (!mounted) return;
+    if (localStorage.getItem("alphagap_tour_v1")) { setTourDone(true); return; }
+    const t = setInterval(() => {
+      if (localStorage.getItem("alphagap_tour_v1")) { setTourDone(true); clearInterval(t); }
+    }, 800);
+    return () => clearInterval(t);
+  }, [mounted]);
+
   useEffect(() => {
     if (!mounted || !email || !isPro || !loaded) return;
     if (watchlist.size > 0) return;
     if (localStorage.getItem(storageKey(email))) return;
+    // Wait for the product tour to finish first. Both of these are mounted
+    // side by side in (dashboard)/layout.tsx and each used to decide on its
+    // own, so a brand-new account fired BOTH and they rendered stacked on top
+    // of each other — reported from a fresh login as "multiple screens
+    // overlayed". Onboarding is a queue, not two independent components.
+    if (!localStorage.getItem("alphagap_tour_v1")) return;
     setVisible(true);
-  }, [mounted, email, isPro, loaded, watchlist]);
+  }, [mounted, email, isPro, loaded, watchlist, tourDone]);
 
   const topSubnets = useMemo(
     () =>
