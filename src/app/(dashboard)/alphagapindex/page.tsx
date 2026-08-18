@@ -235,6 +235,9 @@ export default function AlphaGapIndexPage() {
   // browser-injected first got to prompt, so the wrong wallet came up.
   const [installedWallets, setInstalledWallets] = useState<Array<{ source: string; name: string }>>([]);
   const [showWalletPicker, setShowWalletPicker] = useState(false);
+  // Which wallet is mid-connect, so the picker can show it. Without this the
+  // modal gave NO feedback on click and looked frozen.
+  const [connectingSource, setConnectingSource] = useState<string | null>(null);
 
   // ── Membership state ────────────────────────────────────────────────────
   const [isMember, setIsMember] = useState(false);
@@ -334,6 +337,7 @@ export default function AlphaGapIndexPage() {
   // Enables exactly one extension, then picks an account within it.
   const connectTo = useCallback(async (source?: string) => {
     setWalletConnecting(true);
+    setConnectingSource(source ?? null);
     setWalletError(null);
     try {
       const { connectWallet: connect } = await import("@/lib/polkadot-wallet");
@@ -356,6 +360,7 @@ export default function AlphaGapIndexPage() {
       setWalletError(msg);
     } finally {
       setWalletConnecting(false);
+      setConnectingSource(null);
     }
   }, []);
 
@@ -952,13 +957,32 @@ export default function AlphaGapIndexPage() {
                       <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center flex-shrink-0">
                         <IconWallet className="w-4 h-4 text-emerald-400" />
                       </div>
-                      <div className="min-w-0">
+                      <div className="min-w-0 flex-1">
                         <div className="text-sm font-semibold text-white truncate">{w.name}</div>
                         <div className="text-xs text-gray-500 font-mono">{w.source}</div>
                       </div>
+                      {connectingSource === w.source && (
+                        <span className="flex items-center gap-1.5 text-xs text-emerald-400 flex-shrink-0">
+                          <IconLoader className="w-3.5 h-3.5 animate-spin" /> Waiting…
+                        </span>
+                      )}
                     </button>
                   ))}
                 </div>
+                {connectingSource && (
+                  <p className="text-[11px] text-gray-500 mt-4 leading-relaxed">
+                    Check the {installedWallets.find(w => w.source === connectingSource)?.name ?? "wallet"} extension
+                    — the approval popup can open behind this window, or in the extension&apos;s own toolbar icon.
+                  </p>
+                )}
+                {/* The error used to render only in the section BEHIND this
+                    modal, so a timeout or rejection was invisible while the
+                    picker was open and the whole thing looked frozen. */}
+                {walletError && (
+                  <div className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 p-3">
+                    <p className="text-xs text-red-300 leading-relaxed">{walletError}</p>
+                  </div>
+                )}
             </Modal>
           )}
 
