@@ -255,6 +255,14 @@ export default function AlphaGapIndexPage() {
   // perfectly set up and simply sit there. TrustedStake asked us to surface
   // this rather than have them message support.
   const [feeFixStep, setFeeFixStep] = useState<"idle" | "signing" | "done" | "error">("idle");
+  // Read from chain, never inferred. null = not checked yet.
+  //
+  // proxy.realPaysFee(delegator, strategyProxy).toJSON() returns null whether
+  // the entry exists or not, so an earlier symptom-based check asked Josh to
+  // sign something he had ALREADY signed. The real signal is isEmpty: false
+  // means an entry exists and the flag is on.
+  const [feesEnabled, setFeesEnabled] = useState<boolean | null>(null);
+  const [feeModalDismissed, setFeeModalDismissed] = useState(false);
   const [feeFixError, setFeeFixError] = useState<string | null>(null);
   const [proxyError, setProxyError] = useState<string | null>(null);
   // Step 2: membership register (independent of Step 1)
@@ -332,6 +340,13 @@ export default function AlphaGapIndexPage() {
             stakeRao: stakeRao.toString(),
           });
         }
+
+        // real_pays_fee, off the same connection. Only after the wallet is
+        // fully connected and we have an address — never guessed from symptoms.
+        try {
+          const rpf = await api.query.proxy.realPaysFee(selectedAddress, TS_PROXY_ADDRESS);
+          if (!cancelled) setFeesEnabled(!rpf.isEmpty);
+        } catch { if (!cancelled) setFeesEnabled(null); }
 
         // Free balance off the same connection — one socket, not two.
         try {
@@ -1000,9 +1015,32 @@ export default function AlphaGapIndexPage() {
               48h. TrustedStake asked for this so pre-fix members can repair
               themselves; targeting it at the stalled avoids nagging the
               members for whom everything already works. */}
-          {isStalled && feeFixStep !== "done" && (
-            <Modal onClose={() => {}}>
-              <h3 className="font-display font-semibold text-white text-lg mb-1">One transaction to unblock your TAO</h3>
+          {/* Second path to the same action, per TrustedStake: dismissing the
+              modal must not strand a member with no way back. Only shows once
+              the chain read has actually returned false. */}
+          {feesEnabled === false && feeFixStep !== "done" && feeModalDismissed && (
+            <button
+              onClick={() => setFeeModalDismissed(false)}
+              className="w-full mb-4 flex items-center gap-3 rounded-xl border border-amber-500/30 bg-amber-500/[0.08] px-4 py-3 text-left hover:bg-amber-500/[0.12] transition-colors"
+            >
+              <span className="text-amber-300 text-sm flex-1">
+                <span className="font-semibold">Action needed:</span> one on-chain setting is missing, so your TAO
+                cannot be deployed.
+              </span>
+              <span className="text-xs font-semibold text-amber-200 flex-shrink-0">Fix it →</span>
+            </button>
+          )}
+
+          {/* Chain-verified, and never blocking: dismissable, with a banner
+              fallback below so a member who closes it can still get back. */}
+          {feesEnabled === false && feeFixStep !== "done" && !feeModalDismissed && (
+            <Modal onClose={() => setFeeModalDismissed(true)}>
+              <div className="flex items-start justify-between gap-3 mb-1">
+                <h3 className="font-display font-semibold text-white text-lg">One transaction to unblock your TAO</h3>
+                <button onClick={() => setFeeModalDismissed(true)} className="text-gray-500 hover:text-gray-300 flex-shrink-0" aria-label="Close">
+                  <IconX className="w-4 h-4" />
+                </button>
+              </div>
               <p className="text-sm text-gray-400 leading-relaxed mb-3">
                 Your wallet joined before a required on-chain setting was added to our sign-up. Without it the
                 strategy cannot pay network fees on your behalf, so your {freeTao?.toFixed(2) ?? ""} TAO has been
@@ -1030,6 +1068,9 @@ export default function AlphaGapIndexPage() {
               <p className="text-[11px] text-gray-600 mt-3 text-center">
                 Deployment follows within about 24 hours of the next rebalance.
               </p>
+              <button onClick={() => setFeeModalDismissed(true)} className="w-full mt-2 text-[11px] text-gray-600 hover:text-gray-400 transition-colors">
+                Not now
+              </button>
             </Modal>
           )}
 
