@@ -45,7 +45,7 @@ export async function GET(
   // The /prices?period=365 endpoint handles 1Y lazy-load on the client.
   const [
     scanLatest, scoreHistoryAll, emissionHistory, signalsHistory, flowHistoryAll,
-    identities, taoPrice, poolDetail, priceHistory92, metagraph,
+    identities, taoPrice, poolDetail, metagraph,
   ] = await Promise.all([
     readBlob<Record<string, unknown>>("scan-latest.json", token),
     readBlob<Record<string, Record<string, { agap: number; flow: number; dev: number; eval: number; social: number; price: number; mcap: number; emission_pct: number }>>>("subnet-scores-history.json", token),
@@ -55,7 +55,6 @@ export async function GET(
     getSubnetIdentities().catch(() => []),
     getTaoPrice().catch(() => 0),
     getSubnetPoolDetail(netuid).catch(() => null),
-    getPoolHistory(netuid, 92).catch(() => []),   // 92 days → ≤100 rows, fast
     getMetagraph(netuid).catch(() => []),
   ]);
 
@@ -126,21 +125,33 @@ export async function GET(
   // this route already loads it for the score chart. Fall back to our own copy
   // rather than showing an empty chart: it is the same series, sampled hourly
   // for the last week and daily before that.
-  let priceHistory = priceHistory92
-    .map((p) => ({ timestamp: toIso(p.timestamp), price: parseFloat(p.price) }))
-    .sort((a, b) => a.timestamp.localeCompare(b.timestamp));
-
-  if (priceHistory.length < 2 && scoreHistoryAll) {
-    const own: Array<{ timestamp: string; price: number }> = [];
+  // OUR OWN HISTORY FIRST, TaoStats only as a backstop.
+  //
+  // This used to call getPoolHistory(netuid, 92) on EVERY page view, asking
+  // TaoStats for 92 days of candles per visitor. That is what earned the
+  // 429s: priceHistory came back empty and the chart rendered "No price data
+  // available" while the header percentages, which come from cached pool
+  // data, kept working — so the page looked half-broken rather than down.
+  //
+  // We already write a price per subnet on every scan and this route already
+  // loads that blob for the score chart. Serving it first makes the common
+  // path free, instant, and immune to upstream throttling. TaoStats is now
+  // only touched when our own series is too thin to draw, which is a handful
+  // of newly registered subnets rather than every visitor.
+  let priceHistory: Array<{ timestamp: string; price: number }> = [];
+  if (scoreHistoryAll) {
     for (const ts of Object.keys(scoreHistoryAll).sort()) {
-      const row = scoreHistoryAll[ts]?.[String(netuid)];
-      const px = row?.price;
-      if (typeof px === "number" && px > 0) own.push({ timestamp: ts, price: px });
+      const px = scoreHistoryAll[ts]?.[String(netuid)]?.price;
+      if (typeof px === "number" && px > 0) priceHistory.push({ timestamp: ts, price: px });
     }
-    if (own.length >= 2) {
-      priceHistory = own;
-      console.log(`[subnet ${netuid}] TaoStats price history unavailable — served ${own.length} points from our own history`);
-    }
+  }
+
+  if (priceHistory.length < 2) {
+    const fallback = await getPoolHistory(netuid, 92).catch(() => []);
+    priceHistory = fallback
+      .map((p) => ({ timestamp: toIso(p.timestamp), price: parseFloat(p.price) }))
+      .sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+    if (priceHistory.length) console.log(`[subnet ${netuid}] own history thin — fetched ${priceHistory.length} points from TaoStats`);
   }
 
   // ── 7D intraday (4h candles from poolDetail.seven_day_prices) ───

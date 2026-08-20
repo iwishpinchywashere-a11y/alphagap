@@ -24,20 +24,34 @@ async function taoFetch<T>(path: string, params: Record<string, string> = {}, re
     signal: AbortSignal.timeout(12000),
   });
 
+  // Exponential backoff with jitter. A single fixed 2s retry gave up on any
+  // sustained rate limit and returned [], which surfaced as blank charts and
+  // silently-missing data rather than an error anyone could see. Honour
+  // Retry-After when TaoStats sends it.
   if (res.status === 429) {
-    console.warn(`TaoStats rate limited on ${path}, retrying in 2s…`);
-    await new Promise(r => setTimeout(r, 2000));
-    const retry = await fetch(url.toString(), {
-      headers: { Authorization: API_KEY },
-      next: { revalidate },
-      signal: AbortSignal.timeout(12000),
-    });
-    if (!retry.ok) {
-      console.warn(`TaoStats ${path} still failing after retry (${retry.status})`);
-      return [] as T[];
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      const header = Number(res.headers.get("retry-after"));
+      const wait = Number.isFinite(header) && header > 0
+        ? Math.min(header * 1000, 8000)
+        : Math.min(1000 * 2 ** attempt, 8000) + Math.random() * 400;
+      console.warn(`TaoStats 429 on ${path} — attempt ${attempt}/3, waiting ${Math.round(wait)}ms`);
+      await new Promise(r => setTimeout(r, wait));
+      const retry = await fetch(url.toString(), {
+        headers: { Authorization: API_KEY },
+        next: { revalidate },
+        signal: AbortSignal.timeout(12000),
+      }).catch(() => null);
+      if (retry?.ok) {
+        const retryJson: TaoStatsResponse<T> = await retry.json();
+        return retryJson.data || [];
+      }
+      if (retry && retry.status !== 429) {
+        console.warn(`TaoStats ${path} failed after retry (${retry.status})`);
+        return [] as T[];
+      }
     }
-    const retryJson: TaoStatsResponse<T> = await retry.json();
-    return retryJson.data || [];
+    console.error(`TaoStats ${path} still rate limited after 3 retries — returning empty`);
+    return [] as T[];
   }
 
   if (!res.ok) {
