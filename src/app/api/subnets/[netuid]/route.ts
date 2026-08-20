@@ -114,10 +114,34 @@ export async function GET(
     }
   }
 
-  // ── Price history (92d daily, chronological, always present) ─────
-  const priceHistory = priceHistory92
+  // ── Price history (92d daily, chronological) ─────────────────────
+  //
+  // TaoStats rate-limits this endpoint. A 429 makes priceHistory92 come back
+  // empty and the chart renders "No price data available" — intermittently,
+  // which is why 7D sometimes worked and 1M/3M usually did not. The header
+  // percentages kept showing because they come from cached pool data, so the
+  // page looked half-broken rather than obviously down.
+  //
+  // We already store a price per subnet in subnet-scores-history.json, and
+  // this route already loads it for the score chart. Fall back to our own copy
+  // rather than showing an empty chart: it is the same series, sampled hourly
+  // for the last week and daily before that.
+  let priceHistory = priceHistory92
     .map((p) => ({ timestamp: toIso(p.timestamp), price: parseFloat(p.price) }))
     .sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+
+  if (priceHistory.length < 2 && scoreHistoryAll) {
+    const own: Array<{ timestamp: string; price: number }> = [];
+    for (const ts of Object.keys(scoreHistoryAll).sort()) {
+      const row = scoreHistoryAll[ts]?.[String(netuid)];
+      const px = row?.price;
+      if (typeof px === "number" && px > 0) own.push({ timestamp: ts, price: px });
+    }
+    if (own.length >= 2) {
+      priceHistory = own;
+      console.log(`[subnet ${netuid}] TaoStats price history unavailable — served ${own.length} points from our own history`);
+    }
+  }
 
   // ── 7D intraday (4h candles from poolDetail.seven_day_prices) ───
   const sevenDayPrices = (poolDetail?.seven_day_prices || [])
