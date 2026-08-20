@@ -79,7 +79,7 @@ export interface SubnetIdentity {
 }
 
 export async function getSubnetIdentities(): Promise<SubnetIdentity[]> {
-  return taoFetch<SubnetIdentity>("/subnet/identity/v1", { limit: "200" }, 300);
+  return taoFetch<SubnetIdentity>("/subnet/identity/v1", { limit: "200" }, 1800); // names change rarely
 }
 
 // ── TAO Flow ─────────────────────────────────────────────────────
@@ -244,7 +244,7 @@ export interface MetagraphNeuron {
 
 export async function getMetagraph(netuid: number): Promise<MetagraphNeuron[]> {
   // Bittensor subnets can have up to 256 neurons — use limit=500 to capture all in one page
-  return taoFetch<MetagraphNeuron>("/metagraph/latest/v1", { netuid: String(netuid), limit: "500" }, 120);
+  return taoFetch<MetagraphNeuron>("/metagraph/latest/v1", { netuid: String(netuid), limit: "500" }, 600); // 500 neurons, moves slowly
 }
 
 // ── Neuron Registrations ────────────────────────────────────────
@@ -327,7 +327,9 @@ export async function getPoolHistory(netuid: number, days: number = 365): Promis
     timestamp_start: String(since),
     limit: String(limit),
     order: "timestamp_asc",
-  }, 120);
+    // Daily candles. A 120s TTL meant re-fetching 92 days of history every
+    // two minutes per subnet; an hour is still fresher than the data itself.
+  }, 3600);
 }
 
 // ── Subnet Coldkey Distribution (concentration risk) ────────────

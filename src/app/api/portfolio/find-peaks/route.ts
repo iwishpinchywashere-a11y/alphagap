@@ -13,6 +13,13 @@ import { getPoolHistory, getTaoPrice } from "@/lib/taostats";
 import { loadPortfolio } from "../route";
 
 export const dynamic = "force-dynamic";
+// force-dynamic sets EVERY fetch in this route to { cache: "no-store",
+// revalidate: 0 } and fetchCache to "force-no-store" (Next docs, caching
+// guide). That silently killed every revalidate value in lib/taostats, so
+// each request hit TaoStats live — which is what earned the 429s and the
+// blank price charts. "default-cache" keeps the route dynamic while letting
+// each fetch's own cache options apply again.
+export const fetchCache = "default-cache";
 
 export async function GET() {
   try {
