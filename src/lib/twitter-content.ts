@@ -1,3 +1,4 @@
+import { BENCHMARK_MAP } from "@/lib/benchmarks";
 // Content generator for @AlphaGapTAO automated posts
 //
 // 8 post types (strict — no others):
@@ -118,7 +119,10 @@ export interface TweetPost {
   type: PostType;
   tweets: string[];   // 1 = single tweet, 2+ = thread
   rationale: string;
-  dedupId: string;   // stable ID for 48h dedup (e.g. "whale_flow_82")
+  dedupId: string;   // event-scoped ID for the 48h window (magnitude + week)
+  /** Subject keys for the 7-day cooldown, so one subnet cannot headline
+   *  the same angle repeatedly even when the event id differs. */
+  subjects?: string[];
   // Subject keys (e.g. "subj_analytics_82") recorded in the posted log and
   // checked against a 7-DAY window — prevents the same subnet headlining the
   // same post type day after day even when the dedupId resets daily.
@@ -153,38 +157,62 @@ const FOOTER = "\n\nalphagap.io $TAO";
 const FOOTER_LEN = FOOTER.length; // 18
 const MAX_BODY = 260 - FOOTER_LEN; // 242 chars for the actual content
 
-const TWEET_SYSTEM = `You are @AlphaGapTAO, a friendly analytics account covering Bittensor subnet intelligence.
+const TWEET_SYSTEM = `You write for @AlphaGapTAO, an account covering Bittensor subnet intelligence.
 
-Write ONE tweet in this exact 3-part format:
+The single most important rule: SAY SOMETHING ONLY WE COULD SAY. AlphaGap runs
+a scanner across every subnet plus hand-verified research on each team's actual
+product, revenue and code. If a tweet could have been written by someone
+glancing at a price chart, it is not worth posting.
 
-[emoji] [Subnet Name] (SN[X]) — [simple punchy headline]
+WRITE LIKE A PERSON WHO LOOKED AT THE DATA.
+- No fixed template. Vary the shape: sometimes one sharp line, sometimes three,
+  sometimes a comparison, sometimes a question you then answer.
+- Lead with the specific finding, not the subnet name. "Chutes is the only
+  subnet in the top ten with disclosed revenue" beats "Chutes (SN64) — strong
+  week".
+- One concrete, checkable fact per tweet. A number nobody else has, a product
+  detail, a divergence between two signals.
+- Emojis: at most one, and only when it earns its place. Never required.
+- Never end with a stats line like "aGap 82 · Dev 91 · Price +9.5%". That
+  pattern made every post look identical.
 
-[1-2 sentences in plain English explaining what's happening and why it's interesting — write like you're telling a friend, not writing a report. No jargon.]
+WHAT MAKES A POST WORTH READING:
+- A divergence: price fell while emission rose, dev shipped while the market
+  ignored it, a subnet ranks 3rd on product and 40th on attention.
+- Something verified: real revenue, a live API, models actually serving,
+  commits actually landing.
+- A consequence: what this means for someone deciding where to stake.
+- Honest caveats: "no disclosed customers yet" is more credible than hype and
+  makes the good numbers believable.
 
-[2-3 key numbers as short stats, e.g. "aGap 82 · Dev 91 · Price +9.5%"]
+BANNED, these are what made the old account read as noise:
+- "is heating up", "is quietly building", "don't sleep on", "the market hasn't
+  noticed", "big things coming", "one to watch", "gem", "under the radar".
+- Vague superlatives with no number attached.
+- Restating a score without saying what moved it or why it matters.
 
 Hard rules:
-- Total body under ${MAX_BODY} characters. The footer "alphagap.io $TAO" is added automatically — do NOT write it.
-- No bullet points. No markdown. No headers.
-- Plain English only — explain what the numbers actually mean, don't just list them.
-- No trading advice, no "buy signals", no "smart money".
-- Always use at least 2 emojis total (headline + anywhere in the body).
-- NEVER write about bugs, errors, crashes, outages, downtime, fixes, patches, or any negative technical incidents. If the data only contains negative content, write about a different positive angle entirely.
-- Always write complete sentences — never end mid-sentence or trail off. Finish your thought before the character limit.
+- Body under ${MAX_BODY} characters. The footer "alphagap.io $TAO" is appended
+  automatically — never write it.
+- No markdown, no bullets, no hashtag spam.
+- No trading advice, no price targets, no "buy" framing.
+- Never write about bugs, outages, exploits or downtime.
+- Finish your sentences. Never trail off at the limit.
 
-Good example:
-🔍 Desearch (SN22) — on-chain traffic just spiked hard
+Good:
+Chutes is doing ~$4.76M a year in disclosed revenue. Of the 119 Bittensor
+subnets we've researched, exactly two have a revenue figure you can actually
+cite a source for.
 
-Volume is running 3.5× higher than normal right now. The interesting thing? Price is only up 9.5% — the chain got busy before the price moved. 📈
+Also good:
+Engy sells DeepSeek V4-Flash at $0.045 per million input tokens. DeepSeek's own
+API charges $0.44 at peak. Same model, roughly a tenth of the price, and you
+can verify it against their live endpoint right now.
 
-aGap 82 · Dev 63 · Flow 77
-
-Another good example:
-🛠 Chutes (SN64) — team shipped async inference this week
-
-They quietly pushed a major update that lets the network process more jobs in parallel. Dev score hit 91 — that's the highest in the entire top 10 right now. 💪
-
-Dev 91 · aGap 78 · Price +4.2%`;
+Also good:
+Leadpoet's aGap fell from 49 to 22 this week while its price rose 26%. That is
+our formula penalising a subnet for its thesis playing out — we've since fixed
+it, but it is a good reminder that a score is a model, not a fact.`;
 
 // Phrases that indicate Claude refused instead of writing a tweet.
 const REFUSAL_SIGNALS = [
@@ -258,6 +286,63 @@ async function writeTweet(prompt: string): Promise<string[]> {
 // Fired when a subnet's composite score rises significantly.
 // The tweet explains WHICH sub-scores drove the rise.
 
+
+/**
+ * Dedup keys must describe the EVENT, not the subject.
+ *
+ * They used to be `agap_riser_51` — identical whether lium.io moved 3 points
+ * or 30. Once the 7-day window lapsed the same subnet resurfaced with the same
+ * framing, which is why the account repeated itself week after week.
+ *
+ * Bucketing the magnitude means a genuinely bigger move is a genuinely new
+ * post, and a repeat of the same small move is correctly suppressed.
+ */
+function magnitudeBucket(v: number | null | undefined): string {
+  const n = Math.abs(v ?? 0);
+  if (n >= 30) return "xl";
+  if (n >= 15) return "lg";
+  if (n >= 8) return "md";
+  return "sm";
+}
+
+/** ISO week, so a genuine recurrence next month is allowed but not next week. */
+function isoWeek(d = new Date()): string {
+  const t = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+  t.setUTCDate(t.getUTCDate() + 4 - (t.getUTCDay() || 7));
+  const yearStart = new Date(Date.UTC(t.getUTCFullYear(), 0, 1));
+  const week = Math.ceil(((t.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+  return `${t.getUTCFullYear()}w${week}`;
+}
+
+
+/**
+ * Hand-verified research per subnet, for the writer to draw on.
+ *
+ * The generators only ever passed scores, so the model had nothing specific to
+ * say and filled the gap with adjectives. We researched all 119 leaderboard
+ * subnets — product detail, verified revenue, audit posture, blunt caveats —
+ * and then never fed any of it to the account that most needed it.
+ *
+ * Trimmed hard: the summaries run to thousands of characters and the writer
+ * only needs enough to find one concrete, checkable claim.
+ */
+function researchBrief(netuid: number): string {
+  const b = BENCHMARK_MAP.get(netuid);
+  if (!b) return "";
+  const parts: string[] = [];
+  if (b.benchmark_category) parts.push(`Category: ${b.benchmark_category}.`);
+  if (b.vs_provider && b.vs_provider !== "None") parts.push(`Competes with: ${b.vs_provider}.`);
+  const rev = b.annual_revenue_usd ?? 0;
+  const conf = (b as { revenue_confidence?: string }).revenue_confidence;
+  if (rev > 0) parts.push(`Disclosed revenue: $${rev.toLocaleString()} (${conf ?? "unverified"}).`);
+  else if (conf === "confirmed_pre_revenue") parts.push("Revenue: none — we checked, they are genuinely pre-revenue.");
+  const summary = (b.benchmark_summary ?? "").split(" AUDIT:")[0].split(" CAVEATS:")[0];
+  if (summary) parts.push(`What it does: ${summary.slice(0, 420)}`);
+  const cav = (b.benchmark_summary ?? "").split(" CAVEATS:")[1];
+  if (cav) parts.push(`Caveats worth stating honestly: ${cav.slice(0, 260)}`);
+  return parts.length ? `\n\nVERIFIED RESEARCH (ours, not theirs — use a specific detail from this rather than describing the score):\n${parts.join(" ")}` : "";
+}
+
 export async function generateAgapRiser(subnet: SubnetScore): Promise<TweetPost | null> {
   // Build a list of which scores moved
   const drivers: string[] = [];
@@ -273,7 +358,7 @@ export async function generateAgapRiser(subnet: SubnetScore): Promise<TweetPost 
 
   const prompt = `${subnet.name} (SN${subnet.netuid}) aGap score jumped ${fmtPct(subnet.composite_score_change)} to ${subnet.composite_score}/100. Drivers: ${driversLine}. Dev: ${subnet.dev_score} Flow: ${subnet.flow_score} Eval: ${subnet.eval_score}. Price 24h: ${fmtPct(subnet.price_change_24h)}. MCap: ${fmtMcap(subnet.market_cap)}.
 
-Write a tweet using the format in your instructions. Explain in plain English why the score jumped and what that means. Use 🚀 as the lead emoji.`;
+Write one tweet. Lead with the most specific thing you can verify, not the score itself.${researchBrief(subnet.netuid)}`;
 
 
 
@@ -284,7 +369,8 @@ Write a tweet using the format in your instructions. Explain in plain English wh
     type: "agap_riser",
     tweets,
     rationale: `aGap riser: ${subnet.name} +${subnet.composite_score_change?.toFixed(0)} pts (${driversLine})`,
-    dedupId: `agap_riser_${subnet.netuid}`,
+    dedupId: `agap_riser_${subnet.netuid}_${magnitudeBucket(subnet.composite_score_change)}_${isoWeek()}`,
+    subjects: [`subj_riser_${subnet.netuid}`],
   };
 }
 
@@ -294,7 +380,7 @@ Write a tweet using the format in your instructions. Explain in plain English wh
 export async function generateDevUpdate(signal: DevSignal): Promise<TweetPost | null> {
   const prompt = `${signal.name} (SN${signal.netuid}) just shipped: ${signal.title}. Dev score ${signal.score}/100. Detail: ${signal.description.slice(0, 120)}.
 
-Write a tweet using the format in your instructions. Explain in plain English what was built and why it's a big deal. Use 🛠 as the lead emoji.`;
+Write one tweet about what they actually shipped and why it matters.${researchBrief(signal.netuid)}`;
 
 
   const tweets = await writeTweet(prompt);
@@ -304,7 +390,7 @@ Write a tweet using the format in your instructions. Explain in plain English wh
     type: "dev_update",
     tweets,
     rationale: `Dev update: ${signal.name} (SN${signal.netuid}) — ${signal.title}`,
-    dedupId: `dev_update_${signal.netuid}`,
+    dedupId: `dev_update_${signal.netuid}_${signal.title.toLowerCase().replace(/[^a-z0-9]+/g, "").slice(0, 24)}`,
   };
 }
 
@@ -401,7 +487,7 @@ Write a tweet using the format in your instructions. Explain in plain English wh
     type: "discord_alpha",
     tweets,
     rationale: `Discord alpha: ${entry.subnetName} — ${entry.summary.slice(0, 80)}`,
-    dedupId: `discord_alpha_${entry.netuid}`,
+    dedupId: `discord_alpha_${entry.netuid}_${isoWeek()}`,
   };
 }
 
@@ -504,7 +590,7 @@ Write a tweet using the format in your instructions. Tell the story simply — w
     type: "performance_gain",
     tweets,
     rationale: `Performance: ${entry.name} flagged at ${fmtPrice(entry.priceAtSignal)}, max gain ${fmtPct(entry.maxGainPct)}`,
-    dedupId: `performance_gain_${entry.netuid}`,
+    dedupId: `performance_gain_${entry.netuid}_${isoWeek()}`,
   };
 }
 
@@ -606,7 +692,15 @@ export async function pickBestPost(data: BotData, utcHour?: number): Promise<Twe
 
   async function tryAgapRiser(): Promise<TweetPost | null> {
     const risers = leaderboard
-      .filter((s) => (s.composite_score_change ?? 0) >= 5 && !alreadyPostedIds.has(`agap_riser_${s.netuid}`))
+      .filter((s) =>
+        // NEWSWORTHINESS FLOOR, raised 5 -> 8. A 5-point move on a 100-point
+        // score is noise, and posting it four times a day is what produced
+        // filler. Below the floor we post NOTHING rather than reach.
+        (s.composite_score_change ?? 0) >= 8 &&
+        // Same key shape the generator emits — these drifted apart once and
+        // dedup silently stopped working.
+        !alreadyPostedIds.has(`agap_riser_${s.netuid}_${magnitudeBucket(s.composite_score_change)}_${isoWeek()}`) &&
+        !weeklyPostedIds.has(`subj_riser_${s.netuid}`))
       .sort((a, b) => (b.composite_score_change ?? 0) - (a.composite_score_change ?? 0));
     return risers.length > 0 ? generateAgapRiser(risers[0]) : null;
   }
@@ -659,7 +753,7 @@ export async function pickBestPost(data: BotData, utcHour?: number): Promise<Twe
 
   async function tryPerformanceGain(): Promise<TweetPost | null> {
     const perfGains = performanceGains
-      .filter((p) => p.maxGainPct >= 30 && !alreadyPostedIds.has(`performance_gain_${p.netuid}`))
+      .filter((p) => p.maxGainPct >= 30 && !alreadyPostedIds.has(`performance_gain_${p.netuid}_${isoWeek()}`))
       .sort((a, b) => b.maxGainPct - a.maxGainPct);
     return perfGains.length > 0 ? generatePerformanceGain(perfGains[0]) : null;
   }
