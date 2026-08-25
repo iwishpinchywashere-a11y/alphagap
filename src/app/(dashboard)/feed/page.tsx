@@ -52,6 +52,25 @@ const TAG_TONE: Record<string, string> = {
   FLOW: "text-cyan-300 border-cyan-500/30 bg-cyan-500/[0.08]",
 };
 
+
+/** Inline sparkline sized for the card header — line only, no area fill. */
+function MiniSpark({ points, up }: { points: number[]; up: boolean }) {
+  if (!points || points.length < 2) return null;
+  const w = 64, h = 18;
+  const min = Math.min(...points), max = Math.max(...points);
+  const range = max - min || 1;
+  const path = points.map((p, i) => {
+    const x = (i / (points.length - 1)) * w;
+    const y = h - ((p - min) / range) * (h - 4) - 2;
+    return `${i === 0 ? "M" : "L"}${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(" ");
+  return (
+    <svg viewBox={`0 0 ${w} ${h}`} className="w-16 h-[18px] flex-shrink-0" preserveAspectRatio="none" aria-hidden>
+      <path d={path} fill="none" stroke={up ? "#34d399" : "#f87171"} strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 function timeAgo(iso: string): string {
   const h = (Date.now() - new Date(iso).getTime()) / 3600000;
   if (h < 1) return "just now";
@@ -75,6 +94,14 @@ export default function FeedPage() {
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
+
+  // 90d sparkline per subnet, from the leaderboard the page already holds.
+  const sparkBy = new Map<number, { points: number[]; up: boolean }>();
+  for (const l of leaderboard) {
+    if (l.sparkline_prices && l.sparkline_prices.length >= 2) {
+      sparkBy.set(l.netuid, { points: l.sparkline_prices, up: (l.price_change_24h ?? 0) >= 0 });
+    }
+  }
 
   const fresh = cards.filter((c) => Date.now() - new Date(c.writtenAt).getTime() < 48 * 3600000);
   const older = cards.filter((c) => Date.now() - new Date(c.writtenAt).getTime() >= 48 * 3600000);
@@ -110,7 +137,7 @@ export default function FeedPage() {
           )}
 
           <div className="space-y-4">
-            {fresh.map((c) => <Card key={c.netuid} c={c} />)}
+            {fresh.map((c) => <Card key={c.netuid} c={c} spark={sparkBy.get(c.netuid)} />)}
           </div>
 
           {older.length > 0 && (
@@ -120,7 +147,7 @@ export default function FeedPage() {
                 <div className="flex-1 h-px bg-white/[0.06]" />
               </div>
               <div className="space-y-4 opacity-80">
-                {older.map((c) => <Card key={c.netuid} c={c} />)}
+                {older.map((c) => <Card key={c.netuid} c={c} spark={sparkBy.get(c.netuid)} />)}
               </div>
             </>
           )}
@@ -165,7 +192,7 @@ export default function FeedPage() {
   );
 }
 
-function Card({ c }: { c: FeedCard }) {
+function Card({ c, spark }: { c: FeedCard; spark?: { points: number[]; up: boolean } }) {
   return (
     <article className="ag-glass rounded-2xl p-5 border border-white/[0.07] hover:border-white/[0.14] transition-colors">
       <div className="flex items-start gap-3">
@@ -183,6 +210,7 @@ function Card({ c }: { c: FeedCard }) {
             <span className="text-[10px] font-mono text-emerald-400/80 bg-emerald-500/[0.07] border border-emerald-500/20 rounded-full px-1.5 py-px">
               SN{c.netuid}
             </span>
+            {spark && <MiniSpark points={spark.points} up={spark.up} />}
             <span className="text-[11px] text-gray-600 ml-auto flex-shrink-0">{timeAgo(c.writtenAt)}</span>
           </div>
           {(c.tags ?? []).length > 0 && (
