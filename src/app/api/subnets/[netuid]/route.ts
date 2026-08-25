@@ -153,12 +153,26 @@ export async function GET(
     }
   }
 
-  if (priceHistory.length < 2) {
-    const fallback = await getPoolHistory(netuid, 92).catch(() => []);
-    priceHistory = fallback
+  // Our own archive only starts 2026-07-08, so it cannot fill a 3M chart yet.
+  // Preferring it unconditionally (as this did) silently served ~48 days
+  // wherever 92 were needed, which is why 3M looked broken rather than short.
+  // Fetch upstream whenever ours does not actually span the range the page
+  // draws, and keep whichever series is longer.
+  const spanDays = priceHistory.length >= 2
+    ? (new Date(priceHistory[priceHistory.length - 1].timestamp).getTime() -
+       new Date(priceHistory[0].timestamp).getTime()) / 86400000
+    : 0;
+
+  if (priceHistory.length < 2 || spanDays < 85) {
+    const upstream = (await getPoolHistory(netuid, 92).catch(() => []))
       .map((p) => ({ timestamp: toIso(p.timestamp), price: parseFloat(p.price) }))
       .sort((a, b) => a.timestamp.localeCompare(b.timestamp));
-    if (priceHistory.length) console.log(`[subnet ${netuid}] own history thin — fetched ${priceHistory.length} points from TaoStats`);
+    if (upstream.length > priceHistory.length) {
+      console.log(`[subnet ${netuid}] using TaoStats (${upstream.length} pts) over own history (${priceHistory.length} pts, ${spanDays.toFixed(0)}d)`);
+      priceHistory = upstream;
+    } else if (upstream.length) {
+      console.log(`[subnet ${netuid}] kept own history (${priceHistory.length} pts) — upstream returned ${upstream.length}`);
+    }
   }
 
   // ── 7D intraday (4h candles from poolDetail.seven_day_prices) ───

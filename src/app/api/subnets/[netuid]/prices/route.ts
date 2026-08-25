@@ -1,5 +1,27 @@
 import { NextResponse } from "next/server";
 import { getPoolHistory } from "@/lib/taostats";
+import { put, get as blobGet } from "@vercel/blob";
+
+/**
+ * Last-good cache per subnet. taoFetch returns [] on a 429, and this route
+ * used to pass that straight through — so the 1Y chart rendered "No price
+ * data available" every time TaoStats throttled, even though we had served
+ * the identical year of candles an hour earlier. Prices from last week do
+ * not change; showing yesterday's copy of a year-long series is strictly
+ * better than showing nothing.
+ */
+const CACHE_KEY = (netuid: number) => `price-history-365/${netuid}.json`;
+const TOKEN = process.env.BLOB_READ_WRITE_TOKEN || "";
+
+async function readCache(netuid: number): Promise<Array<{ timestamp: string; price: number }> | null> {
+  try {
+    const b = await blobGet(CACHE_KEY(netuid), { token: TOKEN, access: "private", abortSignal: AbortSignal.timeout(6000) });
+    if (!b?.stream) return null;
+    const r = b.stream.getReader(); const cs: Uint8Array[] = [];
+    while (true) { const { done, value } = await r.read(); if (done) break; cs.push(value); }
+    return JSON.parse(Buffer.concat(cs).toString("utf-8"));
+  } catch { return null; }
+}
 
 export const dynamic = "force-dynamic";
 // force-dynamic sets EVERY fetch in this route to { cache: "no-store",
@@ -28,9 +50,26 @@ export async function GET(
   if (isNaN(netuid)) return NextResponse.json({ error: "Invalid netuid" }, { status: 400 });
 
   const raw = await getPoolHistory(netuid, 365).catch(() => []);
-  const priceHistory = raw
+  let priceHistory = raw
     .map((p) => ({ timestamp: toIso(p.timestamp), price: parseFloat(p.price) }))
     .sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+  let stale = false;
 
-  return NextResponse.json({ priceHistory });
+  if (priceHistory.length >= 2) {
+    // Fresh fetch succeeded — refresh the last-good copy. Fire and forget.
+    if (TOKEN) {
+      put(CACHE_KEY(netuid), JSON.stringify(priceHistory), {
+        access: "private", addRandomSuffix: false, allowOverwrite: true, token: TOKEN, contentType: "application/json",
+      }).catch(() => {});
+    }
+  } else {
+    const cached = await readCache(netuid);
+    if (cached && cached.length >= 2) {
+      priceHistory = cached;
+      stale = true;
+      console.log(`[prices ${netuid}] TaoStats unavailable — served last-good cache (${cached.length} pts)`);
+    }
+  }
+
+  return NextResponse.json({ priceHistory, stale });
 }
