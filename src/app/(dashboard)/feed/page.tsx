@@ -12,13 +12,33 @@
  */
 
 import React, { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import SubnetLogo from "@/components/dashboard/SubnetLogo";
 import AgIcon from "@/components/AgIcon";
 import BlurGate from "@/components/BlurGate";
 import { getTier } from "@/lib/subscription";
+import { useDashboard } from "@/components/dashboard/DashboardProvider";
 import type { FeedCard } from "@/app/api/cron/feed-digest/route";
+
+
+interface SubnetScoreLite {
+  netuid: number; name: string; composite_score: number;
+  price_change_24h?: number; sparkline_prices?: number[];
+  emission_change_pct?: number; apy_7d?: number;
+}
+function topBy(
+  rows: SubnetScoreLite[],
+  pick: (r: SubnetScoreLite) => number | undefined,
+  dir: "asc" | "desc",
+): { netuid: number; name: string; value: number }[] {
+  return rows
+    .map(r => ({ netuid: r.netuid, name: r.name, value: pick(r) }))
+    .filter((r): r is { netuid: number; name: string; value: number } => r.value != null && Number.isFinite(r.value) && r.value !== 0)
+    .sort((a, b) => (dir === "desc" ? b.value - a.value : a.value - b.value))
+    .slice(0, 5);
+}
 
 function timeAgo(iso: string): string {
   const h = (Date.now() - new Date(iso).getTime()) / 3600000;
@@ -31,6 +51,8 @@ function timeAgo(iso: string): string {
 export default function FeedPage() {
   const { data: session } = useSession();
   const tier = getTier(session);
+  const router = useRouter();
+  const { leaderboard, taoPrice } = useDashboard();
   const [cards, setCards] = useState<FeedCard[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -47,7 +69,8 @@ export default function FeedPage() {
 
   return (
     <main className="flex-1 bg-[#07090b] text-white ag-aurora">
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 flex gap-6">
+      <div className="flex-1 min-w-0 max-w-3xl">
         <div className="flex items-center gap-3 mb-2">
           <h1 className="font-display text-4xl font-semibold tracking-[-0.03em] leading-tight flex items-center gap-2.5">
             <AgIcon name="bolt" className="w-7 h-7 text-emerald-400" />
@@ -91,6 +114,41 @@ export default function FeedPage() {
           )}
         </BlurGate>
       </div>
+
+      {/* ── Market rail (restored from the old feed — the digest replaced the
+             signal list, not the sidebar) ── */}
+      <aside className="hidden lg:block w-[320px] flex-shrink-0">
+        <div className="sticky top-6 space-y-4">
+          <TaoCard taoPrice={taoPrice} leaderboard={leaderboard} />
+          <MoversCard leaderboard={leaderboard} onOpen={(n) => router.push(`/subnets/${n}`)} />
+          <RankBoard
+            title="Top price gainers · 24h"
+            rows={topBy(leaderboard, l => l.price_change_24h, "desc")}
+            format={v => `${v >= 0 ? "+" : ""}${v.toFixed(1)}%`}
+            tone="up" onOpen={(n) => router.push(`/subnets/${n}`)}
+          />
+          <RankBoard
+            title="Top price losers · 24h"
+            rows={topBy(leaderboard, l => l.price_change_24h, "asc")}
+            format={v => `${v.toFixed(1)}%`}
+            tone="down" onOpen={(n) => router.push(`/subnets/${n}`)}
+          />
+          <RankBoard
+            title="Top emission gainers"
+            rows={topBy(leaderboard, l => l.emission_change_pct, "desc")}
+            format={v => `${v >= 0 ? "+" : ""}${v.toFixed(1)}%`}
+            tone="up" onOpen={(n) => router.push(`/subnets/${n}`)}
+          />
+          <RankBoard
+            title="Top APY · 7d"
+            rows={topBy(leaderboard, l => (l.apy_7d != null ? l.apy_7d * 100 : undefined), "desc")}
+            format={v => `${v.toFixed(0)}%`}
+            tone="up" onOpen={(n) => router.push(`/subnets/${n}`)}
+          />
+          <TopScoresCard leaderboard={leaderboard} onOpen={(n) => router.push(`/subnets/${n}`)} />
+        </div>
+      </aside>
+      </div>
     </main>
   );
 }
@@ -129,3 +187,148 @@ function Card({ c }: { c: FeedCard }) {
     </article>
   );
 }
+
+/* ── Market rail components (verbatim from the pre-digest feed) ── */
+function Sparkline({ points, up }: { points: number[]; up: boolean }) {
+  if (!points || points.length < 2) return null;
+  const w = 280, h = 52;
+  const min = Math.min(...points), max = Math.max(...points);
+  const range = max - min || 1;
+  const path = points.map((p, i) => {
+    const x = (i / (points.length - 1)) * w;
+    const y = h - ((p - min) / range) * (h - 6) - 3;
+    return `${i === 0 ? "M" : "L"}${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(" ");
+  const stroke = up ? "#34d399" : "#f87171";
+  const id = `sp-${up ? "u" : "d"}`;
+  return (
+    <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-[52px]" preserveAspectRatio="none">
+      <defs>
+        <linearGradient id={id} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={stroke} stopOpacity="0.28" />
+          <stop offset="100%" stopColor={stroke} stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <path d={`${path} L${w},${h} L0,${h} Z`} fill={`url(#${id})`} />
+      <path d={path} fill="none" stroke={stroke} strokeWidth="1.8" strokeLinejoin="round" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function TaoCard({ taoPrice, leaderboard }: { taoPrice: number | null; leaderboard: SubnetScoreLite[] }) {
+  // Network pulse: median 24h move across the leaderboard as a market read
+  const changes = leaderboard.map(l => l.price_change_24h ?? 0).filter(Boolean).sort((a, b) => a - b);
+  const median = changes.length ? changes[Math.floor(changes.length / 2)] : 0;
+  const advancing = leaderboard.filter(l => (l.price_change_24h ?? 0) > 0).length;
+  const total = leaderboard.filter(l => l.price_change_24h != null).length || 1;
+  const pct = Math.round((advancing / total) * 100);
+  return (
+    <div className="ag-glass p-5">
+      <div className="font-mono text-[9.5px] uppercase tracking-[0.2em] text-[#5d665f] mb-2.5">TAO</div>
+      <div className="flex items-baseline gap-2.5 mb-4">
+        <span className="font-display text-[30px] font-semibold tracking-[-0.02em] tabular-nums">
+          {taoPrice ? `$${taoPrice.toFixed(2)}` : "—"}
+        </span>
+      </div>
+      <div className="font-mono text-[9.5px] uppercase tracking-[0.16em] text-[#5d665f] mb-2">Network breadth · 24h</div>
+      <div className="h-2 rounded-full bg-white/[0.06] overflow-hidden mb-2">
+        <div className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-green-400" style={{ width: `${pct}%` }} />
+      </div>
+      <div className="flex items-center justify-between font-mono text-[11px]">
+        <span className="text-emerald-400">{advancing} advancing</span>
+        <span className={median >= 0 ? "text-emerald-400" : "text-red-400"}>
+          median {median >= 0 ? "+" : ""}{median.toFixed(1)}%
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function MoversCard({ leaderboard, onOpen }: { leaderboard: SubnetScoreLite[]; onOpen: (n: number) => void }) {
+  const movers = [...leaderboard]
+    .filter(l => l.price_change_24h != null && l.sparkline_prices?.length)
+    .sort((a, b) => Math.abs(b.price_change_24h ?? 0) - Math.abs(a.price_change_24h ?? 0))
+    .slice(0, 3);
+  if (!movers.length) return null;
+  return (
+    <div className="ag-glass p-5">
+      <div className="font-mono text-[9.5px] uppercase tracking-[0.2em] text-[#5d665f] mb-3.5">Biggest movers · 24h</div>
+      <div className="space-y-4">
+        {movers.map(m => {
+          const chg = m.price_change_24h ?? 0;
+          return (
+            <button key={m.netuid} onClick={() => onOpen(m.netuid)} className="w-full text-left group">
+              <div className="flex items-center justify-between mb-1">
+                <div className="flex items-center gap-2 min-w-0">
+                  <SubnetLogo netuid={m.netuid} name={m.name} size={20} />
+                  <span className="font-semibold text-[13.5px] truncate group-hover:text-emerald-400 transition-colors">{m.name}</span>
+                  <span className="font-mono text-[9.5px] text-[#5d665f] flex-shrink-0">SN{m.netuid}</span>
+                </div>
+                <span className={`font-mono text-[12px] font-semibold flex-shrink-0 ${chg >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                  {chg >= 0 ? "+" : ""}{chg.toFixed(1)}%
+                </span>
+              </div>
+              <Sparkline points={m.sparkline_prices!.slice(-40)} up={chg >= 0} />
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/** Compact ranked list used for the gainers/losers/emission/APY boards. */
+function RankBoard({
+  title, rows, format, tone, onOpen,
+}: {
+  title: string;
+  rows: { netuid: number; name: string; value: number }[];
+  format: (v: number) => string;
+  tone: "up" | "down";
+  onOpen: (n: number) => void;
+}) {
+  if (!rows.length) return null;
+  const valueColor = tone === "up" ? "text-emerald-400" : "text-red-400";
+  return (
+    <div className="ag-glass p-5">
+      <div className="font-mono text-[9.5px] uppercase tracking-[0.2em] text-[#5d665f] mb-3.5">{title}</div>
+      <div className="space-y-2.5">
+        {rows.map((r, i) => (
+          <button key={r.netuid} onClick={() => onOpen(r.netuid)} className="w-full flex items-center gap-2.5 group">
+            <span className="font-display text-[12px] font-bold text-[#5d665f] w-3.5 flex-shrink-0">{i + 1}</span>
+            <SubnetLogo netuid={r.netuid} name={r.name} size={20} />
+            <span className="font-semibold text-[13.5px] truncate flex-1 text-left group-hover:text-emerald-400 transition-colors">{r.name}</span>
+            <span className={`font-mono text-[12px] font-semibold tabular-nums flex-shrink-0 ${valueColor}`}>{format(r.value)}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function TopScoresCard({ leaderboard, onOpen }: { leaderboard: SubnetScoreLite[]; onOpen: (n: number) => void }) {
+  const top = [...leaderboard]
+    .filter(l => (l.composite_score ?? 0) > 0)
+    .sort((a, b) => (b.composite_score ?? 0) - (a.composite_score ?? 0))
+    .slice(0, 6);
+  if (!top.length) return null;
+  return (
+    <div className="ag-glass p-5">
+      <div className="font-mono text-[9.5px] uppercase tracking-[0.2em] text-[#5d665f] mb-3.5">Top aGap scores</div>
+      <div className="space-y-2.5">
+        {top.map((s, i) => (
+          <button key={s.netuid} onClick={() => onOpen(s.netuid)} className="w-full flex items-center gap-2.5 group">
+            <span className="font-display text-[12px] font-bold text-[#5d665f] w-3.5 flex-shrink-0">{i + 1}</span>
+            <SubnetLogo netuid={s.netuid} name={s.name} size={20} />
+            <span className="font-semibold text-[13.5px] truncate flex-1 text-left group-hover:text-emerald-400 transition-colors">{s.name}</span>
+            <div className="w-14 h-1.5 rounded-full bg-white/[0.06] overflow-hidden flex-shrink-0">
+              <div className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-green-400" style={{ width: `${s.composite_score}%` }} />
+            </div>
+            <span className="font-mono text-[12px] font-bold tabular-nums w-6 text-right flex-shrink-0">{Math.round(s.composite_score)}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+

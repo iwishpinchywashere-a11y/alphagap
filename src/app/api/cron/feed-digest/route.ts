@@ -29,7 +29,10 @@ export const maxDuration = 300;
 const TOKEN = process.env.BLOB_READ_WRITE_TOKEN || "";
 const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY || "";
 const DIGEST_BLOB = "feed-digest.json";
-const MAX_NEW_CARDS_PER_RUN = 20; // cost ceiling; highest-materiality first
+// Volume target is a few dozen cards per DAY at most, fewer when quiet.
+// 8 per run x 4 runs = 32/day worst case, and the fingerprint carry-forward
+// means a typical day writes far fewer — only genuinely new events.
+const MAX_NEW_CARDS_PER_RUN = 8;
 const CARD_TTL_DAYS = 7;
 
 interface SignalRow {
