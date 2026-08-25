@@ -189,7 +189,7 @@ export default function AccountPage() {
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <div className="text-sm font-semibold text-emerald-300 mb-1">Upgrade to Premium — $49/mo</div>
-                      <div className="text-xs text-gray-500">Unlocks Whale Tracker, KOL Radar, Pump Lab, Discord Scanner & more</div>
+                      <div className="text-xs text-gray-500">Unlocks Whale Tracker, KOL Radar, Performance, Discord Scanner & more</div>
                     </div>
                   </div>
                   <a

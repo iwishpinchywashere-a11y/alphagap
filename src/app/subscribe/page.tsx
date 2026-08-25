@@ -491,7 +491,7 @@ function SubscribeContent() {
                   { icon: "whale",       text: "Whale & Smart Money Tracker" },
                   { icon: "social",      text: "Twitter/X social momentum feed" },
                   { icon: "discord",     text: "Discord scanner" },
-                  { icon: "pumplab",     text: "Pump Lab" },
+                  { icon: "pumplab",     text: "Performance" },
                   { icon: "performance", text: "Performance Tracker" },
                   { icon: "wallet",      text: "Wallet Tracker" },
                   { icon: "analytics",   text: "Analytics & Scatter Plots" },
@@ -840,11 +840,11 @@ function SubscribeContent() {
               </div>
             </FeatureCard>
 
-            {/* Feature 5c: Pump Lab */}
-            <FeatureCard icon="pumplab" title="Pump Lab — Early Alpha Detector" badge="NEW">
+            {/* Feature 5c: Performance */}
+            <FeatureCard icon="pumplab" title="Performance — Early Alpha Detector" badge="NEW">
               <p className="text-sm text-gray-400 leading-relaxed mb-4">
                 Track subnets showing early signs of a pump <span className="text-white font-medium">before the crowd catches on</span>.
-                Pump Lab monitors a curated watchlist for unusual staking inflows, volume acceleration, and social heat all converging at once.
+                Performance monitors a curated watchlist for unusual staking inflows, volume acceleration, and social heat all converging at once.
                 It&apos;s the closest thing to a heads-up the market will give you.
               </p>
               <div className="bg-black/30 backdrop-blur-[14px] rounded-xl border border-white/[0.08] overflow-hidden">
@@ -1079,7 +1079,7 @@ function SubscribeContent() {
                   "Open dashboard — top subnets ranked by aGap",
                   "Whale Tracker shows exactly who's buying",
                   "Volume surges flagged automatically",
-                  "Pump Lab detects early momentum convergence",
+                  "Performance detects early momentum convergence",
                   "Signals analyzed and explained in plain English",
                   "Discord alpha surfaced automatically",
                   "KOL activity tracked and heat-scored",

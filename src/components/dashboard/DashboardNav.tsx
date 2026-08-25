@@ -28,7 +28,6 @@ export default function DashboardNav() {
     { href: "/reports", label: "Reports" },
     { href: "/analytics", label: "Analytics" },
     { href: "/performance", label: "Performance" },
-    { href: "/pumplab", label: "Pump Lab" },
     { href: "/taopages", label: "TAO Pages" },
     { href: "/watchlist", label: "My Watchlist" },
   ];

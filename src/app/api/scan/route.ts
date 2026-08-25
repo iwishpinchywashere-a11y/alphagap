@@ -4945,7 +4945,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
   const duration = Date.now() - startTime;
   console.log(`[scan] Complete in ${duration}ms. ${leaderboard.length} subnets, ${mergedSignals.length} signals (${signals.length} new this scan).`);
 
-  // Trigger pump lab auto-detect in background (fire-and-forget, never blocks scan response)
+  // Trigger performance auto-detect in background (fire-and-forget, never blocks scan response)
   const baseUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000";
   fetch(`${baseUrl}/api/testing/auto-detect`, { signal: AbortSignal.timeout(15000) })
     .then(r => r.json())

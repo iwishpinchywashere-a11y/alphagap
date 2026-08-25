@@ -1,455 +1,964 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { useSession } from "next-auth/react";
-import type { PortfolioData } from "@/lib/types";
+import type { SubnetScore } from "@/lib/types";
+import type { TrackedPumper } from "@/app/api/testing/route";
 import BlurGate from "@/components/BlurGate";
+import AgIcon, { type AgIconName } from "@/components/AgIcon";
 import { getTier } from "@/lib/subscription";
-import AgIcon from "@/components/AgIcon";
 
-// Pure SVG chart — no external deps
-// Narrower viewBox (500 wide) so text scales better on mobile screens.
-function PortfolioChart({ history, values, formatY }: {
-  history: { date: string }[];
-  values: number[];
-  formatY: (v: number) => string;
-}) {
-  const W = 800, H = 240;
-  const PAD = { top: 18, right: 20, bottom: 36, left: 68 };
-  const chartW = W - PAD.left - PAD.right;
-  const chartH = H - PAD.top - PAD.bottom;
+// ── Types ─────────────────────────────────────────────────────────────────
 
-  const minV = Math.min(...values);
-  const maxV = Math.max(...values);
+interface PricePoint { timestamp: string; price: number }
+interface ScoreRow { date: string; agap: number; flow: number; dev: number; eval: number; social: number; price: number; mcap: number; emission_pct: number }
+interface SignalRow { id: number; netuid: number; signal_type: string; strength: number; title: string; description: string; source: string; source_url?: string; created_at: string; signal_date?: string }
+interface SubnetDetail {
+  netuid: number; name: string;
+  identity: { description?: string; summary?: string; github_repo?: string; twitter?: string; website?: string } | null;
+  scoreHistory: ScoreRow[];
+  priceHistory: PricePoint[];
+  signals: SignalRow[];
+  marketStats: { priceUsd: number; marketCapUsd: number; priceChangePct7d: number; priceChangePct30d: number; volume24hUsd: number } | null;
+}
+
+interface PumpEvent {
+  gain: number;
+  startDate: string;
+  endDate: string;
+  startIdx: number;
+  endIdx: number;
+  startPrice: number;
+  peakPrice: number;
+  daysAgo: number;
+}
+
+// Branded icon per finding label — keyed by label so cached findings
+// (which may still carry legacy emoji `icon` values) render correctly.
+const FINDING_ICONS: Record<string, AgIconName> = {
+  "AlphaGap Score": "target",
+  "Dev Spike": "bolt",
+  "Social / KOL": "signal",
+  "Volume Surge": "chart",
+  "Whale Accumulation": "whale",
+  "Emission Momentum": "radar",
+};
+
+interface SignalFinding {
+  icon: string;
+  label: string;
+  detail: string;
+  strength: "strong" | "high" | "moderate" | "weak";
+  daysBeforePump: number;
+  fired: boolean;
+}
+
+interface Autopsy {
+  pumper: TrackedPumper;
+  current: SubnetScore | null;
+  detail: SubnetDetail | null;
+  pumpEvent: PumpEvent | null;
+  findings: SignalFinding[];
+  narrative: string;
+  loading: boolean;      // full compute pending
+  chartLoading: boolean; // cached entry but priceHistory not yet fetched
+  error?: string;
+}
+
+// ── Analysis helpers ───────────────────────────────────────────────────────
+
+// For portfolio-sourced cases: measure from the aGap signal date to the peak since then
+function pumpFromSignalDate(prices: PricePoint[], signalDate: string): PumpEvent | null {
+  if (prices.length < 2) return null;
+
+  const signalMs = new Date(signalDate).getTime();
+
+  // Find the price point closest to the signal date
+  let startIdx = 0;
+  let minDiff = Infinity;
+  for (let i = 0; i < prices.length; i++) {
+    const diff = Math.abs(new Date(prices[i].timestamp).getTime() - signalMs);
+    if (diff < minDiff) { minDiff = diff; startIdx = i; }
+  }
+
+  // Find peak price from signal date onwards
+  let peakIdx = startIdx;
+  for (let i = startIdx; i < prices.length; i++) {
+    if (prices[i].price > prices[peakIdx].price) peakIdx = i;
+  }
+
+  const startPrice = prices[startIdx].price;
+  if (startPrice <= 0) return null;
+  const gain = ((prices[peakIdx].price - startPrice) / startPrice) * 100;
+  if (gain <= 10) return null;
+
+  return {
+    gain,
+    startDate: prices[startIdx].timestamp,
+    endDate: prices[peakIdx].timestamp,
+    startIdx,
+    endIdx: peakIdx,
+    startPrice,
+    peakPrice: prices[peakIdx].price,
+    daysAgo: Math.round((Date.now() - new Date(prices[startIdx].timestamp).getTime()) / 86400000),
+  };
+}
+
+// For short-window pumps: find the best 7-day gain in the price history
+function findBestPump(prices: PricePoint[], targetDate?: string | null): PumpEvent | null {
+  if (prices.length < 8) return null;
+  let bestGain = -Infinity;
+  let bestStart = 0;
+  let bestEnd = 7;
+  const WINDOW = 7;
+
+  const targetMs = targetDate ? new Date(targetDate).getTime() : null;
+  const WINDOW_MS = 12 * 86400000;
+
+  for (let i = 0; i <= prices.length - WINDOW - 1; i++) {
+    if (targetMs !== null) {
+      const windowStartMs = new Date(prices[i].timestamp).getTime();
+      if (Math.abs(windowStartMs - targetMs) > WINDOW_MS) continue;
+    }
+    const sp = prices[i].price;
+    const ep = prices[i + WINDOW].price;
+    if (sp <= 0) continue;
+    const g = ((ep - sp) / sp) * 100;
+    if (g > bestGain) { bestGain = g; bestStart = i; bestEnd = i + WINDOW; }
+  }
+  if (bestGain <= 10) return null;
+
+  const startDate = prices[bestStart].timestamp;
+  const endDate = prices[bestEnd].timestamp;
+  const daysAgo = Math.round((Date.now() - new Date(startDate).getTime()) / 86400000);
+
+  return { gain: bestGain, startDate, endDate, startIdx: bestStart, endIdx: bestEnd, startPrice: prices[bestStart].price, peakPrice: prices[bestEnd].price, daysAgo };
+}
+
+function getWindow(scores: ScoreRow[], anchorDate: string, daysBack: number): ScoreRow[] {
+  const anchorMs = new Date(anchorDate).getTime();
+  const cutoff = anchorMs - daysBack * 86400000;
+  return scores
+    .filter((s) => { const t = new Date(s.date).getTime(); return t >= cutoff && t <= anchorMs; })
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+}
+
+function trend(vals: number[]): number {
+  if (vals.length < 2) return 0;
+  return vals[vals.length - 1] - vals[0];
+}
+
+function buildFindings(
+  pumpEvent: PumpEvent | null,
+  scores: ScoreRow[],
+  signals: SignalRow[],
+  current: SubnetScore | null
+): SignalFinding[] {
+  const findings: SignalFinding[] = [];
+
+  // Score windows relative to pump start — empty arrays when no pump event found.
+  // Defined here (not after the pumpEvent guard) so the AlphaGap Score finding
+  // can still be built for portfolio cases where pumpFromSignalDate returns null.
+  const pre7  = pumpEvent ? getWindow(scores, pumpEvent.startDate, 7)  : [];
+  const pre14 = pumpEvent ? getWindow(scores, pumpEvent.startDate, 14) : [];
+
+  // AlphaGap Score — always evaluated, even without a pump event.
+  // This is critical: portfolio cases (confirmed aGap picks) must have ≥1 finding so they
+  // are never auto-purged or hidden when pumpFromSignalDate can't find a clean pump window.
+  const agapNow = current?.composite_score ?? 0;
+  const prePumpScores = pre7.length > 0 ? pre7 : pre14;
+  const agapAtPump = prePumpScores.length > 0 ? prePumpScores[prePumpScores.length - 1].agap : agapNow;
+  const effectiveAgap = Math.max(agapAtPump, agapNow);
+  const agapFired = effectiveAgap >= 65;
+  findings.push({
+    icon: "target",
+    label: "AlphaGap Score",
+    detail: effectiveAgap >= 80
+      ? `aGap score ${effectiveAgap}/100 before pump — top-tier signal`
+      : effectiveAgap >= 65
+      ? `aGap score ${effectiveAgap}/100 — above-average signal`
+      : `aGap score ${effectiveAgap}/100 — below threshold`,
+    strength: effectiveAgap >= 80 ? "strong" : effectiveAgap >= 65 ? "high" : "weak",
+    daysBeforePump: prePumpScores.length > 0 ? Math.min(7, prePumpScores.length) : 0,
+    fired: agapFired,
+  });
+
+  // All remaining signals need a pump window to be meaningful
+  if (!pumpEvent) return findings;
+
+  const pumpMs = new Date(pumpEvent.startDate).getTime();
+
+  // Dev spike
+  const devTrend7  = trend(pre7.map((s) => s.dev));
+  const devTrend14 = trend(pre14.map((s) => s.dev));
+  const devSignals = signals.filter((s) => s.signal_type === "dev_spike");
+  const devPrePump = devSignals.filter((s) => {
+    const t = new Date(s.signal_date || s.created_at).getTime();
+    return t < pumpMs && t > pumpMs - 14 * 86400000;
+  });
+  findings.push({
+    icon: "bolt",
+    label: "Dev Spike",
+    detail: devPrePump.length > 0
+      ? `${devPrePump.length} dev-spike signal${devPrePump.length > 1 ? "s" : ""} fired before pump`
+      : devTrend14 > 10
+      ? `Dev score +${devTrend14.toFixed(0)} pts in 14d window`
+      : "No significant dev activity",
+    strength: devPrePump.length > 0 ? "strong" : devTrend14 > 10 ? "moderate" : "weak",
+    daysBeforePump: devPrePump.length > 0
+      ? Math.round((pumpMs - new Date(devPrePump[0].signal_date || devPrePump[0].created_at).getTime()) / 86400000)
+      : 7,
+    fired: devTrend7 > 15 || devTrend14 > 20 || devPrePump.length > 0,
+  });
+
+  // Social spike
+  const socialTrend14 = trend(pre14.map((s) => s.social));
+  const socialSignals = signals.filter((s) => ["social_spike", "kol_mention", "twitter_spike"].includes(s.signal_type));
+  const socialPrePump = socialSignals.filter((s) => {
+    const t = new Date(s.signal_date || s.created_at).getTime();
+    return t < pumpMs + 86400000 && t > pumpMs - 10 * 86400000;
+  });
+  findings.push({
+    icon: "signal",
+    label: "Social / KOL",
+    detail: socialPrePump.length > 0
+      ? `${socialPrePump.length} social signal${socialPrePump.length > 1 ? "s" : ""} — KOLs active pre-pump`
+      : socialTrend14 > 10
+      ? `Social score +${socialTrend14.toFixed(0)} pts in pre-pump window`
+      : "No notable social signals",
+    strength: socialPrePump.length >= 2 ? "strong" : socialPrePump.length === 1 || socialTrend14 > 10 ? "moderate" : "weak",
+    daysBeforePump: socialPrePump.length > 0
+      ? Math.round((pumpMs - new Date(socialPrePump[0].signal_date || socialPrePump[0].created_at).getTime()) / 86400000)
+      : 3,
+    fired: socialPrePump.length > 0 || socialTrend14 > 10,
+  });
+
+  // Volume surge
+  const volSignals = signals.filter((s) => s.signal_type === "volume_surge");
+  const volPrePump = volSignals.filter((s) => {
+    const t = new Date(s.signal_date || s.created_at).getTime();
+    return t < pumpMs + 2 * 86400000 && t > pumpMs - 7 * 86400000;
+  });
+  findings.push({
+    icon: "chart",
+    label: "Volume Surge",
+    detail: volPrePump.length > 0
+      ? `Volume spike detected around pump start`
+      : current?.volume_surge
+      ? `Vol surge ${current.volume_surge_ratio?.toFixed(1) ?? ""}× normal`
+      : "No clear volume surge",
+    strength: volPrePump.length > 0 ? "strong" : current?.volume_surge ? "high" : "weak",
+    daysBeforePump: volPrePump.length > 0
+      ? Math.round((pumpMs - new Date(volPrePump[0].signal_date || volPrePump[0].created_at).getTime()) / 86400000)
+      : 1,
+    fired: volPrePump.length > 0 || !!(current?.volume_surge && (current.volume_surge_ratio ?? 0) > 2),
+  });
+
+  // Whale accumulation
+  const whaleSignals = signals.filter((s) => s.signal_type === "whale_accumulation" || (s.title || "").toLowerCase().includes("whale"));
+  const whalePrePump = whaleSignals.filter((s) => {
+    const t = new Date(s.signal_date || s.created_at).getTime();
+    return t < pumpMs + 86400000 && t > pumpMs - 14 * 86400000;
+  });
+  findings.push({
+    icon: "whale",
+    label: "Whale Accumulation",
+    detail: whalePrePump.length > 0
+      ? `Whale accumulation signal detected before pump`
+      : current?.whale_signal === "accumulating"
+      ? `Currently accumulating (${current.whale_ratio?.toFixed(1) ?? "?"}×)`
+      : "No whale signal detected",
+    strength: whalePrePump.length > 0 ? "strong" : current?.whale_signal === "accumulating" ? "moderate" : "weak",
+    daysBeforePump: whalePrePump.length > 0
+      ? Math.round((pumpMs - new Date(whalePrePump[0].signal_date || whalePrePump[0].created_at).getTime()) / 86400000)
+      : 5,
+    fired: whalePrePump.length > 0 || current?.whale_signal === "accumulating",
+  });
+
+  // Emission
+  const emTrend14 = trend(pre14.map((s) => s.emission_pct));
+  const emSignals = signals.filter((s) => ["emission_spike", "emission_rising"].includes(s.signal_type));
+  const emPrePump = emSignals.filter((s) => {
+    const t = new Date(s.signal_date || s.created_at).getTime();
+    return t < pumpMs && t > pumpMs - 14 * 86400000;
+  });
+  findings.push({
+    icon: "radar",
+    label: "Emission Momentum",
+    detail: emPrePump.length > 0
+      ? `Emission rising signal fired ${emPrePump.length}× before pump`
+      : emTrend14 > 0.3
+      ? `Emission share +${emTrend14.toFixed(2)}% in pre-pump window`
+      : "Emission flat/declining",
+    strength: emPrePump.length > 0 ? "moderate" : emTrend14 > 0.3 ? "moderate" : "weak",
+    daysBeforePump: emPrePump.length > 0
+      ? Math.round((pumpMs - new Date(emPrePump[0].signal_date || emPrePump[0].created_at).getTime()) / 86400000)
+      : 10,
+    fired: emPrePump.length > 0 || emTrend14 > 0.3,
+  });
+
+  return findings;
+}
+
+// ── Mini SVG price chart ───────────────────────────────────────────────────
+
+function MiniPriceChart({ prices, pump, chartLoading }: { prices: PricePoint[]; pump: PumpEvent | null; chartLoading?: boolean }) {
+  const W = 600; const H = 160;
+  const PAD = { top: 16, right: 16, bottom: 32, left: 56 };
+
+  if (prices.length < 2) {
+    return (
+      <div className="flex items-center justify-center h-[160px] text-xs gap-2">
+        {chartLoading ? (
+          <>
+            <div className="w-3 h-3 border-2 border-green-500/30 border-t-green-400 rounded-full animate-spin" />
+            <span className="text-gray-600">Loading chart…</span>
+          </>
+        ) : (
+          <span className="text-gray-700 italic">No price data</span>
+        )}
+      </div>
+    );
+  }
+
+  const fmtPrice = (v: number) => {
+    if (v < 0.0001) return `$${v.toFixed(6)}`;
+    if (v < 0.01)   return `$${v.toFixed(4)}`;
+    if (v < 1)      return `$${v.toFixed(3)}`;
+    if (v < 1000)   return `$${v.toFixed(2)}`;
+    return `$${(v / 1000).toFixed(1)}K`;
+  };
+
+  const vals = prices.map((p) => p.price);
+  const minV = Math.min(...vals);
+  const maxV = Math.max(...vals);
   const range = maxV - minV || 1;
-  const padRange = range * 0.12;
-  const yMin = minV - padRange;
-  const yMax = maxV + padRange;
+  const cW = W - PAD.left - PAD.right;
+  const cH = H - PAD.top - PAD.bottom;
 
-  const xScale = (i: number) => PAD.left + (i / Math.max(history.length - 1, 1)) * chartW;
-  const yScale = (v: number) => PAD.top + chartH - ((v - yMin) / (yMax - yMin)) * chartH;
+  const x = (i: number) => PAD.left + (i / (prices.length - 1)) * cW;
+  const y = (v: number) => PAD.top + cH - ((v - minV) / range) * cH;
 
-  const pts = values.map((v, i) => `${xScale(i).toFixed(1)},${yScale(v).toFixed(1)}`);
-  const polyPoints = pts.join(" ");
-  const firstX = xScale(0);
-  const lastX = xScale(history.length - 1);
-  const baseY = PAD.top + chartH;
-  const areaPoints = `${firstX.toFixed(1)},${baseY} ${polyPoints} ${lastX.toFixed(1)},${baseY}`;
-  const isUp = values[values.length - 1] >= values[0];
-  const lineColor = isUp ? "#4ade80" : "#f87171";
-  const gradId = isUp ? "areaGreen" : "areaRed";
-  const gradStop = isUp ? "#4ade80" : "#f87171";
-  const yTicks = [yMin + (yMax - yMin) * 0.15, yMin + (yMax - yMin) * 0.5, yMin + (yMax - yMin) * 0.85];
-  const xLabels = [0, Math.floor((history.length - 1) / 2), history.length - 1]
-    .filter((i, idx, arr) => arr.indexOf(i) === idx)
-    .map((i) => ({
-      x: xScale(i),
-      label: new Date(history[i].date + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" }),
-    }));
-  const lastV = values[values.length - 1];
-  const lastPt = { x: xScale(history.length - 1), y: yScale(lastV) };
+  const path = prices.map((p, i) => `${i === 0 ? "M" : "L"} ${x(i).toFixed(1)} ${y(p.price).toFixed(1)}`).join(" ");
+  const areaBottom = PAD.top + cH;
+  const fill = path + ` L ${x(prices.length - 1).toFixed(1)} ${areaBottom.toFixed(1)} L ${PAD.left} ${areaBottom.toFixed(1)} Z`;
+
+  const pumpRect = pump && pump.startIdx < prices.length && pump.endIdx < prices.length
+    ? { x1: x(pump.startIdx), x2: x(Math.min(pump.endIdx, prices.length - 1)) }
+    : null;
+
+  const isUp = prices[prices.length - 1].price >= prices[0].price;
+  const lineColor = pump && pump.gain > 0 ? "#4ade80" : isUp ? "#4ade80" : "#f87171";
+  const gradId = `chartFill_${pump?.startDate ?? "up"}`;
+
+  const yLabels = [0, 1, 2, 3].map((i) => ({ val: minV + (i / 3) * range, yPos: y(minV + (i / 3) * range) }));
+  const xLabels = [0, 1, 2, 3].map((i) => {
+    const idx = Math.round((i / 3) * (prices.length - 1));
+    return { idx, xPos: x(idx), label: new Date(prices[idx].timestamp).toLocaleDateString("en-US", { month: "short", day: "numeric" }) };
+  });
+
+  const pumpPeakIdx = pump && pump.endIdx < prices.length ? pump.endIdx : null;
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: "clamp(200px, 30vw, 340px)" }}>
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: "160px" }} preserveAspectRatio="xMidYMid meet">
       <defs>
         <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={gradStop} stopOpacity="0.22" />
-          <stop offset="100%" stopColor={gradStop} stopOpacity="0.02" />
+          <stop offset="0%" stopColor={lineColor} stopOpacity="0.25" />
+          <stop offset="100%" stopColor={lineColor} stopOpacity="0.02" />
         </linearGradient>
       </defs>
-      {yTicks.map((v, i) => (
-        <g key={i}>
-          <line x1={PAD.left} y1={yScale(v).toFixed(1)} x2={PAD.left + chartW} y2={yScale(v).toFixed(1)} stroke="#1f2937" strokeWidth="1" />
-          <text x={PAD.left - 6} y={(yScale(v) + 4).toFixed(1)} fill="#6b7280" fontSize="13" textAnchor="end">{formatY(v)}</text>
-        </g>
+
+      {yLabels.map(({ yPos }, i) => (
+        <line key={i} x1={PAD.left} y1={yPos.toFixed(1)} x2={W - PAD.right} y2={yPos.toFixed(1)} stroke="rgba(55,65,81,0.4)" strokeWidth="1" />
       ))}
-      <polygon points={areaPoints} fill={`url(#${gradId})`} />
-      <polyline points={polyPoints} fill="none" stroke={lineColor} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
-      {xLabels.map((l, i) => (
-        <text key={i} x={l.x.toFixed(1)} y={H - 7} fill="#6b7280" fontSize="13" textAnchor="middle">{l.label}</text>
+      {yLabels.map(({ val, yPos }, i) => (
+        <text key={i} x={PAD.left - 4} y={(yPos + 3).toFixed(1)} fill="#6b7280" fontSize="9" textAnchor="end">{fmtPrice(val)}</text>
       ))}
-      <circle cx={lastPt.x.toFixed(1)} cy={lastPt.y.toFixed(1)} r="4" fill={lineColor} />
-      <text x={(lastPt.x - 6).toFixed(1)} y={(lastPt.y - 9).toFixed(1)} fill={lineColor} fontSize="14" fontWeight="bold" textAnchor="end">
-        {formatY(lastV)}
-      </text>
+
+      {/* Pump region highlight */}
+      {pumpRect && (
+        <rect x={pumpRect.x1} y={PAD.top} width={Math.max(pumpRect.x2 - pumpRect.x1, 2)} height={cH}
+          fill="rgba(74,222,128,0.08)" stroke="rgba(74,222,128,0.25)" strokeWidth="1" rx="2" />
+      )}
+
+      <path d={fill} fill={`url(#${gradId})`} />
+      <path d={path} fill="none" stroke={lineColor} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+
+      {pump && pump.startIdx < prices.length && (
+        <circle cx={x(pump.startIdx).toFixed(1)} cy={y(prices[pump.startIdx].price).toFixed(1)} r="4" fill="#facc15" />
+      )}
+      {pumpPeakIdx != null && pump != null && (
+        <>
+          <circle cx={x(pumpPeakIdx).toFixed(1)} cy={y(prices[pumpPeakIdx].price).toFixed(1)} r="4" fill="#4ade80" />
+          <text x={(x(pumpPeakIdx) + 6).toFixed(1)} y={(y(prices[pumpPeakIdx].price) - 6).toFixed(1)} fill="#4ade80" fontSize="10" fontWeight="bold">
+            ▲ +{pump.gain.toFixed(0)}%
+          </text>
+        </>
+      )}
+
+      {xLabels.map(({ xPos, label }, i) => (
+        <text key={i} x={xPos.toFixed(1)} y={(H - 6).toFixed(1)} fill="#4b5563" fontSize="9" textAnchor="middle">{label}</text>
+      ))}
     </svg>
   );
 }
 
-const POSITION_SIZE = 1000; // display as $1000 per position
-// Normalize any position to $1,000-equivalent display: × (1000 / amountUsd).
-// Auto-buys store $100 → ×10. Manually-added positions store $1000 → ×1.
-// Never use raw PM=10 for dollar amounts — positions may have different stored sizes.
-const PM = 10; // kept for currentValue display (currentValue = alphaTokens × price, not amountUsd-based)
-const normDollar = (usd: number, amountUsd: number) => usd * (POSITION_SIZE / amountUsd);
-const MATURITY_DAYS = 30; // positions younger than this are "still developing" — excluded from headline stats and chart
-const HIT_THRESHOLD_PCT = 30; // 30%+ return = a "hit"
+// ── Formatters ─────────────────────────────────────────────────────────────
+
+function fmtPrice(v: number): string {
+  if (v < 0.0001) return `$${v.toFixed(8)}`;
+  if (v < 0.01)   return `$${v.toFixed(5)}`;
+  if (v < 1)      return `$${v.toFixed(4)}`;
+  return `$${v.toFixed(2)}`;
+}
+function fmtUsd(v: number): string {
+  if (v >= 1e9) return `$${(v / 1e9).toFixed(2)}B`;
+  if (v >= 1e6) return `$${(v / 1e6).toFixed(2)}M`;
+  if (v >= 1e3) return `$${(v / 1e3).toFixed(1)}K`;
+  return `$${v.toFixed(4)}`;
+}
+
+// ── Autopsy Card ──────────────────────────────────────────────────────────
+
+function AutopsyCard({ autopsy, onRemove }: { autopsy: Autopsy; onRemove: () => void }) {
+  const { pumper, current, detail, pumpEvent, findings, loading, chartLoading, error } = autopsy;
+
+  const ms = detail?.marketStats ?? null;
+  const priceUsd = current?.alpha_price ?? ms?.priceUsd ?? null;
+  const mcap = current?.market_cap ?? ms?.marketCapUsd ?? null;
+  const price7d = current?.price_change_7d ?? ms?.priceChangePct7d ?? null;
+
+  const firedFindings = findings.filter((f) => f.fired);
+  const firedCount = firedFindings.length;
+
+  const signalBubbleColor = firedCount >= 3
+    ? "bg-emerald-500/[0.08] border-emerald-500/35 text-emerald-400"
+    : firedCount === 2
+    ? "bg-yellow-500/[0.08] border-yellow-500/35 text-yellow-400"
+    : "bg-orange-500/[0.08] border-orange-500/35 text-orange-400";
+
+  if (loading) {
+    return (
+      <div className="ag-glass overflow-hidden animate-pulse">
+        <div className="px-5 py-4 flex items-center justify-between border-b border-white/[0.08]">
+          <div className="h-5 w-32 bg-white/[0.06] rounded-lg" />
+          <div className="h-8 w-16 bg-white/[0.06] rounded-lg" />
+        </div>
+        <div className="h-[160px] mx-5 my-4 bg-white/[0.03] rounded-xl" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="ag-glass ag-glass-hover overflow-hidden">
+
+      {/* Header */}
+      <div className="relative flex items-center justify-between px-5 py-4 bg-gradient-to-r from-emerald-500/[0.07] via-emerald-500/[0.02] to-transparent border-b border-white/[0.08]">
+        <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-gradient-to-b from-emerald-400/70 to-emerald-600/40 rounded-l-2xl" />
+
+        <div className="pl-3 flex items-center gap-3 min-w-0">
+          <div>
+            <div className="flex items-center gap-2 mb-0.5">
+              <span className="text-white font-display font-semibold text-lg">{pumper.name}</span>
+              {pumper.netuid != null && (
+                <Link href={`/subnets/${pumper.netuid}`}
+                  className="text-[11px] font-mono text-emerald-400 bg-emerald-500/[0.07] border border-emerald-500/25 rounded-full px-2 py-0.5 hover:text-emerald-300 transition-colors">
+                  SN{pumper.netuid}
+                </Link>
+              )}
+              {error && <span className="text-xs text-red-500">{error}</span>}
+            </div>
+            <div className="flex items-center gap-3 text-xs">
+              {priceUsd != null && <span className="text-gray-300 font-mono">{fmtPrice(priceUsd)}</span>}
+              {mcap != null && <span className="text-gray-500">MCap {fmtUsd(mcap)}</span>}
+              {price7d != null && (
+                <span className={`font-medium ${price7d >= 0 ? "text-green-400" : "text-red-400"}`}>
+                  7D {price7d >= 0 ? "+" : ""}{price7d.toFixed(1)}%
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3 flex-shrink-0">
+          {pumpEvent && (
+            <div className="text-right">
+              <div className="text-emerald-400 font-display font-semibold text-2xl leading-none tabular-nums">+{pumpEvent.gain.toFixed(0)}%</div>
+              <div className="text-gray-600 font-mono text-[10px] mt-0.5 uppercase tracking-wider">peak pump</div>
+            </div>
+          )}
+          <div className={`flex flex-col items-center justify-center w-11 h-11 rounded-xl border ${signalBubbleColor}`}>
+            <span className="font-bold text-base leading-none">{firedCount}</span>
+            <span className="text-[9px] leading-none mt-0.5 opacity-70">signals</span>
+          </div>
+          <button onClick={onRemove} className="text-gray-700 hover:text-red-500 transition-colors p-1 rounded-lg hover:bg-white/[0.06]" title="Remove">✕</button>
+        </div>
+      </div>
+
+      {/* Chart */}
+      <div className="px-5 pt-4 pb-2">
+        <div className="flex items-center gap-3 mb-2 text-[10px] text-gray-600">
+          <span className="uppercase tracking-widest font-semibold">90-Day Price</span>
+          {pumpEvent && <><span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-yellow-400 inline-block" />pump start</span><span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-400 inline-block" />pump peak</span></>}
+        </div>
+        <div className="bg-white/[0.02] rounded-xl p-3 border border-white/[0.06]">
+          <MiniPriceChart prices={detail?.priceHistory ?? []} pump={pumpEvent} chartLoading={chartLoading} />
+        </div>
+        {pumpEvent && (
+          <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-xs text-gray-500">
+            <span>{new Date(pumpEvent.startDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })} → {new Date(pumpEvent.endDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
+            <span className="text-green-400 font-medium">+{pumpEvent.gain.toFixed(1)}% ({fmtPrice(pumpEvent.startPrice)} → {fmtPrice(pumpEvent.peakPrice)})</span>
+            <span className={pumpEvent.daysAgo <= 7 ? "text-yellow-400" : ""}>{pumpEvent.daysAgo <= 3 ? <span className="inline-flex items-center gap-1"><AgIcon name="flame" className="w-3 h-3" /> Recent!</span> : pumpEvent.daysAgo <= 7 ? "Recent" : `~${pumpEvent.daysAgo}d ago`}</span>
+          </div>
+        )}
+      </div>
+
+      {/* Fired signals */}
+      {firedFindings.length > 0 && (
+        <div className="px-5 pb-5 pt-2">
+          <div className="text-[10px] font-semibold text-gray-600 uppercase tracking-widest mb-3">Pre-Pump Signals</div>
+          <div className="space-y-2">
+            {firedFindings.map((f) => {
+              const isStrong = f.strength === "strong" || f.strength === "high";
+              return (
+                <div key={f.label} className={`flex items-start gap-3 rounded-xl px-4 py-3 border backdrop-blur-md ${
+                  isStrong ? "border-emerald-500/25 bg-emerald-500/[0.05]" : "border-yellow-500/20 bg-yellow-500/[0.04]"
+                }`}>
+                  <AgIcon name={FINDING_ICONS[f.label] ?? "target"} className="w-5 h-5 mt-0.5 flex-shrink-0 text-emerald-400" />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap mb-1">
+                      <span className="text-white font-display font-semibold text-sm">{f.label}</span>
+                      <span className={`font-mono text-[10px] font-bold tracking-[0.1em] rounded-full px-2 py-0.5 border ${
+                        isStrong ? "bg-emerald-500/[0.07] text-emerald-400 border-emerald-500/35" : "bg-yellow-500/[0.06] text-yellow-400 border-yellow-500/30"
+                      }`}>
+                        {f.strength === "strong" ? "STRONG" : f.strength === "high" ? "HIGH" : "MOD"}
+                      </span>
+                      {f.daysBeforePump > 0 && <span className="text-gray-500 text-xs">−{f.daysBeforePump}d before pump</span>}
+                    </div>
+                    <div className="text-gray-300 text-xs leading-relaxed">{f.detail}</div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <div className="mt-3 text-xs text-gray-600 flex items-center gap-2 flex-wrap">
+            {pumper.reason && pumper.reason.includes("aGap score") && (
+              <span className="bg-emerald-500/[0.06] border border-emerald-500/25 text-emerald-500 rounded-full px-2 py-0.5 text-[10px] font-semibold inline-flex items-center gap-1"><AgIcon name="target" className="w-3 h-3" /> {pumper.reason.split("→")[0].trim()}</span>
+            )}
+            <span>Added {pumper.added_at}</span>
+            {pumper.netuid != null && <Link href={`/subnets/${pumper.netuid}`} className="hover:text-gray-400 transition-colors">Full subnet →</Link>}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Main page ──────────────────────────────────────────────────────────────
 
 export default function PerformancePage() {
   const { data: session } = useSession();
   const tier = getTier(session);
-  const router = useRouter();
-  const [portfolioData, setPortfolioData] = useState<PortfolioData | null>(null);
-  const [portfolioLoading, setPortfolioLoading] = useState(true);
-  type SortKey = "maxPnl" | "agap" | "bought" | "buyPrice" | "currentPrice" | "maxPrice" | "value" | "taoPnl" | "change24h";
-  const [sortKey, setSortKey] = useState<SortKey>("maxPnl");
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const [autopsies, setAutopsies] = useState<Autopsy[]>([]);
+  const [autoDetected, setAutoDetected] = useState<TrackedPumper[]>([]);
+  const loadedRef = useRef(false);
 
-  function handleSort(key: SortKey) {
-    if (sortKey === key) setSortDir(d => d === "desc" ? "asc" : "desc");
-    else { setSortKey(key); setSortDir("desc"); }
-  }
-
-  function sortedPositions(positions: PortfolioData["positions"], taoPrice: number) {
-    return [...positions].sort((a, b) => {
-      let av = 0, bv = 0;
-      if (sortKey === "maxPnl")       { av = a.maxPnlPct ?? -Infinity; bv = b.maxPnlPct ?? -Infinity; }
-      if (sortKey === "agap")         { av = a.buyAGapScore; bv = b.buyAGapScore; }
-      if (sortKey === "bought")       { av = new Date(a.buyDate).getTime(); bv = new Date(b.buyDate).getTime(); }
-      if (sortKey === "buyPrice")     { av = a.buyPriceUsd;  bv = b.buyPriceUsd; }
-      if (sortKey === "currentPrice") { av = a.currentPrice; bv = b.currentPrice; }
-      if (sortKey === "maxPrice")     { av = (a as any).manualPeakPrice ?? a.peakPrice ?? 0; bv = (b as any).manualPeakPrice ?? b.peakPrice ?? 0; }
-      if (sortKey === "value")        { av = a.currentValue; bv = b.currentValue; }
-      if (sortKey === "taoPnl")       { av = taoPrice > 0 ? (a.maxPnlUsd ?? 0) / taoPrice : 0; bv = taoPrice > 0 ? (b.maxPnlUsd ?? 0) / taoPrice : 0; }
-      if (sortKey === "change24h")    { av = a.change24h;    bv = b.change24h; }
-      return sortDir === "desc" ? bv - av : av - bv;
-    });
+  function resolveName(tracked: TrackedPumper, leaderboard: SubnetScore[]): SubnetScore | null {
+    const search = (tracked.searchName || tracked.name).toLowerCase();
+    let match = leaderboard.find((s) => s.name.toLowerCase() === search);
+    if (!match) match = leaderboard.find((s) => s.name.toLowerCase().includes(search) || search.includes(s.name.toLowerCase().split(" ")[0]));
+    return match ?? null;
   }
 
   useEffect(() => {
-    setPortfolioLoading(true);
-    fetch("/api/portfolio")
-      .then((r) => r.json())
-      .then((data) => setPortfolioData(data))
-      .catch(() => {})
-      .finally(() => setPortfolioLoading(false));
+    if (loadedRef.current) return;
+    loadedRef.current = true;
+
+    async function saveToCache(name: string, data: { pumpEvent: PumpEvent | null; findings: SignalFinding[]; narrative: string; research: null; priceHistory: PricePoint[] }) {
+      try {
+        await fetch("/api/testing", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name, autopsy: data }),
+        });
+      } catch { /* non-critical */ }
+    }
+
+    async function loadAll() {
+      // 1) Fetch tracked list + cache, leaderboard, and portfolio in parallel
+      const [trackerRes, scanRes, portfolioRes] = await Promise.all([
+        fetch("/api/testing"),
+        fetch("/api/cached-scan"),
+        fetch("/api/portfolio"),
+      ]);
+      const { tracked, cache = {} }: {
+        tracked: TrackedPumper[];
+        cache: Record<string, { pumpEvent: PumpEvent | null; findings: SignalFinding[]; narrative: string; priceHistory?: PricePoint[] }>
+      } = await trackerRes.json();
+      const scanData = await scanRes.json();
+      const leaderboard: SubnetScore[] = scanData.leaderboard ?? [];
+      const portfolioData = portfolioRes.ok ? await portfolioRes.json() : null;
+      const positions: Array<{ netuid: number; name: string; buyDate: string; buyAGapScore: number; buyPriceUsd: number; totalPnlPct: number }> =
+        portfolioData?.positions ?? [];
+
+      // 2) Auto-detect candidates
+      const trackedNames = new Set(tracked.map((t) => (t.searchName || t.name).toLowerCase()));
+
+      // Source A: portfolio positions with aGap score ≥ 70 that have pumped ≥ 15% since the signal
+      // This is the "Ditto" case — we had a high score, and the price followed
+      const portfolioPumps = positions.filter((p) =>
+        p.buyAGapScore >= 70 &&
+        p.totalPnlPct >= 15 &&
+        !trackedNames.has(p.name.toLowerCase())
+      ).sort((a, b) => b.totalPnlPct - a.totalPnlPct).slice(0, 10);
+
+      // Source B: leaderboard subnets with strong 7D pump (catches fast movers)
+      const leaderboardPumps = leaderboard
+        .filter((s) =>
+          (s.price_change_7d ?? 0) >= 20 &&
+          !trackedNames.has(s.name.toLowerCase()) &&
+          !positions.some((p) => p.netuid === s.netuid) // don't double-add portfolio entries
+        )
+        .sort((a, b) => (b.price_change_7d ?? 0) - (a.price_change_7d ?? 0))
+        .slice(0, 6);
+
+      const autoAdded: TrackedPumper[] = [];
+
+      // Add portfolio pumps first (these are the highest-quality cases)
+      for (const pos of portfolioPumps) {
+        const payload = {
+          name: pos.name,
+          searchName: pos.name.toLowerCase(),
+          netuid: pos.netuid,
+          reason: `aGap score ${pos.buyAGapScore} on ${pos.buyDate} → +${pos.totalPnlPct.toFixed(0)}%`,
+          pump_pct: pos.totalPnlPct,
+          pump_date: pos.buyDate,
+        };
+        try {
+          let res = await fetch("/api/testing", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+          // If blocklisted (was previously auto-purged incorrectly), unblock and retry
+          if (!res.ok) {
+            const body = await res.json().catch(() => ({})) as { error?: string };
+            if (body.error === "blocklisted") {
+              await fetch("/api/testing", {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ name: pos.name }),
+              });
+              res = await fetch("/api/testing", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload),
+              });
+            }
+          }
+          if (res.ok) {
+            const { entry } = await res.json();
+            autoAdded.push(entry);
+            tracked.push(entry);
+            trackedNames.add(pos.name.toLowerCase());
+          }
+        } catch { /* skip */ }
+      }
+
+      // Add leaderboard fast-movers
+      for (const sub of leaderboardPumps) {
+        try {
+          const res = await fetch("/api/testing", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              name: sub.name,
+              searchName: sub.name.toLowerCase(),
+              netuid: sub.netuid,
+              reason: `7D pump: +${(sub.price_change_7d ?? 0).toFixed(0)}%`,
+              pump_pct: sub.price_change_7d ?? 0,
+            }),
+          });
+          if (res.ok) {
+            const { entry } = await res.json();
+            autoAdded.push(entry);
+            tracked.push(entry);
+            trackedNames.add(sub.name.toLowerCase());
+          }
+        } catch { /* skip */ }
+      }
+
+      setAutoDetected(autoAdded);
+
+      // 3) Build stubs — cache-first
+      tracked.sort((a, b) => new Date(b.added_at).getTime() - new Date(a.added_at).getTime());
+
+      const stubs: Autopsy[] = tracked.map((p) => {
+        const current = p.netuid != null
+          ? leaderboard.find((s) => s.netuid === p.netuid) ?? resolveName(p, leaderboard)
+          : resolveName(p, leaderboard);
+        const resolvedNetuid = current?.netuid ?? p.netuid ?? null;
+
+        const cachedKey = Object.keys(cache).find(k => k.toLowerCase() === p.name.toLowerCase());
+        const cached = cachedKey ? cache[cachedKey] : null;
+
+        if (cached && cached.findings.length > 0) {
+          const hasPriceHistory = (cached.priceHistory?.length ?? 0) >= 2;
+          const cachedDetail: SubnetDetail | null = hasPriceHistory
+            ? { netuid: resolvedNetuid ?? 0, name: p.name, identity: null, scoreHistory: [], priceHistory: cached.priceHistory!, signals: [], marketStats: null }
+            : null;
+          return {
+            pumper: { ...p, netuid: resolvedNetuid },
+            current: current ?? null,
+            detail: cachedDetail,
+            pumpEvent: cached.pumpEvent,
+            findings: cached.findings,
+            narrative: "",
+            loading: false,
+            chartLoading: !hasPriceHistory && resolvedNetuid != null,
+          };
+        }
+
+        return {
+          pumper: { ...p, netuid: resolvedNetuid },
+          current: current ?? null,
+          detail: null,
+          pumpEvent: null,
+          findings: [],
+          narrative: "",
+          loading: resolvedNetuid != null,
+          chartLoading: false,
+        };
+      });
+
+      setAutopsies(stubs);
+
+      // 4) Fetch price history for cached entries that are missing it — parallel, awaited
+      const needsChart = stubs.filter(s => s.chartLoading && s.pumper.netuid != null);
+
+      await Promise.all(needsChart.map(async (stub) => {
+        const stubName = stub.pumper.name;
+        const netuid = stub.pumper.netuid!;
+        try {
+          const res = await fetch(`/api/subnets/${netuid}`);
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const detail: SubnetDetail = await res.json();
+          if (detail.priceHistory?.length >= 2) {
+            setAutopsies(prev => prev.map(a =>
+              a.pumper.name === stubName ? { ...a, detail, chartLoading: false } : a
+            ));
+            // Re-save cache with priceHistory so next load is instant
+            const cachedKey = Object.keys(cache).find(k => k.toLowerCase() === stubName.toLowerCase());
+            if (cachedKey) {
+              saveToCache(stubName, {
+                pumpEvent: stub.pumpEvent as PumpEvent | null,
+                findings: stub.findings as SignalFinding[],
+                narrative: "",
+                research: null,
+                priceHistory: detail.priceHistory,
+              }).catch(() => {});
+            }
+          } else {
+            setAutopsies(prev => prev.map(a =>
+              a.pumper.name === stubName ? { ...a, chartLoading: false } : a
+            ));
+          }
+        } catch {
+          setAutopsies(prev => prev.map(a =>
+            a.pumper.name === stubName ? { ...a, chartLoading: false } : a
+          ));
+        }
+      }));
+
+      // 5) Full compute for uncached entries
+      const uncached = stubs
+        .map((stub) => ({ stub }))
+        .filter(({ stub }) => stub.loading);
+
+      // Full compute for truly uncached entries
+      for (let ci = 0; ci < uncached.length; ci++) {
+        const { stub } = uncached[ci];
+        const stubName = stub.pumper.name;
+        const netuid = stub.pumper.netuid;
+        if (netuid == null) {
+          setAutopsies(prev => prev.map(a => a.pumper.name === stubName ? { ...a, loading: false } : a));
+          continue;
+        }
+
+        if (ci > 0) await new Promise((r) => setTimeout(r, Math.min(ci * 200, 800)));
+
+        try {
+          const res = await fetch(`/api/subnets/${netuid}`);
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const detail: SubnetDetail = await res.json();
+
+          // Portfolio-sourced entries use pumpFromSignalDate (signal date → peak)
+          // Fast-movers use findBestPump (best 7-day window)
+          const pumpEvent = stub.pumper.pump_date
+            ? (pumpFromSignalDate(detail.priceHistory, stub.pumper.pump_date) ?? findBestPump(detail.priceHistory))
+            : findBestPump(detail.priceHistory);
+          const findings = buildFindings(pumpEvent, detail.scoreHistory, detail.signals, stub.current);
+
+          // Portfolio-sourced entries: force the aGap finding to fired=true using the score stored in reason
+          const isPortfolioCase = !!(stub.pumper.pump_date && stub.pumper.reason?.includes("aGap score"));
+          if (isPortfolioCase) {
+            const scoreMatch = stub.pumper.reason?.match(/aGap score (\d+)/);
+            const portfolioScore = scoreMatch ? parseInt(scoreMatch[1]) : 75;
+            const aGapIdx = findings.findIndex((f) => f.label === "AlphaGap Score");
+            if (aGapIdx >= 0 && !findings[aGapIdx].fired) {
+              findings[aGapIdx] = {
+                ...findings[aGapIdx],
+                fired: true,
+                strength: portfolioScore >= 85 ? "strong" : portfolioScore >= 70 ? "high" : "moderate",
+                detail: `aGap score ${portfolioScore}/100 on ${stub.pumper.pump_date} — AlphaGap flagged this subnet before the pump`,
+              };
+            }
+          }
+
+          // Auto-purge 0-signal cases.
+          // Portfolio entries (have pump_date + "aGap score" in reason) are NEVER deleted and
+          // NEVER removed from state — they are confirmed aGap picks regardless of whether
+          // a clean pump window was found in the price data.
+          const firedCount = findings.filter((f) => f.fired).length;
+          if (firedCount === 0) {
+            if (!isPortfolioCase) {
+              fetch("/api/testing", {
+                method: "DELETE",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ name: stubName }),
+              }).catch(() => {});
+              setAutopsies((prev) => prev.filter((a) => a.pumper.name !== stubName));
+              continue;
+            }
+            // Portfolio case with 0 signals: keep in state (card will show aGap score at minimum)
+          }
+
+          setAutopsies((prev) =>
+            prev.map((a) => a.pumper.name === stubName ? { ...a, detail, pumpEvent, findings, narrative: "", loading: false, chartLoading: false } : a)
+          );
+
+          await saveToCache(stubName, { pumpEvent, findings, narrative: "", research: null, priceHistory: detail.priceHistory });
+
+        } catch (e) {
+          setAutopsies((prev) =>
+            prev.map((a) => a.pumper.name === stubName ? { ...a, loading: false, chartLoading: false, error: String(e) } : a)
+          );
+        }
+      }
+    }
+
+    loadAll().catch(console.error);
   }, []);
 
+  async function handleRemove(name: string) {
+    await fetch("/api/testing", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name }),
+    });
+    setAutopsies((prev) => prev.filter((a) => a.pumper.name !== name));
+  }
+
+  const loading = autopsies.some((a) => a.loading);
+
+  const sortedAutopsies = [...autopsies]
+    .filter((a) => {
+      if (a.loading) return true;
+      // Portfolio cases (confirmed aGap picks) always shown regardless of signal count
+      const isPortfolio = !!(a.pumper.pump_date && a.pumper.reason?.includes("aGap score"));
+      return isPortfolio || a.findings.filter((f) => f.fired).length > 0;
+    })
+    .sort((a, b) => {
+      if (a.loading && !b.loading) return 1;
+      if (!a.loading && b.loading) return -1;
+      return b.findings.filter((f) => f.fired).length - a.findings.filter((f) => f.fired).length;
+    });
+
+  const totalCases = sortedAutopsies.filter(a => !a.loading).length;
+  const totalStrong = autopsies.reduce((n, a) => n + a.findings.filter((f) => f.fired && f.strength === "strong").length, 0);
+  const pumpsWithEvent = autopsies.filter((a) => a.pumpEvent);
+  const avgPump = pumpsWithEvent.length > 0
+    ? (pumpsWithEvent.reduce((s, a) => s + (a.pumpEvent?.gain ?? 0), 0) / pumpsWithEvent.length).toFixed(0)
+    : null;
+
   return (
-    <main className="flex-1 overflow-auto min-h-screen bg-[#07090b] ag-aurora text-white p-4 md:p-6 pt-9">
-      {/* Header always visible */}
-      <div className="mb-6">
-        <h1 className="font-display text-4xl font-semibold tracking-[-0.03em] leading-tight mb-2">
-          Signal <span className="ag-gradient-text">Performance</span>
-        </h1>
+    <div className="min-h-screen bg-[#07090b] text-white ag-aurora">
+
+      {/* Hero header */}
+      <div className="max-w-screen-xl mx-auto px-4 md:px-6 pt-9 pb-2">
+        <div className="flex items-center gap-3 mb-2 flex-wrap">
+          <h1 className="font-display text-4xl font-semibold tracking-[-0.03em] leading-tight flex items-center gap-2.5">
+            <AgIcon name="scope" className="w-7 h-7 text-emerald-400" />
+            <span>Pump <span className="ag-gradient-text">Lab</span></span>
+          </h1>
+          <span className="ag-badge ag-badge-warn !text-yellow-400 !border-yellow-500/30 !bg-yellow-500/[0.06]">BETA</span>
+        </div>
         <p className="text-[14.5px] text-gray-400 max-w-2xl leading-relaxed">
-          Every time a subnet&apos;s aGap score crosses <span className="text-emerald-400 font-semibold">80</span>, we auto-buy ${POSITION_SIZE.toLocaleString()} of its alpha token. Hit rate counts picks that returned +30% or more — once a position hits {MATURITY_DAYS}+ days it&apos;s scored.
+          Which signals fired before each pump? Backtesting the AlphaGap algo against real price moves.
         </p>
+
+        {/* LIVE row */}
         <div className="flex items-center gap-2.5 mt-4 font-mono text-[11px] uppercase tracking-[0.08em] text-gray-500">
           <span className="ag-live-dot flex-shrink-0" />
-          <span>SIMULATED PORTFOLIO · AUTO-BUY AT AGAP ≥ 80 · REAL ALPHA PRICES</span>
+          <span>{totalCases} CASES ANALYZED{avgPump ? ` · AVG +${avgPump}% PUMP` : ""}</span>
+        </div>
+
+        {/* Stat chips */}
+        <div className="flex flex-wrap items-center gap-2 mt-5">
+          <div className="ag-glass !rounded-full flex items-center gap-2 px-4 py-1.5">
+            <span className="font-mono text-sm font-semibold text-white tabular-nums">{totalCases}</span>
+            <span className="text-xs text-gray-400">cases</span>
+          </div>
+          <div className="ag-glass !rounded-full flex items-center gap-2 px-4 py-1.5">
+            <span className="font-mono text-sm font-semibold text-emerald-400 tabular-nums">{totalStrong}</span>
+            <span className="text-xs text-gray-400">strong signals</span>
+          </div>
+          {avgPump && (
+            <div className="ag-glass !rounded-full flex items-center gap-2 px-4 py-1.5">
+              <span className="font-mono text-sm font-semibold text-emerald-400 tabular-nums">+{avgPump}%</span>
+              <span className="text-xs text-gray-400">avg pump</span>
+            </div>
+          )}
+          {loading && (
+            <div className="ag-glass !rounded-full flex items-center gap-2 px-4 py-1.5 animate-pulse">
+              <span className="text-xs text-gray-500">Computing {autopsies.filter((a) => a.loading).length} new…</span>
+            </div>
+          )}
         </div>
       </div>
+
       <BlurGate tier={tier} required="premium" minHeight="500px">
-      <div className="space-y-6">
+        <div className="max-w-screen-xl mx-auto px-4 md:px-6 py-8 space-y-6">
 
-        {portfolioLoading && (
-          <div className="flex items-center justify-center py-20 text-gray-500">
-            <span className="animate-pulse text-2xl mr-3">◎</span>
-            <span>Loading portfolio...</span>
-          </div>
-        )}
-
-        {!portfolioLoading && portfolioData && portfolioData.positions.length === 0 && (
-          <div className="ag-glass p-10 text-center">
-            <div className="text-5xl mb-4 flex justify-center text-emerald-400"><AgIcon name="trendUp" /></div>
-            <h3 className="font-display text-lg font-semibold mb-2">Portfolio Starts Building Soon</h3>
-            <p className="text-gray-500 text-sm max-w-md mx-auto">
-              Every time a subnet&apos;s aGap score crosses <span className="text-green-400 font-semibold">80</span>, we auto-buy ${POSITION_SIZE.toLocaleString()} of its alpha token.
-            </p>
-          </div>
-        )}
-
-        {!portfolioLoading && portfolioData && portfolioData.positions.length > 0 && (() => {
-          // ── Mature positions: bought > MATURITY_DAYS ago ────────────────────────
-          const maturityCutoff = new Date();
-          maturityCutoff.setDate(maturityCutoff.getDate() - MATURITY_DAYS);
-          const maturityCutoffStr = maturityCutoff.toISOString().slice(0, 10);
-          const maturePositions = portfolioData.positions.filter(p => p.buyDate <= maturityCutoffStr);
-          const developingCount = portfolioData.positions.length - maturePositions.length;
-
-          // Hit rate: how many mature positions peaked at 2×+ (100%+ gain)
-          const hits = maturePositions.filter(p => (p.maxPnlPct ?? 0) >= HIT_THRESHOLD_PCT);
-          const hitCount = hits.length;
-          const eligibleCount = maturePositions.length;
-
-          // Avg peak return on mature positions only
-          const matureAvgPeak = eligibleCount > 0
-            ? maturePositions.reduce((s, p) => s + (p.maxPnlPct ?? 0), 0) / eligibleCount
-            : null;
-
-          // Best single pick by peak %
-          const bestPick = maturePositions.reduce((best, p) =>
-            (p.maxPnlPct ?? 0) > (best?.maxPnlPct ?? 0) ? p : best,
-            maturePositions[0] ?? null
-          );
-          // Total peak profit across all positions (normalized)
-          const totalPeakProfit = portfolioData.positions.reduce(
-            (s, p) => s + normDollar(p.maxPnlUsd ?? 0, p.amountUsd), 0
-          );
-          const formatDollarKM = (v: number) =>
-            `${v >= 0 ? "+" : "-"}$${Math.abs(v) >= 1000
-              ? (Math.abs(v) / 1000).toFixed(1) + "k"
-              : Math.abs(v).toFixed(0)}`;
-
-          return (
-          <>
-            {/* ── KPI grid: 2×2 on mobile, 4 across on desktop ── */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-              {/* Hit Rate */}
-              <div className="ag-glass p-4">
-                <div className="text-[10.5px] text-gray-500 uppercase tracking-[0.16em] mb-2">Hit Rate</div>
-                {eligibleCount > 0 ? (
-                  <>
-                    <div className="flex items-baseline gap-1.5">
-                      <span className="font-display text-4xl font-semibold tracking-[-0.02em] text-emerald-400 tabular-nums leading-none">{hitCount}</span>
-                      <span className="text-xl font-bold text-gray-500">/ {eligibleCount}</span>
-                    </div>
-                    <div className="text-xs text-gray-500 mt-1.5">picks hit +{HIT_THRESHOLD_PCT}%+ at peak</div>
-                  </>
-                ) : (
-                  <div className="text-lg font-bold text-gray-600 mt-1">Developing…</div>
-                )}
+          {autoDetected.length > 0 && (
+            <div className="ag-glass !border-emerald-500/25 p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-emerald-400 font-display font-semibold text-sm inline-flex items-center gap-1.5"><AgIcon name="rocket" className="w-4 h-4" /> Auto-added {autoDetected.length} new pumper{autoDetected.length > 1 ? "s" : ""}</span>
+                <span className="text-xs text-gray-500">Detected &gt;20% 7D gain</span>
               </div>
-
-              {/* Success Rate */}
-              <div className="ag-glass p-4">
-                <div className="text-[10.5px] text-gray-500 uppercase tracking-[0.16em] mb-2">Success Rate</div>
-                {eligibleCount > 0 ? (
-                  <>
-                    <div className="font-display text-4xl font-semibold tracking-[-0.02em] text-emerald-400 leading-none">
-                      {Math.round((hitCount / eligibleCount) * 100)}%
-                    </div>
-                    <div className="text-xs text-gray-500 mt-1.5">of scored picks</div>
-                  </>
-                ) : (
-                  <div className="text-lg font-bold text-gray-600 mt-1">—</div>
-                )}
-              </div>
-
-              {/* Avg Peak Return */}
-              <div className="ag-glass p-4">
-                <div className="text-[10.5px] text-gray-500 uppercase tracking-[0.16em] mb-2">Avg Peak Return</div>
-                {matureAvgPeak != null ? (
-                  <>
-                    <div className="font-display text-4xl font-semibold tracking-[-0.02em] text-emerald-400 leading-none">
-                      +{matureAvgPeak.toFixed(0)}%
-                    </div>
-                    <div className="text-xs text-gray-500 mt-1.5">across {eligibleCount} scored picks</div>
-                  </>
-                ) : (
-                  <div className="text-lg font-bold text-gray-600 mt-1">—</div>
-                )}
-              </div>
-
-              {/* Peak Profit */}
-              <div className="ag-glass p-4">
-                <div className="text-[10.5px] text-gray-500 uppercase tracking-[0.16em] mb-2">Peak Profit</div>
-                <div className="font-display text-4xl font-semibold tracking-[-0.02em] text-emerald-400 leading-none">
-                  {formatDollarKM(totalPeakProfit)}
-                </div>
-                <div className="text-xs text-gray-500 mt-1.5">
-                  {bestPick ? `best: ${bestPick.name} +${(bestPick.maxPnlPct ?? 0).toFixed(0)}%` : "if sold at highs"}
-                </div>
-              </div>
-            </div>
-            {developingCount > 0 && (
-              <div className="text-xs text-white font-bold -mt-1 px-1">
-                {developingCount} pick{developingCount !== 1 ? "s" : ""} still developing (&lt;{MATURITY_DAYS}d) · not yet scored
-              </div>
-            )}
-
-            {/* Chart — cumulative max profit in dollars.
-                 Each position's maxPnlUsd (peak-price gain, never decreases) is
-                 attributed to its buy date. Running sum = total profit if every
-                 pick had been sold at its all-time high. Always up or flat. */}
-            {portfolioData.positions.length >= 2 ? (() => {
-              const sortedPositions = [...portfolioData.positions]
-                .sort((a, b) => a.buyDate.localeCompare(b.buyDate));
-
-              // Build cumulative max profit staircase at each buy date
-              // Use normDollar so $100-stored and $1000-stored positions both display at $1000 scale
-              let cumMaxPnl = 0;
-              const buyPoints: { date: string; cum: number }[] = [];
-              for (const pos of sortedPositions) {
-                cumMaxPnl += normDollar(pos.maxPnlUsd ?? 0, pos.amountUsd);
-                // If multiple buys on same day, just update
-                const last = buyPoints[buyPoints.length - 1];
-                if (last && last.date === pos.buyDate) {
-                  last.cum = cumMaxPnl;
-                } else {
-                  buyPoints.push({ date: pos.buyDate, cum: cumMaxPnl });
-                }
-              }
-
-              // Densify: fill every calendar day first buy → today
-              const today = new Date().toISOString().slice(0, 10);
-              const allDates: string[] = [];
-              const cur = new Date(buyPoints[0].date + "T12:00:00");
-              const end = new Date(today + "T12:00:00");
-              while (cur <= end) {
-                allDates.push(cur.toISOString().slice(0, 10));
-                cur.setDate(cur.getDate() + 1);
-              }
-
-              let lastCum = 0;
-              const chartData = allDates.map(d => {
-                const pt = buyPoints.filter(p => p.date <= d).pop();
-                if (pt) lastCum = pt.cum;
-                return { date: d, cum: lastCum };
-              });
-
-              const totalMaxPnl = buyPoints[buyPoints.length - 1]?.cum ?? 0;
-
-              return (
-                <div className="ag-glass p-4 md:p-5">
-                  <div className="flex items-start justify-between mb-3 md:mb-4 gap-3">
-                    <div>
-                      <div className="text-[10.5px] text-gray-500 uppercase tracking-[0.16em]">Cumulative Max Profit</div>
-                      <div className="text-xs text-gray-600 mt-0.5">Total if every pick sold at its all-time high · never goes down</div>
-                    </div>
-                    <div className="text-right shrink-0">
-                      <div className="font-display text-3xl font-semibold tracking-[-0.02em] text-emerald-400">{formatDollarKM(totalMaxPnl)}</div>
-                      <div className="text-xs text-gray-500">peak total</div>
-                    </div>
+              <div className="flex flex-wrap gap-2">
+                {autoDetected.map((p) => (
+                  <div key={p.netuid ?? p.name} className="flex items-center gap-2 bg-emerald-500/[0.05] border border-emerald-500/20 rounded-xl px-3 py-2">
+                    <span className="text-white font-medium text-sm">{p.name}</span>
+                    {p.netuid != null && <span className="font-mono text-xs text-gray-500">SN{p.netuid}</span>}
+                    {p.pump_pct != null && <span className="text-emerald-400 font-mono font-semibold text-sm tabular-nums">+{p.pump_pct.toFixed(0)}%</span>}
                   </div>
-                  <PortfolioChart
-                    history={chartData}
-                    values={chartData.map(h => h.cum)}
-                    formatY={formatDollarKM}
-                  />
-                </div>
-              );
-            })() : (
-              <div className="ag-glass p-5">
-                <div className="text-[10.5px] text-gray-500 uppercase tracking-[0.16em] mb-2">Performance Chart</div>
-                <div className="text-center py-6 text-gray-600 text-sm">Chart builds as picks mature — check back in a few weeks</div>
+                ))}
               </div>
+            </div>
+          )}
+
+          <div className="space-y-4">
+            {sortedAutopsies.map((a) => (
+              <AutopsyCard key={a.pumper.name} autopsy={a} onRemove={() => handleRemove(a.pumper.name)} />
+            ))}
+            {autopsies.length === 0 && !loading && (
+              <div className="text-center py-12 text-gray-600">No pumpers tracked yet.</div>
             )}
-
-            {/* Holdings table */}
-            <div className="ag-glass overflow-hidden">
-              <div className="px-5 py-4 border-b border-white/[0.06] flex items-center justify-between">
-                <h3 className="font-display font-semibold text-sm">Holdings</h3>
-                <span className="font-mono text-[11px] text-gray-600">${POSITION_SIZE.toLocaleString()} auto-buy when aGap ≥ 80</span>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="font-mono text-[10.5px] tracking-[0.08em] text-gray-500 uppercase border-b border-white/[0.06]">
-                      <th className="text-left px-5 py-3">Subnet</th>
-                      {(["maxPnl","agap","bought","buyPrice","currentPrice","maxPrice","value","taoPnl","change24h"] as SortKey[]).map((key, i) => {
-                        const labels: Record<SortKey, string> = { maxPnl:"Max P&L", agap:"aGap", bought:"Bought", buyPrice:"Buy Price", currentPrice:"Current", maxPrice:"Max Price", value:"Value", taoPnl:"Max τ PnL", change24h:"24h P&L" };
-                        const active = sortKey === key;
-                        const isLast = i === 8;
-                        return (
-                          <th key={key} onClick={() => handleSort(key)} className={`text-right ${isLast ? "px-5" : "px-3"} py-3 cursor-pointer select-none whitespace-nowrap hover:text-gray-300 transition-colors ${active ? "text-white" : ""}`}>
-                            {labels[key]}{active ? (sortDir === "desc" ? " ↓" : " ↑") : ""}
-                          </th>
-                        );
-                      })}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-white/[0.05]">
-                    {sortedPositions(portfolioData.positions, portfolioData.summary.taoPrice ?? 0).map((pos) => (
-                      <tr
-                        key={pos.netuid}
-                        className="hover:bg-white/[0.04] transition-colors cursor-pointer"
-                        onClick={() => router.push(`/subnets/${pos.netuid}`)}
-                      >
-                        <td className="px-5 py-3">
-                          <div className="font-medium text-white hover:text-green-400 transition-colors">{pos.name}</div>
-                          <div className="text-xs text-gray-500">SN{pos.netuid}</div>
-                        </td>
-                        <td className="text-right px-3 py-3">
-                          {pos.maxPnlUsd != null ? (
-                            <>
-                              <div className="font-semibold text-green-400">
-                                {(pos.maxPnlPct ?? 0) >= 0 ? "+" : ""}{(pos.maxPnlPct ?? 0).toFixed(1)}%
-                              </div>
-                              <div className="text-xs text-green-500">
-                                {(pos.maxPnlUsd ?? 0) >= 0 ? "+" : ""}${normDollar(pos.maxPnlUsd ?? 0, pos.amountUsd).toFixed(2)}
-                              </div>
-                            </>
-                          ) : (
-                            <span className="text-gray-600 text-xs">—</span>
-                          )}
-                        </td>
-                        <td className="text-right px-3 py-3">
-                          <span className="text-green-400 font-semibold">{Math.round(pos.buyAGapScore)}</span>
-                        </td>
-                        <td className="text-right px-3 py-3 text-gray-400 text-xs whitespace-nowrap">
-                          {new Date(pos.buyDate + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                        </td>
-                        <td className="text-right px-3 py-3 text-gray-300 font-mono text-xs">
-                          ${pos.buyPriceUsd.toFixed(2)}
-                        </td>
-                        <td className="text-right px-3 py-3 font-mono text-xs">
-                          <span className={pos.currentPrice >= pos.buyPriceUsd ? "text-green-400" : "text-red-400"}>
-                            ${pos.currentPrice.toFixed(2)}
-                          </span>
-                        </td>
-                        <td className="text-right px-3 py-3 font-mono text-xs text-green-400">
-                          {pos.peakPrice != null ? `$${pos.peakPrice.toFixed(2)}` : "—"}
-                        </td>
-                        <td className="text-right px-3 py-3 font-semibold">${(pos.currentValue * PM).toFixed(2)}</td>
-                        <td className="text-right px-3 py-3 font-mono text-xs">
-                          {portfolioData.summary.taoPrice && portfolioData.summary.taoPrice > 0 && pos.maxPnlUsd != null ? (
-                            <span className={(pos.maxPnlUsd ?? 0) >= 0 ? "text-green-400" : "text-red-400"}>
-                              {(pos.maxPnlUsd ?? 0) >= 0 ? "+" : ""}
-                              {(normDollar(pos.maxPnlUsd ?? 0, pos.amountUsd) / portfolioData.summary.taoPrice).toFixed(3)} τ
-                            </span>
-                          ) : <span className="text-gray-600">—</span>}
-                        </td>
-                        <td className="text-right px-5 py-3">
-                          <span className={pos.pnl24hUsd >= 0 ? "text-green-400" : "text-red-400"}>
-                            {pos.change24h >= 0 ? "+" : ""}{pos.change24h.toFixed(1)}%
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                  <tfoot className="border-t border-white/[0.10]">
-                    <tr className="text-sm font-semibold">
-                      <td className="px-5 py-3 text-gray-400">Total</td>
-                      <td className="text-right px-3 py-3">
-                        {portfolioData.summary.maxReturnUsd != null ? (
-                          <span className="text-green-400">
-                            {(portfolioData.summary.maxReturnUsd ?? 0) >= 0 ? "+" : ""}${portfolioData.positions.reduce((s, p) => s + normDollar(p.maxPnlUsd ?? 0, p.amountUsd), 0).toFixed(2)}
-                            <div className="text-xs font-normal">
-                              ({(portfolioData.summary.maxReturnPct ?? 0) >= 0 ? "+" : ""}{(portfolioData.summary.maxReturnPct ?? 0).toFixed(1)}%)
-                            </div>
-                          </span>
-                        ) : (
-                          <span className="text-gray-600">—</span>
-                        )}
-                      </td>
-                      <td className="text-right px-3 py-3 text-gray-500" colSpan={5}>—</td>
-                      <td className="text-right px-3 py-3">${(portfolioData.summary.totalValue * PM).toFixed(2)}</td>
-                      <td className="text-right px-3 py-3 font-mono text-xs">
-                        {portfolioData.summary.taoPrice && portfolioData.summary.taoPrice > 0 && portfolioData.summary.maxReturnUsd != null ? (
-                          <span className={(portfolioData.summary.maxReturnUsd ?? 0) >= 0 ? "text-green-400" : "text-red-400"}>
-                            {(portfolioData.summary.maxReturnUsd ?? 0) >= 0 ? "+" : ""}
-                            {(portfolioData.positions.reduce((s, p) => s + normDollar(p.maxPnlUsd ?? 0, p.amountUsd), 0) / portfolioData.summary.taoPrice).toFixed(3)} τ
-                          </span>
-                        ) : <span className="text-gray-500">—</span>}
-                      </td>
-                      <td className="text-right px-5 py-3 text-gray-500">—</td>
-                    </tr>
-                  </tfoot>
-                </table>
-              </div>
-            </div>
-
-            <div className="text-xs text-gray-600 text-center pb-2">
-              Simulated portfolio — ${POSITION_SIZE.toLocaleString()} auto-invested per subnet when aGap ≥ 80. Tracks real alpha token prices. Not financial advice.
-            </div>
-          </>
-          );
-        })()}
-      </div>
+          </div>
+        </div>
       </BlurGate>
-    </main>
+    </div>
   );
 }

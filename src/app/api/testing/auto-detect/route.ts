@@ -1,4 +1,4 @@
-// Auto-detect pump lab additions — called by the main scan cron after each run.
+// Auto-detect performance additions — called by the main scan cron after each run.
 // Checks the fresh leaderboard for any subnet with >30% 7D gain not yet tracked.
 // Respects the blocklist — manually-deleted entries are never re-added.
 

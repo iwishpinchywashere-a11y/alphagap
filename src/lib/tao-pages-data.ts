@@ -339,8 +339,8 @@ export const TAO_PAGES_SUBNETS: TaoPageSubnet[] = [
 
 {
   netuid: 3,
-  slug: "templar",
-  name: "Templar",
+  slug: "templar", // URL kept stable; the subnet renamed to Teutonic
+  name: "Teutonic",
   category: "Decentralized AI Training",
   subnetType: "Training",
   tagline: "Incentivized internet-wide LLM pre-training, no data center required",

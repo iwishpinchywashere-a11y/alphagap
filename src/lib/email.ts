@@ -73,7 +73,7 @@ export async function sendSubscriptionConfirmationEmail(
     "Everything in Pro",
     "🐋 Whale & Smart Money Tracker",
     "📡 Social Intelligence & KOL Radar",
-    "🧪 Pump Lab — early alpha detector",
+    "🧪 Performance — early alpha detector",
     "📈 Performance Tracker",
     "📊 Analytics & Scatter Plots",
     "🏆 Benchmark Rankings",
@@ -451,7 +451,7 @@ export async function sendOracleAnnouncementEmail(
           ["🔧", "GitHub commit velocity & HuggingFace model activity"],
           ["⚡", "Emissions rates & validator weight changes"],
           ["💬", "Discord alpha scanner & X/Twitter social momentum"],
-          ["🧪", "Pump Lab — historical alpha patterns & case studies"],
+          ["🧪", "Performance — historical alpha patterns & case studies"],
         ].map(([icon, text]) => `
           <tr>
             <td style="padding:7px 0;vertical-align:top;">
@@ -490,7 +490,7 @@ export async function sendOracleAnnouncementEmail(
     <div style="background:#0a0f1a;border:1px solid #1f2937;border-radius:14px;padding:20px 28px;margin:0 0 28px 0;">
       <p style="color:#9ca3af;font-size:13px;line-height:1.7;margin:0;">
         TAO Oracle is included in the <strong style="color:#ffffff;">Premium plan ($49/mo)</strong>.
-        You&apos;ll keep everything you have now — Pro features, full leaderboard, all signals — and unlock Oracle, Telegram Alerts, Wallet Tracker, Pump Lab, and every other Premium feature in one upgrade.
+        You&apos;ll keep everything you have now — Pro features, full leaderboard, all signals — and unlock Oracle, Telegram Alerts, Wallet Tracker, Performance, and every other Premium feature in one upgrade.
       </p>
     </div>
     `}
@@ -666,7 +666,7 @@ export async function sendConvictionAnnouncementEmail(
     <div style="background:#0a0f1a;border:1px solid #1f2937;border-radius:14px;padding:20px 28px;margin:0 0 28px 0;">
       <p style="color:#9ca3af;font-size:13px;line-height:1.7;margin:0;">
         The Conviction Page is included in <strong style="color:#ffffff;">Premium ($49/mo)</strong>.
-        You&apos;ll keep everything you have now — full leaderboard, all signals, reports — and unlock Conviction, Whale Tracker, Pump Lab, Analytics, Telegram Alerts, and every other Premium feature in one upgrade.
+        You&apos;ll keep everything you have now — full leaderboard, all signals, reports — and unlock Conviction, Whale Tracker, Performance, Analytics, Telegram Alerts, and every other Premium feature in one upgrade.
       </p>
     </div>
     `}
@@ -835,7 +835,7 @@ export async function sendWalletTrackerAnnouncementEmail(
     <div style="background:#0a0f1a;border:1px solid #1f2937;border-radius:14px;padding:20px 28px;margin:0 0 28px 0;">
       <p style="color:#9ca3af;font-size:13px;line-height:1.7;margin:0;">
         Wallet Tracker is available on the <strong style="color:#ffffff;">Premium plan ($49/mo)</strong>.
-        You&apos;ll keep everything you have now and unlock Wallet Tracker, Pump Lab, Alerts, Analytics, and every other Premium feature — all in one upgrade.
+        You&apos;ll keep everything you have now and unlock Wallet Tracker, Performance, Alerts, Analytics, and every other Premium feature — all in one upgrade.
       </p>
     </div>
     `}

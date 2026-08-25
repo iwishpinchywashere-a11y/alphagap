@@ -80,7 +80,7 @@ export const BENCHMARK_DATA: BenchmarkEntry[] = [
   },
   {
     subnet_id: 3,
-    subnet_name: "Templar (Covenant Labs) \u2014 netuid 3 now runs the \"Crusades\" mechanism",
+    subnet_name: "Teutonic",
     benchmark_score: 55,
     benchmark_category: "Distributed Training",
     vs_provider: "Centralised training clusters (AWS/Azure/CoreWeave); decentralised rivals Prime Intellect and Nous Research",

@@ -82,7 +82,7 @@ const STEPS: { title: string; icon?: AgIconName; body: string; target: string | 
     arrow: true,
   },
   {
-    title: "Pump Lab",
+    title: "Performance",
     icon: "scope",
     body: "Test your thesis before you commit. Simulate how changes in dev activity, social momentum, or whale accumulation would affect a subnet's aGap score — your personal alpha sandbox.",
     target: "nav-trigger",
