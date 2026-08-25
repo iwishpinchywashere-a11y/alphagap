@@ -78,8 +78,8 @@ export default function FeedPage() {
           </h1>
         </div>
         <p className="text-[14.5px] text-gray-400 max-w-2xl leading-relaxed mb-8">
-          What every subnet actually did, one card each. Written from the last 48 hours of
-          dev activity, emission moves and score changes — quiet subnets don&apos;t post.
+          What every subnet actually did, one card each — dev work, Discord and X chatter,
+          whale moves, emissions and score changes from the last 48 hours. Quiet subnets don&apos;t post.
         </p>
 
         <BlurGate tier={tier} required="premium" minHeight="400px">

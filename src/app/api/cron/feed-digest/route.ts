@@ -45,6 +45,15 @@ interface LeaderRow {
   alpha_price?: number; market_cap?: number; emission_pct?: number;
   price_change_24h?: number; price_change_7d?: number; net_flow_24h?: number;
   net_flow_7d?: number; emission_change_pct?: number; score_delta_24h?: number;
+  whale_ratio?: number; whale_signal?: string;
+}
+interface DiscordEntry {
+  netuid?: number; alphaScore?: number; founderPost?: boolean;
+  summary?: string; keyInsights?: string[]; alphaTake?: string; scannedAt?: string;
+}
+interface HeatEvent {
+  netuid: number; kol_handle?: string; heat_score?: number;
+  engagement?: number; detected_at?: string;
 }
 export interface FeedCard {
   netuid: number;
@@ -133,10 +142,12 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "missing env" }, { status: 500 });
   }
 
-  const [scan, signals, existing] = await Promise.all([
+  const [scan, signals, existing, discordRaw, socialHot] = await Promise.all([
     readBlob<{ lastScan?: string; leaderboard?: LeaderRow[] }>("scan-latest.json"),
     readBlob<SignalRow[]>("signals-history.json"),
     readBlob<FeedCard[]>(DIGEST_BLOB),
+    readBlob<{ results?: DiscordEntry[] }>("discord-latest.json"),
+    readBlob<{ events?: HeatEvent[] }>("social-hot.json"),
   ]);
   const leaderboard = scan?.leaderboard ?? [];
   if (leaderboard.length < 50) {
@@ -150,6 +161,22 @@ export async function GET(req: NextRequest) {
 
   const cutoff = Date.now() - 48 * 3600000;
   const recent = (signals ?? []).filter(s => new Date(s.created_at).getTime() > cutoff);
+
+  // Community + market sources, keyed by netuid. These were missing from the
+  // first version, which made the feed read as dev-only: Discord scans,
+  // KOL heat on X and whale accumulation all existed and never fed a card.
+  const discordBy = new Map<number, DiscordEntry>();
+  for (const d of discordRaw?.results ?? []) {
+    if (d.netuid == null) continue;
+    const cur = discordBy.get(d.netuid);
+    if (!cur || (d.alphaScore ?? 0) > (cur.alphaScore ?? 0)) discordBy.set(d.netuid, d);
+  }
+  const heatBy = new Map<number, HeatEvent[]>();
+  for (const e of socialHot?.events ?? []) {
+    if (!e.detected_at || new Date(e.detected_at).getTime() <= cutoff) continue;
+    if (!heatBy.has(e.netuid)) heatBy.set(e.netuid, []);
+    heatBy.get(e.netuid)!.push(e);
+  }
   const byNetuid = new Map<number, SignalRow[]>();
   for (const s of recent) {
     if (!byNetuid.has(s.netuid)) byNetuid.set(s.netuid, []);
@@ -178,6 +205,24 @@ export async function GET(req: NextRequest) {
     if (Math.abs(px24) >= 12) { materiality += 20; facts.push(`price ${px24 > 0 ? "+" : ""}${px24.toFixed(0)}% 24h`); }
     else if (Math.abs(px7) >= 25) { materiality += 15; facts.push(`price ${px7 > 0 ? "+" : ""}${px7.toFixed(0)}% 7d`); }
     if (Math.abs(emD) >= 20) { materiality += 15; facts.push(`emissions ${emD > 0 ? "+" : ""}${emD.toFixed(0)}%`); }
+    // Community + market events
+    const disc = discordBy.get(row.netuid);
+    if (disc && (disc.alphaScore ?? 0) >= 50) {
+      materiality += 25; facts.push("Discord activity");
+      if (disc.founderPost) { materiality += 15; facts.push("founder posted"); }
+    }
+    const heat = (heatBy.get(row.netuid) ?? []).sort((a, b) => (b.heat_score ?? 0) - (a.heat_score ?? 0));
+    // Threshold calibrated against the live distribution (n=105: p50=31,
+    // p90=44, max=53). The first draft used 60 — above the maximum ever
+    // recorded, so the X wire could never fire. Same lesson as the mcap
+    // ladder: never set a threshold without looking at the data it gates.
+    if (heat.length && (heat[0].heat_score ?? 0) >= 45) {
+      materiality += 20; facts.push(`trending on X (${heat.length} KOL post${heat.length > 1 ? "s" : ""})`);
+    }
+    if (row.whale_signal === "accumulating" && (row.whale_ratio ?? 0) >= 1.5) {
+      materiality += 15; facts.push(`whales accumulating ${row.whale_ratio!.toFixed(1)}x`);
+    }
+
     // Flow is context, not a qualifying event — it fires on a third of the
     // network every window and would rebuild the firehose this replaces.
     if (materiality > 0 && (row.net_flow_24h ?? 0) !== 0) {
@@ -220,10 +265,15 @@ export async function GET(req: NextRequest) {
       : "";
     const devLines = c.sigs.filter(s => s.signal_type === "dev_spike")
       .map(s => `- ${s.title}`).slice(0, 3).join("\n");
+    const discEntry = discordBy.get(c.row.netuid);
+    const discLine = discEntry && (discEntry.alphaScore ?? 0) >= 50
+      ? `Community (their Discord): ${(discEntry.summary ?? "").slice(0, 220)}${discEntry.alphaTake ? ` Take: ${discEntry.alphaTake.slice(0, 140)}` : ""}`
+      : "";
 
     const prompt = `Subnet: ${c.row.name} (SN${c.row.netuid}). Last 48h facts:
 ${c.facts.map(f => `- ${f}`).join("\n")}
 ${devLines ? `Dev activity:\n${devLines}` : ""}
+${discLine}
 Current: aGap ${c.row.composite_score}, price $${(c.row.alpha_price ?? 0).toFixed(2)}, mcap $${((c.row.market_cap ?? 0) / 1e6).toFixed(1)}M.
 ${research}`;
 
