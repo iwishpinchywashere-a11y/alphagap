@@ -40,6 +40,18 @@ function topBy(
     .slice(0, 5);
 }
 
+
+const TAG_TONE: Record<string, string> = {
+  DEV: "text-emerald-300 border-emerald-500/30 bg-emerald-500/[0.08]",
+  MODEL: "text-teal-300 border-teal-500/30 bg-teal-500/[0.08]",
+  EMISSIONS: "text-violet-300 border-violet-500/30 bg-violet-500/[0.08]",
+  SCORE: "text-lime-300 border-lime-500/30 bg-lime-500/[0.08]",
+  PRICE: "text-yellow-300 border-yellow-500/30 bg-yellow-500/[0.08]",
+  SOCIAL: "text-sky-300 border-sky-500/30 bg-sky-500/[0.08]",
+  WHALE: "text-amber-300 border-amber-500/30 bg-amber-500/[0.08]",
+  FLOW: "text-cyan-300 border-cyan-500/30 bg-cyan-500/[0.08]",
+};
+
 function timeAgo(iso: string): string {
   const h = (Date.now() - new Date(iso).getTime()) / 3600000;
   if (h < 1) return "just now";
@@ -173,6 +185,15 @@ function Card({ c }: { c: FeedCard }) {
             </span>
             <span className="text-[11px] text-gray-600 ml-auto flex-shrink-0">{timeAgo(c.writtenAt)}</span>
           </div>
+          {(c.tags ?? []).length > 0 && (
+            <div className="flex items-center gap-1 flex-wrap mb-1.5">
+              {(c.tags ?? []).map((t) => (
+                <span key={t} className={`text-[9px] font-mono font-semibold tracking-[0.08em] border rounded px-1.5 py-px ${TAG_TONE[t] ?? "text-gray-400 border-white/10 bg-white/[0.04]"}`}>
+                  {t}
+                </span>
+              ))}
+            </div>
+          )}
           <h2 className="text-[15px] font-semibold text-gray-100 leading-snug mb-1.5">{c.headline}</h2>
           <p className="text-[13.5px] text-gray-400 leading-relaxed mb-3">{c.body}</p>
           <div className="flex items-center gap-1.5 flex-wrap">

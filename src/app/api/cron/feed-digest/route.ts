@@ -61,10 +61,35 @@ export interface FeedCard {
   headline: string;
   body: string;
   facts: string[];          // short chips rendered under the body
+  tags: string[];           // category badges: DEV, SOCIAL, EMISSIONS, …
   materiality: number;      // drives feed ordering
   fingerprint: string;
   writtenAt: string;        // when the text was generated
   updatedAt: string;        // last time facts were confirmed current
+}
+
+
+/**
+ * Category tags, derived from the fact chips rather than stored state, so
+ * carried-forward and TTL-tail cards get correct tags without a rewrite and
+ * a tag taxonomy change never needs a cache purge.
+ */
+function deriveTags(facts: string[]): string[] {
+  const tags = new Set<string>();
+  for (const f of facts) {
+    if (/dev signal/.test(f)) tags.add("DEV");
+    if (/model release/.test(f)) tags.add("MODEL");
+    if (/emission bar|emissions/.test(f)) tags.add("EMISSIONS");
+    if (/aGap [+-]/.test(f)) tags.add("SCORE");
+    if (/price [+-]/.test(f)) tags.add("PRICE");
+    if (/Discord|founder|trending on X/.test(f)) tags.add("SOCIAL");
+    if (/whales accumulating/.test(f)) tags.add("WHALE");
+    // The net-TAO chip is context on every card; only sizeable moves earn
+    // the FLOW badge, or the tag would appear on everything and mean nothing.
+    const m = f.match(/^([+-]\d+) TAO net/);
+    if (m && Math.abs(Number(m[1])) >= 200) tags.add("FLOW");
+  }
+  return [...tags];
 }
 
 async function readBlob<T>(name: string): Promise<T | null> {
@@ -250,7 +275,7 @@ export async function GET(req: NextRequest) {
   for (const c of candidates) {
     const old = prev.get(c.row.netuid);
     if (old && old.fingerprint === c.fingerprint) {
-      out.push({ ...old, materiality: c.materiality, updatedAt: now });
+      out.push({ ...old, materiality: c.materiality, updatedAt: now, tags: deriveTags(c.facts) });
       carried++;
       continue;
     }
@@ -282,7 +307,7 @@ ${research}`;
     out.push({
       netuid: c.row.netuid, name: c.row.name,
       headline: card.headline, body: card.body,
-      facts: c.facts, materiality: c.materiality,
+      facts: c.facts, tags: deriveTags(c.facts), materiality: c.materiality,
       fingerprint: c.fingerprint, writtenAt: now, updatedAt: now,
     });
     written++;
@@ -292,7 +317,9 @@ ${research}`;
   const ttlCut = Date.now() - CARD_TTL_DAYS * 86400000;
   const have = new Set(out.map(c => c.netuid));
   for (const old of existing ?? []) {
-    if (!have.has(old.netuid) && new Date(old.writtenAt).getTime() > ttlCut) out.push(old);
+    if (!have.has(old.netuid) && new Date(old.writtenAt).getTime() > ttlCut) {
+      out.push({ ...old, tags: old.tags ?? deriveTags(old.facts ?? []) });
+    }
   }
   out.sort((a, b) => new Date(b.writtenAt).getTime() - new Date(a.writtenAt).getTime());
 
