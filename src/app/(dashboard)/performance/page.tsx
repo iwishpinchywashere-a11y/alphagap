@@ -460,7 +460,7 @@ function AutopsyCard({ autopsy, onRemove }: { autopsy: Autopsy; onRemove: () => 
         <div className="pl-3 flex items-center gap-3 min-w-0">
           <div>
             <div className="flex items-center gap-2 mb-0.5">
-              <span className="text-white font-display font-semibold text-lg">{pumper.name}</span>
+              <span className="text-white font-display font-semibold text-lg">{current?.name ?? pumper.name}</span>
               {pumper.netuid != null && (
                 <Link href={`/subnets/${pumper.netuid}`}
                   className="text-[11px] font-mono text-emerald-400 bg-emerald-500/[0.07] border border-emerald-500/25 rounded-full px-2 py-0.5 hover:text-emerald-300 transition-colors">
@@ -565,6 +565,15 @@ export default function PerformancePage() {
   const loadedRef = useRef(false);
 
   function resolveName(tracked: TrackedPumper, leaderboard: SubnetScore[]): SubnetScore | null {
+    // NETUID FIRST. The stored `name` is whatever the subnet was called on the
+    // day the case was added, so any rename leaves it wrong forever — SN3 kept
+    // showing "Templar" for weeks after it became Teutonic. The netuid is the
+    // only stable identifier; fall back to name matching only for old entries
+    // saved before we recorded one.
+    if (tracked.netuid != null) {
+      const byId = leaderboard.find((s) => s.netuid === tracked.netuid);
+      if (byId) return byId;
+    }
     const search = (tracked.searchName || tracked.name).toLowerCase();
     let match = leaderboard.find((s) => s.name.toLowerCase() === search);
     if (!match) match = leaderboard.find((s) => s.name.toLowerCase().includes(search) || search.includes(s.name.toLowerCase().split(" ")[0]));
