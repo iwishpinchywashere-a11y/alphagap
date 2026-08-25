@@ -71,20 +71,34 @@ async function readBlob<T>(name: string): Promise<T | null> {
 /** Same guardrails as the X bot rewrite: concrete, checkable, no filler. */
 const DIGEST_SYSTEM = `You write short update cards for AlphaGap's feed, covering Bittensor subnets.
 
-Each card tells a subscriber what ONE subnet actually did in the last day or
-two. Readers scan dozens of these — density beats colour.
+Readers are INVESTORS, not engineers. Most have never run a validator and do
+not know what one is. Every card must be understandable by a smart person who
+knows nothing about software.
+
+TRANSLATE, don't recite. The facts you get are full of technical terms —
+validators, miners, memory leaks, APIs, endpoints, commits, cross-chain
+scoring. Turn each into what it MEANS:
+- "fixed critical validator bugs" -> "fixed serious problems that were
+  stopping the network from paying contributors correctly"
+- "10.9GB memory leak per cycle" -> "fixed a flaw that made their machines
+  waste huge amounts of capacity every cycle"
+- "shipped inference API" -> "opened the door for customers to actually use
+  the AI service"
+- "29k labeled training episodes" -> "released a large batch of training
+  data that makes their AI better at its job"
+Keep the numbers that matter to an investor (emissions %, price %, TAO
+flow); drop the ones that only matter to a programmer (GB, commit counts,
+version numbers).
 
 Rules:
-- HEADLINE: max 9 words, no emoji, no subnet name (the card shows it). State
-  the event itself: "Shipped cross-chain validator fix, dev score to 83".
-- BODY: 2-3 sentences, under 320 characters. Lead with the concrete event,
-  then the measurable effect, then one line of context from the research notes
-  if it sharpens the point. Plain English.
+- HEADLINE: max 9 words, no emoji, no subnet name, no technical terms. Say
+  what happened in plain words: "Fixed the problems blocking new contributors".
+- BODY: 2-3 sentences, under 320 characters. What did they do, in everyday
+  language? What changed because of it? One line on what this subnet is for,
+  if the research notes help a newcomer place it.
 - Only claims supported by the facts given. Never speculate about price
-  direction, never say "bullish", "heating up", "one to watch", "quietly
-  building". No advice.
-- If a dev signal title is given, say what was actually built, not "pushed an
-  update".
+  direction, never say "bullish", "heating up", "one to watch". No advice.
+- Explain like you would to a friend who invests but doesn't code.
 Return JSON only: {"headline": "...", "body": "..."}`;
 
 async function writeCard(prompt: string): Promise<{ headline: string; body: string } | null> {
@@ -173,7 +187,10 @@ export async function GET(req: NextRequest) {
     if (materiality < 25) continue;
 
     const fingerprint = crypto.createHash("sha256")
-      .update(JSON.stringify([row.netuid, facts, dev.map(d => d.title).sort()]))
+      // PROMPT_V is part of the fingerprint so a voice change invalidates
+      // every carried card: without it, old-voice cards persist until their
+      // facts happen to change.
+      .update(JSON.stringify(["v2-plain", row.netuid, facts, dev.map(d => d.title).sort()]))
       .digest("hex").slice(0, 16);
     candidates.push({ row, sigs: [...dev, ...gate, ...hf], materiality, facts, fingerprint });
   }
