@@ -20,6 +20,7 @@ import AgIcon from "@/components/AgIcon";
 import BlurGate from "@/components/BlurGate";
 import { getTier } from "@/lib/subscription";
 import { useDashboard } from "@/components/dashboard/DashboardProvider";
+import { useWatchlist } from "@/components/dashboard/WatchlistProvider";
 import type { FeedCard } from "@/app/api/cron/feed-digest/route";
 
 
@@ -86,6 +87,18 @@ export default function FeedPage() {
   const { leaderboard, taoPrice } = useDashboard();
   const [cards, setCards] = useState<FeedCard[]>([]);
   const [loading, setLoading] = useState(true);
+  const { watchlist } = useWatchlist();
+  const [watchOnly, setWatchOnly] = useState(false);
+  // Persisted so the choice survives navigation, like the old feed's filters did.
+  useEffect(() => {
+    try { setWatchOnly(localStorage.getItem("ag-feed-watchonly") === "1"); } catch {}
+  }, []);
+  const toggleWatchOnly = () => {
+    setWatchOnly(v => {
+      try { localStorage.setItem("ag-feed-watchonly", v ? "0" : "1"); } catch {}
+      return !v;
+    });
+  };
 
   useEffect(() => {
     fetch("/api/feed-digest")
@@ -103,8 +116,9 @@ export default function FeedPage() {
     }
   }
 
-  const fresh = cards.filter((c) => Date.now() - new Date(c.writtenAt).getTime() < 48 * 3600000);
-  const older = cards.filter((c) => Date.now() - new Date(c.writtenAt).getTime() >= 48 * 3600000);
+  const visible = watchOnly ? cards.filter((c) => watchlist.has(c.netuid)) : cards;
+  const fresh = visible.filter((c) => Date.now() - new Date(c.writtenAt).getTime() < 48 * 3600000);
+  const older = visible.filter((c) => Date.now() - new Date(c.writtenAt).getTime() >= 48 * 3600000);
 
   return (
     <main className="flex-1 bg-[#07090b] text-white ag-aurora">
@@ -121,6 +135,25 @@ export default function FeedPage() {
           whale moves, emissions and score changes from the last 48 hours. Quiet subnets don&apos;t post.
         </p>
 
+        <div className="flex items-center gap-2 mb-5">
+          <button
+            onClick={toggleWatchOnly}
+            className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
+              watchOnly
+                ? "bg-emerald-500/[0.12] border-emerald-500/35 text-emerald-300"
+                : "bg-white/[0.02] border-white/8 text-gray-500 hover:text-gray-300 hover:bg-white/[0.05]"
+            }`}
+          >
+            <AgIcon name="star" className="w-3.5 h-3.5" />
+            My Watchlist{watchOnly && watchlist.size > 0 ? ` · ${visible.length}` : ""}
+          </button>
+          {watchOnly && watchlist.size === 0 && (
+            <span className="text-xs text-gray-600">
+              Your watchlist is empty — star subnets to see them here.
+            </span>
+          )}
+        </div>
+
         <BlurGate tier={tier} required="premium" minHeight="400px">
           {loading && (
             <div className="space-y-4">
@@ -133,6 +166,11 @@ export default function FeedPage() {
           {!loading && cards.length === 0 && (
             <div className="text-center py-16 text-gray-600">
               No updates yet — cards generate every six hours from the latest scan.
+            </div>
+          )}
+          {!loading && cards.length > 0 && visible.length === 0 && watchOnly && (
+            <div className="text-center py-16 text-gray-600">
+              None of your watchlist subnets have updates right now — quiet is information too.
             </div>
           )}
 
