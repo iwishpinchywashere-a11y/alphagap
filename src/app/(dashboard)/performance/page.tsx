@@ -890,9 +890,8 @@ export default function PerformancePage() {
         <div className="flex items-center gap-3 mb-2 flex-wrap">
           <h1 className="font-display text-4xl font-semibold tracking-[-0.03em] leading-tight flex items-center gap-2.5">
             <AgIcon name="scope" className="w-7 h-7 text-emerald-400" />
-            <span>Pump <span className="ag-gradient-text">Lab</span></span>
+            <span>Performance <span className="ag-gradient-text">Tracker</span></span>
           </h1>
-          <span className="ag-badge ag-badge-warn !text-yellow-400 !border-yellow-500/30 !bg-yellow-500/[0.06]">BETA</span>
         </div>
         <p className="text-[14.5px] text-gray-400 max-w-2xl leading-relaxed">
           Which signals fired before each pump? Backtesting the AlphaGap algo against real price moves.

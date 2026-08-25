@@ -648,7 +648,7 @@ export async function GET() {
   // project. Applied ONLY while the chain name is still a placeholder — if
   // the team sets a real identity on-chain, the chain wins.
   const STALE_IDENTITY_OVERRIDES: Record<number, Partial<SubnetIdentity>> = {
-    3:  { subnet_name: "Templar",  github_repo: "https://github.com/one-covenant/templar",  subnet_url: "https://www.tplr.ai" },
+    3:  { subnet_name: "Teutonic",  github_repo: "https://github.com/one-covenant/templar",  subnet_url: "https://www.tplr.ai" },
     39: { subnet_name: "Basilica", github_repo: "https://github.com/one-covenant/basilica", subnet_url: "https://www.covenant.ai" },
     81: { subnet_name: "Grail",    github_repo: "https://github.com/one-covenant/grail",    subnet_url: "https://www.covenant.ai" },
   };

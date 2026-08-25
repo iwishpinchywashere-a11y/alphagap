@@ -273,7 +273,7 @@ const STATIC_SUBNET_LIST: Array<{ netuid: number; name: string }> = [
   { netuid: 0,   name: "Root" },
   { netuid: 1,   name: "Apex" },
   { netuid: 2,   name: "DSperse" },
-  { netuid: 3, name: "Templar" },
+  { netuid: 3, name: "Teutonic" },
   { netuid: 4,   name: "Targon" },
   { netuid: 5,   name: "Hone" },
   { netuid: 6,   name: "Numinous" },

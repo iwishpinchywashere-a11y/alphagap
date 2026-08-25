@@ -52,7 +52,7 @@ export const KNOWN_WALLETS: Record<string, { label: string; emoji: string; categ
 
   // ── Subnet Owners ─────────────────────────────────────────────────
   "5HCFWvRqzSHWRPecN7q8J6c7aKQnrCZTMHstPv39xL1wgDHh": { label: "Macrocosmos (SN1)",  emoji: "🌌", category: "team" },
-  "5G26HqQg8M6hfw9q84gM3udYHHymThmswRKgSGtwdcduBSos": { label: "Templar (SN3)",       emoji: "⚔️",  category: "team" },
+  "5G26HqQg8M6hfw9q84gM3udYHHymThmswRKgSGtwdcduBSos": { label: "Teutonic (SN3)",       emoji: "⚔️",  category: "team" },
   "5F6tnxzAAxbhaWRmeUmB63JEM3VXBNSmqb3AwYJVDStQjw8y": { label: "PTX (SN8)",           emoji: "📈", category: "team" },
   "5FsbubeciqtB5Nik3umL2iD4fG8FcC9GbT9nHJfXMj4mJJZ9": { label: "Macrocosmos (SN9)",  emoji: "🧠", category: "team" },
   "5HBswBt1A9Ahx6U76abXXGd7VmabmCNBGhSK2vrP71GSxtgZ": { label: "Macrocosmos (SN13)", emoji: "🗄️",  category: "team" },

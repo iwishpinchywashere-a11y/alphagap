@@ -108,7 +108,7 @@ export async function fetchChannelMessages(
 
 // Parse channel name → netuid (handles sn3, sn-3, sn_3, subnet-3, "templar" via name map etc.)
 const SUBNET_NAME_MAP: Record<string, number> = {
-  "templar": 3, "tplr": 3,
+  "templar": 3, "tplr": 3, "teutonic": 3,
   "targon": 4,
   "kaito": 5,
   "hone": 5,

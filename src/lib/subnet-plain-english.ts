@@ -15,7 +15,7 @@ export const SUBNET_PLAIN_ENGLISH: Record<number, { blurb: string; analogy: stri
     analogy: "Like a notary for AI computations — proves a model ran correctly without revealing inputs.",
   },
   3: {
-    blurb: "Templar trains large language models across contributors on commodity hardware.",
+    blurb: "Teutonic trains large language models across contributors on commodity hardware.",
     analogy: "Like a Wikipedia edit-a-thon for training AI: thousands chip in and build something massive.",
   },
   4: {

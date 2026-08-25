@@ -41,7 +41,7 @@ interface MentionSnapshot {
 
 // Subnet name to netuid mapping for matching
 const SUBNET_KEYWORDS: Record<string, number[]> = {
-  "templar": [3], "τemplar": [3], "tplr": [3],
+  "templar": [3], "τemplar": [3], "tplr": [3], "teutonic": [3],
   "chutes": [64],
   "ridges": [62],
   "targon": [4],
