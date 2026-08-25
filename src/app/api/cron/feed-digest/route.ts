@@ -59,7 +59,10 @@ export interface FeedCard {
   netuid: number;
   name: string;
   headline: string;
+  /** Legacy single-paragraph body; kept so pre-bullet cards still render. */
   body: string;
+  /** 1-3 short bullets — one per distinct thing that happened. */
+  bullets?: string[];
   facts: string[];          // short chips rendered under the body
   tags: string[];           // category badges: DEV, SOCIAL, EMISSIONS, …
   materiality: number;      // drives feed ordering
@@ -127,15 +130,18 @@ version numbers).
 Rules:
 - HEADLINE: max 9 words, no emoji, no subnet name, no technical terms. Say
   what happened in plain words: "Fixed the problems blocking new contributors".
-- BODY: 2-3 sentences, under 320 characters. What did they do, in everyday
-  language? What changed because of it? One line on what this subnet is for,
-  if the research notes help a newcomer place it.
+- BULLETS: 1-3 short bullets, one per DISTINCT thing that happened — a
+  shipped feature is one bullet, an emissions move is another, community
+  news a third. Each bullet is a single plain sentence under 130 characters.
+  Do NOT pad: one real event means one bullet, never split a single story
+  into filler bullets. If the research notes help a newcomer place the
+  subnet, the LAST bullet may say what it is for.
 - Only claims supported by the facts given. Never speculate about price
   direction, never say "bullish", "heating up", "one to watch". No advice.
 - Explain like you would to a friend who invests but doesn't code.
-Return JSON only: {"headline": "...", "body": "..."}`;
+Return JSON only: {"headline": "...", "bullets": ["...", "..."]}`;
 
-async function writeCard(prompt: string): Promise<{ headline: string; body: string } | null> {
+async function writeCard(prompt: string): Promise<{ headline: string; body: string; bullets: string[] } | null> {
   try {
     const res = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -152,8 +158,14 @@ async function writeCard(prompt: string): Promise<{ headline: string; body: stri
     const m = text.match(/\{[\s\S]*\}/);
     if (!m) return null;
     const parsed = JSON.parse(m[0]);
-    if (typeof parsed.headline !== "string" || typeof parsed.body !== "string") return null;
-    return { headline: parsed.headline.slice(0, 90), body: parsed.body.slice(0, 400) };
+    if (typeof parsed.headline !== "string" || !Array.isArray(parsed.bullets) || parsed.bullets.length === 0) return null;
+    const bullets = parsed.bullets
+      .filter((x: unknown): x is string => typeof x === "string" && x.trim().length > 0)
+      .slice(0, 3)
+      .map((x: string) => x.trim().replace(/^[-•*]\s*/, "").slice(0, 180));
+    if (!bullets.length) return null;
+    // body kept as the joined form for anything still reading the old field
+    return { headline: parsed.headline.slice(0, 90), bullets, body: bullets.join(" ") };
   } catch { return null; }
 }
 
@@ -260,7 +272,7 @@ export async function GET(req: NextRequest) {
       // PROMPT_V is part of the fingerprint so a voice change invalidates
       // every carried card: without it, old-voice cards persist until their
       // facts happen to change.
-      .update(JSON.stringify(["v2-plain", row.netuid, facts, dev.map(d => d.title).sort()]))
+      .update(JSON.stringify(["v3-bullets", row.netuid, facts, dev.map(d => d.title).sort()]))
       .digest("hex").slice(0, 16);
     candidates.push({ row, sigs: [...dev, ...gate, ...hf], materiality, facts, fingerprint });
   }
@@ -306,7 +318,7 @@ ${research}`;
     if (!card) { if (old) { out.push({ ...old, updatedAt: now }); carried++; } continue; }
     out.push({
       netuid: c.row.netuid, name: c.row.name,
-      headline: card.headline, body: card.body,
+      headline: card.headline, body: card.body, bullets: card.bullets,
       facts: c.facts, tags: deriveTags(c.facts), materiality: c.materiality,
       fingerprint: c.fingerprint, writtenAt: now, updatedAt: now,
     });

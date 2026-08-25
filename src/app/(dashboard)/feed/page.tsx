@@ -223,7 +223,18 @@ function Card({ c, spark }: { c: FeedCard; spark?: { points: number[]; up: boole
             </div>
           )}
           <h2 className="text-[15px] font-semibold text-gray-100 leading-snug mb-1.5">{c.headline}</h2>
-          <p className="text-[13.5px] text-gray-400 leading-relaxed mb-3">{c.body}</p>
+          {(c.bullets ?? []).length > 0 ? (
+            <ul className="mb-3 space-y-1">
+              {c.bullets!.map((b, i) => (
+                <li key={i} className="text-[13.5px] text-gray-400 leading-relaxed flex gap-2">
+                  <span className="text-emerald-500/60 flex-shrink-0 select-none">›</span>
+                  <span>{b}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-[13.5px] text-gray-400 leading-relaxed mb-3">{c.body}</p>
+          )}
           <div className="flex items-center gap-1.5 flex-wrap">
             {c.facts.map((f, i) => (
               <span key={i} className="text-[10.5px] font-mono text-gray-500 bg-white/[0.03] border border-white/[0.07] rounded-md px-1.5 py-0.5">
