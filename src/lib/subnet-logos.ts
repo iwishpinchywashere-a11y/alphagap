@@ -6,7 +6,7 @@
 export const SUBNET_LOGOS: Record<number, string> = {
   1: "https://www.macrocosmos.ai/images/mc_logo_black.png",
   2: "https://dsperse.inferencelabs.com/logo-512.png",
-  3: "https://tplr.ai/favicon.png",
+  3: "https://teutonic.ai/favicon.png",   // Teutonic (ex-Templar) — new domain, 63KB PNG
   4: "https://www.manifold.inc/favicon.svg",
   5: "https://www.hone.training/logo.svg",
   6: "https://numinouslabs.io/numinous-logo.svg",
