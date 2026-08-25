@@ -460,7 +460,16 @@ function AutopsyCard({ autopsy, onRemove }: { autopsy: Autopsy; onRemove: () => 
         <div className="pl-3 flex items-center gap-3 min-w-0">
           <div>
             <div className="flex items-center gap-2 mb-0.5">
-              <span className="text-white font-display font-semibold text-lg">{current?.name ?? pumper.name}</span>
+              {(current?.netuid ?? pumper.netuid) != null ? (
+                <Link
+                  href={`/subnets/${current?.netuid ?? pumper.netuid}`}
+                  className="text-white font-display font-semibold text-lg hover:text-emerald-300 transition-colors"
+                >
+                  {current?.name ?? pumper.name}
+                </Link>
+              ) : (
+                <span className="text-white font-display font-semibold text-lg">{current?.name ?? pumper.name}</span>
+              )}
               {pumper.netuid != null && (
                 <Link href={`/subnets/${pumper.netuid}`}
                   className="text-[11px] font-mono text-emerald-400 bg-emerald-500/[0.07] border border-emerald-500/25 rounded-full px-2 py-0.5 hover:text-emerald-300 transition-colors">
@@ -561,6 +570,8 @@ export default function PerformancePage() {
   const { data: session } = useSession();
   const tier = getTier(session);
   const [autopsies, setAutopsies] = useState<Autopsy[]>([]);
+  type SortMode = "signals" | "recent" | "size";
+  const [sortMode, setSortMode] = useState<SortMode>("signals");
   const [autoDetected, setAutoDetected] = useState<TrackedPumper[]>([]);
   const loadedRef = useRef(false);
 
@@ -879,8 +890,22 @@ export default function PerformancePage() {
       return isPortfolio || a.findings.filter((f) => f.fired).length > 0;
     })
     .sort((a, b) => {
+      // Still-computing cards sink to the bottom under every mode — their
+      // pump size and signal count are not known yet, so ranking them would
+      // shuffle the list as results arrive.
       if (a.loading && !b.loading) return 1;
       if (!a.loading && b.loading) return -1;
+
+      if (sortMode === "recent") {
+        return new Date(b.pumper.added_at).getTime() - new Date(a.pumper.added_at).getTime();
+      }
+      if (sortMode === "size") {
+        // Prefer the measured peak from the computed pump event; fall back to
+        // the gain recorded when the case was added, so cases whose autopsy
+        // has not run yet still rank sensibly instead of dropping to zero.
+        const size = (x: Autopsy) => x.pumpEvent?.gain ?? x.pumper.pump_pct ?? 0;
+        return size(b) - size(a);
+      }
       return b.findings.filter((f) => f.fired).length - a.findings.filter((f) => f.fired).length;
     });
 
@@ -957,9 +982,26 @@ export default function PerformancePage() {
             </div>
           )}
 
+          <div className="flex items-center gap-2 mb-4">
+            <span className="text-[11px] font-mono uppercase tracking-wider text-gray-600 mr-1">Sort</span>
+            {([["signals", "Most signals"], ["recent", "Most recent"], ["size", "Biggest pump"]] as Array<[SortMode, string]>).map(([mode, label]) => (
+              <button
+                key={mode}
+                onClick={() => setSortMode(mode)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all border ${
+                  sortMode === mode
+                    ? "bg-emerald-500/[0.12] border-emerald-500/35 text-emerald-300"
+                    : "bg-white/[0.02] border-white/8 text-gray-500 hover:text-gray-300 hover:bg-white/[0.05]"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
           <div className="space-y-4">
             {sortedAutopsies.map((a) => (
-              <AutopsyCard key={a.pumper.name} autopsy={a} onRemove={() => handleRemove(a.pumper.name)} />
+              <AutopsyCard key={a.pumper.netuid ?? a.pumper.name} autopsy={a} onRemove={() => handleRemove(a.pumper.name)} />
             ))}
             {autopsies.length === 0 && !loading && (
               <div className="text-center py-12 text-gray-600">No pumpers tracked yet.</div>
