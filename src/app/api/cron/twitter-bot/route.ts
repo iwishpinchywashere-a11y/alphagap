@@ -1,505 +1,172 @@
 /**
- * GET /api/cron/twitter-bot
+ * GET /api/cron/twitter-bot — 07:00 / 12:00 / 17:00 / 22:00 UTC.
  *
- * Automated @AlphaGapTAO poster — runs 4x daily (7am, 12pm, 5pm, 10pm UTC).
- * Reads data blobs → picks best of 8 approved signal types → posts text tweet.
+ * COMPLETE REBUILD (2026-08-26). The previous bot generated its own content
+ * through nine parallel template paths and had produced, per user reports and
+ * screenshots: duplicate pairs seconds apart in the same slot, months-old
+ * "we flagged it at $4.11, now $13.65" retrospectives, and interchangeable
+ * score-explainer filler. Root causes, in order of damage:
+ *
+ * 1. CONCURRENT DOUBLE-FIRE. Vercel crons are at-least-once; two invocations
+ *    of the same slot occasionally run near-simultaneously. Both generated
+ *    their own VARIANT WORDING of the same story (each invocation called the
+ *    model independently), so the 70% word-overlap duplicate check could not
+ *    catch what the other run had not yet posted. Pairs landed 1-60s apart.
+ *
+ * 2. A PARALLEL CONTENT PIPELINE. The bot wrote its own posts from raw data
+ *    while the feed digest — materiality-gated, plain-language, fingerprint-
+ *    deduped — already produced better versions of the same stories. Two
+ *    generators, one good, and the bot used the other one.
+ *
+ * 3. RETROSPECTIVE TEMPLATES. "Evergreen" and "performance gain" paths
+ *    existed specifically to re-post old calls. Old slop by construction.
+ *
+ * The rebuild:
+ * - SINGLE SOURCE: the freshest un-posted feed-digest card. No evergreen, no
+ *   retrospectives, no benchmark explainers. If there is no fresh card, we
+ *   post NOTHING. Silence over slop.
+ * - DETERMINISTIC TEXT: the tweet is composed mechanically from the card —
+ *   no model call in this route at all. Concurrent duplicate runs therefore
+ *   produce BYTE-IDENTICAL text, which the exact-match timeline check
+ *   catches with certainty instead of probabilistically.
+ * - TIMELINE AS THE ONLY TRUTH: the posted-log blob is advisory (Vercel Blob
+ *   is eventually consistent and has burned this exact bot before). Every
+ *   run fails closed on an unreadable timeline, enforces the 4h cooldown
+ *   from X itself, then sleeps a RANDOM 5-25s and re-checks the live
+ *   timeline immediately before sending, so the second of two concurrent
+ *   runs sees the first one's tweet.
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { get as blobGet, put as blobPut } from "@vercel/blob";
-import { pickBestPost, type BotData } from "@/lib/twitter-content";
-import { postTweet, postThread, fetchOwnRecentTweets } from "@/lib/twitter-bot";
+import { put, get as blobGet } from "@vercel/blob";
+import { fetchOwnRecentTweets, postTweet } from "@/lib/twitter-bot";
+import type { FeedCard } from "@/app/api/cron/feed-digest/route";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
 
-const BLOB_TOKEN = process.env.BLOB_READ_WRITE_TOKEN || "";
+const TOKEN = process.env.BLOB_READ_WRITE_TOKEN || "";
+const LOG_BLOB = "twitter-posted-log-v2.json";
+const FOOTER = "\n\nalphagap.io $TAO";
+const MAX_LEN = 280;
 
-// ── Read a private Vercel Blob as JSON ────────────────────────────
+interface PostedEntry { fingerprint: string; netuid: number; text: string; postedAt: string }
 
 async function readBlob<T>(name: string): Promise<T | null> {
   try {
-    const b = await blobGet(name, { token: BLOB_TOKEN, access: "private" });
+    const b = await blobGet(name, { token: TOKEN, access: "private", abortSignal: AbortSignal.timeout(10000) });
     if (!b?.stream) return null;
-    const reader = b.stream.getReader();
-    const chunks: Uint8Array[] = [];
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      chunks.push(value);
-    }
-    const all = chunks.reduce((a, b) => {
-      const c = new Uint8Array(a.length + b.length);
-      c.set(a); c.set(b, a.length);
-      return c;
-    }, new Uint8Array(0));
-    return JSON.parse(Buffer.from(all).toString("utf-8")) as T;
-  } catch {
-    return null;
+    const r = b.stream.getReader(); const cs: Uint8Array[] = [];
+    while (true) { const { done, value } = await r.read(); if (done) break; cs.push(value); }
+    return JSON.parse(Buffer.concat(cs).toString("utf-8"));
+  } catch { return null; }
+}
+
+/**
+ * Deterministic tweet from a card. Same card in, same bytes out — that
+ * property is load-bearing for duplicate detection, not a style choice.
+ */
+function composeTweet(card: FeedCard): string {
+  const bullets = (card.bullets ?? []).filter(Boolean);
+  const head = `${card.name} (SN${card.netuid}): ${card.headline}`;
+  let body = "";
+  for (const b of bullets) {
+    const candidate = body ? `${body}\n\n${b}` : b;
+    if ((head + "\n\n" + candidate + FOOTER).length <= MAX_LEN) body = candidate;
+    else break;
   }
+  if (!body && card.body) {
+    const room = MAX_LEN - head.length - FOOTER.length - 2;
+    if (room > 60) body = card.body.slice(0, room - 1).replace(/\s+\S*$/, "") + ".";
+  }
+  return body ? `${head}\n\n${body}${FOOTER}` : `${head}${FOOTER}`;
 }
 
-// ── Posted-IDs tracker (avoids repeating same signal within 48h) ──
-
-interface PostedLog {
-  posted: Array<{ id: string; type: string; text: string; tweetUrl: string; postedAt: string; subjects?: string[] }>;
+const words = (t: string) => new Set(t.toLowerCase().replace(/https?:\/\/\S+/g, "").split(/\W+/).filter(w => w.length > 3));
+function similarity(a: string, b: string): number {
+  const wa = words(a), wb = words(b);
+  if (!wa.size || !wb.size) return 0;
+  let n = 0; for (const w of wa) if (wb.has(w)) n++;
+  return n / Math.min(wa.size, wb.size);
 }
-
-async function loadPostedLog(): Promise<PostedLog> {
-  const data = await readBlob<PostedLog>("twitter-posted.json");
-  return data ?? { posted: [] };
-}
-
-async function savePostedLog(log: PostedLog): Promise<void> {
-  await blobPut("twitter-posted.json", JSON.stringify(log), {
-    access: "private",
-    addRandomSuffix: false,
-    allowOverwrite: true,
-    contentType: "application/json",
-    token: BLOB_TOKEN,
-  });
-}
-
-// ── Slot-based idempotency lock ───────────────────────────────────
-// Prevents Vercel cron retries (and simultaneous invocations) from
-// double-posting. Written to blob BEFORE the tweet is sent; keyed on
-// the current UTC hour so it resets naturally each slot.
-
-interface PostLock {
-  slotKey: string;   // e.g. "2026-04-30T07"
-  lockedAt: string;  // ISO timestamp
-}
-
-/** Current UTC-hour slot key, e.g. "2026-04-30T07" */
-function currentSlotKey(): string {
-  return new Date().toISOString().slice(0, 13); // "YYYY-MM-DDTHH"
-}
-
-async function readLock(): Promise<PostLock | null> {
-  return readBlob<PostLock>("twitter-post-lock.json");
-}
-
-async function writeLock(slotKey: string, lockedAt: string): Promise<void> {
-  await blobPut(
-    "twitter-post-lock.json",
-    JSON.stringify({ slotKey, lockedAt } satisfies PostLock),
-    { access: "private", addRandomSuffix: false, allowOverwrite: true, contentType: "application/json", token: BLOB_TOKEN }
-  );
-}
-
-// ── Main handler ──────────────────────────────────────────────────
 
 export async function GET(req: NextRequest) {
-  // Auth check
   const isVercelCron = req.headers.get("x-vercel-cron") === "1";
-  const cronSecret = process.env.CRON_SECRET;
-  if (!isVercelCron && cronSecret) {
-    const auth = req.headers.get("authorization");
-    if (auth !== `Bearer ${cronSecret}`) {
-      return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-    }
+  if (!isVercelCron && req.headers.get("authorization") !== `Bearer ${process.env.CRON_SECRET}`) {
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
+  const dry = req.nextUrl.searchParams.get("dry") === "1";
 
-  console.log("[twitter-bot] Starting bot run...");
-
-  // Dry-run mode: run the full selection pipeline (dedup, cooldowns, AI
-  // generation, near-dup check) but never tweet and never write state.
-  const dryRun = new URL(req.url).searchParams.get("dryRun") === "1";
-
-  // ── Slot-based idempotency check ──────────────────────────────────
-  // Each cron slot (7am / 12pm / 5pm / 10pm UTC) gets a unique key.
-  // If a lock already exists for this slot a previous invocation already
-  // ran — skip immediately to prevent double-posts.
-  //
-  // NOTE: We removed the write-then-verify ownership pattern because
-  // Vercel Blob read-after-write is eventually consistent (cached reads
-  // return stale data for several seconds), making the verify always fail
-  // even with no concurrent invocation. The real duplicate-post guard is
-  // the dedupId check below against twitter-posted.json.
-  const slotKey = currentSlotKey();
-  const lock = await readLock();
-
-  if (!dryRun && lock?.slotKey === slotKey) {
-    const minutesSinceLock = (Date.now() - new Date(lock.lockedAt).getTime()) / 60000;
-    console.log(`[twitter-bot] Lock exists for slot ${slotKey} (${minutesSinceLock.toFixed(0)}m ago) — skipping`);
-    return NextResponse.json({ ok: true, posted: false, reason: `locked (slot ${slotKey}, ${minutesSinceLock.toFixed(0)}m ago)` });
-  }
-
-  // Claim the slot immediately (best-effort — protects against retries that
-  // run after the blob is eventually consistent, not against same-ms races).
-  if (!dryRun) await writeLock(slotKey, new Date().toISOString());
-
-  // Load all data blobs in parallel now that the slot is claimed
-  // Actual blob names and shapes (corrected from original stale names):
-  //   signals-history.json  → flat ScanSignal[]  (not {signals:[]} wrapper)
-  //   social-hot.json       → { events: HeatEvent[] }  (not {trending:[]})
-  //   benchmark-alerts.json → flat array of KOL alert objects  (not {benchmarks:[]})
-  //   portfolio.json        → { positions: PortfolioPosition[] }  (not {gains:[]})
-  //   analytics-latest.json → DOES NOT EXIST; derived from scan-latest.json leaderboard
-  //   performance-latest.json → DOES NOT EXIST; derived from portfolio.json + scan prices
-  const [
-    postedLog,
-    scanRaw,
-    discordRaw,
-    signalsHistoryRaw,   // flat ScanSignal[]
-    socialHotRaw,        // { events: HeatEvent[] }
-    portfolioRaw,        // { positions: PortfolioPosition[] }
-  ] = await Promise.all([
-    loadPostedLog(),
-    readBlob<{ leaderboard: Array<Record<string, unknown>> }>("scan-latest.json"),
-    readBlob<{ results: unknown[] }>("discord-latest.json"),
-    readBlob<Array<Record<string, unknown>>>("signals-history.json"),
-    readBlob<{ events: Array<Record<string, unknown>> }>("social-hot.json"),
-    readBlob<{ positions: Array<Record<string, unknown>> }>("portfolio.json"),
+  // ── Pick the freshest un-posted card ─────────────────────────────
+  const [cards, log] = await Promise.all([
+    readBlob<FeedCard[]>("feed-digest.json"),
+    readBlob<{ posted: PostedEntry[] }>(LOG_BLOB),
   ]);
+  const posted = (log?.posted ?? []).slice(-300);
+  const postedFp = new Set(posted.map(p => p.fingerprint));
+  const dayAgo = Date.now() - 24 * 3600000;
+  // One story per subnet per 5 days, even if its facts (and fingerprint)
+  // evolve — the account should not orbit the same subnet.
+  const subnetCutoff = Date.now() - 5 * 24 * 3600000;
+  const recentSubnets = new Set(posted.filter(p => new Date(p.postedAt).getTime() > subnetCutoff).map(p => p.netuid));
 
-  // ── 3-hour cooldown (belt-and-suspenders) ────────────────────────
-  // Slots are ≥5h apart, so 3h = safe guard without blocking valid posts.
-  const lastPost = postedLog.posted[postedLog.posted.length - 1];
-  if (lastPost && !dryRun) {
-    const minutesSinceLast = (Date.now() - new Date(lastPost.postedAt).getTime()) / 60000;
-    if (minutesSinceLast < 180) {
-      console.log(`[twitter-bot] Last post was ${minutesSinceLast.toFixed(0)}m ago — skipping (cooldown)`);
-      return NextResponse.json({ ok: true, posted: false, reason: `cooldown (${minutesSinceLast.toFixed(0)}m since last post)` });
-    }
+  const candidates = (cards ?? [])
+    .filter(c => new Date(c.writtenAt).getTime() > dayAgo)
+    .filter(c => !postedFp.has(c.fingerprint))
+    .filter(c => !recentSubnets.has(c.netuid))
+    .sort((a, b) => b.materiality - a.materiality);
+
+  if (!candidates.length) {
+    // Silence over slop: no fresh card means no tweet this slot.
+    return NextResponse.json({ ok: true, posted: false, reason: "no fresh un-posted card" });
   }
+  const card = candidates[0];
+  const text = composeTweet(card);
 
-  // ── Stale-data guard ─────────────────────────────────────────────
-  // Never tweet frozen stats as if they were today's news. When the scan
-  // pipeline is stale (e.g. TaoStats credits at 0) the "top movers" and
-  // "efficiency leaders" don't change — the bot posted the same Compelle
-  // analytics post 11 days in a row during the Jul 2026 outage.
-  const scanLastScan = (scanRaw as Record<string, unknown> | null)?.lastScan as string | undefined;
-  const scanAgeH = scanLastScan ? (Date.now() - new Date(scanLastScan).getTime()) / 3600000 : Infinity;
-  if (scanAgeH > 12) {
-    console.warn(`[twitter-bot] Scan data is ${scanAgeH.toFixed(1)}h old — skipping this slot.`);
-    return NextResponse.json({ ok: true, posted: false, reason: `scan data stale (${scanAgeH.toFixed(1)}h old)` });
-  }
+  if (dry) return NextResponse.json({ ok: true, dry: true, card: card.netuid, text });
 
-  // Build dedup set (48h window)
-  const cutoff = Date.now() - 48 * 3600000;
-  const alreadyPostedIds = new Set(
-    postedLog.posted
-      .filter((p) => new Date(p.postedAt).getTime() > cutoff)
-      .map((p) => p.id)
-  );
-
-  // 7-day window: dedupIds + subject keys — powers subject-level cooldowns so
-  // the same subnet can't headline the same post type day after day.
-  const weekCutoff = Date.now() - 7 * 24 * 3600000;
-  const SUBJECT_PREFIX: Record<string, string> = {
-    analytics_ratios: "subj_analytics",
-    x_trending: "subj_trending",
-    evergreen: "subj_evergreen",
-  };
-  const weeklyPostedIds = new Set<string>();
-  for (const p of postedLog.posted) {
-    if (new Date(p.postedAt).getTime() <= weekCutoff) continue;
-    weeklyPostedIds.add(p.id);
-    for (const s of p.subjects ?? []) weeklyPostedIds.add(s);
-    // Backfill for entries logged before subjects existed: extract SN numbers
-    // from the stored text snippet so pre-fix repeats still trigger cooldowns.
-    const prefix = SUBJECT_PREFIX[p.type];
-    if (prefix && !p.subjects?.length) {
-      for (const m of p.text.matchAll(/SN(\d{1,3})/g)) weeklyPostedIds.add(`${prefix}_${m[1]}`);
-    }
-  }
-
-  // ── Map leaderboard fields to SubnetScore interface ────────────────
-  // scan-latest.json uses agap_velo (not velo_score) and score_delta_24h
-  // (not composite_score_change). Map them here so the content generators work.
-  const leaderboard = (scanRaw?.leaderboard ?? []).map((e) => ({
-    ...e,
-    // field name aliases
-    composite_score_change: e.score_delta_24h,
-    velo_score:             e.agap_velo,
-  })) as BotData["leaderboard"];
-
-  // ── Map signals-history.json (flat ScanSignal[]) → DevSignal[] ────
-  // ScanSignal fields: netuid, signal_type, strength, title, description,
-  //   source, created_at, signal_date, subnet_name, analysis
-  // DevSignal fields: name, netuid, title, description, score, created_at
-  const devSignals: BotData["devSignals"] = (Array.isArray(signalsHistoryRaw) ? signalsHistoryRaw : [])
-    .filter((s) => s.signal_type === "dev_activity" || s.signal_type === "dev_signal" || String(s.signal_type).startsWith("dev"))
-    .map((s) => ({
-      name:        String(s.subnet_name ?? s.name ?? "Unknown"),
-      netuid:      Number(s.netuid),
-      title:       String(s.title ?? ""),
-      description: String(s.description ?? s.analysis ?? ""),
-      score:       Number(s.strength ?? 0),
-      created_at:  String(s.signal_date ?? s.created_at ?? ""),
-    }));
-
-  // ── Map social-hot.json HeatEvents → SocialTrendEntry[] ────────────
-  // HeatEvent fields: tweet_id, netuid, subnet_name, kol_handle, kol_name,
-  //   kol_weight, kol_tier, tweet_url, engagement, heat_score, detected_at
-  // Group by subnet, surface top subnets with mention count + top insight
-  const hotEvents = Array.isArray(socialHotRaw?.events) ? socialHotRaw!.events : [];
-  const cutoff48h = Date.now() - 48 * 3600000;
-  const recentHot = hotEvents.filter((e) => new Date(String(e.detected_at ?? 0)).getTime() > cutoff48h);
-  const subnetHotMap = new Map<number, { subnetName: string; tweetCount: number; topHeat: number; topInsight: string; scannedAt: string }>();
-  for (const e of recentHot) {
-    const uid = Number(e.netuid);
-    const existing = subnetHotMap.get(uid);
-    const heat = Number(e.heat_score ?? 0);
-    if (!existing) {
-      subnetHotMap.set(uid, {
-        subnetName: String(e.subnet_name ?? ""),
-        tweetCount: 1,
-        topHeat: heat,
-        topInsight: String(e.kol_handle ? `@${e.kol_handle}` : ""),
-        scannedAt: String(e.detected_at ?? ""),
-      });
-    } else {
-      existing.tweetCount++;
-      if (heat > existing.topHeat) {
-        existing.topHeat = heat;
-        existing.topInsight = String(e.kol_handle ? `@${e.kol_handle}` : "");
-        existing.scannedAt = String(e.detected_at ?? existing.scannedAt);
-      }
-    }
-  }
-  const socialTrending: BotData["socialTrending"] = [...subnetHotMap.entries()]
-    .sort((a, b) => b[1].topHeat - a[1].topHeat)
-    .map(([netuid, v]) => ({
-      netuid,
-      subnetName: v.subnetName,
-      tweetCount: v.tweetCount,
-      topInsight: v.topInsight,
-      scannedAt: v.scannedAt,
-    }));
-
-  // ── Derive analytics ratios from leaderboard ───────────────────────
-  // Use emission% / (market_cap / totalMcap) as the efficiency ratio.
-  // Higher means the subnet earns more emissions per dollar of market cap.
-  const totalMcap = leaderboard.reduce((sum, s) => sum + (s.market_cap ?? 0), 0);
-  const analyticsRatios: BotData["analyticsRatios"] = leaderboard
-    .filter((s) => s.emission_pct && s.emission_pct > 0 && s.market_cap && s.market_cap > 0 && totalMcap > 0)
-    .map((s) => {
-      const emitShare = Number(s.emission_pct) * 100;          // fraction → %
-      const mcapShare = (Number(s.market_cap) / totalMcap) * 100;
-      const ratio = emitShare / Math.max(mcapShare, 0.0001);   // emission% per mcap%
-      return {
-        netuid:          Number(s.netuid),
-        name:            String(s.name),
-        ratio:           Math.round(ratio * 100) / 100,
-        ratioLabel:      "emission/mcap efficiency",
-        composite_score: Number(s.composite_score ?? 0),
-      };
-    })
-    .sort((a, b) => b.ratio - a.ratio)
-    .slice(0, 10);
-
-  // ── Derive benchmarkUpdates from raw leaderboard (subnets with benchmark scores) ─
-  // Uses scanRaw?.leaderboard (untyped) so we can access benchmark-specific fields:
-  //   product_source, benchmark_score, benchmark_category, cost_saving_pct,
-  //   vs_provider, benchmark_summary, product_score
-  const rawLeaderboard = scanRaw?.leaderboard ?? [];
-  const lastScanTs = String((scanRaw as Record<string, unknown> | null)?.lastScan ?? new Date().toISOString());
-  const benchmarkUpdates: BotData["benchmarkUpdates"] = rawLeaderboard
-    .filter((s) => s.product_source === "benchmark" && s.benchmark_score != null)
-    .map((s) => ({
-      netuid:           Number(s.netuid),
-      subnetName:       String(s.name),
-      taskName:         String(s.benchmark_category ?? "AI benchmark"),
-      score:            Number(s.benchmark_score ?? s.product_score ?? 0),
-      centralizedScore: s.cost_saving_pct != null ? Number(s.benchmark_score ?? 0) - Number(s.cost_saving_pct ?? 0) : undefined,
-      centralizedName:  s.vs_provider ? String(s.vs_provider) : undefined,
-      delta:            s.cost_saving_pct != null ? Number(s.cost_saving_pct) : undefined,
-      updatedAt:        lastScanTs,
-      isNew:            false,
-    }))
-    .sort((a, b) => (b.delta ?? 0) - (a.delta ?? 0))
-    .slice(0, 10);
-
-  // ── Derive performanceGains from portfolio.json + current scan prices ──
-  // PortfolioPosition fields: netuid, name, buyDate, buyAGapScore, buyPriceUsd,
-  //   amountUsd, alphaTokens, peakPrice, manualPeakPrice
-  const priceMap = new Map<number, number>(
-    leaderboard
-      .filter((s) => s.alpha_price != null)
-      .map((s) => [Number(s.netuid), Number(s.alpha_price)])
-  );
-  const performanceGains: BotData["performanceGains"] = (portfolioRaw?.positions ?? [])
-    .filter((p) => p.buyPriceUsd != null && Number(p.buyPriceUsd) > 0)
-    .map((p) => {
-      const uid = Number(p.netuid);
-      const buyPrice = Number(p.buyPriceUsd);
-      const priceNow = priceMap.get(uid) ?? buyPrice;
-      const peakPrice = Number(p.manualPeakPrice ?? p.peakPrice ?? priceNow);
-      const maxGainPct = ((peakPrice - buyPrice) / buyPrice) * 100;
-      const currentGainPct = ((priceNow - buyPrice) / buyPrice) * 100;
-      return {
-        netuid:           uid,
-        name:             String(p.name ?? ""),
-        agapScoreAtSignal: Number(p.buyAGapScore ?? 0),
-        priceAtSignal:    buyPrice,
-        priceNow,
-        maxPrice:         peakPrice,
-        maxGainPct:       Math.round(maxGainPct * 10) / 10,
-        currentGainPct:   Math.round(currentGainPct * 10) / 10,
-        signalDate:       String(p.buyDate ?? ""),
-      };
-    })
-    .filter((p) => p.maxGainPct >= 15)   // only include meaningful gainers
-    .sort((a, b) => b.maxGainPct - a.maxGainPct);
-
-  // Assemble bot data
-  const botData: BotData = {
-    leaderboard,
-    discordAlpha:     (discordRaw?.results ?? []) as BotData["discordAlpha"],
-    devSignals,
-    socialTrending,
-    analyticsRatios,
-    benchmarkUpdates,
-    performanceGains,
-    alreadyPostedIds,
-    weeklyPostedIds,
-  };
-
-  // Pick best content — pass current UTC hour so slot rotation works
-  const post = await pickBestPost(botData, new Date().getUTCHours());
-  if (!post) {
-    console.log("[twitter-bot] No qualifying content to post this run");
-    return NextResponse.json({ ok: true, posted: false, reason: "no qualifying content" });
-  }
-
-  console.log(`[twitter-bot] Posting type=${post.type}: ${post.rationale}`);
-
-  // ── Final concurrent-safe dedup check ────────────────────────────
-  // Two invocations that both read a null lock within ~100ms of each other
-  // can both slip past the lock guard above. Re-read the postedLog fresh
-  // here (after AI generation, so we're likely staggered in time) to catch
-  // whichever invocation is "second". If the dedupId is already present
-  // (written by the first invocation's pending-save below), bail out.
-  const freshLog = await loadPostedLog();
-  // Same 48h window as alreadyPostedIds — an unwindowed check here would
-  // permanently block stable dedupIds (e.g. benchmark_update_8_...) once
-  // they appear anywhere in the 200-entry log.
-  if (freshLog.posted.some(p => p.id === post.dedupId && new Date(p.postedAt).getTime() > cutoff)) {
-    console.log(`[twitter-bot] Concurrent dedup: ${post.dedupId} already claimed — skipping`);
-    return NextResponse.json({ ok: true, posted: false, reason: `concurrent dedup: ${post.dedupId} already claimed` });
-  }
-
-  // ── Near-duplicate text backstop ─────────────────────────────────
-  // Last line of defence: even if a candidate slips past the id/subject
-  // dedups, never post text that reads like a rephrase of something from the
-  // last 7 days. Compares normalized word sets against stored snippets.
-  const normalize = (t: string) => new Set(t.toLowerCase().replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter(w => w.length > 2));
-  const candidateWords = normalize(post.tweets[0]);
-  for (const prev of freshLog.posted) {
-    if (new Date(prev.postedAt).getTime() <= weekCutoff) continue;
-    const prevWords = normalize(prev.text);
-    if (!prevWords.size || !candidateWords.size) continue;
-    let overlap = 0;
-    for (const w of candidateWords) if (prevWords.has(w)) overlap++;
-    const similarity = overlap / Math.min(candidateWords.size, prevWords.size);
-    if (similarity >= 0.7) {
-      console.warn(`[twitter-bot] Near-duplicate of ${prev.id} (${(similarity * 100).toFixed(0)}% word overlap) — skipping slot.`);
-      return NextResponse.json({ ok: true, posted: false, reason: `near-duplicate of ${prev.id} (${(similarity * 100).toFixed(0)}% overlap)` });
-    }
-  }
-
-  // ── Write dedup log entry BEFORE posting ──────────────────────────
-  // If we post the tweet and then savePostedLog fails (network blip,
-  // timeout), the next slot has no record of the post and fires again.
-  // Writing first means the dedupId is persisted even if the URL update
-  // below fails — preventing a future slot from re-posting the same content.
-  if (dryRun) {
-    return NextResponse.json({
-      ok: true,
-      posted: false,
-      dryRun: true,
-      wouldPost: { type: post.type, dedupId: post.dedupId, subjects: post.subjectKeys ?? [], rationale: post.rationale, text: post.tweets },
-    });
-  }
-
-  // ── FINAL GATE: ask X what we have actually posted ────────────────
-  //
-  // Everything above this point reads Vercel Blob, which is eventually
-  // consistent and has no atomic compare-and-swap. A second invocation
-  // arriving seconds after the first reads stale state, passes every guard,
-  // and posts again — which is exactly the observed double-posting, and why
-  // adding more blob-based checks never fixed it.
-  //
-  // X is the system of record and returns a tweet the moment it exists, so
-  // this is the one check that can see a post the blob guards cannot.
-  const ownTweets = await fetchOwnRecentTweets(10);
-
-  if (ownTweets === null) {
-    // Fail CLOSED. If we cannot confirm what we have already posted, not
-    // posting costs one slot; posting risks another duplicate.
-    console.warn("[twitter-bot] Could not read own timeline — skipping slot to avoid a duplicate.");
+  // ── Guards against X itself; the blob log above is advisory only ──
+  const own = await fetchOwnRecentTweets(15);
+  if (own === null) {
     return NextResponse.json({ ok: true, posted: false, reason: "timeline unavailable — failing closed" });
   }
-
-  // Hard cooldown against X itself. Cron slots are ≥5h apart, so anything
-  // posted in the last 4h means another invocation of THIS slot already ran.
-  const recentCutoff = Date.now() - 4 * 60 * 60 * 1000;
-  const veryRecent = ownTweets.find(t => t.createdAt && new Date(t.createdAt).getTime() > recentCutoff);
-  if (veryRecent) {
-    const mins = ((Date.now() - new Date(veryRecent.createdAt).getTime()) / 60000).toFixed(0);
-    console.warn(`[twitter-bot] Already tweeted ${mins}m ago (${veryRecent.id}) — skipping slot.`);
-    return NextResponse.json({ ok: true, posted: false, reason: `already tweeted ${mins}m ago per X` });
+  const cooldown = Date.now() - 4 * 3600000;
+  const recent = own.find(t => t.createdAt && new Date(t.createdAt).getTime() > cooldown);
+  if (recent) {
+    return NextResponse.json({ ok: true, posted: false, reason: "already tweeted this slot per X" });
   }
-
-  // Near-duplicate check against what is actually on the timeline, using the
-  // same 70% word-overlap rule applied to the blob log above.
-  const candWords = new Set(post.tweets[0].toLowerCase().split(/\W+/).filter(w => w.length > 3));
-  for (const t of ownTweets) {
-    const prevWords = new Set(t.text.toLowerCase().split(/\W+/).filter(w => w.length > 3));
-    if (candWords.size === 0 || prevWords.size === 0) continue;
-    let overlap = 0;
-    for (const w of candWords) if (prevWords.has(w)) overlap++;
-    const sim = overlap / Math.min(candWords.size, prevWords.size);
-    if (sim >= 0.7) {
-      console.warn(`[twitter-bot] Near-duplicate of live tweet ${t.id} (${(sim * 100).toFixed(0)}%) — skipping.`);
+  for (const t of own) {
+    if (similarity(text, t.text) >= 0.7) {
       return NextResponse.json({ ok: true, posted: false, reason: `near-duplicate of live tweet ${t.id}` });
     }
   }
 
-  const postedAt = new Date().toISOString();
-  const logEntry = {
-    id: post.dedupId,
-    type: post.type,
-    text: post.tweets[0].slice(0, 100),
-    tweetUrl: "pending",
-    postedAt,
-    subjects: post.subjectKeys ?? [],
-  };
-  freshLog.posted.push(logEntry);
-  freshLog.posted = freshLog.posted.slice(-200);
-  await savePostedLog(freshLog);
-
-  // Post the tweet(s)
-  let tweetUrl: string | null = null;
-  let tweetError: string | undefined;
-  if (post.tweets.length === 1) {
-    const result = await postTweet(post.tweets[0]);
-    tweetUrl = (result?.id && result.id !== "") ? (result.url ?? null) : null;
-    tweetError = result?.error;
-  } else {
-    tweetUrl = await postThread(post.tweets);
+  // ── Close the concurrency window ─────────────────────────────────
+  // Two at-least-once invocations pass the checks above together because
+  // neither has posted yet. A random stagger breaks the tie: the earlier
+  // sleeper posts; the later one re-reads the timeline and sees it. Text
+  // is deterministic, so even a residual race produces an identical tweet,
+  // which X itself rejects as a duplicate status.
+  await new Promise(r => setTimeout(r, 5000 + Math.floor(Math.random() * 20000)));
+  const own2 = await fetchOwnRecentTweets(5);
+  if (own2 === null) {
+    return NextResponse.json({ ok: true, posted: false, reason: "recheck timeline unavailable — failing closed" });
+  }
+  const tenMin = Date.now() - 10 * 60000;
+  if (own2.some(t => t.createdAt && new Date(t.createdAt).getTime() > tenMin)) {
+    return NextResponse.json({ ok: true, posted: false, reason: "concurrent run posted first — standing down" });
   }
 
-  if (!tweetUrl) {
-    console.error("[twitter-bot] Failed to post tweet:", tweetError);
-    // The dedupId is already persisted above — won't double-post.
-    return NextResponse.json({ ok: false, reason: "tweet post failed", error: tweetError, postType: post.type, text: post.tweets[0]?.slice(0, 100) }, { status: 500 });
+  const result = await postTweet(text);
+  if (!result || result.error) {
+    return NextResponse.json({ ok: false, reason: "post failed", error: result?.error }, { status: 500 });
   }
 
-  // Update the log entry with the real tweet URL (best-effort — dedupId already saved above)
-  logEntry.tweetUrl = tweetUrl;
-  await savePostedLog(freshLog).catch((e) => {
-    console.warn("[twitter-bot] Failed to update postedLog with tweetUrl (non-fatal):", e);
-  });
+  const entry: PostedEntry = { fingerprint: card.fingerprint, netuid: card.netuid, text: text.slice(0, 140), postedAt: new Date().toISOString() };
+  await put(LOG_BLOB, JSON.stringify({ posted: [...posted, entry] }), {
+    access: "private", addRandomSuffix: false, allowOverwrite: true, token: TOKEN, contentType: "application/json",
+  }).catch(() => {});
 
-  console.log(`[twitter-bot] Posted: ${tweetUrl}`);
-  return NextResponse.json({
-    ok: true,
-    posted: true,
-    type: post.type,
-    url: tweetUrl,
-    rationale: post.rationale,
-  });
+  console.log(`[twitter-bot] posted SN${card.netuid} (${result.id})`);
+  return NextResponse.json({ ok: true, posted: true, tweet: result.url, subnet: card.netuid });
 }
