@@ -5,7 +5,7 @@
  */
 
 import { NextResponse } from "next/server";
-import { get as blobGet } from "@vercel/blob";
+import { get as blobGet, put } from "@vercel/blob";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 20;
@@ -97,7 +97,7 @@ function computeSignal(investScore?: number, lockedAlpha?: number, lockType?: st
 }
 
 export async function GET() {
-  const [srData, scanData] = await Promise.all([
+  const [srLive, scanData] = await Promise.all([
     fetch("https://subnetradar.com/api/alpha/conviction", {
       headers: { "User-Agent": "AlphaGap/1.0" },
       signal: AbortSignal.timeout(12000),
@@ -106,7 +106,27 @@ export async function GET() {
     readBlob<{ leaderboard: LeaderboardEntry[] }>("scan-latest.json"),
   ]);
 
-  if (!srData) {
+  // ── Last-good cache ──────────────────────────────────────────────
+  // The lock data comes from subnetradar.com, which now blocks us: our UA
+  // hangs and a browser UA gets a 403, so this route started 503ing and the
+  // page broke outright. Conviction locks are measured in weeks, so serving
+  // the previous copy is far better than serving nothing. A fresh response
+  // refreshes the cache; a failed one falls back to it.
+  const CACHE = "conviction-cache.json";
+  let srData = srLive;
+  if (srData?.rows?.length) {
+    put(CACHE, JSON.stringify(srData), {
+      access: "private", addRandomSuffix: false, allowOverwrite: true,
+      token: process.env.BLOB_READ_WRITE_TOKEN, contentType: "application/json",
+    }).catch(() => {});
+  } else {
+    srData = await readBlob<SubnetRadarResponse>(CACHE);
+    if (srData?.rows?.length) {
+      console.warn(`[conviction] SubnetRadar unavailable — serving cache (${srData.rows.length} rows)`);
+    }
+  }
+
+  if (!srData?.rows?.length) {
     return NextResponse.json({ error: "Conviction data unavailable" }, { status: 503 });
   }
 
