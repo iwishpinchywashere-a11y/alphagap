@@ -112,13 +112,31 @@ export async function GET(
   // ── TAO Flow EMA history (from TaoMarketCap, per-scan snapshots) ──
   // flowHistoryAll is { [isoTs]: { [netuid]: taoFlowInTao } }
   // Extract this subnet's series, sorted chronologically.
-  const flowHistory: { x: string; y: number }[] = [];
+  //
+  // DENSITY. The chart's widest view is 3M and it downsamples to 200 points
+  // client-side, so shipping every snapshot meant 18,056 points / 846KB per
+  // request — 99% of the payload, discarded on arrival. Thin per age bucket
+  // so each of the chart's windows (1D/7D/1M/3M) still has more points than
+  // it can draw, while the response drops to roughly 30KB.
+  const flowRaw: { x: string; y: number }[] = [];
   if (flowHistoryAll) {
     for (const ts of Object.keys(flowHistoryAll).sort()) {
       const val = flowHistoryAll[ts][String(netuid)];
-      if (val != null) flowHistory.push({ x: ts, y: val });
+      if (val != null) flowRaw.push({ x: ts, y: val });
     }
   }
+  const nowMs = Date.now();
+  // [max age in days, keep 1 in N]. Newest bucket is untouched so the 1D
+  // view keeps full fidelity; older buckets only feed windows that are
+  // downsampled to 200 anyway.
+  const flowTiers: Array<[number, number]> = [[1, 1], [7, 6], [30, 25], [90, 90]];
+  const flowHistory = flowRaw.filter((p, i) => {
+    const ageDays = (nowMs - new Date(p.x).getTime()) / 86400000;
+    if (i === flowRaw.length - 1) return true;            // always keep latest
+    const tier = flowTiers.find(([maxAge]) => ageDays <= maxAge);
+    if (!tier) return false;                              // older than 90d
+    return i % tier[1] === 0;
+  });
 
   // ── Price history (92d daily, chronological) ─────────────────────
   //

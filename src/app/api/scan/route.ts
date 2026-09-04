@@ -4745,9 +4745,27 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
         }
       }
 
-      // Trim to last 90 days
+      // ── Retention: 90 days, but THINNED ──────────────────────────
+      //
+      // The 90-day cutoff alone was not enough. Scans run every ~7 minutes,
+      // so 90 days of snapshots x 123 subnets had grown this blob to 24MB
+      // and 18,201 timestamp keys. The subnet detail route reads the whole
+      // thing on every request, which was ~16s of its response time, and
+      // then shipped 846KB of flow points to a chart that renders 200.
+      //
+      // Nothing needs 7-minute flow resolution beyond the last couple of
+      // days, so keep full density for 48h and one snapshot per hour before
+      // that. Same 90-day window, ~8% of the size.
       const flowCutoff = new Date(Date.now() - 90 * 86400000).toISOString();
-      for (const d of Object.keys(flowHistory)) { if (d < flowCutoff) delete flowHistory[d]; }
+      const denseCutoff = new Date(Date.now() - 2 * 86400000).toISOString();
+      const keptHours = new Set<string>();
+      for (const d of Object.keys(flowHistory).sort().reverse()) {
+        if (d < flowCutoff) { delete flowHistory[d]; continue; }
+        if (d >= denseCutoff) continue;          // recent: keep every snapshot
+        const hour = d.slice(0, 13);             // "2026-09-04T22"
+        if (keptHours.has(hour)) delete flowHistory[d];
+        else keptHours.add(hour);
+      }
 
       await put("flow-history.json", JSON.stringify(flowHistory), { access: "private", addRandomSuffix: false, allowOverwrite: true, token: process.env.BLOB_READ_WRITE_TOKEN });
       console.log(`[scan] Flow history: ${Object.keys(flowHistory).length} snapshots stored`);
