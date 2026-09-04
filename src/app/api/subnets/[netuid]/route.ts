@@ -15,6 +15,27 @@ export const maxDuration = 60;
 
 const RAO = 1e9;
 
+/**
+ * Hard deadline for anything upstream.
+ *
+ * lib/taostats retries a 429 three times with exponential backoff (2s, 4s,
+ * 8s), so a rate-limited endpoint takes ~15s to fail and then returns an
+ * empty array. Two of those in one request is why subnet pages sat on
+ * "Loading subnet data..." for the better part of a minute — waiting on
+ * calls whose answer was going to be "nothing" either way.
+ *
+ * Our own blobs already hold everything the page needs to render. Upstream
+ * is an enrichment, so it gets a few seconds and is otherwise dropped. The
+ * page renders from our data; no outage text, the reader sees a normal page.
+ */
+function withDeadline<T>(p: Promise<T>, ms: number, fallback: T): Promise<T> {
+  return Promise.race([
+    p.catch(() => fallback),
+    new Promise<T>(resolve => setTimeout(() => resolve(fallback), ms)),
+  ]);
+}
+const UPSTREAM_MS = 3500;
+
 async function readBlob<T>(name: string, token: string): Promise<T | null> {
   try {
     const result = await blobGet(name, { token, access: "private" });
@@ -59,10 +80,10 @@ export async function GET(
     readBlob<Record<string, Array<{ pct: number; timestamp: string }>>>("emission-history.json", token),
     readBlob<Array<{ netuid: number; strength: number; signal_type: string; title: string; description: string; source: string; source_url?: string; signal_date?: string; created_at: string; subnet_name?: string }>>("signals-history.json", token),
     readBlob<Record<string, Record<string, number>>>("flow-history.json", token),
-    getSubnetIdentities().catch(() => []),
-    getTaoPrice().catch(() => 0),
-    getSubnetPoolDetail(netuid).catch(() => null),
-    getMetagraph(netuid).catch(() => []),
+    withDeadline(getSubnetIdentities(), UPSTREAM_MS, [] as Awaited<ReturnType<typeof getSubnetIdentities>>),
+    withDeadline(getTaoPrice(), UPSTREAM_MS, 0),
+    withDeadline(getSubnetPoolDetail(netuid), UPSTREAM_MS, null as Awaited<ReturnType<typeof getSubnetPoolDetail>>),
+    withDeadline(getMetagraph(netuid), UPSTREAM_MS, [] as Awaited<ReturnType<typeof getMetagraph>>),
   ]);
 
   // ── Current leaderboard entry ───────────────────────────────────
@@ -181,8 +202,14 @@ export async function GET(
        new Date(priceHistory[0].timestamp).getTime()) / 86400000
     : 0;
 
+  // ...but this fallback must never hold the page hostage. TaoStats has been
+  // returning 429 for this endpoint, and lib/taostats spends ~15s retrying
+  // before handing back an empty array — so every request paid 15 seconds to
+  // learn nothing and then rendered our own series regardless. Same deadline
+  // as the other upstream calls; when it does answer in time we still take
+  // the longer series, which is what makes 3M/1Y fill in.
   if (priceHistory.length < 2 || spanDays < 85) {
-    const upstream = (await getPoolHistory(netuid, 92).catch(() => []))
+    const upstream = (await withDeadline(getPoolHistory(netuid, 92), UPSTREAM_MS, [] as Awaited<ReturnType<typeof getPoolHistory>>))
       .map((p) => ({ timestamp: toIso(p.timestamp), price: parseFloat(p.price) }))
       .sort((a, b) => a.timestamp.localeCompare(b.timestamp));
     if (upstream.length > priceHistory.length) {
