@@ -529,6 +529,9 @@ export async function GET() {
   ]);
   identities = idResult.status === "fulfilled" ? idResult.value : ([] as Awaited<ReturnType<typeof getSubnetIdentities>>);
   let pools = poolsResult.status === "fulfilled" ? poolsResult.value : ([] as Awaited<ReturnType<typeof getSubnetPools>>);
+  // True when the pool fetch failed and we fell back to pool-cache.json. The
+  // prices in that copy are a REPLAY of an earlier observation, not a new one.
+  let poolsFromCache = false;
   const taoPrice = taoPriceResult.status === "fulfilled" ? taoPriceResult.value : 0;
   console.log(`[scan] Batch 1 done: ${identities.length} ids, ${pools.length} pools, TAO=$${taoPrice.toFixed(2)}`);
 
@@ -566,6 +569,7 @@ export async function GET() {
         const reader = cached.stream.getReader(); const chunks: Uint8Array[] = [];
         while (true) { const { done, value } = await reader.read(); if (done) break; chunks.push(value); }
         pools = JSON.parse(Buffer.concat(chunks).toString("utf-8"));
+        poolsFromCache = true;
         console.warn(`[scan] TaoStats pools unavailable — using cache (${pools.length} entries)`);
       }
     } catch { console.warn("[scan] pool-cache read failed"); }
@@ -4340,7 +4344,10 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
       // (-0.071). Which one actually predicts returns is unknown and cannot be
       // answered with the history we had; storing both is how that stops being
       // true. Do not wire eval_adj into any score until there is a head-to-head.
-      type ScoreRow = { agap: number; flow: number; dev: number; eval: number; social: number; price: number; mcap: number; emission_pct: number; eval_adj?: number };
+      // price/mcap are optional: when the pool feed is unavailable and we fall back
+      // to cached pools, we OMIT them rather than replay a stale reading as a new
+      // observation. Consumers already skip non-numeric prices.
+      type ScoreRow = { agap: number; flow: number; dev: number; eval: number; social: number; price?: number; mcap?: number; emission_pct: number; eval_adj?: number };
 
       // ── Load velo fallback (last-known-good VELO scores) ─────────────────
       // Prevents all-50 flash when: (a) blob read fails, (b) history is thin
@@ -4569,8 +4576,13 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
             dev: entry.dev_score,
             eval: entry.eval_score || 0,
             social: entry.social_score || 0,
-            price: entry.alpha_price || 0,
-            mcap: entry.market_cap || 0,
+            // When pools came from cache these are a replay of an earlier
+            // reading, identical hour after hour. Writing them as new
+            // observations drew a dead-flat tail on every price chart and
+            // made a stalled feed look like a stable market. Same rule as
+            // eval_adj below: a gap in the series beats a wrong number.
+            price: poolsFromCache ? undefined : (entry.alpha_price || 0),
+            mcap: poolsFromCache ? undefined : (entry.market_cap || 0),
             emission_pct: entry.emission_pct || 0,
             // Undefined rather than 0 when the gate model does not explain this
             // subnet — a wrong number is worse than a gap in the series.

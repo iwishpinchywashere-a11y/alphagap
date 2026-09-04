@@ -92,8 +92,12 @@ export async function GET() {
     for (const ts of sampledTs) {
       const row = history[ts]?.[uid];
       if (row == null) continue;
+      // price is omitted from history when the pool feed was unavailable for
+      // that scan. Substituting 0 dropped the series to the floor and back,
+      // which reads as a total price collapse. Skip the sample instead.
+      if (typeof row.price !== "number" || row.price <= 0) continue;
       agapSeries.push(row.agap ?? 0);
-      priceSeries.push(row.price ?? 0);
+      priceSeries.push(row.price);
       tsSeries.push(ts);
     }
 

@@ -12,6 +12,9 @@ interface TaoStatsResponse<T> {
 }
 
 // revalidate: live market data = 30s, reference data (identities, metagraph) = 120s
+/** Logged once per process so an exhausted account does not spam the logs. */
+let creditWarningLogged = false;
+
 async function taoFetch<T>(path: string, params: Record<string, string> = {}, revalidate = 60): Promise<T[]> {
   const url = new URL(`${BASE_URL}${path}`);
   for (const [k, v] of Object.entries(params)) {
@@ -29,6 +32,22 @@ async function taoFetch<T>(path: string, params: Record<string, string> = {}, re
   // silently-missing data rather than an error anyone could see. Honour
   // Retry-After when TaoStats sends it.
   if (res.status === 429) {
+    // Not all 429s are rate limits. When the account is out of credits
+    // TaoStats also answers 429, with "Insufficient credits (remaining: 0)".
+    // Backing off three times cannot fix a billing state — it just spends
+    // ~15s per call to arrive at the same answer, which is what made subnet
+    // pages take a minute to load. Fail fast and let callers fall back.
+    const peek = await res.clone().text().catch(() => "");
+    if (/insufficient credits/i.test(peek)) {
+      if (!creditWarningLogged) {
+        creditWarningLogged = true;
+        console.error(
+          "[taostats] OUT OF CREDITS — every TaoStats call is failing. " +
+          "Top up at https://dash.taostats.io/billing. Serving cached data until then."
+        );
+      }
+      return [] as T[];
+    }
     for (let attempt = 1; attempt <= 3; attempt++) {
       const header = Number(res.headers.get("retry-after"));
       const wait = Number.isFinite(header) && header > 0

@@ -114,6 +114,9 @@ export async function GET(req: NextRequest) {
       for (const [netuidStr, row] of Object.entries(snap)) {
         const netuid = parseInt(netuidStr, 10);
         if (row.agap < threshold) continue;
+        // No price recorded for this scan (pool feed was down) - it cannot
+        // anchor a "you would have bought at X" figure.
+        if (typeof row.price !== "number" || row.price <= 0) continue;
 
         if (!dailyMaxBySubnet[date]) dailyMaxBySubnet[date] = {};
         const existing = dailyMaxBySubnet[date][netuid];
