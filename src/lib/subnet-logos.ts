@@ -1,104 +1,141 @@
 /**
- * Subnet logo URLs sourced from the Bittensor subnet registry.
- * Maps netuid → external logo URL.
- * Subnets not in this map get a colored initials fallback in SubnetLogo.
+ * Subnet logo URLs -> LOCAL, SELF-HOSTED files under /public/subnets.
+ *
+ * These were hotlinked from subnet teams sites, GitHub raw, S3 buckets and
+ * vercel preview URLs. An audit on 2026-09-07 found 32 of 95 had rotted:
+ * 404s, timeouts, a 402, a 530, and several that had started returning HTML
+ * error pages instead of images. Every one of those silently fell back to the
+ * coloured-initials avatar, which is what "a ton of subnets dont have proper
+ * logos" looked like.
+ *
+ * Hotlinking is the bug: those URLs belong to other people and move without
+ * warning. Every logo is now downloaded into /public/subnets and served from
+ * our own origin, so a subnet team redesigning their site cannot blank our
+ * leaderboard. Images over 100KB were downscaled to 256px (5.5MB -> 2.5MB);
+ * they render at 20-40px.
+ *
+ * Sources, in the order preferred: the previously-working URL, then the
+ * TaoStats subnet-identity logo, then the teams GitHub org avatar.
+ *
+ * To refresh: scripts/refresh-subnet-logos.mjs re-runs the whole audit.
  */
 export const SUBNET_LOGOS: Record<number, string> = {
-  1: "https://www.macrocosmos.ai/images/mc_logo_black.png",
-  2: "https://dsperse.inferencelabs.com/logo-512.png",
-  3: "https://teutonic.ai/favicon.png",   // Teutonic (ex-Templar) — new domain, 63KB PNG
-  4: "https://www.manifold.inc/favicon.svg",
-  5: "https://www.hone.training/logo.svg",
-  6: "https://numinouslabs.io/numinous-logo.svg",
-  7: "https://allways-905418005698-us-east-2-an.s3.us-east-2.amazonaws.com/sn7-light.png",
-  8: "https://website-git-ken-vanta-taoshi.vercel.app/black-white.png",
-  9: "https://www.macrocosmos.ai/images/mc_logo_black.png",
-  10: "https://www.taofi.com/images/SN10-Swap-Dark.png",
-  11: "https://pbs.twimg.com/profile_images/2018928039716089856/2PZ-Bhm2_400x400.jpg",
-  13: "https://www.macrocosmos.ai/images/mc_logo_black.png",
-  14: "https://v2-dev.taohash.ai/assets/taohash_logo-4f75d956.png",
-  15: "https://raw.githubusercontent.com/ORO-AI/oro/main/brand/profile-snowcap.png",
-  16: "https://raw.githubusercontent.com/FirstTensorLabs/BitAds-Assets/refs/heads/main/Logo-white-green-black.png",
-  17: "https://avatars.githubusercontent.com/u/154099142?s=200&v=4",
-  18: "https://raw.githubusercontent.com/Orpheus-AI/Zeus/refs/heads/main/static/zeus-icon.png",
-  19: "https://blockmachine.io/_next/image?url=%2Flogo.png&w=48&q=75",
-  20: "https://www.groundlayer.xyz/icon.png",
-  21: "https://www.ppcrebel.com/i/adtao.png",
-  22: "https://desearch.ai/assets/logo-icon-C18R0lAC.png",
-  23: "https://trishool.ai/_next/image?url=%2Ftrishool-logo-small.png&w=96&q=75",
-  24: "https://silxinc.com/_next/image?url=%2Flogo-white.png&w=640&q=75",
-  25: "https://www.macrocosmos.ai/images/mc_logo_black.png",
-  26: "https://kinitro.ai/k-tiny.png",
-  27: "https://console.nodexo.ai/assets/images/logo/logo-dark.svg",
-  28: "/subnets/sn28-gm.svg",   // gm — official mark from saygm.com/favicon.svg, vendored
-  31: "https://x.ai/images/noise.png",
-  32: "https://raw.githubusercontent.com/It-s-AI/llm-detection/main/full_logo.png",
-  35: "https://storage.googleapis.com/cartha-assets/cartha_logo.png",
-  36: "https://raw.githubusercontent.com/autoppia/autoppia_web_agents_subnet/main/icon48.png",
-  37: "https://raw.githubusercontent.com/Aurelius-Protocol/aurelius-whitepaper/main/aurelius_logo.png",
-  38: "https://www.taocolosseum.com/colosseum-logo.png",
-  39: "https://www.covenant.ai/images/basilica.png",
-  41: "https://beta.almanac.market/assets/favicons/favicon-32x32.png",
-  44: "https://www.wearescore.com/android-chrome-512x512.png",
-  45: "https://styles.redditmedia.com/t5_53lwgb/styles/communityIcon_vb7hazik5aqf1.jpg",
-  46: "https://resi-public.nyc3.cdn.digitaloceanspaces.com/color_3_r.png",
-  48: "https://i.imgur.com/fAC1VJY.jpeg",
-  49: "https://tournaments.nepher.ai/logo.png",
-  50: "/subnets/sn50-synth.jpg",
-  51: "https://raw.githubusercontent.com/Datura-ai/lium-logos/refs/heads/main/Celium_Icon_FullColor.png",
-  53: "data:image/svg+xml;base64,PHN2ZyB2aWV3Qm94PSIxMzIgMTMyIDc2MCA3NjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3QgeD0iMTMyIiB5PSIxMzIiIHdpZHRoPSI3NjAiIGhlaWdodD0iNzYwIiBmaWxsPSIjZmZmZmZmIi8+PHJlY3QgeD0iMjA1IiB5PSIyNDYiIHdpZHRoPSI0NzIiIGhlaWdodD0iMTMyIiByeD0iNjYiIGZpbGw9IiNGNTUxMUUiLz48cmVjdCB4PSIzNDciIHk9IjQ0NCIgd2lkdGg9IjQ3MiIgaGVpZ2h0PSIxMzQiIHJ4PSI2NyIgZmlsbD0iI0Y1NTExRSIvPjxyZWN0IHg9IjIwNSIgeT0iNjQ3IiB3aWR0aD0iNDcyIiBoZWlnaHQ9IjEzMiIgcng9IjY2IiBmaWxsPSIjRjU1MTFFIi8+PC9zdmc+Cg==", // Engy (SN53) — brand mark from engy.ai/logo.svg, embedded as data URI
-  55: "https://miro.medium.com/v2/resize:fit:1400/format:webp/1*pgi-9hji1nosR-l7taHQeA.png",
-  56: "https://gradients-public.s3.eu-central-003.backblazeb2.com/gradientslogo.png",
-  57: "https://i.imgur.com/HbfFUqo.jpeg",
-  58: "https://github.com/Handshake58/HS58/blob/main/HS58.png?raw=true",
-  59: "https://babelbit.ai/babelbit-tower-logo-rev-no-text.png",
-  61: "/subnets/sn61-redteam.jpg",
-  62: "https://www.ridges.ai/logo.png",
-  63: "https://www.qbittensorlabs.com/quantum-subnet-icon-white.png",
-  64: "https://storage.googleapis.com/chutes-random/logo-chutes.png",
-  65: "https://tpn.taofu.xyz/img/logo.jpg",
-  66: "https://alpha-core.ai/logo.png",
-  67: "https://harnyx.ai/favicon.svg",
-  68: "https://raw.githubusercontent.com/metanova-labs/nova/refs/heads/main/assets/subnet-logo.png",
-  70: "https://www.nexisgen.ai/logo.png",
-  71: "https://leadpoet.com/leadpoet-social-logo.png",
-  73: "https://avatars.githubusercontent.com/u/207720229?s=200&v=4",
-  74: "https://gittensor.s3.us-east-2.amazonaws.com/gt-logo-white.png",
-  75: "https://hippius.com/logo.png",
-  77: "https://sn77.xyz/assets/Logo.svg",
-  78: "https://pbs.twimg.com/profile_images/1933259620862341120/tfBajpAq_400x400.jpg",
-  79: "https://assets.mvtrx.fi/logo.png",
-  80: "https://dogelayer.ai/images/design/dogemine-logo.svg",
-  81: "https://www.covenant.ai/images/grail.png",
-  82: "https://hermes-subnet.ai/images/hermes/hermes-coluful.svg",
-  85: "https://raw.githubusercontent.com/vidAio-subnet/brand-assets/main/logos/320x320.png",
-  87: "https://i.ibb.co/8nXxKTVf/5-Mc-VFISU-400x400-1-modified.png",
-  88: "https://Investing88.ai/logo.png",
-  89: "https://raw.githubusercontent.com/DeltaCompute24/RheftheChef/main/thechef.jpg",
-  93: "https://bitcast-logo.s3.us-west-2.amazonaws.com/Bitcast+logo+multi+white.webp",
-  94: "https://bitsota.ai/logo.png",
-  96: "https://raw.githubusercontent.com/verathos-ai/verathos/main/assets/logo.png",
-  97: "https://pub-0821b4e0d60149b79bad17376722bc75.r2.dev/assets/droplet.png",
-  98: "https://sn98.s3.eu-north-1.amazonaws.com/sn98.png",
-  99: "https://www.leoma.ai/logo-leoma.png",
-  100: "https://www.platform.network/logo.png",
-  103: "https://raw.githubusercontent.com/Djinn-Inc/djinn-assets/main/djinn-logo-black.png",
-  105: "https://pbs.twimg.com/profile_images/2029345851412185088/vd2bTk4L_400x400.jpg",
-  107: "https://theminos.ai/logo.png",
-  112: "https://minotaursubnet.com/logos/logo.png",
-  113: "https://avatars.githubusercontent.com/u/228006888?s=200&v=4",
-  114: "https://thesoma.ai/images/1200x1200.png",
-  115: "https://raw.githubusercontent.com/hashi115/hashichain/refs/heads/main/assets/intro.png",
-  116: "https://raw.githubusercontent.com/xpenlab/taolend/logo/TaoLend.png",
-  118: "https://subnet118.com/logo1.png",
-  119: "https://raw.githubusercontent.com/Satori119/Satori/refs/heads/main/assets/logo.png",
-  120: "https://raw.githubusercontent.com/AffineFoundation/affine/main/affine.png",
-  121: "https://www.sundaebar.ai/apple-icon.png",
-  122: "https://www.bitrecs.ai/assets/logo/x7k9m2n8/whiteonblack.png",
-  124: "https://raw.githubusercontent.com/swarm-subnet/swarm/refs/heads/main/swarm/assets/Swarm.png",
-  126: "https://raw.githubusercontent.com/Poker44/Poker44-subnet/refs/heads/main/poker44/assets/logo.jpeg",
-  127: "https://cdn.sigmaarena.ai/ai-logo.png",
-  128: "https://avatars.githubusercontent.com/u/217718200",
+  1: "/subnets/sn1.png", // Apex (github)
+  2: "/subnets/sn2.png", // DSperse (existing)
+  3: "/subnets/sn3.png", // Teutonic (existing)
+  4: "/subnets/sn4.svg", // Targon (existing)
+  5: "/subnets/sn5.png", // Hone (github)
+  6: "/subnets/sn6.svg", // Numinous (existing)
+  7: "/subnets/sn7.png", // Allways (existing)
+  8: "/subnets/sn8.png", // Vanta (existing)
+  9: "/subnets/sn9.png", // iota (github)
+  10: "/subnets/sn10.png", // Pareton (existing)
+  11: "/subnets/sn11.jpg", // TrajectoryRL (existing)
+  12: "/subnets/sn12.png", // Compute Horde (github)
+  13: "/subnets/sn13.png", // Data Universe (github)
+  14: "/subnets/sn14.png", // Cacheon (taostats)
+  15: "/subnets/sn15.png", // ORO (existing)
+  17: "/subnets/sn17.png", // 404—GEN (existing)
+  18: "/subnets/sn18.png", // Zeus (existing)
+  19: "/subnets/sn19.svg", // blockmachine (taostats)
+  20: "/subnets/sn20.png", // ChronoSeek (existing)
+  21: "/subnets/sn21.png", // AdTAO (existing)
+  22: "/subnets/sn22.jpg", // Desearch (github)
+  23: "/subnets/sn23.png", // Trishool (existing)
+  24: "/subnets/sn24.png", // Quasar (github)
+  25: "/subnets/sn25.svg", // UR (taostats)
+  26: "/subnets/sn26.svg", // Perturb (taostats)
+  27: "/subnets/sn27.png", // Orion (github)
+  28: "/subnets/sn28-gm.svg", // SayGM
+  29: "/subnets/sn29.png", // hoτfloaτ (github)
+  30: "/subnets/sn30.png", // Endure Network (taostats)
+  31: "/subnets/sn31.png", // rec4ll (existing)
+  32: "/subnets/sn32.png", // ItsAI (existing)
+  33: "/subnets/sn33.png", // ReadyAI (github)
+  34: "/subnets/sn34.png", // BitMind (github)
+  35: "/subnets/sn35.png", // OxMarkets (existing)
+  37: "/subnets/sn37.png", // Aurelius (existing)
+  38: "/subnets/sn38.png", // ChronoLLM (github)
+  39: "/subnets/sn39.png", // Basilica (existing)
+  40: "/subnets/sn40.png", // Ralph (taostats)
+  41: "/subnets/sn41.png", // Almanac (existing)
+  43: "/subnets/sn43.png", // Graphite (github)
+  44: "/subnets/sn44.png", // Score (existing)
+  45: "/subnets/sn45.jpg", // AlphaRidge.ai (existing)
+  46: "/subnets/sn46.png", // Instant (existing)
+  47: "/subnets/sn47.png", // Feval (taostats)
+  48: "/subnets/sn48.jpg", // Quantum Compute (existing)
+  49: "/subnets/sn49.png", // Nepher Robotics (taostats)
+  50: "/subnets/sn50-synth.jpg", // Synth
+  51: "/subnets/sn51.jpg", // lium.io (github)
+  52: "/subnets/sn52.jpg", // Dojo (github)
+  53: "data:image/svg+xml;base64,PHN2ZyB2aWV3Qm94PSIxMzIgMTMyIDc2MCA3NjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3QgeD0iMTMyIiB5PSIxMzIiIHdpZHRoPSI3NjAiIGhlaWdodD0iNzYwIiBmaWxsPSIjZmZmZmZmIi8+PHJlY3QgeD0iMjA1IiB5PSIyNDYiIHdpZHRoPSI0NzIiIGhlaWdodD0iMTMyIiByeD0iNjYiIGZpbGw9IiNGNTUxMUUiLz48cmVjdCB4PSIzNDciIHk9IjQ0NCIgd2lkdGg9IjQ3MiIgaGVpZ2h0PSIxMzQiIHJ4PSI2NyIgZmlsbD0iI0Y1NTExRSIvPjxyZWN0IHg9IjIwNSIgeT0iNjQ3IiB3aWR0aD0iNDcyIiBoZWlnaHQ9IjEzMiIgcng9IjY2IiBmaWxsPSIjRjU1MTFFIi8+PC9zdmc+Cg==", // engy
+  54: "/subnets/sn54.png", // Yanez (taostats)
+  55: "/subnets/sn55.webp", // NIOME (existing)
+  56: "/subnets/sn56.png", // Gradients (existing)
+  58: "/subnets/sn58.png", // greevils (existing)
+  60: "/subnets/sn60.png", // Bitsec.ai (github)
+  61: "/subnets/sn61-redteam.jpg", // RedTeam
+  62: "/subnets/sn62.png", // Ridges (existing)
+  63: "/subnets/sn63.png", // Enigma (taostats)
+  64: "/subnets/sn64.png", // Chutes (existing)
+  65: "/subnets/sn65.jpg", // True Performance Network (existing)
+  66: "/subnets/sn66.png", // conjectures (github)
+  67: "/subnets/sn67.svg", // Harnyx (existing)
+  68: "/subnets/sn68.png", // NOVA (existing)
+  69: "/subnets/sn69.svg", // Herald (taostats)
+  71: "/subnets/sn71.png", // Leadpoet (existing)
+  72: "/subnets/sn72.jpg", // StreetVision by NATIX (github)
+  73: "/subnets/sn73.jpg", // Parked (existing)
+  74: "/subnets/sn74.png", // Gittensor (existing)
+  75: "/subnets/sn75.png", // Hippius (existing)
+  77: "/subnets/sn77.svg", // Liquidity (existing)
+  78: "/subnets/sn78.jpg", // Umi (existing)
+  79: "/subnets/sn79.png", // MVTRX (existing)
+  80: "/subnets/sn80.png", // OpenRoboto (taostats)
+  81: "/subnets/sn81.png", // Reliquary (existing)
+  82: "/subnets/sn82.png", // Compelle (taostats)
+  83: "/subnets/sn83.png", // CliqueAI (github)
+  85: "/subnets/sn85.png", // Vidaio (existing)
+  87: "/subnets/sn87.png", // Provenonce (existing)
+  88: "/subnets/sn88.png", // Investing (existing)
+  89: "/subnets/sn89.jpg", // InfiniteQuant (existing)
+  90: "/subnets/sn90.png", // KubeTEE (taostats)
+  91: "/subnets/sn91.png", // cascade (taostats)
+  92: "/subnets/sn92.png", // MicroTensor (taostats)
+  93: "/subnets/sn93.png", // Bitcast (taostats)
+  94: "/subnets/sn94.jpg", // pending... (github)
+  95: "/subnets/sn95.png", // Actual (taostats)
+  96: "/subnets/sn96.png", // Verathos (existing)
+  97: "/subnets/sn97.png", // Albedo (existing)
+  98: "/subnets/sn98.png", // NeverPlayAlone (existing)
+  100: "/subnets/sn100.png", // Cortex (existing)
+  101: "/subnets/sn101.png", // Tag101 (github)
+  102: "/subnets/sn102.png", // ConnitoAI (taostats)
+  103: "/subnets/sn103.png", // Capcomp (existing)
+  104: "/subnets/sn104.png", // TAOstatus (github)
+  105: "/subnets/sn105.jpg", // Beam (existing)
+  106: "/subnets/sn106.png", // Nodexo (taostats)
+  107: "/subnets/sn107.png", // Minos (existing)
+  108: "/subnets/sn108.svg", // Prometheon (taostats)
+  109: "/subnets/sn109.png", // Finsight (site)
+  110: "/subnets/sn110.png", // Green Compute (taostats)
+  111: "/subnets/sn111.png", // Claims (github)
+  112: "/subnets/sn112.png", // parked (existing)
+  113: "/subnets/sn113.png", // TensorUSD (existing)
+  114: "/subnets/sn114.png", // SOMA (existing)
+  115: "/subnets/sn115.png", // MoirAI (existing)
+  117: "/subnets/sn117.png", // glyph (taostats)
+  118: "/subnets/sn118.png", // Ditto (taostats)
+  119: "/subnets/sn119.png", // Satori (github)
+  120: "/subnets/sn120.png", // Affine (github)
+  121: "/subnets/sn121.png", // sundae_bar (existing)
+  122: "/subnets/sn122.png", // CookingTAO (existing)
+  123: "/subnets/sn123.png", // MANTIS (github)
+  124: "/subnets/sn124.png", // Swarm (existing)
+  126: "/subnets/sn126.jpg", // Poker44 (existing)
+  127: "/subnets/sn127.png", // Astrid (taostats)
+  128: "/subnets/sn128.jpg", // ByteLeap (existing)
 };
 
 /** Stable color palette for initials fallback avatars (indexed by netuid % length) */
