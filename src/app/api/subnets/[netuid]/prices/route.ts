@@ -79,11 +79,34 @@ async function writeCache(netuid: number, points: PricePoint[]): Promise<void> {
  * axis disagreed with 1D-3M. Convert at each day's TAO/USD close on the way
  * out; the cache stays in TAO so a rate source outage never corrupts it.
  */
-async function asUsd(points: PricePoint[]): Promise<PricePoint[]> {
+async function asUsd(points: PricePoint[], netuid: number): Promise<PricePoint[]> {
   const daily = await fetchTaoUsdDaily(TOKEN);
-  if (daily.size === 0) return points;
   const latest = [...daily.entries()].sort(([a], [b]) => a.localeCompare(b)).at(-1)?.[1] ?? 0;
-  return taoSeriesToUsd(points, daily, latest);
+  const usd = daily.size === 0 ? points : taoSeriesToUsd(points, daily, latest);
+  return extendToToday(usd, netuid);
+}
+
+/**
+ * Whatever the source, run the series to today. An older TaoStats cache can
+ * end months back (SN28's stopped at 2026-03-29), which drew a 1Y chart that
+ * simply ended. Past its last point, append our own chain-verified history
+ * (already USD), one close per day.
+ */
+async function extendToToday(points: PricePoint[], netuid: number): Promise<PricePoint[]> {
+  const lastTs = points.at(-1)?.timestamp ?? "";
+  try {
+    const b = await blobGet("subnet-scores-history.json", { token: TOKEN, access: "private", abortSignal: AbortSignal.timeout(10_000) });
+    if (!b?.stream) return points;
+    const r = b.stream.getReader(); const cs: Uint8Array[] = [];
+    while (true) { const { done, value } = await r.read(); if (done) break; cs.push(value); }
+    const hist = JSON.parse(Buffer.concat(cs).toString("utf-8")) as Record<string, Record<string, { price?: number }>>;
+    const closes = new Map<string, PricePoint>();
+    for (const ts of Object.keys(hist).sort()) {
+      const px = hist[ts]?.[String(netuid)]?.price;
+      if (typeof px === "number" && px > 0 && ts > lastTs) closes.set(ts.slice(0, 10), { timestamp: ts, price: px });
+    }
+    return [...points, ...closes.values()];
+  } catch { return points; }
 }
 
 export async function GET(
@@ -99,7 +122,7 @@ export async function GET(
   // runs if the archive is missing, e.g. for a subnet registered today.
   const archive = dailySeries(await readPriceDaily(TOKEN), netuid);
   if (archive.length >= 30) {
-    return NextResponse.json({ priceHistory: await asUsd(archive), stale: false, unit: "usd", source: "chain" });
+    return NextResponse.json({ priceHistory: await asUsd(archive, netuid), stale: false, unit: "usd", source: "chain" });
   }
 
   const cached = await readCache(netuid);
@@ -107,7 +130,7 @@ export async function GET(
 
   // Fresh enough: answer from the blob, never touch TaoStats.
   if (haveCache && cached!.ageMs < CACHE_TTL_MS) {
-    return NextResponse.json({ priceHistory: await asUsd(cached!.points), stale: false, unit: "usd" });
+    return NextResponse.json({ priceHistory: await asUsd(cached!.points, netuid), stale: false, unit: "usd" });
   }
 
   // Past TTL but usable: answer now, refresh after the response so nobody
@@ -117,14 +140,14 @@ export async function GET(
       const fresh = await fetchUpstream(netuid);
       if (fresh.length >= 2) await writeCache(netuid, fresh);
     });
-    return NextResponse.json({ priceHistory: await asUsd(cached!.points), stale: false, unit: "usd" });
+    return NextResponse.json({ priceHistory: await asUsd(cached!.points, netuid), stale: false, unit: "usd" });
   }
 
   // Cold subnet: nothing cached, so this one request pays for the fetch.
   const priceHistory = await fetchUpstream(netuid);
   if (priceHistory.length >= 2) {
     await writeCache(netuid, priceHistory);
-    return NextResponse.json({ priceHistory: await asUsd(priceHistory), stale: false, unit: "usd" });
+    return NextResponse.json({ priceHistory: await asUsd(priceHistory, netuid), stale: false, unit: "usd" });
   }
-  return NextResponse.json({ priceHistory: await asUsd(priceHistory), stale: true, unit: "usd" });
+  return NextResponse.json({ priceHistory: await asUsd(priceHistory, netuid), stale: true, unit: "usd" });
 }
