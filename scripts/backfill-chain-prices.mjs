@@ -40,6 +40,8 @@ if (!DO_HISTORY && !DO_DAILY) { console.log("pass --history and/or --daily (add 
 
 const RAO = 1e9;
 const BLOCK_MS = 12_000;
+// Two in flight keeps well inside the archive node's historical-read budget.
+const CONCURRENCY = 2;
 
 const num = v => { if (v == null) return 0; if (typeof v === "number") return v; try { return Number(BigInt(String(v))); } catch { return 0; } };
 
@@ -58,7 +60,14 @@ async function pool(items, limit, fn) {
       const idx = i++;
       for (let attempt = 1; ; attempt++) {
         try { out[idx] = await fn(items[idx]); break; }
-        catch (e) { if (attempt >= 3) { out[idx] = null; console.warn(`  ${items[idx]}: ${e.message}`); break; } await new Promise(r => setTimeout(r, 1500 * attempt)); }
+        catch (e) {
+          // The public archive node has a burst budget for historical reads
+          // ("Historical work rate limit exceeded"). It refills within a
+          // couple of minutes, so wait it out rather than give up.
+          const budget = /rate limit|budget/i.test(e.message);
+          if (attempt >= (budget ? 12 : 3)) { out[idx] = null; console.warn(`  ${items[idx]}: ${e.message.slice(0, 120)}`); break; }
+          await new Promise(r => setTimeout(r, budget ? 20_000 : 1500 * attempt));
+        }
       }
       if (++done % 20 === 0) process.stdout.write(`  ${done}/${items.length}\n`);
     }
@@ -141,7 +150,7 @@ if (DO_HISTORY) {
   const stamps = Object.keys(hist).sort();
   const usd = await hourlyTaoUsd();
   console.log(`${stamps.length} snapshots, ${usd.length} hourly TAO/USD points`);
-  const results = await pool(stamps, 6, async ts => ({ ts, m: await marketAt(new Date(ts).getTime(), true) }));
+  const results = await pool(stamps, CONCURRENCY, async ts => ({ ts, m: await marketAt(new Date(ts).getTime(), true) }));
   let rewritten = 0, cleared = 0, skipped = 0;
   for (const res of results) {
     if (!res) { skipped++; continue; }
@@ -176,7 +185,7 @@ if (DO_DAILY) {
     const d = new Date(headTs - i * 86400_000);
     days.push(d.toISOString().slice(0, 10));
   }
-  const results = await pool(days, 6, async day => ({ day, m: await marketAt(new Date(`${day}T23:59:00Z`).getTime(), false) }));
+  const results = await pool(days, CONCURRENCY, async day => ({ day, m: await marketAt(new Date(`${day}T23:59:00Z`).getTime(), false) }));
   const archive = { savedAt: new Date().toISOString(), days: {}, reg: Object.fromEntries([...regNow].map(([k, v]) => [String(k), v])) };
   let kept = 0, dropped = 0;
   for (const res of results) {

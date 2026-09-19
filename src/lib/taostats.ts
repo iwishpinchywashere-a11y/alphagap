@@ -15,6 +15,17 @@ interface TaoStatsResponse<T> {
 /** Logged once per process so an exhausted account does not spam the logs. */
 let creditWarningLogged = false;
 
+/**
+ * Process-level record of how TaoStats is behaving, published by the scan in
+ * scan-latest.json so the health cron can email the owner when credits run
+ * out. Both previous outages were discovered from screenshots of flat charts.
+ */
+export const taostatsStatus = {
+  lastSuccessAt: null as string | null,
+  lastCreditErrorAt: null as string | null,
+  lastErrorAt: null as string | null,
+};
+
 async function taoFetch<T>(path: string, params: Record<string, string> = {}, revalidate = 60): Promise<T[]> {
   const url = new URL(`${BASE_URL}${path}`);
   for (const [k, v] of Object.entries(params)) {
@@ -44,6 +55,7 @@ async function taoFetch<T>(path: string, params: Record<string, string> = {}, re
     // pages take a minute to load. Fail fast and let callers fall back.
     const peek = await res.clone().text().catch(() => "");
     if (/insufficient credits/i.test(peek)) {
+      taostatsStatus.lastCreditErrorAt = new Date().toISOString();
       if (!creditWarningLogged) {
         creditWarningLogged = true;
         console.error(
@@ -79,11 +91,13 @@ async function taoFetch<T>(path: string, params: Record<string, string> = {}, re
   }
 
   if (!res.ok) {
+    taostatsStatus.lastErrorAt = new Date().toISOString();
     const text = await res.text();
     throw new Error(`TaoStats ${path} failed (${res.status}): ${text}`);
   }
 
   const json: TaoStatsResponse<T> = await res.json();
+  taostatsStatus.lastSuccessAt = new Date().toISOString();
   return json.data || [];
 }
 

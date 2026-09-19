@@ -3,7 +3,6 @@ import { put, get as blobGet } from "@vercel/blob";
 import {
   getSubnetIdentities,
   getSubnetPools,
-  getTaoFlows,
   getSubnetEmissions,
   getTaoPrice,
   getGithubActivity,
@@ -11,6 +10,7 @@ import {
   type SubnetIdentity,
   type SubnetPool,
   type GithubActivity,
+  taostatsStatus,
 } from "@/lib/taostats";
 
 // ── SubnetRadar API (no auth required, CORS-enabled) ────────────────
@@ -5302,6 +5302,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     taoPrice,
     lastScan: new Date().toISOString(),
     marketHealth,
+    taostats: { ...taostatsStatus },
     duration_ms: duration,
     counts: {
       subnets: leaderboard.length,

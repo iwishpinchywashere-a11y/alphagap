@@ -11,6 +11,15 @@
  *     rebalancing" (the strategy is MANUAL_ONLY, so our cron is the only trigger)
  *   - re-alerts at most every REALERT_HOURS while the condition persists
  *   - sends a one-time "recovered" email when freshness returns
+ *
+ * MARKET CHECKS (added 2026-09-19). The scan-age check above never fired in
+ * any of the flat-chart incidents, because the scan kept running on time; it
+ * was the DATA that was stale. "The scan ran" and "the prices are live" are
+ * different claims, and only the first was being checked. So also:
+ *   - market data not from a fresh chain read (scan-latest.marketHealth)
+ *   - a replayed reading blocked by the scan's replay detector
+ *   - TaoStats out of credits (dev activity, identities, trade counts degrade;
+ *     prices do not, they come from the chain now)
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -48,7 +57,17 @@ interface HealthState {
   alerting: boolean;
   lastAlertAt: string | null;
   lastRebalanceAlertAt?: string | null;
+  /** Per-issue alert timestamps for the market checks. */
+  issues?: Record<string, string | null>;
 }
+
+interface MarketHealth {
+  source: string; fresh: boolean; observedAt: string | null;
+  recorded: boolean; replay: boolean; taoUsdSource: string;
+  horizons: Record<string, boolean> | null;
+}
+
+const MARKET_STALE_MIN = 45;
 
 export async function GET(req: NextRequest) {
   const secret = (process.env.CRON_SECRET || "").trim();
@@ -56,7 +75,11 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const scan = await readBlob<{ lastScan?: string }>("scan-latest.json");
+  const scan = await readBlob<{
+    lastScan?: string;
+    marketHealth?: MarketHealth;
+    taostats?: { lastSuccessAt: string | null; lastCreditErrorAt: string | null };
+  }>("scan-latest.json");
   const lastScan = scan?.lastScan ? new Date(scan.lastScan).getTime() : 0;
   const ageMin = lastScan ? Math.round((Date.now() - lastScan) / 60000) : Infinity;
   const isStale = ageMin > STALE_AFTER_MIN;
@@ -120,6 +143,60 @@ export async function GET(req: NextRequest) {
     state.lastRebalanceAlertAt = null; // recovered — arm the alert again
   }
 
+  // ── Market data checks ───────────────────────────────────────────
+  state.issues = state.issues ?? {};
+  const issue = async (key: string, active: boolean, subject: string, lines: string[], recovered: string) => {
+    const last = state.issues![key];
+    if (active) {
+      const since = last ? Date.now() - new Date(last).getTime() : Infinity;
+      if (since > REALERT_HOURS * 3600_000) {
+        await sendSystemAlertEmail(subject, lines).catch(err => console.error(`[health-watch] ${key} email failed:`, err));
+        state.issues![key] = new Date().toISOString();
+        emailed = emailed ? `${emailed}+${key}` : key;
+      }
+    } else if (last) {
+      await sendSystemAlertEmail(recovered, ["No action needed."]).catch(() => {});
+      state.issues![key] = null;
+      emailed = emailed ? `${emailed}+${key}-recovered` : `${key}-recovered`;
+    }
+  };
+
+  const mh = scan?.marketHealth;
+  // Old scans (before this check existed) carry no marketHealth: say nothing.
+  if (mh && !isStale) {
+    const obsAgeMin = mh.observedAt ? Math.round((Date.now() - new Date(mh.observedAt).getTime()) / 60000) : Infinity;
+    const marketStale = !mh.fresh || mh.source !== "chain" || obsAgeMin > MARKET_STALE_MIN;
+    await issue("market", marketStale,
+      "Subnet prices are NOT live - charts will not update",
+      [
+        `The scan is running, but its market data did not come from a fresh chain read.`,
+        `Source: <strong style="color:#ffffff;">${mh.source}</strong>, fresh: <strong style="color:#f59e0b;">${mh.fresh}</strong>, block time ${mh.observedAt ?? "none"} (${Number.isFinite(obsAgeMin) ? obsAgeMin + " min ago" : "no reading"}).`,
+        `While this lasts, prices are NOT written to chart history (by design, so charts show a gap instead of a fake flat line).`,
+        `Likely cause: the Bittensor RPC (entrypoint-finney / archive.chain.opentensor.ai) is unreachable from Vercel. Check /api/scan logs for "[market]".`,
+      ],
+      "Subnet prices are live again");
+    await issue("replay", mh.replay,
+      "Replayed prices detected and blocked",
+      [
+        `The scan's replay detector found most subnet prices repeating values already recorded in the last 24 hours. Something upstream is serving a cached copy as live.`,
+        `Those readings were NOT written to history. Check /api/scan logs for "PRICE REPLAY".`,
+      ],
+      "Price replay cleared");
+  }
+
+  const ts = scan?.taostats;
+  const creditsOut = !!ts?.lastCreditErrorAt &&
+    (!ts.lastSuccessAt || new Date(ts.lastCreditErrorAt) > new Date(ts.lastSuccessAt));
+  await issue("taostats-credits", creditsOut,
+    "TaoStats is OUT OF CREDITS",
+    [
+      `TaoStats is answering every call with "Insufficient credits".`,
+      `<strong style="color:#ffffff;">Prices, market caps, emissions and charts are NOT affected</strong> (they come from the chain now).`,
+      `Degraded until topped up: dev activity history, subnet identities (names/links), trade counts for whale scores, Fear &amp; Greed.`,
+      `Top up at <a href="https://dash.taostats.io/billing" style="color:#10b981;">dash.taostats.io/billing</a>.`,
+    ],
+    "TaoStats credits restored");
+
   await blobPut(stateKey, JSON.stringify(state), {
     access: "private", token: TOKEN(),
     addRandomSuffix: false, allowOverwrite: true, contentType: "application/json",
@@ -131,6 +208,8 @@ export async function GET(req: NextRequest) {
     isStale,
     rebalanceDays: Number.isFinite(rebDays) ? Number(rebDays.toFixed(2)) : null,
     rebStale,
+    market: mh ?? null,
+    taostatsCreditsOut: creditsOut,
     emailed,
   });
 }

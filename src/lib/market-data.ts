@@ -158,29 +158,94 @@ async function perNetuid(api: ApiPromise, item: string): Promise<Map<number, unk
   return out;
 }
 
+// ── Snapshot cache ───────────────────────────────────────────────────────
+//
+// The public archive node rations historical reads ("Historical work rate
+// limit exceeded"), and a scan every 10 minutes asking for four past blocks
+// would lean on that budget forever. But every scan already reads the head of
+// the chain; kept for a week, those readings ARE the past. So each scan stores
+// its own head state, and the 1h/24h/7d comparisons read from that store. The
+// archive is only asked for a horizon the store has nothing near (the first
+// week after deploy, or after an outage), and that answer is stored too.
+//
+// Entries within 26h keep what the 24h volume and net flow need; older ones
+// keep only the price, which is all the 7d comparison uses.
+
+const SNAPSHOT_BLOB = "chain-snapshots.json";
+type Snap = { t: number; block: number; s: Record<string, number[]> }; // [price, taoIn, volCum, injPerBlock] (TAO)
+const TOLERANCE_MS: Record<"h1" | "h24" | "d7", number> = { h1: 8 * 60_000, h24: 40 * 60_000, d7: 60 * 60_000 };
+const OFFSET_MS = { h1: 3600_000, h24: 86_400_000, d7: 7 * 86_400_000, d30: 30 * 86_400_000 };
+
+const sig = (x: number) => Number(x.toPrecision(10));
+
+async function readSnapshots(token: string): Promise<Snap[]> {
+  if (!token) return [];
+  const { get } = await import("@vercel/blob");
+  try {
+    const b = await get(SNAPSHOT_BLOB, { token, access: "private", abortSignal: AbortSignal.timeout(8_000) });
+    if (!b?.stream) return [];
+    const r = b.stream.getReader(); const cs: Uint8Array[] = [];
+    while (true) { const { done, value } = await r.read(); if (done) break; cs.push(value); }
+    const parsed = JSON.parse(Buffer.concat(cs).toString("utf-8"));
+    return Array.isArray(parsed?.snaps) ? parsed.snaps : [];
+  } catch { return []; }
+}
+
+/** Every scan for 2h, one per hour to 8 days; beyond 26h, price only. */
+function pruneSnapshots(snaps: Snap[], nowMs: number): Snap[] {
+  const sorted = [...snaps].sort((a, b) => b.t - a.t);
+  const seenHours = new Set<number>();
+  const out: Snap[] = [];
+  for (const sn of sorted) {
+    const age = nowMs - sn.t;
+    if (age > 8 * 86_400_000) continue;
+    if (age > 2 * 3600_000) {
+      const hour = Math.floor(sn.t / 3600_000);
+      if (seenHours.has(hour)) continue;
+      seenHours.add(hour);
+    }
+    if (age > 26 * 3600_000) {
+      out.push({ t: sn.t, block: sn.block, s: Object.fromEntries(Object.entries(sn.s).map(([k, v]) => [k, [v[0]]])) });
+    } else out.push(sn);
+  }
+  return out.sort((a, b) => a.t - b.t);
+}
+
+function nearest(snaps: Snap[], target: number, tol: number): Snap | null {
+  let best: Snap | null = null, bd = Infinity;
+  for (const sn of snaps) { const d = Math.abs(sn.t - target); if (d < bd) { bd = d; best = sn; } }
+  return best && bd <= tol ? best : null;
+}
+
 /**
  * Read every subnet's market state from chain. Returns null only if the head
  * of the chain cannot be read at all; missing history horizons degrade to null
  * change values rather than failing the whole read.
  */
 export async function fetchChainMarket(): Promise<ChainMarket | null> {
+  const token = process.env.BLOB_READ_WRITE_TOKEN || "";
   let head: ApiPromise | null = null;
   let archive: ApiPromise | null = null;
+  let archiveTried = false;
+  const getArchive = async () => {
+    if (!archiveTried) {
+      archiveTried = true;
+      archive = await connect(ARCHIVE_RPC, 20_000).catch(e => {
+        console.warn(`[market] archive unavailable: ${e instanceof Error ? e.message : e}`);
+        return null;
+      });
+    }
+    return archive;
+  };
   try {
-    // Archive connects in parallel; it is only needed for history.
-    const archiveP = connect(ARCHIVE_RPC, 20_000).catch(e => {
-      console.warn(`[market] archive unavailable: ${e instanceof Error ? e.message : e}`);
-      return null;
-    });
-    head = await connect(HEAD_RPC, 20_000).catch(async e => {
+    head = await connect(HEAD_RPC, 20_000).catch(e => {
       console.warn(`[market] head RPC failed (${e instanceof Error ? e.message : e}), using archive for head`);
       return null;
     });
-    archive = await archiveP;
-    const headApi = head ?? archive;
+    const headApi = head ?? (await getArchive());
     if (!headApi) return null;
 
-    const [header, nowTs, dyn, staked, protocol, taoInEm, excess, enabled, ema, permits, neuronsN] = await withTimeout(Promise.all([
+    const [header, nowTs, dyn, staked, protocol, taoInEm, excess, enabled, ema, permits, neuronsN, snapsLoaded] = await withTimeout(Promise.all([
       headApi.rpc.chain.getHeader(),
       headApi.query.timestamp.now(),
       dynamicAt(headApi),
@@ -192,55 +257,97 @@ export async function fetchChainMarket(): Promise<ChainMarket | null> {
       perNetuid(headApi, "subnetEmaTaoFlow"),
       perNetuid(headApi, "validatorPermit"),
       perNetuid(headApi, "subnetworkN"),
+      readSnapshots(token),
     ]), 30_000, "head state");
 
     const block = header.number.toNumber();
-    const observedAt = new Date(Number(nowTs.toString())).toISOString();
+    const nowMs = Number(nowTs.toString());
+    const observedAt = new Date(nowMs).toISOString();
 
-    // ── History from the archive, each horizon independent ─────────────
-    const horizons = { h1: false, h24: false, d7: false, d30: false };
-    const past: Partial<Record<keyof typeof BLOCKS, Map<number, DynamicRow>>> = {};
-    const pastInjection = new Map<number, number>();
-    if (archive) {
-      const arch = archive;
-      await Promise.all((Object.keys(BLOCKS) as Array<keyof typeof BLOCKS>).map(async key => {
-        try {
-          const hash = (await arch.rpc.chain.getBlockHash(block - BLOCKS[key])).toString();
-          past[key] = await withTimeout(dynamicAt(arch, hash), 25_000, `history ${key}`);
-          horizons[key] = true;
-          if (key === "h24") {
-            // Injection rate 24h ago, to average with today's for net flow.
-            const at = await arch.at(hash);
-            const [ti, ex] = await Promise.all([
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              (at.query.subtensorModule as any).subnetTaoInEmission.entries(),
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              (at.query.subtensorModule as any).subnetExcessTao.entries(),
-            ]);
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            for (const [k, v] of ti as Array<[any, any]>) pastInjection.set(k.args.at(-1).toNumber(), num(v.toJSON()));
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            for (const [k, v] of ex as Array<[any, any]>) {
-              const id = k.args.at(-1).toNumber();
-              pastInjection.set(id, (pastInjection.get(id) ?? 0) + num(v.toJSON()));
-            }
-          }
-        } catch (e) {
-          console.warn(`[market] history ${key} failed: ${e instanceof Error ? e.message : e}`);
-        }
-      }));
+    // Head state in snapshot form: [price, taoIn, volumeCum, injection/block], TAO.
+    const headSnap: Snap = { t: nowMs, block, s: {} };
+    for (const [id, r] of dyn) {
+      if (id === 0) continue;
+      const aIn = num(r.alphaIn);
+      if (aIn <= 0) continue;
+      headSnap.s[id] = [
+        sig(num(r.taoIn) / aIn),
+        sig(num(r.taoIn) / RAO),
+        sig(num(r.subnetVolume) / RAO),
+        sig((num(taoInEm.get(id)) + num(excess.get(id))) / RAO),
+      ];
     }
+    let snaps = snapsLoaded;
+
+    // ── Past states: snapshot store first, archive only for gaps ────────
+    const horizons = { h1: false, h24: false, d7: false, d30: false };
+    const past: Partial<Record<keyof typeof BLOCKS, Record<string, number[]>>> = {};
+    const fromArchive: string[] = [];
+    for (const key of ["h1", "h24", "d7"] as const) {
+      const hit = nearest(snaps, nowMs - OFFSET_MS[key], TOLERANCE_MS[key]);
+      // 24h needs the full tuple (volume, injection); older entries hold price only.
+      if (hit && (key !== "h24" || Object.values(hit.s)[0]?.length === 4)) {
+        past[key] = hit.s; horizons[key] = true; continue;
+      }
+      const arch = await getArchive();
+      if (!arch) continue;
+      try {
+        const hash = (await arch.rpc.chain.getBlockHash(block - BLOCKS[key])).toString();
+        const at = await arch.at(hash);
+        const [rows, tsPast, tin, ex] = await withTimeout(Promise.all([
+          dynamicAt(arch, hash),
+          at.query.timestamp.now(),
+          key === "h24" ? perNetuidAt(at, "subnetTaoInEmission") : Promise.resolve(new Map<number, unknown>()),
+          key === "h24" ? perNetuidAt(at, "subnetExcessTao") : Promise.resolve(new Map<number, unknown>()),
+        ]), 25_000, `history ${key}`);
+        const snap: Snap = { t: Number(tsPast.toString()), block: block - BLOCKS[key], s: {} };
+        for (const [id, r] of rows) {
+          const aIn = num(r.alphaIn);
+          if (id === 0 || aIn <= 0) continue;
+          snap.s[id] = [sig(num(r.taoIn) / aIn), sig(num(r.taoIn) / RAO), sig(num(r.subnetVolume) / RAO), sig((num(tin.get(id)) + num(ex.get(id))) / RAO)];
+        }
+        past[key] = snap.s; horizons[key] = true;
+        snaps = [...snaps, snap];
+        fromArchive.push(key);
+      } catch (e) {
+        console.warn(`[market] history ${key} failed: ${e instanceof Error ? e.message : e}`);
+      }
+    }
+    // 30d: the chain-derived daily price archive, else one archive read.
+    const daily = await readPriceDaily(token);
+    const d30Day = new Date(nowMs - OFFSET_MS.d30).toISOString().slice(0, 10);
+    if (daily?.days?.[d30Day]) {
+      past.d30 = Object.fromEntries(Object.entries(daily.days[d30Day]).map(([k, v]) => [k, [v]]));
+      horizons.d30 = true;
+    } else {
+      const arch = await getArchive();
+      if (arch) {
+        try {
+          const hash = (await arch.rpc.chain.getBlockHash(block - BLOCKS.d30)).toString();
+          const rows = await withTimeout(dynamicAt(arch, hash), 25_000, "history d30");
+          past.d30 = {};
+          for (const [id, r] of rows) { const aIn = num(r.alphaIn); if (id !== 0 && aIn > 0) past.d30[id] = [num(r.taoIn) / aIn]; }
+          horizons.d30 = true;
+          fromArchive.push("d30");
+        } catch (e) {
+          console.warn(`[market] history d30 failed: ${e instanceof Error ? e.message : e}`);
+        }
+      }
+    }
+
+    // Store this reading for future scans.
+    await (async () => {
+      if (!token) return;
+      const { put } = await import("@vercel/blob");
+      await put(SNAPSHOT_BLOB, JSON.stringify({ snaps: pruneSnapshots([...snaps, headSnap], nowMs) }), {
+        access: "private", addRandomSuffix: false, allowOverwrite: true, token, contentType: "application/json",
+      });
+    })().catch(e => console.warn(`[market] snapshot save failed: ${e instanceof Error ? e.message : e}`));
 
     // ── Assemble ──────────────────────────────────────────────────────
     let emissionTotal = 0;
     for (const [id] of dyn) if (id !== 0) emissionTotal += num(taoInEm.get(id)) + num(excess.get(id));
-
-    const priceOf = (r?: DynamicRow) => {
-      if (!r) return null;
-      const a = num(r.alphaIn);
-      return a > 0 ? num(r.taoIn) / a : null;
-    };
-    const pct = (now: number, then: number | null) =>
+    const pct = (now: number, then: number | undefined) =>
       then && then > 0 ? (now / then - 1) * 100 : null;
 
     const subnets = new Map<number, ChainSubnet>();
@@ -252,16 +359,19 @@ export async function fetchChainMarket(): Promise<ChainMarket | null> {
       if (alphaIn <= 0) continue;
       const priceTao = taoIn / alphaIn;
       const alphaStaked = (num(staked.get(id)) + num(protocol.get(id))) / RAO;
-      const injectionNow = num(taoInEm.get(id)) + num(excess.get(id));
+      const injectionNow = (num(taoInEm.get(id)) + num(excess.get(id))) / RAO;
 
-      const r24 = past.h24?.get(id);
+      const p24 = past.h24?.[id];
       let volume24hTao: number | null = null;
       let netFlow24hTao: number | null = null;
-      if (r24) {
-        volume24hTao = Math.max(0, (num(r.subnetVolume) - num(r24.subnetVolume)) / RAO);
-        const injectionThen = pastInjection.get(id) ?? injectionNow;
-        const injected = ((injectionNow + injectionThen) / 2) * BLOCKS.h24 / RAO;
-        netFlow24hTao = (num(r.taoIn) - num(r24.taoIn)) / RAO - injected;
+      if (p24 && p24.length === 4) {
+        const [, taoInThen, volThen, injThen] = p24;
+        const volNow = num(r.subnetVolume) / RAO;
+        volume24hTao = Math.max(0, volNow - volThen);
+        // Actual elapsed blocks, since a snapshot may sit a few minutes off 24h.
+        const blocks = Math.max(1, (nowMs - (snapTime(snaps, past.h24) ?? nowMs - OFFSET_MS.h24)) / 12_000);
+        const injected = ((injectionNow + injThen) / 2) * blocks;
+        netFlow24hTao = (taoIn - taoInThen) - injected;
       }
 
       const emaRaw = ema.get(id) as [unknown, { bits: unknown }] | undefined;
@@ -273,14 +383,14 @@ export async function fetchChainMarket(): Promise<ChainMarket | null> {
         taoIn, alphaIn, alphaOut, alphaStaked,
         totalAlpha: alphaIn + alphaOut,
         marketCapTao: priceTao * (alphaIn + alphaStaked),
-        emissionShare: emissionTotal > 0 ? injectionNow / emissionTotal : 0,
+        emissionShare: emissionTotal > 0 ? (num(taoInEm.get(id)) + num(excess.get(id))) / emissionTotal : 0,
         emissionEnabled: enabled.get(id) === true,
         emaTaoFlowRao: Array.isArray(emaRaw) ? fixedToNumber(emaRaw[1]?.bits, 64, 128) : null,
         movingPriceTao: r.movingPrice ? fixedToNumber(r.movingPrice.bits, 32, 128) : null,
-        change1h: pct(priceTao, priceOf(past.h1?.get(id))),
-        change24h: pct(priceTao, priceOf(r24)),
-        change7d: pct(priceTao, priceOf(past.d7?.get(id))),
-        change30d: pct(priceTao, priceOf(past.d30?.get(id))),
+        change1h: pct(priceTao, past.h1?.[id]?.[0]),
+        change24h: pct(priceTao, p24?.[0]),
+        change7d: pct(priceTao, past.d7?.[id]?.[0]),
+        change30d: pct(priceTao, past.d30?.[id]?.[0]),
         volume24hTao,
         netFlow24hTao,
         validators: Array.isArray(permits.get(id)) ? (permits.get(id) as boolean[]).filter(Boolean).length : null,
@@ -291,15 +401,34 @@ export async function fetchChainMarket(): Promise<ChainMarket | null> {
 
     console.log(
       `[market] chain block ${block} @ ${observedAt}: ${subnets.size} subnets, history ` +
-      Object.entries(horizons).map(([k, v]) => `${k}${v ? "" : "(missing)"}`).join(" "),
+      Object.entries(horizons).map(([k, v]) => `${k}${v ? "" : "(missing)"}`).join(" ") +
+      ` (archive reads: ${fromArchive.length ? fromArchive.join(",") : "none"}, snapshots: ${snaps.length})`,
     );
     return { block, observedAt, subnets, horizons };
   } catch (e) {
     console.error(`[market] chain read failed: ${e instanceof Error ? e.message : e}`);
     return null;
   } finally {
-    await Promise.all([head?.disconnect().catch(() => {}), archive?.disconnect().catch(() => {})]);
+    await Promise.all([
+      (head as ApiPromise | null)?.disconnect().catch(() => {}),
+      (archive as ApiPromise | null)?.disconnect().catch(() => {}),
+    ]);
   }
+}
+
+/** Timestamp of the snapshot whose state object is `state`. */
+function snapTime(snaps: Snap[], state: Record<string, number[]> | undefined): number | null {
+  if (!state) return null;
+  return snaps.find(sn => sn.s === state)?.t ?? null;
+}
+
+async function perNetuidAt(at: unknown, item: string): Promise<Map<number, unknown>> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const entries = await (at as any).query.subtensorModule[item].entries();
+  const out = new Map<number, unknown>();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  for (const [k, v] of entries as Array<[any, any]>) out.set(k.args.at(-1).toNumber(), v.toJSON());
+  return out;
 }
 
 /** True when this reading is recent enough to be recorded as live. */
