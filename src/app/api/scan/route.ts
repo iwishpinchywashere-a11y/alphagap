@@ -154,6 +154,12 @@ interface TMCSubnet {
   subnet_moving_price?: number | null; // de-manipulated moving price — what the v440 gate acts on
   emission_enabled?: boolean;          // subnets with emission off are not in the gate distribution
   tao_liquidity: number | null;       // TAO in the liquidity pool (rao)
+  alpha_liquidity?: number | null;    // alpha in the pool (rao)
+  block_number?: number;
+  price_difference_hour?: number;     // percent
+  price_difference_day?: number;
+  price_difference_week?: number;
+  price_difference_month?: number;
 }
 async function fetchTMCSubnets(): Promise<TMCSubnet[]> {
   if (!TMC_API_KEY) return [];
@@ -204,6 +210,7 @@ import { scanAllSubnetGitHub, type GitHubScanResult } from "@/lib/github-scanner
 import { scanAllSubnetsHF, type HFScanResult } from "@/lib/hf-scanner";
 import { fitGate, readGate, emissionChangeFor } from "@/lib/emission-gate";
 import { readRootWeightStatus } from "@/lib/root-weights";
+import { fetchChainMarket, fetchTaoUsd, isFresh, readPriceDaily, PRICE_DAILY_BLOB } from "@/lib/market-data";
 import { fetchRecentCommits, fetchRecentPRs, fetchLatestRelease } from "@/lib/context-fetcher";
 import { computeProductScore, BENCHMARK_MAP, MILESTONE_MAP, type WebsiteSignalData } from "@/lib/benchmarks";
 import type { WebsiteProductCache } from "@/app/api/scan-websites/route";
@@ -416,7 +423,10 @@ export async function GET() {
   // it's fresh, and refuse to start a second scan within 8 min of the last
   // attempt — concurrent visitors get the last known data instead.
   const GUARD_TOKEN = process.env.BLOB_READ_WRITE_TOKEN || "";
-  if (GUARD_TOKEN) {
+  // SCAN_FORCE is an environment switch for running a scan by hand (verifying
+  // a change end to end). It is never set in production, so no request can
+  // use it to bypass the guard.
+  if (GUARD_TOKEN && process.env.SCAN_FORCE !== "1") {
     try {
       const latest = await blobGet("scan-latest.json", { token: GUARD_TOKEN, access: "private", abortSignal: AbortSignal.timeout(8000) });
       if (latest?.stream) {
@@ -520,20 +530,32 @@ export async function GET() {
   }
   const identitiesFromCache = identities.length > 0;
 
-  // Batch 1: identities (unless cached) + pools + price (all parallel)
-  console.log(`[scan] Batch 1: identities (${identitiesFromCache ? "cache" : "fetch"}) + pools + price...`);
-  const [idResult, poolsResult, taoPriceResult] = await Promise.allSettled([
+  // Batch 1: identities (unless cached) + LIVE MARKET from chain + TAO/USD.
+  //
+  // Market data (price, market cap, emissions, flow, % changes, volume) comes
+  // from the Bittensor chain via lib/market-data, not TaoStats. TaoStats is a
+  // paid mirror of this same chain state; it ran out of credits twice and each
+  // time a cache replayed its last answer as live, flattening every chart for
+  // days. The chain cannot run out, and every reading carries its block time.
+  //
+  // TaoStats pools are still fetched once an hour, only for per-trade counts
+  // (buys/sells) that the whale score needs and the chain cannot give cheaply.
+  const tradeCountRefreshDue = scanStart.getUTCMinutes() < 10;
+  console.log(`[scan] Batch 1: identities (${identitiesFromCache ? "cache" : "fetch"}) + chain market + TAO/USD${tradeCountRefreshDue ? " + TaoStats trade counts" : ""}...`);
+  const [idResult, chainResult, usdResult, tsPoolsResult] = await Promise.allSettled([
     identitiesFromCache ? Promise.resolve(identities) : getSubnetIdentities(),
-    getSubnetPools(),
-    getTaoPrice(),
+    fetchChainMarket(),
+    fetchTaoUsd(),
+    tradeCountRefreshDue ? getSubnetPools() : Promise.resolve([] as Awaited<ReturnType<typeof getSubnetPools>>),
   ]);
   identities = idResult.status === "fulfilled" ? idResult.value : ([] as Awaited<ReturnType<typeof getSubnetIdentities>>);
-  let pools = poolsResult.status === "fulfilled" ? poolsResult.value : ([] as Awaited<ReturnType<typeof getSubnetPools>>);
-  // True when the pool fetch failed and we fell back to pool-cache.json. The
-  // prices in that copy are a REPLAY of an earlier observation, not a new one.
-  let poolsFromCache = false;
-  const taoPrice = taoPriceResult.status === "fulfilled" ? taoPriceResult.value : 0;
-  console.log(`[scan] Batch 1 done: ${identities.length} ids, ${pools.length} pools, TAO=$${taoPrice.toFixed(2)}`);
+  const chainMarket = chainResult.status === "fulfilled" ? chainResult.value : null;
+  const taoUsd = usdResult.status === "fulfilled" ? usdResult.value : null;
+  const tsPoolsFetched = tsPoolsResult.status === "fulfilled" ? tsPoolsResult.value : [];
+  // Last resort for the dollar rate only: three exchanges failing together is
+  // rare, and TaoStats may itself be down, so this can still end up 0.
+  const taoPrice = taoUsd?.usd ?? (await getTaoPrice().catch(() => 0));
+  console.log(`[scan] Batch 1 done: ${identities.length} ids, chain ${chainMarket ? `${chainMarket.subnets.size} subnets @ block ${chainMarket.block}` : "UNAVAILABLE"}, TAO=$${taoPrice.toFixed(2)} (${taoUsd?.source ?? "taostats fallback"})`);
 
   // ── Blob-cached fallback for identities + pools ───────────────────────────
   // These are the two feeds that kill isHealthyScan when TaoStats goes down.
@@ -557,23 +579,35 @@ export async function GET() {
     } catch { console.warn("[scan] identity-cache read failed"); }
   }
 
-  if (pools.length > 0) {
-    put("pool-cache.json", JSON.stringify(pools), {
+  // ── TaoStats trade counts (enrichment only) ───────────────────────────────
+  //
+  // Kept only if the rows are provably recent, judged by the timestamp INSIDE
+  // each row, never by when we saved them. The old pool-cache was re-saved
+  // every scan with a fresh upload time while its rows sat at 2026-09-16, and
+  // that is exactly how three-day-old prices passed for live ones.
+  const TRADE_COUNT_MAX_AGE_MS = 75 * 60_000;
+  const rowFresh = (p: { timestamp?: string }) =>
+    !!p.timestamp && Date.now() - new Date(p.timestamp).getTime() <= TRADE_COUNT_MAX_AGE_MS;
+  let tradeCountRows = tsPoolsFetched.filter(rowFresh);
+  if (tradeCountRows.length > 0) {
+    put("trade-count-cache.json", JSON.stringify(tradeCountRows), {
       access: "private" as never, token: BLOB_TOKEN_CACHE,
       addRandomSuffix: false, allowOverwrite: true, contentType: "application/json",
     }).catch(() => {});
   } else {
     try {
-      const cached = await blobGet("pool-cache.json", { token: BLOB_TOKEN_CACHE, access: "private" });
+      const cached = await blobGet("trade-count-cache.json", { token: BLOB_TOKEN_CACHE, access: "private" });
       if (cached?.stream) {
         const reader = cached.stream.getReader(); const chunks: Uint8Array[] = [];
         while (true) { const { done, value } = await reader.read(); if (done) break; chunks.push(value); }
-        pools = JSON.parse(Buffer.concat(chunks).toString("utf-8"));
-        poolsFromCache = true;
-        console.warn(`[scan] TaoStats pools unavailable — using cache (${pools.length} entries)`);
+        tradeCountRows = (JSON.parse(Buffer.concat(chunks).toString("utf-8")) as typeof tsPoolsFetched).filter(rowFresh);
       }
-    } catch { console.warn("[scan] pool-cache read failed"); }
+    } catch { /* no cache yet */ }
   }
+  if (tsPoolsFetched.length > 0 && tradeCountRows.length === 0) {
+    console.warn(`[scan] TaoStats returned ${tsPoolsFetched.length} pool rows but none are recent (newest ${tsPoolsFetched.map(p => p.timestamp).sort().at(-1)}), ignoring them`);
+  }
+  const tradeCountMap = new Map(tradeCountRows.map(p => [p.netuid, p]));
 
   await new Promise(r => setTimeout(r, 500));
 
@@ -584,24 +618,50 @@ export async function GET() {
   // first scan of each hour, otherwise the blob cache below serves it.
   const devRefreshDue = scanStart.getUTCMinutes() < 10;
   console.log(`[scan] Batch 2: flows + emissions + dev history (${devRefreshDue ? "fetch" : "cache"}) + TMC + SubnetRadar...`);
-  const [flowsResult, emissionsResult, devResult, tmcResult, tmcValResult, srSubnetsResult, srWhalesResult, burnedAlphaResult, srConvictionResult] = await Promise.allSettled([
-    getTaoFlows(),
-    getSubnetEmissions(),
+  // getTaoFlows() used to run here every scan. Its result fed flowMap, which
+  // nothing ever read: ~144 TaoStats credits a day for no output. Removed.
+  // Emissions + burned alpha only feed the miner-burn %, a slow-moving
+  // property, so they refresh hourly and are cached for up to 26h between.
+  const [emissionsResult, devResult, tmcResult, tmcValResult, srSubnetsResult, srWhalesResult, burnedAlphaResult, srConvictionResult] = await Promise.allSettled([
+    devRefreshDue ? getSubnetEmissions() : Promise.resolve([] as Awaited<ReturnType<typeof getSubnetEmissions>>),
     devRefreshDue ? getGithubActivity() : Promise.resolve([] as Awaited<ReturnType<typeof getGithubActivity>>),
     fetchTMCSubnets(),
     fetchTMCValidators(),
     fetchSRSubnets(),
     fetchSRWhales(),
-    getBurnedAlpha(),
+    devRefreshDue ? getBurnedAlpha() : Promise.resolve([] as Awaited<ReturnType<typeof getBurnedAlpha>>),
     fetchSRConviction(),
   ]);
-  const flows = flowsResult.status === "fulfilled" ? flowsResult.value : [];
-  const emissions = emissionsResult.status === "fulfilled" ? emissionsResult.value : [];
-  const tmcSubnets = tmcResult.status === "fulfilled" ? tmcResult.value : [];
+  let emissions = emissionsResult.status === "fulfilled" ? emissionsResult.value : [];
+  let burnedAlphaFresh = burnedAlphaResult.status === "fulfilled" ? burnedAlphaResult.value : [];
+  {
+    const BURN_CACHE = "burn-inputs-cache.json";
+    const BURN_MAX_AGE_MS = 26 * 3600_000;
+    if (emissions.length > 0 && burnedAlphaFresh.length > 0) {
+      put(BURN_CACHE, JSON.stringify({ savedAt: new Date().toISOString(), emissions, burned: burnedAlphaFresh }), {
+        access: "private" as never, token: process.env.BLOB_READ_WRITE_TOKEN || "",
+        addRandomSuffix: false, allowOverwrite: true, contentType: "application/json",
+      }).catch(() => {});
+    } else {
+      try {
+        const cached = await blobGet(BURN_CACHE, { token: process.env.BLOB_READ_WRITE_TOKEN || "", access: "private" });
+        if (cached?.stream) {
+          const reader = cached.stream.getReader(); const chunks: Uint8Array[] = [];
+          while (true) { const { done, value } = await reader.read(); if (done) break; chunks.push(value); }
+          const c = JSON.parse(Buffer.concat(chunks).toString("utf-8"));
+          if (c?.savedAt && Date.now() - new Date(c.savedAt).getTime() <= BURN_MAX_AGE_MS) {
+            emissions = c.emissions ?? [];
+            burnedAlphaFresh = c.burned ?? [];
+          }
+        }
+      } catch { /* burn % degrades to 0 for this cycle */ }
+    }
+  }
+  let tmcSubnets = tmcResult.status === "fulfilled" ? tmcResult.value : [];
   const validatorCounts = tmcValResult.status === "fulfilled" ? tmcValResult.value : new Map<number, number>();
   const srSubnets = srSubnetsResult.status === "fulfilled" ? srSubnetsResult.value : [];
   const srWhaleMoves = srWhalesResult.status === "fulfilled" ? srWhalesResult.value : [];
-  const burnedAlphaData = burnedAlphaResult.status === "fulfilled" ? burnedAlphaResult.value : [];
+  const burnedAlphaData = burnedAlphaFresh;
   const srConvictionData = srConvictionResult.status === "fulfilled" ? srConvictionResult.value : { rows: [], observedAtBlock: 0 };
 
   // ── Dev activity with blob-cached fallback ────────────────────────────────
@@ -638,9 +698,29 @@ export async function GET() {
     }
   }
 
-  console.log(`[scan] Batch 2 done: ${flows.length} flows, ${emissions.length} emissions, ${devActivity.length} dev history, ${tmcSubnets.length} TMC, ${srSubnets.length} SR subnets, ${srWhaleMoves.length} whale moves, ${burnedAlphaData.length} burned alpha`);
+  console.log(`[scan] Batch 2 done: ${emissions.length} emissions, ${devActivity.length} dev history, ${tmcSubnets.length} TMC, ${srSubnets.length} SR subnets, ${srWhaleMoves.length} whale moves, ${burnedAlphaData.length} burned alpha`);
 
   // Build TMC emission map (accurate emission % from TaoMarketCap)
+  // ── TMC fallback from chain ───────────────────────────────────────
+  // TaoMarketCap feeds the v440 gate model (moving price, emission share) and
+  // the flow-history series. Those are chain values TMC mirrors, so when TMC
+  // is down the same fields come from our own chain read rather than the gate
+  // and flow charts going blank. Fields we cannot supply are 0/false, which
+  // every consumer already treats the same as missing.
+  if (tmcSubnets.length === 0 && chainMarket) {
+    tmcSubnets = [...chainMarket.subnets.values()].map(s => ({
+      subnet: s.netuid, name: s.name,
+      emission: s.emissionShare * 100,
+      root_prop: 0, marketcap: s.marketCapTao, price: s.priceTao,
+      deregistration_risk: false, miners_tao_per_day: 0,
+      circulating_supply: 0, neuron_regs_burned_24h: 0,
+      subnet_ema_tao_flow: s.emaTaoFlowRao,
+      subnet_moving_price: s.movingPriceTao,
+      emission_enabled: s.emissionEnabled,
+      tao_liquidity: Math.round(s.taoIn * RAO),
+    }));
+    console.warn(`[scan] TMC unavailable, gate + flow history filled from chain (${tmcSubnets.length} subnets)`);
+  }
   const tmcMap = new Map<number, TMCSubnet>(tmcSubnets.map(s => [s.subnet, s]));
 
   // ── Stale on-chain identity overrides ─────────────────────────────
@@ -664,10 +744,182 @@ export async function GET() {
       : id;
   });
 
+  // ── Step 1b: Market rows ─────────────────────────────────────────
+  //
+  // Source order: the chain (primary), then TaoMarketCap. Rows keep the
+  // TaoStats SubnetPool shape so the 4,000 lines of scoring below are
+  // unchanged. Units match what TaoStats sent: price in TAO, amounts in rao,
+  // changes in percent.
+  //
+  // marketFresh is the single gate for writing price/market cap into history.
+  // It is true only when the reading came from the chain AND its head block is
+  // under 15 minutes old. Nothing else - not a 200 from an API, not a cache
+  // upload time - can make a price count as a new observation.
+  type MarketSource = "chain" | "tmc" | "none";
+  let marketSource: MarketSource = "none";
+  const pools: SubnetPool[] = [];
+  const raoStr = (tao: number) => String(Math.round(tao * RAO));
+  const pctStr = (v: number | null | undefined) => String(v != null && Number.isFinite(v) ? v : 0);
+  if (chainMarket && chainMarket.subnets.size > 0) {
+    marketSource = "chain";
+    const tmcById = new Map(tmcSubnets.map(t => [t.subnet, t]));
+    for (const c of chainMarket.subnets.values()) {
+      const tc = tradeCountMap.get(c.netuid);
+      const tmc = tmcById.get(c.netuid);
+      const vol = c.volume24hTao ?? 0;
+      const net = c.netFlow24hTao ?? 0;
+      pools.push({
+        netuid: c.netuid,
+        block_number: chainMarket.block,
+        timestamp: chainMarket.observedAt,
+        name: c.name || tmc?.name || "",
+        symbol: c.symbol,
+        market_cap: raoStr(c.marketCapTao),
+        liquidity: raoStr(c.taoIn * 2),
+        total_tao: raoStr(c.taoIn),
+        total_alpha: raoStr(c.totalAlpha),
+        alpha_in_pool: raoStr(c.alphaIn),
+        alpha_staked: raoStr(c.alphaStaked),
+        price: String(c.priceTao),
+        rank: 0,
+        root_prop: String(tmc?.root_prop || tc?.root_prop || 0),
+        startup_mode: false,
+        price_change_1_hour: pctStr(c.change1h ?? tmc?.price_difference_hour),
+        price_change_1_day: pctStr(c.change24h ?? tmc?.price_difference_day),
+        price_change_1_week: pctStr(c.change7d ?? tmc?.price_difference_week),
+        price_change_1_month: pctStr(c.change30d ?? tmc?.price_difference_month),
+        tao_volume_24_hr: raoStr(vol),
+        // Volume counts both directions, net flow is buys minus sells, so
+        // buys = (V + N) / 2 and sells = (V - N) / 2.
+        tao_buy_volume_24_hr: raoStr(Math.max(0, (vol + net) / 2)),
+        tao_sell_volume_24_hr: raoStr(Math.max(0, (vol - net) / 2)),
+        // Trade counts only exist in TaoStats. Without a recent row they are
+        // 0, which the whale score reads as "not enough trades to judge".
+        buys_24_hr: tc?.buys_24_hr ?? 0,
+        sells_24_hr: tc?.sells_24_hr ?? 0,
+        buyers_24_hr: tc?.buyers_24_hr ?? 0,
+        sellers_24_hr: tc?.sellers_24_hr ?? 0,
+      });
+    }
+  } else if (tmcSubnets.length > 0 && tmcResult.status === "fulfilled" && tmcResult.value.length > 0) {
+    // Chain unreachable. TMC prices are the same chain prices, so the site
+    // stays live; history is NOT written from this path (marketFresh stays
+    // false) because TMC's market cap uses a different supply definition.
+    marketSource = "tmc";
+    for (const t of tmcSubnets) {
+      if (!(t.price > 0)) continue;
+      const alphaInPool = Number(t.alpha_liquidity ?? 0);
+      pools.push({
+        netuid: t.subnet, block_number: Number(t.block_number ?? 0), timestamp: new Date().toISOString(),
+        name: t.name, symbol: "",
+        market_cap: raoStr(t.marketcap), liquidity: String(Number(t.tao_liquidity ?? 0) * 2),
+        total_tao: String(t.tao_liquidity ?? 0), total_alpha: String(t.circulating_supply ?? 0),
+        alpha_in_pool: String(alphaInPool),
+        alpha_staked: String(Math.max(0, Number(t.circulating_supply ?? 0) - alphaInPool)),
+        price: String(t.price), rank: 0, root_prop: String(t.root_prop ?? 0), startup_mode: false,
+        price_change_1_hour: pctStr(t.price_difference_hour), price_change_1_day: pctStr(t.price_difference_day),
+        price_change_1_week: pctStr(t.price_difference_week), price_change_1_month: pctStr(t.price_difference_month),
+        tao_volume_24_hr: "0", tao_buy_volume_24_hr: "0", tao_sell_volume_24_hr: "0",
+        buys_24_hr: 0, sells_24_hr: 0, buyers_24_hr: 0, sellers_24_hr: 0,
+      });
+    }
+  }
+  const marketObservedAt = marketSource === "chain" ? chainMarket!.observedAt : null;
+  const marketFresh = marketSource === "chain" && isFresh(marketObservedAt) && taoPrice > 0;
+  // Published in scan-latest so the health cron and the owner can see exactly
+  // where the numbers came from and whether they were recorded.
+  const marketHealth = {
+    source: marketSource,
+    fresh: marketFresh,
+    block: chainMarket?.block ?? null,
+    observedAt: marketObservedAt,
+    horizons: chainMarket?.horizons ?? null,
+    taoUsd: taoPrice,
+    taoUsdSource: taoUsd?.source ?? (taoPrice > 0 ? "taostats" : "none"),
+    tradeCounts: tradeCountMap.size,
+    recorded: false,
+    replay: false,
+  };
+  // ── market-latest.json: what the subnet pages read ────────────────
+  // Subnet pages used to call TaoStats four times per view (identity, TAO
+  // price, pool detail, metagraph). That is what drained the credits once
+  // traffic picked up, and each of those calls could return stale data. They
+  // now read this, written once per scan from the same verified rows.
+  if (marketSource !== "none" && taoPrice > 0) {
+    const bySubnet: Record<string, unknown> = {};
+    for (const p of pools) {
+      const c = chainMarket?.subnets.get(p.netuid);
+      const tc = tradeCountMap.get(p.netuid);
+      bySubnet[p.netuid] = {
+        priceTao: Number(p.price),
+        priceUsd: Number(p.price) * taoPrice,
+        marketCapUsd: Number(p.market_cap) / RAO * taoPrice,
+        change1h: Number(p.price_change_1_hour),
+        change24h: Number(p.price_change_1_day),
+        change7d: Number(p.price_change_1_week),
+        change30d: Number(p.price_change_1_month),
+        volume24hUsd: Number(p.tao_volume_24_hr) / RAO * taoPrice,
+        netFlow24hTao: c?.netFlow24hTao ?? null,
+        circulatingSupply: Number(p.total_alpha) / RAO,
+        alphaInPool: Number(p.alpha_in_pool) / RAO,
+        alphaStaked: Number(p.alpha_staked) / RAO,
+        emissionPct: c ? c.emissionShare * 100 : (tmcSubnets.find(t => t.subnet === p.netuid)?.emission ?? null),
+        validators: c?.validators ?? null,
+        neurons: c?.neurons ?? null,
+        symbol: p.symbol,
+        buys24h: tc?.buys_24_hr ?? null,
+        sells24h: tc?.sells_24_hr ?? null,
+        buyers24h: tc?.buyers_24_hr ?? null,
+        sellers24h: tc?.sellers_24_hr ?? null,
+      };
+    }
+    put("market-latest.json", JSON.stringify({
+      source: marketSource,
+      observedAt: marketObservedAt ?? new Date().toISOString(),
+      block: chainMarket?.block ?? null,
+      taoUsd: taoPrice,
+      subnets: bySubnet,
+    }), {
+      access: "private" as never, token: process.env.BLOB_READ_WRITE_TOKEN || "",
+      addRandomSuffix: false, allowOverwrite: true, contentType: "application/json",
+    }).catch(e => console.error("[scan] market-latest write failed:", e));
+  }
+  // ── Daily chain price archive (feeds the 3M and 1Y charts) ─────────
+  // Today's entry is overwritten each hour, so once the day ends it holds that
+  // day's last fresh reading: a daily close taken from chain state.
+  if (marketFresh && tradeCountRefreshDue && chainMarket) {
+    try {
+      const archive = (await readPriceDaily(process.env.BLOB_READ_WRITE_TOKEN || "")) ?? { savedAt: "", days: {} };
+      const today = chainMarket.observedAt.slice(0, 10);
+      archive.reg = archive.reg ?? {};
+      const row: Record<string, number> = {};
+      for (const c of chainMarket.subnets.values()) {
+        if (!(c.priceTao > 0)) continue;
+        const key = String(c.netuid);
+        // Netuid recycled since we last saw it: the older closes belong to the
+        // previous project, so drop them rather than chart them as this one.
+        if (c.registeredAtBlock != null && archive.reg[key] != null && archive.reg[key] !== c.registeredAtBlock) {
+          for (const d of Object.keys(archive.days)) delete archive.days[d][key];
+          console.warn(`[scan] SN${key} re-registered, cleared its daily price archive`);
+        }
+        if (c.registeredAtBlock != null) archive.reg[key] = c.registeredAtBlock;
+        row[key] = c.priceTao;
+      }
+      archive.days[today] = row;
+      const keep = Object.keys(archive.days).sort().slice(-400);
+      archive.days = Object.fromEntries(keep.map(d => [d, archive.days[d]]));
+      archive.savedAt = new Date().toISOString();
+      await put(PRICE_DAILY_BLOB, JSON.stringify(archive), {
+        access: "private" as never, token: process.env.BLOB_READ_WRITE_TOKEN || "",
+        addRandomSuffix: false, allowOverwrite: true, contentType: "application/json",
+      });
+    } catch (e) { console.error("[scan] price-daily update failed:", e); }
+  }
+  console.log(`[scan] market: ${pools.length} rows from ${marketSource}, fresh=${marketFresh}${marketObservedAt ? ` (block time ${marketObservedAt})` : ""}, trade counts for ${tradeCountMap.size}`);
+
   // ── Step 2: Build lookup maps ───────────────────────────────────
   const identityMap = new Map<number, SubnetIdentity>(identities.map((i) => [i.netuid, i]));
   const poolMap = new Map<number, SubnetPool>(pools.map((p) => [p.netuid, p]));
-  const flowMap = new Map<number, number>(flows.map((f) => [f.netuid, f.tao_flow / RAO]));
   const emissionMap = new Map<number, number>(
     emissions.map((e) => [e.netuid, parseFloat(e.alpha_rewards) / RAO])
   );
@@ -1843,7 +2095,12 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
       netFlow24h,
       taoReserve,
       emissionShare,
-      emissionPct: tmcMap.get(netuid)?.emission ?? (totalEmission > 0 ? (emissionMap.get(netuid) || 0) / totalEmission * 100 : 0),
+      // Chain first: (taoInEmission + excessTao) share, verified equal to
+      // TMC's figure. The chain also reports the 21 emitting subnets TMC's
+      // table was missing, so this is more complete, not just redundant.
+      emissionPct: chainMarket?.subnets.has(netuid)
+        ? chainMarket.subnets.get(netuid)!.emissionShare * 100
+        : (tmcMap.get(netuid)?.emission ?? (totalEmission > 0 ? (emissionMap.get(netuid) || 0) / totalEmission * 100 : 0)),
       ghCommits7d,
       ghPRsMerged7d,
       ghContributors30d,
@@ -4347,7 +4604,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
       // price/mcap are optional: when the pool feed is unavailable and we fall back
       // to cached pools, we OMIT them rather than replay a stale reading as a new
       // observation. Consumers already skip non-numeric prices.
-      type ScoreRow = { agap: number; flow: number; dev: number; eval: number; social: number; price?: number; mcap?: number; emission_pct: number; eval_adj?: number };
+      type ScoreRow = { agap: number; flow: number; dev: number; eval: number; social: number; price?: number; mcap?: number; emission_pct?: number; eval_adj?: number };
 
       // ── Load velo fallback (last-known-good VELO scores) ─────────────────
       // Prevents all-50 flash when: (a) blob read fails, (b) history is thin
@@ -4567,6 +4824,52 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
         ? leaderboard.reduce((s, e) => s + e.composite_score, 0) / leaderboard.length
         : 0;
       const snapshotHealthy = leaderboard.length >= 80 && meanComposite >= 15;
+
+      // ── Replay detector (defence in depth) ──────────────────────────
+      // A genuinely fresh reading cannot repeat hour to hour: every block
+      // injects emission into every pool, so prices always move a little. If
+      // nearly every price matches the previous hour byte for byte, this is a
+      // replay, whichever path produced it, and it is not recorded. This is the
+      // check that would have caught every one of the flat-chart incidents,
+      // regardless of which cache was replaying.
+      // Compared against EVERY price recorded for that subnet in the last 24
+      // snapshots, not just the previous hour. The Sep 16-19 incident
+      // alternated between two stale copies (A, B, A, B), so each hour
+      // differed from the one before and a last-hour comparison passed all of
+      // them. A live chain price moves every block; an exact repeat of any
+      // recent value is a replay.
+      let priceReplay = false;
+      {
+        const recent = Object.keys(scoreHistory).filter(t => t < scanTs).sort().slice(-24);
+        const seen = new Map<string, Set<number>>();
+        for (const t of recent) {
+          for (const [id, row] of Object.entries(scoreHistory[t])) {
+            if (typeof row.price !== "number") continue;
+            if (!seen.has(id)) seen.set(id, new Set());
+            seen.get(id)!.add(row.price);
+          }
+        }
+        let repeats = 0, cmp = 0;
+        for (const e of leaderboard) {
+          const prior = seen.get(String(e.netuid));
+          if (!prior || !e.alpha_price) continue;
+          cmp++;
+          if (prior.has(e.alpha_price)) repeats++;
+        }
+        priceReplay = cmp >= 50 && repeats / cmp >= 0.5;
+        if (priceReplay) {
+          console.error(`[scan] PRICE REPLAY: ${repeats}/${cmp} prices repeat a value from the last ${recent.length} snapshots, not recording market fields`);
+        }
+      }
+      // Price, market cap and emission are recorded only from a fresh chain
+      // read that is not a replay. Scores are always recorded; they are ours.
+      const recordMarket = marketFresh && !priceReplay;
+      if (!recordMarket) {
+        console.warn(`[scan] market fields NOT recorded this hour (source=${marketSource}, fresh=${marketFresh}, replay=${priceReplay})`);
+      }
+      marketHealth.recorded = recordMarket;
+      marketHealth.replay = priceReplay;
+
       if (snapshotHealthy) {
         scoreHistory[scanTs] = {};
         for (const entry of leaderboard) {
@@ -4576,14 +4879,13 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
             dev: entry.dev_score,
             eval: entry.eval_score || 0,
             social: entry.social_score || 0,
-            // When pools came from cache these are a replay of an earlier
-            // reading, identical hour after hour. Writing them as new
-            // observations drew a dead-flat tail on every price chart and
-            // made a stalled feed look like a stable market. Same rule as
+            // Omitted unless recordMarket. Replayed readings written as new
+            // observations drew the dead-flat tails on every price chart and
+            // made a stalled feed look like a calm market. Same rule as
             // eval_adj below: a gap in the series beats a wrong number.
-            price: poolsFromCache ? undefined : (entry.alpha_price || 0),
-            mcap: poolsFromCache ? undefined : (entry.market_cap || 0),
-            emission_pct: entry.emission_pct || 0,
+            price: recordMarket ? (entry.alpha_price || 0) : undefined,
+            mcap: recordMarket ? (entry.market_cap || 0) : undefined,
+            emission_pct: recordMarket ? (entry.emission_pct || 0) : undefined,
             // Undefined rather than 0 when the gate model does not explain this
             // subnet — a wrong number is worse than a gap in the series.
             eval_adj: (() => {
@@ -4707,7 +5009,9 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
       //
       // One reading per UTC day, keyed by date, so a rolling 24h figure is
       // never double-counted. Builds to a full window over 7 days.
-      try {
+      // Net flow is derived from the chain read. Without a fresh one every
+      // subnet would read as 0 and a day of zeros would drag the 7-day sum.
+      if (marketFresh) try {
         const dailyKey = "net-flow-daily.json";
         const today = new Date().toISOString().slice(0, 10);
         let daily: Record<string, Record<string, number>> = {};
@@ -4797,7 +5101,10 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
         counts: { subnets: leaderboard.length, signals: 0 },
         scanDuration: `${Math.round((Date.now() - startTime) / 1000)}s (prices only)`,
         partial: true,
-      }), { access: "private", token: process.env.BLOB_READ_WRITE_TOKEN });
+      // allowOverwrite was missing, so every save after the first threw
+      // "blob already exists" and the file sat at 2026-04-10 while cached-scan
+      // kept it as its fallback. One read failure away from serving April.
+      }), { access: "private", token: process.env.BLOB_READ_WRITE_TOKEN, addRandomSuffix: false, allowOverwrite: true, contentType: "application/json" });
       console.log("[scan] Early price snapshot saved to scan-prices.json");
     } catch (e) { console.error("[scan] Failed early save:", e); }
   } else if (leaderboard.length < 50) {
@@ -4904,7 +5211,10 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
   // ── Append current emissions to history & save ─────────────────
   // (emission_change_pct already computed and factored into aGap above)
   const now = new Date().toISOString();
-  for (const entry of leaderboard) {
+  // Same gate as score history: only a fresh, non-replayed chain reading is a
+  // new observation. Otherwise this appended the same stale share every scan.
+  const recordEmission = marketFresh && !marketHealth.replay;
+  for (const entry of recordEmission ? leaderboard : []) {
     if (!entry.emission_pct || entry.emission_pct <= 0) continue;
     const key = String(entry.netuid);
     const currentPct = entry.emission_pct * 100; // convert fraction back to %
@@ -4991,6 +5301,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     signals: mergedSignals,
     taoPrice,
     lastScan: new Date().toISOString(),
+    marketHealth,
     duration_ms: duration,
     counts: {
       subnets: leaderboard.length,

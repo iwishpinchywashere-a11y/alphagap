@@ -21,9 +21,14 @@ async function taoFetch<T>(path: string, params: Record<string, string> = {}, re
     url.searchParams.set(k, v);
   }
 
+  // cache: "no-store", always. With `next: { revalidate }` the Next.js data
+  // cache could hand back an old response as a 200 long after TaoStats stopped
+  // answering, and a 200 was all anyone checked. Callers that want caching do
+  // it explicitly in a blob, where the age is visible and checked.
+  void revalidate;
   const res = await fetch(url.toString(), {
     headers: { Authorization: API_KEY },
-    next: { revalidate },
+    cache: "no-store",
     signal: AbortSignal.timeout(12000),
   });
 
@@ -34,7 +39,7 @@ async function taoFetch<T>(path: string, params: Record<string, string> = {}, re
   if (res.status === 429) {
     // Not all 429s are rate limits. When the account is out of credits
     // TaoStats also answers 429, with "Insufficient credits (remaining: 0)".
-    // Backing off three times cannot fix a billing state — it just spends
+    // Backing off three times cannot fix a billing state; it just spends
     // ~15s per call to arrive at the same answer, which is what made subnet
     // pages take a minute to load. Fail fast and let callers fall back.
     const peek = await res.clone().text().catch(() => "");
@@ -42,7 +47,7 @@ async function taoFetch<T>(path: string, params: Record<string, string> = {}, re
       if (!creditWarningLogged) {
         creditWarningLogged = true;
         console.error(
-          "[taostats] OUT OF CREDITS — every TaoStats call is failing. " +
+          "[taostats] OUT OF CREDITS - every TaoStats call is failing. " +
           "Top up at https://dash.taostats.io/billing. Serving cached data until then."
         );
       }
@@ -57,7 +62,7 @@ async function taoFetch<T>(path: string, params: Record<string, string> = {}, re
       await new Promise(r => setTimeout(r, wait));
       const retry = await fetch(url.toString(), {
         headers: { Authorization: API_KEY },
-        next: { revalidate },
+        cache: "no-store",
         signal: AbortSignal.timeout(12000),
       }).catch(() => null);
       if (retry?.ok) {

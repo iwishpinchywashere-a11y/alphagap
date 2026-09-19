@@ -1,12 +1,13 @@
 import { NextResponse, after } from "next/server";
 import { getPoolHistory } from "@/lib/taostats";
 import { put, get as blobGet } from "@vercel/blob";
+import { fetchTaoUsdDaily, taoSeriesToUsd, readPriceDaily, dailySeries } from "@/lib/market-data";
 
 /**
  * 1Y price history, served cache-first.
  *
  * TaoStats 429s this endpoint, and lib/taostats retries three times with
- * exponential backoff before answering — about 15 seconds, which the user sat
+ * exponential backoff before answering - about 15 seconds, which the user sat
  * through as "Loading 1Y price history...". The route already kept a last-good
  * copy per subnet, but only consulted it AFTER the slow upstream call failed,
  * so the cache never actually spared anyone the wait.
@@ -24,7 +25,7 @@ export const dynamic = "force-dynamic";
 // force-dynamic sets EVERY fetch in this route to { cache: "no-store",
 // revalidate: 0 } and fetchCache to "force-no-store" (Next docs, caching
 // guide). That silently killed every revalidate value in lib/taostats, so
-// each request hit TaoStats live — which is what earned the 429s and the
+// each request hit TaoStats live - which is what earned the 429s and the
 // blank price charts. "default-cache" keeps the route dynamic while letting
 // each fetch's own cache options apply again.
 export const fetchCache = "default-cache";
@@ -50,7 +51,7 @@ async function readCache(netuid: number): Promise<{ points: PricePoint[]; ageMs:
     while (true) { const { done, value } = await r.read(); if (done) break; cs.push(value); }
     const parsed = JSON.parse(Buffer.concat(cs).toString("utf-8")) as CacheShape;
     if (Array.isArray(parsed)) {
-      // Legacy entry, no timestamp — usable, but treat as due for a refresh.
+      // Legacy entry, no timestamp - usable, but treat as due for a refresh.
       return { points: parsed, ageMs: Number.POSITIVE_INFINITY };
     }
     if (!Array.isArray(parsed?.priceHistory)) return null;
@@ -72,6 +73,19 @@ async function writeCache(netuid: number, points: PricePoint[]): Promise<void> {
   }).catch(() => {});
 }
 
+/**
+ * The cache and TaoStats both hold TAO-denominated prices, but every other
+ * chart timeframe draws USD. The 1Y chart plotted the raw TAO values, so its
+ * axis disagreed with 1D-3M. Convert at each day's TAO/USD close on the way
+ * out; the cache stays in TAO so a rate source outage never corrupts it.
+ */
+async function asUsd(points: PricePoint[]): Promise<PricePoint[]> {
+  const daily = await fetchTaoUsdDaily(TOKEN);
+  if (daily.size === 0) return points;
+  const latest = [...daily.entries()].sort(([a], [b]) => a.localeCompare(b)).at(-1)?.[1] ?? 0;
+  return taoSeriesToUsd(points, daily, latest);
+}
+
 export async function GET(
   _req: Request,
   { params }: { params: Promise<{ netuid: string }> }
@@ -80,12 +94,20 @@ export async function GET(
   const netuid = parseInt(netuidStr, 10);
   if (isNaN(netuid)) return NextResponse.json({ error: "Invalid netuid" }, { status: 400 });
 
+  // Chain-derived daily closes first: a year deep, backfilled from the
+  // archive node and kept current by the scan. The TaoStats path below only
+  // runs if the archive is missing, e.g. for a subnet registered today.
+  const archive = dailySeries(await readPriceDaily(TOKEN), netuid);
+  if (archive.length >= 30) {
+    return NextResponse.json({ priceHistory: await asUsd(archive), stale: false, unit: "usd", source: "chain" });
+  }
+
   const cached = await readCache(netuid);
   const haveCache = !!cached && cached.points.length >= 2;
 
   // Fresh enough: answer from the blob, never touch TaoStats.
   if (haveCache && cached!.ageMs < CACHE_TTL_MS) {
-    return NextResponse.json({ priceHistory: cached!.points, stale: false });
+    return NextResponse.json({ priceHistory: await asUsd(cached!.points), stale: false, unit: "usd" });
   }
 
   // Past TTL but usable: answer now, refresh after the response so nobody
@@ -95,14 +117,14 @@ export async function GET(
       const fresh = await fetchUpstream(netuid);
       if (fresh.length >= 2) await writeCache(netuid, fresh);
     });
-    return NextResponse.json({ priceHistory: cached!.points, stale: false });
+    return NextResponse.json({ priceHistory: await asUsd(cached!.points), stale: false, unit: "usd" });
   }
 
   // Cold subnet: nothing cached, so this one request pays for the fetch.
   const priceHistory = await fetchUpstream(netuid);
   if (priceHistory.length >= 2) {
     await writeCache(netuid, priceHistory);
-    return NextResponse.json({ priceHistory, stale: false });
+    return NextResponse.json({ priceHistory: await asUsd(priceHistory), stale: false, unit: "usd" });
   }
-  return NextResponse.json({ priceHistory, stale: true });
+  return NextResponse.json({ priceHistory: await asUsd(priceHistory), stale: true, unit: "usd" });
 }

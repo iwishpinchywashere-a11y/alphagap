@@ -1,44 +1,30 @@
-import { NextResponse } from "next/server";
-import { get as blobGet } from "@vercel/blob";
-import { getPoolHistory, getMetagraph, getSubnetIdentities, getSubnetPoolDetail } from "@/lib/taostats";
-import { getTaoPrice } from "@/lib/taostats";
-
-export const dynamic = "force-dynamic";
-// force-dynamic sets EVERY fetch in this route to { cache: "no-store",
-// revalidate: 0 } and fetchCache to "force-no-store" (Next docs, caching
-// guide). That silently killed every revalidate value in lib/taostats, so
-// each request hit TaoStats live — which is what earned the 429s and the
-// blank price charts. "default-cache" keeps the route dynamic while letting
-// each fetch's own cache options apply again.
-export const fetchCache = "default-cache";
-export const maxDuration = 60;
-
-const RAO = 1e9;
+import { NextResponse, after } from "next/server";
+import { get as blobGet, put } from "@vercel/blob";
+import { getSubnetPoolDetail, type SubnetIdentity, type SubnetPoolDetail } from "@/lib/taostats";
+import { fetchTaoUsdDaily, taoSeriesToUsd, readPriceDaily, dailySeries } from "@/lib/market-data";
 
 /**
- * Hard deadline for anything upstream.
+ * GET /api/subnets/[netuid] - everything the subnet detail page draws.
  *
- * lib/taostats retries a 429 three times with exponential backoff (2s, 4s,
- * 8s), so a rate-limited endpoint takes ~15s to fail and then returns an
- * empty array. Two of those in one request is why subnet pages sat on
- * "Loading subnet data..." for the better part of a minute — waiting on
- * calls whose answer was going to be "nothing" either way.
+ * MARKET NUMBERS COME FROM market-latest.json, written by the scan from a
+ * direct read of the Bittensor chain (lib/market-data). This route used to call
+ * TaoStats four times per page view (identity, TAO price, pool detail,
+ * metagraph). That drained the account's credits, and when they ran out each
+ * of those calls could hand back days-old data that the page showed as live.
  *
- * Our own blobs already hold everything the page needs to render. Upstream
- * is an enrichment, so it gets a few seconds and is otherwise dropped. The
- * page renders from our data; no outage text, the reader sees a normal page.
+ * The only TaoStats call left is pool detail, for the Fear & Greed index, which
+ * has no chain equivalent. It is cached per subnet for an hour and used only if
+ * its own row timestamp is recent. Without it the card simply does not render.
  */
-function withDeadline<T>(p: Promise<T>, ms: number, fallback: T): Promise<T> {
-  return Promise.race([
-    p.catch(() => fallback),
-    new Promise<T>(resolve => setTimeout(() => resolve(fallback), ms)),
-  ]);
-}
-const UPSTREAM_MS = 3500;
+
+export const dynamic = "force-dynamic";
+export const maxDuration = 30;
+
+const HOUR = 3600_000;
 
 async function readBlob<T>(name: string, token: string): Promise<T | null> {
   try {
-    const result = await blobGet(name, { token, access: "private" });
+    const result = await blobGet(name, { token, access: "private", abortSignal: AbortSignal.timeout(10_000) });
     if (!result?.stream) return null;
     const reader = result.stream.getReader();
     const chunks: Uint8Array[] = [];
@@ -47,14 +33,50 @@ async function readBlob<T>(name: string, token: string): Promise<T | null> {
   } catch { return null; }
 }
 
-// Normalise a TaoStats timestamp to ISO string.
-// pool/history returns timestamps as unix-second integers (e.g. 1712345678).
-function toIso(ts: string | number): string {
-  const n = typeof ts === "number" ? ts : Number(ts);
-  if (!isNaN(n) && String(ts).match(/^\d+$/)) {
-    return new Date(n < 1e12 ? n * 1000 : n).toISOString();
+interface MarketRow {
+  priceTao: number; priceUsd: number; marketCapUsd: number;
+  change1h: number; change24h: number; change7d: number; change30d: number;
+  volume24hUsd: number; netFlow24hTao: number | null;
+  circulatingSupply: number; alphaInPool: number; alphaStaked: number;
+  emissionPct: number | null; validators: number | null; neurons: number | null;
+  symbol: string;
+  buys24h: number | null; sells24h: number | null; buyers24h: number | null; sellers24h: number | null;
+}
+interface MarketLatest {
+  source: string; observedAt: string; block: number | null; taoUsd: number;
+  subnets: Record<string, MarketRow>;
+}
+
+type ScoreRow = { agap: number; flow: number; dev: number; eval: number; social: number; price?: number; mcap?: number; emission_pct?: number };
+type PricePoint = { timestamp: string; price: number };
+
+/**
+ * Fear & Greed only, cached an hour per subnet. The row must carry a recent
+ * timestamp of its own: a 200 from TaoStats is not proof of freshness, which
+ * is exactly the assumption that let stale prices through before.
+ */
+async function fearGreed(netuid: number, token: string): Promise<{ index: number; sentiment: string } | null> {
+  const key = `pool-detail-cache/${netuid}.json`;
+  const cached = await readBlob<{ savedAt: string; index: number; sentiment: string }>(key, token);
+  if (cached && Date.now() - new Date(cached.savedAt).getTime() < HOUR) {
+    return cached.index > 0 ? { index: cached.index, sentiment: cached.sentiment } : null;
   }
-  return String(ts);
+  const refresh = async (): Promise<{ index: number; sentiment: string } | null> => {
+    const d: SubnetPoolDetail | null = await getSubnetPoolDetail(netuid).catch(() => null);
+    if (!d?.timestamp || Date.now() - new Date(d.timestamp).getTime() > 30 * 60_000) return null;
+    const out = { index: parseFloat(d.fear_and_greed_index || "0"), sentiment: d.fear_and_greed_sentiment || "" };
+    await put(key, JSON.stringify({ savedAt: new Date().toISOString(), ...out }), {
+      access: "private", addRandomSuffix: false, allowOverwrite: true, token, contentType: "application/json",
+    }).catch(() => {});
+    return out.index > 0 ? out : null;
+  };
+  if (cached) {
+    // Stale cache: never shown (a sentiment reading from yesterday is not
+    // today's), but refresh after responding so the next view has it.
+    after(refresh);
+    return null;
+  }
+  return Promise.race([refresh(), new Promise<null>(r => setTimeout(() => r(null), 3_000))]);
 }
 
 export async function GET(
@@ -67,48 +89,45 @@ export async function GET(
 
   const token = process.env.BLOB_READ_WRITE_TOKEN || "";
 
-  // ── Fetch everything in parallel ─────────────────────────────────
-  // priceHistory92 = 92 days (~100 rows). Fast enough to always include.
-  // This guarantees 1M and 3M charts have data on first load with no lag.
-  // The /prices?period=365 endpoint handles 1Y lazy-load on the client.
   const [
     scanLatest, scoreHistoryAll, emissionHistory, signalsHistory, flowHistoryAll,
-    identities, taoPrice, poolDetail, metagraph,
+    identities, market, priceDaily, fg, taoUsdDaily,
   ] = await Promise.all([
     readBlob<Record<string, unknown>>("scan-latest.json", token),
-    readBlob<Record<string, Record<string, { agap: number; flow: number; dev: number; eval: number; social: number; price: number; mcap: number; emission_pct: number }>>>("subnet-scores-history.json", token),
+    readBlob<Record<string, Record<string, ScoreRow>>>("subnet-scores-history.json", token),
     readBlob<Record<string, Array<{ pct: number; timestamp: string }>>>("emission-history.json", token),
     readBlob<Array<{ netuid: number; strength: number; signal_type: string; title: string; description: string; source: string; source_url?: string; signal_date?: string; created_at: string; subnet_name?: string }>>("signals-history.json", token),
     readBlob<Record<string, Record<string, number>>>("flow-history.json", token),
-    withDeadline(getSubnetIdentities(), UPSTREAM_MS, [] as Awaited<ReturnType<typeof getSubnetIdentities>>),
-    withDeadline(getTaoPrice(), UPSTREAM_MS, 0),
-    withDeadline(getSubnetPoolDetail(netuid), UPSTREAM_MS, null as Awaited<ReturnType<typeof getSubnetPoolDetail>>),
-    withDeadline(getMetagraph(netuid), UPSTREAM_MS, [] as Awaited<ReturnType<typeof getMetagraph>>),
+    readBlob<SubnetIdentity[]>("identity-cache.json", token),
+    readBlob<MarketLatest>("market-latest.json", token),
+    // Daily closes read from chain state, a year deep. Fills the 3M chart's
+    // range older than our hourly series without any TaoStats call.
+    readPriceDaily(token),
+    fearGreed(netuid, token),
+    fetchTaoUsdDaily(token),
   ]);
 
-  // ── Current leaderboard entry ───────────────────────────────────
   const leaderboard = (scanLatest?.leaderboard as Array<Record<string, unknown>>) || [];
   const current = leaderboard.find((e) => e.netuid === netuid) || null;
+  const identity = (identities || []).find((id) => id.netuid === netuid) || null;
+  const live = market?.subnets?.[String(netuid)] ?? null;
+  const taoPrice = market?.taoUsd || Number(scanLatest?.taoPrice) || 0;
+  const nowIso = market?.observedAt || new Date().toISOString();
 
-  // ── Subnet identity ─────────────────────────────────────────────
-  const identity = identities.find((id) => id.netuid === netuid) || null;
-
-  // ── Score history (per-scan ISO timestamps) ──────────────────────
-  type ScoreRow = { agap: number; flow: number; dev: number; eval: number; social: number; price: number; mcap: number; emission_pct: number };
+  // ── Score history ────────────────────────────────────────────────
   const scoreHistory: Array<{ date: string; rank?: number } & ScoreRow> = [];
   if (scoreHistoryAll) {
     for (const ts of Object.keys(scoreHistoryAll).sort()) {
       const snapshot = scoreHistoryAll[ts];
       const row = snapshot[String(netuid)];
       if (!row) continue;
-      // Compute rank: position among all subnets sorted by agap desc (best = 1)
       const allAgap = Object.values(snapshot).map(r => r.agap).sort((a, b) => b - a);
       const rank = allAgap.indexOf(row.agap) + 1 || undefined;
       scoreHistory.push({ date: ts, rank, ...row });
     }
   }
 
-  // ── aGap Rank history — best (lowest) rank per calendar day ────────
+  // ── aGap rank history, best rank per day ─────────────────────────
   const rankByDay = new Map<string, number>();
   for (const row of scoreHistory) {
     if (row.rank == null) continue;
@@ -120,25 +139,17 @@ export async function GET(
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([date, rank]) => ({ date, rank }));
 
-  // ── Emission history ─────────────────────────────────────────────
   const emissionData = (emissionHistory?.[String(netuid)] || [])
     .sort((a, b) => a.timestamp.localeCompare(b.timestamp));
 
-  // ── Signals ──────────────────────────────────────────────────────
   const subnetSignals = (signalsHistory || [])
     .filter((s) => s.netuid === netuid)
     .sort((a, b) => new Date(b.signal_date || b.created_at).getTime() - new Date(a.signal_date || a.created_at).getTime())
     .slice(0, 20);
 
-  // ── TAO Flow EMA history (from TaoMarketCap, per-scan snapshots) ──
-  // flowHistoryAll is { [isoTs]: { [netuid]: taoFlowInTao } }
-  // Extract this subnet's series, sorted chronologically.
-  //
-  // DENSITY. The chart's widest view is 3M and it downsamples to 200 points
-  // client-side, so shipping every snapshot meant 18,056 points / 846KB per
-  // request — 99% of the payload, discarded on arrival. Thin per age bucket
-  // so each of the chart's windows (1D/7D/1M/3M) still has more points than
-  // it can draw, while the response drops to roughly 30KB.
+  // ── TAO flow EMA history, thinned by age ─────────────────────────
+  // The chart's widest view is 3M and it downsamples to 200 points, so each
+  // window keeps more points than it can draw while the payload stays small.
   const flowRaw: { x: string; y: number }[] = [];
   if (flowHistoryAll) {
     for (const ts of Object.keys(flowHistoryAll).sort()) {
@@ -147,117 +158,91 @@ export async function GET(
     }
   }
   const nowMs = Date.now();
-  // [max age in days, keep 1 in N]. Newest bucket is untouched so the 1D
-  // view keeps full fidelity; older buckets only feed windows that are
-  // downsampled to 200 anyway.
   const flowTiers: Array<[number, number]> = [[1, 1], [7, 6], [30, 25], [90, 90]];
   const flowHistory = flowRaw.filter((p, i) => {
     const ageDays = (nowMs - new Date(p.x).getTime()) / 86400000;
-    if (i === flowRaw.length - 1) return true;            // always keep latest
+    if (i === flowRaw.length - 1) return true;
     const tier = flowTiers.find(([maxAge]) => ageDays <= maxAge);
-    if (!tier) return false;                              // older than 90d
+    if (!tier) return false;
     return i % tier[1] === 0;
   });
 
-  // ── Price history (92d daily, chronological) ─────────────────────
-  //
-  // TaoStats rate-limits this endpoint. A 429 makes priceHistory92 come back
-  // empty and the chart renders "No price data available" — intermittently,
-  // which is why 7D sometimes worked and 1M/3M usually did not. The header
-  // percentages kept showing because they come from cached pool data, so the
-  // page looked half-broken rather than obviously down.
-  //
-  // We already store a price per subnet in subnet-scores-history.json, and
-  // this route already loads it for the score chart. Fall back to our own copy
-  // rather than showing an empty chart: it is the same series, sampled hourly
-  // for the last week and daily before that.
-  // OUR OWN HISTORY FIRST, TaoStats only as a backstop.
-  //
-  // This used to call getPoolHistory(netuid, 92) on EVERY page view, asking
-  // TaoStats for 92 days of candles per visitor. That is what earned the
-  // 429s: priceHistory came back empty and the chart rendered "No price data
-  // available" while the header percentages, which come from cached pool
-  // data, kept working — so the page looked half-broken rather than down.
-  //
-  // We already write a price per subnet on every scan and this route already
-  // loads that blob for the score chart. Serving it first makes the common
-  // path free, instant, and immune to upstream throttling. TaoStats is now
-  // only touched when our own series is too thin to draw, which is a handful
-  // of newly registered subnets rather than every visitor.
-  let priceHistory: Array<{ timestamp: string; price: number }> = [];
+  // ── Price history (USD) ──────────────────────────────────────────
+  // Our own hourly series is the spine. The scan only records a price when it
+  // came from a fresh chain read, so gaps mean "not observed", never "flat".
+  const own: PricePoint[] = [];
   if (scoreHistoryAll) {
     for (const ts of Object.keys(scoreHistoryAll).sort()) {
       const px = scoreHistoryAll[ts]?.[String(netuid)]?.price;
-      if (typeof px === "number" && px > 0) priceHistory.push({ timestamp: ts, price: px });
+      if (typeof px === "number" && px > 0) own.push({ timestamp: ts, price: px });
     }
   }
-
-  // Our own archive only starts 2026-07-08, so it cannot fill a 3M chart yet.
-  // Preferring it unconditionally (as this did) silently served ~48 days
-  // wherever 92 were needed, which is why 3M looked broken rather than short.
-  // Fetch upstream whenever ours does not actually span the range the page
-  // draws, and keep whichever series is longer.
-  const spanDays = priceHistory.length >= 2
-    ? (new Date(priceHistory[priceHistory.length - 1].timestamp).getTime() -
-       new Date(priceHistory[0].timestamp).getTime()) / 86400000
-    : 0;
-
-  // ...but this fallback must never hold the page hostage. TaoStats has been
-  // returning 429 for this endpoint, and lib/taostats spends ~15s retrying
-  // before handing back an empty array — so every request paid 15 seconds to
-  // learn nothing and then rendered our own series regardless. Same deadline
-  // as the other upstream calls; when it does answer in time we still take
-  // the longer series, which is what makes 3M/1Y fill in.
-  if (priceHistory.length < 2 || spanDays < 85) {
-    const upstream = (await withDeadline(getPoolHistory(netuid, 92), UPSTREAM_MS, [] as Awaited<ReturnType<typeof getPoolHistory>>))
-      .map((p) => ({ timestamp: toIso(p.timestamp), price: parseFloat(p.price) }))
-      .sort((a, b) => a.timestamp.localeCompare(b.timestamp));
-    if (upstream.length > priceHistory.length) {
-      console.log(`[subnet ${netuid}] using TaoStats (${upstream.length} pts) over own history (${priceHistory.length} pts, ${spanDays.toFixed(0)}d)`);
-      priceHistory = upstream;
-    } else if (upstream.length) {
-      console.log(`[subnet ${netuid}] kept own history (${priceHistory.length} pts) — upstream returned ${upstream.length}`);
-    }
+  // Older than our first own point, use the chain daily archive.
+  const yearPts: PricePoint[] = dailySeries(priceDaily, netuid);
+  const firstOwn = own[0]?.timestamp ?? nowIso;
+  const cutoff90 = new Date(nowMs - 92 * 86400000).toISOString();
+  // The archive is in TAO; ours is in USD. Convert at each day's own rate.
+  const older = taoSeriesToUsd(
+    yearPts.filter(p => p.timestamp >= cutoff90 && p.timestamp < firstOwn && p.price > 0),
+    taoUsdDaily, taoPrice,
+  );
+  const priceHistory: PricePoint[] = [...older, ...own];
+  // End every series at the live price, so the chart's last point is now and
+  // not whenever the last hourly snapshot happened to land.
+  if (live?.priceUsd && live.priceUsd > 0) {
+    const lastTs = priceHistory.at(-1)?.timestamp ?? "";
+    if (nowIso > lastTs) priceHistory.push({ timestamp: nowIso, price: live.priceUsd });
   }
 
-  // ── 7D intraday (4h candles from poolDetail.seven_day_prices) ───
-  const sevenDayPrices = (poolDetail?.seven_day_prices || [])
-    .map((p) => ({ timestamp: toIso(p.timestamp), price: parseFloat(p.price) }))
-    .sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+  // 1D and 7D. These used TaoStats' 4-hour candles and, when those were
+  // missing, fell back to "the last two daily candles": a single straight line.
+  // Our own hourly series is denser than the candles ever were.
+  const sevenDayPrices = priceHistory.filter(p => p.timestamp >= new Date(nowMs - 7 * 86400000).toISOString());
+  const last24 = priceHistory.filter(p => p.timestamp >= new Date(nowMs - 86400000).toISOString()).map(p => p.price);
 
-  // ── Metagraph ────────────────────────────────────────────────────
-  const validators = metagraph.filter((n) => n.validator_permit).length;
-  const miners = metagraph.filter((n) => !n.validator_permit).length;
-
-  // ── Market stats ─────────────────────────────────────────────────
-  const pool = poolDetail;
-  const marketStats = pool ? {
-    priceUsd: parseFloat(pool.price) * taoPrice,
-    priceChangePct1h: parseFloat(pool.price_change_1_hour || "0"),
-    priceChangePct24h: parseFloat(pool.price_change_1_day || "0"),
-    priceChangePct7d: parseFloat(pool.price_change_1_week || "0"),
-    priceChangePct30d: parseFloat(pool.price_change_1_month || "0"),
-    marketCapUsd: parseFloat(pool.market_cap) / RAO * taoPrice,
-    fdvUsd: parseFloat(pool.market_cap) / RAO * taoPrice,
-    volume24hUsd: parseFloat(pool.tao_volume_24_hr) / RAO * taoPrice,
-    high24hUsd: parseFloat(pool.highest_price_24_hr || "0") * taoPrice,
-    low24hUsd: parseFloat(pool.lowest_price_24_hr || "0") * taoPrice,
-    circulatingSupply: parseFloat(pool.total_alpha) / RAO,
-    alphaInPool: parseFloat(pool.alpha_in_pool) / RAO,
-    alphaStaked: parseFloat(pool.alpha_staked) / RAO,
-    buys24h: pool.buys_24_hr,
-    sells24h: pool.sells_24_hr,
-    buyers24h: pool.buyers_24_hr,
-    sellers24h: pool.sellers_24_hr,
-    fearGreedIndex: parseFloat(pool.fear_and_greed_index || "0"),
-    fearGreedSentiment: pool.fear_and_greed_sentiment || "",
-    symbol: pool.symbol,
+  const marketStats = live ? {
+    priceUsd: live.priceUsd,
+    priceChangePct1h: live.change1h,
+    priceChangePct24h: live.change24h,
+    priceChangePct7d: live.change7d,
+    priceChangePct30d: live.change30d,
+    marketCapUsd: live.marketCapUsd,
+    fdvUsd: live.marketCapUsd,
+    volume24hUsd: live.volume24hUsd,
+    high24hUsd: last24.length ? Math.max(...last24) : live.priceUsd,
+    low24hUsd: last24.length ? Math.min(...last24) : live.priceUsd,
+    circulatingSupply: live.circulatingSupply,
+    alphaInPool: live.alphaInPool,
+    alphaStaked: live.alphaStaked,
+    buys24h: live.buys24h ?? 0,
+    sells24h: live.sells24h ?? 0,
+    buyers24h: live.buyers24h ?? 0,
+    sellers24h: live.sellers24h ?? 0,
+    fearGreedIndex: fg?.index ?? 0,
+    fearGreedSentiment: fg?.sentiment ?? "",
+    symbol: live.symbol,
     taoPrice,
+    priceTao: live.priceTao,
   } : null;
+
+  // The header shows the live figure; keep `current` (the leaderboard row) in
+  // step with it so no part of the page disagrees with another.
+  const currentLive = current && live ? {
+    ...current,
+    alpha_price: live.priceUsd,
+    market_cap: live.marketCapUsd,
+    price_change_1h: live.change1h,
+    price_change_24h: live.change24h,
+    price_change_7d: live.change7d,
+    price_change_30d: live.change30d,
+  } : current;
+
+  const validators = live?.validators ?? 0;
+  const neurons = live?.neurons ?? 0;
 
   return NextResponse.json({
     netuid,
-    name: current?.name || identity?.subnet_name || poolDetail?.name || `Subnet ${netuid}`,
+    name: (current?.name as string) || identity?.subnet_name || `Subnet ${netuid}`,
     identity: identity ? {
       description: identity.description,
       summary: identity.summary,
@@ -267,16 +252,18 @@ export async function GET(
       website: identity.subnet_url,
       tags: identity.tags,
     } : null,
-    current,
+    current: currentLive,
     scoreHistory,
     rankHistory,
     emissionHistory: emissionData,
-    priceHistory,      // 92 days, always present
-    sevenDayPrices,    // 7d 4h candles, always present
+    priceHistory,
+    sevenDayPrices,
     marketStats,
     signals: subnetSignals,
-    metagraph: { validators, miners, totalNeurons: metagraph.length },
+    metagraph: { validators, miners: Math.max(0, neurons - validators), totalNeurons: neurons },
     flowHistory,
     lastScan: scanLatest?.lastScan || null,
+    marketObservedAt: market?.observedAt ?? null,
+    marketSource: market?.source ?? null,
   });
 }
