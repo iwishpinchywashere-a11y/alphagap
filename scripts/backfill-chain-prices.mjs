@@ -80,6 +80,36 @@ const head = (await api.rpc.chain.getHeader()).number.toNumber();
 const headTs = Number((await api.query.timestamp.now()).toString());
 console.log(`archive head ${head} @ ${new Date(headTs).toISOString()}`);
 
+/**
+ * Block-time calibration. Blocks are nominally 12s but drift (7 days back
+ * measured ~53 minutes off pure 12s arithmetic), so measure the real average
+ * over the window once, then place every snapshot by interpolation. One
+ * historical read instead of two per snapshot.
+ */
+let calib = null;
+async function calibrate(oldestMs) {
+  const back = Math.min(head - 1, Math.round((headTs - oldestMs) / BLOCK_MS) + 600);
+  const at = await api.at(await api.rpc.chain.getBlockHash(head - back));
+  const ts = Number((await at.query.timestamp.now()).toString());
+  calib = { block: head - back, ts, msPerBlock: (headTs - ts) / back };
+  console.log(`calibrated: ${(calib.msPerBlock / 1000).toFixed(3)}s per block over ${back} blocks`);
+}
+const estimateBlock = tMs => Math.min(head, Math.round(calib.block + (tMs - calib.ts) / calib.msPerBlock));
+
+/** Price-only read at a timestamp: one historical call. */
+async function priceAt(tMs) {
+  const block = estimateBlock(tMs);
+  const at = await api.at(await api.rpc.chain.getBlockHash(block));
+  const dyn = (await at.call.subnetInfoRuntimeApi.getAllDynamicInfo()).toJSON().filter(Boolean);
+  const rows = new Map();
+  for (const d of dyn) {
+    const aIn = num(d.alphaIn);
+    if (d.netuid === 0 || aIn <= 0) continue;
+    rows.set(d.netuid, { price: num(d.taoIn) / aIn, reg: num(d.networkRegisteredAt) });
+  }
+  return { block, rows };
+}
+
 /** Block whose timestamp is closest to (and not after) t. Two correction passes. */
 async function blockAt(tMs) {
   let b = head - Math.round((headTs - tMs) / BLOCK_MS);
@@ -95,7 +125,12 @@ async function blockAt(tMs) {
 
 async function entries(at, item) {
   const out = new Map();
-  for (const [k, v] of await at.query.subtensorModule[item].entries()) out.set(k.args.at(-1).toNumber(), num(v.toJSON()));
+  // Items added by later runtime upgrades (SubnetProtocolAlpha, SubnetExcessTao)
+  // do not exist at older blocks. Before they existed they were zero, so an
+  // empty map is the correct reading, not an error.
+  const q = at.query.subtensorModule[item];
+  if (!q) return out;
+  for (const [k, v] of await q.entries()) out.set(k.args.at(-1).toNumber(), num(v.toJSON()));
   return out;
 }
 
@@ -145,36 +180,73 @@ const taoUsdAt = (pts, ms) => {
 };
 
 if (DO_HISTORY) {
-  console.log("\n== re-deriving market fields in subnet-scores-history.json ==");
+  console.log("\n== re-deriving prices in subnet-scores-history.json ==");
   const hist = await readBlob("subnet-scores-history.json");
   const stamps = Object.keys(hist).sort();
+  // Everything from Sep 12 on is suspect: the replay alternated between two
+  // stale copies, which slips past a same-as-last-hour check, so flagging
+  // individual snapshots is not trustworthy. Re-derive the whole window, plus
+  // any older snapshot that has no price at all.
+  const WINDOW_START = process.env.REPAIR_FROM || "2026-09-12T00:00:00.000Z";
+  const targets = stamps.filter(t => t >= WINDOW_START ||
+    Object.values(hist[t]).filter(r => typeof r.price === "number").length < 50);
   const usd = await hourlyTaoUsd();
-  console.log(`${stamps.length} snapshots, ${usd.length} hourly TAO/USD points`);
-  const results = await pool(stamps, CONCURRENCY, async ts => ({ ts, m: await marketAt(new Date(ts).getTime(), true) }));
-  let rewritten = 0, cleared = 0, skipped = 0;
-  for (const res of results) {
-    if (!res) { skipped++; continue; }
-    const { ts, m } = res;
-    const rate = taoUsdAt(usd, new Date(ts).getTime());
-    for (const [id, row] of Object.entries(hist[ts])) {
-      const c = m.rows.get(Number(id));
-      if (!c || !rate) { // no chain reading or no dollar rate for that hour
-        if (row.price !== undefined) { delete row.price; delete row.mcap; cleared++; }
-        continue;
+  console.log(`${stamps.length} snapshots, ${targets.length} to re-derive (from ${targets[0]}), ${usd.length} hourly TAO/USD points`);
+  await calibrate(new Date(targets[0]).getTime());
+  const results = await pool(targets, CONCURRENCY, async ts => ({ ts, m: await priceAt(new Date(ts).getTime()) }));
+
+  // Apply onto a copy. On --write this is repeated against a FRESH read of the
+  // blob just before saving: the scan rewrites history every 10 minutes and
+  // this run takes several, so applying to the copy read at the start would
+  // clobber rows the scan added meanwhile.
+  const apply = (h) => {
+    let rewritten = 0, cleared = 0, skipped = 0;
+    results.forEach((res, i) => {
+      const ts = targets[i];
+      if (!h[ts]) return;
+      if (!res) {
+        // Unreadable (archive budget). Blank it rather than leave a stale
+        // price that would draw a spike among the repaired ones.
+        for (const row of Object.values(h[ts])) { if (row.price !== undefined) { delete row.price; delete row.mcap; cleared++; } }
+        skipped++;
+        return;
       }
-      row.price = c.price * rate;
-      row.mcap = c.mcapTao * rate;
-      row.emission_pct = c.emShare;
-      rewritten++;
-    }
-  }
-  console.log(`rewritten ${rewritten} rows, cleared ${cleared} (no reading), snapshots skipped ${skipped}`);
-  const sample = stamps.slice(-6).map(t => `${t.slice(5, 16)} ${hist[t]["28"]?.price?.toFixed(4)}`).join(" | ");
-  console.log(`SN28 last 6: ${sample}`);
+      const rate = taoUsdAt(usd, new Date(ts).getTime());
+      for (const [id, row] of Object.entries(h[ts])) {
+        const c = res.m.rows.get(Number(id));
+        if (!c || !rate) {
+          if (row.price !== undefined) { delete row.price; delete row.mcap; cleared++; }
+          continue;
+        }
+        const newUsd = c.price * rate;
+        // Market cap = supply x price. The recorded supply (mcap / price) was
+        // right even when the price was stale and moves slowly, so keep it and
+        // apply the true price. Without a usable old pair, leave mcap unset.
+        if (typeof row.mcap === "number" && typeof row.price === "number" && row.price > 0) {
+          row.mcap = (row.mcap / row.price) * newUsd;
+        } else {
+          delete row.mcap;
+        }
+        row.price = newUsd;
+        rewritten++;
+      }
+    });
+    return { rewritten, cleared, skipped };
+  };
+
+  const stats = apply(hist);
+  console.log(`rewritten ${stats.rewritten} rows, cleared ${stats.cleared}, unreadable snapshots blanked ${stats.skipped}`);
+  const sample = targets.slice(-8).map(t => `${t.slice(5, 16)} ${hist[t]["28"]?.price?.toFixed(4)}`).join(" | ");
+  console.log(`SN28 last 8: ${sample}`);
+  const vals = targets.map(t => hist[t]["28"]?.price).filter(v => typeof v === "number");
+  console.log(`SN28 distinct prices in window: ${new Set(vals).size}/${vals.length}`);
+
   if (WRITE) {
-    fs.writeFileSync(path.join(ROOT, ".history-repaired.json"), JSON.stringify(hist));
-    await put("subnet-scores-history.json", JSON.stringify(hist), { access: "private", addRandomSuffix: false, allowOverwrite: true, token: TOKEN, contentType: "application/json" });
-    console.log("history WRITTEN");
+    const fresh = await readBlob("subnet-scores-history.json");
+    const s2 = apply(fresh);
+    fs.writeFileSync(path.join(process.env.TMPDIR || "/tmp", "history-repaired.json"), JSON.stringify(fresh));
+    await put("subnet-scores-history.json", JSON.stringify(fresh), { access: "private", addRandomSuffix: false, allowOverwrite: true, token: TOKEN, contentType: "application/json" });
+    console.log(`history WRITTEN onto fresh copy (${Object.keys(fresh).length} snapshots, ${s2.rewritten} rows)`);
   }
 }
 
@@ -185,7 +257,8 @@ if (DO_DAILY) {
     const d = new Date(headTs - i * 86400_000);
     days.push(d.toISOString().slice(0, 10));
   }
-  const results = await pool(days, CONCURRENCY, async day => ({ day, m: await marketAt(new Date(`${day}T23:59:00Z`).getTime(), false) }));
+  await calibrate(new Date(`${days[0]}T00:00:00Z`).getTime());
+  const results = await pool(days, CONCURRENCY, async day => ({ day, m: await priceAt(new Date(`${day}T23:59:00Z`).getTime()) }));
   const archive = { savedAt: new Date().toISOString(), days: {}, reg: Object.fromEntries([...regNow].map(([k, v]) => [String(k), v])) };
   let kept = 0, dropped = 0;
   for (const res of results) {

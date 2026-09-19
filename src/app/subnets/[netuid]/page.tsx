@@ -19,7 +19,7 @@ interface MarketStats {
   marketCapUsd: number; fdvUsd: number; volume24hUsd: number;
   high24hUsd: number; low24hUsd: number;
   circulatingSupply: number; alphaInPool: number; alphaStaked: number;
-  buys24h: number; sells24h: number; buyers24h: number; sellers24h: number;
+  buys24h: number | null; sells24h: number | null; buyers24h: number | null; sellers24h: number | null;
   fearGreedIndex: number; fearGreedSentiment: string;
   symbol: string; taoPrice: number;
 }
@@ -1312,7 +1312,11 @@ export default function SubnetDetailPage({ params }: { params: Promise<{ netuid:
               <StatItem label="Market Cap" value={ms ? fmtUsd(ms.marketCapUsd) : "—"} />
               <StatItem label="FDV" value={ms ? fmtUsd(ms.fdvUsd) : "—"} />
               <StatItem label="24h Volume" value={ms ? fmtUsd(ms.volume24hUsd) : "—"} />
-              <StatItem label="Buys / Sells" value={ms ? `${ms.buys24h} / ${ms.sells24h}` : "—"} sub="24h" />
+              {/* Trade counts only exist in TaoStats. When it has none (null),
+                  hide the row instead of showing "0 / 0", which reads as a dead market. */}
+              {ms && ms.buys24h != null && ms.sells24h != null && (ms.buys24h > 0 || ms.sells24h > 0) && (
+                <StatItem label="Buys / Sells" value={`${ms.buys24h} / ${ms.sells24h}`} sub="24h" />
+              )}
               <StatItem label="Circ. Supply" value={ms ? fmtNum(ms.circulatingSupply) : "—"} />
               <StatItem label="In Pool" value={ms ? fmtNum(ms.alphaInPool) : "—"} />
               <StatItem label="Staked" value={ms ? fmtNum(ms.alphaStaked) : "—"} />
