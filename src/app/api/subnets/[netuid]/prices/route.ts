@@ -121,11 +121,15 @@ export async function GET(
   // archive node and kept current by the scan. The TaoStats path below only
   // runs if the archive is missing, e.g. for a subnet registered today.
   const archive = dailySeries(await readPriceDaily(TOKEN), netuid);
+  const cached = await readCache(netuid);
   if (archive.length >= 30) {
-    return NextResponse.json({ priceHistory: await asUsd(archive, netuid), stale: false, unit: "usd", source: "chain" });
+    // The chain archive fills in over a couple of days (one old day per scan).
+    // Until it reaches a year, the older range comes from the TaoStats cache.
+    const firstChain = archive[0].timestamp;
+    const older = (cached?.points ?? []).filter(p => p.timestamp < firstChain);
+    return NextResponse.json({ priceHistory: await asUsd([...older, ...archive], netuid), stale: false, unit: "usd", source: older.length ? "chain+cache" : "chain" });
   }
 
-  const cached = await readCache(netuid);
   const haveCache = !!cached && cached.points.length >= 2;
 
   // Fresh enough: answer from the blob, never touch TaoStats.

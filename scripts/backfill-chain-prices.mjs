@@ -253,13 +253,22 @@ if (DO_HISTORY) {
 if (DO_DAILY) {
   console.log("\n== building price-daily-tao.json (365 days) ==");
   const days = [];
-  for (let i = 365; i >= 1; i--) {
+  // Deep reads cost the archive more the further back they go (60d ~2s,
+  // 120d ~8s, 200d+ exhausts the budget in one read), so default to the 3M
+  // range here; the scan fills older days one per run.
+  const DAYS = Number(process.argv.find(a => a.startsWith("--days="))?.split("=")[1] ?? 95);
+  for (let i = DAYS; i >= 1; i--) {
     const d = new Date(headTs - i * 86400_000);
     days.push(d.toISOString().slice(0, 10));
   }
   await calibrate(new Date(`${days[0]}T00:00:00Z`).getTime());
   const results = await pool(days, CONCURRENCY, async day => ({ day, m: await priceAt(new Date(`${day}T23:59:00Z`).getTime()) }));
-  const archive = { savedAt: new Date().toISOString(), days: {}, reg: Object.fromEntries([...regNow].map(([k, v]) => [String(k), v])) };
+  // Merge into whatever the scan has already written rather than replace it.
+  let archive;
+  try { archive = await readBlob("price-daily-tao.json"); } catch { archive = null; }
+  archive = archive ?? { days: {} };
+  archive.savedAt = new Date().toISOString();
+  archive.reg = Object.fromEntries([...regNow].map(([k, v]) => [String(k), v]));
   let kept = 0, dropped = 0;
   for (const res of results) {
     if (!res) continue;

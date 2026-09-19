@@ -588,3 +588,49 @@ export function dailySeries(archive: PriceDaily | null, netuid: number): Array<{
     .map(day => ({ timestamp: `${day}T23:59:00.000Z`, price: archive.days[day]?.[String(netuid)] ?? 0 }))
     .filter(p => p.price > 0);
 }
+
+/**
+ * Fill ONE missing day of the daily archive from the archive node. The scan
+ * calls this once per run: reads far back are expensive against the public
+ * node's budget (200+ days exhausts it in a single read), so the year fills
+ * gently, newest gap first, about six days an hour. Returns the day filled.
+ */
+export async function fillOneDailyGap(
+  archive: PriceDaily,
+  currentReg: Map<number, number | null>,
+  headBlock: number,
+  headMs: number,
+  maxDays = 365,
+): Promise<string | null> {
+  let target: string | null = null;
+  for (let i = 1; i <= maxDays; i++) {
+    const day = new Date(headMs - i * 86_400_000).toISOString().slice(0, 10);
+    if (!archive.days[day]) { target = day; break; }
+  }
+  if (!target) return null;
+  let api: ApiPromise | null = null;
+  try {
+    api = await connect(ARCHIVE_RPC, 15_000);
+    // 12.018s per block, measured over 2.6M blocks on 2026-09-19.
+    const t = new Date(`${target}T23:59:00Z`).getTime();
+    const block = Math.round(headBlock - (headMs - t) / 12_018);
+    const hash = (await api.rpc.chain.getBlockHash(block)).toString();
+    const rows = await withTimeout(dynamicAt(api, hash), 25_000, `daily ${target}`);
+    const day: Record<string, number> = {};
+    for (const [id, r] of rows) {
+      const aIn = num(r.alphaIn);
+      if (id === 0 || aIn <= 0) continue;
+      // Only attribute to the netuid's CURRENT project.
+      const reg = currentReg.get(id);
+      if (reg != null && r.networkRegisteredAt != null && num(r.networkRegisteredAt) !== reg) continue;
+      day[id] = num(r.taoIn) / aIn;
+    }
+    archive.days[target] = day;
+    return target;
+  } catch (e) {
+    console.warn(`[market] daily gap ${target} not filled: ${e instanceof Error ? e.message : e}`);
+    return null;
+  } finally {
+    await api?.disconnect().catch(() => {});
+  }
+}

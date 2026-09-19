@@ -210,7 +210,7 @@ import { scanAllSubnetGitHub, type GitHubScanResult } from "@/lib/github-scanner
 import { scanAllSubnetsHF, type HFScanResult } from "@/lib/hf-scanner";
 import { fitGate, readGate, emissionChangeFor } from "@/lib/emission-gate";
 import { readRootWeightStatus } from "@/lib/root-weights";
-import { fetchChainMarket, fetchTaoUsd, isFresh, readPriceDaily, PRICE_DAILY_BLOB } from "@/lib/market-data";
+import { fetchChainMarket, fetchTaoUsd, isFresh, readPriceDaily, fillOneDailyGap, PRICE_DAILY_BLOB } from "@/lib/market-data";
 import { fetchRecentCommits, fetchRecentPRs, fetchLatestRelease } from "@/lib/context-fetcher";
 import { computeProductScore, BENCHMARK_MAP, MILESTONE_MAP, type WebsiteSignalData } from "@/lib/benchmarks";
 import type { WebsiteProductCache } from "@/app/api/scan-websites/route";
@@ -887,7 +887,7 @@ export async function GET() {
   // ── Daily chain price archive (feeds the 3M and 1Y charts) ─────────
   // Today's entry is overwritten each hour, so once the day ends it holds that
   // day's last fresh reading: a daily close taken from chain state.
-  if (marketFresh && tradeCountRefreshDue && chainMarket) {
+  if (marketFresh && chainMarket) {
     try {
       const archive = (await readPriceDaily(process.env.BLOB_READ_WRITE_TOKEN || "")) ?? { savedAt: "", days: {} };
       const today = chainMarket.observedAt.slice(0, 10);
@@ -906,6 +906,13 @@ export async function GET() {
         row[key] = c.priceTao;
       }
       archive.days[today] = row;
+      // Backfill one older missing day per run, gently (see fillOneDailyGap).
+      const filled = await fillOneDailyGap(
+        archive,
+        new Map([...chainMarket.subnets.values()].map(c => [c.netuid, c.registeredAtBlock])),
+        chainMarket.block, new Date(chainMarket.observedAt).getTime(),
+      );
+      if (filled) console.log(`[scan] price-daily: backfilled ${filled} (${Object.keys(archive.days).length} days held)`);
       const keep = Object.keys(archive.days).sort().slice(-400);
       archive.days = Object.fromEntries(keep.map(d => [d, archive.days[d]]));
       archive.savedAt = new Date().toISOString();
