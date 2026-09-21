@@ -160,11 +160,6 @@ export interface SubnetPool {
   sellers_24_hr: number;
 }
 
-export async function getSubnetPools(): Promise<SubnetPool[]> {
-  return taoFetch<SubnetPool>("/dtao/pool/latest/v1", { limit: "200" });
-}
-
-// ── Subnet Pool Detail (rich single-subnet data) ─────────────────
 export interface SubnetPoolDetail extends SubnetPool {
   fear_and_greed_index: string;
   fear_and_greed_sentiment: string;
@@ -182,6 +177,19 @@ export interface SubnetPoolDetail extends SubnetPool {
   enabled_user_liquidity: boolean;
   seven_day_prices: Array<{ block_number: number; timestamp: string; price: string }>;
 }
+
+/**
+ * One call, every subnet, and the rows carry the same extra fields the
+ * per-subnet "pool detail" endpoint returns (fear and greed, 24h high/low,
+ * seven-day prices). Verified against the live response on 2026-09-21: 52
+ * fields per row. Anything needing those should come from here, once per
+ * hour, rather than per subnet per page view.
+ */
+export async function getSubnetPools(): Promise<SubnetPoolDetail[]> {
+  return taoFetch<SubnetPoolDetail>("/dtao/pool/latest/v1", { limit: "200" });
+}
+
+// ── Subnet Pool Detail (same rows as the bulk call above) ─────────
 
 export async function getSubnetPoolDetail(netuid: number): Promise<SubnetPoolDetail | null> {
   const data = await taoFetch<SubnetPoolDetail>("/dtao/pool/latest/v1", { netuid: String(netuid), limit: "1" }, 30);

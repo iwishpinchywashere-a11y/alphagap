@@ -1,6 +1,6 @@
-import { NextResponse, after } from "next/server";
-import { get as blobGet, put } from "@vercel/blob";
-import { getSubnetPoolDetail, type SubnetIdentity, type SubnetPoolDetail } from "@/lib/taostats";
+import { NextResponse } from "next/server";
+import { get as blobGet } from "@vercel/blob";
+import type { SubnetIdentity } from "@/lib/taostats";
 import { fetchTaoUsdDaily, taoSeriesToUsd, readPriceDaily, dailySeries } from "@/lib/market-data";
 
 /**
@@ -12,15 +12,13 @@ import { fetchTaoUsdDaily, taoSeriesToUsd, readPriceDaily, dailySeries } from "@
  * metagraph). That drained the account's credits, and when they ran out each
  * of those calls could hand back days-old data that the page showed as live.
  *
- * The only TaoStats call left is pool detail, for the Fear & Greed index, which
- * has no chain equivalent. It is cached per subnet for an hour and used only if
- * its own row timestamp is recent. Without it the card simply does not render.
+ * This route now makes NO TaoStats calls at all. Fear & Greed (the one figure
+ * with no chain equivalent) rides along in the hourly bulk pools row the scan
+ * already fetches, so page traffic costs nothing.
  */
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
-
-const HOUR = 3600_000;
 
 async function readBlob<T>(name: string, token: string): Promise<T | null> {
   try {
@@ -40,6 +38,7 @@ interface MarketRow {
   circulatingSupply: number; alphaInPool: number; alphaStaked: number;
   emissionPct: number | null; validators: number | null; neurons: number | null;
   symbol: string;
+  fearGreedIndex: number | null; fearGreedSentiment: string | null;
   buys24h: number | null; sells24h: number | null; buyers24h: number | null; sellers24h: number | null;
 }
 interface MarketLatest {
@@ -49,35 +48,6 @@ interface MarketLatest {
 
 type ScoreRow = { agap: number; flow: number; dev: number; eval: number; social: number; price?: number; mcap?: number; emission_pct?: number };
 type PricePoint = { timestamp: string; price: number };
-
-/**
- * Fear & Greed only, cached an hour per subnet. The row must carry a recent
- * timestamp of its own: a 200 from TaoStats is not proof of freshness, which
- * is exactly the assumption that let stale prices through before.
- */
-async function fearGreed(netuid: number, token: string): Promise<{ index: number; sentiment: string } | null> {
-  const key = `pool-detail-cache/${netuid}.json`;
-  const cached = await readBlob<{ savedAt: string; index: number; sentiment: string }>(key, token);
-  if (cached && Date.now() - new Date(cached.savedAt).getTime() < HOUR) {
-    return cached.index > 0 ? { index: cached.index, sentiment: cached.sentiment } : null;
-  }
-  const refresh = async (): Promise<{ index: number; sentiment: string } | null> => {
-    const d: SubnetPoolDetail | null = await getSubnetPoolDetail(netuid).catch(() => null);
-    if (!d?.timestamp || Date.now() - new Date(d.timestamp).getTime() > 30 * 60_000) return null;
-    const out = { index: parseFloat(d.fear_and_greed_index || "0"), sentiment: d.fear_and_greed_sentiment || "" };
-    await put(key, JSON.stringify({ savedAt: new Date().toISOString(), ...out }), {
-      access: "private", addRandomSuffix: false, allowOverwrite: true, token, contentType: "application/json",
-    }).catch(() => {});
-    return out.index > 0 ? out : null;
-  };
-  if (cached) {
-    // Stale cache: never shown (a sentiment reading from yesterday is not
-    // today's), but refresh after responding so the next view has it.
-    after(refresh);
-    return null;
-  }
-  return Promise.race([refresh(), new Promise<null>(r => setTimeout(() => r(null), 3_000))]);
-}
 
 export async function GET(
   _req: Request,
@@ -91,7 +61,7 @@ export async function GET(
 
   const [
     scanLatest, scoreHistoryAll, emissionHistory, signalsHistory, flowHistoryAll,
-    identities, market, priceDaily, fg, taoUsdDaily,
+    identities, market, priceDaily, taoUsdDaily,
   ] = await Promise.all([
     readBlob<Record<string, unknown>>("scan-latest.json", token),
     readBlob<Record<string, Record<string, ScoreRow>>>("subnet-scores-history.json", token),
@@ -103,7 +73,6 @@ export async function GET(
     // Daily closes read from chain state, a year deep. Fills the 3M chart's
     // range older than our hourly series without any TaoStats call.
     readPriceDaily(token),
-    fearGreed(netuid, token),
     fetchTaoUsdDaily(token),
   ]);
 
@@ -218,8 +187,8 @@ export async function GET(
     sells24h: live.sells24h ?? null,
     buyers24h: live.buyers24h ?? null,
     sellers24h: live.sellers24h ?? null,
-    fearGreedIndex: fg?.index ?? 0,
-    fearGreedSentiment: fg?.sentiment ?? "",
+    fearGreedIndex: live.fearGreedIndex ?? 0,
+    fearGreedSentiment: live.fearGreedSentiment ?? "",
     symbol: live.symbol,
     taoPrice,
     priceTao: live.priceTao,

@@ -22,7 +22,8 @@
 
 import { NextResponse } from "next/server";
 import { put, get as blobGet } from "@vercel/blob";
-import { getSubnetIdentities, getMetagraph } from "@/lib/taostats";
+import { getSubnetIdentities } from "@/lib/taostats";
+import { fetchChainMetagraphs } from "@/lib/market-data";
 import { getTaoSwapSubnets, type TaoSwapSubnet } from "@/lib/taoswap";
 
 export const dynamic = "force-dynamic";
@@ -216,7 +217,7 @@ function scoreTaoPool(tao: number | null): number {
 function computeAudit(
   netuid: number,
   name: string,
-  neurons: Awaited<ReturnType<typeof getMetagraph>>,
+  neurons: Awaited<ReturnType<typeof fetchChainMetagraphs>> extends Map<number, infer N> | null ? N : never,
   ts: TaoSwapSubnet | null,
 ): SubnetAudit {
   const now = new Date().toISOString();
@@ -507,31 +508,30 @@ export async function GET(req: Request) {
     console.log(`[audit-scan] Nulled undefined/stale emission ratios for ${emissionCorrections} zero-emission subnet(s)`);
   }
 
-  // Fetch metagraph in parallel batches
-  const BATCH_SIZE = 8;
+  // Metagraphs for every subnet, from chain.
+  //
+  // This used to call TaoStats /metagraph/latest once PER SUBNET: 129 calls
+  // every 6 hours, ~516 credits a day, the largest single consumer on the
+  // account and the reason a top-up lasted twelve days. The same vectors are
+  // chain storage keyed by netuid, so six reads cover all subnets in well
+  // under a second, free, and cannot run out of credits.
+  const metagraphs = await fetchChainMetagraphs();
+  if (!metagraphs) {
+    console.error("[audit-scan] chain metagraphs unavailable, keeping the previous audit");
+    return NextResponse.json({ ok: false, reason: "metagraphs unavailable" }, { status: 503 });
+  }
+
   const results: Record<number, SubnetAudit> = {};
   let scanned = 0;
   let errors   = 0;
 
-  for (let i = 0; i < identities.length; i += BATCH_SIZE) {
-    const batch        = identities.slice(i, i + BATCH_SIZE);
-    const batchResults = await Promise.allSettled(
-      batch.map(async id => {
-        const neurons = await getMetagraph(id.netuid);
-        return { id, neurons };
-      })
-    );
-
-    for (const r of batchResults) {
-      if (r.status !== "fulfilled") { errors++; continue; }
-      const { id, neurons } = r.value;
+  {
+    for (const id of identities) {
+      const neurons = metagraphs.get(id.netuid);
+      if (!neurons || neurons.length === 0) { errors++; continue; }
       const ts = taoswapMap.get(id.netuid) ?? null;
       results[id.netuid] = computeAudit(id.netuid, id.subnet_name || `SN${id.netuid}`, neurons, ts);
       scanned++;
-    }
-
-    if (i + BATCH_SIZE < identities.length) {
-      await new Promise(r => setTimeout(r, 300));
     }
   }
 

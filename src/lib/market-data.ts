@@ -634,3 +634,72 @@ export async function fillOneDailyGap(
     await api?.disconnect().catch(() => {});
   }
 }
+
+// ── Metagraphs from chain ────────────────────────────────────────────────
+//
+// audit-scan called TaoStats' /metagraph/latest once PER SUBNET every 6 hours:
+// 129 calls x 4 runs = ~516 credits a day, its single largest consumer. The
+// same vectors are chain storage maps keyed by netuid, so six entries() calls
+// return all 129 subnets in well under a second, for free.
+
+export interface ChainNeuron {
+  uid: number;
+  validator_permit: boolean;
+  validator_trust: string;
+  incentive: string;
+  dividends: string;
+  consensus: string;
+  active: boolean;
+  /** Blocks since this neuron last set weights, matching TaoStats' field. */
+  updated: number;
+}
+
+/** Normalised 0-1 values, as strings, to match the TaoStats shape callers expect. */
+const U16 = 65535;
+const norm = (v: unknown): string => (num(v) / U16).toString();
+
+export async function fetchChainMetagraphs(): Promise<Map<number, ChainNeuron[]> | null> {
+  let api: ApiPromise | null = null;
+  try {
+    api = await connect(HEAD_RPC, 20_000);
+    const [header, permit, vtrust, incentive, dividends, consensus, active, lastUpdate] = await withTimeout(Promise.all([
+      api.rpc.chain.getHeader(),
+      perNetuid(api, "validatorPermit"),
+      perNetuid(api, "validatorTrust"),
+      perNetuid(api, "incentive"),
+      perNetuid(api, "dividends"),
+      perNetuid(api, "consensus"),
+      perNetuid(api, "active"),
+      perNetuid(api, "lastUpdate"),
+    ]), 30_000, "metagraphs");
+    const block = header.number.toNumber();
+
+    const out = new Map<number, ChainNeuron[]>();
+    for (const [netuid, permits] of permit) {
+      if (!Array.isArray(permits)) continue;
+      const vt = (vtrust.get(netuid) ?? []) as unknown[];
+      const inc = (incentive.get(netuid) ?? []) as unknown[];
+      const div = (dividends.get(netuid) ?? []) as unknown[];
+      const con = (consensus.get(netuid) ?? []) as unknown[];
+      const act = (active.get(netuid) ?? []) as unknown[];
+      const upd = (lastUpdate.get(netuid) ?? []) as unknown[];
+      out.set(netuid, (permits as boolean[]).map((p, uid) => ({
+        uid,
+        validator_permit: !!p,
+        validator_trust: norm(vt[uid]),
+        incentive: norm(inc[uid]),
+        dividends: norm(div[uid]),
+        consensus: norm(con[uid]),
+        active: !!act[uid],
+        updated: Math.max(0, block - num(upd[uid])),
+      })));
+    }
+    console.log(`[market] chain metagraphs: ${out.size} subnets at block ${block}`);
+    return out;
+  } catch (e) {
+    console.error(`[market] metagraph read failed: ${e instanceof Error ? e.message : e}`);
+    return null;
+  } finally {
+    await api?.disconnect().catch(() => {});
+  }
+}

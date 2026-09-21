@@ -871,6 +871,11 @@ export async function GET() {
         sells24h: tc?.sells_24_hr ?? null,
         buyers24h: tc?.buyers_24_hr ?? null,
         sellers24h: tc?.sellers_24_hr ?? null,
+        // The bulk pools row already carries these, so subnet pages need no
+        // TaoStats call of their own. They used to fetch pool detail PER VIEW
+        // for exactly this, which is what made traffic expensive.
+        fearGreedIndex: tc ? Number(tc.fear_and_greed_index ?? 0) : null,
+        fearGreedSentiment: tc?.fear_and_greed_sentiment ?? null,
       };
     }
     put("market-latest.json", JSON.stringify({
