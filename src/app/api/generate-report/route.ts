@@ -5,8 +5,8 @@ import {
   getSubnetIdentities,
   getSubnetPools,
   getGithubActivity,
-  getTaoPrice,
-} from "@/lib/taostats";
+  } from "@/lib/taostats";
+import { taoUsdCached } from "@/lib/market-data";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -200,7 +200,7 @@ async function generateReport(forceNetuid?: number, forceDate?: string) {
       getSubnetIdentities(),
       getSubnetPools(),
       getGithubActivity(),
-      getTaoPrice(),
+      taoUsdCached(process.env.BLOB_READ_WRITE_TOKEN || ""),
     ]);
 
     const identity = identities.find(i => i.netuid === targetNetuid);

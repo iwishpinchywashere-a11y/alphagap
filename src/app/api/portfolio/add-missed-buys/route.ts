@@ -16,7 +16,8 @@
 
 import { NextResponse } from "next/server";
 import { put, get as blobGet } from "@vercel/blob";
-import { getPoolHistory, getTaoPrice } from "@/lib/taostats";
+import { getPoolHistory } from "@/lib/taostats";
+import { taoUsdCached, dailyPriceHistory } from "@/lib/market-data";
 import { loadPortfolio } from "../route";
 
 export const dynamic = "force-dynamic";
@@ -44,7 +45,7 @@ export async function GET() {
   try {
     const [portfolio, taoPrice] = await Promise.all([
       loadPortfolio(),
-      getTaoPrice(),
+      taoUsdCached(process.env.BLOB_READ_WRITE_TOKEN || ""),
     ]);
 
     if (!taoPrice || taoPrice <= 0) {
@@ -83,7 +84,10 @@ export async function GET() {
       // Fetch pool history to get buy price and peak price
       const buyMs = new Date(np.buyDate).getTime();
       const daysSinceBuy = Math.ceil((Date.now() - buyMs) / 86400000) + 3;
-      const history = await getPoolHistory(np.netuid, Math.max(daysSinceBuy, 45));
+      // Chain archive first; TaoStats only if it does not reach back far enough.
+      const days = Math.max(daysSinceBuy, 45);
+      const history = (await dailyPriceHistory(np.netuid, days, process.env.BLOB_READ_WRITE_TOKEN || ""))
+        ?? await getPoolHistory(np.netuid, days);
 
       // Find price on or nearest to buy date
       const buyDateEntries = history.filter(h => h.timestamp.slice(0, 10) <= np.buyDate);

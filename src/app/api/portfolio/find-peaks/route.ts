@@ -9,7 +9,8 @@
  */
 
 import { NextResponse } from "next/server";
-import { getPoolHistory, getTaoPrice } from "@/lib/taostats";
+import { getPoolHistory } from "@/lib/taostats";
+import { taoUsdCached, dailyPriceHistory } from "@/lib/market-data";
 import { loadPortfolio } from "../route";
 
 export const dynamic = "force-dynamic";
@@ -25,7 +26,7 @@ export async function GET() {
   try {
     const [portfolio, taoPrice] = await Promise.all([
       loadPortfolio(),
-      getTaoPrice(),
+      taoUsdCached(process.env.BLOB_READ_WRITE_TOKEN || ""),
     ]);
 
     if (!taoPrice || taoPrice <= 0) {
@@ -54,7 +55,11 @@ export async function GET() {
         const buyMs = new Date(pos.buyDate).getTime();
         const daysSinceBuy = Math.ceil((Date.now() - buyMs) / 86400000) + 5;
 
-        const history = await getPoolHistory(pos.netuid, Math.max(daysSinceBuy, 40));
+        // Chain archive first; TaoStats only if it does not reach back far
+        // enough (a subnet registered more recently than our archive).
+        const days = Math.max(daysSinceBuy, 40);
+        const history = (await dailyPriceHistory(pos.netuid, days, process.env.BLOB_READ_WRITE_TOKEN || ""))
+          ?? await getPoolHistory(pos.netuid, days);
 
         // Filter to only entries on or after buy date
         const sinceEntry = history.filter(h => h.timestamp.slice(0, 10) >= pos.buyDate);

@@ -703,3 +703,46 @@ export async function fetchChainMetagraphs(): Promise<Map<number, ChainNeuron[]>
     await api?.disconnect().catch(() => {});
   }
 }
+
+// ── Helpers for user-facing routes ───────────────────────────────────────
+//
+// Anything called per user request must not call a metered API: that is how a
+// credit balance disappears without warning, and it scales with traffic so
+// nothing in the code review shows it. Both helpers below read what the scan
+// already publishes, and fall back to free sources, never to TaoStats.
+
+/** TAO/USD from the last scan, else live exchanges. Never TaoStats. */
+export async function taoUsdCached(token: string, maxAgeMs = 2 * 3600_000): Promise<number> {
+  try {
+    const { get } = await import("@vercel/blob");
+    const b = await get("market-latest.json", { token, access: "private", abortSignal: AbortSignal.timeout(6_000) });
+    if (b?.stream) {
+      const r = b.stream.getReader(); const cs: Uint8Array[] = [];
+      while (true) { const { done, value } = await r.read(); if (done) break; cs.push(value); }
+      const m = JSON.parse(Buffer.concat(cs).toString("utf-8")) as { taoUsd?: number; observedAt?: string };
+      if (m?.taoUsd && m.observedAt && Date.now() - new Date(m.observedAt).getTime() <= maxAgeMs) return m.taoUsd;
+    }
+  } catch { /* fall through */ }
+  return (await fetchTaoUsd())?.usd ?? 0;
+}
+
+/**
+ * Daily TAO price history for one subnet, from the chain archive, in the shape
+ * getPoolHistory returned. Returns null when the archive does not cover the
+ * requested range so the caller can decide what to do.
+ */
+export async function dailyPriceHistory(
+  netuid: number, days: number, token: string,
+): Promise<Array<{ timestamp: string; price: string }> | null> {
+  const archive = await readPriceDaily(token);
+  const series = dailySeries(archive, netuid);
+  if (series.length < 2) return null;
+  const from = new Date(Date.now() - days * 86_400_000).toISOString();
+  const windowed = series.filter(p => p.timestamp >= from);
+  // Must actually reach back to the start of the window, or the caller would
+  // silently treat a short series as the whole history.
+  const oldest = windowed[0]?.timestamp ?? "";
+  const coversStart = series[0].timestamp <= from || oldest <= new Date(Date.now() - (days - 2) * 86_400_000).toISOString();
+  if (!windowed.length || !coversStart) return null;
+  return windowed.map(p => ({ timestamp: p.timestamp, price: String(p.price) }));
+}

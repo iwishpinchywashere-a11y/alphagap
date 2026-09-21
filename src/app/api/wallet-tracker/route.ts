@@ -15,7 +15,8 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { put, get as blobGet } from "@vercel/blob";
-import { getTaoPrice } from "@/lib/taostats";
+
+import { taoUsdCached } from "@/lib/market-data";
 
 export const dynamic     = "force-dynamic";
 export const maxDuration = 120;
@@ -390,7 +391,7 @@ async function buildMainList(): Promise<WalletEntry[]> {
     fetchTMCList("tao_staked", 200).catch(() => [] as TMCColdkey[]),
     readBlob<TSCache>(TS_CACHE_KEY),   // previously built by the TSWhales tab
     fetchSubnetNames(),
-    getTaoPrice().catch(() => 0),
+    taoUsdCached(process.env.BLOB_READ_WRITE_TOKEN || "").catch(() => 0),
   ]);
 
   // Collect confirmed alpha investor addresses from TaoStats (format-resilient)
@@ -811,7 +812,7 @@ export async function GET(request: NextRequest) {
       const [detail, subnetNames, taoPrice, tradesRes] = await Promise.all([
         fetchDetail(address),
         fetchSubnetNames(),
-        getTaoPrice().catch(() => 0),
+        taoUsdCached(process.env.BLOB_READ_WRITE_TOKEN || "").catch(() => 0),
         // Retry once on timeout — 20s per attempt
         (async () => {
           for (let attempt = 0; attempt < 2; attempt++) {
@@ -1041,7 +1042,7 @@ export async function GET(request: NextRequest) {
       const [detail, subnetNames, taoPrice] = await Promise.all([
         fetchDetail(address),
         fetchSubnetNames(),
-        getTaoPrice().catch(() => 0),
+        taoUsdCached(process.env.BLOB_READ_WRITE_TOKEN || "").catch(() => 0),
       ]);
       if (!detail?.hotkeys?.length) return NextResponse.json({ positions: [] });
 
