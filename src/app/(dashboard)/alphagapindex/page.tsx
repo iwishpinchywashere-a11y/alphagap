@@ -262,6 +262,12 @@ export default function AlphaGapIndexPage() {
   // sign something he had ALREADY signed. The real signal is isEmpty: false
   // means an entry exists and the flag is on.
   const [feesEnabled, setFeesEnabled] = useState<boolean | null>(null);
+  // Whether the staking proxy actually exists on chain. Membership is decided
+  // by TrustedStake's delegator list, which says nothing about the proxy: a
+  // member who never completed the grant looked fully joined while nothing
+  // could be staked for them. One wallet sat that way for 45 days, 2.59 TAO
+  // undeployed, with the page showing a normal member view and no prompt.
+  const [hasProxy, setHasProxy] = useState<boolean | null>(null);
   const [feeModalDismissed, setFeeModalDismissed] = useState(false);
   const [feeFixError, setFeeFixError] = useState<string | null>(null);
   const [proxyError, setProxyError] = useState<string | null>(null);
@@ -309,7 +315,7 @@ export default function AlphaGapIndexPage() {
 
   // Load real positions once the wallet is a confirmed member.
   useEffect(() => {
-    if (!selectedAddress || !isMember) { setPositions(null); setFreeTao(null); return; }
+    if (!selectedAddress || !isMember) { setPositions(null); setFreeTao(null); setHasProxy(null); return; }
 
     let cancelled = false;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -340,6 +346,18 @@ export default function AlphaGapIndexPage() {
             stakeRao: stakeRao.toString(),
           });
         }
+
+        // Does the staking proxy exist at all? Same connection, one query.
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const pres: any = await api.query.proxy.proxies(selectedAddress);
+          const defs = pres[0] ?? pres;
+          const found = Array.isArray(defs) && defs.some(
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (d: any) => (d.delegate?.toString() ?? d.toJSON()?.delegate) === TS_PROXY_ADDRESS
+          );
+          if (!cancelled) setHasProxy(found);
+        } catch { if (!cancelled) setHasProxy(null); }
 
         // real_pays_fee, off the same connection. Only after the wallet is
         // fully connected and we have an address — never guessed from symptoms.
@@ -1018,7 +1036,33 @@ export default function AlphaGapIndexPage() {
           {/* Second path to the same action, per TrustedStake: dismissing the
               modal must not strand a member with no way back. Only shows once
               the chain read has actually returned false. */}
-          {feesEnabled === false && feeFixStep !== "done" && feeModalDismissed && (
+          {/* Setup never finished: TrustedStake lists this wallet as a member,
+              but the staking proxy was never granted, so nothing can be
+              deployed. Membership alone used to be enough to show the normal
+              member view, which is how a wallet sat 45 days with 2.59 TAO
+              idle and nothing on screen to explain it. handleSetupProxy is
+              idempotent and re-checks the chain before signing anything. */}
+          {isMember && hasProxy === false && proxyStep !== "proxy-done" && (
+            <div className="mb-4 rounded-xl border border-amber-500/30 bg-amber-500/[0.08] px-4 py-3">
+              <p className="text-amber-300 text-sm">
+                <span className="font-semibold">Your setup isn&apos;t finished.</span> You joined the index, but the
+                staking permission was never granted, so your TAO is sitting in your wallet instead of being invested.
+                One transaction fixes it.
+              </p>
+              {proxyError && <p className="text-red-300 text-xs mt-2">{proxyError}</p>}
+              <button
+                onClick={handleSetupProxy}
+                disabled={proxyStep === "proxy-connecting" || proxyStep === "proxy-pending"}
+                className="mt-3 inline-flex items-center gap-2 rounded-lg bg-amber-500/20 border border-amber-500/40 px-3.5 py-1.5 text-xs font-semibold text-amber-100 hover:bg-amber-500/30 transition-colors disabled:opacity-60"
+              >
+                {proxyStep === "proxy-connecting" || proxyStep === "proxy-pending"
+                  ? <><IconLoader className="w-3.5 h-3.5 animate-spin" /> Waiting for your wallet…</>
+                  : <>Finish setup</>}
+              </button>
+            </div>
+          )}
+
+          {feesEnabled === false && hasProxy !== false && feeFixStep !== "done" && feeModalDismissed && (
             <button
               onClick={() => setFeeModalDismissed(false)}
               className="w-full mb-4 flex items-center gap-3 rounded-xl border border-amber-500/30 bg-amber-500/[0.08] px-4 py-3 text-left hover:bg-amber-500/[0.12] transition-colors"
@@ -1033,7 +1077,7 @@ export default function AlphaGapIndexPage() {
 
           {/* Chain-verified, and never blocking: dismissable, with a banner
               fallback below so a member who closes it can still get back. */}
-          {feesEnabled === false && feeFixStep !== "done" && !feeModalDismissed && (
+          {feesEnabled === false && hasProxy !== false && feeFixStep !== "done" && !feeModalDismissed && (
             <Modal onClose={() => setFeeModalDismissed(true)}>
               <div className="flex items-start justify-between gap-3 mb-1">
                 <h3 className="font-display font-semibold text-white text-lg">One transaction to unblock your TAO</h3>

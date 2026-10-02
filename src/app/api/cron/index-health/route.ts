@@ -22,6 +22,8 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getStrategy } from "@/lib/trustedstake";
+import { get as blobGet, put as blobPut } from "@vercel/blob";
+import { sendSystemAlertEmail } from "@/lib/email";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -134,6 +136,56 @@ export async function GET(req: NextRequest) {
   // Loud, because the whole point is that these stopped being silent.
   for (const p of problems) console.error("[index-health] PROBLEM", JSON.stringify(p));
   if (!problems.length) console.log(`[index-health] OK — ${checked} delegators, all deployed`);
+
+  // ── Tell the owner ────────────────────────────────────────────────
+  // console.error alone is not an alarm: nobody reads Vercel logs. A member
+  // who joined on 2026-08-18 sat 45 days with 2.59 TAO undeployed, flagged by
+  // this cron every 6h the whole time, and it surfaced only when someone
+  // thought to run the check by hand. Emails go to ADMIN_EMAILS (owner only,
+  // never the member), deduped on the set of problems so a persistent issue
+  // re-alerts daily rather than four times a day.
+  const STATE = "index-health-state.json";
+  const TOKEN = process.env.BLOB_READ_WRITE_TOKEN || "";
+  const REALERT_MS = 24 * 3600_000;
+  const signature = problems.map(p => `${p.kind}:${p.wallet ?? ""}`).sort().join("|");
+  try {
+    let prev: { signature?: string; lastAlertAt?: string } = {};
+    try {
+      const b = await blobGet(STATE, { token: TOKEN, access: "private", abortSignal: AbortSignal.timeout(8000) });
+      if (b?.stream) {
+        const r = b.stream.getReader(); const cs: Uint8Array[] = [];
+        while (true) { const { done, value } = await r.read(); if (done) break; cs.push(value); }
+        prev = JSON.parse(Buffer.concat(cs).toString("utf-8"));
+      }
+    } catch { /* first run */ }
+
+    const since = prev.lastAlertAt ? Date.now() - new Date(prev.lastAlertAt).getTime() : Infinity;
+    if (problems.length > 0 && (prev.signature !== signature || since > REALERT_MS)) {
+      const lines = problems.map(p => {
+        if (p.kind === "member_funds_undeployed") {
+          return `<strong style="color:#f59e0b;">Member funds undeployed</strong>: ${p.wallet} joined ${String(p.joinedAt).slice(0, 10)}, ${p.hoursWaiting}h ago, holding ${p.freeTao} TAO with nothing staked${p.hasProxy === false ? " (no staking proxy granted)" : ""}.`;
+        }
+        if (p.kind === "registered_without_proxy") {
+          return `<strong style="color:#f59e0b;">Registered without a proxy</strong>: ${p.wallet} is in the delegator list but never granted the staking proxy, so TrustedStake cannot stake for them. They now see a "Finish setup" prompt on /alphagapindex.`;
+        }
+        return `<strong style="color:#f59e0b;">${p.kind}</strong>: ${JSON.stringify(p)}`;
+      });
+      lines.push(`Checked ${checked} delegators.`);
+      await sendSystemAlertEmail(`AlphaGap Index: ${problems.length} problem${problems.length > 1 ? "s" : ""} found`, lines);
+      await blobPut(STATE, JSON.stringify({ signature, lastAlertAt: new Date().toISOString() }), {
+        access: "private", token: TOKEN, addRandomSuffix: false, allowOverwrite: true, contentType: "application/json",
+      });
+    } else if (problems.length === 0 && prev.signature) {
+      await sendSystemAlertEmail("AlphaGap Index: all members deployed", [
+        `The index problems previously reported have cleared. All ${checked} delegators have their funds deployed.`,
+      ]);
+      await blobPut(STATE, JSON.stringify({ signature: "", lastAlertAt: null }), {
+        access: "private", token: TOKEN, addRandomSuffix: false, allowOverwrite: true, contentType: "application/json",
+      });
+    }
+  } catch (e) {
+    console.error("[index-health] alerting failed:", e);
+  }
 
   return NextResponse.json({ ok: problems.length === 0, checked, problems, warnings });
 }
