@@ -775,15 +775,27 @@ export default function SubnetDetailPage({ params }: { params: Promise<{ netuid:
 
   // Price change % for selected timeframe
   const tfChangePct = useMemo(() => {
-    if (!data?.marketStats) return null;
-    const ms = data.marketStats;
-    if (timeframe === "1D") return ms.priceChangePct24h;
-    if (timeframe === "7D") return ms.priceChangePct7d;
-    if (timeframe === "1M") return ms.priceChangePct30d;
-    if (timeframe === "3M") return null;
-    if (timeframe === "1Y") return null;
+    const ms = data?.marketStats;
+    // 1D/7D/1M are measured on chain at exact offsets, so prefer those.
+    if (ms) {
+      if (timeframe === "1D") return ms.priceChangePct24h;
+      if (timeframe === "7D") return ms.priceChangePct7d;
+      if (timeframe === "1M") return ms.priceChangePct30d;
+    }
+    // 3M and 1Y have no precomputed figure: there is no chain reading at a
+    // "90 days ago" offset, which is why this used to return null and the
+    // header simply showed no percentage on those two tabs. Measure the
+    // series being drawn instead. That is also what colours the line, so the
+    // number and the colour can never disagree.
+    if (chartData.length >= 2) {
+      const first = chartData[0].price;
+      const last = chartData[chartData.length - 1].price;
+      if (first > 0 && Number.isFinite(first) && Number.isFinite(last)) {
+        return (last / first - 1) * 100;
+      }
+    }
     return null;
-  }, [data, timeframe]);
+  }, [data, timeframe, chartData]);
 
   if (loading) return (
     <div className="min-h-screen bg-[#07090b] text-gray-100 ag-aurora flex items-center justify-center">
