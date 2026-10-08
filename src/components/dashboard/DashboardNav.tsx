@@ -24,7 +24,7 @@ export default function DashboardNav() {
     { href: "/flow", label: "Flow" },
     { href: "/social", label: "Social" },
     { href: "/audits", label: "Audit" },
-    { href: "/benchmarks", label: "Benchmarks" },
+    { href: "/benchmarks", label: "Valuation Index" },
     { href: "/reports", label: "Reports" },
     { href: "/analytics", label: "Analytics" },
     { href: "/performance", label: "Performance" },
