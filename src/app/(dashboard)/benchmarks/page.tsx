@@ -134,7 +134,7 @@ function BenchmarkCard({
           <div className={`text-sm font-bold ${b.annual_revenue_usd > 0 ? "text-white" : "text-gray-600"}`}>
             {formatRevenue(b.annual_revenue_usd)}
           </div>
-          <div className="text-[10px] text-gray-600 mt-0.5">{b.active_users}</div>
+          <div className="text-[10px] text-gray-600 mt-0.5 truncate" title={b.active_users}>{b.active_users}</div>
         </div>
 
         {/* Mobile: cost saving */}
