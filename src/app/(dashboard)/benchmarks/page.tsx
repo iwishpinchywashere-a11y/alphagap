@@ -139,7 +139,7 @@ function Row({ r, expanded, onToggle, watched }: { r: ValuationRow; expanded: bo
         <div className="hidden sm:block pl-1.5 w-8 text-center font-mono text-xs text-gray-500 tabular-nums flex-shrink-0">{r.rank}</div>
         <SubnetLogo netuid={r.netuid} name={r.name} size={32} />
 
-        <div className="flex-1 min-w-0 md:flex-none md:w-52">
+        <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5">
             <span className="font-display font-semibold text-white truncate">{r.name}</span>
             <span className="text-[10px] text-emerald-400 bg-emerald-500/[0.07] border border-emerald-500/25 rounded-full px-1.5 py-px font-mono flex-shrink-0">SN{r.netuid}</span>
@@ -148,19 +148,21 @@ function Row({ r, expanded, onToggle, watched }: { r: ValuationRow; expanded: bo
           <div className="text-[10.5px] text-gray-500 truncate">{r.product.category}</div>
         </div>
 
-        {/* Revenue */}
-        <div className="hidden md:flex flex-col w-36 flex-shrink-0">
-          <span className={`font-display text-lg font-semibold tabular-nums leading-tight ${arr ? "text-white" : "text-gray-600"}`}>{fmtUsd(arr, "no revenue")}</span>
+        {/* Revenue (annualised) */}
+        <div className="hidden md:flex flex-col w-40 flex-shrink-0">
+          <span className={`font-display text-lg font-semibold tabular-nums leading-tight ${arr ? "text-white" : "text-gray-600"}`}>
+            {fmtUsd(arr, "no revenue")}{arr ? <span className="text-[10px] text-gray-500 font-normal ml-1.5 uppercase tracking-widest">ARR</span> : null}
+          </span>
           <span className="mt-0.5"><Pill tone={CONFIDENCE_TONE[r.revenue.confidence]}>{CONFIDENCE_LABEL[r.revenue.confidence]}</Pill></span>
         </div>
 
         {/* Growth */}
-        <div className="hidden lg:flex w-16 flex-shrink-0 items-center" title={g.label}>
+        <div className="hidden lg:flex w-20 flex-shrink-0 items-center justify-center" title={g.label}>
           <span className={`text-sm font-bold ${g.tone}`}>{g.glyph}</span>
         </div>
 
         {/* Buybacks */}
-        <div className="hidden md:block w-28 flex-shrink-0">
+        <div className="hidden md:block w-36 flex-shrink-0">
           <Pill tone={BUYBACK_TONE[r.buybacks.status]} title={r.buybacks.mechanism || undefined}>
             {r.buybacks.status === "active" && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />}
             {BUYBACK_LABEL[r.buybacks.status]}
@@ -171,19 +173,19 @@ function Row({ r, expanded, onToggle, watched }: { r: ValuationRow; expanded: bo
         </div>
 
         {/* P/S */}
-        <div className="hidden lg:flex flex-col w-20 flex-shrink-0 text-right" title="Market cap divided by annual revenue">
+        <div className="hidden lg:flex flex-col w-24 flex-shrink-0 text-right" title="Market cap divided by annual revenue">
           <span className={`font-display text-base tabular-nums ${r.psMultiple == null ? "text-gray-700" : r.psMultiple <= 10 ? "text-emerald-300" : r.psMultiple <= 30 ? "text-gray-200" : "text-amber-300"}`}>{fmtPs(r.psMultiple)}</span>
           <span className="text-[9px] text-gray-600 uppercase tracking-widest">P/S</span>
         </div>
 
         {/* Market cap */}
-        <div className="hidden xl:flex flex-col w-24 flex-shrink-0 text-right">
+        <div className="hidden xl:flex flex-col w-28 flex-shrink-0 text-right">
           <span className="text-sm text-gray-300 tabular-nums">{fmtUsd(r.live.marketCapUsd)}</span>
           <span className="text-[9px] text-gray-600 uppercase tracking-widest">Mkt cap</span>
         </div>
 
         {/* Product */}
-        <div className="hidden lg:flex flex-col w-14 flex-shrink-0 text-right" title="Product quality">
+        <div className="hidden lg:flex flex-col w-16 flex-shrink-0 text-right" title="Product quality">
           <span className="text-sm text-gray-300 tabular-nums">{r.product.quality_score}</span>
           <span className="text-[9px] text-gray-600 uppercase tracking-widest">Product</span>
         </div>
