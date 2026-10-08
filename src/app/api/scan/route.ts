@@ -160,6 +160,9 @@ interface TMCSubnet {
   price_difference_day?: number;
   price_difference_week?: number;
   price_difference_month?: number;
+  owner_personal_locked_alpha?: number | null;    // rao
+  owner_personal_perpetual_alpha?: number | null; // rao
+  owner_personal_decaying_alpha?: number | null;  // rao
 }
 async function fetchTMCSubnets(): Promise<TMCSubnet[]> {
   if (!TMC_API_KEY) return [];
@@ -847,9 +850,11 @@ export async function GET() {
   // now read this, written once per scan from the same verified rows.
   if (marketSource !== "none" && taoPrice > 0) {
     const bySubnet: Record<string, unknown> = {};
+    const tmcRows = new Map(tmcSubnets.map(t => [t.subnet, t]));
     for (const p of pools) {
       const c = chainMarket?.subnets.get(p.netuid);
       const tc = tradeCountMap.get(p.netuid);
+      const tmc = tmcRows.get(p.netuid);
       bySubnet[p.netuid] = {
         priceTao: Number(p.price),
         priceUsd: Number(p.price) * taoPrice,
@@ -863,7 +868,7 @@ export async function GET() {
         circulatingSupply: Number(p.total_alpha) / RAO,
         alphaInPool: Number(p.alpha_in_pool) / RAO,
         alphaStaked: Number(p.alpha_staked) / RAO,
-        emissionPct: c ? c.emissionShare * 100 : (tmcSubnets.find(t => t.subnet === p.netuid)?.emission ?? null),
+        emissionPct: c ? c.emissionShare * 100 : (tmc?.emission ?? null),
         validators: c?.validators ?? null,
         neurons: c?.neurons ?? null,
         symbol: p.symbol,
@@ -876,6 +881,11 @@ export async function GET() {
         // for exactly this, which is what made traffic expensive.
         fearGreedIndex: tc ? Number(tc.fear_and_greed_index ?? 0) : null,
         fearGreedSentiment: tc?.fear_and_greed_sentiment ?? null,
+        // Owner-locked alpha (BIT-0011 conviction locks) from TaoMarketCap, for
+        // the valuation index. Not a buyback, but it is the owner's own skin in
+        // the game and belongs next to the revenue figures.
+        ownerLockedAlpha: tmc?.owner_personal_locked_alpha != null ? Number(tmc.owner_personal_locked_alpha) / RAO : null,
+        ownerPerpetualAlpha: tmc?.owner_personal_perpetual_alpha != null ? Number(tmc.owner_personal_perpetual_alpha) / RAO : null,
       };
     }
     put("market-latest.json", JSON.stringify({
