@@ -14,6 +14,7 @@ export default function DashboardNav() {
   const tabs = [
     { href: "/dashboard", label: "Alpha Leaderboard" },
     { href: "/feed", label: "The Feed" },
+    { href: "/benchmarks", label: "Revenue & Valuations" },
     { href: "/powerrankings", label: "Power Rankings" },
     { href: "/alphagapindex", label: "AlphaGap Index" },
     { href: "/oracle", label: "Oracle" },
@@ -24,7 +25,6 @@ export default function DashboardNav() {
     { href: "/flow", label: "Flow" },
     { href: "/social", label: "Social" },
     { href: "/audits", label: "Audit" },
-    { href: "/benchmarks", label: "Valuation Index" },
     { href: "/reports", label: "Reports" },
     { href: "/analytics", label: "Analytics" },
     { href: "/performance", label: "Performance" },
