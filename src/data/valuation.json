@@ -9,14 +9,14 @@
    "live_product": true,
    "pricing_url": "https://docs.macrocosmos.ai/subnets/subnet-1-apex/apex-support-and-faqs",
    "quality_score": 55,
-   "quality_rationale": "Live and actively developed (subnetradar: 55 commits in 30d, 246 miners) but usable mainly by miners; no external customer-run competition, and apex.macrocosmos.ai showed '0 active landscape, 0 running today, 0.00α paid out' on 2026-10-08."
+   "quality_rationale": "Live and actively developed (subnetradar: 55 commits in 30d, 246 miners) but usable mainly by miners; no external customer-run competition, and apex.macrocosmos.ai showed '0 active landscape, 0 running today, 0.00\u03b1 paid out' on 2026-10-08."
   },
   "revenue": {
    "arr_usd": null,
    "confidence": "unknown",
    "basis": "Only inbound money disclosed is a $20 miner submission fee on two competitions; no submission counts, no customer revenue, not in any revenue index. Nothing to annualise.",
    "as_of": "2026-10-08",
-   "evidence": "Verified 2026-10-08: docs FAQ reads 'Submission fees are variable per competition. If a competition is not listed here, then it's free to submit to.' with 'Text Clustering: $20 USD' and 'Humanoid Olympics: $20 USD'. Docs still solicit customers: 'Want to transform your idea into a competition on Apex? Reach out to us through email at hello@macrocosmos.ai.' apex.macrocosmos.ai shows '0 active landscape', '0 running today', '0.00α paid out'. Apex absent from Crypto Briefing's SubConnect coverage (2026-09-21) and from TAO Daily's SubConnect tables (2026-09-16, 2026-10-02).",
+   "evidence": "Verified 2026-10-08: docs FAQ reads 'Submission fees are variable per competition. If a competition is not listed here, then it's free to submit to.' with 'Text Clustering: $20 USD' and 'Humanoid Olympics: $20 USD'. Docs still solicit customers: 'Want to transform your idea into a competition on Apex? Reach out to us through email at hello@macrocosmos.ai.' apex.macrocosmos.ai shows '0 active landscape', '0 running today', '0.00\u03b1 paid out'. Apex absent from Crypto Briefing's SubConnect coverage (2026-09-21) and from TAO Daily's SubConnect tables (2026-09-16, 2026-10-02).",
    "sources": [
     "https://docs.macrocosmos.ai/subnets/subnet-1-apex/apex-support-and-faqs",
     "https://docs.macrocosmos.ai/subnets/subnet-1-apex",
@@ -186,7 +186,7 @@
    "confidence": "self_reported",
    "basis": "Midpoint of SubConnect Bittensor Revenue Index range $5.5M-$6.0M, reported by Crypto Briefing (2026-09-21) and TAO Daily (2026-09-16, 2026-10-02). SubConnect is an index with undisclosed verification method; no first-party dashboard exists, so this cannot be 'confirmed'.",
    "as_of": "2026-09-16",
-   "evidence": "'Targon (SN4) follows with $5.5 million to $6 million.' (cryptobriefing.com, 2026-09-21). TAO Daily table row: 'Targon (SN4) | Compute & Infrastructure | $5.5–6M | Low | Yes' (2026-09-16). Older team figure 'monetizing at a $10.4M ARR' (unsupervised.capital, Sep 2025) is called 'a projection cited across multiple analyst reports, not an audited number' by ownyourmind.ai; Pine Analytics (via ownyourmind) suggests $1-2M. targon.com, docs.targon.com and manifold.inc/releases carry no revenue figure.",
+   "evidence": "'Targon (SN4) follows with $5.5 million to $6 million.' (cryptobriefing.com, 2026-09-21). TAO Daily table row: 'Targon (SN4) | Compute & Infrastructure | $5.5\u20136M | Low | Yes' (2026-09-16). Older team figure 'monetizing at a $10.4M ARR' (unsupervised.capital, Sep 2025) is called 'a projection cited across multiple analyst reports, not an audited number' by ownyourmind.ai; Pine Analytics (via ownyourmind) suggests $1-2M. targon.com, docs.targon.com and manifold.inc/releases carry no revenue figure.",
    "sources": [
     "https://cryptobriefing.com/bittensor-subnets-annualized-revenue/",
     "https://taodaily.io/bittensor-subnets-are-already-generating-28-35-million-a-year/",
@@ -362,7 +362,7 @@
    "confidence": "pre_revenue",
    "basis": "Protocol fee is up to 1% charged against miner collateral; last published volume is 4.08 TAO lifetime (7 swaps) so fees are ~0.04 TAO (~$10). No pricing for Allways Access credits found and no revenue figure disclosed.",
    "as_of": "2026-10-08",
-   "evidence": "'7 transactions totaling about 4.08 TAO volume' and miners earn 'up to a 1% fee on each completed swap (paid in TAO)' (https://subnetalpha.ai/subnet/subnet7/, mid-2026). 'The protocol fee is charged against miner collateral rather than any user transfer' (https://docs.all-ways.io/, read 2026-10-08). Allways Access: 'sign in, fund credits and swap all through its hosted app' (kucoin.com community repost of Harry (τ,τ), 2026-09-18).",
+   "evidence": "'7 transactions totaling about 4.08 TAO volume' and miners earn 'up to a 1% fee on each completed swap (paid in TAO)' (https://subnetalpha.ai/subnet/subnet7/, mid-2026). 'The protocol fee is charged against miner collateral rather than any user transfer' (https://docs.all-ways.io/, read 2026-10-08). Allways Access: 'sign in, fund credits and swap all through its hosted app' (kucoin.com community repost of Harry (\u03c4,\u03c4), 2026-09-18).",
    "sources": [
     "https://subnetalpha.ai/subnet/subnet7/",
     "https://docs.all-ways.io/",
@@ -409,25 +409,22 @@
    "quality_rationale": "Live, paying consumers with first-party counters (3,808 accounts registered, $757,857.68 paid to traders all-time, $503K in last 30 days) and 29 Trustpilot reviews confirming payouts; revenue itself is not disclosed, only a third-party range."
   },
   "revenue": {
-   "arr_usd": 875000,
-   "confidence": "self_reported",
-   "basis": "Midpoint of SubConnect Revenue Index range $750K-$1M, now verified in TAO Daily's table (2026-09-16). First-party counters (3,808 accounts since 2026-02-17 launch) are consistent with high-six-figure gross fees but the fee mix ($33-$1,099, promo discounts) is unknown, so no independent estimate replaces the index figure.",
-   "as_of": "2026-09-16",
-   "evidence": "TAO Daily table row: 'Vanta (SN8) | Applied AI | $750K–1M | Medium | Yes' (2026-09-16, citing SubConnect). vantatrading.io (2026-10-08): '3,808' accounts registered, '$757,857.68' paid so far, '$503K' rewards last 30 days, '$12.48M' capital allocated. Pricing page: default $100K account '$1,099' one-time; 'Oktoberfest Sale! 20% off $25K, $50K, and $100K evaluations with code OCT20. Ends Oct 31.' Launch tiers were $149/$249/$349 (PR Newswire 2026-02-17). Crypto Briefing (2026-09-21) does not name Vanta.",
+   "arr_usd": 1500000,
+   "confidence": "estimated",
+   "basis": "Evaluation fees only: 3,808 accounts registered (live dashboard, vantatrading.io, 2026-10-08) since the 2026-02-17 launch (7.7 months) x an assumed ~$250 average fee (tiers from $49 to $1,099; the default 100/0 split roughly doubles the 60/40 price) = ~$950K cumulative, ~$1.5M annualised. Copy-trading income, which Vanta calls its actual business, is undisclosed and excluded.",
+   "as_of": "2026-10-08",
+   "evidence": "vantatrading.io live performance dashboard: '3,808 Accounts registered', '$12.48M Capital Allocated to Traders', '$503K Rewards paid last 30 days', '$604K Rewards paid all-time' (read 2026-10-08). Pricing page: '$100,000 accounts run from $549 at a 60/40 split to $1,099 at 100/0, the default'. TAO Institute self-report: $100K MRR (March 2026). SubConnect (Aug 2026): $750K-1M.",
    "sources": [
-    "https://taodaily.io/bittensor-subnets-are-already-generating-28-35-million-a-year/",
     "https://www.vantatrading.io/",
     "https://www.vantatrading.io/pricing",
-    "https://www.prnewswire.com/news-releases/taoshi-announces-vanta-trading-a-new-decentralized-prop-trading-evaluation-platform-302686852.html",
-    "https://www.trustpilot.com/review/vantatrading.io",
-    "https://subnetradar.com/subnet/8"
+    "https://subnetradar.com/revenue"
    ]
   },
   "growth": {
    "trend": "growing",
-   "evidence": "SubConnect $750K-1M ARR (Sep 2026) vs the prior TAO Institute $100K MRR (Mar 2026, not re-verified here) are within noise. Activity signals are up: $503K of the $757,857.68 all-time payouts occurred in the last 30 days (vantatrading.io, 2026-10-08) and Trustpilot reviews (29, 4.4/5) run Mar-Oct 2026. Payouts are a cost, so 'growing' is low confidence.",
-   "prior_arr_usd": 875000,
-   "prior_as_of": "2026-08-12"
+   "evidence": "$503K of the ~$604K all-time trader rewards were paid in the last 30 days, so evaluation and trading activity is concentrated in the latest month; TAO Institute self-report was $100K MRR in March 2026.",
+   "prior_arr_usd": 1200000,
+   "prior_as_of": "2026-03"
   },
   "customers": {
    "named": [],
@@ -454,7 +451,7 @@
    "at": "2026-10-08",
    "revenue_ok": true,
    "buyback_ok": true,
-   "notes": "Buyback status raised from 'planned' to 'announced' because SubConnect (via TAO Daily, 2026-09-16 and 2026-10-02) states Vanta has started revenue-funded alpha buybacks; still not 'active' as no address or executed-buy evidence exists. Revenue as_of moved to the verifiable 2026-09-16 publication."
+   "notes": "ARR raised $875K -> $1.5M (estimated) from first-party account count x pricing; buybacks remain announced."
   }
  },
  {
@@ -526,7 +523,7 @@
    "confidence": "pre_revenue",
    "basis": "Marketing site still says Coming Soon; live API still reports stage 0; no pricing, checkout, pilot or customer disclosure found.",
    "as_of": "2026-10-08",
-   "evidence": "pareton.ai: \"Coming Soon · Bittensor Subnet 10\" and \"If you already serve models under a real SLA, send the profile. We will tell you whether the search is worth running.\" (contact xavier@pareton.ai) (fetched 2026-10-08). api.pareton.ai/health -> {\"ok\":true,\"service\":\"pareton\",\"stage\":0}; openapi.json description \"Stage 0 campaign + submission surface (SN10)\" v0.1.0; /v1/stats: campaigns total 6 (open 1, closed 3, archived 2), submissions 193 (scored 133, disqualified 45) (curl 2026-10-08).",
+   "evidence": "pareton.ai: \"Coming Soon \u00b7 Bittensor Subnet 10\" and \"If you already serve models under a real SLA, send the profile. We will tell you whether the search is worth running.\" (contact xavier@pareton.ai) (fetched 2026-10-08). api.pareton.ai/health -> {\"ok\":true,\"service\":\"pareton\",\"stage\":0}; openapi.json description \"Stage 0 campaign + submission surface (SN10)\" v0.1.0; /v1/stats: campaigns total 6 (open 1, closed 3, archived 2), submissions 193 (scored 133, disqualified 45) (curl 2026-10-08).",
    "sources": [
     "https://www.pareton.ai/",
     "https://api.pareton.ai/health",
@@ -847,7 +844,7 @@
    "confidence": "pre_revenue",
    "basis": "There is no project to buy from: no website, no repo, no miners.",
    "as_of": "2026-10-08",
-   "evidence": "taostats.io/subnets/16 page title: '0.0009 · SN16 · kenju' with 656 holders and 0 conviction transactions (curl 2026-10-08). dtaoanalytics.com/market/16 (2026-10-08): 'kenju # 16 4 active validators • 0 active miners', 'Skeleton subnet ... 0 miners · τ319 reserve · $222.98K mcap', 'Deep-tail emission economics'. subnetradar.com/research/subnets: 'SN 16 - kenju: Profile pending; no verified description available.' subnetalpha.ai/subnet/kenju returns 404. fast-thinker-dashboard.hf.space returns 404; github.com/fast-thinker/fast-thinker last commit 2026-07-16.",
+   "evidence": "taostats.io/subnets/16 page title: '0.0009 \u00b7 SN16 \u00b7 kenju' with 656 holders and 0 conviction transactions (curl 2026-10-08). dtaoanalytics.com/market/16 (2026-10-08): 'kenju # 16 4 active validators \u2022 0 active miners', 'Skeleton subnet ... 0 miners \u00b7 \u03c4319 reserve \u00b7 $222.98K mcap', 'Deep-tail emission economics'. subnetradar.com/research/subnets: 'SN 16 - kenju: Profile pending; no verified description available.' subnetalpha.ai/subnet/kenju returns 404. fast-thinker-dashboard.hf.space returns 404; github.com/fast-thinker/fast-thinker last commit 2026-07-16.",
    "sources": [
     "https://taostats.io/subnets/16",
     "https://dtaoanalytics.com/market/16",
@@ -1419,7 +1416,7 @@
    "confidence": "pre_revenue",
    "basis": "Whitepaper v2 names subscription tiers (Research/Professional/Enterprise datasets; Starter/Growth/Enterprise testing) with no prices, and gives only forward targets. Launch press release (2026-08-28) names no customers or pricing. No purchase path exists on perturbai.io.",
    "as_of": "2026-10-08",
-   "evidence": "Whitepaper v2: 'Phase 2 (Months 3-6): Target: 50+ Research tier subscribers · $15,000 MRR'; 'Phase 4 (Year 2): Target: $500,000+ ARR' (https://www.perturbai.io/downloads/whitepaper_v2.html). subnetalpha: 'No current revenue is disclosed ... the vision is that Perturb's product suite (datasets + certificates) will be monetized'. Press release 2026-08-28: no customers, no pricing (hackernoon mirror).",
+   "evidence": "Whitepaper v2: 'Phase 2 (Months 3-6): Target: 50+ Research tier subscribers \u00b7 $15,000 MRR'; 'Phase 4 (Year 2): Target: $500,000+ ARR' (https://www.perturbai.io/downloads/whitepaper_v2.html). subnetalpha: 'No current revenue is disclosed ... the vision is that Perturb's product suite (datasets + certificates) will be monetized'. Press release 2026-08-28: no customers, no pricing (hackernoon mirror).",
    "sources": [
     "https://www.perturbai.io/downloads/whitepaper_v2.html",
     "https://www.perturbai.io/",
@@ -1568,7 +1565,7 @@
  },
  {
   "netuid": 29,
-  "name": "hoτfloaτ",
+  "name": "ho\u03c4floa\u03c4",
   "status": "dead",
   "product": {
    "what_it_is": "Formerly Coldint (collaborative model training); relabelled 'hotfloat / inference optimization'. The declared repo is an unmodified fork of the Cacheon (SN14) LLM inference-server arena. Nothing is usable by a customer.",
@@ -2279,7 +2276,7 @@
    "confidence": "unknown",
    "basis": "No product or team identified; nothing to measure.",
    "as_of": "2026-10-08",
-   "evidence": "taostats metagraph page for SN42 shows name 'Unknown', emission '0.0021', 'Active Miners' 1 and 'Active Validators' 12 (https://taostats.io/subnets/42/metagraph, 2026-10-08). subnetalpha.ai entry shows 'Awaiting Data…' for every field (https://subnetalpha.ai/subnet/subnet42/).",
+   "evidence": "taostats metagraph page for SN42 shows name 'Unknown', emission '0.0021', 'Active Miners' 1 and 'Active Validators' 12 (https://taostats.io/subnets/42/metagraph, 2026-10-08). subnetalpha.ai entry shows 'Awaiting Data\u2026' for every field (https://subnetalpha.ai/subnet/subnet42/).",
    "sources": [
     "https://taostats.io/subnets/42/metagraph",
     "https://subnetalpha.ai/subnet/subnet42/"
@@ -2872,22 +2869,19 @@
    "quality_rationale": "Live, priced, growing model list (9 models vs 4 in Aug), independent evidence of a real external workload (Albedo SN97 routing ~1B tokens/day through it), but no first-party revenue disclosure and no first-party buyback statement."
   },
   "revenue": {
-   "arr_usd": 500000,
-   "confidence": "self_reported",
-   "basis": "SubConnect Bittensor Revenue Index (Aug 2026) '$1-2K/day' / $400-600K ARR, midpoint, as carried from prior research and as indexed by subnetmetrics ('100% of ~$1-2k/day revenue to alpha buybacks'); the index body could not be re-read first-hand. No first-party revenue figure. Sanity checks: Albedo's ~1B tokens/day at glm-5.3-flash list prices ($0.135/$0.45 per 1M) is ~$135-450/day; and if 100% of revenue is burned, the first-party buyback page's $128.6K burned since Aug 2026 implies ~$60-65K/month (~$750K annualised), above the SubConnect range.",
-   "as_of": "2026-08-30",
-   "evidence": "engy.ai/pricing (2026-10-08): 'Per-token, pay as you go. No subscriptions and no minimums'. api.engy.ai/v1/models: 8 priced models incl. deepseek-v4.1-flash $0.04/$0.08, glm-5.3 $0.98/$3.08, glm-5.3-flash $0.135/$0.45, kimi-k3 $1.95/$9.75 per 1M. taooutsider 2026-10-08: Engy 'serves roughly 70% of its judge calls', 'about one billion tokens per day through Engy, five times the previous week's daily volume'. subnetmetrics.com/subnets/53: SubConnect V2 claim '100% of ~$1-2k/day revenue to alpha buybacks'. subnetalpha: '18% owner cut of mining rewards'.",
+   "arr_usd": 1160000,
+   "confidence": "confirmed",
+   "basis": "engy's own on-chain buy-back ledger (provider.engy.ai/api/buyback). Their page states 'Revenue is used to buy back and permanently burn sn53 alpha', so burned value is a floor on revenue. Last 30 days to 2026-10-04: $95,304 burned over 8 buys, x 365/30 = $1.16M. Last 14 days annualise to $1.68M.",
+   "as_of": "2026-10-04",
+   "evidence": "Ledger totals: 16,220.74 alpha / $128,622.43 burned across 22 on-chain buys from 2026-08-12 to 2026-10-04 (block numbers and extrinsic hashes published). Weekly burn value: W33 $8.7K, W36 $14.5K, W38 $14.8K, W39 $30.2K, W40 $34.2K. Policy text on provider.engy.ai/buyback (read 2026-10-08).",
    "sources": [
-    "https://engy.ai/pricing",
-    "https://api.engy.ai/v1/models",
-    "https://www.taooutsider.com/blog/albedo-sn97-engy-model-judging/",
-    "https://subnetmetrics.com/subnets/53",
-    "https://provider.engy.ai/buyback"
+    "https://provider.engy.ai/buyback",
+    "https://provider.engy.ai/api/buyback"
    ]
   },
   "growth": {
-   "trend": "growing",
-   "evidence": "Single SubConnect revenue figure (Aug 2026), but hard proxies point up: buyback-and-burn page shows ~$15-18K per weekly burn in late Sep/early Oct 2026 vs a SubConnect-era rate of $1-2K/day; model catalogue 4 -> 8/9 between Aug and Oct; Albedo volume ~1B tokens/day, 5x week-on-week (2026-10-08). If 100% of revenue is burned, recent burns (~$86K per 30 days) imply revenue roughly double the Aug range.",
+   "trend": "accelerating",
+   "evidence": "Weekly burned value rose from $8.7K (week 33) to $34.2K (week 40), four consecutive weeks of increase; SubConnect carried $400-600K ARR in August.",
    "prior_arr_usd": 500000,
    "prior_as_of": "2026-08-30"
   },
@@ -2911,12 +2905,12 @@
     "https://subnetalpha.ai/subnet/engy/"
    ]
   },
-  "notes": "The 100%-buyback claim rests entirely on SubConnect; I could not read engy's or founder Ning Ren's (@totheagi) X posts (403/451), so it may be active in practice. Score raised 80->82 for the independent Albedo usage evidence; held back by zero first-party disclosure. Owner perpetual lock of 133,264 alpha is a conviction lock, not a buyback. Verifier: The researcher missed engy's own buyback ledger at provider.engy.ai/buyback, the first-party execution evidence the rubric asks for. The 100% figure is SubConnect's wording, not on the ledger page. Revenue is still undisclosed; if the ledger is 100% of revenue, run-rate is ~$750K-1M ARR, so $500K is a floor. subnetmetrics' tracked wallet 5H8SFV... shows no buys, so purchases come from another key.",
+  "notes": "The 100%-buyback claim rests entirely on SubConnect; I could not read engy's or founder Ning Ren's (@totheagi) X posts (403/451), so it may be active in practice. Score raised 80->82 for the independent Albedo usage evidence; held back by zero first-party disclosure. Owner perpetual lock of 133,264 alpha is a conviction lock, not a buyback. Verifier: The researcher missed engy's own buyback ledger at provider.engy.ai/buyback, the first-party execution evidence the rubric asks for. The 100% figure is SubConnect's wording, not on the ledger page. Revenue is still undisclosed; if the ledger is 100% of revenue, run-rate is ~$750K-1M ARR, so $500K is a floor. subnetmetrics' tracked wallet 5H8SFV... shows no buys, so purchases come from another key. Update 2026-10-08: ARR re-derived from the first-party ledger; the ledger measures burned value, which equals revenue only if all revenue is recyc",
   "verified": {
    "at": "2026-10-08",
    "revenue_ok": true,
    "buyback_ok": true,
-   "notes": "Buybacks moved announced -> active with usd_to_date $128,622 on engy's own buyback page (provider.engy.ai/buyback, per-burn block numbers) corroborated by subnetmetrics' independent burn index; growth trend set to 'growing' on the burn run-rate. ARR kept at $500K self_reported because no first-party"
+   "notes": "ARR raised $500K -> $1.16M from the on-chain ledger run-rate; growth accelerating."
   }
  },
  {
@@ -2993,7 +2987,7 @@
    "confidence": "self_reported",
    "basis": "SubConnect Bittensor Revenue Index Vol I (Aug 2026) p.27: 'ESTIMATED ANNUAL REVENUE $500K', 'REVENUE CONFIDENCE MEDIUM', 'the team has publicly disclosed annual recurring revenue exceeding half a million dollars'. I could not locate that team disclosure anywhere first-party (site, repo, blog, X), so it stays self_reported via an index.",
    "as_of": "2026-08-01",
-   "evidence": "niome.genomes.io (2026-10-08): Challenge 1 complete, Challenge 2 (HBB + CRISPR) active; enterprise datasets offered via email contact (aldo@genomes.io); no pricing, no customers, no revenue. genomes.io: no NIOME or revenue content. taooutsider 2026-07-10: '10 active miners and nonzero emission', 'has not established clinical validation'. subnetradar/55 (2026-10-08): 'Earning <0.01% of network emission, about τ0.16 a day'. subnetalpha: no ARR; access model only.",
+   "evidence": "niome.genomes.io (2026-10-08): Challenge 1 complete, Challenge 2 (HBB + CRISPR) active; enterprise datasets offered via email contact (aldo@genomes.io); no pricing, no customers, no revenue. genomes.io: no NIOME or revenue content. taooutsider 2026-07-10: '10 active miners and nonzero emission', 'has not established clinical validation'. subnetradar/55 (2026-10-08): 'Earning <0.01% of network emission, about \u03c40.16 a day'. subnetalpha: no ARR; access model only.",
    "sources": [
     "https://share.sendnow.live/s/subconnect-revenue-index-1",
     "https://niome.genomes.io/",
@@ -3115,7 +3109,7 @@
    "confidence": "unknown",
    "basis": "No product or team could be identified, so no revenue basis exists.",
    "as_of": "2026-10-08",
-   "evidence": "tao.app: 'Subnet 57: Unknown ... Emission N/A ... TRADING VOLUME (24H) 1 T ... NAME HISTORY Current Sparket.AI Block #7,414,453 / Gaia Block #5,105,410' (https://www.tao.app/subnets/57, read 2026-10-08). Chain RPC subnetInfo_getDynamicInfo(57): subnet_name='gaia', emission=0, network_registered_at=8057320 (lite.chain.opentensor.ai, 2026-10-08). Taostats title: 'SN57 · Unknown' (https://taostats.io/subnets/57).",
+   "evidence": "tao.app: 'Subnet 57: Unknown ... Emission N/A ... TRADING VOLUME (24H) 1 T ... NAME HISTORY Current Sparket.AI Block #7,414,453 / Gaia Block #5,105,410' (https://www.tao.app/subnets/57, read 2026-10-08). Chain RPC subnetInfo_getDynamicInfo(57): subnet_name='gaia', emission=0, network_registered_at=8057320 (lite.chain.opentensor.ai, 2026-10-08). Taostats title: 'SN57 \u00b7 Unknown' (https://taostats.io/subnets/57).",
    "sources": [
     "https://www.tao.app/subnets/57",
     "https://taostats.io/subnets/57",
@@ -3215,7 +3209,7 @@
    "confidence": "unknown",
    "basis": "No team or product could be identified for the current occupant of netuid 59.",
    "as_of": "2026-10-08",
-   "evidence": "tao.app: 'Subnet 59: Unknown ... 24H Volume τ 0.00 ... Circulating 0.5% 103.53K ... Emission N/A ... NAME HISTORY Current Babelbit Block #8,627,151' (https://www.tao.app/subnets/59, read 2026-10-08). Chain RPC subnetInfo_getDynamicInfo(59): subnet_name='agent-arena', alpha_out=0, tao_in=530.36, emission=0, network_registered_at=8938771 (lite.chain.opentensor.ai, 2026-10-08; head block 9,241,166). Mark Creaser, 2026-08-05: 'As I write, Babelbit sits first in the pruning queue, waiting for the axe to be swung.' (https://markcreaser.com/writing/changing-the-table-mid-hand).",
+   "evidence": "tao.app: 'Subnet 59: Unknown ... 24H Volume \u03c4 0.00 ... Circulating 0.5% 103.53K ... Emission N/A ... NAME HISTORY Current Babelbit Block #8,627,151' (https://www.tao.app/subnets/59, read 2026-10-08). Chain RPC subnetInfo_getDynamicInfo(59): subnet_name='agent-arena', alpha_out=0, tao_in=530.36, emission=0, network_registered_at=8938771 (lite.chain.opentensor.ai, 2026-10-08; head block 9,241,166). Mark Creaser, 2026-08-05: 'As I write, Babelbit sits first in the pruning queue, waiting for the axe to be swung.' (https://markcreaser.com/writing/changing-the-table-mid-hand).",
    "sources": [
     "https://www.tao.app/subnets/59",
     "https://taostats.io/subnets/59",
@@ -3266,7 +3260,7 @@
    "confidence": "unknown",
    "basis": "Public price list (Sentios, live since 2026-09-01) but no disclosed customer count, MRR or receipts anywhere. Only quantified statements are targets: June 2026 '3 companies in the pipeline', 'EOY goal is 50 company subscriptions, 1 enterprise subscription ... a book of revenue between $50k to $250k MRR'. A target is not revenue; nothing to multiply.",
    "as_of": "2026-10-08",
-   "evidence": "sentios.io (rendered 2026-10-08): '$25 per 100 nSLOC, per scan. A 12,000 nSLOC protocol works out to $3,000 a scan'; 'Continuous ... From $1,000 / mo by nSLOC · <5k $1,000 · 5-15k $3,000 · 15-30k $5,000'; all plans 'Book a Call'; 'Case studies appear here only with explicit permission - which is why this page is short.' @bitsecai 2026-06-24: 'We have 3 companies in the pipeline ... EOY goal is 50 company subscriptions'. @bitsecai 2026-09-01: 'the new Bitsec site is LIVE'. discoverbittensor (July 2026): 'signs of revenue coming in from audit contests, bug bounties and paid scanning work'.",
+   "evidence": "sentios.io (rendered 2026-10-08): '$25 per 100 nSLOC, per scan. A 12,000 nSLOC protocol works out to $3,000 a scan'; 'Continuous ... From $1,000 / mo by nSLOC \u00b7 <5k $1,000 \u00b7 5-15k $3,000 \u00b7 15-30k $5,000'; all plans 'Book a Call'; 'Case studies appear here only with explicit permission - which is why this page is short.' @bitsecai 2026-06-24: 'We have 3 companies in the pipeline ... EOY goal is 50 company subscriptions'. @bitsecai 2026-09-01: 'the new Bitsec site is LIVE'. discoverbittensor (July 2026): 'signs of revenue coming in from audit contests, bug bounties and paid scanning work'.",
    "sources": [
     "https://sentios.io",
     "https://x.com/bitsecai/status/2069864626771104220",
@@ -4519,7 +4513,7 @@
     "https://subnetalpha.ai/subnet/compelle/"
    ]
   },
-  "notes": "Prior research (live card checkout, 358,250 internal debates) is out of date. Homepage now cites '655,232 Recorded debates' from 'the research snapshot captured September 26, 2026', so the network ran until at least late Sept 2026, but taostats titles netuid 82 as 'SN82 · Unknown' and subnetradar says 'This slot publishes no identity on chain'. Market cap ~$169K (subnetradar). Whether Compelle still owns the slot or it was re-registered could not be confirmed (taostats API 401). subnetalpha.ai's 'Compelle' page is stale/generic."
+  "notes": "Prior research (live card checkout, 358,250 internal debates) is out of date. Homepage now cites '655,232 Recorded debates' from 'the research snapshot captured September 26, 2026', so the network ran until at least late Sept 2026, but taostats titles netuid 82 as 'SN82 \u00b7 Unknown' and subnetradar says 'This slot publishes no identity on chain'. Market cap ~$169K (subnetradar). Whether Compelle still owns the slot or it was re-registered could not be confirmed (taostats API 401). subnetalpha.ai's 'Compelle' page is stale/generic."
  },
  {
   "netuid": 83,
@@ -4588,7 +4582,7 @@
    "confidence": "unknown",
    "basis": "No entity to attribute revenue to.",
    "as_of": "2026-10-08",
-   "evidence": "taostats page title: 'SN84 · Unknown' (https://taostats.io/subnets/84, 2026-10-08). subnetradar: 'This slot publishes no identity on chain, so nothing below could be confirmed against it.' (https://subnetradar.com/research/subnets/84). bittensor.co.in lists SN84 as 'Inactive'. BIT-0004 PR table row: '84 | 0.0024 | 1.1841' (alpha price, NAV ratio) among deregistration candidates (https://github.com/opentensor/bits/pull/29, merged 2026-04-13).",
+   "evidence": "taostats page title: 'SN84 \u00b7 Unknown' (https://taostats.io/subnets/84, 2026-10-08). subnetradar: 'This slot publishes no identity on chain, so nothing below could be confirmed against it.' (https://subnetradar.com/research/subnets/84). bittensor.co.in lists SN84 as 'Inactive'. BIT-0004 PR table row: '84 | 0.0024 | 1.1841' (alpha price, NAV ratio) among deregistration candidates (https://github.com/opentensor/bits/pull/29, merged 2026-04-13).",
    "sources": [
     "https://taostats.io/subnets/84",
     "https://subnetradar.com/research/subnets/84",
@@ -4689,7 +4683,7 @@
    "confidence": "unknown",
    "basis": "No entity to attribute revenue to.",
    "as_of": "2026-10-08",
-   "evidence": "taostats page title: 'SN86 · Unknown' (https://taostats.io/subnets/86, 2026-10-08). subnetradar: 'Research · SN86 · OtherUnconfirmed ... This slot publishes no identity on chain' (https://subnetradar.com/research/subnets/86). bittensor.co.in lists SN86 as 'Inactive'. BIT-0004 PR table row: '86 | 0.0013 | 1.2147' (https://github.com/opentensor/bits/pull/29, merged 2026-04-13).",
+   "evidence": "taostats page title: 'SN86 \u00b7 Unknown' (https://taostats.io/subnets/86, 2026-10-08). subnetradar: 'Research \u00b7 SN86 \u00b7 OtherUnconfirmed ... This slot publishes no identity on chain' (https://subnetradar.com/research/subnets/86). bittensor.co.in lists SN86 as 'Inactive'. BIT-0004 PR table row: '86 | 0.0013 | 1.2147' (https://github.com/opentensor/bits/pull/29, merged 2026-04-13).",
    "sources": [
     "https://taostats.io/subnets/86",
     "https://subnetradar.com/research/subnets/86",
@@ -4769,7 +4763,7 @@
     "https://provenonce.ai/proofoftalk"
    ]
   },
-  "notes": "Update vs August: a public repo now exists (miner kit runnable, validator scoring private: 'A complete validator therefore cannot be run from this repository alone'). Owner_locked_alpha 126,193 (decaying) in the batch file is an owner lock, not a buyback. Emission 0% per batch file. provenonce.ai/sn87 now renders only the title 'SN87 · Provenonce' without the July announcement text."
+  "notes": "Update vs August: a public repo now exists (miner kit runnable, validator scoring private: 'A complete validator therefore cannot be run from this repository alone'). Owner_locked_alpha 126,193 (decaying) in the batch file is an owner lock, not a buyback. Emission 0% per batch file. provenonce.ai/sn87 now renders only the title 'SN87 \u00b7 Provenonce' without the July announcement text."
  },
  {
   "netuid": 88,
@@ -5282,7 +5276,7 @@
    "confidence": "pre_revenue",
    "basis": "No pricing page, no billing, API keys issued free per GitHub account; funding is subnet emissions only.",
    "as_of": "2026-10-08",
-   "evidence": "albedo.tech/keys.html (2026-10-08): 'Named keys per GitHub account for api.albedo.tech · OpenAI, Anthropic and Responses wire formats · Claude Code, Codex, Copilot, Cursor' with no price. api.albedo.tech/v1/models returns 401 'Missing API key' (works, gated by free key). subnetalpha.ai/subnet/albedo/: 'No traditional revenue model described'.",
+   "evidence": "albedo.tech/keys.html (2026-10-08): 'Named keys per GitHub account for api.albedo.tech \u00b7 OpenAI, Anthropic and Responses wire formats \u00b7 Claude Code, Codex, Copilot, Cursor' with no price. api.albedo.tech/v1/models returns 401 'Missing API key' (works, gated by free key). subnetalpha.ai/subnet/albedo/: 'No traditional revenue model described'.",
    "sources": [
     "https://albedo.tech/",
     "https://albedo.tech/keys.html",
@@ -5600,7 +5594,7 @@
    "confidence": "pre_revenue",
    "basis": "No product exists.",
    "as_of": "2026-10-08",
-   "evidence": "taostats.io/subnets/103 page title: '0.0009 · SN103 · Deprecat...' with no subnet_name, github or url fields in the embedded identity data (fetched 2026-10-08). subnetradar.com/research/subnets: 'SN103 - Deprecated: No description provided... No documentation published.' bt.masxai.com forecast (2026-10-08) references 'SN103's thin dTAO pool (295 TAO)'.",
+   "evidence": "taostats.io/subnets/103 page title: '0.0009 \u00b7 SN103 \u00b7 Deprecat...' with no subnet_name, github or url fields in the embedded identity data (fetched 2026-10-08). subnetradar.com/research/subnets: 'SN103 - Deprecated: No description provided... No documentation published.' bt.masxai.com forecast (2026-10-08) references 'SN103's thin dTAO pool (295 TAO)'.",
    "sources": [
     "https://taostats.io/subnets/103",
     "https://subnetradar.com/research/subnets",
