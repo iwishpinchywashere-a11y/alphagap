@@ -4886,9 +4886,9 @@
    "quality_rationale": "Live validator, gateway (llm.kubetee.ai) and a first-party dashboard with on-chain extrinsics; but demand-side paid jobs/USDC billing are still Phase 2, only 2 miner clusters are scored, no customer is named, and the only inflow is SN28 miner alpha from serving sayGM."
   },
   "revenue": {
-   "arr_usd": 146000,
-   "confidence": "self_reported",
-   "basis": "kubetee.ai/dashboard (refreshed 2026-10-08): 'Total recycled $18k since Aug 23', 'Average / day $401 over 45 days'; $401 x 365 = ~$146K. Last three fills were $427, $435, $684/day. CAVEAT: this is SN28 (sayGM) miner alpha earned from another subnet's emissions, valued in USD by the team, then swapped into SN90 alpha. It is NOT billing to a KubeTEE customer; README still lists 'Alpha / TAO paid jobs (demand-side)' and 'USDC-on-BASE ... job billing' under 'Phase 2 - Paid Jobs/Services/Inference'.",
+   "arr_usd": null,
+   "confidence": "pre_revenue",
+   "basis": "No customer billing. The $146K figure the team and SubConnect quote is emission income earned by mining on SayGM (SN28), valued in USD and recycled into SN90 alpha. Under this index's rules emission income is not revenue, so ARR is not counted; paid jobs are still Phase 2.",
    "as_of": "2026-10-08",
    "evidence": "Dashboard: 'serves inference on sayGM (Bittensor SN28)', '2.63%' incentive share, '77.5' daily mining alpha, '3.7k' SN28 alpha swapped, '2.2k' SN90 alpha recycled, 'Data refreshed October 8'; Oct 8: 61.1 SN28 -> 68.5 SN90 ($427); Oct 7: 62.9 -> 66.4 ($435); Oct 6: 105.0 -> 105.0 ($684). Homepage: 'External inference demand is already paying for compute - and that revenue is recycled on-chain every day.' README: 'SN28 (sayGM) idle-capacity channel + LiteLLM inference provider - live 2026-08-19'.",
    "sources": [
@@ -4899,7 +4899,7 @@
    ]
   },
   "growth": {
-   "trend": "growing",
+   "trend": "unknown",
    "evidence": "August 2026 research: $0 inflow (sayGM channel went live 2026-08-19 per README). 2026-10-08 dashboard: $18k recycled since Aug 23 at ~$401/day, with the latest three days ($427-$684) above the 45-day average. Only 45 days of history, alpha-denominated and price-sensitive.",
    "prior_arr_usd": 0,
    "prior_as_of": "2026-08-12"
@@ -4913,8 +4913,8 @@
    "evidence": "Only demand channel is sayGM: 'Confidential inference - GLM-5.2, GLM-5.3, GLM-5.3-Flash, and Ornith-1.5-397B, served inside TEE-isolated pods and available to buyers on sayGM' (https://kubetee.ai, 2026-10-08). README: 'No commercial customers are named'; enterprise personas (HIPAA/SOC2) are targets, not customers."
   },
   "buybacks": {
-   "status": "active",
-   "mechanism": "Daily swap of all SN28 alpha earned on sayGM into SN90 alpha, which is recycled to unissued supply (buy-and-recycle, not a burn); each swap on the dashboard links a tao.app extrinsic.",
+   "status": "none",
+   "mechanism": "Daily recycling of SN28 mining income into SN90 alpha (kubetee.ai/dashboard, extrinsics published). Funded by emissions earned on another subnet, not by customer revenue, so it does not count as a revenue-funded buyback here.",
    "pct_of_revenue": 100,
    "usd_to_date": 18000,
    "evidence": "'Total recycled $18k since Aug 23', '3.7k' SN28 alpha swapped, '2.2k' SN90 alpha recycled, swaps dated Oct 6-8 with extrinsic links, 'recycled - every day, in the open', returns go to 'unissued supply; it never pays the subnet owner's key' (kubetee.ai/dashboard, 2026-10-08). README: 'spent Alpha is recycled (returned to unissued supply, extends the emission runway, refills the miner budget), not burned'.",
@@ -5755,9 +5755,9 @@
    "quality_rationale": "Transactable today with live public inventory (79 GPUs, 54 rented, 2026-10-08 via nodexo.ai/api/inventory) showing real rental demand, but no revenue disclosure, no named customers, repo untouched since 2026-07-23 and the subnet earns ~0% emission."
   },
   "revenue": {
-   "arr_usd": 638000,
+   "arr_usd": 128000,
    "confidence": "estimated",
-   "basis": "Marketplace GMV at a point in time, NOT Nodexo net revenue. Re-derived from https://nodexo.ai/api/inventory on 2026-10-08 (snapshot_age 43s): rented rows x price_usdc_per_hour: 1x4090 $0.31 + 1x5090 $0.62 + 4x A100 PCIe @1.07 = $4.28 + 17x A100 SXM @1.25 = $21.25 + 2 nodes of 4xA100 @5.00 = $10.00 + 11x H100 @1.79 = $19.69 + 9x RTX PRO 6000 @1.52 = $13.68 + 1x 2xRTX PRO 6000 @3.04 = $3.04 = $72.87/hr x 8,760 = $638,341/yr at constant utilisation. Researcher's $73.94/hr had one more A100 PCIe rented minutes earlier (snapshot drift). Platform take undisclosed; whitepaper caps owner share at 20%.",
+   "basis": "Platform revenue, not GMV. Verifier re-derived $638K annualised GMV from the live inventory snapshot; Nodexo's take is at most ~20% of GMV, so platform revenue is ~$128K. Earlier figure counted the full GMV.",
    "as_of": "2026-10-08",
    "evidence": "API metrics at my fetch: {total_gpus:78, available_gpus:25, rented_gpus:53}; /stats page showed 79/54 moments earlier. Whitepaper: 'an owner share, capped at twenty percent in the contract, is routed to the subnet owner, and the remainder is staked to the subnet's validator' and operators 'earn ... rental revenue from renters'. Hackernoon 2026-08-07: 'crossed 50 verified GPUs online', 'seven GPU classes across six countries'. No revenue disclosure anywhere.",
    "sources": [
@@ -5790,7 +5790,7 @@
     "https://raw.githubusercontent.com/nodexo-ai/nodexo/main/README.md"
    ]
   },
-  "notes": "SubnetRadar (2026-10-08): 'earning ~0% emission', repo last activity 7/23/2026, 60% buffer above dereg floor. Not named in the Sept 2026 SubConnect coverage (cryptobriefing). x.com/nodexo returned 403. Prior Aug tally undercounted multi-rental instance rows; this tally multiplies rented count by price for every row. Verifier: The $638k is gross marketplace volume at listed prices if current utilisation held for a year; Nodexo's own cut is undisclosed and, per the whitepaper split, at most 20% (~$128k) plus any undisclosed platform fee. Rows marked source 'instance' are already-rented machines whose price may be stale. Repo idle since 2026-07-23. x.com/nodexo unreadable (403). Web-search budget for this session was exha",
+  "notes": "SubnetRadar (2026-10-08): 'earning ~0% emission', repo last activity 7/23/2026, 60% buffer above dereg floor. Not named in the Sept 2026 SubConnect coverage (cryptobriefing). x.com/nodexo returned 403. Prior Aug tally undercounted multi-rental instance rows; this tally multiplies rented count by price for every row. Verifier: The $638k is gross marketplace volume at listed prices if current utilisation held for a year; Nodexo's own cut is undisclosed and, per the whitepaper split, at most 20% (~$128k) plus any undisclosed platform fee. Rows marked source 'instance' are already-rented machines whose price may be stale. Repo idle since 2026-07-23. x.com/nodexo unreadable (403). Web-search budget for this session was exha Update 2026-10-09: ARR restated from GMV to ~20% platform take.",
   "verified": {
    "at": "2026-10-08",
    "revenue_ok": true,

@@ -216,6 +216,7 @@ import { readRootWeightStatus } from "@/lib/root-weights";
 import { fetchChainMarket, fetchTaoUsd, isFresh, readPriceDaily, fillOneDailyGap, PRICE_DAILY_BLOB } from "@/lib/market-data";
 import { fetchRecentCommits, fetchRecentPRs, fetchLatestRelease } from "@/lib/context-fetcher";
 import { computeProductScore, BENCHMARK_MAP, MILESTONE_MAP, type WebsiteSignalData } from "@/lib/benchmarks";
+import { getValuationSignals, revenueTractionPts, buybackPts, growthPts } from "@/lib/valuation-signals";
 import type { WebsiteProductCache } from "@/app/api/scan-websites/route";
 
 export const dynamic = "force-dynamic";
@@ -356,7 +357,10 @@ interface LeaderboardEntry {
   sector_rotation?: boolean;   // subnet's category is in a sector rotation event
   product_score?: number;        // 0–100 (benchmark→100, website/milestone→80, heuristic→60)
   utility_estimated?: boolean;   // true when score is website, milestone, or heuristic (not benchmarked)
-  product_source?: "benchmark" | "website" | "milestone" | "heuristic";
+  product_source?: "valuation" | "benchmark" | "website" | "milestone" | "heuristic";
+  revenue_confidence?: "confirmed" | "self_reported" | "estimated" | "pre_revenue" | "unknown";
+  buyback_status?: "active" | "announced" | "planned" | "none" | "unknown";
+  growth_trend?: "accelerating" | "growing" | "flat" | "declining" | "unknown";
   benchmark_score?: number;
   benchmark_category?: string;
   cost_saving_pct?: number;
@@ -3720,7 +3724,11 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     //    Revenue confidence scale: a subnet with $10M ARR that nobody's talking about is a TRUE gap.
     //    A subnet with $100K ARR and low social may just be early-stage — market is accurately cautious.
     //    Scale both awareness and price bonuses proportionally so low-revenue subnets can't hit 100.
-    const confirmedArrForAwareness = BENCHMARK_MAP.get(d.netuid)?.annual_revenue_usd ?? 0;
+    const valSig = getValuationSignals(d.netuid);
+    // Credited ARR (confidence-weighted) from the valuation research, falling
+    // back to the August benchmark figure only for subnets the research
+    // does not cover.
+    const confirmedArrForAwareness = valSig ? valSig.creditedArrUsd : (BENCHMARK_MAP.get(d.netuid)?.annual_revenue_usd ?? 0);
     // The ladder must be MONOTONIC in revenue, and "we have no revenue figure"
     // must not outrank a disclosed one. It used to do both wrong: unknown
     // scored 0.85 — above $500K (0.72), nearly double $100K (0.45), and level
@@ -3858,7 +3866,12 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     else if (pch7d >=  5 && breakoutInflow) breakoutBonus = 6;
     else if (pch24h >= 5 && breakoutInflow) breakoutBonus = 4;
 
-    const rawAGap = buildingPts + consistentBuilderBonus + devSpikeBonus + priceLag + floorReversalBonus + socialMomentum + evalBoost + evalVsPriceBonus + viability + campaignBoost + whaleBoost + whaleVelocityBonus + emissionBoost + volBoost + thinPoolBonus + stakingBoost + stakingTrendBonus + rootPropBonus + productAGapPts + productAwarenessGap + productVsPriceBonus + momentumBoost + gapClosurePenalty + starVelocityBonus + socialVelocityBonus + confluenceBonus + breakoutBonus;
+    // Revenue-funded buybacks are standing buy pressure on the alpha. Small
+    // in the trading formula (it is slow-moving); the investing formula
+    // weights it properly.
+    const buybackTradingBonus = valSig?.buybackStatus === "active" ? 3 : valSig?.buybackStatus === "announced" ? 1 : 0;
+
+    const rawAGap = buybackTradingBonus + buildingPts + consistentBuilderBonus + devSpikeBonus + priceLag + floorReversalBonus + socialMomentum + evalBoost + evalVsPriceBonus + viability + campaignBoost + whaleBoost + whaleVelocityBonus + emissionBoost + volBoost + thinPoolBonus + stakingBoost + stakingTrendBonus + rootPropBonus + productAGapPts + productAwarenessGap + productVsPriceBonus + momentumBoost + gapClosurePenalty + starVelocityBonus + socialVelocityBonus + confluenceBonus + breakoutBonus;
 
     // SUSTAINED DECLINE CEILING — hard cap on the final score for chronic bleeders.
     // Reducing individual components (priceLag, evalVsPriceBonus) wasn't enough because
@@ -3943,19 +3956,34 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     // THE core investing differentiator — completely absent from trading formula.
     const benchEntry  = BENCHMARK_MAP.get(d.netuid);
     const milestEntry = MILESTONE_MAP.get(d.netuid);
-    const confirmedArr = benchEntry?.annual_revenue_usd ?? 0;
-    const estimatedArr = confirmedArr > 0 ? confirmedArr : (milestEntry?.estimated_arr_usd ?? 0);
+    // Revenue from the valuation research (confidence-weighted), with the
+    // August benchmark / milestone figures only as a fallback for subnets the
+    // research does not cover.
+    // "unknown" means the research could not determine revenue either way, as
+    // opposed to pre_revenue (checked, none). For unknown, an older milestone
+    // estimate is still the best information we have, so it keeps counting on
+    // the estimated ladder rather than dropping to zero.
+    const researchUnknown = !!valSig && valSig.confidence === "unknown";
+    const useLegacy = !valSig || researchUnknown;
+    const confirmedArr = useLegacy ? (valSig ? 0 : (benchEntry?.annual_revenue_usd ?? 0)) : valSig.creditedArrUsd;
+    const estimatedArr = confirmedArr > 0 ? confirmedArr : (useLegacy ? (milestEntry?.estimated_arr_usd ?? 0) : 0);
     const arrIsEstimated = confirmedArr === 0 && estimatedArr > 0;
-    let revTractionBonus = 0;
-    if      (estimatedArr >= 10_000_000) revTractionBonus = arrIsEstimated ? 17 : 20;
-    else if (estimatedArr >=  2_000_000) revTractionBonus = arrIsEstimated ? 13 : 15;
-    else if (estimatedArr >=  1_000_000) revTractionBonus = arrIsEstimated ?  8 : 10;
-    else if (estimatedArr >=    500_000) revTractionBonus = arrIsEstimated ?  5 :  7;
-    else if (estimatedArr >=    100_000) revTractionBonus = arrIsEstimated ?  3 :  4;
-    else if (estimatedArr >           0) revTractionBonus = arrIsEstimated ?  1 :  2;
+    let revTractionBonus = useLegacy ? 0 : revenueTractionPts(valSig!.creditedArrUsd);
+    if (useLegacy) {
+      if      (estimatedArr >= 10_000_000) revTractionBonus = arrIsEstimated ? 17 : 20;
+      else if (estimatedArr >=  2_000_000) revTractionBonus = arrIsEstimated ? 13 : 15;
+      else if (estimatedArr >=  1_000_000) revTractionBonus = arrIsEstimated ?  8 : 10;
+      else if (estimatedArr >=    500_000) revTractionBonus = arrIsEstimated ?  5 :  7;
+      else if (estimatedArr >=    100_000) revTractionBonus = arrIsEstimated ?  3 :  4;
+      else if (estimatedArr >           0) revTractionBonus = arrIsEstimated ?  1 :  2;
+    }
+    // Revenue-funded alpha buybacks (0-10) and revenue growth (-5..+5): the
+    // two things the old formula could not see at all.
+    const buybackInvestBonus = valSig ? buybackPts(valSig.buybackStatus, valSig.buybackPctOfRevenue) : 0;
+    const growthInvestBonus  = valSig ? growthPts(valSig.growthTrend, valSig.arrUsd) : 0;
 
     // ── BENCHMARK STATUS (used by market validation, proven product, revenue floor) ──
-    const isBenchmarked = productSource === "benchmark";
+    const isBenchmarked = productSource === "benchmark" || productSource === "valuation";
 
     // ── MARKET VALIDATION BONUS (0–5 pts) ────────────────────────────────────
     // Formally benchmarked AND generating revenue = proven PMF.
@@ -4052,7 +4080,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     // ── PILLAR 4: PRODUCT + ADOPTION (max 20) — was Product max 31 ───────────
     // Tightened ceiling. Adds user growth trajectory and partnership/adoption
     // signals that were previously buried in the social sub-score.
-    const iProductSourceMult = productSource === "benchmark" ? 1.3 :
+    const iProductSourceMult = (productSource === "benchmark" || productSource === "valuation") ? 1.3 :
                                productSource === "website"   ? 1.1 :
                                productSource === "milestone" ? 1.0 :
                                                                0.8;
@@ -4211,7 +4239,8 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     const rawInvestAGap = pillarConviction + pillarAuditDecen + pillarDev + pillarProduct
                         + pillarNetwork
                         + combinedGrowthBonus          // replaces pillarGrowthTiming + growthPotentialBonus (capped at 10)
-                        + revTractionBonus + marketValidationBonus + investSynergy
+                        + revTractionBonus + buybackInvestBonus + growthInvestBonus
+                        + marketValidationBonus + investSynergy
                         + provenProductBonus + emissionDominanceBonus + provenQualityBonus
                         + emissionPenalty + networkHealthPenalty + whalePenalty
                         + investViability + investDeregPenalty + investZeroEmissionPenalty;
@@ -4238,19 +4267,27 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     // thesis only matters if the subnet survives. Revenue floors are capped at 50
     // for zero-emission subnets so the structural risk is always reflected.
     const floorBenchBonus = isBenchmarked ? 4 : 0;
+    // The floor ladders predate confidence tiers: "confirmed" meant a figure in
+    // benchmarks.ts. Route by the research's tier instead. Only a CONFIRMED
+    // figure (dashboard, ledger, named press) earns the confirmed ladder;
+    // self-reported and estimated figures use the lower one, and nothing
+    // under $100K credited floors at all. Without this, a $3K estimate was
+    // flooring a subnet at 48.
+    const floorArrConfirmed = useLegacy ? confirmedArr : (valSig!.confidence === "confirmed" ? valSig!.arrUsd : 0);
+    const floorArrEstimated = useLegacy ? estimatedArr : (valSig!.confidence === "confirmed" ? 0 : valSig!.creditedArrUsd);
     let investRevFloor = 0;
-    if      (confirmedArr >= 10_000_000) investRevFloor = 80 + floorBenchBonus;
-    else if (confirmedArr >=  2_000_000) investRevFloor = 72 + floorBenchBonus;
-    else if (confirmedArr >=  1_000_000) investRevFloor = 65 + floorBenchBonus;
-    else if (confirmedArr >=    500_000) investRevFloor = 58 + floorBenchBonus;
-    else if (confirmedArr >=    100_000) investRevFloor = 52 + floorBenchBonus;
-    else if (confirmedArr >           0) investRevFloor = 44 + floorBenchBonus;
-    // Estimated ARR (milestone, lower confidence): smaller floors, no bench bonus
-    else if (estimatedArr >=  2_000_000) investRevFloor = 62;
-    else if (estimatedArr >=  1_000_000) investRevFloor = 56;
-    else if (estimatedArr >=    500_000) investRevFloor = 50;
-    else if (estimatedArr >=    100_000) investRevFloor = 42;
-    else if (estimatedArr >           0) investRevFloor = 36;
+    if      (floorArrConfirmed >= 10_000_000) investRevFloor = 80 + floorBenchBonus;
+    else if (floorArrConfirmed >=  2_000_000) investRevFloor = 72 + floorBenchBonus;
+    else if (floorArrConfirmed >=  1_000_000) investRevFloor = 65 + floorBenchBonus;
+    else if (floorArrConfirmed >=    500_000) investRevFloor = 58 + floorBenchBonus;
+    else if (floorArrConfirmed >=    100_000) investRevFloor = 52 + floorBenchBonus;
+    else if (floorArrConfirmed >           0) investRevFloor = 44 + floorBenchBonus;
+    // Self-reported / estimated ARR: smaller floors, no bench bonus, $100K minimum
+    else if (floorArrEstimated >=  2_000_000) investRevFloor = 62;
+    else if (floorArrEstimated >=  1_000_000) investRevFloor = 56;
+    else if (floorArrEstimated >=    500_000) investRevFloor = 50;
+    else if (floorArrEstimated >=    100_000) investRevFloor = 42;
+    else if (floorArrEstimated >=     10_000) investRevFloor = 36; // small but real; $10K minimum keeps trivial estimates off the ladder
 
     // Cap revenue floor for zero-emission subnets — de-reg risk trumps ARR
     if (isZeroEmission && investRevFloor > 50) investRevFloor = 50;
@@ -4314,7 +4351,10 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
       cost_saving_pct: BENCHMARK_MAP.get(d.netuid)?.cost_saving_pct,
       vs_provider: BENCHMARK_MAP.get(d.netuid)?.vs_provider,
       benchmark_summary: BENCHMARK_MAP.get(d.netuid)?.benchmark_summary,
-      annual_revenue_usd: BENCHMARK_MAP.get(d.netuid)?.annual_revenue_usd,
+      annual_revenue_usd: valSig ? (valSig.arrUsd || undefined) : BENCHMARK_MAP.get(d.netuid)?.annual_revenue_usd,
+      revenue_confidence: valSig?.confidence,
+      buyback_status: valSig?.buybackStatus,
+      growth_trend: valSig?.growthTrend,
       momentum_boost: momentumBoost !== 0 ? momentumBoost : undefined,
       invest_agap: investAGap,
       audit_score: auditScore ?? undefined,

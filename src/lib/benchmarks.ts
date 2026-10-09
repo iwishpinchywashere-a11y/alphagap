@@ -3077,13 +3077,31 @@ export interface WebsiteSignalData {
 // ALL sources return a 0–100 scale (previously 0–10).
 // In the AGap formula use: productScore * 0.10 to keep 0–10 pt contribution.
 //
+import { getValuationSignals } from "./valuation-signals";
+
 export function computeProductScore(
   netuid: number,
   heuristic?: UtilityHeuristicInputs,
   websiteData?: WebsiteSignalData,
-): { score: number; estimated: boolean; source: "benchmark" | "website" | "milestone" | "heuristic" } {
+): { score: number; estimated: boolean; source: "valuation" | "benchmark" | "website" | "milestone" | "heuristic" } {
 
-  // ── 1. Formally benchmarked ───────────────────────────────────────────────
+  // ── 0. Valuation research (2026-10-08, all 128 subnets) ───────────────────
+  // Product quality scored per subnet with a rationale, revenue with a
+  // confidence tier, dead subnets marked dead. Takes precedence over the
+  // August benchmark data: that still carried scores for 13 netuids that had
+  // since been re-registered by different projects, and revenue figures that
+  // were months stale (engy $500K vs $1.16M on its own ledger).
+  const v = getValuationSignals(netuid);
+  if (v) {
+    if (v.status === "dead") return { score: 0, estimated: false, source: "valuation" };
+    // Revenue traction bonus (0-20) on CREDITED ARR, so a self-reported figure
+    // counts at 70% and an estimate at 50% of a confirmed one.
+    const c = v.creditedArrUsd;
+    const revBonus = c >= 10_000_000 ? 20 : c >= 2_000_000 ? 14 : c >= 500_000 ? 8 : c >= 100_000 ? 3 : c > 0 ? 1 : 0;
+    return { score: Math.min(100, v.qualityScore + revBonus), estimated: !v.liveProduct, source: "valuation" };
+  }
+
+  // ── 1. Formally benchmarked (fallback for subnets registered after the research) ──
   const b = BENCHMARK_MAP.get(netuid);
   if (b) {
     // Revenue traction bonus (0–20 pts added to benchmark score)
