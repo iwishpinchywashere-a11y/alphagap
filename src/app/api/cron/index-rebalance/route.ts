@@ -24,7 +24,13 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 const BLOB_TOKEN = process.env.BLOB_READ_WRITE_TOKEN || "";
-const REBALANCE_INTERVAL_DAYS = 5; // catch-up: rebalance if last run was >5 days ago
+// Catch-up only for a MISSED Sunday. The weekly cadence is 7 days, so "overdue"
+// has to mean more than 7 days plus the cron jitter. It was 5, which made every
+// Friday (5.0 days after a normal Sunday run) count as overdue: the index was
+// rebalancing twice a week, Sunday and Friday, paying slippage on members'
+// funds each time. Verified from index-rebalance-latest: 2026-10-09 (a
+// Friday) 12:00:18, five days after Sunday 2026-10-04.
+const REBALANCE_INTERVAL_DAYS = 7 + 0.25;
 const MIN_INTERVAL_DAYS = 2;       // floor: never rebalance twice within 2 days
 // Vercel crons are best-effort, not to-the-second, and `rebalancedAt` is stamped
 // when the handler starts rather than when the cron fires. Both push the recorded
