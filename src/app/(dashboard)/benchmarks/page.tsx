@@ -8,9 +8,10 @@
  * caps from the chain. Research is in src/data/valuation.json; scoring is in
  * src/lib/valuation.ts; the join happens in /api/valuation.
  *
- * Two numbers are kept apart on purpose: the fundamentals score says how much
- * real business is here, the P/S multiple says what the market is paying for
- * it. The reader decides what is cheap.
+ * The score in the ring is the PROD score: the same number that feeds the
+ * aGap formula as its product pillar (research product quality + a 0-20
+ * business bonus from revenue, buybacks and growth). P/S is shown beside it,
+ * not scored: the reader decides what is cheap.
  */
 
 import React, { useState, useEffect, useMemo } from "react";
@@ -21,9 +22,9 @@ import AgIcon from "@/components/AgIcon";
 import BlurGate from "@/components/BlurGate";
 import { getTier, canAccessPremium } from "@/lib/subscription";
 import { useWatchlist } from "@/components/dashboard/WatchlistProvider";
-import { WEIGHTS, type ValuationRow, type Confidence, type BuybackStatus, type GrowthTrend } from "@/lib/valuation";
+import { type ValuationRow, type Confidence, type BuybackStatus, type GrowthTrend } from "@/lib/valuation";
 
-type SortKey = "index" | "revenue" | "buybacks" | "ps" | "growth" | "product" | "mcap";
+type SortKey = "index" | "revenue" | "buybacks" | "ps" | "growth" | "mcap";
 type Filter = "all" | "revenue" | "buybacks" | "watchlist";
 
 interface Summary {
@@ -184,20 +185,17 @@ function Row({ r, expanded, onToggle, watched }: { r: ValuationRow; expanded: bo
           <span className="text-[9px] text-gray-600 uppercase tracking-widest">Mkt cap</span>
         </div>
 
-        {/* Product */}
-        <div className="hidden lg:flex flex-col w-16 flex-shrink-0 text-right" title="Product quality">
-          <span className="text-sm text-gray-300 tabular-nums">{r.product.quality_score}</span>
-          <span className="text-[9px] text-gray-600 uppercase tracking-widest">Product</span>
-        </div>
-
         {/* Mobile: ARR */}
         <div className="md:hidden flex-shrink-0 text-right">
           <div className={`font-display text-sm font-semibold tabular-nums ${arr ? "text-white" : "text-gray-600"}`}>{fmtUsd(arr, "-")}</div>
           {r.buybacks.status === "active" && <div className="text-[9px] text-emerald-400">buying back</div>}
         </div>
 
-        <div className="flex items-center gap-2 ml-1 flex-shrink-0">
-          <ScoreRing score={r.fundamentals} />
+        <div className="flex items-center gap-2 ml-1 flex-shrink-0" title="PROD score: the product pillar of aGap">
+          <div className="flex flex-col items-center">
+            <ScoreRing score={r.prodScore} />
+            <span className="text-[8px] text-gray-600 uppercase tracking-widest mt-0.5">Prod</span>
+          </div>
           <svg className={`w-4 h-4 text-gray-600 transition-transform ${expanded ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
         </div>
       </div>
@@ -256,12 +254,14 @@ function Row({ r, expanded, onToggle, watched }: { r: ValuationRow; expanded: bo
 
               <div className="bg-white/[0.03] border border-white/[0.08] rounded-xl p-4 space-y-2.5">
                 <div className="text-[10px] font-bold text-gray-500 uppercase tracking-widest flex items-center justify-between">
-                  <span>Fundamentals {r.fundamentals}/100</span>
+                  <span>Prod score {r.prodScore}/100</span>
+                  <span className="text-gray-600 normal-case tracking-normal font-normal">= quality {r.product.quality_score} + business bonus {Math.max(0, r.prodScore - r.product.quality_score)}</span>
                 </div>
-                <Bar label="Revenue" value={r.components.revenue} weight={WEIGHTS.revenue} />
-                <Bar label="Buybacks" value={r.components.buybacks} weight={WEIGHTS.buybacks} />
-                <Bar label="Growth" value={r.components.growth} weight={WEIGHTS.growth} />
-                <Bar label="Product" value={r.components.product} weight={WEIGHTS.product} />
+                <Bar label="Product quality" value={r.product.quality_score} weight={100} />
+                <div className="text-[10px] text-gray-600 uppercase tracking-widest pt-1">Business bonus {Math.round(r.businessScore / 5)}/20 · from</div>
+                <Bar label="Revenue" value={r.components.revenue} weight={60} />
+                <Bar label="Buybacks" value={r.components.buybacks} weight={27} />
+                <Bar label="Growth" value={(r.revenue.arr_usd ?? 0) > 0 ? r.components.growth : 0} weight={13} />
               </div>
             </div>
 
@@ -378,7 +378,6 @@ export default function ValuationPage() {
       // Lowest multiple first, among subnets that have one. Cheap revenue sorts to the top.
       ps: (a, b) => ((a.psMultiple ?? Infinity) - (b.psMultiple ?? Infinity)),
       growth: (a, b) => (gr(b.growth.trend) - gr(a.growth.trend)) || (b.creditedArrUsd - a.creditedArrUsd),
-      product: (a, b) => (b.product.quality_score - a.product.quality_score),
       mcap: (a, b) => ((b.live.marketCapUsd ?? 0) - (a.live.marketCapUsd ?? 0)),
     };
     list = [...list].sort(cmp[sort]);
@@ -445,7 +444,7 @@ export default function ValuationPage() {
           <div className="flex items-center gap-1.5 flex-shrink-0">
             <span className="text-[10px] text-gray-600 uppercase tracking-widest">Sort</span>
             <div className="ag-pill-tabs">
-              {([["index", "Index"], ["revenue", "Revenue"], ["buybacks", "Buybacks"], ["ps", "P/S"], ["growth", "Growth"], ["product", "Product"], ["mcap", "Mkt cap"]] as Array<[SortKey, string]>).map(([k, label]) => (
+              {([["index", "Prod score"], ["revenue", "Revenue"], ["buybacks", "Buybacks"], ["ps", "P/S"], ["growth", "Growth"], ["mcap", "Mkt cap"]] as Array<[SortKey, string]>).map(([k, label]) => (
                 <button key={k} onClick={() => setSort(k)} className={`ag-pill-tab !px-3 !py-1.5 !text-xs ${sort === k ? "ag-pill-tab-on" : ""}`}>{label}</button>
               ))}
             </div>
@@ -459,7 +458,7 @@ export default function ValuationPage() {
         {showMethod && (
           <div className="ag-glass px-5 py-4 mt-3 text-xs text-gray-400 leading-relaxed space-y-2">
             <p><span className="text-gray-200 font-semibold">Revenue tiers.</span> <span className="text-emerald-300">Confirmed</span> means a public dashboard, an on-chain ledger, or a named-source report we can open. <span className="text-amber-300">Self-reported</span> means the team or an index states it and there is no independent check. <span className="text-sky-300">Estimated</span> means we derived it from public usage and public pricing, with the arithmetic shown. A revenue figure is never inferred from market cap, emissions or token price.</p>
-            <p><span className="text-gray-200 font-semibold">Fundamentals score (0-100).</span> Revenue {WEIGHTS.revenue}% on a log scale with self-reported counted at 70% and estimated at 50%; alpha buybacks {WEIGHTS.buybacks}% (active with most of revenue committed scores highest); growth {WEIGHTS.growth}%; product quality {WEIGHTS.product}%. A dead subnet scores zero.</p>
+            <p><span className="text-gray-200 font-semibold">Prod score (0-100).</span> The number in the ring, and the same number that enters the aGap formula as its product pillar. It is the researched product quality (0-100) plus a business bonus of up to 20 points. The bonus weighs revenue 60% (log scale, self-reported counted at 70% and estimated at 50% of a confirmed figure), revenue-funded alpha buybacks 27% (active with most of revenue committed scores highest), and growth 13% (only once there is revenue to grow). A subnet with no revenue keeps its quality score; a dead subnet scores zero.</p>
             <p><span className="text-gray-200 font-semibold">P/S.</span> Live market cap divided by stated ARR. It is shown, not scored: whether 8x is cheap for a subnet is your call. Buyback yield is the annual buyback dollars as a share of market cap, only where the programme is active and the percentage of revenue is stated.</p>
             <p><span className="text-gray-200 font-semibold">Buybacks.</span> Only revenue used to buy the subnet&apos;s own alpha counts. Owner-locked alpha is shown separately; it is the team locking tokens it already holds, which is a different signal.</p>
           </div>

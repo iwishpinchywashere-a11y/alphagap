@@ -15,7 +15,8 @@ import { NextResponse } from "next/server";
 import { get as blobGet } from "@vercel/blob";
 import research from "@/data/valuation.json";
 import { scoreRow, rankRows, type ResearchRecord, type LiveMarket } from "@/lib/valuation";
-import { BENCHMARK_MAP } from "@/lib/benchmarks";
+import { BENCHMARK_MAP, computeProductScore } from "@/lib/benchmarks";
+import { getValuationSignals } from "@/lib/valuation-signals";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 15;
@@ -72,7 +73,10 @@ export async function GET() {
       sources: b.sources ?? [],
       last_updated: b.last_updated,
     } : null;
-    return { ...scored1, benchmark };
+    // The one score: same number as the PROD pillar inside aGap.
+    const prodScore = computeProductScore(r.netuid).score;
+    const businessScore = getValuationSignals(r.netuid)?.businessScore ?? 0;
+    return { ...scored1, benchmark, prodScore, businessScore };
   });
   const rows = rankRows(scored);
 

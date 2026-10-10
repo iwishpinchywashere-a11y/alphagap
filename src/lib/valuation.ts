@@ -87,6 +87,14 @@ export interface ValuationRow extends ResearchRecord {
   /** 0-100 fundamentals score with its components, for the breakdown UI. */
   fundamentals: number;
   components: { revenue: number; buybacks: number; growth: number; product: number };
+  /**
+   * THE score shown on the index and used as the aGap product pillar:
+   * product quality + a 0-20 business bonus (revenue, buybacks, growth).
+   * Computed by lib/benchmarks computeProductScore; the API fills it in.
+   */
+  prodScore: number;
+  /** 0-100 business side of the index (revenue 45 / buybacks 20 / growth 10, renormalised). */
+  businessScore: number;
   rank: number;
   /** Legacy product benchmark (August research), joined by the API. */
   benchmark?: {
@@ -146,7 +154,7 @@ export function growthComponent(trend: GrowthTrend): number {
   }
 }
 
-export function scoreRow(r: ResearchRecord, live: LiveMarket): Omit<ValuationRow, "rank"> {
+export function scoreRow(r: ResearchRecord, live: LiveMarket): Omit<ValuationRow, "rank" | "prodScore" | "businessScore"> {
   const confidenceWeight = CONFIDENCE_WEIGHT[r.revenue.confidence] ?? 0;
   const arr = r.revenue.arr_usd ?? 0;
   const creditedArrUsd = arr * confidenceWeight;
@@ -183,6 +191,6 @@ export function scoreRow(r: ResearchRecord, live: LiveMarket): Omit<ValuationRow
 
 export function rankRows(rows: Array<Omit<ValuationRow, "rank">>): ValuationRow[] {
   return [...rows]
-    .sort((a, b) => b.fundamentals - a.fundamentals || (b.creditedArrUsd - a.creditedArrUsd))
+    .sort((a, b) => b.prodScore - a.prodScore || (b.creditedArrUsd - a.creditedArrUsd) || (b.fundamentals - a.fundamentals))
     .map((r, i) => ({ ...r, rank: i + 1 }));
 }
