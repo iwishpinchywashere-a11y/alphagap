@@ -4500,7 +4500,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
               strength: Math.min(95, Math.round(50 + mag)),
               title: `Flow turned positive: +${cur.toFixed(2)} TAO/24h`,
               description: `Net flow flipped from ${prev.toFixed(2)} to +${cur.toFixed(2)} TAO. Buyers now outweigh sellers - early accumulation signal.`,
-              source: "taostats",
+              source: "chain",
               signal_date: today,
             });
           }
@@ -4516,7 +4516,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
               strength,
               title: `Flow spiked ${ratio.toFixed(1)}x`,
               description: `24h net flow jumped from ${prev.toFixed(2)} to ${cur.toFixed(2)} TAO - buy pressure accelerating sharply.`,
-              source: "taostats",
+              source: "chain",
               signal_date: today,
             });
           }
@@ -4532,7 +4532,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
               strength,
               title: `Flow turned negative: ${cur.toFixed(2)} TAO/24h`,
               description: `Net flow flipped from +${prev.toFixed(2)} to ${cur.toFixed(2)} TAO. Sell pressure now exceeding buys.`,
-              source: "taostats",
+              source: "chain",
               signal_date: today,
             });
           }

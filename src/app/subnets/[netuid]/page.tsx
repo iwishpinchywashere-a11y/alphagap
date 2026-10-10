@@ -617,7 +617,7 @@ function TaoFlowChart({ allData }: { allData: { x: string; y: number }[] }) {
       </div>
 
       <p className="text-[11px] text-gray-700 leading-relaxed">
-        TAO Flow EMA measures net TAO moving into or out of this subnet&apos;s liquidity pool (7-day exponential moving average, sourced from TaoMarketCap). Sustained positive flow → emission share rising. Sustained negative flow → emission share falling. This is a leading indicator of where emissions are heading next.
+        TAO Flow EMA measures net TAO moving into or out of this subnet&apos;s liquidity pool (7-day exponential moving average, read from chain state). Sustained positive flow → emission share rising. Sustained negative flow → emission share falling. This is a leading indicator of where emissions are heading next.
       </p>
     </div>
   );
