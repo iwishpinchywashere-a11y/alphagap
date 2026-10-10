@@ -403,7 +403,8 @@ Write the report using EXACTLY this structure. Be concise and punchy - each sect
     }
 
     const data = await res.json();
-    let reportContent: string = data.content?.[0]?.text || "Report generation failed";
+    // House style: no em dashes anywhere, including model output.
+    let reportContent: string = (data.content?.[0]?.text || "Report generation failed").replace(/\s*\u2014\s*/g, " - ");
 
     // ── Step 4b: Fact-check the report ──────────────────────────────────────
     // Scan for any numeric claims that contradict known ground-truth values.

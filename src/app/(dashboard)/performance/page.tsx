@@ -12,6 +12,9 @@ import { getTier } from "@/lib/subscription";
 // ── Types ─────────────────────────────────────────────────────────────────
 
 interface PricePoint { timestamp: string; price: number }
+
+/** Subnet price histories have been USD-denominated since this date; earlier cached series are in TAO. */
+const USD_HISTORY_SINCE = "2026-10-08";
 interface ScoreRow { date: string; agap: number; flow: number; dev: number; eval: number; social: number; price: number; mcap: number; emission_pct: number }
 interface SignalRow { id: number; netuid: number; signal_type: string; strength: number; title: string; description: string; source: string; source_url?: string; created_at: string; signal_date?: string }
 interface SubnetDetail {
@@ -724,7 +727,12 @@ export default function PerformancePage() {
         const cached = cachedKey ? cache[cachedKey] : null;
 
         if (cached && cached.findings.length > 0) {
-          const hasPriceHistory = (cached.priceHistory?.length ?? 0) >= 2;
+          // Price histories cached before the chain/USD migration (2026-10-08)
+          // are in TAO units; the page labels prices in dollars, so those are
+          // refetched (and the pump re-measured on USD prices) rather than drawn.
+          const cachedHist = cached.priceHistory ?? [];
+          const histIsUsd = cachedHist.length >= 2 && cachedHist[cachedHist.length - 1].timestamp >= USD_HISTORY_SINCE;
+          const hasPriceHistory = histIsUsd;
           const cachedDetail: SubnetDetail | null = hasPriceHistory
             ? { netuid: resolvedNetuid ?? 0, name: p.name, identity: null, scoreHistory: [], priceHistory: cached.priceHistory!, signals: [], marketStats: null }
             : null;
@@ -765,14 +773,18 @@ export default function PerformancePage() {
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
           const detail: SubnetDetail = await res.json();
           if (detail.priceHistory?.length >= 2) {
+            // Same pump window, re-measured on the USD series so the $ labels are right.
+            const pumpEvent = stub.pumpEvent
+              ? (findBestPump(detail.priceHistory, stub.pumpEvent.startDate) ?? stub.pumpEvent)
+              : stub.pumpEvent;
             setAutopsies(prev => prev.map(a =>
-              a.pumper.name === stubName ? { ...a, detail, chartLoading: false } : a
+              a.pumper.name === stubName ? { ...a, detail, pumpEvent, chartLoading: false } : a
             ));
             // Re-save cache with priceHistory so next load is instant
             const cachedKey = Object.keys(cache).find(k => k.toLowerCase() === stubName.toLowerCase());
             if (cachedKey) {
               saveToCache(stubName, {
-                pumpEvent: stub.pumpEvent as PumpEvent | null,
+                pumpEvent,
                 findings: stub.findings as SignalFinding[],
                 narrative: "",
                 research: null,
