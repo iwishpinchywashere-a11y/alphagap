@@ -4,6 +4,7 @@
  */
 
 import { getDb } from "./db";
+import valuationResearch from "@/data/valuation.json";
 import type { SubnetType } from "./tao-pages-data";
 
 // ── Slugify ────────────────────────────────────────────────────────
@@ -308,7 +309,7 @@ const STATIC_SUBNET_LIST: Array<{ netuid: number; name: string }> = [
   { netuid: 36,  name: "Eirel" },
   { netuid: 37,  name: "Aurelius" },
   { netuid: 38,  name: "ChronoLLM" },
-  { netuid: 39, name: "Basilica" },
+  { netuid: 39, name: "Subnet 39 (vacated)" },
   { netuid: 40,  name: "Ralph (Ralph Labs)" },
   { netuid: 41,  name: "Almanac" },
   { netuid: 43,  name: "Graphite" },
@@ -431,6 +432,9 @@ export function getAllSubnetRows(): SubnetRow[] {
   }
 
   return rawRows.map((row) => {
+    // The slug is derived from the stored name so existing URLs keep working;
+    // the DISPLAYED name comes from the valuation research when the slot has
+    // changed hands since the list was written (see currentSubnetName).
     const slug =
       EXPLICIT_SLUGS[row.netuid] ??
       slugify(row.name, row.netuid);
@@ -440,11 +444,44 @@ export function getAllSubnetRows(): SubnetRow[] {
 
     return {
       netuid: row.netuid,
-      name: row.name,
+      name: currentSubnetName(row.netuid) ?? row.name,
       slug,
       subnetType,
     };
-  }).filter((row) => !EXCLUDED_NAMES.has(row.name));
+  }).filter((row) => !EXCLUDED_NAMES.has(row.name) && !isVacatedSlot(row.netuid));
+}
+
+// ── Research-backed names ─────────────────────────────────────────
+// Netuids change hands. The valuation research (src/data/valuation.json,
+// Oct 2026) is the freshest record of who holds each slot.
+
+const RESEARCH_BY_NETUID = new Map<number, { name: string; status: string }>(
+  (valuationResearch as unknown as Array<{ netuid: number; name: string; status: string }>)
+    .map(r => [r.netuid, { name: r.name, status: r.status }]),
+);
+
+/** A clean current name for the slot, or null when the research has none. */
+export function currentSubnetName(netuid: number): string | null {
+  const r = RESEARCH_BY_NETUID.get(netuid);
+  if (!r || r.status !== "live") return null;
+  const name = r.name.replace(/\s*\(.*$/, "").trim();   // "Enigma (qBitTensor Labs)" -> "Enigma"
+  if (!name || /^(unknown|deprecated|available|for sale|parked)$/i.test(name)) return null;
+  return name;
+}
+
+/** True when the research says the slot is dead or has no identifiable tenant. */
+export function isVacatedSlot(netuid: number): boolean {
+  const r = RESEARCH_BY_NETUID.get(netuid);
+  return !!r && (r.status === "dead" || r.status === "unknown" || /^unknown/i.test(r.name));
+}
+
+/** True when a hand-written page still describes the project holding the slot. */
+export function pageMatchesCurrentTenant(netuid: number, pageName: string): boolean {
+  const current = currentSubnetName(netuid);
+  if (!current) return !isVacatedSlot(netuid);
+  const a = current.toLowerCase().replace(/[^a-z0-9]/g, "");
+  const b = pageName.toLowerCase().replace(/[^a-z0-9]/g, "");
+  return a.slice(0, 4) === b.slice(0, 4) || a.includes(b) || b.includes(a);
 }
 
 // ── findBySlug ────────────────────────────────────────────────────

@@ -5,6 +5,8 @@
  *
  * Last updated: May 2026
  */
+import valuationResearch from "@/data/valuation.json";
+
 export const SUBNET_PLAIN_ENGLISH: Record<number, { blurb: string; analogy: string }> = {
   1: {
     blurb: "Bittensor's flagship AI arena - miners run LLMs with web search and code execution.",
@@ -525,10 +527,75 @@ export const DEFAULT_FALLBACK = {
   analogy: "Like a competitive marketplace where the best performance wins.",
 };
 
+// ── Research-backed descriptions ──────────────────────────────────────
+// The hand-written blurbs above date from May 2026. Since then dozens of
+// netuids changed hands (SN25 Mainframe -> UR, SN91 Bitstarter -> cascade,
+// SN66 ninja -> conjectures ...), so a hand-written blurb is only trusted
+// when it still names the project the valuation research (Oct 2026) says
+// holds the slot. Otherwise the blurb is the research's own one-line
+// description and the analogy comes from the category.
+
+const RESEARCH = new Map<number, { name: string; status: string; what: string; category: string }>(
+  (valuationResearch as unknown as Array<{ netuid: number; name: string; status: string; product: { what_it_is: string; category: string } }>)
+    .map(r => [r.netuid, { name: r.name, status: r.status, what: r.product.what_it_is, category: r.product.category }]),
+);
+
+const alnum = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+
+/** First sentence of the research description. Rows clamp to two lines in CSS, so no manual cutting. */
+function researchBlurb(what: string): string {
+  return what.split(/(?<=[.!?])\s+/)[0].trim();
+}
+
+const GENERIC_WORDS = new Set(["bittensor", "subnet", "subnets", "miners", "miner", "validators", "validator", "decentralized", "decentralised", "network", "networks", "models", "model", "compete", "competition", "competitions", "competing", "rewards", "rewarded", "platform", "through", "across", "between", "without", "against", "provides", "running", "service", "services", "scored", "scoring", "submit", "earning"]);
+
+/** Distinctive word stems (first 5 letters of words with 6+ letters) a sentence contains. */
+function stems(text: string): Set<string> {
+  const out = new Set<string>();
+  for (const w of text.toLowerCase().match(/[a-z]{6,}/g) ?? []) if (!GENERIC_WORDS.has(w)) out.add(w.slice(0, 5));
+  return out;
+}
+
+function categoryFallback(researchCategory: string, category?: string): { blurb: string; analogy: string } {
+  const c = researchCategory.toLowerCase();
+  const key =
+    /storage/.test(c) ? "Storage" :
+    /robot|vision/.test(c) ? "Robotics & Vision" :
+    /security|detection|safety|privacy/.test(c) ? "Security & Trust" :
+    /trading|predict|forecast|financial/.test(c) ? "Finance & Trading" :
+    /defi|swap|lending/.test(c) ? "DeFi" :
+    /agent/.test(c) ? "Agents" :
+    /video|3d|creative|media/.test(c) ? "Media & Creative" :
+    /research|science|competition/.test(c) ? "Science & Research" :
+    /train/.test(c) ? "Training" :
+    /infer/.test(c) ? "Inference" :
+    /compute|gpu|quantum/.test(c) ? "AI Compute" :
+    /data|search/.test(c) ? "Data" :
+    null;
+  return (key ? CATEGORY_FALLBACKS[key] : null) ?? (category ? CATEGORY_FALLBACKS[category] : null) ?? DEFAULT_FALLBACK;
+}
+
 export function getSubnetDescription(netuid: number, category?: string): { blurb: string; analogy: string } {
-  return (
-    SUBNET_PLAIN_ENGLISH[netuid] ??
-    (category ? CATEGORY_FALLBACKS[category] : null) ??
-    DEFAULT_FALLBACK
-  );
+  const hand = SUBNET_PLAIN_ENGLISH[netuid];
+  const r = RESEARCH.get(netuid);
+  if (!r || !r.what || r.status === "unknown") {
+    return hand ?? (category ? CATEGORY_FALLBACKS[category] : null) ?? DEFAULT_FALLBACK;
+  }
+  // The research name can carry a qualifier ("Enigma (qBitTensor Labs)"); match on its first word.
+  // A hand-written blurb is current if it names the project, or if it shares
+  // at least two distinctive words with the research description (Swarm's
+  // blurb never says "Swarm" but talks about drone autopilots, as the research does).
+  const nameKey = alnum(r.name.split(/[\s(]/)[0]).slice(0, 5);
+  let handStillCurrent = false;
+  if (hand) {
+    if (nameKey.length >= 3 && alnum(hand.blurb).includes(nameKey)) handStillCurrent = true;
+    else {
+      const a = stems(hand.blurb + " " + hand.analogy); const b = stems(r.what);
+      let shared = 0; for (const x of a) if (b.has(x)) shared++;
+      handStillCurrent = shared >= 2;
+    }
+  }
+  if (handStillCurrent) return hand;
+  const fallback = categoryFallback(r.category, category);
+  return { blurb: researchBlurb(r.what), analogy: fallback.analogy };
 }

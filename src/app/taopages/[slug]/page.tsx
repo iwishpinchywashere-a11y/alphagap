@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getTaoPageBySlug } from "@/lib/tao-pages-data";
-import { getAllSubnetRows, findBySlug, getSubnetDbInfo } from "@/lib/tao-pages-slugs";
+import { getAllSubnetRows, findBySlug, getSubnetDbInfo, pageMatchesCurrentTenant } from "@/lib/tao-pages-slugs";
 import { computeLeaderboard } from "@/lib/signals";
 import { getSubnetDescription } from "@/lib/subnet-plain-english";
 import { SUBNET_LOGOS, subnetAvatarColor } from "@/lib/subnet-logos";
@@ -24,7 +24,8 @@ export async function generateMetadata({
   const row = findBySlug(slug);
   if (!row) return {};
 
-  const richData = getTaoPageBySlug(slug);
+  const richCandidate = getTaoPageBySlug(slug);
+  const richData = richCandidate && pageMatchesCurrentTenant(row.netuid, richCandidate.name) ? richCandidate : null;
   const desc = getSubnetDescription(row.netuid, row.subnetType);
 
   const name = row.name;
@@ -416,8 +417,10 @@ export default async function TaoPageDetail({ params }: { params: Promise<{ slug
 
   const { netuid, name, subnetType } = row;
 
-  // Rich data only exists for the 12 featured subnets
-  const richData = getTaoPageBySlug(slug);
+  // Rich data only exists for the featured subnets, and only counts when it
+  // still describes the project that holds the slot today.
+  const richCandidate = getTaoPageBySlug(slug);
+  const richData = richCandidate && pageMatchesCurrentTenant(netuid, richCandidate.name) ? richCandidate : null;
 
   // DB info (description, website, github, discord)
   const dbInfo = getSubnetDbInfo(netuid);
