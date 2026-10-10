@@ -29,10 +29,10 @@ import { sendSystemAlertEmail } from "@/lib/email";
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
 
-const STALE_AFTER_MIN = 45; // scan cron runs every 10 min — 45 min means several consecutive failures
+const STALE_AFTER_MIN = 45; // scan cron runs every 10 min - 45 min means several consecutive failures
 const REALERT_HOURS = 6;
 // Index rebalance: the cron self-heals via a 5-day catch-up, so only alarm well
-// past that — >9 days means the Sunday run AND the catch-up both failed.
+// past that - >9 days means the Sunday run AND the catch-up both failed.
 const REBALANCE_STALE_DAYS = 9;
 const REBALANCE_REALERT_HOURS = 24;
 
@@ -92,10 +92,10 @@ export async function GET(req: NextRequest) {
     const sinceLastAlert = state.lastAlertAt ? Date.now() - new Date(state.lastAlertAt).getTime() : Infinity;
     if (sinceLastAlert > REALERT_HOURS * 3600_000) {
       const ageLabel = Number.isFinite(ageMin) ? `${Math.floor(ageMin / 60)}h ${ageMin % 60}m` : "unknown (no scan blob)";
-      await sendSystemAlertEmail("Scan pipeline is STALE — dashboard data frozen", [
+      await sendSystemAlertEmail("Scan pipeline is STALE - dashboard data frozen", [
         `The last successful scan was <strong style="color:#f59e0b;">${ageLabel} ago</strong> (${scan?.lastScan ?? "never"}).`,
         `Prices, scores, and signals on alphagap.io are frozen until the scan succeeds.`,
-        `Most common cause: <strong style="color:#ffffff;">TaoStats credits at 0</strong> — check <a href="https://dash.taostats.io/billing" style="color:#10b981;">dash.taostats.io/billing</a>.`,
+        `Most common cause: <strong style="color:#ffffff;">TaoStats credits at 0</strong> - check <a href="https://dash.taostats.io/billing" style="color:#10b981;">dash.taostats.io/billing</a>.`,
         `Also check the Vercel cron logs for /api/scan.`,
       ]).catch(err => console.error("[health-watch] email failed:", err));
       state.alerting = true;
@@ -104,7 +104,7 @@ export async function GET(req: NextRequest) {
     }
   } else if (state.alerting) {
     await sendSystemAlertEmail("Scan pipeline RECOVERED", [
-      `Fresh scan data is flowing again — last scan ${ageMin} minutes ago.`,
+      `Fresh scan data is flowing again - last scan ${ageMin} minutes ago.`,
       `No action needed.`,
     ]).catch(err => console.error("[health-watch] email failed:", err));
     state.alerting = false;
@@ -115,7 +115,7 @@ export async function GET(req: NextRequest) {
   // ── Index rebalance staleness ────────────────────────────────────
   //
   // The strategy is set to MANUAL_ONLY on TrustedStake, so their engine never
-  // rebalances on its own — /api/cron/index-rebalance is the ONLY thing that
+  // rebalances on its own - /api/cron/index-rebalance is the ONLY thing that
   // triggers it. If that cron dies, the index silently stops tracking the
   // leaderboard with nothing to indicate it. This is the alarm for that.
   //
@@ -132,7 +132,7 @@ export async function GET(req: NextRequest) {
       const label = Number.isFinite(rebDays) ? `${rebDays.toFixed(1)} days` : "unknown (no rebalance blob)";
       await sendSystemAlertEmail("AlphaGap Index has NOT rebalanced", [
         `The last index rebalance was <strong style="color:#f59e0b;">${label} ago</strong> (${reb?.rebalancedAt ?? "never"}).`,
-        `The strategy is set to <strong style="color:#ffffff;">MANUAL_ONLY</strong> on TrustedStake, so nothing rebalances it except our own cron — the index is drifting from the Investing leaderboard until this is fixed.`,
+        `The strategy is set to <strong style="color:#ffffff;">MANUAL_ONLY</strong> on TrustedStake, so nothing rebalances it except our own cron - the index is drifting from the Investing leaderboard until this is fixed.`,
         `Check the Vercel cron logs for <strong style="color:#ffffff;">/api/cron/index-rebalance</strong> (runs 12:00 UTC, acts on Sundays).`,
         `To rebalance immediately, POST /api/admin/trigger-index-rebalance.`,
       ]).catch(err => console.error("[health-watch] rebalance email failed:", err));
@@ -140,7 +140,7 @@ export async function GET(req: NextRequest) {
       emailed = emailed ? `${emailed}+rebalance` : "rebalance";
     }
   } else if (state.lastRebalanceAlertAt) {
-    state.lastRebalanceAlertAt = null; // recovered — arm the alert again
+    state.lastRebalanceAlertAt = null; // recovered - arm the alert again
   }
 
   // ── Market data checks ───────────────────────────────────────────

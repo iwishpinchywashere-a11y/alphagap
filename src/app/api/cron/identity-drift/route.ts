@@ -3,7 +3,7 @@
  *
  * Runs daily. One TaoStats request.
  *
- * Netuids get recycled — a subnet deregisters and a new project takes the
+ * Netuids get recycled - a subnet deregisters and a new project takes the
  * slot, but our hand-curated profiles (benchmarks.ts, tao-pages-data.ts) keep
  * describing the dead predecessor. In July 2026 this had drifted on ~59 of 129
  * subnets before anyone noticed. This watcher diffs the live on-chain subnet
@@ -28,12 +28,12 @@ export const maxDuration = 30;
 const TOKEN = () => process.env.BLOB_READ_WRITE_TOKEN || "";
 const STATE_KEY = "identity-drift-state.json";
 
-// Chain names that mean "operator hasn't set identity" — not our data being wrong.
+// Chain names that mean "operator hasn't set identity" - not our data being wrong.
 const PLACEHOLDER = new Set(["", "deprecated", "unknown", "pending", "parked", "base"]);
 
 function norm(s: string | null | undefined): string {
   // Fold homoglyphs Bittensor teams love (Greek τ for "t", 0/O and 1/l/i
-  // confusion) BEFORE stripping — otherwise "hoτfloaτ" vs "hotfloat" and
+  // confusion) BEFORE stripping - otherwise "hoτfloaτ" vs "hotfloat" and
   // "0xMarkets" vs "OxMarkets" read as drift when they're the same project.
   return (s || "")
     .toLowerCase()
@@ -42,7 +42,7 @@ function norm(s: string | null | undefined): string {
     .replace(/[^a-z]/g, "");
 }
 
-// Same substring-tolerant match used in the one-time audit — handles
+// Same substring-tolerant match used in the one-time audit - handles
 // "lium.io" vs "lium", "0xMarkets" vs "OxMarkets", etc.
 function matches(a: string, b: string): boolean {
   const na = norm(a), nb = norm(b);
@@ -87,7 +87,7 @@ export async function GET(req: NextRequest) {
 
   for (const id of identities) {
     const chain = id.subnet_name || "";
-    if (PLACEHOLDER.has(norm(chain))) continue; // operator hasn't set identity — not our error
+    if (PLACEHOLDER.has(norm(chain))) continue; // operator hasn't set identity - not our error
 
     const b = benchName.get(id.netuid);
     const p = pageName.get(id.netuid);

@@ -1,4 +1,4 @@
-// User storage using Vercel Blob — no additional database needed
+// User storage using Vercel Blob - no additional database needed
 // Each user is stored as users/{emailHash}.json
 // Stripe reverse lookups: stripe-customers/{customerId}.json
 
@@ -80,7 +80,7 @@ export async function updateUser(email: string, updates: Partial<User>): Promise
   const updated = { ...existing, ...updates };
   const hash = emailHash(email);
   await writeBlob(`users/${hash}.json`, updated);
-  // Always upsert into the admin list — self-heals any missing entry from signup race conditions
+  // Always upsert into the admin list - self-heals any missing entry from signup race conditions
   await addToUserList(updated);
   return updated;
 }

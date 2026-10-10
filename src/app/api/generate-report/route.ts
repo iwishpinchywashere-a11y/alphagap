@@ -62,14 +62,14 @@ async function generateReport(forceNetuid?: number, forceDate?: string) {
       console.error("[report] Failed to read scan cache:", e);
     }
 
-    // Don't publish a "daily report" off frozen data — when the scan pipeline
+    // Don't publish a "daily report" off frozen data - when the scan pipeline
     // is stale (e.g. TaoStats credits at 0) the same subnet/scores would just
     // repeat day after day. Skip until fresh data returns (forceNetuid bypasses).
     if (!forceNetuid) {
       const lastScan = (scanData?.lastScan as string) || null;
       const scanAgeH = lastScan ? (Date.now() - new Date(lastScan).getTime()) / 3600_000 : Infinity;
       if (scanAgeH > 12) {
-        console.warn(`[report] Scan data is ${scanAgeH.toFixed(1)}h old — skipping report generation.`);
+        console.warn(`[report] Scan data is ${scanAgeH.toFixed(1)}h old - skipping report generation.`);
         return NextResponse.json({ skipped: true, reason: `scan data stale (${scanAgeH.toFixed(1)}h old)` });
       }
     }
@@ -82,7 +82,7 @@ async function generateReport(forceNetuid?: number, forceDate?: string) {
     // Used for fast dedup AND updated on save. Load it here (before the if/else)
     // so both force and auto modes can update it in the save section.
     // The old approach (list({limit:30}) + individual get() per file) silently missed
-    // recent entries once the archive grew past 30 files — causing the same subnet to repeat.
+    // recent entries once the archive grew past 30 files - causing the same subnet to repeat.
     let reportIndex: Record<string, number> = {};
     try {
       const indexBlob = await get("report-index.json", {
@@ -97,7 +97,7 @@ async function generateReport(forceNetuid?: number, forceDate?: string) {
         reportIndex = JSON.parse(Buffer.concat(chunks).toString("utf-8"));
         console.log(`[report] Loaded report-index.json (${Object.keys(reportIndex).length} entries)`);
       }
-    } catch { /* no index yet — will bootstrap below if needed */ }
+    } catch { /* no index yet - will bootstrap below if needed */ }
 
     // If index is empty (first run or missing), bootstrap from existing report files
     if (Object.keys(reportIndex).length === 0 && process.env.BLOB_READ_WRITE_TOKEN) {
@@ -133,7 +133,7 @@ async function generateReport(forceNetuid?: number, forceDate?: string) {
 
     // Index entries are EITHER a bare netuid (legacy/bootstrap format) or a
     // rich object {netuid, subnet_name, composite_score} (current save format).
-    // The cooldown MUST normalize both — reading the object as if it were a
+    // The cooldown MUST normalize both - reading the object as if it were a
     // number keyed the cooldown map on objects, .has(netuid) never matched,
     // and the picker chose the #1 aGap subnet every single day (Leadpoet ×4).
     const indexNetuid = (v: unknown): number | null => {
@@ -159,12 +159,12 @@ async function generateReport(forceNetuid?: number, forceDate?: string) {
     const today = forceDate || new Date().toISOString().split("T")[0];
     if (!forceNetuid && !forceDate && reportIndex[today] !== undefined) {
       const todayNetuid = indexNetuid(reportIndex[today]);
-      console.log(`[report] Today's report (${today}) already exists for SN${todayNetuid} — skipping`);
+      console.log(`[report] Today's report (${today}) already exists for SN${todayNetuid} - skipping`);
       return NextResponse.json({ skipped: true, date: today, netuid: todayNetuid });
     }
 
     if (forceNetuid) {
-      // Manual request — still enforce cooldown
+      // Manual request - still enforce cooldown
       const lastReportDate = recentNetuids.get(forceNetuid);
       if (lastReportDate) {
         const daysAgo = Math.floor((Date.now() - new Date(lastReportDate).getTime()) / 86400000);
@@ -256,7 +256,7 @@ async function generateReport(forceNetuid?: number, forceDate?: string) {
       .map(s => `${s.title}: ${(s.description as string || "").slice(0, 200)}`)
       .join("\n\n");
 
-    // Verified X handle overrides (same map as scan/route.ts) — fills gaps in TaoStats registry
+    // Verified X handle overrides (same map as scan/route.ts) - fills gaps in TaoStats registry
     const TWITTER_HANDLE_OVERRIDES: Record<number, string> = {
       3: "tplr_ai", 4: "TargonCompute", 6: "numinous_ai", 8: "VantaTrading",
       11: "TrajectoryRL", 12: "ComputeHorde", 13: "Data_SN13", 14: "taohash",
@@ -270,7 +270,7 @@ async function generateReport(forceNetuid?: number, forceDate?: string) {
       66: "alpha_core_ai", 68: "metanova_labs", 71: "LeadpoetAI", 74: "gittensor_io",
       75: "hippius_subnet", 81: "grail_ai", 85: "vidaio_", 88: "Investing88ai",
       91: "bitstarterAI", 93: "Bitcast_network",
-      // SN97 (Distil): no verified official handle — do NOT add unverified accounts
+      // SN97 (Distil): no verified official handle - do NOT add unverified accounts
       121: "sundaebar_ai", 122: "Bitrecs", 124: "SwarmSubnet",
     };
 
@@ -282,23 +282,23 @@ async function generateReport(forceNetuid?: number, forceDate?: string) {
     const website = identity?.subnet_url || "Unknown";
     const description = identity?.description || identity?.summary || "No description available";
 
-    // Emission % from leaderboard (ground truth — more accurate than root_prop)
+    // Emission % from leaderboard (ground truth - more accurate than root_prop)
     const emissionPct = lbEntry.emission_pct != null
       ? `${(lbEntry.emission_pct as number).toFixed(2)}%`
       : rootProp !== "?" ? `${rootProp}% (root prop)` : "?";
 
     // Step 4: Generate the deep-dive report with Claude
-    const prompt = `You are the AlphaGap Intelligence Engine generating a DEEP DIVE daily report. This is the most important content we produce — our readers use these reports to make investment decisions in the Bittensor ecosystem.
+    const prompt = `You are the AlphaGap Intelligence Engine generating a DEEP DIVE daily report. This is the most important content we produce - our readers use these reports to make investment decisions in the Bittensor ecosystem.
 
 Write a comprehensive, magazine-quality intelligence report on this subnet. Be specific, data-driven, and give actionable insights. Use actual numbers from the data below.
 
-⚠️ ACCURACY RULES — MANDATORY:
+⚠️ ACCURACY RULES - MANDATORY:
 1. ONLY use numbers that appear EXPLICITLY in the data section below. Do NOT calculate, infer, or estimate any figures.
 2. For emission percentage, use ONLY the "Emission %" value provided. Do NOT use Root Prop or any other field for this claim.
-3. For price, market cap, volume — use ONLY the exact figures provided.
-4. If a data field shows "?" it means unknown — say "data unavailable" or omit that claim entirely.
+3. For price, market cap, volume - use ONLY the exact figures provided.
+4. If a data field shows "?" it means unknown - say "data unavailable" or omit that claim entirely.
 5. Never extrapolate trends or compound statistics not explicitly in the data.
-6. NEVER identify any individual as a founder, CEO, core team member, or key figure unless that claim is explicitly stated in the subnet's official description field above. A Twitter handle or GitHub username does NOT imply someone is a founder — do not make that inference. If no team/founder information is in the description, omit it entirely.
+6. NEVER identify any individual as a founder, CEO, core team member, or key figure unless that claim is explicitly stated in the subnet's official description field above. A Twitter handle or GitHub username does NOT imply someone is a founder - do not make that inference. If no team/founder information is in the description, omit it entirely.
 
 ═══════════════════════════════════════
 SUBNET DATA (USE ONLY THESE NUMBERS)
@@ -348,7 +348,7 @@ ${signals || "No signals detected"}
 REPORT FORMAT
 ═══════════════════════════════════════
 
-Write the report using EXACTLY this structure. Be concise and punchy — each section should be tight and direct. Use markdown formatting.
+Write the report using EXACTLY this structure. Be concise and punchy - each section should be tight and direct. Use markdown formatting.
 
 # AlphaGap Deep Dive: ${targetName} (SN${targetNetuid})
 
@@ -374,7 +374,7 @@ Write the report using EXACTLY this structure. Be concise and punchy — each se
 (2-3 sentences. One or two concrete examples of who uses this and why it matters.)
 
 ## 🎯 The AlphaGap Verdict
-(3-4 sentences max. Bold, opinionated conclusion — is there an alpha gap? What's the risk/reward? Be direct.)
+(3-4 sentences max. Bold, opinionated conclusion - is there an alpha gap? What's the risk/reward? Be direct.)
 
 ---
 *Report generated by AlphaGap Intelligence Engine on ${new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}*`;
@@ -410,7 +410,7 @@ Write the report using EXACTLY this structure. Be concise and punchy — each se
     // If found, append a correction note so readers aren't misled.
     const factErrors: string[] = [];
 
-    // Check emission % — if the report contains a % figure near the wrong rootProp value
+    // Check emission % - if the report contains a % figure near the wrong rootProp value
     if (lbEntry.emission_pct != null) {
       const trueEmPct = (lbEntry.emission_pct as number).toFixed(2);
       // Look for patterns like "X% of ... emissions" or "capturing X%" in the text
@@ -473,7 +473,7 @@ Write the report using EXACTLY this structure. Be concise and punchy — each se
         });
         console.log(`[report] Saved to Blob: reports/${today}.json`);
 
-        // Update report-index.json — stores rich metadata so the list endpoint
+        // Update report-index.json - stores rich metadata so the list endpoint
         // never needs to fetch individual report files just to build the sidebar.
         reportIndex[today] = {
           netuid: targetNetuid,

@@ -120,7 +120,7 @@ export async function GET() {
       const textLower = tweet.text.toLowerCase();
       const username = tweet.username.toLowerCase();
 
-      // Match to subnets — use word boundaries to avoid substring false positives
+      // Match to subnets - use word boundaries to avoid substring false positives
       // (e.g. "chutes" must not match "parachutes", "swap" must not match "swapping")
       const matchedNetuids = new Set<number>();
       for (const [keyword, netuids] of Object.entries(SUBNET_KEYWORDS)) {

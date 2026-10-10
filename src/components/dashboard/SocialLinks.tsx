@@ -1,5 +1,5 @@
 // Shared social-link buttons used in DashboardFooter and subnet detail pages.
-// URLs are placeholders — update once final links are confirmed.
+// URLs are placeholders - update once final links are confirmed.
 
 const SOCIAL = [
   {

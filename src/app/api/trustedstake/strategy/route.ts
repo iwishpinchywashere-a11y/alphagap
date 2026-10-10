@@ -69,7 +69,7 @@ export async function GET() {
       }
     }
 
-    // APY — response shape: { strategyId, strategyName, weightedApy, ... }
+    // APY - response shape: { strategyId, strategyName, weightedApy, ... }
     let apy: number | null = null;
     if (apyRes.status === "fulfilled" && apyRes.value.ok) {
       const d = await apyRes.value.json();
@@ -77,7 +77,7 @@ export async function GET() {
       if (raw != null) apy = Number(raw);
     }
 
-    // AUM + delegators — response shape: Array<{ strategyId, latestAumTao, delegatorsTotal, ... }>
+    // AUM + delegators - response shape: Array<{ strategyId, latestAumTao, delegatorsTotal, ... }>
     let aumTao: number | null = null;
     let delegatorsTotal: number | null = null;
     if (aumRes.status === "fulfilled" && aumRes.value.ok) {

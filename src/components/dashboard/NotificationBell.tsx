@@ -99,7 +99,7 @@ export default function NotificationBell() {
         )}
       </button>
 
-      {/* Dropdown — fixed-position like DashboardHeader user menu */}
+      {/* Dropdown - fixed-position like DashboardHeader user menu */}
       {open && pos && (
         <div
           ref={dropdownRef}
@@ -143,7 +143,7 @@ export default function NotificationBell() {
                 <AgIcon name="bell" className="w-8 h-8 text-gray-500 mb-2 mx-auto" />
                 <p className="text-sm text-gray-400 font-medium">No notifications yet</p>
                 <p className="text-xs text-gray-600 mt-1">
-                  Activity from your watched subnets will appear here — score moves, new signals, whale activity, reports, social mentions, and benchmark updates.
+                  Activity from your watched subnets will appear here - score moves, new signals, whale activity, reports, social mentions, and benchmark updates.
                 </p>
               </div>
             ) : (

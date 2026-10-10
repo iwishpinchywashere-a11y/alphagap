@@ -288,14 +288,14 @@ function FeaturedCard({
             <div className={`font-display text-base font-semibold ${
               row.agap_score != null && row.agap_score >= 70 ? "text-green-300" :
               row.agap_score != null && row.agap_score >= 50 ? "text-green-400" : "text-gray-400"
-            }`}>{row.agap_score ?? "—"}</div>
+            }`}>{row.agap_score ?? "-"}</div>
             <div className="text-[9px] text-gray-400 uppercase tracking-widest mt-0.5">aGap</div>
           </div>
           <div className="flex-1 text-center bg-purple-500/10 border border-purple-500/30 rounded-xl py-2 backdrop-blur-md">
             <div className={`font-display text-base font-semibold ${
               row.invest_score != null && row.invest_score >= 70 ? "text-purple-300" :
               row.invest_score != null && row.invest_score >= 50 ? "text-purple-400" : "text-gray-400"
-            }`}>{row.invest_score ?? "—"}</div>
+            }`}>{row.invest_score ?? "-"}</div>
             <div className="text-[9px] text-gray-400 uppercase tracking-widest mt-0.5">Invest</div>
           </div>
         </div>
@@ -408,7 +408,7 @@ function LeaderboardRow({
             <span className={`font-display text-base font-semibold tabular-nums ${
               row.agap_score != null && row.agap_score >= 70 ? "text-green-300" :
               row.agap_score != null && row.agap_score >= 50 ? "text-green-400" : "text-gray-400"
-            }`}>{row.agap_score ?? "—"}</span>
+            }`}>{row.agap_score ?? "-"}</span>
             <span className="text-[9px] text-gray-400 uppercase tracking-widest">aGap</span>
           </div>
 
@@ -417,7 +417,7 @@ function LeaderboardRow({
             <span className={`font-display text-base font-semibold tabular-nums ${
               row.invest_score != null && row.invest_score >= 70 ? "text-purple-300" :
               row.invest_score != null && row.invest_score >= 50 ? "text-purple-400" : "text-gray-400"
-            }`}>{row.invest_score ?? "—"}</span>
+            }`}>{row.invest_score ?? "-"}</span>
             <span className="text-[9px] text-gray-400 uppercase tracking-widest">Invest</span>
           </div>
 
@@ -525,7 +525,7 @@ function IntelligenceSidebar({ rows, events }: { rows: ConvictionRow[]; events: 
                     <span className="text-xs font-semibold text-white group-hover:text-green-300 transition-colors truncate">{r.name}</span>
                     <span className="text-[10px] text-gray-700 flex-shrink-0">SN{r.netuid}</span>
                   </div>
-                  <span className="text-[10px] font-bold text-green-400 flex-shrink-0 ml-2">{r.invest_score ?? "—"}</span>
+                  <span className="text-[10px] font-bold text-green-400 flex-shrink-0 ml-2">{r.invest_score ?? "-"}</span>
                 </Link>
               ))}
             </div>
@@ -544,7 +544,7 @@ function IntelligenceSidebar({ rows, events }: { rows: ConvictionRow[]; events: 
                     <span className="text-xs font-semibold text-white group-hover:text-green-300 transition-colors truncate">{r.name}</span>
                     <span className="text-[10px] text-gray-700 flex-shrink-0">SN{r.netuid}</span>
                   </div>
-                  <span className="text-[10px] font-bold text-green-400/70 flex-shrink-0 ml-2">{r.invest_score ?? "—"}</span>
+                  <span className="text-[10px] font-bold text-green-400/70 flex-shrink-0 ml-2">{r.invest_score ?? "-"}</span>
                 </Link>
               ))}
             </div>
@@ -578,7 +578,7 @@ function IntelligenceSidebar({ rows, events }: { rows: ConvictionRow[]; events: 
                 </Link>
               ))}
             </div>
-            <p className="text-[9px] text-gray-700 mt-2 leading-relaxed">Heavy on-chain lock, fundamentals unconfirmed — watch for catalyst.</p>
+            <p className="text-[9px] text-gray-700 mt-2 leading-relaxed">Heavy on-chain lock, fundamentals unconfirmed - watch for catalyst.</p>
           </div>
         )}
 
@@ -678,7 +678,7 @@ export default function ConvictionPage() {
       {/* ── Hero ─────────────────────────────────────────── */}
       <div className="relative overflow-hidden">
         <div className="relative px-4 md:px-12 pt-9 pb-6 max-w-screen-2xl mx-auto">
-          {/* Title row — stacks on mobile */}
+          {/* Title row - stacks on mobile */}
           <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-3 mb-2">
@@ -688,7 +688,7 @@ export default function ConvictionPage() {
                 <span className="ag-badge ag-badge-info !text-purple-300 !border-purple-500/25 !bg-purple-500/[0.07] whitespace-nowrap">Intelligence</span>
               </div>
               <p className="text-[14.5px] text-gray-400 leading-relaxed max-w-xl">
-                Founders and investors lock α on-chain to signal long-term commitment. Conviction grows the longer it stays locked — cross-referenced with aGap scores to surface where smart money aligns with fundamentals.
+                Founders and investors lock α on-chain to signal long-term commitment. Conviction grows the longer it stays locked - cross-referenced with aGap scores to surface where smart money aligns with fundamentals.
               </p>
               <div className="flex items-center gap-2.5 mt-4 font-mono text-[11px] uppercase tracking-[0.08em] text-gray-500">
                 <span className="ag-live-dot flex-shrink-0" />
@@ -696,7 +696,7 @@ export default function ConvictionPage() {
               </div>
             </div>
 
-            {/* Currency toggle — sits right on desktop, below text on mobile */}
+            {/* Currency toggle - sits right on desktop, below text on mobile */}
             <div className="ag-pill-tabs self-start flex-shrink-0">
               {(["alpha", "usd"] as Currency[]).map(c => (
                 <button key={c} onClick={() => setCurrency(c)}
@@ -744,7 +744,7 @@ export default function ConvictionPage() {
             <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-4">
               <span className="font-mono text-[11px] font-semibold text-gray-400 uppercase tracking-[0.16em]">Full leaderboard</span>
               <div className="hidden sm:block flex-1 h-px bg-white/5" />
-              {/* Search — full width on mobile */}
+              {/* Search - full width on mobile */}
               <div className="relative flex items-center w-full sm:w-auto">
                 <svg className="absolute left-3 w-3.5 h-3.5 text-gray-600 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z" />
@@ -803,7 +803,7 @@ export default function ConvictionPage() {
         {/* ── Explainer ─────────────────────────────────── */}
         <div className="mt-10 pt-5 border-t border-white/4">
           <p className="text-xs text-gray-600 max-w-2xl leading-relaxed">
-            <span className="text-gray-500 font-semibold">BIT-0011 conviction</span> — α locked to a hotkey accrues conviction over time:{" "}
+            <span className="text-gray-500 font-semibold">BIT-0011 conviction</span> - α locked to a hotkey accrues conviction over time:{" "}
             <code className="text-green-500/60 bg-green-500/5 px-1 rounded">1 − exp(−blocks/648,000)</code> perpetual,{" "}
             <code className="text-orange-400/50 bg-orange-500/5 px-1 rounded">1 − exp(−blocks/216,000)</code> decaying.
             AlphaGap cross-references these on-chain locks with our invest score formula to surface where smart money aligns with subnet fundamentals.

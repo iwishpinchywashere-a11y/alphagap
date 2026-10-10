@@ -122,7 +122,7 @@ export async function GET() {
   } else {
     srData = await readBlob<SubnetRadarResponse>(CACHE);
     if (srData?.rows?.length) {
-      console.warn(`[conviction] SubnetRadar unavailable — serving cache (${srData.rows.length} rows)`);
+      console.warn(`[conviction] SubnetRadar unavailable - serving cache (${srData.rows.length} rows)`);
     }
   }
 

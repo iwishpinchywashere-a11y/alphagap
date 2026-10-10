@@ -127,7 +127,7 @@ export default function WriteReviewPage() {
           {/* X Handle */}
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-1.5">
-              X (Twitter) Handle <span className="text-gray-600 font-normal">— optional</span>
+              X (Twitter) Handle <span className="text-gray-600 font-normal">- optional</span>
             </label>
             <div className="relative">
               <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500 text-sm select-none">@</span>

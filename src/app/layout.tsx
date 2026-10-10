@@ -17,7 +17,7 @@ const jetbrains = JetBrains_Mono({
   subsets: ["latin"],
 });
 
-// Display face for the Obsidian Glass redesign — headlines, KPI numbers, ranks
+// Display face for the Obsidian Glass redesign - headlines, KPI numbers, ranks
 const spaceGrotesk = Space_Grotesk({
   variable: "--font-display",
   subsets: ["latin"],
@@ -46,7 +46,7 @@ export const metadata: Metadata = {
         url: `${SITE_URL}/og-image.png`,
         width: 1200,
         height: 630,
-        alt: "AlphaGap — Bittensor Subnet Intelligence",
+        alt: "AlphaGap - Bittensor Subnet Intelligence",
       },
     ],
     type: "website",
@@ -68,7 +68,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${inter.variable} ${jetbrains.variable} ${spaceGrotesk.variable} h-full antialiased`}>
       <head>
-        {/* Google Analytics — next/script keeps hydration clean (raw <script>
+        {/* Google Analytics - next/script keeps hydration clean (raw <script>
             tags in JSX trigger "Encountered a script tag while rendering" and
             are never executed client-side) */}
         <Script src="https://www.googletagmanager.com/gtag/js?id=G-95NFVBB3JC" strategy="afterInteractive" />

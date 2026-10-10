@@ -250,7 +250,7 @@ function Row({ r, expanded, onToggle, watched }: { r: ValuationRow; expanded: bo
                       ))}
                     </div>
                   )}
-                  <div className="text-[10px] text-gray-700 mt-2">Benchmarked {r.benchmark.last_updated}</div>
+                  <div className="text-[10px] text-gray-700 mt-2">Product research, Aug 2026</div>
                 </div>
               )}
 

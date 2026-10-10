@@ -179,7 +179,7 @@ export default function AccountPage() {
               <div className="flex items-center justify-between mb-4">
                 <span className="text-gray-300 text-sm">Plan</span>
                 <span className="font-display text-white font-semibold">
-                  {isUltra ? "AlphaGap Ultra — $99/mo" : isPremium ? "AlphaGap Premium — $49/mo" : "AlphaGap Pro — $29/mo"}
+                  {isUltra ? "AlphaGap Ultra - $99/mo" : isPremium ? "AlphaGap Premium - $49/mo" : "AlphaGap Pro - $29/mo"}
                 </span>
               </div>
 
@@ -188,7 +188,7 @@ export default function AccountPage() {
                 <div className="bg-white/[0.03] border border-emerald-500/20 rounded-2xl p-4 mb-4 backdrop-blur-[14px]">
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <div className="text-sm font-semibold text-emerald-300 mb-1">Upgrade to Premium — $49/mo</div>
+                      <div className="text-sm font-semibold text-emerald-300 mb-1">Upgrade to Premium - $49/mo</div>
                       <div className="text-xs text-gray-500">Unlocks Whale Tracker, KOL Radar, Performance, Discord Scanner & more</div>
                     </div>
                   </div>
@@ -206,7 +206,7 @@ export default function AccountPage() {
                 <div className="bg-white/[0.03] border border-amber-500/20 rounded-2xl p-4 mb-4 backdrop-blur-[14px]">
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <div className="text-sm font-semibold text-amber-300 mb-1">Upgrade to Ultra — $99/mo</div>
+                      <div className="text-sm font-semibold text-amber-300 mb-1">Upgrade to Ultra - $99/mo</div>
                       <div className="text-xs text-gray-500">Unlocks the AlphaGap Subnet Index, portfolio deploy & 20 Oracle queries/day</div>
                     </div>
                   </div>
@@ -255,7 +255,7 @@ export default function AccountPage() {
                     <p className="font-mono text-[10.5px] text-emerald-400 font-semibold uppercase tracking-[0.16em] mb-2 text-center">Before you go</p>
                     <p className="font-display text-base font-semibold text-white text-center mb-1">Get 40% off for 3 months</p>
                     <p className="text-xs text-gray-400 text-center mb-4">
-                      Stay on AlphaGap at a discount — applied instantly to your next 3 invoices. No strings attached.
+                      Stay on AlphaGap at a discount - applied instantly to your next 3 invoices. No strings attached.
                     </p>
                     <button
                       onClick={claimDiscount}
@@ -310,19 +310,19 @@ export default function AccountPage() {
           ) : (
             <>
               <p className="text-sm text-gray-500 mb-4">
-                Subscribe to unlock full access to AlphaGap — all signals, dashboard, social intel, and daily reports.
+                Subscribe to unlock full access to AlphaGap - all signals, dashboard, social intel, and daily reports.
               </p>
               <a
                 href="/checkout?plan=premium"
                 className="w-full inline-block text-center bg-gradient-to-r from-green-500 to-emerald-600 text-black font-bold rounded-full py-2.5 text-sm hover:from-green-400 hover:to-emerald-500 transition-all shadow-lg shadow-green-500/20"
               >
-                Get Premium — $49/mo →
+                Get Premium - $49/mo →
               </a>
               <a
                 href="/checkout?plan=ultra"
                 className="w-full inline-block text-center mt-2 bg-gradient-to-r from-amber-500 to-orange-500 text-black font-bold rounded-full py-2.5 text-sm hover:from-amber-400 hover:to-orange-400 transition-all shadow-lg shadow-amber-500/20"
               >
-                Get Ultra — $99/mo →
+                Get Ultra - $99/mo →
               </a>
             </>
           )}
@@ -333,7 +333,7 @@ export default function AccountPage() {
           <h2 className="font-mono text-[11px] font-semibold text-gray-500 uppercase tracking-[0.16em] mb-4">Security</h2>
           {resetSent ? (
             <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-2xl px-4 py-3 text-emerald-400 text-sm text-center">
-              Password reset email sent — check your inbox.
+              Password reset email sent - check your inbox.
             </div>
           ) : (
             <>

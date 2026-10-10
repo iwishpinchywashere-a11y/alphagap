@@ -60,7 +60,7 @@ export default function AdminPage() {
   useEffect(() => {
     if (status === "loading") return;
     if (status === "unauthenticated") { setLoading(false); return; }
-    // Only fetch if admin — avoids 403 spam
+    // Only fetch if admin - avoids 403 spam
     if (!isAdmin) { setLoading(false); return; }
     Promise.all([
       fetch("/api/admin/users").then(r => r.json()),
@@ -217,8 +217,8 @@ export default function AdminPage() {
           {[
             { label: "Total Users", value: users.length },
             { label: "Active Subs", value: active },
-            { label: "MRR", value: stats?.mrr != null ? `$${stats.mrr.toFixed(0)}` : "—" },
-            { label: "Total Revenue", value: stats?.totalRevenue != null ? `$${stats.totalRevenue.toFixed(0)}` : "—" },
+            { label: "MRR", value: stats?.mrr != null ? `$${stats.mrr.toFixed(0)}` : "-" },
+            { label: "Total Revenue", value: stats?.totalRevenue != null ? `$${stats.totalRevenue.toFixed(0)}` : "-" },
           ].map(s => (
             <div key={s.label} className="bg-gray-900/60 border border-gray-800 rounded-xl p-4">
               <div className="text-xs text-gray-500 mb-1">{s.label}</div>
@@ -262,7 +262,7 @@ export default function AdminPage() {
             <button
               onClick={() => doAction("sync-user", actionEmail)}
               disabled={!actionEmail || actionLoading}
-              title="User exists (can log in) but is missing from this list — click to repair"
+              title="User exists (can log in) but is missing from this list - click to repair"
               className="px-4 py-2 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/20 text-blue-400 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
             >
               Sync to List

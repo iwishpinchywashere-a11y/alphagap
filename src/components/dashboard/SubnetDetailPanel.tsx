@@ -64,13 +64,13 @@ export default function SubnetDetailPanel() {
           <div className="bg-gray-800/50 rounded p-2">
             <span className="text-gray-500 block">Price</span>
             <span className="text-white">
-              {data.alpha_price != null ? `$${formatNum(data.alpha_price, 4)}` : "\u2014"}
+              {data.alpha_price != null ? `$${formatNum(data.alpha_price, 4)}` : "-"}
             </span>
           </div>
           <div className="bg-gray-800/50 rounded p-2">
             <span className="text-gray-500 block">MCap</span>
             <span className="text-white">
-              {data.market_cap != null ? `$${formatNum(data.market_cap)}` : "\u2014"}
+              {data.market_cap != null ? `$${formatNum(data.market_cap)}` : "-"}
             </span>
           </div>
           <div className="bg-gray-800/50 rounded p-2">
@@ -82,7 +82,7 @@ export default function SubnetDetailPanel() {
             }>
               {data.price_change_24h != null
                 ? `${data.price_change_24h > 0 ? "+" : ""}${data.price_change_24h.toFixed(1)}%`
-                : "\u2014"}
+                : "-"}
             </span>
           </div>
           <div className="bg-gray-800/50 rounded p-2">
@@ -92,7 +92,7 @@ export default function SubnetDetailPanel() {
                 ? `${data.net_flow_24h > 0 ? "+" : ""}$${formatNum(Math.round(data.net_flow_24h * taoPrice))}`
                 : data.net_flow_24h != null
                 ? `${data.net_flow_24h > 0 ? "+" : ""}${formatNum(data.net_flow_24h)} τ`
-                : "\u2014"}
+                : "-"}
             </span>
           </div>
         </div>

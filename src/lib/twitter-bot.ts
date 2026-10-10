@@ -54,7 +54,7 @@ function oauthSign(
 //
 // This is the duplicate-post guard of last resort, and the only one that can
 // actually work. Every blob-based guard (slot lock, dedupId, cooldown) reads
-// from Vercel Blob, which is EVENTUALLY CONSISTENT — a second invocation
+// from Vercel Blob, which is EVENTUALLY CONSISTENT - a second invocation
 // arriving seconds later reads stale data, sees no previous post, and tweets
 // again. Blob also has no atomic compare-and-swap, so no amount of
 // read-check-write can serialise two invocations.
@@ -115,7 +115,7 @@ export async function postTweet(
   const accessSecret = process.env.TWITTER_ACCESS_SECRET || "";
 
   if (!apiKey || !apiSecret || !accessToken || !accessSecret) {
-    console.error("[twitter] Missing credentials — set TWITTER_API_KEY/SECRET/ACCESS_TOKEN/ACCESS_SECRET");
+    console.error("[twitter] Missing credentials - set TWITTER_API_KEY/SECRET/ACCESS_TOKEN/ACCESS_SECRET");
     return null;
   }
 

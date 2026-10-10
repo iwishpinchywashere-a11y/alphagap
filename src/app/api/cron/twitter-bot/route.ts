@@ -1,5 +1,5 @@
 /**
- * GET /api/cron/twitter-bot — 07:00 / 12:00 / 17:00 / 22:00 UTC.
+ * GET /api/cron/twitter-bot - 07:00 / 12:00 / 17:00 / 22:00 UTC.
  *
  * COMPLETE REBUILD (2026-08-26). The previous bot generated its own content
  * through nine parallel template paths and had produced, per user reports and
@@ -14,8 +14,8 @@
  *    catch what the other run had not yet posted. Pairs landed 1-60s apart.
  *
  * 2. A PARALLEL CONTENT PIPELINE. The bot wrote its own posts from raw data
- *    while the feed digest — materiality-gated, plain-language, fingerprint-
- *    deduped — already produced better versions of the same stories. Two
+ *    while the feed digest - materiality-gated, plain-language, fingerprint-
+ *    deduped - already produced better versions of the same stories. Two
  *    generators, one good, and the bot used the other one.
  *
  * 3. RETROSPECTIVE TEMPLATES. "Evergreen" and "performance gain" paths
@@ -25,7 +25,7 @@
  * - SINGLE SOURCE: the freshest un-posted feed-digest card. No evergreen, no
  *   retrospectives, no benchmark explainers. If there is no fresh card, we
  *   post NOTHING. Silence over slop.
- * - DETERMINISTIC TEXT: the tweet is composed mechanically from the card —
+ * - DETERMINISTIC TEXT: the tweet is composed mechanically from the card -
  *   no model call in this route at all. Concurrent duplicate runs therefore
  *   produce BYTE-IDENTICAL text, which the exact-match timeline check
  *   catches with certainty instead of probabilistically.
@@ -63,7 +63,7 @@ async function readBlob<T>(name: string): Promise<T | null> {
 }
 
 /**
- * Deterministic tweet from a card. Same card in, same bytes out — that
+ * Deterministic tweet from a card. Same card in, same bytes out - that
  * property is load-bearing for duplicate detection, not a style choice.
  */
 function composeTweet(card: FeedCard): string {
@@ -106,7 +106,7 @@ export async function GET(req: NextRequest) {
   const postedFp = new Set(posted.map(p => p.fingerprint));
   const dayAgo = Date.now() - 24 * 3600000;
   // One story per subnet per 5 days, even if its facts (and fingerprint)
-  // evolve — the account should not orbit the same subnet.
+  // evolve - the account should not orbit the same subnet.
   const subnetCutoff = Date.now() - 5 * 24 * 3600000;
   const recentSubnets = new Set(posted.filter(p => new Date(p.postedAt).getTime() > subnetCutoff).map(p => p.netuid));
 
@@ -128,7 +128,7 @@ export async function GET(req: NextRequest) {
   // ── Guards against X itself; the blob log above is advisory only ──
   const own = await fetchOwnRecentTweets(15);
   if (own === null) {
-    return NextResponse.json({ ok: true, posted: false, reason: "timeline unavailable — failing closed" });
+    return NextResponse.json({ ok: true, posted: false, reason: "timeline unavailable - failing closed" });
   }
   const cooldown = Date.now() - 4 * 3600000;
   const recent = own.find(t => t.createdAt && new Date(t.createdAt).getTime() > cooldown);
@@ -150,11 +150,11 @@ export async function GET(req: NextRequest) {
   await new Promise(r => setTimeout(r, 5000 + Math.floor(Math.random() * 20000)));
   const own2 = await fetchOwnRecentTweets(5);
   if (own2 === null) {
-    return NextResponse.json({ ok: true, posted: false, reason: "recheck timeline unavailable — failing closed" });
+    return NextResponse.json({ ok: true, posted: false, reason: "recheck timeline unavailable - failing closed" });
   }
   const tenMin = Date.now() - 10 * 60000;
   if (own2.some(t => t.createdAt && new Date(t.createdAt).getTime() > tenMin)) {
-    return NextResponse.json({ ok: true, posted: false, reason: "concurrent run posted first — standing down" });
+    return NextResponse.json({ ok: true, posted: false, reason: "concurrent run posted first - standing down" });
   }
 
   const result = await postTweet(text);

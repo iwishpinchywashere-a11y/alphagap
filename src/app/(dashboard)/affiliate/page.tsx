@@ -306,7 +306,7 @@ export default function AffiliatePage() {
                         </span>
                       </td>
                       <td className="px-4 py-3 text-right text-gray-300">
-                        {r.commissionEarned > 0 ? formatDollars(r.commissionEarned) : "—"}
+                        {r.commissionEarned > 0 ? formatDollars(r.commissionEarned) : "-"}
                       </td>
                     </tr>
                   ))}
@@ -333,7 +333,7 @@ export default function AffiliatePage() {
               {
                 step: "1",
                 title: "Share your link",
-                desc: "Copy your unique referral link and share it anywhere — Twitter, Discord, email, or your own site.",
+                desc: "Copy your unique referral link and share it anywhere - Twitter, Discord, email, or your own site.",
               },
               {
                 step: "2",

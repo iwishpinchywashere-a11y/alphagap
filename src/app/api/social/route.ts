@@ -54,7 +54,7 @@ export async function GET() {
   const leaderboard: LeaderboardEntry[] = scanLatest?.leaderboard ?? [];
   const hotEvents: HeatEvent[] = socialHot?.events ?? [];
 
-  // Dedupe Discord results by channel — overlapping discord-scan runs can
+  // Dedupe Discord results by channel - overlapping discord-scan runs can
   // leave the same channel twice in discord-latest.json, which rendered
   // duplicate cards on /social. Keep the most recently scanned entry.
   const byChannel = new Map<string, DiscordResult>();
@@ -65,7 +65,7 @@ export async function GET() {
       byChannel.set(key, d);
     }
   }
-  // Second pass: collapse entries with identical content — the same community
+  // Second pass: collapse entries with identical content - the same community
   // can be scanned under two different channelIds (e.g. an id change between
   // scan runs) producing twin cards with byte-identical summaries.
   const byContent = new Map<string, DiscordResult>();
@@ -80,7 +80,7 @@ export async function GET() {
 
   const leaderMap = new Map(leaderboard.map(s => [s.netuid, s]));
 
-  // ── Hot KOL Tweets — ranked by heat × recency decay ─────────────
+  // ── Hot KOL Tweets - ranked by heat × recency decay ─────────────
   // Raw heat_score only reflects KOL weight + engagement. A 2-day-old tweet
   // with high engagement should NOT outrank a fresh tweet gaining momentum.
   // Decay formula: full score for <3h, fading to 15% at 48h.
@@ -105,7 +105,7 @@ export async function GET() {
     .sort((a, b) => b.momentum_score - a.momentum_score)
     .slice(0, 30);
 
-  // ── X/Twitter Leaderboard — top 20 by social_score ──────────────────
+  // ── X/Twitter Leaderboard - top 20 by social_score ──────────────────
   // Attach best heat event per subnet + KOL followers
   const xLeaderboard = leaderboard
     .filter(s => s.social_score > 0)
@@ -127,8 +127,8 @@ export async function GET() {
       };
     });
 
-  // ── Discord Leaderboard — top 20 by signal quality ──────────────────
-  // All Discord entries — including Const/founder posts — expire after 48 h.
+  // ── Discord Leaderboard - top 20 by signal quality ──────────────────
+  // All Discord entries - including Const/founder posts - expire after 48 h.
   const cutoff48h  = Date.now() - 48 * 60 * 60 * 1000;
   const signalRank = { alpha: 3, active: 2, quiet: 1, noise: 0 } as const;
   const discordLeaderboard = discordData
@@ -136,7 +136,7 @@ export async function GET() {
       const activityTs = (d as any).lastActivityAt ?? d.scannedAt;
       if (activityTs && new Date(activityTs).getTime() < cutoff48h) return false;
       if (!((d.netuid !== null || (d as any).founderPost) && (d.signal === "alpha" || d.signal === "active"))) return false;
-      // Drop founderPost entries that only have the generic fallback summary with no key insights —
+      // Drop founderPost entries that only have the generic fallback summary with no key insights -
       // these carry zero signal and just add noise to the page.
       const GENERIC_FOUNDER_SUMMARY = "The Bittensor founder posted in this channel.";
       if ((d as any).founderPost && d.summary === GENERIC_FOUNDER_SUMMARY && !(d as any).keyInsights?.length) return false;
@@ -177,7 +177,7 @@ export async function GET() {
       social_score: leaderMap.get(d.netuid!)?.social_score ?? null,
     }));
 
-  // ── KOL Radar — which KOLs have the most recent heat activity ───────
+  // ── KOL Radar - which KOLs have the most recent heat activity ───────
   const kolActivity = new Map<string, {
     handle: string; name: string; tier: number; weight: number; followers: number;
     subnets: Set<number>; totalEngagement: number; topHeat: number; latestAt: string;

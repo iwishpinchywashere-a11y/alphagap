@@ -4,7 +4,7 @@ import { get } from "@vercel/blob";
 export const dynamic = "force-dynamic";
 
 // Serves signals from the scan blob. The old SQLite-backed version 500'd in
-// production (no persistent filesystem on Vercel) — SQLite still works locally
+// production (no persistent filesystem on Vercel) - SQLite still works locally
 // via /api/scan's local path, but this endpoint must work everywhere.
 
 interface ScanSignal {

@@ -2,8 +2,8 @@
  * GET /api/portfolio/add-missed-buys
  *
  * Adds the two confirmed missed buys to the portfolio:
- *   - SN22 Desearch  — Apr 22 2026 (aGap score 91, highest scorer that day)
- *   - SN68 NOVA      — May 5  2026 (aGap score 84, highest scorer that day)
+ *   - SN22 Desearch  - Apr 22 2026 (aGap score 91, highest scorer that day)
+ *   - SN68 NOVA      - May 5  2026 (aGap score 84, highest scorer that day)
  *
  * For each:
  *   1. Fetches TaoStats pool history to get the exact price on the buy date
@@ -24,7 +24,7 @@ export const dynamic = "force-dynamic";
 // force-dynamic sets EVERY fetch in this route to { cache: "no-store",
 // revalidate: 0 } and fetchCache to "force-no-store" (Next docs, caching
 // guide). That silently killed every revalidate value in lib/taostats, so
-// each request hit TaoStats live — which is what earned the 429s and the
+// each request hit TaoStats live - which is what earned the 429s and the
 // blank price charts. "default-cache" keeps the route dynamic while letting
 // each fetch's own cache options apply again.
 export const fetchCache = "default-cache";

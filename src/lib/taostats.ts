@@ -70,7 +70,7 @@ async function taoFetch<T>(path: string, params: Record<string, string> = {}, re
       const wait = Number.isFinite(header) && header > 0
         ? Math.min(header * 1000, 8000)
         : Math.min(1000 * 2 ** attempt, 8000) + Math.random() * 400;
-      console.warn(`TaoStats 429 on ${path} — attempt ${attempt}/3, waiting ${Math.round(wait)}ms`);
+      console.warn(`TaoStats 429 on ${path} - attempt ${attempt}/3, waiting ${Math.round(wait)}ms`);
       await new Promise(r => setTimeout(r, wait));
       const retry = await fetch(url.toString(), {
         headers: { Authorization: API_KEY },
@@ -86,7 +86,7 @@ async function taoFetch<T>(path: string, params: Record<string, string> = {}, re
         return [] as T[];
       }
     }
-    console.error(`TaoStats ${path} still rate limited after 3 retries — returning empty`);
+    console.error(`TaoStats ${path} still rate limited after 3 retries - returning empty`);
     return [] as T[];
   }
 
@@ -289,7 +289,7 @@ export interface MetagraphNeuron {
 }
 
 export async function getMetagraph(netuid: number): Promise<MetagraphNeuron[]> {
-  // Bittensor subnets can have up to 256 neurons — use limit=500 to capture all in one page
+  // Bittensor subnets can have up to 256 neurons - use limit=500 to capture all in one page
   return taoFetch<MetagraphNeuron>("/metagraph/latest/v1", { netuid: String(netuid), limit: "500" }, 600); // 500 neurons, moves slowly
 }
 

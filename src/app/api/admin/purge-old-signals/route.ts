@@ -60,7 +60,7 @@ export async function GET(req: NextRequest) {
   }
 
   const cutoffIso  = new Date(Date.now() - DAYS * 24 * 60 * 60 * 1000).toISOString();
-  const cutoffDay  = cutoffIso.slice(0, 10); // "YYYY-MM-DD" — for dayKey comparisons
+  const cutoffDay  = cutoffIso.slice(0, 10); // "YYYY-MM-DD" - for dayKey comparisons
 
   const results: Record<string, { before: number; after: number }> = {};
 

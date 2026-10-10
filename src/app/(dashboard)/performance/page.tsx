@@ -34,7 +34,7 @@ interface PumpEvent {
   daysAgo: number;
 }
 
-// Branded icon per finding label — keyed by label so cached findings
+// Branded icon per finding label - keyed by label so cached findings
 // (which may still carry legacy emoji `icon` values) render correctly.
 const FINDING_ICONS: Record<string, AgIconName> = {
   "AlphaGap Score": "target",
@@ -157,13 +157,13 @@ function buildFindings(
 ): SignalFinding[] {
   const findings: SignalFinding[] = [];
 
-  // Score windows relative to pump start — empty arrays when no pump event found.
+  // Score windows relative to pump start - empty arrays when no pump event found.
   // Defined here (not after the pumpEvent guard) so the AlphaGap Score finding
   // can still be built for portfolio cases where pumpFromSignalDate returns null.
   const pre7  = pumpEvent ? getWindow(scores, pumpEvent.startDate, 7)  : [];
   const pre14 = pumpEvent ? getWindow(scores, pumpEvent.startDate, 14) : [];
 
-  // AlphaGap Score — always evaluated, even without a pump event.
+  // AlphaGap Score - always evaluated, even without a pump event.
   // This is critical: portfolio cases (confirmed aGap picks) must have ≥1 finding so they
   // are never auto-purged or hidden when pumpFromSignalDate can't find a clean pump window.
   const agapNow = current?.composite_score ?? 0;
@@ -175,10 +175,10 @@ function buildFindings(
     icon: "target",
     label: "AlphaGap Score",
     detail: effectiveAgap >= 80
-      ? `aGap score ${effectiveAgap}/100 before pump — top-tier signal`
+      ? `aGap score ${effectiveAgap}/100 before pump - top-tier signal`
       : effectiveAgap >= 65
-      ? `aGap score ${effectiveAgap}/100 — above-average signal`
-      : `aGap score ${effectiveAgap}/100 — below threshold`,
+      ? `aGap score ${effectiveAgap}/100 - above-average signal`
+      : `aGap score ${effectiveAgap}/100 - below threshold`,
     strength: effectiveAgap >= 80 ? "strong" : effectiveAgap >= 65 ? "high" : "weak",
     daysBeforePump: prePumpScores.length > 0 ? Math.min(7, prePumpScores.length) : 0,
     fired: agapFired,
@@ -223,7 +223,7 @@ function buildFindings(
     icon: "signal",
     label: "Social / KOL",
     detail: socialPrePump.length > 0
-      ? `${socialPrePump.length} social signal${socialPrePump.length > 1 ? "s" : ""} — KOLs active pre-pump`
+      ? `${socialPrePump.length} social signal${socialPrePump.length > 1 ? "s" : ""} - KOLs active pre-pump`
       : socialTrend14 > 10
       ? `Social score +${socialTrend14.toFixed(0)} pts in pre-pump window`
       : "No notable social signals",
@@ -577,7 +577,7 @@ export default function PerformancePage() {
 
   function resolveName(tracked: TrackedPumper, leaderboard: SubnetScore[]): SubnetScore | null {
     // NETUID FIRST. The stored `name` is whatever the subnet was called on the
-    // day the case was added, so any rename leaves it wrong forever — SN3 kept
+    // day the case was added, so any rename leaves it wrong forever - SN3 kept
     // showing "Templar" for weeks after it became Teutonic. The netuid is the
     // only stable identifier; fall back to name matching only for old entries
     // saved before we recorded one.
@@ -626,7 +626,7 @@ export default function PerformancePage() {
       const trackedNames = new Set(tracked.map((t) => (t.searchName || t.name).toLowerCase()));
 
       // Source A: portfolio positions with aGap score ≥ 70 that have pumped ≥ 15% since the signal
-      // This is the "Ditto" case — we had a high score, and the price followed
+      // This is the "Ditto" case - we had a high score, and the price followed
       const portfolioPumps = positions.filter((p) =>
         p.buyAGapScore >= 70 &&
         p.totalPnlPct >= 15 &&
@@ -711,7 +711,7 @@ export default function PerformancePage() {
 
       setAutoDetected(autoAdded);
 
-      // 3) Build stubs — cache-first
+      // 3) Build stubs - cache-first
       tracked.sort((a, b) => new Date(b.added_at).getTime() - new Date(a.added_at).getTime());
 
       const stubs: Autopsy[] = tracked.map((p) => {
@@ -754,7 +754,7 @@ export default function PerformancePage() {
 
       setAutopsies(stubs);
 
-      // 4) Fetch price history for cached entries that are missing it — parallel, awaited
+      // 4) Fetch price history for cached entries that are missing it - parallel, awaited
       const needsChart = stubs.filter(s => s.chartLoading && s.pumper.netuid != null);
 
       await Promise.all(needsChart.map(async (stub) => {
@@ -831,14 +831,14 @@ export default function PerformancePage() {
                 ...findings[aGapIdx],
                 fired: true,
                 strength: portfolioScore >= 85 ? "strong" : portfolioScore >= 70 ? "high" : "moderate",
-                detail: `aGap score ${portfolioScore}/100 on ${stub.pumper.pump_date} — AlphaGap flagged this subnet before the pump`,
+                detail: `aGap score ${portfolioScore}/100 on ${stub.pumper.pump_date} - AlphaGap flagged this subnet before the pump`,
               };
             }
           }
 
           // Auto-purge 0-signal cases.
           // Portfolio entries (have pump_date + "aGap score" in reason) are NEVER deleted and
-          // NEVER removed from state — they are confirmed aGap picks regardless of whether
+          // NEVER removed from state - they are confirmed aGap picks regardless of whether
           // a clean pump window was found in the price data.
           const firedCount = findings.filter((f) => f.fired).length;
           if (firedCount === 0) {
@@ -890,7 +890,7 @@ export default function PerformancePage() {
       return isPortfolio || a.findings.filter((f) => f.fired).length > 0;
     })
     .sort((a, b) => {
-      // Still-computing cards sink to the bottom under every mode — their
+      // Still-computing cards sink to the bottom under every mode - their
       // pump size and signal count are not known yet, so ranking them would
       // shuffle the list as results arrive.
       if (a.loading && !b.loading) return 1;

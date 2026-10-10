@@ -1,4 +1,4 @@
-// AlphaGap — Direct GitHub Scanner
+// AlphaGap - Direct GitHub Scanner
 // Queries GitHub API in real-time for EVERY subnet's repo on each scan.
 // Replaces TaoStats commits_1d (stale daily snapshot) with true live data.
 // Called 4x/day (every 6h). Uses GITHUB_PAT for 5,000 req/hr rate limit.
@@ -18,7 +18,7 @@ export interface GitHubScanResult {
   owner: string;
   repo: string;
   repoUrl: string;
-  // 24h activity (direct from GitHub API — always fresh)
+  // 24h activity (direct from GitHub API - always fresh)
   commits24h: number;
   contributors24h: number;
   commitMessages: string[];     // up to 15 most recent, formatted for AI
@@ -26,7 +26,7 @@ export interface GitHubScanResult {
   commits7d: number;
   contributors7d: number;
   prs_merged_7d: number;        // PRs merged in last 7d (from GitHub PR API)
-  // 30-day activity (own backbone — no TaoStats dependency)
+  // 30-day activity (own backbone - no TaoStats dependency)
   commits30d: number;           // all commits in last 30d (capped at 100 for GitHub API limit)
   contributors30d: number;      // unique authors in last 30d
   prs_merged_30d: number;       // PRs merged in last 30d
@@ -83,10 +83,10 @@ export async function scanAllSubnetGitHub(
 
   console.log(`[github-scanner] Scanning ${toScan.length} subnet repos directly via GitHub API...`);
   if (!GITHUB_PAT) {
-    console.warn("[github-scanner] WARNING: No GITHUB_PAT set — rate limit is 60 req/hr (unauthenticated). Add GITHUB_PAT for 5,000/hr.");
+    console.warn("[github-scanner] WARNING: No GITHUB_PAT set - rate limit is 60 req/hr (unauthenticated). Add GITHUB_PAT for 5,000/hr.");
   }
 
-  // Process in batches of 15 — each batch = 30 API calls (commits + releases)
+  // Process in batches of 15 - each batch = 30 API calls (commits + releases)
   const BATCH = 15;
   for (let i = 0; i < toScan.length; i += BATCH) {
     const batch = toScan.slice(i, i + BATCH);
@@ -119,7 +119,7 @@ export async function scanAllSubnetGitHub(
 
         // ── Process commits ─────────────────────────────────────
         // We query since=30d and count all three windows (30d / 7d / 24h) from one response.
-        // GitHub returns newest-first, capped at 100 — commits30d is a floor for very active
+        // GitHub returns newest-first, capped at 100 - commits30d is a floor for very active
         // repos but accurate for the vast majority of subnets.
         let commits24h = 0;
         let commits7d  = 0;
@@ -143,7 +143,7 @@ export async function scanAllSubnetGitHub(
                 commits7d++;
                 if (author) contributors7d.add(author);
               }
-              // 24h window — capture messages too
+              // 24h window - capture messages too
               if (commitDate >= since24h) {
                 commits24h++;
                 if (author) contributors24h.add(author);
@@ -157,14 +157,14 @@ export async function scanAllSubnetGitHub(
             }
           }
         } else if (commitsRes.status === "fulfilled" && commitsRes.value.status === 409) {
-          // Empty repo — skip silently
+          // Empty repo - skip silently
         } else if (commitsRes.status === "fulfilled" && commitsRes.value.status === 404) {
-          // Repo not found or private — skip
+          // Repo not found or private - skip
           return;
         }
 
         // ── Process PRs ─────────────────────────────────────────
-        // Count merged PRs in last 7d and 30d — our own backbone, no TaoStats needed.
+        // Count merged PRs in last 7d and 30d - our own backbone, no TaoStats needed.
         let prs_merged_7d  = 0;
         let prs_merged_30d = 0;
         if (prsRes.status === "fulfilled" && prsRes.value.ok) {
@@ -206,7 +206,7 @@ export async function scanAllSubnetGitHub(
         // ── Process 30d LOC (code_frequency) ───────────────────────
         // GitHub returns [[weekTimestamp, additions, deletions], ...] for the repo's lifetime.
         // Sum the last 4 complete weeks (+ partial current week) = ~30 days.
-        // 202 "Computing" = GitHub is building the stat — skip, will populate next scan.
+        // 202 "Computing" = GitHub is building the stat - skip, will populate next scan.
         let loc_30d: number | undefined;
         if (codeFreqRes.status === "fulfilled" && codeFreqRes.value.status === 200) {
           try {
@@ -224,7 +224,7 @@ export async function scanAllSubnetGitHub(
               loc_30d = total;
             }
           } catch {
-            // JSON parse error — leave undefined
+            // JSON parse error - leave undefined
           }
         }
         // 202 = GitHub computing stats in background; undefined means "not yet available"
@@ -277,7 +277,7 @@ export async function scanAllSubnetGitHub(
       }
     }));
 
-    // Small delay between batches — be respectful of GitHub rate limits
+    // Small delay between batches - be respectful of GitHub rate limits
     if (i + BATCH < toScan.length) {
       await new Promise(r => setTimeout(r, 150));
     }

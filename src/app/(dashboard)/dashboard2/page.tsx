@@ -15,15 +15,15 @@ import { useWatchlist } from "@/components/dashboard/WatchlistProvider";
 // [key, shortLabel, tooltip, fullName?]
 // fullName is shown as the popup title when the label is abbreviated.
 const COLUMNS: [keyof SubnetScore, string, string, string?][] = [
-  ["composite_score", "aGap",    "AlphaGap Score (0-100). Our composite intelligence score. Identifies subnets where fundamentals significantly exceed current market valuation — the higher the score, the larger the opportunity gap our models have detected.", "AlphaGap Score"],
-  ["agap_velo",       "Velo",    "aGap Velocity (0–100). Measures the speed and significance of a subnet's score movement. Weights both how fast the score is changing and how meaningful that level is — a move from 50→80 scores far higher than 1→20. 80–100 = explosive upward momentum. Below 30 = declining.", "Velocity"],
+  ["composite_score", "aGap",    "AlphaGap Score (0-100). Our composite intelligence score. Identifies subnets where fundamentals significantly exceed current market valuation - the higher the score, the larger the opportunity gap our models have detected.", "AlphaGap Score"],
+  ["agap_velo",       "Velo",    "aGap Velocity (0–100). Measures the speed and significance of a subnet's score movement. Weights both how fast the score is changing and how meaningful that level is - a move from 50→80 scores far higher than 1→20. 80–100 = explosive upward momentum. Below 30 = declining.", "Velocity"],
   ["flow_score",      "Flow",    "Momentum Score (0-100). Tracks price action across multiple timeframes, whale and smart money movements, and unusual volume surges. High flow = strong market momentum and accumulation signals.", "Flow / Momentum"],
   ["dev_score",       "Dev",     "Development Score (0-100). Measures the quality and velocity of real engineering work happening inside the subnet. Built on proprietary analysis of actual development activity.", "Development"],
   ["eval_score",      "eVal",    "Emissions-to-Valuation Score (0-100). Measures how much the Bittensor network is paying out to this subnet relative to what the market has priced in. High eVal = strong network conviction, undervalued by the market.", "Emissions-to-Valuation"],
   ["product_score",   "Prod",    "Product & Utility Score (0-100). Assesses real-world deployments and evidence of actual usage. Formally benchmarked subnets (highest confidence) are marked without a tilde. Estimated scores are shown as ~N. This column is the core early alpha detector: subnets building real product the market hasn't priced in.", "Product & Utility"],
   ["social_score",    "Soc",     "Social Velocity Score (0-100). Measures community awareness and KOL engagement across the Bittensor ecosystem.", "Social"],
   ["audit_score",     "Aud",     "Operational Health Score (0–100). Measures decentralisation, validator health, token distribution, and network security. Acts as a risk filter on the trading aGap score (low scores apply a penalty) and as a full positive component in the investing score. ≥70 = healthy (green), 50–69 = moderate (yellow), 30–49 = elevated risk (orange), <30 = high risk (red).", "Audit / Health"],
-  ["emission_pct",    "Em %",    "Emission share — percentage of total Bittensor network emissions currently allocated to this subnet.", "Emission %"],
+  ["emission_pct",    "Em %",    "Emission share - percentage of total Bittensor network emissions currently allocated to this subnet.", "Emission %"],
   ["emission_change_pct", "Em Δ","Recent change in emission allocation. Green = the network is voting more resources toward this subnet. Red = allocation is declining.", "Emission Change"],
   ["apy_7d",          "APY",    "7-day staking yield (annualised). Stake-weighted average APY across active validators on this subnet. Measures what stakers are actually earning right now, extrapolated to a full year.", "Staking APY (7d)"],
   ["alpha_price",     "Price",   "Current alpha token price in USD."],
@@ -39,7 +39,7 @@ const COLUMNS: [keyof SubnetScore, string, string, string?][] = [
 // When returning from Stripe (?welcome=true):
 //   1. Calls /api/sync-subscription to pull live status directly from Stripe
 //   2. Once active, does a hard redirect to /dashboard (drops ?welcome=true)
-//      so the page reloads with the fresh session cookie — guaranteed to show Pro.
+//      so the page reloads with the fresh session cookie - guaranteed to show Pro.
 function WelcomeRefresh() {
   const searchParams = useSearchParams();
   const { update: updateSession } = useSession();
@@ -102,10 +102,10 @@ export default function LeaderboardPage() {
   const [filterCategory, setFilterCategory] = useState<string>("");
   const [filtersOpen, setFiltersOpen] = useState(false);
   type CustomWeights = {
-    // Base weights — must sum to 100
+    // Base weights - must sum to 100
     velo: number; flow: number; dev: number; evalW: number; prod: number;
     soc: number; aud: number; emPct: number; emChange: number;
-    // Gap bonus intensities — independent of base sum, each 0–30
+    // Gap bonus intensities - independent of base sum, each 0–30
     gapAlpha: number; gapHidden: number; gapEmissions: number; gapSmart: number;
   };
   const BASE_WEIGHT_KEYS: (keyof CustomWeights)[] = ["velo","flow","dev","evalW","prod","soc","aud","emPct","emChange"];
@@ -125,11 +125,11 @@ export default function LeaderboardPage() {
   const [stickyLeft, setStickyLeft] = useState(0);
   const [stickyWidth, setStickyWidth] = useState(0);
   const tableWrapperRef = useRef<HTMLDivElement>(null);
-  // Ref to the inner table of the sticky clone — we translateX it to mirror horizontal scroll
+  // Ref to the inner table of the sticky clone - we translateX it to mirror horizontal scroll
   const stickyTableRef = useRef<HTMLTableElement>(null);
   // Measured widths of each real th so the clone columns match exactly
   const [colWidths, setColWidths] = useState<number[]>([]);
-  // Left padding of the table wrapper (px-4 on mobile, 0 on desktop) — needed to align clone
+  // Left padding of the table wrapper (px-4 on mobile, 0 on desktop) - needed to align clone
   const [wrapperPadLeft, setWrapperPadLeft] = useState(0);
 
   // Measure real column widths and wrapper padding, keep them up-to-date
@@ -146,7 +146,7 @@ export default function LeaderboardPage() {
   }, [leaderboard.length]);
 
   useEffect(() => {
-    // Wait until leaderboard is rendered — tableWrapperRef is null when leaderboard is empty
+    // Wait until leaderboard is rendered - tableWrapperRef is null when leaderboard is empty
     if (leaderboard.length === 0) return;
 
     const onWindowScroll = () => {
@@ -159,7 +159,7 @@ export default function LeaderboardPage() {
         setStickyWidth(wRect.width);
       }
     };
-    // Mirror horizontal scroll by translating the clone table — works in all mobile browsers
+    // Mirror horizontal scroll by translating the clone table - works in all mobile browsers
     const onTableScroll = () => {
       if (stickyTableRef.current && tableWrapperRef.current) {
         stickyTableRef.current.style.transform = `translateX(-${tableWrapperRef.current.scrollLeft}px)`;
@@ -213,7 +213,7 @@ export default function LeaderboardPage() {
       emChangeNorm       * w.emChange
     ) / 100;
 
-    // ── Gap Bonuses — reward signal combinations ──────────────────
+    // ── Gap Bonuses - reward signal combinations ──────────────────
     // Each coefficient is 0–1. Max bonus per type = intensity (0–30 pts).
     // coefficient = (high-signal / 100) × ((100 - lagging-signal) / 100)
     const dev  = sub.dev_score    ?? 0;
@@ -333,7 +333,7 @@ export default function LeaderboardPage() {
     {
       name: "Conviction",
       emoji: "💎",
-      desc: "Dev + product + audit + eVal — fundamentals only",
+      desc: "Dev + product + audit + eVal - fundamentals only",
       weights: { velo:0, flow:0, dev:30, evalW:10, prod:30, soc:0, aud:20, emPct:5, emChange:5, gapAlpha:15, gapHidden:10, gapEmissions:0, gapSmart:0 },
     },
   ];
@@ -395,7 +395,7 @@ export default function LeaderboardPage() {
                       onClick={(e) => e.stopPropagation()}
                     >
                       <div className="font-semibold text-purple-400 mb-1.5">📈 Investing Analysis</div>
-                      <p className="text-gray-400 mb-3 leading-relaxed">Long-term aGap scoring designed for serious investors. Weights real product development, smart money positioning, and fundamental conviction — not short-term noise.</p>
+                      <p className="text-gray-400 mb-3 leading-relaxed">Long-term aGap scoring designed for serious investors. Weights real product development, smart money positioning, and fundamental conviction - not short-term noise.</p>
                       <p className="text-gray-600 text-[10px] mb-3">Available on Premium only.</p>
                       <a
                         href="/pricing"
@@ -414,7 +414,7 @@ export default function LeaderboardPage() {
                         ? "bg-green-500/20 border border-green-500/40 text-green-400"
                         : "text-gray-500 hover:text-gray-300"
                     }`}
-                    title="Trading (Short-Term): aGap optimised for 1–5 day price movements — rewards price lag, social buzz, and short-term reversal patterns."
+                    title="Trading (Short-Term): aGap optimised for 1–5 day price movements - rewards price lag, social buzz, and short-term reversal patterns."
                   >
                     ⚡ Trading
                   </button>
@@ -434,7 +434,7 @@ export default function LeaderboardPage() {
                         ? "text-gray-600 hover:text-gray-400"
                         : "text-gray-500 hover:text-gray-300"
                     }`}
-                    title={isPremium ? "Investing (Long-Term): aGap optimised for 1–6 month horizon — weights sustained development, real product utility, smart money positioning, and network emissions." : "Investing Analysis — Premium feature"}
+                    title={isPremium ? "Investing (Long-Term): aGap optimised for 1–6 month horizon - weights sustained development, real product utility, smart money positioning, and network emissions." : "Investing Analysis - Premium feature"}
                   >
                     📈 Investing{!isPremium && <span className="ml-1 text-purple-500/70">✦</span>}
                   </button>
@@ -479,7 +479,7 @@ export default function LeaderboardPage() {
                         </div>
                         <div className="mb-3">
                           <span className="text-purple-400 font-medium">📈 Investing</span>
-                          <p className="text-gray-400 mt-0.5">Scores subnets on a monthly timeframe — prioritising real product development, network health, smart money positioning, and fundamental conviction over short-term price noise.</p>
+                          <p className="text-gray-400 mt-0.5">Scores subnets on a monthly timeframe - prioritising real product development, network health, smart money positioning, and fundamental conviction over short-term price noise.</p>
                         </div>
                         <p className="text-gray-600 text-[10px] leading-relaxed border-t border-gray-800 pt-2">For educational purposes only. Not financial advice. Scores do not predict prices or future returns. Always do your own research.</p>
                       </div>
@@ -519,7 +519,7 @@ export default function LeaderboardPage() {
                     </button>
                     {filtersOpen && (
                       <>
-                        {/* Backdrop — covers everything including footer */}
+                        {/* Backdrop - covers everything including footer */}
                         <div className="fixed inset-0 z-30 bg-black/40" onClick={() => setFiltersOpen(false)} />
 
                         {/* Mobile: fixed bottom sheet. Desktop: absolute dropdown. */}
@@ -592,7 +592,7 @@ export default function LeaderboardPage() {
                 </svg>
                 My Watchlist
               </button>
-              {/* Reopen custom editor button — only visible in custom mode */}
+              {/* Reopen custom editor button - only visible in custom mode */}
               {timeHorizon === "custom" && !showCustomEditor && (
                 <button
                   onClick={() => setShowCustomEditor(true)}
@@ -604,23 +604,23 @@ export default function LeaderboardPage() {
               )}
             </div>
 
-            {/* Custom formula editor — shown when custom mode is active */}
+            {/* Custom formula editor - shown when custom mode is active */}
             {timeHorizon === "custom" && showCustomEditor && (
               <div className="mb-4 bg-gray-900/90 border border-blue-500/30 rounded-xl p-4">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2">
                     <span className="text-base">⚙️</span>
                     <span className="text-sm font-bold text-white">Custom Formula Builder</span>
-                    <span className="text-xs text-gray-400">— assign weights to each signal (must total 100%)</span>
+                    <span className="text-xs text-gray-400">- assign weights to each signal (must total 100%)</span>
                   </div>
                   <div className="flex items-center gap-3">
                     <span className={`text-xs font-bold tabular-nums ${
                       totalWeight === 100 ? "text-green-400" :
                       totalWeight > 100 ? "text-red-400" : "text-yellow-400"
                     }`}>
-                      {totalWeight === 100 ? "✓ 100% — ready" :
-                       totalWeight > 100 ? `${totalWeight}% — ${totalWeight - 100}% over` :
-                       `${totalWeight}% — ${100 - totalWeight}% remaining`}
+                      {totalWeight === 100 ? "✓ 100% - ready" :
+                       totalWeight > 100 ? `${totalWeight}% - ${totalWeight - 100}% over` :
+                       `${totalWeight}% - ${100 - totalWeight}% remaining`}
                     </span>
                     <button
                       onClick={() => setCustomWeights(EMPTY_WEIGHTS)}
@@ -693,10 +693,10 @@ export default function LeaderboardPage() {
                 <div className="mt-5 pt-4 border-t border-gray-800/60">
                   <div className="flex items-center gap-2 mb-1">
                     <span className="text-xs font-bold text-amber-400">⚡ Gap Bonuses</span>
-                    <span className="text-xs text-gray-400">— reward signal combinations, stack on top of your base formula</span>
+                    <span className="text-xs text-gray-400">- reward signal combinations, stack on top of your base formula</span>
                   </div>
                   <p className="text-xs text-gray-400 mb-4 leading-relaxed">
-                    Each bonus fires when two signals align (e.g. Dev is high but Flow is low). Max <span className="text-gray-300 font-medium">+30 pts</span> per bonus — scales automatically based on how strongly the combo is present.
+                    Each bonus fires when two signals align (e.g. Dev is high but Flow is low). Max <span className="text-gray-300 font-medium">+30 pts</span> per bonus - scales automatically based on how strongly the combo is present.
                   </p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
                     {GAP_BONUS_FIELDS.map(({ key, emoji, label, desc, triggerA, triggerB }) => {
@@ -777,14 +777,14 @@ export default function LeaderboardPage() {
                   >
                     {saveStatus === "saving" ? "Saving…"
                       : saveStatus === "saved" ? "✓ Saved"
-                      : saveStatus === "error" ? "Error — retry"
+                      : saveStatus === "error" ? "Error - retry"
                       : "💾 Save Formula"}
                   </button>
                 </div>
               </div>
             )}
 
-            {/* Mobile-only sticky CTA — sits above the horizontally-scrolling table */}
+            {/* Mobile-only sticky CTA - sits above the horizontally-scrolling table */}
             {!isPro && (
               <div className="md:hidden mb-3 flex flex-col items-center gap-1.5 py-4 px-4 rounded-xl bg-[#0a0a0f]/80 border border-gray-800">
                 <p className="text-xs text-white font-bold">Top 20 Subnets are hidden on the free plan</p>
@@ -798,7 +798,7 @@ export default function LeaderboardPage() {
               </div>
             )}
 
-            {/* Fixed sticky header clone — appears once real thead scrolls off screen */}
+            {/* Fixed sticky header clone - appears once real thead scrolls off screen */}
             {stickyVisible && colWidths.length > 0 && (
               <div
                 className="fixed top-0 z-50 bg-[#0a0a0f] border-b border-gray-800 overflow-hidden"
@@ -902,7 +902,7 @@ export default function LeaderboardPage() {
                       <td className="py-2 px-3 text-white text-xs tabular-nums font-medium">{i + 1}</td>
                       <td className="py-2 px-3">
                         {isLocked ? (
-                          /* Fully blacked-out on locked rows — no name or logo visible */
+                          /* Fully blacked-out on locked rows - no name or logo visible */
                           <div className="flex items-center gap-2">
                             <div className="w-5 h-5 rounded-full bg-gray-800 flex-shrink-0" />
                             <div className="w-8 h-3 rounded bg-gray-800 flex-shrink-0" />
@@ -914,7 +914,7 @@ export default function LeaderboardPage() {
                             <span className="text-[10px] text-gray-600 font-mono tracking-tight">SN{sub.netuid}</span>
                             <span className={`font-bold text-[15px] leading-tight ${isWatched(sub.netuid) ? "text-blue-400" : "text-gray-100"}`}>{sub.name}</span>
                             {sub.has_campaign && <span title="Active Stitch3 marketing campaign" className="text-sm">🔥</span>}
-                            {sub.dereg_top3 && <span title="Top-3 deregistration risk — one of the 3 subnets with the lowest SubnetRadar health score" className="text-sm cursor-help">⚠️</span>}
+                            {sub.dereg_top3 && <span title="Top-3 deregistration risk - one of the 3 subnets with the lowest SubnetRadar health score" className="text-sm cursor-help">⚠️</span>}
                           </div>
                         )}
                       </td>
@@ -924,7 +924,7 @@ export default function LeaderboardPage() {
                           : timeHorizon === "custom" ? { background: "rgba(59, 130, 246, 0.06)", borderLeft: "2px solid rgba(59, 130, 246, 0.15)" }
                           : { background: "rgba(16, 185, 129, 0.06)", borderLeft: "2px solid rgba(16, 185, 129, 0.15)" }
                         }>
-                        {timeHorizon === "custom" && totalWeight !== 100 ? "—" : Math.round(activeAGap(sub))}
+                        {timeHorizon === "custom" && totalWeight !== 100 ? "-" : Math.round(activeAGap(sub))}
                       </td>
                       <td className={`py-2 px-3 text-right font-bold tabular-nums text-sm ${
                         sub.agap_velo == null ? "text-gray-700" :
@@ -932,7 +932,7 @@ export default function LeaderboardPage() {
                         sub.agap_velo >= 40 ? "text-yellow-400" :
                         "text-red-500"
                       }`}>
-                        {sub.agap_velo != null ? sub.agap_velo : "—"}
+                        {sub.agap_velo != null ? sub.agap_velo : "-"}
                       </td>
                       <td className={`py-2 px-3 text-right font-semibold tabular-nums ${scoreColor(sub.flow_score)}`}>
                         {sub.whale_signal === "accumulating" && <span title={`Whale accumulation (${sub.whale_ratio}x)`} className="mr-0.5 text-xs">🐋</span>}
@@ -943,7 +943,7 @@ export default function LeaderboardPage() {
                       <td className={`py-2 px-3 text-right font-semibold tabular-nums ${scoreColor(sub.dev_score)}`}>{sub.dev_score}</td>
                       <td className={`py-2 px-3 text-right font-semibold tabular-nums ${scoreColor(sub.eval_score || 0)}`}>{sub.eval_score || 0}</td>
                       <td className={`py-2 px-3 text-right font-semibold tabular-nums ${scoreColor(sub.product_score || 0)}`}>
-                        {sub.product_score != null ? sub.product_score : "\u2014"}
+                        {sub.product_score != null ? sub.product_score : "-"}
                       </td>
                       <td className={`py-2 px-3 text-right font-semibold tabular-nums ${scoreColor(sub.social_score || 0)}`}>{sub.social_score || 0}</td>
                       <td className={`py-2 px-3 text-right font-semibold tabular-nums ${
@@ -953,10 +953,10 @@ export default function LeaderboardPage() {
                         : sub.audit_score >= 30 ? "text-orange-400"
                         : "text-red-400"
                       }`}>
-                        {sub.audit_score ?? "—"}
+                        {sub.audit_score ?? "-"}
                       </td>
                       <td className="py-2 px-3 text-right text-gray-400 tabular-nums">
-                        {sub.emission_pct != null && sub.emission_pct > 0 ? `${(sub.emission_pct * 100).toFixed(1)}%` : "\u2014"}
+                        {sub.emission_pct != null && sub.emission_pct > 0 ? `${(sub.emission_pct * 100).toFixed(1)}%` : "-"}
                       </td>
                       <td className={`py-2 px-3 text-right font-medium tabular-nums ${
                         sub.emission_change_pct == null ? "text-gray-600" :
@@ -965,7 +965,7 @@ export default function LeaderboardPage() {
                       }`}>
                         {sub.emission_change_pct != null && sub.emission_change_pct !== 0
                           ? `${sub.emission_change_pct > 0 ? "+" : ""}${sub.emission_change_pct.toFixed(1)}%`
-                          : "\u2014"}
+                          : "-"}
                       </td>
                       <td className={`py-2 px-3 text-right font-semibold tabular-nums ${
                         sub.apy_7d == null ? "text-gray-600" :
@@ -973,13 +973,13 @@ export default function LeaderboardPage() {
                         sub.apy_7d >= 0.35 ? "text-yellow-400" :
                         sub.apy_7d >= 0.20 ? "text-orange-400" : "text-gray-500"
                       }`}>
-                        {sub.apy_7d != null ? `${(sub.apy_7d * 100).toFixed(0)}%` : "\u2014"}
+                        {sub.apy_7d != null ? `${(sub.apy_7d * 100).toFixed(0)}%` : "-"}
                       </td>
                       <td className="py-2 px-3 text-right text-gray-300 tabular-nums font-medium">
-                        {sub.alpha_price != null ? `$${formatNum(sub.alpha_price, 2)}` : "\u2014"}
+                        {sub.alpha_price != null ? `$${formatNum(sub.alpha_price, 2)}` : "-"}
                       </td>
                       <td className="py-2 px-3 text-right text-gray-400 tabular-nums">
-                        {sub.market_cap != null ? `$${formatNum(sub.market_cap)}` : "\u2014"}
+                        {sub.market_cap != null ? `$${formatNum(sub.market_cap)}` : "-"}
                       </td>
 
                       {(["price_change_1h", "price_change_24h", "price_change_7d", "price_change_30d"] as const).map((col) => (
@@ -990,7 +990,7 @@ export default function LeaderboardPage() {
                         }`}>
                           {sub[col] != null
                             ? `${(sub[col] as number) > 0 ? "+" : ""}${(sub[col] as number).toFixed(1)}%`
-                            : "\u2014"}
+                            : "-"}
                         </td>
                       ))}
                       <td className={`py-2 px-3 text-right tabular-nums font-medium ${flowColor(sub.net_flow_24h)}`}>
@@ -998,10 +998,10 @@ export default function LeaderboardPage() {
                           ? `${sub.net_flow_24h > 0 ? "+" : ""}$${formatNum(Math.round(sub.net_flow_24h * taoPrice))}`
                           : sub.net_flow_24h != null
                           ? `${sub.net_flow_24h > 0 ? "+" : ""}${formatNum(sub.net_flow_24h)} τ`
-                          : "\u2014"}
+                          : "-"}
                       </td>
                     </tr>
-                    {/* CTA injected in the middle of the locked section — desktop only */}
+                    {/* CTA injected in the middle of the locked section - desktop only */}
                     {!isPro && i === 9 && (
                       <tr className="hidden md:table-row">
                         <td colSpan={21} className="py-5 text-center bg-[#0a0a0f]/60">
@@ -1026,7 +1026,7 @@ export default function LeaderboardPage() {
 
       <SubnetDetailPanel />
 
-      {/* Column "i" tooltip — rendered at root level to escape overflow-x-auto clipping */}
+      {/* Column "i" tooltip - rendered at root level to escape overflow-x-auto clipping */}
       {infoPopup && infoRect && (() => {
         const col = COLUMNS.find(([k]) => k === infoPopup);
         if (!col) return null;

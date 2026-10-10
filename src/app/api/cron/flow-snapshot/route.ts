@@ -97,14 +97,14 @@ export interface PersistedFlowEvent {
   netFlow?: number;
   whaleRatio?: number;
   volumeRatio?: number;
-  /** TAO burned — only present on registration_spike events, used for client-side threshold filtering */
+  /** TAO burned - only present on registration_spike events, used for client-side threshold filtering */
   regsTao?: number;
   price?: number;
   change24h?: number;
   apy_7d?: number;
   apy_1h?: number;
   apy_30d?: number;
-  /** "2026-04-30" — used for dedup & 72h pruning */
+  /** "2026-04-30" - used for dedup & 72h pruning */
   dayKey: string;
   /** ISO timestamp of when this event was first detected / last refreshed */
   detectedAt: string;
@@ -157,7 +157,7 @@ function buildEvents(
         name,
         type: "accumulating",
         strength,
-        headline: `${sub.whale_ratio}x avg buy size vs sells — whales accumulating`,
+        headline: `${sub.whale_ratio}x avg buy size vs sells - whales accumulating`,
         detail:
           flowUsd != null
             ? `Net ${flowUsd > 0 ? "+" : ""}$${fmt(Math.abs(Math.round(flowUsd)))} in 24h · ${sub.whale_ratio}x whale buy/sell ratio`
@@ -187,7 +187,7 @@ function buildEvents(
         name,
         type: "distributing",
         strength,
-        headline: `${sub.whale_ratio}x sell pressure — smart money exiting`,
+        headline: `${sub.whale_ratio}x sell pressure - smart money exiting`,
         detail:
           flowUsd != null
             ? `Net ${flowUsd > 0 ? "+" : "-"}$${fmt(Math.abs(Math.round(flowUsd)))} in 24h · ${sub.whale_ratio}x whale sell/buy ratio`
@@ -254,7 +254,7 @@ function buildEvents(
           type: "yield_spike",
           strength,
           headline: `Staking yield spiked ${pctAbove}% above 30-day baseline`,
-          detail: `1H APY ${apy1hPct}% vs 30d avg ${apy30dPct}% — sudden shift in staking dynamics. Could signal validator exit, emissions change, or stake redistribution.`,
+          detail: `1H APY ${apy1hPct}% vs 30d avg ${apy30dPct}% - sudden shift in staking dynamics. Could signal validator exit, emissions change, or stake redistribution.`,
           badge: "📈 YIELD SPIKE",
           badgeColor: "bg-lime-500/20 text-lime-300 border-lime-500/30",
           price: sub.alpha_price ?? undefined,
@@ -276,7 +276,7 @@ function buildEvents(
           type: "yield_dip",
           strength,
           headline: `Staking yield compressed ${pctBelow}% below 30-day baseline`,
-          detail: `1H APY ${apy1hPct}% vs 30d avg ${apy30dPct}% — yield compression often follows large stake inflows or increased competition among validators.`,
+          detail: `1H APY ${apy1hPct}% vs 30d avg ${apy30dPct}% - yield compression often follows large stake inflows or increased competition among validators.`,
           badge: "📉 YIELD DIP",
           badgeColor: "bg-orange-500/20 text-orange-400 border-orange-500/30",
           price: sub.alpha_price ?? undefined,

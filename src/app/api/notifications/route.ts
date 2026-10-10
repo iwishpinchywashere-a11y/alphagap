@@ -13,7 +13,7 @@ async function requirePro() {
   return { email: session.user.email };
 }
 
-// GET — fetch notifications + snapshot
+// GET - fetch notifications + snapshot
 export async function GET() {
   const auth = await requirePro();
   if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });
@@ -21,7 +21,7 @@ export async function GET() {
   return NextResponse.json(store);
 }
 
-// POST — add new notifications + update snapshot
+// POST - add new notifications + update snapshot
 export async function POST(req: NextRequest) {
   const auth = await requirePro();
   if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });
@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({ ok: true, added: toAdd.length });
 }
 
-// PATCH — mark as read (body: { all: true } or { id: string })
+// PATCH - mark as read (body: { all: true } or { id: string })
 export async function PATCH(req: NextRequest) {
   const auth = await requirePro();
   if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });
@@ -55,9 +55,9 @@ export async function PATCH(req: NextRequest) {
   return NextResponse.json({ ok: true });
 }
 
-// DELETE — clear all notifications and reset the snapshot baseline.
+// DELETE - clear all notifications and reset the snapshot baseline.
 // Resetting the snapshot means the next check will establish a fresh baseline
-// from current scores/signals — preventing old data from re-triggering alerts.
+// from current scores/signals - preventing old data from re-triggering alerts.
 export async function DELETE() {
   const auth = await requirePro();
   if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });

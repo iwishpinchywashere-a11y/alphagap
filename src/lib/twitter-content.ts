@@ -1,15 +1,15 @@
 import { BENCHMARK_MAP } from "@/lib/benchmarks";
 // Content generator for @AlphaGapTAO automated posts
 //
-// 8 post types (strict — no others):
-//  1. agap_riser        — significant aGap score rise and why
-//  2. dev_update        — high-scoring dev signal from /signals (brief)
-//  3. whale_flow        — whale buy / smart money / volume surge from /whales
-//  4. discord_alpha     — Discord alpha drop from /social
-//  5. x_trending        — subnet trending on X and why, from /social
-//  6. analytics_ratios  — top 3 subnets by plot-chart ratio on /analytics
-//  7. benchmark_update  — new benchmark result beating centralised competitor
-//  8. performance_gain  — /performance max-return stat (aGap ≥80 signal → price now → max % gain)
+// 8 post types (strict - no others):
+//  1. agap_riser        - significant aGap score rise and why
+//  2. dev_update        - high-scoring dev signal from /signals (brief)
+//  3. whale_flow        - whale buy / smart money / volume surge from /whales
+//  4. discord_alpha     - Discord alpha drop from /social
+//  5. x_trending        - subnet trending on X and why, from /social
+//  6. analytics_ratios  - top 3 subnets by plot-chart ratio on /analytics
+//  7. benchmark_update  - new benchmark result beating centralised competitor
+//  8. performance_gain  - /performance max-return stat (aGap ≥80 signal → price now → max % gain)
 
 const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY || "";
 
@@ -124,7 +124,7 @@ export interface TweetPost {
    *  the same angle repeatedly even when the event id differs. */
   subjects?: string[];
   // Subject keys (e.g. "subj_analytics_82") recorded in the posted log and
-  // checked against a 7-DAY window — prevents the same subnet headlining the
+  // checked against a 7-DAY window - prevents the same subnet headlining the
   // same post type day after day even when the dedupId resets daily.
   subjectKeys?: string[];
 }
@@ -152,7 +152,7 @@ function fmtPrice(v?: number): string {
 
 // ── AI tweet writer ───────────────────────────────────────────────
 
-// FOOTER always appended — count it against budget
+// FOOTER always appended - count it against budget
 const FOOTER = "\n\nalphagap.io $TAO";
 const FOOTER_LEN = FOOTER.length; // 18
 const MAX_BODY = 260 - FOOTER_LEN; // 242 chars for the actual content
@@ -168,7 +168,7 @@ WRITE LIKE A PERSON WHO LOOKED AT THE DATA.
 - No fixed template. Vary the shape: sometimes one sharp line, sometimes three,
   sometimes a comparison, sometimes a question you then answer.
 - Lead with the specific finding, not the subnet name. "Chutes is the only
-  subnet in the top ten with disclosed revenue" beats "Chutes (SN64) — strong
+  subnet in the top ten with disclosed revenue" beats "Chutes (SN64) - strong
   week".
 - One concrete, checkable fact per tweet. A number nobody else has, a product
   detail, a divergence between two signals.
@@ -193,7 +193,7 @@ BANNED, these are what made the old account read as noise:
 
 Hard rules:
 - Body under ${MAX_BODY} characters. The footer "alphagap.io $TAO" is appended
-  automatically — never write it.
+  automatically - never write it.
 - No markdown, no bullets, no hashtag spam.
 - No trading advice, no price targets, no "buy" framing.
 - Never write about bugs, outages, exploits or downtime.
@@ -211,7 +211,7 @@ can verify it against their live endpoint right now.
 
 Also good:
 Leadpoet's aGap fell from 49 to 22 this week while its price rose 26%. That is
-our formula penalising a subnet for its thesis playing out — we've since fixed
+our formula penalising a subnet for its thesis playing out - we've since fixed
 it, but it is a good reminder that a score is a model, not a fact.`;
 
 // Phrases that indicate Claude refused instead of writing a tweet.
@@ -223,7 +223,7 @@ const REFUSAL_SIGNALS = [
 
 async function writeTweet(prompt: string): Promise<string[]> {
   if (!ANTHROPIC_KEY) {
-    console.error("[twitter-bot] writeTweet: ANTHROPIC_API_KEY is missing — cannot generate tweet");
+    console.error("[twitter-bot] writeTweet: ANTHROPIC_API_KEY is missing - cannot generate tweet");
     return [];
   }
 
@@ -290,7 +290,7 @@ async function writeTweet(prompt: string): Promise<string[]> {
 /**
  * Dedup keys must describe the EVENT, not the subject.
  *
- * They used to be `agap_riser_51` — identical whether lium.io moved 3 points
+ * They used to be `agap_riser_51` - identical whether lium.io moved 3 points
  * or 30. Once the 7-day window lapsed the same subnet resurfaced with the same
  * framing, which is why the account repeated itself week after week.
  *
@@ -320,7 +320,7 @@ function isoWeek(d = new Date()): string {
  *
  * The generators only ever passed scores, so the model had nothing specific to
  * say and filled the gap with adjectives. We researched all 119 leaderboard
- * subnets — product detail, verified revenue, audit posture, blunt caveats —
+ * subnets - product detail, verified revenue, audit posture, blunt caveats -
  * and then never fed any of it to the account that most needed it.
  *
  * Trimmed hard: the summaries run to thousands of characters and the writer
@@ -335,12 +335,12 @@ function researchBrief(netuid: number): string {
   const rev = b.annual_revenue_usd ?? 0;
   const conf = (b as { revenue_confidence?: string }).revenue_confidence;
   if (rev > 0) parts.push(`Disclosed revenue: $${rev.toLocaleString()} (${conf ?? "unverified"}).`);
-  else if (conf === "confirmed_pre_revenue") parts.push("Revenue: none — we checked, they are genuinely pre-revenue.");
+  else if (conf === "confirmed_pre_revenue") parts.push("Revenue: none - we checked, they are genuinely pre-revenue.");
   const summary = (b.benchmark_summary ?? "").split(" AUDIT:")[0].split(" CAVEATS:")[0];
   if (summary) parts.push(`What it does: ${summary.slice(0, 420)}`);
   const cav = (b.benchmark_summary ?? "").split(" CAVEATS:")[1];
   if (cav) parts.push(`Caveats worth stating honestly: ${cav.slice(0, 260)}`);
-  return parts.length ? `\n\nVERIFIED RESEARCH (ours, not theirs — use a specific detail from this rather than describing the score):\n${parts.join(" ")}` : "";
+  return parts.length ? `\n\nVERIFIED RESEARCH (ours, not theirs - use a specific detail from this rather than describing the score):\n${parts.join(" ")}` : "";
 }
 
 export async function generateAgapRiser(subnet: SubnetScore): Promise<TweetPost | null> {
@@ -375,7 +375,7 @@ Write one tweet. Lead with the most specific thing you can verify, not the score
 }
 
 // ── 2. Dev Update (from /signals) ────────────────────────────────
-// Brief summary of a high-scoring dev signal — much shorter than the full signal card.
+// Brief summary of a high-scoring dev signal - much shorter than the full signal card.
 
 export async function generateDevUpdate(signal: DevSignal): Promise<TweetPost | null> {
   const prompt = `${signal.name} (SN${signal.netuid}) just shipped: ${signal.title}. Dev score ${signal.score}/100. Detail: ${signal.description.slice(0, 120)}.
@@ -389,7 +389,7 @@ Write one tweet about what they actually shipped and why it matters.${researchBr
   return {
     type: "dev_update",
     tweets,
-    rationale: `Dev update: ${signal.name} (SN${signal.netuid}) — ${signal.title}`,
+    rationale: `Dev update: ${signal.name} (SN${signal.netuid}) - ${signal.title}`,
     dedupId: `dev_update_${signal.netuid}_${signal.title.toLowerCase().replace(/[^a-z0-9]+/g, "").slice(0, 24)}`,
   };
 }
@@ -407,9 +407,9 @@ export async function generateWhaleFlow(subnet: SubnetScore, todayUTC?: string):
     `Write a tweet that focuses on the combination of smart-money accumulation AND a volume surge (${subnet.volume_surge_ratio?.toFixed(1)}× normal). Explain what it means when both happen together. Use 🐋 as the lead emoji.`,
     `Write a tweet about the unusual on-chain pattern: large wallets buying AND volume spiking ${subnet.volume_surge_ratio?.toFixed(1)}× at the same time. What does this divergence signal? Use 📊 as the lead emoji.`,
   ] : isWhale ? [
-    `Write a tweet about large-wallet accumulation on this subnet — what it typically signals ahead of a move. Use 🐋 as the lead emoji.`,
+    `Write a tweet about large-wallet accumulation on this subnet - what it typically signals ahead of a move. Use 🐋 as the lead emoji.`,
     `Write a tweet focused on smart-money positioning: wallets are staking/buying while most retail hasn't noticed. Use 🔍 as the lead emoji.`,
-    `Write a tweet about the on-chain story here — large wallets accumulating while price action looks quiet. Use 👀 as the lead emoji.`,
+    `Write a tweet about the on-chain story here - large wallets accumulating while price action looks quiet. Use 👀 as the lead emoji.`,
   ] : [
     `Write a tweet about the volume surge (${subnet.volume_surge_ratio?.toFixed(1)}× baseline). Focus on what unusual volume says about near-term momentum. Use 📈 as the lead emoji.`,
     `Write a tweet that explains what it means when buy volume spikes ${subnet.volume_surge_ratio?.toFixed(1)}× above normal for a Bittensor subnet. Use ⚡ as the lead emoji.`,
@@ -428,7 +428,7 @@ export async function generateWhaleFlow(subnet: SubnetScore, todayUTC?: string):
     subnet.market_cap       != null ? `MCap: ${fmtMcap(subnet.market_cap)}` : null,
   ].filter(Boolean).join(" · ");
 
-  const prompt = `${subnet.name} (SN${subnet.netuid}) — ${contextLines}.
+  const prompt = `${subnet.name} (SN${subnet.netuid}) - ${contextLines}.
 
 ${angle}`;
 
@@ -438,8 +438,8 @@ ${angle}`;
   return {
     type: "whale_flow",
     tweets,
-    rationale: `On-chain activity: ${subnet.name} — ${isWhale ? "whale accumulation" : "volume surge"}`,
-    // Daily dedup key — one whale post per calendar day regardless of subnet
+    rationale: `On-chain activity: ${subnet.name} - ${isWhale ? "whale accumulation" : "volume surge"}`,
+    // Daily dedup key - one whale post per calendar day regardless of subnet
     dedupId: `whale_flow_day_${todayUTC ?? new Date().toISOString().slice(0, 10)}`,
   };
 }
@@ -467,9 +467,9 @@ export async function generateDiscordAlpha(entry: DiscordEntry): Promise<TweetPo
   // Filter out any insights that mention bugs, errors, or other negative content
   const positiveInsights = entry.keyInsights.filter(i => !isNegativeInsight(i));
 
-  // Need at least 1 positive insight to write about — skip entirely if all are negative
+  // Need at least 1 positive insight to write about - skip entirely if all are negative
   if (positiveInsights.length === 0) {
-    console.log(`[twitter-bot] generateDiscordAlpha: skipping ${entry.subnetName} — all insights are negative`);
+    console.log(`[twitter-bot] generateDiscordAlpha: skipping ${entry.subnetName} - all insights are negative`);
     return null;
   }
 
@@ -486,7 +486,7 @@ Write a tweet using the format in your instructions. Explain in plain English wh
   return {
     type: "discord_alpha",
     tweets,
-    rationale: `Discord alpha: ${entry.subnetName} — ${entry.summary.slice(0, 80)}`,
+    rationale: `Discord alpha: ${entry.subnetName} - ${entry.summary.slice(0, 80)}`,
     dedupId: `discord_alpha_${entry.netuid}_${isoWeek()}`,
   };
 }
@@ -498,7 +498,7 @@ export async function generateXTrending(entries: SocialTrendEntry[]): Promise<Tw
   const top3 = entries.slice(0, 3);
 
   const lines = top3.map((e, i) =>
-    `${i + 1}. ${e.subnetName}${e.netuid ? ` (SN${e.netuid})` : ""}${e.tweetCount ? ` — ${e.tweetCount} mentions` : ""}${e.topInsight ? ` — "${e.topInsight}"` : ""}`
+    `${i + 1}. ${e.subnetName}${e.netuid ? ` (SN${e.netuid})` : ""}${e.tweetCount ? ` - ${e.tweetCount} mentions` : ""}${e.topInsight ? ` - "${e.topInsight}"` : ""}`
   ).join("\n");
 
   const prompt = `Trending on Bittensor X right now:\n${lines}
@@ -519,7 +519,7 @@ Write a tweet using the format in your instructions. Name the top subnets and ex
   };
 }
 
-// ── 6. Analytics Ratios — top 3 (/analytics) ─────────────────────
+// ── 6. Analytics Ratios - top 3 (/analytics) ─────────────────────
 
 export async function generateAnalyticsRatios(entries: AnalyticsEntry[]): Promise<TweetPost | null> {
   if (entries.length < 3) return null;
@@ -527,7 +527,7 @@ export async function generateAnalyticsRatios(entries: AnalyticsEntry[]): Promis
 
   const ratioLabel = top3[0].ratioLabel ?? "efficiency ratio";
   const lines = top3.map((e, i) =>
-    `${i + 1}. ${e.name} (SN${e.netuid}) — ratio: ${e.ratio.toFixed(2)} | aGap: ${e.composite_score}`
+    `${i + 1}. ${e.name} (SN${e.netuid}) - ratio: ${e.ratio.toFixed(2)} | aGap: ${e.composite_score}`
   ).join("\n");
 
   const prompt = `Top Bittensor subnets by ${ratioLabel}:\n${lines}
@@ -580,7 +580,7 @@ Write a tweet using the format in your instructions. Explain in plain English wh
 export async function generatePerformanceGain(entry: PerformanceEntry): Promise<TweetPost | null> {
   const prompt = `AlphaGap flagged ${entry.name} (SN${entry.netuid}) on ${new Date(entry.signalDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })} at ${fmtPrice(entry.priceAtSignal)}. Max gain since signal: ${fmtPct(entry.maxGainPct)}. Still up ${fmtPct(entry.currentGainPct)} from signal price.
 
-Write a tweet using the format in your instructions. Tell the story simply — we spotted it early when price was flat, here's what happened next. Use 🎯 as the lead emoji.`;
+Write a tweet using the format in your instructions. Tell the story simply - we spotted it early when price was flat, here's what happened next. Use 🎯 as the lead emoji.`;
 
 
   const tweets = await writeTweet(prompt);
@@ -595,12 +595,12 @@ Write a tweet using the format in your instructions. Tell the story simply — w
 }
 
 // ── 9. Evergreen fallback ─────────────────────────────────────────
-// Always fires — uses top-scored subnet from leaderboard.
+// Always fires - uses top-scored subnet from leaderboard.
 // Guaranteed to produce a tweet even when all 8 data-dependent types fail.
 
 export async function generateEvergreen(leaderboard: SubnetScore[], alreadyPostedIds: Set<string>, weeklyPostedIds?: Set<string>): Promise<TweetPost | null> {
   // Pick the highest-scored subnet not featured as evergreen in the last 7
-  // days — the old daily-reset key let the same top subnet repeat every day.
+  // days - the old daily-reset key let the same top subnet repeat every day.
   const todayUTC = new Date().toISOString().slice(0, 10);
   const weekly = weeklyPostedIds ?? new Set<string>();
   const candidates = [...leaderboard]
@@ -620,7 +620,7 @@ export async function generateEvergreen(leaderboard: SubnetScore[], alreadyPoste
   const price24h = subnet.price_change_24h != null ? `${subnet.price_change_24h >= 0 ? "+" : ""}${subnet.price_change_24h.toFixed(1)}% 24h` : null;
   const prompt = `Write a tweet about ${subnet.name} (SN${subnet.netuid}) on Bittensor.
 aGap score: ${score.toFixed(0)}/100${em ? `. Capturing ${em}` : ""}${price24h ? `. Price: ${price24h}` : ""}.
-Focus on why this subnet stands out — its purpose, what it's building, why it earns high aGap scores.
+Focus on why this subnet stands out - its purpose, what it's building, why it earns high aGap scores.
 Be specific and educational. No hype. No emojis. Facts only.
 Format: 2-3 short punchy sentences. Max 220 chars before the footer.`;
 
@@ -649,7 +649,7 @@ export interface BotData {
   performanceGains?: PerformanceEntry[];
   alreadyPostedIds: Set<string>;
   // dedupIds + subjectKeys posted in the last 7 days (superset window of
-  // alreadyPostedIds) — used for subject-level cooldowns.
+  // alreadyPostedIds) - used for subject-level cooldowns.
   weeklyPostedIds?: Set<string>;
 }
 
@@ -697,7 +697,7 @@ export async function pickBestPost(data: BotData, utcHour?: number): Promise<Twe
         // score is noise, and posting it four times a day is what produced
         // filler. Below the floor we post NOTHING rather than reach.
         (s.composite_score_change ?? 0) >= 8 &&
-        // Same key shape the generator emits — these drifted apart once and
+        // Same key shape the generator emits - these drifted apart once and
         // dedup silently stopped working.
         !alreadyPostedIds.has(`agap_riser_${s.netuid}_${magnitudeBucket(s.composite_score_change)}_${isoWeek()}`) &&
         !weeklyPostedIds.has(`subj_riser_${s.netuid}`))
@@ -738,7 +738,7 @@ export async function pickBestPost(data: BotData, utcHour?: number): Promise<Twe
   }
 
   async function tryWhaleFlow(): Promise<TweetPost | null> {
-    // One whale post per calendar day max — prevents whale from dominating the feed.
+    // One whale post per calendar day max - prevents whale from dominating the feed.
     // Per-netuid dedup is still applied inside so we pick the best candidate for today.
     if (alreadyPostedIds.has(`whale_flow_day_${todayUTC}`)) return null;
     const whaleTargets = leaderboard
@@ -796,13 +796,13 @@ export async function pickBestPost(data: BotData, utcHour?: number): Promise<Twe
   // Slot 3 → 10pm: benchmark_update, agap_riser
 
   const slotOrder: [Tryer, Tryer, ...Tryer[]][] = [
-    // Slot 0 — 7am:  agap_riser first, then substantive types, whale as last resort
+    // Slot 0 - 7am:  agap_riser first, then substantive types, whale as last resort
     [tryAgapRiser,       tryDevUpdate,       tryDiscordAlpha,    tryXTrending,       tryAnalyticsRatios, tryBenchmarkUpdate, tryPerformanceGain, tryWhaleFlow],
-    // Slot 1 — 12pm: social/community types first, whale as last resort
+    // Slot 1 - 12pm: social/community types first, whale as last resort
     [tryDiscordAlpha,    tryXTrending,       tryAgapRiser,       tryDevUpdate,       tryAnalyticsRatios, tryBenchmarkUpdate, tryPerformanceGain, tryWhaleFlow],
-    // Slot 2 — 5pm:  data/analytics types first, whale as last resort
+    // Slot 2 - 5pm:  data/analytics types first, whale as last resort
     [tryAnalyticsRatios, tryPerformanceGain, tryAgapRiser,       tryDevUpdate,       tryDiscordAlpha,    tryXTrending,       tryBenchmarkUpdate, tryWhaleFlow],
-    // Slot 3 — 10pm: benchmark/riser types first, whale as last resort
+    // Slot 3 - 10pm: benchmark/riser types first, whale as last resort
     [tryBenchmarkUpdate, tryAgapRiser,       tryDevUpdate,       tryPerformanceGain, tryDiscordAlpha,    tryXTrending,       tryAnalyticsRatios, tryWhaleFlow],
   ];
 
@@ -820,8 +820,8 @@ export async function pickBestPost(data: BotData, utcHour?: number): Promise<Twe
     if (post) return post;
   }
 
-  // ── Evergreen fallback — always fires if all 8 types fail ─────────
-  console.log("[twitter-bot] All 8 types failed — falling back to evergreen");
+  // ── Evergreen fallback - always fires if all 8 types fail ─────────
+  console.log("[twitter-bot] All 8 types failed - falling back to evergreen");
   const ev = await generateEvergreen(leaderboard, alreadyPostedIds, weeklyPostedIds);
   console.log(`[twitter-bot] evergreen → ${ev ? "✓" : "null"}`);
   return ev;

@@ -2,7 +2,7 @@
  * GET /api/stripe/upgrade-success?plan=premium
  *
  * Called after a direct subscription upgrade (Pro → Premium via subscriptions.update).
- * No Stripe checkout session exists — we verify via the subscription directly,
+ * No Stripe checkout session exists - we verify via the subscription directly,
  * update the user blob, mint a fresh JWT, and redirect to /activating.
  */
 import { NextResponse } from "next/server";

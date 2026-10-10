@@ -55,7 +55,7 @@ export default function WatchlistOnboarding() {
     // Wait for the product tour to finish first. Both of these are mounted
     // side by side in (dashboard)/layout.tsx and each used to decide on its
     // own, so a brand-new account fired BOTH and they rendered stacked on top
-    // of each other — reported from a fresh login as "multiple screens
+    // of each other - reported from a fresh login as "multiple screens
     // overlayed". Onboarding is a queue, not two independent components.
     if (!localStorage.getItem("alphagap_tour_v1")) return;
     setVisible(true);
@@ -108,7 +108,7 @@ export default function WatchlistOnboarding() {
         if (Array.isArray(d.netuids)) lastNetuids = d.netuids;
         successes++;
       } catch {
-        // keep going — partial saves are still useful
+        // keep going - partial saves are still useful
       }
     }
 
@@ -179,7 +179,7 @@ export default function WatchlistOnboarding() {
 
               <p className="text-xs sm:text-sm text-gray-400 leading-relaxed mb-4">
                 Choose at least {MIN_PICKS} subnets to track. Your watchlist powers personalised
-                highlights, alerts, and signal feeds across AlphaGap — you can change it any time.
+                highlights, alerts, and signal feeds across AlphaGap - you can change it any time.
               </p>
 
               {/* Subnet chips */}

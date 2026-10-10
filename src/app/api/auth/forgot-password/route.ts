@@ -15,7 +15,7 @@ export async function POST(req: Request) {
 
     const user = await getUserByEmail(email.toLowerCase().trim());
 
-    // Always return success even if user doesn't exist — prevents email enumeration
+    // Always return success even if user doesn't exist - prevents email enumeration
     if (user) {
       const token = await createToken(user.email, "reset", 60 * 60 * 1000); // 1 hour
       await sendPasswordResetEmail(user.name, user.email, token).catch((e) =>

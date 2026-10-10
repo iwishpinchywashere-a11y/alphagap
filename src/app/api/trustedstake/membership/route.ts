@@ -3,7 +3,7 @@
  *
  * Ultra-gated. Checks whether a wallet is an active delegator of the
  * AlphaGap Index strategy via the TrustedStake manager API. This is the
- * source of truth for membership — users join through the private invite
+ * source of truth for membership - users join through the private invite
  * link on TrustedStake, and this endpoint lets AlphaGap detect it.
  */
 

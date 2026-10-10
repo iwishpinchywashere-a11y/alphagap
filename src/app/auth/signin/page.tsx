@@ -143,7 +143,7 @@ function SignInForm() {
 
           {forgotSent ? (
             <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-4 py-3 text-emerald-400 text-sm text-center">
-              Password reset email sent — check your inbox.
+              Password reset email sent - check your inbox.
             </div>
           ) : (
             <div className="text-center">

@@ -1,4 +1,4 @@
-// AlphaGap × TrustedStake — Manager API Client
+// AlphaGap × TrustedStake - Manager API Client
 // Manages the AlphaGap Subnet Index strategy on TrustedStake.
 // Docs: https://trustedstake.gitbook.io/trustedstake/strategies/manager-api
 
@@ -30,7 +30,7 @@ export interface TSStrategy {
   };
   createdAt: string;
   updatedAt: string;
-  /** Strategy pure proxy — the delegate members grant Staking rights to. */
+  /** Strategy pure proxy - the delegate members grant Staking rights to. */
   pureProxyAddress?: string;
   /** True while TrustedStake is executing a rebalance. Can get stuck. */
   isRebalancing?: boolean;
@@ -133,7 +133,7 @@ export async function updateStrategyWeights(
   });
   if (!res.ok) {
     const text = await res.text().catch(() => "");
-    throw new Error(`TrustedStake PATCH weights failed: ${res.status} — ${text}`);
+    throw new Error(`TrustedStake PATCH weights failed: ${res.status} - ${text}`);
   }
 }
 
@@ -147,7 +147,7 @@ export async function makeStrategyPublic(): Promise<void> {
   });
   if (!res.ok) {
     const text = await res.text().catch(() => "");
-    throw new Error(`PATCH strategy failed: ${res.status} — ${text}`);
+    throw new Error(`PATCH strategy failed: ${res.status} - ${text}`);
   }
 }
 
@@ -160,7 +160,7 @@ export async function triggerRebalance(): Promise<TSRebalanceResult> {
   });
   if (!res.ok) {
     const text = await res.text().catch(() => "");
-    throw new Error(`TrustedStake rebalance failed: ${res.status} — ${text}`);
+    throw new Error(`TrustedStake rebalance failed: ${res.status} - ${text}`);
   }
   const json = await res.json();
   return { queued: true, message: json.message || "Rebalance queued" };

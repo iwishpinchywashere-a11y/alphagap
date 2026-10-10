@@ -4,7 +4,7 @@
  * Runs every 10 minutes via Vercel cron.
  * Checks KOL timelines for new subnet-related tweets and stores "heat events"
  * in social-hot.json. The main scan reads this to boost social scores when
- * a big KOL posts about a subnet — score can hit 90-100 for 48h then decays.
+ * a big KOL posts about a subnet - score can hit 90-100 for 48h then decays.
  *
  * Heat score formula:
  *   kolBase = kolWeight * 0.70       (weight 100 → 70pts, weight 50 → 35pts)
@@ -63,8 +63,8 @@ interface DesearchTweet {
 
 // ── Helpers ────────────────────────────────────────────────────────
 function computeHeatScore(kolWeight: number, engagement: number): number {
-  // KOL weight: 35 pts max — establishes a credibility floor but doesn't dominate.
-  // Engagement: 65 pts max on sqrt scale — gives real dynamic range across typical
+  // KOL weight: 35 pts max - establishes a credibility floor but doesn't dominate.
+  // Engagement: 65 pts max on sqrt scale - gives real dynamic range across typical
   // BT tweet engagements (10–500). sqrt(10)*3.5≈11, sqrt(50)*3.5≈25,
   // sqrt(100)*3.5=35, sqrt(350)*3.5≈65 (cap). Old log10 formula clustered
   // all Tier-1 tweets at 67–70 regardless of actual signal quality.
@@ -180,11 +180,11 @@ export async function GET(req: Request) {
   // Source: cross-referenced @AlphaGapTAO/following list with TaoStats identity registry.
   const HANDLE_OVERRIDES: Record<string, number | number[]> = {
     // ── Correct handles that TaoStats has wrong ──────────────────────
-    "bitads_ai":       16,            // BitAds — TaoStats has @bitkoop (old handle)
-    "sundaebar_ai":    121,           // Sundae Bar — TaoStats has @sundae_bar_ (old handle)
-    "quantumsn48":     48,            // Quantum Compute — dedicated account (TaoStats shares @qbittensorlabs with SN63)
-    "enigmasn63":      63,            // Enigma — dedicated account (TaoStats shares @qbittensorlabs with SN48)
-    "data_sn13":       13,            // Data Universe — dedicated account (TaoStats uses @macrocosmosai)
+    "bitads_ai":       16,            // BitAds - TaoStats has @bitkoop (old handle)
+    "sundaebar_ai":    121,           // Sundae Bar - TaoStats has @sundae_bar_ (old handle)
+    "quantumsn48":     48,            // Quantum Compute - dedicated account (TaoStats shares @qbittensorlabs with SN63)
+    "enigmasn63":      63,            // Enigma - dedicated account (TaoStats shares @qbittensorlabs with SN48)
+    "data_sn13":       13,            // Data Universe - dedicated account (TaoStats uses @macrocosmosai)
     // ── Missing from TaoStats entirely ──────────────────────────────
     "computehorde":    12,            // Compute Horde (SN12)
     "taohash":         14,            // TAOHash (SN14)
@@ -196,15 +196,15 @@ export async function GET(req: Request) {
     "ridges_ai":       62,            // Ridges (SN62)
     "leadpoetai":      71,            // Leadpoet (SN71)
     "bitcast_network": 93,            // Bitcast (SN93)
-    "arbos_born":      97,            // Arbos/Distil (SN97) — bio confirms "building distil (sn97)"
+    "arbos_born":      97,            // Arbos/Distil (SN97) - bio confirms "building distil (sn97)"
     "_redteam_":       61,            // RedTeam (SN61)
     "almanac_market":  41,            // Almanac (SN41)
     "gradients_ai":    56,            // Gradients (SN56)
     // ── Still valid overrides ────────────────────────────────────────
-    "traininghone":    5,             // Hone (SN5) — official product account
-    "affine_io":       120,           // Affine (SN120) — belt-and-suspenders
+    "traininghone":    5,             // Hone (SN5) - official product account
+    "affine_io":       120,           // Affine (SN120) - belt-and-suspenders
     "MaxScore":        44,            // Score / Manako founder @MaxScore
-    "lium_io":         51,            // Lium (SN51) — belt-and-suspenders
+    "lium_io":         51,            // Lium (SN51) - belt-and-suspenders
   };
   for (const [handle, netuids] of Object.entries(HANDLE_OVERRIDES)) {
     const ids = Array.isArray(netuids) ? netuids : [netuids];
@@ -214,15 +214,15 @@ export async function GET(req: Request) {
     }
   }
 
-  // Bittensor context gate — tweet must mention one of these to be subnet-related.
+  // Bittensor context gate - tweet must mention one of these to be subnet-related.
   // Prevents KOL timeline tweets about VC/crypto/general topics from being labeled as subnets.
   // Also includes notable subnet names that are unambiguous enough to serve as context.
   const BITTENSOR_SIGNALS = [
     "bittensor", "$tao", "#tao", "dtao", "opentensor", "taoshi",
     "macrocosmos", "subnet", "netuid", "metagraph", "yuma",
     "tao alpha", "taomarketcap", "taostats",
-    "affine_io", "affine foundation", // SN120 — going viral, unambiguous
-    "maxscore", "manako", "wearescore", // SN44 Score — founder @MaxScore
+    "affine_io", "affine foundation", // SN120 - going viral, unambiguous
+    "maxscore", "manako", "wearescore", // SN44 Score - founder @MaxScore
   ];
   function hasBittensorContext(text: string): boolean {
     const t = text.toLowerCase();
@@ -233,13 +233,13 @@ export async function GET(req: Request) {
   }
 
   // Generic English/crypto words that happen to be subnet names.
-  // These are blocked from name-based matching — a tweet must use SN# or @handle instead.
+  // These are blocked from name-based matching - a tweet must use SN# or @handle instead.
   const GENERIC_NAME_BLOCKLIST = new Set([
     // English generics
     "investing", "vision", "atlas", "apex", "prime", "core", "genesis",
     "nexus", "origin", "signal", "pulse", "oracle", "forge", "bridge",
     "score", "quasar", "synth", "swarm", "beam", "echo",
-    "grail", "vanta", "soma", "kaito", // "hone" removed — specific Bittensor subnet (SN5)
+    "grail", "vanta", "soma", "kaito", // "hone" removed - specific Bittensor subnet (SN5)
     // Common DeFi/crypto words that collide with subnet names
     "swap", "yield", "stake", "pool", "mint", "launch", "flow", "base",
     "liquidity", "leverage", "margin", "trading", "market", "alpha", "delta",
@@ -258,7 +258,7 @@ export async function GET(req: Request) {
     const author = tweet.user.username.toLowerCase();
     const matched = new Set<number>();
 
-    // Subnet's own official Twitter handle — high confidence.
+    // Subnet's own official Twitter handle - high confidence.
     // A handle can map to multiple subnets (e.g. @macrocosmosai → SN1, SN13, SN25).
     if (handleToNetuids.has(author)) {
       const authorNetuids = handleToNetuids.get(author)!;
@@ -281,7 +281,7 @@ export async function GET(req: Request) {
     // All remaining matches require Bittensor context
     if (!hasBittensorContext(text)) return [];
 
-    // @subnet_handle mentions — collect ALL mentioned handles.
+    // @subnet_handle mentions - collect ALL mentioned handles.
     // One handle can map to multiple subnets (e.g. @macrocosmosai = SN1 + SN13 + SN25).
     for (const [handle, netuids] of handleToNetuids) {
       if (text.includes(`@${handle}`)) {
@@ -289,7 +289,7 @@ export async function GET(req: Request) {
       }
     }
 
-    // SN# explicit mentions — collect ALL SN numbers in the tweet
+    // SN# explicit mentions - collect ALL SN numbers in the tweet
     // Matches: "SN3", "sn64", "SN 3", "SN#3", "subnet 3", "subnet #3", "subnet3"
     const snPatterns = [
       /\bsn\s*#?\s*(\d{1,3})\b/gi,          // SN3, SN 3, SN#3, sn3
@@ -304,7 +304,7 @@ export async function GET(req: Request) {
       }
     }
 
-    // Name matches — whole-word only, skip blocklisted generic words.
+    // Name matches - whole-word only, skip blocklisted generic words.
     // Minimum 5 chars so short common words don't slip through.
     for (const [name, netuid] of nameToNetuid) {
       if (name.length >= 5 && !GENERIC_NAME_BLOCKLIST.has(name) && wordMatch(text, name)) {
@@ -325,7 +325,7 @@ export async function GET(req: Request) {
   }
 
   // ── Fetch KOL timelines ──────────────────────────────────────────
-  // Top 100 KOLs by weight — covers all tier 1+2 plus best of tier 3 (weight ≥ 32).
+  // Top 100 KOLs by weight - covers all tier 1+2 plus best of tier 3 (weight ≥ 32).
   // Running all 300 at every-10-min cadence costs ~$2,000/mo; top-100 once/hr = ~$4/day.
   const kols = [...KOL_DATABASE].sort((a, b) => b.weight - a.weight).slice(0, 100);
 
@@ -377,7 +377,7 @@ export async function GET(req: Request) {
     const heatScore = computeHeatScore(kolWeight, engagement);
     if (heatScore < 25) return;
 
-    // Credit every subnet mentioned — multi-subnet tweets boost all referenced subnets.
+    // Credit every subnet mentioned - multi-subnet tweets boost all referenced subnets.
     // Use tweet_id + netuid as the dedup key so one tweet can credit multiple subnets,
     // and so adding a new handle override on a future run still creates the missing event.
     for (const netuid of netuids) {
@@ -429,7 +429,7 @@ export async function GET(req: Request) {
     tweet_url: string; tweet_text: string; engagement: number; detected_at: string;
   }> = [];
 
-  // Check all fetched KOL timelines — official subnet accounts are in handleToNetuids
+  // Check all fetched KOL timelines - official subnet accounts are in handleToNetuids
   for (const r of kolResults) {
     if (r.status !== "fulfilled") continue;
     const { kol, tweets } = r.value;
@@ -480,7 +480,7 @@ export async function GET(req: Request) {
   }
 
   // ── Subnet own-account activity scan (throttled to once per 4 hours) ──
-  // Measures how actively subnets post on their own Twitter — a consistent tweeting
+  // Measures how actively subnets post on their own Twitter - a consistent tweeting
   // team is a genuine signal even if no KOL has mentioned them recently.
   // Scores 0-25 pts saved to subnet-activity.json, read by the main scan.
   interface SubnetActivityEntry {
@@ -493,7 +493,7 @@ export async function GET(req: Request) {
   }
   interface SubnetActivityBlob { subnets: Record<number, SubnetActivityEntry>; updatedAt: string }
 
-  const SUBNET_ACTIVITY_TTL_H = 12; // was 4h — subnet posting habits don't shift faster than this
+  const SUBNET_ACTIVITY_TTL_H = 12; // was 4h - subnet posting habits don't shift faster than this
   let existingActivity: SubnetActivityBlob = { subnets: {}, updatedAt: "" };
   try {
     const saBlob = await (await import("@vercel/blob")).get("subnet-activity.json", { token, access: "private" });
@@ -509,7 +509,7 @@ export async function GET(req: Request) {
     : 999;
 
   if (activityAgeH >= SUBNET_ACTIVITY_TTL_H) {
-    console.log(`[social-pulse] Subnet activity data ${Math.round(activityAgeH)}h old — refreshing...`);
+    console.log(`[social-pulse] Subnet activity data ${Math.round(activityAgeH)}h old - refreshing...`);
 
     function computeActivityScore(ageHours: number, weeklyCount: number, avgEng: number): number {
       let base = 0;
@@ -617,7 +617,7 @@ export async function GET(req: Request) {
 
   const eventMap = new Map<string, HeatEvent>();
   for (const e of pruned) eventMap.set(e.tweet_id, e);
-  // New events override old ones — engagement may have grown since first detection
+  // New events override old ones - engagement may have grown since first detection
   for (const e of newEvents) {
     const prev = eventMap.get(e.tweet_id);
     if (!prev || e.heat_score > prev.heat_score) eventMap.set(e.tweet_id, e);
@@ -638,7 +638,7 @@ export async function GET(req: Request) {
   const duration = Date.now() - startTime;
   console.log(`[social-pulse] Done in ${duration}ms. ${newEvents.length} new events, ${updated.events.length} total, ${kols.length} KOLs checked.`);
 
-  // Alert scanner is NOT triggered here — it runs on its own 5-min cron only.
+  // Alert scanner is NOT triggered here - it runs on its own 5-min cron only.
 
   return NextResponse.json({
     ok: true,

@@ -17,7 +17,7 @@ interface BlurGateProps {
 }
 
 /**
- * Wraps content in a lightly-blurred overlay — visible but unreadable.
+ * Wraps content in a lightly-blurred overlay - visible but unreadable.
  * The "Get Full Access" button sits near the top so it's immediately obvious.
  */
 export default function BlurGate({
@@ -49,7 +49,7 @@ export default function BlurGate({
         {children}
       </div>
 
-      {/* Overlay — button anchored to top */}
+      {/* Overlay - button anchored to top */}
       <div className="absolute inset-0 z-10 flex flex-col items-center justify-start pt-8 bg-[#07090b]/40">
         <div className="ag-glass text-center px-8 py-6 mx-6">
           <Link

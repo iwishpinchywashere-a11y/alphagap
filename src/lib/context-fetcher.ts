@@ -1,4 +1,4 @@
-// Fetches rich context for signals — README content, release notes, model cards, commit details
+// Fetches rich context for signals - README content, release notes, model cards, commit details
 
 const GITHUB_PAT = process.env.GITHUB_PAT || "";
 

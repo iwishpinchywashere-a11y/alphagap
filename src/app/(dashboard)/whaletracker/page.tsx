@@ -40,7 +40,7 @@ function formatDate(iso: string): string {
 }
 
 function formatPrice(p: number): string {
-  if (p === 0) return "—";
+  if (p === 0) return "-";
   if (p < 0.01) return "$" + p.toFixed(6);
   if (p < 1) return "$" + p.toFixed(4);
   return "$" + p.toFixed(3);
@@ -147,7 +147,7 @@ export default function WhaleTrackerPage() {
         <div className="bg-gray-900 border border-gray-800 rounded-xl p-10 text-center">
           <div className="text-4xl mb-3">🐋</div>
           <div className="text-lg font-semibold text-gray-300 mb-2">
-            Tracking started — whale signal history will build up over time.
+            Tracking started - whale signal history will build up over time.
           </div>
           <div className="text-sm text-gray-500">
             Check back in a few days once signals have been detected and recorded.
@@ -173,7 +173,7 @@ export default function WhaleTrackerPage() {
               value={
                 data.stats.totalClosed > 0
                   ? data.stats.winRate14d.toFixed(1) + "%"
-                  : "—"
+                  : "-"
               }
               sub="accumulating signals +10%"
               valueClass={
@@ -187,7 +187,7 @@ export default function WhaleTrackerPage() {
                   ? (data.stats.avgReturn14d >= 0 ? "+" : "") +
                     data.stats.avgReturn14d.toFixed(1) +
                     "%"
-                  : "—"
+                  : "-"
               }
               sub="accumulating signals"
               valueClass={
@@ -225,7 +225,7 @@ export default function WhaleTrackerPage() {
                   <tbody>
                     {activeEntries.map((e) => {
                       const days = daysActive(e.entryAt);
-                      // Active entries don't have a "current price" stored —
+                      // Active entries don't have a "current price" stored -
                       // we show the most recent milestone as a proxy if available,
                       // otherwise blank
                       const latestPrice =
@@ -282,7 +282,7 @@ export default function WhaleTrackerPage() {
 
             {closedEntries.length === 0 ? (
               <div className="text-sm text-gray-600 italic">
-                No closed signals yet — history accumulates over time.
+                No closed signals yet - history accumulates over time.
               </div>
             ) : (
               <div className="overflow-x-auto">
@@ -324,22 +324,22 @@ export default function WhaleTrackerPage() {
                           </td>
                           <td className={`py-3 pr-4 text-right tabular-nums font-medium ${pctClass(e.priceAt7d, e.entryPrice)}`}>
                             {pct(e.priceAt7d, e.entryPrice) ?? (
-                              <span className="text-gray-700 font-normal">—</span>
+                              <span className="text-gray-700 font-normal">-</span>
                             )}
                           </td>
                           <td className={`py-3 pr-4 text-right tabular-nums font-medium ${pctClass(e.priceAt14d, e.entryPrice)}`}>
                             {pct(e.priceAt14d, e.entryPrice) ?? (
-                              <span className="text-gray-700 font-normal">—</span>
+                              <span className="text-gray-700 font-normal">-</span>
                             )}
                           </td>
                           <td className={`py-3 pr-4 text-right tabular-nums font-medium ${pctClass(e.priceAt30d, e.entryPrice)}`}>
                             {pct(e.priceAt30d, e.entryPrice) ?? (
-                              <span className="text-gray-700 font-normal">—</span>
+                              <span className="text-gray-700 font-normal">-</span>
                             )}
                           </td>
                           <td className="py-3 text-right">
                             <div className="text-xs text-gray-500">
-                              Closed {e.exitAt ? formatDate(e.exitAt) : "—"}
+                              Closed {e.exitAt ? formatDate(e.exitAt) : "-"}
                             </div>
                             {e.exitPrice !== undefined && e.exitPrice > 0 && (
                               <div className={`text-xs font-medium tabular-nums ${pctClass(e.exitPrice, e.entryPrice)}`}>

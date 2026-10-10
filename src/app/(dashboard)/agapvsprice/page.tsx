@@ -49,14 +49,14 @@ function DualChart({ series }: { series: SubnetSeries }) {
       {/* aGap line (green) */}
       <path d={agapPath}  fill="none" stroke="#22c55e" strokeWidth="2"   strokeLinejoin="round" />
 
-      {/* Left Y axis — aGap */}
+      {/* Left Y axis - aGap */}
       <line x1={padL} y1={padT} x2={padL} y2={padT + cH} stroke="#374151" strokeWidth="1" />
       {[minA, Math.round((minA + maxA) / 2), maxA].map((v, i) => (
         <text key={i} x={padL - 4} y={yA(v) + 4} textAnchor="end"
           fontSize="8" fill="#6b7280">{Math.round(v)}</text>
       ))}
 
-      {/* Right Y axis — price */}
+      {/* Right Y axis - price */}
       <line x1={padL + cW} y1={padT} x2={padL + cW} y2={padT + cH} stroke="#374151" strokeWidth="1" />
       {[minP, (minP + maxP) / 2, maxP].map((v, i) => (
         <text key={i} x={padL + cW + 4} y={yP(v) + 4} textAnchor="start"
@@ -164,7 +164,7 @@ export default function AgapVsPricePage() {
             </span>
           </div>
           <p className="text-sm text-gray-500 mb-5">
-            Dual-axis chart for every subnet — <span className="text-green-400">aGap score</span> vs <span className="text-amber-400">price</span> over time. Track whether our signal leads or follows the market.
+            Dual-axis chart for every subnet - <span className="text-green-400">aGap score</span> vs <span className="text-amber-400">price</span> over time. Track whether our signal leads or follows the market.
             <span className="ml-3 text-gray-600">{snapshotCount} hourly snapshots · {subnets.length} subnets</span>
           </p>
 

@@ -158,7 +158,7 @@ export async function GET(req: NextRequest) {
   for (const netuidStr of Object.keys(currentSignals)) {
     const netuid = Number(netuidStr);
     if (!lbMap.has(netuid) && currentSignals[netuid] !== null) {
-      // Signal gone — close any active entry
+      // Signal gone - close any active entry
       const activeIdx = entries.findIndex(
         (e) => e.netuid === netuid && e.status === "active"
       );

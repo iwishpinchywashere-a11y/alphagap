@@ -1,7 +1,7 @@
 /**
  * GET /api/audit-scores
  * Returns a lightweight netuid → operationalScore map from the latest
- * audit-data.json blob. No auth required — these are summary numbers only.
+ * audit-data.json blob. No auth required - these are summary numbers only.
  * Full audit detail (flags, breakdowns) stays behind the Premium gate at /api/audits.
  */
 

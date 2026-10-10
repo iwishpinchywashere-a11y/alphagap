@@ -3,7 +3,7 @@
  *
  * Commercial email needs a working unsubscribe: it is a legal requirement
  * (CAN-SPAM), and without one recipients mark mail as spam instead, which
- * damages the sending domain — the same domain that carries subscription
+ * damages the sending domain - the same domain that carries subscription
  * receipts and password resets.
  *
  * Opt-outs apply to ANNOUNCEMENTS ONLY. Transactional mail (billing, account)

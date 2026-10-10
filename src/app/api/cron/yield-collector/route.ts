@@ -31,7 +31,7 @@ const TAOSTATS_KEY = process.env.TAOSTATS_API_KEY || "";
 const BASE_URL = "https://api.taostats.io/api";
 
 // Fetch the full list of registered netuids from the TaoStats subnet API.
-// This is the authoritative source — always current as new subnets register.
+// This is the authoritative source - always current as new subnets register.
 // Falls back to a static 0-130 range if the API call fails.
 async function getActiveNetuids(): Promise<number[]> {
   try {
@@ -134,14 +134,14 @@ export async function GET(req: NextRequest) {
   let collected = 0, failed = 0;
 
   // Rate limit: 60 req/min = 1 req/sec.
-  // Sequential with 1.1s gap = ~55 req/min — safe buffer under the limit.
+  // Sequential with 1.1s gap = ~55 req/min - safe buffer under the limit.
   // 129 subnets × 1.1s = ~142s total, well within maxDuration 300.
   for (let i = 0; i < activeNetuids.length; i++) {
     const netuid = activeNetuids[i];
     const r = await fetchSubnetYield(netuid);
     if (r) { results[String(netuid)] = r; collected++; }
     else { failed++; console.log(`[yield-collector] No data for netuid ${netuid}`); }
-    // 1.1s gap between every request — stays safely under 60 req/min
+    // 1.1s gap between every request - stays safely under 60 req/min
     if (i < activeNetuids.length - 1) {
       await new Promise(r => setTimeout(r, 1100));
     }

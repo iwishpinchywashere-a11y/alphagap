@@ -36,7 +36,7 @@ export function storeTwitterHandles(
 }
 
 // ── Reddit Scanner ───────────────────────────────────────────────
-// Reddit's public JSON API — no auth needed
+// Reddit's public JSON API - no auth needed
 
 interface RedditPost {
   title: string;

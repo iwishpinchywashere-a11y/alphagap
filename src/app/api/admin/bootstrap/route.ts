@@ -1,5 +1,5 @@
 // Bootstrap: sets isAdmin=true on blob records for all ADMIN_EMAILS users.
-// No external secret needed — the endpoint can only promote emails already
+// No external secret needed - the endpoint can only promote emails already
 // listed in the ADMIN_EMAILS env var, so there is nothing useful an attacker
 // can do by calling it.
 
@@ -24,7 +24,7 @@ export async function GET() {
     try {
       const user = await getUserByEmail(email);
       if (!user) {
-        results.push({ email, status: "not found — account must exist first" });
+        results.push({ email, status: "not found - account must exist first" });
         continue;
       }
       if (user.isAdmin) {

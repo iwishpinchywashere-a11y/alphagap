@@ -1,6 +1,6 @@
 /**
  * One-click unsubscribe landing page. Linked from every announcement email.
- * Opts the address out of announcements only — billing and account mail
+ * Opts the address out of announcements only - billing and account mail
  * continues, as it must.
  */
 

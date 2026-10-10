@@ -14,7 +14,7 @@
  *
  * PARAMETERS ARE FITTED, NOT ASSUMED. The release notes quote q=0.61, h=3.
  * Fitting the published gate function against the live TaoMarketCap
- * distribution on 2026-08-05 gave q=0.64, h=4 as the better fit — either
+ * distribution on 2026-08-05 gave q=0.64, h=4 as the better fit - either
  * governance moved them (both are sudo-settable and rate-limited) or the
  * derivation of theta differs slightly from ours. Because they can change
  * under us, `fitGate` re-derives them from live data on every scan rather
@@ -25,7 +25,7 @@
  *
  * Why this matters for scoring: emission is now a ~5th-power function of
  * demand share near the bar. Any metric that treats emission as independent
- * of price — which is what the eVal ratio was built to do — is measuring
+ * of price - which is what the eVal ratio was built to do - is measuring
  * something different than it was before v440.
  */
 
@@ -42,7 +42,7 @@ export const GATE_MODEL_OUTLIERS = new Set([9, 56, 5, 93, 19]);
 
 export interface GateInput {
   netuid: number;
-  /** De-manipulated moving price — the same input the chain gates on. */
+  /** De-manipulated moving price - the same input the chain gates on. */
   movingPrice: number;
   /** Actual emission %, used only to fit and to flag outliers. */
   emissionPct?: number | null;
@@ -62,14 +62,14 @@ export interface GateReading {
   netuid: number;
   /** Share of total moving price. */
   demandShare: number;
-  /** gate(s), 0..1 — the fraction of linear emission that survives. */
+  /** gate(s), 0..1 - the fraction of linear emission that survives. */
   gate: number;
   /** s / theta. 1.0 sits exactly on the bar. */
   barRatio: number;
   /**
    * d(ln emission)/d(ln demand) = (h + 1) - h * gate(s).
    *
-   * Far above the bar this tends to 1 — linear, no convexity, growth pays
+   * Far above the bar this tends to 1 - linear, no convexity, growth pays
    * exactly what it used to. At the bar it is (h+1)/2; with h=4 that is 3.0,
    * so +10% demand is +33% emission. This is the number that makes the bar
    * interesting and nothing in AlphaGap computed it before.
@@ -77,7 +77,7 @@ export interface GateReading {
   elasticity: number;
   /** Predicted emission % under the fitted model. */
   predictedEmissionPct: number;
-  /** True when the model does not explain this subnet — treat with suspicion. */
+  /** True when the model does not explain this subnet - treat with suspicion. */
   modelBroken: boolean;
 }
 
@@ -115,7 +115,7 @@ export function fitGate(subnets: GateInput[]): GateParams {
 
   const observed = withShare.filter(s => s.emissionPct != null && s.emissionPct > 0);
 
-  // No emissions to fit against — fall back to documented defaults.
+  // No emissions to fit against - fall back to documented defaults.
   if (observed.length < 10) {
     const theta = thetaFor(sharesDesc, DEFAULT_QUANTILE);
     return {
@@ -215,7 +215,7 @@ export function readGate(subnets: GateInput[], params: GateParams): Map<number, 
 
 /**
  * What a given demand move does to emission, exactly rather than via the
- * local elasticity — the elasticity is a derivative and understates large
+ * local elasticity - the elasticity is a derivative and understates large
  * moves precisely where the curve bends hardest.
  */
 export function emissionChangeFor(

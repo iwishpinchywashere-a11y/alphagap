@@ -1,9 +1,9 @@
 /**
  * /api/reviews
  *
- * GET  — returns all approved reviews (public)
- * POST — submit a new review (requires active Pro or Premium subscription)
- * PATCH — approve or deny a pending review (requires admin)
+ * GET  - returns all approved reviews (public)
+ * POST - submit a new review (requires active Pro or Premium subscription)
+ * PATCH - approve or deny a pending review (requires admin)
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -45,14 +45,14 @@ async function saveReviews(reviews: Review[]): Promise<void> {
   });
 }
 
-// GET — public list of approved reviews
+// GET - public list of approved reviews
 export async function GET() {
   const all = await loadReviews();
   const approved = all.filter(r => r.status === "approved");
   return NextResponse.json({ reviews: approved });
 }
 
-// POST — submit a review (Pro/Premium users only)
+// POST - submit a review (Pro/Premium users only)
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
@@ -72,7 +72,7 @@ export async function POST(req: NextRequest) {
 
   const all = await loadReviews();
 
-  // Allow multiple reviews per account — deduplicate by (userId + name + xHandle) so
+  // Allow multiple reviews per account - deduplicate by (userId + name + xHandle) so
   // 30-40 beta testers sharing one account can each submit under their own identity.
   const userId = user.id ?? user.email ?? "";
   const existing = all.find(
@@ -106,7 +106,7 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({ ok: true, message: "Review submitted for approval. Thank you!" });
 }
 
-// PATCH — approve or deny (admin only)
+// PATCH - approve or deny (admin only)
 export async function PATCH(req: NextRequest) {
   const session = await getServerSession(authOptions);
   const user = session?.user as { isAdmin?: boolean } | undefined;
@@ -130,7 +130,7 @@ export async function PATCH(req: NextRequest) {
   return NextResponse.json({ ok: true, action: body.action, id: body.id });
 }
 
-// GET all reviews (admin — includes pending/denied)
+// GET all reviews (admin - includes pending/denied)
 export async function PUT(req: NextRequest) {
   const session = await getServerSession(authOptions);
   const user = session?.user as { isAdmin?: boolean } | undefined;

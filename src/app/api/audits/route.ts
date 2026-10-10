@@ -68,7 +68,7 @@ export async function GET(req: Request) {
 
   const data = await readBlob<AuditData>("audit-data.json", token);
   if (!data) {
-    return NextResponse.json({ error: "Audit data not yet available — first cron run pending" }, { status: 404 });
+    return NextResponse.json({ error: "Audit data not yet available - first cron run pending" }, { status: 404 });
   }
 
   // Single subnet detail
@@ -84,7 +84,7 @@ export async function GET(req: Request) {
   // Subnets permanently excluded (Root network SN0 is not a real task subnet)
   const AUDIT_EXCLUDED = new Set([0]);
 
-  // All subnets — enrich with grade breakdown summary
+  // All subnets - enrich with grade breakdown summary
   const subnets = Object.values(data.subnets)
     .filter(s => !AUDIT_EXCLUDED.has(s.netuid))
     .sort((a, b) => a.operationalScore - b.operationalScore);

@@ -46,19 +46,19 @@ export async function POST(req: Request) {
   try {
     const body = await req.json().catch(() => ({}));
     const planKey: PlanKey = body.plan === "ultra" ? "ultra" : body.plan === "premium" ? "premium" : "pro";
-    // Check for a valid referral code in cookie — used to apply 10% discount
+    // Check for a valid referral code in cookie - used to apply 10% discount
     const refCode = await getValidatedRefCode(req);
     const plan = PLANS[planKey];
 
     const stripe = getStripe();
-    // Retry up to 5× (3s total) — Vercel Blob propagation delay after fresh signup
+    // Retry up to 5× (3s total) - Vercel Blob propagation delay after fresh signup
     // can cause the user blob to be invisible on a different serverless instance.
     const user = await getUserByEmail(session.user.email, { retries: 5 });
     if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
     const baseUrl = process.env.NEXTAUTH_URL || "https://alphagap.vercel.app";
 
-    // Resolve Stripe customer — check blob first, then search Stripe by email,
+    // Resolve Stripe customer - check blob first, then search Stripe by email,
     // only create a new customer as a last resort. This prevents a new empty
     // customer being created when the blob hasn't propagated yet after signup.
     let customerId = user.stripeCustomerId;
@@ -66,13 +66,13 @@ export async function POST(req: Request) {
       const existing = await stripe.customers.list({ email: user.email, limit: 5 }).catch(() => null);
       customerId = existing?.data[0]?.id ?? undefined;
       if (customerId) {
-        // Found one — persist it so future calls skip the lookup
+        // Found one - persist it so future calls skip the lookup
         await Promise.all([
           setStripeCustomerLookup(user.email, customerId),
           updateUser(user.email, { stripeCustomerId: customerId }),
         ]).catch(() => {});
       } else {
-        // Truly new user — create customer
+        // Truly new user - create customer
         const customer = await stripe.customers.create({
           email: user.email,
           name: user.name,
@@ -84,7 +84,7 @@ export async function POST(req: Request) {
       }
     }
 
-    // Find any existing active subscription — try stored ID first, then list all
+    // Find any existing active subscription - try stored ID first, then list all
     // for this customer. The Stripe list is the source of truth and handles blob
     // propagation lag (user just subscribed and blob hasn't updated yet).
     let activeSub = null;
@@ -117,12 +117,12 @@ export async function POST(req: Request) {
       const currentTier: PlanKey = currentAmount >= PLANS.ultra.amount ? "ultra" : currentAmount >= PLANS.premium.amount ? "premium" : "pro";
 
       if ((tierRank[currentTier] ?? 0) >= (tierRank[planKey] ?? 0)) {
-        // Already on this plan or higher — just go to dashboard
+        // Already on this plan or higher - just go to dashboard
         return NextResponse.json({ url: `${baseUrl}/dashboard?welcome=true` });
       }
 
       // Upgrading (e.g. Pro → Premium): update the existing subscription in-place.
-      // This charges ONLY the prorated difference to the card on file — no new checkout.
+      // This charges ONLY the prorated difference to the card on file - no new checkout.
       // Stripe generates an immediate invoice for (premium_price - unused_pro_credit).
       const existingItemId = sub.items.data[0]?.id;
       if (!existingItemId) {
@@ -150,7 +150,7 @@ export async function POST(req: Request) {
     }
 
     // Apply referral 10% discount if the user landed via a valid referral link.
-    // `discounts` and `allow_promotion_codes` are mutually exclusive in Stripe —
+    // `discounts` and `allow_promotion_codes` are mutually exclusive in Stripe -
     // when we auto-apply the referral coupon we disable the manual promo code box.
     const discountOptions = refCode
       ? { discounts: [{ coupon: await getReferralCouponId() }] }

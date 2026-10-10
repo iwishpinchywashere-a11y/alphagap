@@ -46,7 +46,7 @@ function VerifyContent() {
     );
   }
 
-  // No params — landed here without a token
+  // No params - landed here without a token
   return (
     <div className="text-center">
       <div className="text-5xl mb-6 flex justify-center text-gray-300"><AgIcon name="doc" /></div>

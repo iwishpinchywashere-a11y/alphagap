@@ -35,7 +35,7 @@ export const SUBNET_LOGOS: Record<number, string> = {
   13: "/subnets/sn13.png", // Data Universe (github)
   14: "/subnets/sn14.png", // Cacheon (taostats)
   15: "/subnets/sn15.png", // ORO (existing)
-  17: "/subnets/sn17.png", // 404—GEN (existing)
+  17: "/subnets/sn17.png", // 404-GEN (existing)
   18: "/subnets/sn18.png", // Zeus (existing)
   19: "/subnets/sn19.svg", // blockmachine (taostats)
   20: "/subnets/sn20.png", // ChronoSeek (existing)

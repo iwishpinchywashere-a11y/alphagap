@@ -1,7 +1,7 @@
 /**
  * GET /api/cron/pay-commissions
  *
- * Daily cron — retries any commissions stuck in "pending" status.
+ * Daily cron - retries any commissions stuck in "pending" status.
  *
  * This handles the case where payPendingCommissions() failed during the
  * invoice.payment_succeeded webhook (e.g. affiliate hadn't finished Stripe

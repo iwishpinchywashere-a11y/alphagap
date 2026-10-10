@@ -18,7 +18,7 @@ const TIER_LIMITS: Record<string, number> = { premium: 10, ultra: 20 };
 
 const STARTER_QUESTIONS: { icon: React.ReactNode; bg: string; color: string; text: string }[] = [
   {
-    // Crescent moon — "slept on"
+    // Crescent moon - "slept on"
     icon: (
       <svg viewBox="0 0 20 20" className="w-4 h-4" fill="currentColor">
         <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"/>
@@ -38,7 +38,7 @@ const STARTER_QUESTIONS: { icon: React.ReactNode; bg: string; color: string; tex
     text: "Show me subnets whales are accumulating",
   },
   {
-    // Diamond — conviction/holding strong
+    // Diamond - conviction/holding strong
     icon: (
       <svg viewBox="0 0 20 20" className="w-4 h-4" fill="currentColor">
         <path d="M10 2l3.5 4.5h-7L10 2zM5.8 7.5L10 17l4.2-9.5H5.8z" opacity="0.85"/>
@@ -51,7 +51,7 @@ const STARTER_QUESTIONS: { icon: React.ReactNode; bg: string; color: string; tex
     text: "Which subnets are showing the most \"Conviction\"?",
   },
   {
-    // Warning triangle with exclamation — red flags
+    // Warning triangle with exclamation - red flags
     icon: (
       <svg viewBox="0 0 20 20" className="w-4 h-4" fill="currentColor">
         <path fillRule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd"/>
@@ -61,7 +61,7 @@ const STARTER_QUESTIONS: { icon: React.ReactNode; bg: string; color: string; tex
     text: "What are the biggest red flags across all subnets?",
   },
   {
-    // Rising bar chart — long-term holds
+    // Rising bar chart - long-term holds
     icon: (
       <svg viewBox="0 0 20 20" className="w-4 h-4" fill="currentColor">
         <path d="M2 14h3V8H2v6zm5 0h3V4H7v10zm5 0h3v-7h-3v7z" opacity="0.9"/>
@@ -69,10 +69,10 @@ const STARTER_QUESTIONS: { icon: React.ReactNode; bg: string; color: string; tex
       </svg>
     ),
     bg: "bg-emerald-500/20", color: "text-emerald-400",
-    text: "Best long-term holds — top 3 with reasoning",
+    text: "Best long-term holds - top 3 with reasoning",
   },
   {
-    // Code commit / lightning bolt — dev activity
+    // Code commit / lightning bolt - dev activity
     icon: (
       <svg viewBox="0 0 20 20" className="w-4 h-4" fill="currentColor">
         <path d="M11.3 2.5l-5 13 1.9.7 1.1-2.8h3.4l1.1 2.8 1.9-.7-5-13h-1.4zm-.5 2.8l1.3 3.4h-2.6l1.3-3.4z"/>
@@ -190,7 +190,7 @@ function InputBar({
   );
 }
 
-// Inner component — isolated in Suspense so useSearchParams doesn't block SSR
+// Inner component - isolated in Suspense so useSearchParams doesn't block SSR
 function OracleAutoQuery({ onQuery }: { onQuery: (q: string) => void }) {
   const searchParams = useSearchParams();
   const fired = useRef(false);
@@ -272,7 +272,7 @@ export default function OraclePage() {
         setMessages(prev => prev.slice(0, -1));
         if (res.status === 429) setRateLimited(true);
         else if (res.status === 403) setError("premium_required");
-        else setError(data.error ?? "Something went wrong — please try again.");
+        else setError(data.error ?? "Something went wrong - please try again.");
         return;
       }
 
@@ -295,7 +295,7 @@ export default function OraclePage() {
         });
       }
     } catch {
-      setError("Connection error — please try again.");
+      setError("Connection error - please try again.");
       setMessages(prev => prev.slice(0, -1));
     } finally {
       setLoading(false);
@@ -443,7 +443,7 @@ export default function OraclePage() {
         </div>
       </div>
 
-      {/* Main content — top-anchored (items-start), NOT vertically centered:
+      {/* Main content - top-anchored (items-start), NOT vertically centered:
           centering inside a content-tall flex column pushed the hero below
           the fold and left a large blank band under the nav */}
       <div className="flex-1 flex items-start justify-center px-5 pt-8 sm:pt-12 pb-16 relative">
@@ -466,7 +466,7 @@ export default function OraclePage() {
               </span>
             </h1>
             <p className="text-gray-400 text-base sm:text-lg leading-relaxed max-w-lg mx-auto mb-4">
-              Live data from every Bittensor subnet — scores, signals,
+              Live data from every Bittensor subnet - scores, signals,
               whale activity, and more.
             </p>
             <div className="inline-flex items-center gap-2 font-mono text-[11px] tracking-wider text-gray-500 uppercase">
@@ -490,7 +490,7 @@ export default function OraclePage() {
               </div>
               <p className="font-display text-xl font-semibold text-white mb-3">Premium members only</p>
               <p className="text-gray-400 text-sm leading-relaxed max-w-sm mx-auto mb-7">
-                Live chat using data from every Bittensor subnet — scores, signals, whale activity, dev momentum, and more. Ask anything, get instant answers.
+                Live chat using data from every Bittensor subnet - scores, signals, whale activity, dev momentum, and more. Ask anything, get instant answers.
               </p>
               <a
                 href="/pricing"

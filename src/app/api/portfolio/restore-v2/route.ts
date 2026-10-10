@@ -149,7 +149,7 @@ export async function GET() {
       const date = new Date(t).toISOString().slice(0, 10);
 
       // Sum value of all positions bought on or before this date
-      // Use buy price as baseline (approximate — we don't have daily prices)
+      // Use buy price as baseline (approximate - we don't have daily prices)
       const totalValue = positions.reduce((sum, pos) => {
         if (pos.buyDate > date) return sum; // not yet bought
         // For today's snapshot, use current live price if available

@@ -12,7 +12,7 @@ export function timeAgo(dateStr: string): string {
 }
 
 export function formatNum(n: number | undefined | null, decimals = 2): string {
-  if (n == null) return "\u2014";
+  if (n == null) return "-";
   if (Math.abs(n) >= 1e6) return `${(n / 1e6).toFixed(1)}M`;
   if (Math.abs(n) >= 1e3) return `${(n / 1e3).toFixed(1)}K`;
   return n.toFixed(decimals);

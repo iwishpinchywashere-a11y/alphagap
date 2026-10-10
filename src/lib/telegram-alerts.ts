@@ -1,4 +1,4 @@
-// Telegram Alerts — shared types and Vercel Blob helpers
+// Telegram Alerts - shared types and Vercel Blob helpers
 // Stores:
 //   telegram-settings/{emailHash}.json  → user's Telegram connection + alert prefs
 //   telegram-codes/{code}.json          → one-time connect codes (10-min TTL)
@@ -34,7 +34,7 @@ export interface AlertSettings {
   goingViralX: AlertType;     // going viral on X (social page)
   priceMove: AlertType;       // token price % move
   constActivity: AlertType;    // Const founder wallet buy/sell
-  walletTracker?: WalletTrackerAlerts; // per-wallet buy/sell alerts (optional — older settings blobs may not have it)
+  walletTracker?: WalletTrackerAlerts; // per-wallet buy/sell alerts (optional - older settings blobs may not have it)
 }
 
 export interface TelegramConnection {
@@ -152,7 +152,7 @@ function randomCode(): string {
 
 export async function createConnectCode(email: string): Promise<string> {
   const hash = emailHash(email);
-  // Invalidate old codes for this user by overwriting — we just create a new one
+  // Invalidate old codes for this user by overwriting - we just create a new one
   const code = randomCode();
   const data: TelegramCode = {
     emailHash: hash,
@@ -193,7 +193,7 @@ export async function enqueueAlert(emailOrHash: string, alert: Omit<PendingAlert
 
   const queue = await getAlertQueue(hash);
 
-  // ── Time-based dedup (PRIMARY guard — metric-based alerts only) ──────────
+  // ── Time-based dedup (PRIMARY guard - metric-based alerts only) ──────────
   // Metric-based alerts (priceMove, scoreChange, emissionChange, whaleActivity)
   // represent a continuously-measured value. If two scanner runs fire within
   // 60 minutes, the second is always a duplicate of the first.
@@ -212,7 +212,7 @@ export async function enqueueAlert(emailOrHash: string, alert: Omit<PendingAlert
     );
     if (recentDuplicate) {
       console.log(
-        `[enqueueAlert] Skipping duplicate ${alert.type} netuid=${alert.netuid ?? "global"} — ` +
+        `[enqueueAlert] Skipping duplicate ${alert.type} netuid=${alert.netuid ?? "global"} - ` +
         `already queued ${Math.round((now - new Date(recentDuplicate.createdAt).getTime()) / 1000)}s ago ` +
         `(id=${recentDuplicate.id}, sent=${recentDuplicate.sent})`
       );

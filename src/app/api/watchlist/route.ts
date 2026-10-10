@@ -37,7 +37,7 @@ export async function DELETE(req: NextRequest) {
   return NextResponse.json({ netuids });
 }
 
-// PUT — replace entire watchlist at once (used by the Save button)
+// PUT - replace entire watchlist at once (used by the Save button)
 export async function PUT(req: NextRequest) {
   const auth = await requirePro();
   if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });

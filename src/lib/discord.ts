@@ -53,10 +53,10 @@ export interface DiscordAlphaResult {
 const DISCORD_BASE = "https://discord.com/api/v10";
 
 function getAuthHeader(token: string): string {
-  // Already has a prefix — pass through as-is
+  // Already has a prefix - pass through as-is
   if (token.startsWith("Bot ") || token.startsWith("Bearer ")) return token;
-  // Raw token (no prefix) — used as-is for user tokens which work without a prefix.
-  // Do NOT add "Bot " — that prefix is only valid for bot application tokens and will
+  // Raw token (no prefix) - used as-is for user tokens which work without a prefix.
+  // Do NOT add "Bot " - that prefix is only valid for bot application tokens and will
   // cause 401 Unauthorized when the token belongs to a user account.
   return token;
 }
@@ -72,7 +72,7 @@ export async function fetchGuildChannels(token: string): Promise<DiscordChannel[
   });
   if (!res.ok) {
     const body = await res.text().catch(() => "");
-    throw new Error(`Discord channels fetch failed: ${res.status} — ${body.slice(0, 200)}`);
+    throw new Error(`Discord channels fetch failed: ${res.status} - ${body.slice(0, 200)}`);
   }
   return res.json();
 }
@@ -83,7 +83,7 @@ export async function fetchChannelMessages(
   options: { limit?: number; after?: string } = {}
 ): Promise<DiscordMessage[]> {
   const params = new URLSearchParams();
-  // Discord API caps limit at 100 — clamp to avoid 400 Bad Request
+  // Discord API caps limit at 100 - clamp to avoid 400 Bad Request
   params.set("limit", String(Math.min(options.limit || 50, 100)));
   if (options.after) params.set("after", options.after);
 
@@ -93,14 +93,14 @@ export async function fetchChannelMessages(
 
   if (res.status === 403) return []; // No access to channel
   if (res.status === 429) {
-    // Rate limited — respect retry-after
+    // Rate limited - respect retry-after
     const retryAfter = parseFloat(res.headers.get("retry-after") || "1");
     await new Promise(r => setTimeout(r, retryAfter * 1000 + 200));
     return fetchChannelMessages(token, channelId, options);
   }
   if (!res.ok) {
     const body = await res.text().catch(() => "");
-    console.error(`[discord] fetchChannelMessages ${channelId} failed: ${res.status} — ${body.slice(0, 200)}`);
+    console.error(`[discord] fetchChannelMessages ${channelId} failed: ${res.status} - ${body.slice(0, 200)}`);
     return [];
   }
   return res.json();
@@ -232,9 +232,9 @@ export function get48hSnowflake(): string {
 /**
  * Fetch a single Discord message by ID.
  * Returns:
- *   "deleted" — Discord returned 404 (message was deleted)
- *   null      — no access (403/401) or other error
- *   DiscordMessage — message still exists
+ *   "deleted" - Discord returned 404 (message was deleted)
+ *   null      - no access (403/401) or other error
+ *   DiscordMessage - message still exists
  *
  * Handles rate-limiting (429) automatically with one retry.
  */

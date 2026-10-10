@@ -27,7 +27,7 @@ interface PumpTrackerData {
   blocklist: string[];
 }
 
-// All 16 portfolio positions — pump_pct is peak % gain from manualPeakPrice vs buyPrice
+// All 16 portfolio positions - pump_pct is peak % gain from manualPeakPrice vs buyPrice
 const PORTFOLIO_ENTRIES: TrackedPumper[] = [
   { netuid: 15,  name: "ORO",           searchName: "oro",           added_at: "2026-04-10", buyAGapScore: 84, buyDate: "2026-04-10", pump_pct: 350, buyPrice: 4.11,  peakPrice: 18.50    },
   { netuid: 97,  name: "distil",        searchName: "distil",        added_at: "2026-04-06", buyAGapScore: 82, buyDate: "2026-04-06", pump_pct: 177, buyPrice: 11.02, peakPrice: 30.4912  },

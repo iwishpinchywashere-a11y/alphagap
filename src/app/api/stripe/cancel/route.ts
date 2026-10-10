@@ -58,7 +58,7 @@ export async function POST() {
       return NextResponse.json({ error: "No active subscription found" }, { status: 404 });
     }
 
-    // Cancel at period end — user keeps access until their billing date
+    // Cancel at period end - user keeps access until their billing date
     let sub;
     try {
       sub = await stripe.subscriptions.update(subscriptionId, {
@@ -66,11 +66,11 @@ export async function POST() {
       });
     } catch (stripeErr: any) {
       const msg: string = stripeErr?.message ?? "";
-      // Already fully canceled — nothing to do
+      // Already fully canceled - nothing to do
       if (msg.includes("canceled subscription")) {
         return NextResponse.json({ error: "Your subscription has already been canceled" }, { status: 400 });
       }
-      // Stored subscription ID is stale — do a fresh lookup and retry once
+      // Stored subscription ID is stale - do a fresh lookup and retry once
       console.error("[stripe/cancel] update failed for stored ID, retrying with fresh lookup:", msg);
       subscriptionId = await lookupFromStripe();
       if (!subscriptionId) {

@@ -3,7 +3,7 @@
  * POST /api/custom-formula  → save custom weights for the current user
  *
  * Stored in Vercel Blob at: custom-formula/{emailHash}.json
- * No subscription gate — available to all logged-in users.
+ * No subscription gate - available to all logged-in users.
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -13,7 +13,7 @@ import { put, get as blobGet } from "@vercel/blob";
 import crypto from "crypto";
 
 export interface CustomWeights {
-  // Base weights — must sum to 100
+  // Base weights - must sum to 100
   velo: number;
   flow: number;
   dev: number;
@@ -23,7 +23,7 @@ export interface CustomWeights {
   aud: number;
   emPct: number;
   emChange: number;
-  // Gap bonus intensities — independent of base sum, each 0–30
+  // Gap bonus intensities - independent of base sum, each 0–30
   gapAlpha: number;
   gapHidden: number;
   gapEmissions: number;
@@ -88,7 +88,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: `Weights must sum to 100, got ${total}` }, { status: 400 });
   }
 
-  // Validate gap bonus intensities: each 0-30 (optional — default 0 if missing)
+  // Validate gap bonus intensities: each 0-30 (optional - default 0 if missing)
   const gapFields: (keyof CustomWeights)[] = ["gapAlpha", "gapHidden", "gapEmissions", "gapSmart"];
   for (const f of gapFields) {
     const v = weights[f] ?? 0;

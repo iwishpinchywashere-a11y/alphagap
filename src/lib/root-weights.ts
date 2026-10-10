@@ -1,7 +1,7 @@
 /**
  * Root Reborn watcher.
  *
- * Root Reborn is LIVE on mainnet — the release PR (opentensor/subtensor #2968)
+ * Root Reborn is LIVE on mainnet - the release PR (opentensor/subtensor #2968)
  * merged 2026-08-03 and mainnet reports spec_version 443. Press coverage saying
  * it is "a proposal under review" is out of date.
  *
@@ -17,7 +17,7 @@
  * WHY WE WATCH IT. When that flag flips, every validator publishes a weight
  * vector saying where it is allocating real capital across subnets. That is a
  * direct, on-chain, forward-looking read on what the best-informed actors on
- * the network are buying — a strictly better version of what AlphaGap
+ * the network are buying - a strictly better version of what AlphaGap
  * currently infers indirectly from flows and whale movement. It is also a
  * regime change for our own inputs: root_prop today reflects a passive stake
  * distribution, and afterwards it reflects active allocation decisions. The
@@ -44,14 +44,14 @@ const FINNEY_RPC = "https://entrypoint-finney.opentensor.ai";
 export interface RootWeightStatus {
   /** True once governance enables validator root-weight setting. */
   enabled: boolean;
-  /** False when the RPC failed — do NOT treat that as "disabled". */
+  /** False when the RPC failed - do NOT treat that as "disabled". */
   read: boolean;
   specVersion: number | null;
 }
 
 /**
  * Read the flag. On any failure `read` is false and `enabled` is false, so
- * callers can distinguish "confirmed off" from "we could not tell" — a failed
+ * callers can distinguish "confirmed off" from "we could not tell" - a failed
  * read silently reported as "off" would mean missing the flip entirely.
  */
 export async function readRootWeightStatus(timeoutMs = 8000): Promise<RootWeightStatus> {

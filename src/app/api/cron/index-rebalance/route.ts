@@ -13,7 +13,7 @@
  * 6. Writes index-rebalance-latest.json to Vercel Blob for display on /alphagapindex
  *
  * Also callable manually via POST /api/admin/trigger-index-rebalance
- * (see that route for admin-only manual trigger — always runs regardless of day).
+ * (see that route for admin-only manual trigger - always runs regardless of day).
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -38,12 +38,12 @@ const MIN_INTERVAL_DAYS = 2;       // floor: never rebalance twice within 2 days
 // under N and trips the floor.
 //
 // That is not hypothetical. The Aug 7 run recorded 12:01:12; the Sunday Aug 9 cron
-// fired at 12:00:00 and measured 1.9992 days, so it was skipped as "too soon" —
+// fired at 12:00:00 and measured 1.9992 days, so it was skipped as "too soon" -
 // blocked by 71 seconds. Worse, it cascades: the next run then lands mid-week on
 // the overdue rule, which pushes the following Sunday inside the floor as well,
 // and the schedule walks off Sunday permanently. A user reported exactly this as
 // "no automatic rebalance for the past week".
-const INTERVAL_JITTER_DAYS = 0.25; // 6h grace — absorbs cron jitter, still blocks same-day double runs
+const INTERVAL_JITTER_DAYS = 0.25; // 6h grace - absorbs cron jitter, still blocks same-day double runs
 
 interface LeaderboardEntry {
   netuid: number;
@@ -85,7 +85,7 @@ export async function GET(req: NextRequest) {
   //
   // This runs for EVERY scheduled invocation, however it authenticated. It used
   // to be nested inside `if (isVercelCron)`, so any invocation that didn't
-  // carry `x-vercel-cron: 1` skipped the guard entirely and rebalanced — which
+  // carry `x-vercel-cron: 1` skipped the guard entirely and rebalanced - which
   // is what actually happened: the index was rebalancing daily at 12:00 UTC
   // instead of weekly, paying trading fees and slippage on members' funds every
   // day. Manual runs bypass this by calling runRebalance() directly (see
@@ -99,21 +99,21 @@ export async function GET(req: NextRequest) {
 
   // Hard floor: never rebalance twice in quick succession, even on a Sunday.
   if (daysSinceLast !== null && daysSinceLast < MIN_INTERVAL_DAYS - INTERVAL_JITTER_DAYS) {
-    console.log(`[index-rebalance] Skipping — last run was only ${daysSinceLast.toFixed(3)}d ago`);
+    console.log(`[index-rebalance] Skipping - last run was only ${daysSinceLast.toFixed(3)}d ago`);
     return NextResponse.json({ skipped: true, reason: "too soon", daysSinceLast });
   }
 
   // A null daysSinceLast means we could not read the last run. Treat that as
-  // "unknown", NOT as "overdue" — the old Infinity default turned an unreadable
+  // "unknown", NOT as "overdue" - the old Infinity default turned an unreadable
   // blob into a daily rebalance. Unknown falls back to the Sunday rule.
   const isOverdue = daysSinceLast !== null && daysSinceLast > REBALANCE_INTERVAL_DAYS;
 
   if (!isSunday && !isOverdue) {
-    console.log(`[index-rebalance] Skipping — not Sunday (last run ${daysSinceLast?.toFixed(1) ?? "unknown"}d ago)`);
+    console.log(`[index-rebalance] Skipping - not Sunday (last run ${daysSinceLast?.toFixed(1) ?? "unknown"}d ago)`);
     return NextResponse.json({ skipped: true, reason: "not Sunday", daysSinceLast });
   }
 
-  console.log(`[index-rebalance] Running — isSunday=${isSunday}, daysSinceLast=${daysSinceLast?.toFixed(1) ?? "unknown"}`);
+  console.log(`[index-rebalance] Running - isSunday=${isSunday}, daysSinceLast=${daysSinceLast?.toFixed(1) ?? "unknown"}`);
   return runRebalance();
 }
 
@@ -145,7 +145,7 @@ export async function runRebalance(): Promise<NextResponse> {
     .slice(0, 10);
 
   if (top10.length < 5) {
-    const msg = `Too few investable subnets (${top10.length}) — aborting to avoid bad rebalance`;
+    const msg = `Too few investable subnets (${top10.length}) - aborting to avoid bad rebalance`;
     console.error(`[index-rebalance] ${msg}`);
     return NextResponse.json({ success: false, error: msg }, { status: 500 });
   }
@@ -174,7 +174,7 @@ export async function runRebalance(): Promise<NextResponse> {
 
   // A rebalance we queue can sit in TrustedStake's isRebalancing state without
   // ever executing. That is what happened on Aug 7: queued successfully, still
-  // isRebalancing 79 hours later, no transactions produced — and because
+  // isRebalancing 79 hours later, no transactions produced - and because
   // triggerRebalance only confirms the QUEUE accepted it, we recorded
   // success:true and the page told members it had rebalanced. Check the real
   // state so a stuck run is visible instead of being reported as a success.
@@ -185,7 +185,7 @@ export async function runRebalance(): Promise<NextResponse> {
       if (stuckHours > 6) {
         stuckWarning =
           `TrustedStake has been isRebalancing for ${stuckHours.toFixed(1)}h ` +
-          `(since ${pre.lastRebalanceStartedAt}) — the previous rebalance never completed.`;
+          `(since ${pre.lastRebalanceStartedAt}) - the previous rebalance never completed.`;
         console.error(`[index-rebalance] *** STUCK *** ${stuckWarning}`);
       }
     }
@@ -204,7 +204,7 @@ export async function runRebalance(): Promise<NextResponse> {
   } catch (e) {
     trustedStakeError = String(e);
     console.error("[index-rebalance] TrustedStake error:", trustedStakeError);
-    // Don't abort — still save the computed holdings to blob so the page reflects intent
+    // Don't abort - still save the computed holdings to blob so the page reflects intent
   }
 
   // ── 6. Write index-rebalance-latest.json ────────────────────────

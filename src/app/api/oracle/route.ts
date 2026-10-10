@@ -17,7 +17,7 @@ const DAILY_LIMITS: Record<string, number> = {
   ultra:   20,
 };
 
-// Max conversation turns sent to the model — keeps context cost bounded.
+// Max conversation turns sent to the model - keeps context cost bounded.
 // 15 turns = 30 messages (user + assistant alternating).
 const MAX_TURNS = 15;
 
@@ -65,7 +65,7 @@ function safeArr(raw: any, ...keys: string[]): any[] {
   try { return (Object.values(raw) as any[]).filter(Boolean); } catch { return []; }
 }
 
-// ── Intent classifier — decide which blobs to load ──────────────────
+// ── Intent classifier - decide which blobs to load ──────────────────
 // Returns the minimum set of blob keys needed to answer this question.
 // leaderboard (scan-latest) is always included as the base layer.
 function classifyIntent(messages: { role: string; content: string }[]): Set<string> {
@@ -118,13 +118,13 @@ function classifyIntent(messages: { role: string; content: string }[]): Set<stri
   if (match(/conviction|bit.?0011|lock|locked alpha|on.chain commit|perpetual lock|decay/))
     needs.add("conviction-latest.json");
 
-  // General investing / hold / best / top / revenue — add audit + conviction for fuller picture
+  // General investing / hold / best / top / revenue - add audit + conviction for fuller picture
   if (match(/invest|long.term|hold|best subnet|top subnet|recommend|slept on|undervalued|conviction|revenue|earn|profit|monetiz/)) {
     needs.add("audit-data.json");
     needs.add("conviction-latest.json");
   }
 
-  // Broad / open-ended questions — default to leaderboard + audit + signals
+  // Broad / open-ended questions - default to leaderboard + audit + signals
   if (needs.size === 1) {
     needs.add("audit-data.json");
     needs.add("signals-history.json");
@@ -258,7 +258,7 @@ function buildSystemPrompt(loaded: Record<string, any>): string {
         date: (s.signal_date ?? s.created_at ?? "").slice(0, 10),
         dev: DEV.has(s.signal_type),
       }));
-    sections.push(`RECENT SIGNALS — last 7d (${sigs.length} total; dev=true = dev_spike/hf_update/hf_drop):\n${sigs.length ? JSON.stringify(sigs) : "None in last 7d."}`);
+    sections.push(`RECENT SIGNALS - last 7d (${sigs.length} total; dev=true = dev_spike/hf_update/hf_drop):\n${sigs.length ? JSON.stringify(sigs) : "None in last 7d."}`);
   }
 
   // ── Whale tracker ───────────────────────────────────────────────
@@ -293,7 +293,7 @@ function buildSystemPrompt(loaded: Record<string, any>): string {
         sn: e.netuid, name: e.subnet_name ?? e.name, type: e.event_type ?? e.type,
         net_tao: e.net_tao ?? e.netTao, date: (e.timestamp ?? e.created_at ?? "").slice(0, 10),
       }));
-    sections.push(`FLOW EVENTS — last 7d:\n${flow.length ? JSON.stringify(flow) : "None."}`);
+    sections.push(`FLOW EVENTS - last 7d:\n${flow.length ? JSON.stringify(flow) : "None."}`);
   }
 
   // ── Social / KOL ────────────────────────────────────────────────
@@ -323,8 +323,8 @@ function buildSystemPrompt(loaded: Record<string, any>): string {
         text: (e.tweet_text ?? "").slice(0, 100),
         date: (e.detected_at ?? "").slice(0, 10),
       }));
-    if (hot.length) sections.push(`KOL HOT EVENTS — last 7d (sorted by heat_score):\n${JSON.stringify(hot)}`);
-    if (bench.length) sections.push(`HIGH-ENGAGEMENT KOL TWEETS — last 7d:\n${JSON.stringify(bench)}`);
+    if (hot.length) sections.push(`KOL HOT EVENTS - last 7d (sorted by heat_score):\n${JSON.stringify(hot)}`);
+    if (bench.length) sections.push(`HIGH-ENGAGEMENT KOL TWEETS - last 7d:\n${JSON.stringify(bench)}`);
     if (!hot.length && !bench.length) sections.push(`KOL/SOCIAL: No events in last 7d.`);
   }
 
@@ -358,7 +358,7 @@ function buildSystemPrompt(loaded: Record<string, any>): string {
         score: p.pump_score ?? p.score, signals: p.signals ?? p.signal_tags,
         date: (p.updated_at ?? p.timestamp ?? "").slice(0, 10),
       }));
-    sections.push(`PUMP LAB — last 7d:\n${pumps.length ? JSON.stringify(pumps) : "None."}`);
+    sections.push(`PERFORMANCE TRACKER - last 7d:\n${pumps.length ? JSON.stringify(pumps) : "None."}`);
   }
 
   // ── Yield ───────────────────────────────────────────────────────
@@ -371,10 +371,10 @@ function buildSystemPrompt(loaded: Record<string, any>): string {
 
   const loadedKeys = Object.keys(loaded).join(", ");
 
-  return `You are the AlphaGap Oracle — expert AI analyst for the Bittensor (TAO) ecosystem. Date: ${today}.
+  return `You are the AlphaGap Oracle - expert AI analyst for the Bittensor (TAO) ecosystem. Date: ${today}.
 Loaded data sources for this query: ${loadedKeys}
 
-RULES — READ CAREFULLY:
+RULES - READ CAREFULLY:
 - Talk like a knowledgeable friend, not a report. Short sentences. Plain English.
 - NEVER use markdown tables (no | pipes, no --- dividers). They render as garbage.
 - NEVER use bullet point dashes like "- item". Use ▸ or just write it as sentences.
@@ -390,23 +390,23 @@ SCORES:
 - agap: composite score. 70+=strong, 50-70=watch, <50=weak.
 - dev: build activity (higher = more active development).
 - flow: on-chain buy pressure. High = accumulation.
-- velo: momentum — rising or falling score velocity.
+- velo: momentum - rising or falling score velocity.
 - social: community/social activity.
 - emission_pct: share of total TAO emission this subnet earns (revenue proxy).
 - staked_pct: % of alpha locked by holders (conviction signal).
 - tao_locked: TAO in liquidity pool (market depth).
-- const_buy/sell: TAO moved by Const (Bittensor co-founder) — major signal.
+- const_buy/sell: TAO moved by Const (Bittensor co-founder) - major signal.
 - audit (nakamoto<3=red flag, hhi>0.5=red flag, burn_pct high=miners may leave).
 
 BIT-0011 CONVICTION (if conviction-latest.json loaded):
 - locked_alpha: actual α locked on-chain via BIT-0011. This is real committed capital.
-- lock_type=perpetual: founder/whale committed permanently — strongest signal.
+- lock_type=perpetual: founder/whale committed permanently - strongest signal.
 - lock_type=decaying: conviction shrinks over time unless renewed.
 - maturity_pct: how far toward max conviction (low = recently locked, high = long-term holder).
-- supply_locked_pct: what % of the subnet's total supply is locked — 5%+ is significant, 15%+ is very high.
-- owner_lock=true: the subnet owner/founder has locked — direct "skin in the game".
+- supply_locked_pct: what % of the subnet's total supply is locked - 5%+ is significant, 15%+ is very high.
+- owner_lock=true: the subnet owner/founder has locked - direct "skin in the game".
 - agap_signal=strong_buy: perpetual lock + invest_score≥70 + 50k+ α = highest conviction signal.
-- Conviction is a LONG-TERM signal — it shows who can't easily exit. Treat it as commitment, not price prediction.
+- Conviction is a LONG-TERM signal - it shows who can't easily exit. Treat it as commitment, not price prediction.
 
 SIGNAL TYPES (actual values):
 - dev_spike: unusual burst of GitHub/development activity
@@ -430,7 +430,7 @@ export async function POST(req: NextRequest) {
 
   const tier = getTier(session);
 
-  // Free and Pro have no Oracle access — use canAccessPremium so ultra is always included
+  // Free and Pro have no Oracle access - use canAccessPremium so ultra is always included
   if (!canAccessPremium(tier))
     return NextResponse.json({ error: "premium_required" }, { status: 403 });
 
@@ -476,7 +476,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Failed to build Oracle context." }, { status: 500 });
   }
 
-  // Hard cap: Haiku 200K context window — keep well under
+  // Hard cap: Haiku 200K context window - keep well under
   const CHAR_LIMIT = 160_000;
   if (systemPrompt.length > CHAR_LIMIT) {
     console.warn(`[oracle] prompt truncated: ${systemPrompt.length} chars`);
@@ -491,7 +491,7 @@ export async function POST(req: NextRequest) {
     async start(controller) {
       try {
         // Prompt caching: mark the system prompt block as cacheable.
-        // Anthropic caches this for 5 minutes — subsequent queries within the
+        // Anthropic caches this for 5 minutes - subsequent queries within the
         // window pay $0.08/M instead of $0.80/M on input tokens (~10x savings).
         const anthropicStream = anthropic.messages.stream({
           model: "claude-haiku-4-5",

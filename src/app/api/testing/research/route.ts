@@ -270,7 +270,7 @@ async function researchEmission(
     } else if (volumeMultiplier >= 1.5) {
       finding = `📈 Volume rising: ${fmtVol(pumpWindowVolume)}/day pre-pump vs ${fmtVol(prePumpVolume)}/day baseline (${volumeMultiplier.toFixed(1)}×). Clear uptick in trading activity.`;
     } else if (volumeMultiplier >= 0.7) {
-      finding = `➡️ Volume steady around ${fmtVol(pumpWindowVolume)}/day — no abnormal on-chain activity detected before pump.`;
+      finding = `➡️ Volume steady around ${fmtVol(pumpWindowVolume)}/day - no abnormal on-chain activity detected before pump.`;
     } else {
       finding = `📉 Volume declining before pump (${fmtVol(pumpWindowVolume)}/day vs ${fmtVol(prePumpVolume)}/day baseline). Pump may have been low-liquidity driven.`;
     }
@@ -332,7 +332,7 @@ async function researchAlphaGapSignal(
   }
 
   if (!scores || scores.composite_score == null) {
-    findings.push("⚠️ No AlphaGap score data available — subnet may not be in the scan leaderboard");
+    findings.push("⚠️ No AlphaGap score data available - subnet may not be in the scan leaderboard");
     return findings;
   }
 
@@ -341,11 +341,11 @@ async function researchAlphaGapSignal(
   if (composite_score >= 80) {
     findings.push(`🎯 AlphaGap STRONG SIGNAL: Composite score was ${composite_score}/100 (top-tier). Our algorithm correctly identified this as a high-value subnet BEFORE the pump. This is the primary prediction signal.`);
   } else if (composite_score >= 65) {
-    findings.push(`🎯 AlphaGap MODERATE SIGNAL: Composite score was ${composite_score}/100 — above-average rating that flagged meaningful activity before the pump.`);
+    findings.push(`🎯 AlphaGap MODERATE SIGNAL: Composite score was ${composite_score}/100 - above-average rating that flagged meaningful activity before the pump.`);
   } else if (composite_score >= 45) {
-    findings.push(`📊 AlphaGap score was ${composite_score}/100 at the time — mid-tier, pump may have been partially externally driven.`);
+    findings.push(`📊 AlphaGap score was ${composite_score}/100 at the time - mid-tier, pump may have been partially externally driven.`);
   } else {
-    findings.push(`📊 AlphaGap score was ${composite_score}/100 — below signal threshold. This pump was likely driven by factors outside what AlphaGap currently measures.`);
+    findings.push(`📊 AlphaGap score was ${composite_score}/100 - below signal threshold. This pump was likely driven by factors outside what AlphaGap currently measures.`);
   }
 
   // Sub-score breakdown
@@ -410,7 +410,7 @@ export async function POST(req: NextRequest) {
 
   const overallFindings: string[] = [];
 
-  // Lead with AlphaGap's own signal — this is the most important finding
+  // Lead with AlphaGap's own signal - this is the most important finding
   overallFindings.push(...agapFindings);
 
   if (github) {
@@ -421,7 +421,7 @@ export async function POST(req: NextRequest) {
   } else if (github_repo) {
     overallFindings.push("GitHub repo found but no commit data available (may be private)");
   } else {
-    overallFindings.push("No GitHub repo linked — GitHub dev activity can't be analyzed retroactively");
+    overallFindings.push("No GitHub repo linked - GitHub dev activity can't be analyzed retroactively");
   }
 
   if (emission) {

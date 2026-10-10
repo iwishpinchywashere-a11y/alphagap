@@ -78,7 +78,7 @@ function fmtEngagement(n: number): string {
   return String(n);
 }
 function fmtMcap(v: number | null): string {
-  if (!v) return "—";
+  if (!v) return "-";
   if (v >= 1e9) return `$${(v / 1e9).toFixed(1)}B`;
   if (v >= 1e6) return `$${(v / 1e6).toFixed(1)}M`;
   if (v >= 1e3) return `$${(v / 1e3).toFixed(0)}K`;
@@ -418,7 +418,7 @@ export default function SocialPage() {
                         {(entry.lastActivityAt ?? entry.scannedAt) && (
                           <span className="text-[10px] text-amber-500/50 font-mono">{timeAgo(entry.lastActivityAt ?? entry.scannedAt!)}</span>
                         )}
-                        <span className={`text-[10px] font-bold tabular-nums ml-auto font-mono ${(entry.alphaScore ?? 0) >= 70 ? "text-emerald-400" : "text-yellow-400"}`}>{entry.alphaScore ?? "—"}</span>
+                        <span className={`text-[10px] font-bold tabular-nums ml-auto font-mono ${(entry.alphaScore ?? 0) >= 70 ? "text-emerald-400" : "text-yellow-400"}`}>{entry.alphaScore ?? "-"}</span>
                       </div>
                     )}
                     {entry.summary && <p className="text-sm text-gray-100 leading-relaxed mb-2">{entry.summary}</p>}
@@ -450,12 +450,12 @@ export default function SocialPage() {
           <SectionHeader
             icon={<AgIcon name="chat" className="w-4.5 h-4.5 text-emerald-400" />}
             title="Discord Alpha"
-            subtitle="AI scans every channel — scores quality + quantity of alpha signals"
+            subtitle="AI scans every channel - scores quality + quantity of alpha signals"
             right={<SortToggle value={discordSort} onChange={setDiscordSort} />}
           />
 
           {/* Sneak peek for non-premium */}
-          {/* !canAccessPremium (NOT tier !== "premium") — the string check
+          {/* !canAccessPremium (NOT tier !== "premium") - the string check
               showed the sneak-peek to ULTRA users too, duplicating card #1 */}
           {discordLeaderboard.length > 0 && !canAccessPremium(tier) && (() => { const d = discordLeaderboard[0]; return (
             <div className="divide-y divide-white/[0.06] border-b border-white/[0.06]">
@@ -466,7 +466,7 @@ export default function SocialPage() {
           <BlurGate tier={tier} required="premium" minHeight="200px">
             <div className="divide-y divide-white/[0.06]">
               {discordLeaderboard.length === 0 ? (
-                <div className="p-8 text-center text-[#5d665f] text-sm">No Discord data yet — run /api/discord-scan to populate</div>
+                <div className="p-8 text-center text-[#5d665f] text-sm">No Discord data yet - run /api/discord-scan to populate</div>
               ) : discordLeaderboard.map((d, i) => (
                 <DiscordRow key={d.netuid} d={d} index={i} isWatched={isWatched(d.netuid)} onSubnetClick={() => router.push(`/subnets/${d.netuid}`)} />
               ))}
@@ -483,7 +483,7 @@ export default function SocialPage() {
                   <AgIcon name="warning" className="w-4.5 h-4.5 text-red-300" />
                   <h2 className="font-display font-semibold text-red-300 text-[17px] tracking-tight">Deleted Discord Messages</h2>
                 </div>
-                <p className="text-xs text-red-500/60 mt-0.5 ml-7">AI-flagged messages deleted from subnet Discords — potentially significant</p>
+                <p className="text-xs text-red-500/60 mt-0.5 ml-7">AI-flagged messages deleted from subnet Discords - potentially significant</p>
               </div>
               <span className="font-mono text-[11px] text-red-400/70 bg-red-500/10 border border-red-500/20 px-3 py-1 rounded-full shrink-0">
                 {deletedMessages.length} flagged
@@ -549,7 +549,7 @@ export default function SocialPage() {
 
           <BlurGate tier={tier} required="premium" minHeight="300px">
             {hotTweets.length === 0 ? (
-              <div className="ag-glass p-10 text-center text-[#5d665f] text-sm">No heat events yet. Pulse runs every 10 minutes — check back soon.</div>
+              <div className="ag-glass p-10 text-center text-[#5d665f] text-sm">No heat events yet. Pulse runs every 10 minutes - check back soon.</div>
             ) : (
               <TweetTable tweets={hotTweets} expandedTweet={expandedTweet} onExpand={setExpandedTweet} onSubnetClick={(n) => router.push(`/subnets/${n}`)} isWatched={isWatched} showHeader />
             )}
@@ -561,7 +561,7 @@ export default function SocialPage() {
           <SectionHeader
             icon="𝕏"
             title="Top Subnets on X"
-            subtitle="Ranked by social score — includes KOL heat boost"
+            subtitle="Ranked by social score - includes KOL heat boost"
           />
           <BlurGate tier={tier} required="premium" minHeight="200px">
             <div className="divide-y divide-white/[0.06]">
@@ -831,7 +831,7 @@ function DiscordRow({ d, index, isWatched, onSubnetClick }: {
             {d.messageCount} msgs · {d.uniquePosters} posters · {timeAgo(d.lastActivityAt ?? d.scannedAt)}
           </div>
 
-          {/* Summary — the headline of the entry, deliberately bigger + bolder */}
+          {/* Summary - the headline of the entry, deliberately bigger + bolder */}
           {d.summary && <p className="text-[15.5px] md:text-base font-semibold text-white leading-relaxed mb-2">{d.summary}</p>}
 
           {/* Key insights */}
@@ -947,7 +947,7 @@ function TweetTable({ tweets, expandedTweet, onExpand, onSubnetClick, isWatched 
             {/* Meta row */}
             <div className="flex items-center gap-4 mt-auto pt-3.5 font-mono text-[10.5px] text-[#5d665f]">
               <span title="total interactions" className="inline-flex items-center gap-1"><AgIcon name="heart" className="w-3 h-3" /><AgIcon name="repost" className="w-3 h-3" /> {fmtEng(t.engagement)}</span>
-              <span className={agapColor(t.subnet_agap)}>aGap {t.subnet_agap ?? "—"}</span>
+              <span className={agapColor(t.subnet_agap)}>aGap {t.subnet_agap ?? "-"}</span>
               <button
                 className="hover:text-emerald-400 transition-colors truncate"
                 onClick={e => { e.stopPropagation(); onSubnetClick(t.netuid); }}

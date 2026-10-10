@@ -9,11 +9,11 @@ import TaoPagesClient from "./TaoPagesClient";
 export const revalidate = 3600;
 
 export const metadata: Metadata = {
-  title: "TAO Pages — The Bittensor Subnet Directory | AlphaGap",
+  title: "TAO Pages - The Bittensor Subnet Directory | AlphaGap",
   description:
-    "Plain-English explanations for every Bittensor subnet. What each subnet does, the problem it solves, and how it compares to mainstream products — no jargon required.",
+    "Plain-English explanations for every Bittensor subnet. What each subnet does, the problem it solves, and how it compares to mainstream products - no jargon required.",
   openGraph: {
-    title: "TAO Pages — The Bittensor Subnet Directory",
+    title: "TAO Pages - The Bittensor Subnet Directory",
     description: "Plain-English explanations for every Bittensor subnet. No jargon. No crypto experience required.",
     url: "https://www.alphagap.io/taopages",
     siteName: "AlphaGap",
@@ -22,7 +22,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "TAO Pages — The Bittensor Subnet Directory",
+    title: "TAO Pages - The Bittensor Subnet Directory",
     description: "What is every Bittensor subnet, in plain English?",
     images: ["https://www.alphagap.io/api/og"],
   },
@@ -90,7 +90,7 @@ export default function TaoPagesIndex() {
           </div>
           <p className="text-gray-400 text-sm sm:text-[14.5px] leading-[1.65] max-w-2xl">
             The yellow pages for the Bittensor network. Plain-English explanations for every
-            subnet — what it does, the problem it solves, and what mainstream product
+            subnet - what it does, the problem it solves, and what mainstream product
             it most resembles. No jargon required.
           </p>
         </div>

@@ -1,7 +1,7 @@
 /**
  * GET /api/portfolio/research-missed-buys
  *
- * Research-only — makes NO changes to the portfolio.
+ * Research-only - makes NO changes to the portfolio.
  *
  * Reads subnet-scores-history.json (hourly snapshots, up to 90 days)
  * and finds every subnet that crossed aGap >= 80 between a start date
@@ -30,7 +30,7 @@ interface ScoreRow {
   emission_pct: number;
 }
 
-// Subnet name map (from scan route — main ones we care about)
+// Subnet name map (from scan route - main ones we care about)
 const SUBNET_NAMES: Record<number, string> = {
   1: "Apex", 2: "Omron", 3: "τemplar", 4: "Targon", 5: "OTF",
   6: "NAS Chain", 7: "Allways", 8: "Vanta", 9: "Pretrain", 10: "Tensorage",

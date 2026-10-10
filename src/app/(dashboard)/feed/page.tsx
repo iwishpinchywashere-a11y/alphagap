@@ -1,13 +1,13 @@
 "use client";
 
 /**
- * /feed — one written card per subnet with real recent activity.
+ * /feed - one written card per subnet with real recent activity.
  *
  * This replaces the filterable raw-signal firehose. The old page surfaced
  * every flow blip and made the reader assemble the story with filter
  * controls; now a 6-hourly cron (api/cron/feed-digest) aggregates 48h of
  * signals per subnet, applies a materiality bar, and writes one short card
- * for each subnet that actually did something. The page just renders them —
+ * for each subnet that actually did something. The page just renders them -
  * no filters, no sensitivity sliders, one feed.
  */
 
@@ -54,7 +54,7 @@ const TAG_TONE: Record<string, string> = {
 };
 
 
-/** Inline sparkline sized for the card header — line only, no area fill. */
+/** Inline sparkline sized for the card header - line only, no area fill. */
 function MiniSpark({ points, up }: { points: number[]; up: boolean }) {
   if (!points || points.length < 2) return null;
   const w = 64, h = 18;
@@ -131,7 +131,7 @@ export default function FeedPage() {
           </h1>
         </div>
         <p className="text-[14.5px] text-gray-400 max-w-2xl leading-relaxed mb-8">
-          What every subnet actually did, one card each — dev work, Discord and X chatter,
+          What every subnet actually did, one card each - dev work, Discord and X chatter,
           whale moves, emissions and score changes from the last 48 hours. Quiet subnets don&apos;t post.
         </p>
 
@@ -149,7 +149,7 @@ export default function FeedPage() {
           </button>
           {watchOnly && watchlist.size === 0 && (
             <span className="text-xs text-gray-600">
-              Your watchlist is empty — star subnets to see them here.
+              Your watchlist is empty - star subnets to see them here.
             </span>
           )}
         </div>
@@ -165,12 +165,12 @@ export default function FeedPage() {
 
           {!loading && cards.length === 0 && (
             <div className="text-center py-16 text-gray-600">
-              No updates yet — cards generate every six hours from the latest scan.
+              No updates yet - cards generate every six hours from the latest scan.
             </div>
           )}
           {!loading && cards.length > 0 && visible.length === 0 && watchOnly && (
             <div className="text-center py-16 text-gray-600">
-              None of your watchlist subnets have updates right now — quiet is information too.
+              None of your watchlist subnets have updates right now - quiet is information too.
             </div>
           )}
 
@@ -192,7 +192,7 @@ export default function FeedPage() {
         </BlurGate>
       </div>
 
-      {/* ── Market rail (restored from the old feed — the digest replaced the
+      {/* ── Market rail (restored from the old feed - the digest replaced the
              signal list, not the sidebar) ── */}
       <aside className="hidden lg:block w-[320px] flex-shrink-0">
         <div className="sticky top-6 space-y-4">
@@ -325,7 +325,7 @@ function TaoCard({ taoPrice, leaderboard }: { taoPrice: number | null; leaderboa
       <div className="font-mono text-[9.5px] uppercase tracking-[0.2em] text-[#5d665f] mb-2.5">TAO</div>
       <div className="flex items-baseline gap-2.5 mb-4">
         <span className="font-display text-[30px] font-semibold tracking-[-0.02em] tabular-nums">
-          {taoPrice ? `$${taoPrice.toFixed(2)}` : "—"}
+          {taoPrice ? `$${taoPrice.toFixed(2)}` : "-"}
         </span>
       </div>
       <div className="font-mono text-[9.5px] uppercase tracking-[0.16em] text-[#5d665f] mb-2">Network breadth · 24h</div>

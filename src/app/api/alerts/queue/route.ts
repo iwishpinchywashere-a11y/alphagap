@@ -75,7 +75,7 @@ export async function GET(req: NextRequest) {
       // This prevents any concurrent or retry poll from returning the
       // same alerts. The bot's ack POST is a no-op (already marked sent)
       // which is fine. If the bot crashes before sending, the alert is
-      // lost for that cycle — but this is far better than duplicates.
+      // lost for that cycle - but this is far better than duplicates.
       queue.alerts = queue.alerts.map(a =>
         unsent.some(u => u.id === a.id) ? { ...a, sent: true } : a
       );
@@ -110,7 +110,7 @@ export async function GET(req: NextRequest) {
 }
 
 /**
- * POST /api/alerts/queue — acknowledge sent alerts
+ * POST /api/alerts/queue - acknowledge sent alerts
  * Body: { acks: Array<{ hash: string, id: string }> }
  */
 export async function POST(req: NextRequest) {

@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 /**
  * GET /api/stripe/checkout-redirect?plan=pro|premium
  *
- * Used after signup — the browser navigates here (full page load) so the
+ * Used after signup - the browser navigates here (full page load) so the
  * session cookie is always sent, avoiding the race condition that occurs
  * when calling the POST checkout endpoint via fetch immediately after signIn().
  */
@@ -43,7 +43,7 @@ export async function GET(req: Request) {
       await updateUser(user.email, { stripeCustomerId: customerId });
     }
 
-    // Already subscribed — send to dashboard
+    // Already subscribed - send to dashboard
     if (user.stripeSubscriptionId) {
       const sub = await stripe.subscriptions.retrieve(user.stripeSubscriptionId).catch(() => null);
       if (sub && (sub.status === "active" || sub.status === "trialing")) {

@@ -2,19 +2,19 @@
 
 import { useEffect } from "react";
 
-// Inline constants — do NOT import from @/lib/referral here.
+// Inline constants - do NOT import from @/lib/referral here.
 // referral.ts imports db.ts (better-sqlite3) which is Node-only and
 // cannot be bundled into client components.
 const COOKIE_NAME = "ag_ref";
 const COOKIE_DAYS = 90;
 
 /**
- * ReferralTracker — invisible component that reads the `?ref=` URL param,
+ * ReferralTracker - invisible component that reads the `?ref=` URL param,
  * fires a server-side cookie via /api/referral/track, and sets a client-side
  * fallback cookie. Renders nothing.
  *
  * Include in the root layout only when REFERRAL_ENABLED is set.
- * DO NOT add nav links to /affiliate — the page is accessed directly.
+ * DO NOT add nav links to /affiliate - the page is accessed directly.
  */
 export function ReferralTracker() {
   useEffect(() => {

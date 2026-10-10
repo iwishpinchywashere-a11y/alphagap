@@ -4,7 +4,7 @@ import { get } from "@vercel/blob";
 export const dynamic = "force-dynamic";
 
 // Serves the leaderboard from the scan blob. The old SQLite-backed version
-// (computeLeaderboard) 500'd in production — no persistent filesystem on Vercel.
+// (computeLeaderboard) 500'd in production - no persistent filesystem on Vercel.
 
 export async function GET() {
   try {

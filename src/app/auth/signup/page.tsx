@@ -55,7 +55,7 @@ function SignUpForm() {
         return;
       }
 
-      // Session cookie is set by the signup API in the same request —
+      // Session cookie is set by the signup API in the same request -
       // no separate create-session call needed. Go straight to checkout.
       window.location.href = `/checkout?plan=${plan}`;
     } catch {
@@ -73,7 +73,7 @@ function SignUpForm() {
           </Link>
           <h1 className="font-display text-2xl font-semibold tracking-[-0.02em] text-white">Create your account</h1>
           <p className="text-gray-500 text-sm mt-1">
-            Then complete payment — cancel anytime
+            Then complete payment - cancel anytime
           </p>
           {plan && (
             <p className="font-mono text-[11px] text-emerald-400/80 mt-1 font-medium">
@@ -148,7 +148,7 @@ function SignUpForm() {
             </div>
           </div>
 
-          {/* Cloudflare Turnstile — only renders when NEXT_PUBLIC_TURNSTILE_SITE_KEY is set */}
+          {/* Cloudflare Turnstile - only renders when NEXT_PUBLIC_TURNSTILE_SITE_KEY is set */}
           {TURNSTILE_SITE_KEY && (
             <div className="flex flex-col items-center gap-2">
               <Turnstile
@@ -160,7 +160,7 @@ function SignUpForm() {
               />
               {turnstileError && (
                 <p className="text-xs text-amber-400 text-center leading-relaxed">
-                  CAPTCHA check failed — this can happen with VPNs or certain browsers.
+                  CAPTCHA check failed - this can happen with VPNs or certain browsers.
                   Try disabling your VPN, refreshing the page, or using a different browser.
                 </p>
               )}

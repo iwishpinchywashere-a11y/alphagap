@@ -297,7 +297,7 @@ function runMigrations(db: Database.Database) {
     try {
       db.exec(sql);
     } catch {
-      // Column already exists — ignore
+      // Column already exists - ignore
     }
   }
 }

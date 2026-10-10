@@ -14,11 +14,11 @@ const TS_STRATEGY_ID = "97d1325b-9ee9-4bd1-bd58-893d707f85c4";
 const TS_PROXY_ADDRESS = "5CeJG2T47NxUAAc42q2zoU7qV1YFy4khL3ogHxooVjNKxUuw";
 const TS_STRATEGY_TABLE = "custom_strategies";
 // Bittensor ProxyType enum: ["Any", "NonTransfer", "Governance", "Staking"].
-// We grant "Staking" only — the least-privilege type, and the one TrustedStake
+// We grant "Staking" only - the least-privilege type, and the one TrustedStake
 // documents. It lets them rebalance stake but NOT transfer the user's TAO.
 const TS_PROXY_TYPE = "Staking";
 // Joining a PRIVATE strategy goes through POST /share-links/{token}/join, NOT
-// /membership/register — see src/app/api/trustedstake/join/route.ts. The invite
+// /membership/register - see src/app/api/trustedstake/join/route.ts. The invite
 // token lives server-side in that route, so it is deliberately absent here.
 // Fallback only: the same invite as a link, if on-site joining ever fails.
 const TS_INVITE_URL = "https://app.trustedstake.ai/strat/invite/e6efd855f520660338db05c14baf5fd38a15c0e83e12b6c43b8307b2b9c9d237";
@@ -119,7 +119,7 @@ function scoreColor(score: number): string {
 }
 
 function formatTao(tao: number | null): string {
-  if (tao == null) return "—";
+  if (tao == null) return "-";
   if (tao >= 1000) return `${(tao / 1000).toFixed(1)}k TAO`;
   return `${tao.toFixed(1)} TAO`;
 }
@@ -155,7 +155,7 @@ type LeaveStep = "idle" | "leaving" | "success" | "error";
  * This page is full of `backdrop-blur` / ag-aurora containers, and any
  * ancestor with backdrop-filter (or transform, or filter) becomes the
  * containing block for `position: fixed` descendants. The wallet picker was
- * therefore not covering the viewport at all — it rendered trapped inside a
+ * therefore not covering the viewport at all - it rendered trapped inside a
  * blurred ancestor's stacking context, which is why a member reported the
  * wallet list appearing but "I can't click any of them" for 24 hours.
  * Portalling to document.body puts it outside every one of those contexts.
@@ -186,12 +186,12 @@ export default function AlphaGapIndexPage() {
   // ── The member's REAL positions, read straight off the chain ────────────
   // TrustedStake exposes no per-delegator holdings (positions/balances/
   // performance are all 404, and the strategy's performanceSource is
-  // THEORETICAL — modelled index performance, not this wallet's). So we read
+  // THEORETICAL - modelled index performance, not this wallet's). So we read
   // the coldkey's actual stake from the runtime instead. Note this is the whole
   // coldkey: for an index member that IS the managed wallet, but any unrelated
   // stake in the same wallet shows up here too.
   // Kept per hotkey+subnet (not folded) because unstaking is per hotkey, and
-  // stakeRao is the exact on-chain integer — never round money to a float.
+  // stakeRao is the exact on-chain integer - never round money to a float.
   const [positions, setPositions] = useState<Array<{ hotkey: string; netuid: number; alpha: number; stakeRao: string }> | null>(null);
   const [positionsError, setPositionsError] = useState<string | null>(null);
   const [withdrawStep, setWithdrawStep] = useState<"idle" | "confirm" | "leaving" | "signing" | "done" | "error">("idle");
@@ -251,7 +251,7 @@ export default function AlphaGapIndexPage() {
   const [proxyStep, setProxyStep] = useState<ProxyStep>("idle");
   // Retro-fix for members who joined BEFORE we started batching
   // proxy.setRealPaysFee with addProxy. Without that flag the strategy proxy
-  // cannot pay extrinsic fees, so their funds never deploy — they look
+  // cannot pay extrinsic fees, so their funds never deploy - they look
   // perfectly set up and simply sit there. TrustedStake asked us to surface
   // this rather than have them message support.
   const [feeFixStep, setFeeFixStep] = useState<"idle" | "signing" | "done" | "error">("idle");
@@ -278,7 +278,7 @@ export default function AlphaGapIndexPage() {
   const [leaveStep, setLeaveStep] = useState<LeaveStep>("idle");
   const [leaveError, setLeaveError] = useState<string | null>(null);
 
-  // Membership check — TrustedStake's delegator list is the source of truth.
+  // Membership check - TrustedStake's delegator list is the source of truth.
   const checkMembership = useCallback(async (address: string): Promise<boolean> => {
     try {
       const res = await fetch(`/api/trustedstake/membership?address=${encodeURIComponent(address)}`);
@@ -360,13 +360,13 @@ export default function AlphaGapIndexPage() {
         } catch { if (!cancelled) setHasProxy(null); }
 
         // real_pays_fee, off the same connection. Only after the wallet is
-        // fully connected and we have an address — never guessed from symptoms.
+        // fully connected and we have an address - never guessed from symptoms.
         try {
           const rpf = await api.query.proxy.realPaysFee(selectedAddress, TS_PROXY_ADDRESS);
           if (!cancelled) setFeesEnabled(!rpf.isEmpty);
         } catch { if (!cancelled) setFeesEnabled(null); }
 
-        // Free balance off the same connection — one socket, not two.
+        // Free balance off the same connection - one socket, not two.
         try {
           const acct = await api.query.system.account(selectedAddress);
           const free = (acct?.data?.free?.toBigInt?.() ?? BigInt(0)) as bigint;
@@ -385,7 +385,7 @@ export default function AlphaGapIndexPage() {
     return () => { cancelled = true; api?.disconnect?.().catch(() => {}); };
   }, [selectedAddress, isMember]);
 
-  // Signs proxy.setRealPaysFee(strategyProxy, true) on its own — the one
+  // Signs proxy.setRealPaysFee(strategyProxy, true) on its own - the one
   // transaction an already-joined member needs. Deliberately NOT shown to
   // everyone: only to members whose funds are actually sitting undeployed,
   // so working members are not nagged into signing something they do not need.
@@ -437,7 +437,7 @@ export default function AlphaGapIndexPage() {
       else setShowAccountPicker(true);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed to connect wallet";
-      // More than one extension installed — ask which, rather than letting the
+      // More than one extension installed - ask which, rather than letting the
       // browser's injection order decide for the user.
       if (msg === "MULTIPLE_WALLETS") {
         const { listWallets } = await import("@/lib/polkadot-wallet");
@@ -478,7 +478,7 @@ export default function AlphaGapIndexPage() {
   //   1. Dynamic import @polkadot/api (browser only)
   //   2. WsProvider + ApiPromise.create() → connects to chain, downloads metadata
   //   3. batchAll([proxy.addProxy(...), proxy.setRealPaysFee(..., true)])
-  //      — both are required; a proxy without the fee flag cannot execute
+  //      - both are required; a proxy without the fee flag cannot execute
   //   4. getSigner() → signer from the single wallet the user chose
   //   5. signAndSend with 45-second timeout race
   //   6. Resolve on isReady/isBroadcast/isInBlock/isFinalized (tx is on its way)
@@ -506,7 +506,7 @@ export default function AlphaGapIndexPage() {
           (p: any) => (p.delegate?.toString() ?? p.toJSON()?.delegate) === TS_PROXY_ADDRESS
         );
         // NOTE: any proxy type to TrustedStake satisfies their membership check,
-        // so an existing `Any` proxy from the old flow still counts — we just
+        // so an existing `Any` proxy from the old flow still counts - we just
         // never *create* one (see TS_PROXY_TYPE below).
         if (alreadySet) {
           setProxyStep("proxy-done");
@@ -519,7 +519,7 @@ export default function AlphaGapIndexPage() {
         // to this on 2026-08-17: a wallet could hold a correct Staking proxy
         // and still be unable to execute, because the chain's real_pays_fee
         // flag was never set for that delegate. Without it, fee-requiring
-        // operations fail — so the wallet looks perfectly configured from the
+        // operations fail - so the wallet looks perfectly configured from the
         // outside (registered, active, proxied, funded) and simply never
         // deploys. Two members sat like that for 5 and 8 days.
         //
@@ -544,7 +544,7 @@ export default function AlphaGapIndexPage() {
 
           const timeout = setTimeout(() => {
             unsub?.();
-            resolve(); // Tx was submitted — advance even if callback is slow
+            resolve(); // Tx was submitted - advance even if callback is slow
           }, 45_000);
 
           const subPromise = tx.signAndSend(
@@ -609,7 +609,7 @@ export default function AlphaGapIndexPage() {
   //   1. read the finalized head,
   //   2. confirm the proxy exists in state at that exact block,
   //   3. sign { proxy, strategyId, strategyTable, fromBlock, fromTimestamp }
-  //      (strict schema — any extra key is rejected as INVALID_SIGNED_DATA),
+  //      (strict schema - any extra key is rejected as INVALID_SIGNED_DATA),
   //   4. POST it through our Ultra-gated /api/trustedstake/join route.
   // Codes flagged retryable (chain not yet finalized / node unavailable) are
   // retried; PROXY_NOT_FOUND means step 1 hasn't finalized yet, so we wait too.
@@ -676,7 +676,7 @@ export default function AlphaGapIndexPage() {
   const portfolio = useMemo(() => {
     if (!positions || positions.length === 0) return null;
 
-    // A subnet can be held via several hotkeys — show one row per subnet.
+    // A subnet can be held via several hotkeys - show one row per subnet.
     const bySubnet = new Map<number, number>();
     for (const p of positions) bySubnet.set(p.netuid, (bySubnet.get(p.netuid) ?? 0) + p.alpha);
 
@@ -717,7 +717,7 @@ export default function AlphaGapIndexPage() {
     if (await checkMembership(selectedAddress)) {
       confirmMembership(selectedAddress);
     } else {
-      setRegisterError("Not registered yet — complete the join on TrustedStake with this wallet, then check again.");
+      setRegisterError("Not registered yet - complete the join on TrustedStake with this wallet, then check again.");
       setRegisterStep("register-error");
     }
   }, [selectedAddress, checkMembership, confirmMembership]);
@@ -725,7 +725,7 @@ export default function AlphaGapIndexPage() {
   // ── Leave flow ──────────────────────────────────────────────────────────
   // ── Withdraw everything back to TAO ─────────────────────────────────────
   //
-  // Leaving the strategy only unregisters the wallet — the alpha stays staked.
+  // Leaving the strategy only unregisters the wallet - the alpha stays staked.
   // This converts it back to TAO, which is the step that actually gets the
   // user's money out.
   //
@@ -736,7 +736,7 @@ export default function AlphaGapIndexPage() {
   // utility.batchAll, rather than unstakeAll/unstakeAllAlpha: those two carry
   // identical copy-pasted docs on chain, so there is no way to confirm whether
   // either restakes into root instead of paying out to the coldkey.
-  // removeStake is explicit — "adds it onto a coldkey" — and batchAll keeps it
+  // removeStake is explicit - "adds it onto a coldkey" - and batchAll keeps it
   // to a single signature while guaranteeing all-or-nothing.
   const handleWithdraw = useCallback(async () => {
     if (!selectedAddress || !positions || positions.length === 0) return;
@@ -871,7 +871,7 @@ export default function AlphaGapIndexPage() {
   }, [selectedAddress]);
 
   const lastRebalancedLabel = useMemo(() => {
-    if (!lastRebalancedAt) return "—";
+    if (!lastRebalancedAt) return "-";
     const d = new Date(lastRebalancedAt);
     return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
   }, [lastRebalancedAt]);
@@ -910,7 +910,7 @@ export default function AlphaGapIndexPage() {
     }));
   }, [actualHoldings, leaderboard, top10]);
 
-  // Live APY from TrustedStake — no fabricated fallback; the pill hides when unavailable
+  // Live APY from TrustedStake - no fabricated fallback; the pill hides when unavailable
   const liveApy = strategyData?.apy ?? null;
 
   return (
@@ -979,10 +979,10 @@ export default function AlphaGapIndexPage() {
             ))}
           </div>
 
-          {/* ── Hero CTA — smart flow ── */}
+          {/* ── Hero CTA - smart flow ── */}
           {!isUltra ? (
             <a href="/pricing" className="inline-flex items-center gap-2 px-8 py-3.5 bg-gradient-to-r from-amber-400 to-orange-400 hover:from-amber-300 hover:to-orange-300 text-black font-bold text-base rounded-xl transition-all shadow-lg shadow-amber-500/20 active:scale-95 mb-8">
-              Subscribe to Ultra — $99/mo <IconArrow className="w-4 h-4" />
+              Subscribe to Ultra - $99/mo <IconArrow className="w-4 h-4" />
             </a>
           ) : !selectedAddress ? (
             <div className="flex flex-col items-center gap-3 mb-8">
@@ -1024,7 +1024,7 @@ export default function AlphaGapIndexPage() {
                 <span className="font-mono">{selectedAddress.slice(0, 10)}…{selectedAddress.slice(-6)}</span>
                 <button onClick={disconnectWallet} className="text-gray-600 hover:text-gray-400 ml-1 transition-colors"><IconX className="w-3.5 h-3.5" /></button>
               </div>
-              <p className="text-sm text-gray-400">Wallet connected — scroll down to join the Index</p>
+              <p className="text-sm text-gray-400">Wallet connected - scroll down to join the Index</p>
             </div>
           )}
 
@@ -1091,7 +1091,7 @@ export default function AlphaGapIndexPage() {
                 sitting undeployed.
               </p>
               <p className="text-xs text-gray-500 leading-relaxed mb-4">
-                This signs a single transaction — <span className="font-mono text-gray-400">proxy.setRealPaysFee</span> —
+                This signs a single transaction - <span className="font-mono text-gray-400">proxy.setRealPaysFee</span> -
                 which lets the strategy proxy cover fees. It moves no funds, grants no new spending power, and your
                 TAO stays in your own wallet.
               </p>
@@ -1150,7 +1150,7 @@ export default function AlphaGapIndexPage() {
                 {connectingSource && (
                   <p className="text-[11px] text-gray-500 mt-4 leading-relaxed">
                     Check the {installedWallets.find(w => w.source === connectingSource)?.name ?? "wallet"} extension
-                    — the approval popup can open behind this window, or in the extension&apos;s own toolbar icon.
+                    - the approval popup can open behind this window, or in the extension&apos;s own toolbar icon.
                   </p>
                 )}
                 {/* The error used to render only in the section BEHIND this
@@ -1249,7 +1249,7 @@ export default function AlphaGapIndexPage() {
                             </div>
                             <div className="flex-1 min-w-0">
                               <div className="font-semibold text-gray-100 text-base truncate">{s.name}</div>
-                              <div className="text-xs text-gray-500">SN{s.netuid} · {s.category ?? s.benchmark_category ?? "—"}</div>
+                              <div className="text-xs text-gray-500">SN{s.netuid} · {s.category ?? s.benchmark_category ?? "-"}</div>
                             </div>
                             <div className="flex flex-col items-end gap-0.5 flex-shrink-0">
                               <span className={`text-sm font-bold tabular-nums ${scoreColor(h.score)}`}>{h.score}</span>
@@ -1261,10 +1261,10 @@ export default function AlphaGapIndexPage() {
                             <div className="px-4 pb-4 bg-emerald-500/[0.03] border-t border-white/[0.04]">
                               <div className="grid grid-cols-2 gap-2 pt-3 mb-3">
                                 {[
-                                  { label: "24h", value: change24h != null ? `${change24h >= 0 ? "+" : ""}${change24h.toFixed(1)}%` : "—", color: change24h != null ? (change24h >= 0 ? "text-emerald-400" : "text-red-400") : "text-gray-600" },
-                                  { label: "30d", value: change30d != null ? `${change30d >= 0 ? "+" : ""}${change30d.toFixed(1)}%` : "—", color: change30d != null ? (change30d >= 0 ? "text-emerald-400" : "text-red-400") : "text-gray-600" },
-                                  { label: "EM %", value: emission != null ? `${emission.toFixed(1)}%` : "—", color: "text-gray-300" },
-                                  { label: "APY", value: apy != null ? `${apy.toFixed(0)}%` : "—", color: apy != null && apy >= 20 ? "text-emerald-400" : apy != null && apy >= 10 ? "text-yellow-400" : apy != null ? "text-orange-400" : "text-gray-600" },
+                                  { label: "24h", value: change24h != null ? `${change24h >= 0 ? "+" : ""}${change24h.toFixed(1)}%` : "-", color: change24h != null ? (change24h >= 0 ? "text-emerald-400" : "text-red-400") : "text-gray-600" },
+                                  { label: "30d", value: change30d != null ? `${change30d >= 0 ? "+" : ""}${change30d.toFixed(1)}%` : "-", color: change30d != null ? (change30d >= 0 ? "text-emerald-400" : "text-red-400") : "text-gray-600" },
+                                  { label: "EM %", value: emission != null ? `${emission.toFixed(1)}%` : "-", color: "text-gray-300" },
+                                  { label: "APY", value: apy != null ? `${apy.toFixed(0)}%` : "-", color: apy != null && apy >= 20 ? "text-emerald-400" : apy != null && apy >= 10 ? "text-yellow-400" : apy != null ? "text-orange-400" : "text-gray-600" },
                                 ].map(stat => (
                                   <div key={stat.label} className="bg-white/[0.03] rounded-lg px-3 py-2">
                                     <div className="text-xs text-gray-500 mb-0.5">{stat.label}</div>
@@ -1326,7 +1326,7 @@ export default function AlphaGapIndexPage() {
                                     </div>
                                   </div>
                                 </td>
-                                <td className="px-4 py-4 hidden lg:table-cell"><span className="text-xs text-gray-400 font-medium">{s.category ?? s.benchmark_category ?? "—"}</span></td>
+                                <td className="px-4 py-4 hidden lg:table-cell"><span className="text-xs text-gray-400 font-medium">{s.category ?? s.benchmark_category ?? "-"}</span></td>
                                 <td className="px-4 py-4 text-right">
                                   <div className="flex items-center justify-end gap-2">
                                     <div className="ag-scorebar w-14 !h-1">
@@ -1337,15 +1337,15 @@ export default function AlphaGapIndexPage() {
                                 </td>
                                 <td className="px-4 py-4 text-right"><span className="text-sm font-semibold text-gray-300 tabular-nums">{h.weight}%</span></td>
                                 <td className="px-4 py-4 text-right">
-                                  {change24h != null ? <span className={`text-sm font-bold tabular-nums ${change24h >= 0 ? "text-emerald-400" : "text-red-400"}`}>{change24h >= 0 ? "+" : ""}{change24h.toFixed(1)}%</span> : <span className="text-gray-600 text-sm">—</span>}
+                                  {change24h != null ? <span className={`text-sm font-bold tabular-nums ${change24h >= 0 ? "text-emerald-400" : "text-red-400"}`}>{change24h >= 0 ? "+" : ""}{change24h.toFixed(1)}%</span> : <span className="text-gray-600 text-sm">-</span>}
                                 </td>
                                 <td className="px-4 py-4 text-right hidden lg:table-cell">
-                                  {change30d != null ? <span className={`text-sm font-bold tabular-nums ${change30d >= 0 ? "text-emerald-400" : "text-red-400"}`}>{change30d >= 0 ? "+" : ""}{change30d.toFixed(1)}%</span> : <span className="text-gray-600 text-sm">—</span>}
+                                  {change30d != null ? <span className={`text-sm font-bold tabular-nums ${change30d >= 0 ? "text-emerald-400" : "text-red-400"}`}>{change30d >= 0 ? "+" : ""}{change30d.toFixed(1)}%</span> : <span className="text-gray-600 text-sm">-</span>}
                                 </td>
-                                <td className="px-4 py-4 text-right hidden lg:table-cell"><span className="text-sm text-gray-300 tabular-nums font-medium">{emission != null ? `${emission.toFixed(1)}%` : "—"}</span></td>
+                                <td className="px-4 py-4 text-right hidden lg:table-cell"><span className="text-sm text-gray-300 tabular-nums font-medium">{emission != null ? `${emission.toFixed(1)}%` : "-"}</span></td>
                                 <td className="px-4 py-4 text-right hidden lg:table-cell">
                                   <span className={`text-sm font-semibold tabular-nums ${apy != null && apy >= 20 ? "text-emerald-400" : apy != null && apy >= 10 ? "text-yellow-400" : apy != null ? "text-orange-400" : "text-gray-600"}`}>
-                                    {apy != null ? `${apy.toFixed(0)}%` : "—"}
+                                    {apy != null ? `${apy.toFixed(0)}%` : "-"}
                                   </span>
                                 </td>
                                 <td className="px-4 py-4">{isUltra && <IconChevron className={`w-4 h-4 text-gray-700 group-hover:text-gray-500 transition-all ${expandedRow === s.netuid ? "rotate-180" : ""}`} />}</td>
@@ -1399,19 +1399,19 @@ export default function AlphaGapIndexPage() {
           </div>
         </section>
 
-        {/* ── JOIN THE INDEX (first occurrence — right under holdings) ────── */}
+        {/* ── JOIN THE INDEX (first occurrence - right under holdings) ────── */}
         <section id="join-section" className="py-16 border-b border-white/5">
           <p className="font-mono text-[11px] text-emerald-400/80 uppercase tracking-[0.18em] mb-4">Delegation</p>
           <h2 className="font-display text-3xl sm:text-4xl font-semibold tracking-tight text-white mb-3">Deploy Your <span className="ag-gradient-text">TAO</span></h2>
           <p className="text-gray-400 text-base mb-8 max-w-2xl">
             {isUltra
-              ? "Two steps to start earning. First, set up your wallet proxy (one-time, on-chain). Then sign one message to join — all without leaving AlphaGap. No TAO leaves your wallet."
+              ? "Two steps to start earning. First, set up your wallet proxy (one-time, on-chain). Then sign one message to join - all without leaving AlphaGap. No TAO leaves your wallet."
               : "The AlphaGap Index is exclusive to Ultra subscribers. Upgrade to deploy your TAO into the top 10 subnets automatically."}
           </p>
 
           {!isUltra && (
             <a href="/pricing" className="inline-flex items-center gap-2 px-8 py-3.5 bg-gradient-to-r from-amber-400 to-orange-400 hover:from-amber-300 hover:to-orange-300 text-black font-bold text-base rounded-xl transition-all shadow-lg shadow-amber-500/20 active:scale-95">
-              Upgrade to Ultra — $99/mo <IconArrow className="w-4 h-4" />
+              Upgrade to Ultra - $99/mo <IconArrow className="w-4 h-4" />
             </a>
           )}
 
@@ -1446,14 +1446,14 @@ export default function AlphaGapIndexPage() {
                   <div className="mt-4 rounded-xl border border-white/8 bg-white/[0.02] p-4 max-w-md">
                     <p className="text-xs font-semibold text-gray-300 mb-2">Adding more TAO</p>
                     <p className="text-xs text-gray-500 leading-relaxed mb-3">
-                      Send TAO to this same wallet — nothing to sign, and no need to leave and re-join.
+                      Send TAO to this same wallet - nothing to sign, and no need to leave and re-join.
                       Top-ups are detected automatically and deployed{" "}
                       <span className="text-gray-300">within about 24 hours</span>, independently of the weekly
                       index rebalance.
                     </p>
                     <p className="text-[11px] text-amber-300/80 leading-relaxed mb-3">
                       Your wallet must hold at least <span className="font-semibold">2 TAO</span>. Below that
-                      minimum a delegate is <span className="font-semibold">not rebalanced at all</span> — the
+                      minimum a delegate is <span className="font-semibold">not rebalanced at all</span> - the
                       position simply sits idle rather than deploying late. If you are under 2 TAO, top up past it
                       before expecting anything to happen.
                     </p>
@@ -1471,7 +1471,7 @@ export default function AlphaGapIndexPage() {
                     </button>
                     {freeTao != null && freeTao < 2 && (
                       <p className="text-xs mt-3 text-red-400">
-                        This wallet holds {freeTao.toFixed(4)} TAO, under the 2 TAO minimum — TrustedStake will not
+                        This wallet holds {freeTao.toFixed(4)} TAO, under the 2 TAO minimum - TrustedStake will not
                         rebalance it. Top up above 2 TAO to start earning.
                       </p>
                     )}
@@ -1480,8 +1480,8 @@ export default function AlphaGapIndexPage() {
                         {freeTao >= 0.01 ? (
                           <span className="text-amber-300/90">
                             {isStalled
-                              ? `${freeTao.toFixed(4)} TAO here has not deployed. This is a known issue on TrustedStake's side, not something you need to fix — we are chasing it daily and your TAO has never left your wallet.`
-                              : `${freeTao.toFixed(4)} TAO here is not staked yet — it deploys automatically within ~24h.`}
+                              ? `${freeTao.toFixed(4)} TAO here has not deployed. This is a known issue on TrustedStake's side, not something you need to fix - we are chasing it daily and your TAO has never left your wallet.`
+                              : `${freeTao.toFixed(4)} TAO here is not staked yet - it deploys automatically within ~24h.`}
                           </span>
                         ) : (
                           <span className="text-gray-600">All TAO in this wallet is deployed.</span>
@@ -1501,13 +1501,13 @@ export default function AlphaGapIndexPage() {
               {/* ── Your actual holdings, read from the chain ──────────────── */}
               <div className="mt-8 pt-8 border-t border-emerald-500/15">
                 {positionsError ? (
-                  <p className="text-sm text-gray-500">Couldn&apos;t load your holdings right now. They&apos;re unaffected — this is only a display issue.</p>
+                  <p className="text-sm text-gray-500">Couldn&apos;t load your holdings right now. They&apos;re unaffected - this is only a display issue.</p>
                 ) : !positions ? (
                   <p className="text-sm text-gray-400 flex items-center gap-2"><IconLoader className="w-4 h-4 animate-spin text-emerald-400" /> Reading your positions from the chain…</p>
                 ) : !portfolio || portfolio.rows.length === 0 ? (
                   <p className="text-sm text-gray-400">
                     {isStalled
-                      ? "Your funds have not been deployed yet. This is an execution issue at TrustedStake that we have escalated with your wallet address — it is not something you have set up wrong, and nothing needs redoing. Your TAO stays in your own wallet throughout."
+                      ? "Your funds have not been deployed yet. This is an execution issue at TrustedStake that we have escalated with your wallet address - it is not something you have set up wrong, and nothing needs redoing. Your TAO stays in your own wallet throughout."
                       : "No stake yet. Once the next rebalance runs, your positions appear here automatically."}
                   </p>
                 ) : (
@@ -1523,7 +1523,7 @@ export default function AlphaGapIndexPage() {
                         </p>
                       </div>
                       <p className="text-xs text-gray-500 max-w-xs sm:text-right">
-                        Live from the Bittensor chain — your wallet&apos;s real stake, not a modelled figure.
+                        Live from the Bittensor chain - your wallet&apos;s real stake, not a modelled figure.
                       </p>
                     </div>
 
@@ -1551,13 +1551,13 @@ export default function AlphaGapIndexPage() {
                               </td>
                               <td className="py-2.5 text-right tabular-nums text-gray-300">{r.alpha.toLocaleString(undefined, { maximumFractionDigits: 2 })}</td>
                               <td className="py-2.5 text-right tabular-nums text-white">
-                                {r.valueUsd != null ? `$${r.valueUsd.toLocaleString(undefined, { maximumFractionDigits: 2 })}` : <span className="text-gray-600">—</span>}
+                                {r.valueUsd != null ? `$${r.valueUsd.toLocaleString(undefined, { maximumFractionDigits: 2 })}` : <span className="text-gray-600">-</span>}
                               </td>
                               <td className={`py-2.5 text-right tabular-nums ${r.change24h == null ? "text-gray-600" : r.change24h >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-                                {r.change24h == null ? "—" : `${r.change24h >= 0 ? "▲" : "▼"} ${Math.abs(r.change24h).toFixed(1)}%`}
+                                {r.change24h == null ? "-" : `${r.change24h >= 0 ? "▲" : "▼"} ${Math.abs(r.change24h).toFixed(1)}%`}
                               </td>
-                              <td className="py-2.5 text-right tabular-nums text-gray-300">{r.weight != null ? `${r.weight.toFixed(1)}%` : "—"}</td>
-                              <td className="py-2.5 text-right tabular-nums text-gray-500">{r.targetWeight != null ? `${r.targetWeight}%` : <span className="text-gray-700">—</span>}</td>
+                              <td className="py-2.5 text-right tabular-nums text-gray-300">{r.weight != null ? `${r.weight.toFixed(1)}%` : "-"}</td>
+                              <td className="py-2.5 text-right tabular-nums text-gray-500">{r.targetWeight != null ? `${r.targetWeight}%` : <span className="text-gray-700">-</span>}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -1567,7 +1567,7 @@ export default function AlphaGapIndexPage() {
                     <p className="text-xs text-gray-600 mt-4">
                       Shows every position in this wallet, so any stake you hold outside the index appears here too.
                       {portfolio.unpriced > 0 && ` ${portfolio.unpriced} position${portfolio.unpriced > 1 ? "s" : ""} couldn't be priced and ${portfolio.unpriced > 1 ? "are" : "is"} excluded from the total.`}
-                      {" "}Rebalancing is automatic — there is nothing to manage by hand.
+                      {" "}Rebalancing is automatic - there is nothing to manage by hand.
                     </p>
 
                     {/* ── Cash out ──────────────────────────────────────── */}
@@ -1575,20 +1575,20 @@ export default function AlphaGapIndexPage() {
                       {withdrawStep === "done" ? (
                         <div className="flex items-start gap-2 text-sm text-emerald-400">
                           <IconCheck className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                          <span>Withdrawn. Your TAO is back in your wallet — balances may take a moment to refresh.</span>
+                          <span>Withdrawn. Your TAO is back in your wallet - balances may take a moment to refresh.</span>
                         </div>
                       ) : withdrawStep === "leaving" || withdrawStep === "signing" ? (
                         <p className="text-sm text-gray-400 flex items-center gap-2">
                           <IconLoader className="w-4 h-4 animate-spin text-emerald-400" />
                           {withdrawStep === "leaving"
                             ? "Leaving the strategy first, so the rebalancer can't re-stake…"
-                            : "Check your wallet — sign the unstake transaction…"}
+                            : "Check your wallet - sign the unstake transaction…"}
                         </p>
                       ) : withdrawStep === "confirm" ? (
                         <div className="rounded-xl border border-amber-500/25 bg-amber-500/[0.06] p-4">
                           <p className="text-amber-200/90 text-sm font-semibold mb-2">Withdraw everything back to TAO?</p>
                           <ul className="text-gray-400 text-sm space-y-1 mb-4 list-disc pl-4">
-                            <li>Sells all {portfolio.rows.length} alpha position{portfolio.rows.length > 1 ? "s" : ""} at the current market price. You may get more or less than the ${portfolio.totalUsd.toLocaleString(undefined, { maximumFractionDigits: 2 })} shown — large positions move the price against you.</li>
+                            <li>Sells all {portfolio.rows.length} alpha position{portfolio.rows.length > 1 ? "s" : ""} at the current market price. You may get more or less than the ${portfolio.totalUsd.toLocaleString(undefined, { maximumFractionDigits: 2 })} shown - large positions move the price against you.</li>
                             {isMember && <li>Leaves the index first, otherwise the rebalancer would just re-stake it. You&apos;d need to re-join to come back.</li>}
                             <li>Your proxy stays in place. Remove it in your wallet if you want to revoke access entirely.</li>
                           </ul>
@@ -1626,12 +1626,12 @@ export default function AlphaGapIndexPage() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="font-display font-semibold text-white text-base mb-1">Authorise TrustedStake as Proxy</p>
-                    <p className="text-gray-400 text-sm mb-4">One-time on-chain transaction. Your wallet signs a message authorising TrustedStake to execute staking on your behalf — your TAO never moves without your instruction.</p>
+                    <p className="text-gray-400 text-sm mb-4">One-time on-chain transaction. Your wallet signs a message authorising TrustedStake to execute staking on your behalf - your TAO never moves without your instruction.</p>
                     {proxyStep === "idle" && <button onClick={handleSetupProxy} className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-emerald-500 to-green-500 hover:from-emerald-400 hover:to-green-400 text-black font-bold text-sm rounded-xl transition-all shadow-lg shadow-emerald-500/20 active:scale-95">Set Up Proxy <IconArrow className="w-3.5 h-3.5" /></button>}
                     {proxyStep === "proxy-connecting" && <p className="text-gray-400 text-sm flex items-center gap-2"><IconLoader className="w-4 h-4 animate-spin text-emerald-400" /> Connecting to Bittensor network…</p>}
-                    {proxyStep === "proxy-pending" && <p className="text-gray-400 text-sm flex items-center gap-2"><IconLoader className="w-4 h-4 animate-spin text-emerald-400" /> Check your wallet — sign the proxy transaction…</p>}
+                    {proxyStep === "proxy-pending" && <p className="text-gray-400 text-sm flex items-center gap-2"><IconLoader className="w-4 h-4 animate-spin text-emerald-400" /> Check your wallet - sign the proxy transaction…</p>}
                     {proxyStep === "proxy-error" && <div className="space-y-3"><p className="text-red-400 text-sm">{proxyError}</p><button onClick={handleSetupProxy} className="inline-flex items-center gap-2 px-5 py-2.5 bg-white/5 hover:bg-white/10 border border-white/8 text-gray-300 font-semibold text-sm rounded-xl transition-all">Retry</button></div>}
-                    {proxyStep === "proxy-done" && <p className="text-emerald-400 text-sm font-medium"><IconCheck className="w-3.5 h-3.5 inline mr-1.5" />Proxy authorised — continue to step 2</p>}
+                    {proxyStep === "proxy-done" && <p className="text-emerald-400 text-sm font-medium"><IconCheck className="w-3.5 h-3.5 inline mr-1.5" />Proxy authorised - continue to step 2</p>}
                   </div>
                 </div>
               </div>
@@ -1642,14 +1642,14 @@ export default function AlphaGapIndexPage() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="font-display font-semibold text-white text-base mb-1">Join the Index</p>
-                    <p className="text-gray-400 text-sm mb-4">The AlphaGap Index is a private strategy — access is exclusive to AlphaGap Ultra. Sign one message to confirm your membership. You stay right here; no other site, no extra account.</p>
+                    <p className="text-gray-400 text-sm mb-4">The AlphaGap Index is a private strategy - access is exclusive to AlphaGap Ultra. Sign one message to confirm your membership. You stay right here; no other site, no extra account.</p>
                     <div className="rounded-xl border border-amber-500/20 bg-amber-500/[0.06] p-4 mb-4">
                       <p className="text-amber-200/90 text-sm font-semibold mb-1">How much TAO goes in?</p>
-                      <p className="text-gray-400 text-sm">All of it. The index uses whatever TAO is in the wallet you connect — there&apos;s no amount to type in. <strong className="text-gray-300">So connect a wallet holding only what you want invested.</strong> Your TAO never leaves your wallet, and you can pull out any time.</p>
+                      <p className="text-gray-400 text-sm">All of it. The index uses whatever TAO is in the wallet you connect - there&apos;s no amount to type in. <strong className="text-gray-300">So connect a wallet holding only what you want invested.</strong> Your TAO never leaves your wallet, and you can pull out any time.</p>
                     </div>
                     <p className="text-xs text-gray-500 font-mono mb-4 break-all">Wallet: {selectedAddress}</p>
                     {registerStep === "success" ? (
-                      <div className="flex items-center gap-2 text-emerald-400 font-semibold text-sm"><IconCheck className="w-4 h-4" /> Membership confirmed — you&apos;re in!</div>
+                      <div className="flex items-center gap-2 text-emerald-400 font-semibold text-sm"><IconCheck className="w-4 h-4" /> Membership confirmed - you&apos;re in!</div>
                     ) : registerStep === "register-error" ? (
                       <div className="space-y-3">
                         <p className="text-sm text-red-400">{registerError}</p>
@@ -1662,7 +1662,7 @@ export default function AlphaGapIndexPage() {
                     ) : registerStep === "awaiting" ? (
                       <div className="space-y-3">
                         <div className="flex items-center gap-2 text-gray-400 text-sm"><IconLoader className="w-4 h-4 animate-spin text-emerald-400" /> {registerWaitNote ?? "Registering your membership…"}</div>
-                        <p className="text-xs text-gray-500">Keep this tab open. Your wallet will ask you to sign <strong className="text-gray-400">once</strong>, and only when the network is ready — if no popup has appeared yet, nothing is stuck.</p>
+                        <p className="text-xs text-gray-500">Keep this tab open. Your wallet will ask you to sign <strong className="text-gray-400">once</strong>, and only when the network is ready - if no popup has appeared yet, nothing is stuck.</p>
                       </div>
                     ) : (
                       <button onClick={handleJoin} disabled={proxyStep !== "proxy-done"} className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-emerald-400 to-green-400 hover:from-emerald-300 hover:to-green-300 disabled:opacity-40 disabled:cursor-not-allowed text-black font-bold text-sm rounded-xl transition-all shadow-lg shadow-emerald-500/20 active:scale-95">
@@ -1687,8 +1687,8 @@ export default function AlphaGapIndexPage() {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {[
               { icon: <IconLayers className="w-5 h-5" />, color: "text-red-400 bg-red-500/10 border-red-500/20", title: "Too Many Subnets", desc: "128 subnets and counting. New ones launch weekly. You can't track them all." },
-              { icon: <IconShield className="w-5 h-5" />, color: "text-amber-400 bg-amber-500/10 border-amber-500/20", title: "Too Much Complexity", desc: "Validator selection, dTAO mechanics, stake allocation — it takes 1,400+ hours to master." },
-              { icon: <IconChart className="w-5 h-5" />, color: "text-blue-400 bg-blue-500/10 border-blue-500/20", title: "Impossible To React", desc: "The Bittensor ecosystem evolves faster than any human can track. Our AI scores every subnet in real time — so the index always reflects what's happening now, not last week." },
+              { icon: <IconShield className="w-5 h-5" />, color: "text-amber-400 bg-amber-500/10 border-amber-500/20", title: "Too Much Complexity", desc: "Validator selection, dTAO mechanics, stake allocation - it takes 1,400+ hours to master." },
+              { icon: <IconChart className="w-5 h-5" />, color: "text-blue-400 bg-blue-500/10 border-blue-500/20", title: "Impossible To React", desc: "The Bittensor ecosystem evolves faster than any human can track. Our AI scores every subnet in real time - so the index always reflects what's happening now, not last week." },
             ].map(p => (
               <div key={p.title} className="ag-glass ag-glass-hover flex gap-4 p-5">
                 <div className={`w-10 h-10 rounded-xl border flex items-center justify-center flex-shrink-0 ${p.color}`}>{p.icon}</div>
@@ -1705,7 +1705,7 @@ export default function AlphaGapIndexPage() {
         <section className="py-16 border-b border-white/5">
           <p className="font-mono text-[11px] text-emerald-400/80 uppercase tracking-[0.18em] mb-4">The Yield</p>
           <h2 className="font-display text-3xl sm:text-4xl font-semibold tracking-tight text-white mb-3">APY compounds fast.<br /><span className="ag-gradient-text">Really fast.</span></h2>
-          <p className="text-gray-400 text-lg mb-10 max-w-2xl">Bittensor subnets pay out emissions continuously. When that yield is automatically reinvested — across 10 of the highest-performing subnets — it compounds in ways most TAO holders never experience.</p>
+          <p className="text-gray-400 text-lg mb-10 max-w-2xl">Bittensor subnets pay out emissions continuously. When that yield is automatically reinvested - across 10 of the highest-performing subnets - it compounds in ways most TAO holders never experience.</p>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
             {[
@@ -1723,8 +1723,8 @@ export default function AlphaGapIndexPage() {
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {[
-              { icon: <IconTrend className="w-5 h-5" />, color: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20", title: "Emissions every block", desc: "Bittensor pays out emissions continuously — not monthly, not quarterly. Every block." },
-              { icon: <IconRefresh className="w-5 h-5" />, color: "text-blue-400 bg-blue-500/10 border-blue-500/20", title: "Auto-compounded", desc: "Gain exposure to a curated basket of high-yielding alpha tokens — aGap's top picks — while earning sustainable, healthy yields that compound automatically across every position." },
+              { icon: <IconTrend className="w-5 h-5" />, color: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20", title: "Emissions every block", desc: "Bittensor pays out emissions continuously - not monthly, not quarterly. Every block." },
+              { icon: <IconRefresh className="w-5 h-5" />, color: "text-blue-400 bg-blue-500/10 border-blue-500/20", title: "Auto-compounded", desc: "Gain exposure to a curated basket of high-yielding alpha tokens - aGap's top picks - while earning sustainable, healthy yields that compound automatically across every position." },
               { icon: <IconDollar className="w-5 h-5" />, color: "text-amber-400 bg-amber-500/10 border-amber-500/20", title: "Spread across top 10", desc: "10 high-conviction subnets means your APY isn't riding on any single subnet's performance." },
             ].map(f => (
               <div key={f.title} className="ag-glass ag-glass-hover flex gap-4 p-5">
@@ -1745,9 +1745,9 @@ export default function AlphaGapIndexPage() {
           <h2 className="font-display text-3xl sm:text-4xl font-semibold tracking-tight text-white mb-10">How it <span className="ag-gradient-text">works</span></h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {[
-              { n: "01", icon: <IconChart className="w-5 h-5" />, color: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20", title: "AlphaGap Watches All 128", body: "Live data across every subnet — benchmarks, whale flows, founder signals, emissions." },
+              { n: "01", icon: <IconChart className="w-5 h-5" />, color: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20", title: "AlphaGap Watches All 128", body: "Live data across every subnet - benchmarks, whale flows, founder signals, emissions." },
               { n: "02", icon: <IconTarget className="w-5 h-5" />, color: "text-blue-400 bg-blue-500/10 border-blue-500/20", title: "aGap Scores Each One", body: "Our formula ranks every subnet on performance, revenue, on-chain signals, and team execution." },
-              { n: "03", icon: <IconTrend className="w-5 h-5" />, color: "text-violet-400 bg-violet-500/10 border-violet-500/20", title: "Top 10 Selected", body: "Weekly, the 10 highest-conviction subnets form the index. No emotion — only data." },
+              { n: "03", icon: <IconTrend className="w-5 h-5" />, color: "text-violet-400 bg-violet-500/10 border-violet-500/20", title: "Top 10 Selected", body: "Weekly, the 10 highest-conviction subnets form the index. No emotion - only data." },
               { n: "04", icon: <IconZap className="w-5 h-5" />, color: "text-amber-400 bg-amber-500/10 border-amber-500/20", title: "TrustedStake Executes", body: "Your TAO is deployed and rebalanced automatically. Yield compounded. You do nothing." },
             ].map(s => (
               <div key={s.n} className="ag-glass ag-glass-hover relative p-5">
@@ -1766,12 +1766,12 @@ export default function AlphaGapIndexPage() {
         <section className="py-16 border-b border-white/5">
           <p className="font-mono text-[11px] text-emerald-400/80 uppercase tracking-[0.18em] mb-4">The Formula</p>
           <h2 className="font-display text-3xl sm:text-4xl font-semibold tracking-tight text-white mb-3">aGap Investing <span className="ag-gradient-text">Methodology</span></h2>
-          <p className="text-gray-400 text-lg mb-10 max-w-2xl">Built for long-term investing — not trading. We back subnets with real products, real customers, and real teams.</p>
+          <p className="text-gray-400 text-lg mb-10 max-w-2xl">Built for long-term investing - not trading. We back subnets with real products, real customers, and real teams.</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {[
               { icon: <IconTarget className="w-5 h-5" />, color: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20", label: "Real-World Performance", detail: "Head-to-head benchmarks against centralised competitors. Not self-reported metrics." },
               { icon: <IconDollar className="w-5 h-5" />, color: "text-green-400 bg-green-500/10 border-green-500/20", label: "Revenue Potential", detail: "Real customers, product traction, and clear paths to monetisation." },
-              { icon: <IconTrend className="w-5 h-5" />, color: "text-blue-400 bg-blue-500/10 border-blue-500/20", label: "On-Chain Signals", detail: "Whale accumulation, stake velocity, and validator confidence — before narratives catch up." },
+              { icon: <IconTrend className="w-5 h-5" />, color: "text-blue-400 bg-blue-500/10 border-blue-500/20", label: "On-Chain Signals", detail: "Whale accumulation, stake velocity, and validator confidence - before narratives catch up." },
               { icon: <IconUsers className="w-5 h-5" />, color: "text-violet-400 bg-violet-500/10 border-violet-500/20", label: "Team & Execution", detail: "Shipping cadence, founder track record, and real community health." },
             ].map(f => (
               <div key={f.label} className="ag-glass ag-glass-hover flex gap-4 p-5">
@@ -1812,7 +1812,7 @@ export default function AlphaGapIndexPage() {
           </div>
         </section>
 
-        {/* ── JOIN THE INDEX (second occurrence — compact mid-page CTA) ──── */}
+        {/* ── JOIN THE INDEX (second occurrence - compact mid-page CTA) ──── */}
         <section className="py-16 border-b border-white/5">
           <div className="relative rounded-[20px] overflow-hidden border border-emerald-500/20 backdrop-blur-xl p-8 md:p-10" style={{ background: "radial-gradient(ellipse 80% 80% at 50% 0%, rgba(52,211,153,0.08) 0%, rgba(255,255,255,0.03) 60%)" }}>
             <div className="absolute inset-0 opacity-[0.015]" style={{ backgroundImage: "linear-gradient(rgba(255,255,255,1) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,1) 1px,transparent 1px)", backgroundSize: "30px 30px" }} />
@@ -1820,12 +1820,12 @@ export default function AlphaGapIndexPage() {
               <div>
                 <p className="font-mono text-[11px] text-emerald-400/80 uppercase tracking-[0.18em] mb-3">Start Earning</p>
                 <h2 className="font-display text-3xl font-semibold tracking-tight text-white mb-2">Ready to deploy your <span className="ag-gradient-text">TAO</span>?</h2>
-                <p className="text-gray-400 text-base max-w-md">Connect your wallet and join the AlphaGap Index — aGap picks the top 10, TrustedStake handles everything else.</p>
+                <p className="text-gray-400 text-base max-w-md">Connect your wallet and join the AlphaGap Index - aGap picks the top 10, TrustedStake handles everything else.</p>
               </div>
               <div className="flex-shrink-0">
                 {!isUltra ? (
                   <a href="/pricing" className="inline-flex items-center gap-2 px-8 py-3.5 bg-gradient-to-r from-amber-400 to-orange-400 hover:from-amber-300 hover:to-orange-300 text-black font-bold text-base rounded-xl transition-all shadow-lg shadow-amber-500/20 active:scale-95 whitespace-nowrap">
-                    Upgrade to Ultra — $99/mo <IconArrow className="w-4 h-4" />
+                    Upgrade to Ultra - $99/mo <IconArrow className="w-4 h-4" />
                   </a>
                 ) : isMember ? (
                   <div className="flex items-center gap-3 px-6 py-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/25">
@@ -1854,7 +1854,7 @@ export default function AlphaGapIndexPage() {
               <div>
                 <p className="font-mono text-[11px] text-emerald-400/80 uppercase tracking-[0.18em] mb-4">Intelligence Layer</p>
                 <h2 className="font-display text-3xl sm:text-4xl font-semibold tracking-tight text-white mb-3">AlphaGap watches.<br />The Index <span className="ag-gradient-text">acts</span>.</h2>
-                <p className="text-gray-400 text-lg mb-6 max-w-lg">Scores stay current between rebalances — live data, whale movements, founder signals, benchmark updates. Not a spreadsheet.</p>
+                <p className="text-gray-400 text-lg mb-6 max-w-lg">Scores stay current between rebalances - live data, whale movements, founder signals, benchmark updates. Not a spreadsheet.</p>
                 <a href="/oracle" className="inline-flex items-center gap-2 px-6 py-3 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/25 text-emerald-400 text-base font-semibold rounded-xl transition-colors">
                   Ask the Oracle <IconArrow className="w-4 h-4" />
                 </a>
@@ -1869,12 +1869,12 @@ export default function AlphaGapIndexPage() {
           <h2 className="font-display text-3xl sm:text-4xl font-semibold tracking-tight text-white mb-8 text-center">Common <span className="ag-gradient-text">questions</span></h2>
           <div className="space-y-2 max-w-3xl mx-auto">
             {[
-              { q: "Is my TAO safe?", a: "Yes. Non-custodial — your TAO never leaves your wallet. TrustedStake only executes delegations on your behalf via a proxy you control." },
+              { q: "Is my TAO safe?", a: "Yes. Non-custodial - your TAO never leaves your wallet. TrustedStake only executes delegations on your behalf via a proxy you control." },
               { q: "What wallets are supported?", a: "Talisman and SubWallet. Both are Bittensor-native and available as browser extensions." },
-              { q: "How often does the index rebalance?", a: "Weekly — every Sunday the index re-targets the top 10 subnets by aGap Investing Score." },
+              { q: "How often does the index rebalance?", a: "Weekly - every Sunday the index re-targets the top 10 subnets by aGap Investing Score." },
               { q: "What does it cost?", a: "Index access is included in Ultra for $99/mo." },
               { q: "What is a proxy address?", a: "A TrustedStake proxy is a Bittensor account you authorize to move stake on your behalf. You set it up once in the TrustedStake app, and it allows automated rebalancing without needing your signature every time." },
-              { q: "How do I leave the strategy?", a: "Click 'Leave Strategy' in the delegation section above. Your TAO stays in your wallet — you're just unregistering from the automated strategy." },
+              { q: "How do I leave the strategy?", a: "Click 'Leave Strategy' in the delegation section above. Your TAO stays in your wallet - you're just unregistering from the automated strategy." },
             ].map((faq, i) => (
               <div key={faq.q} className="ag-glass !rounded-2xl overflow-hidden">
                 <button
@@ -1907,7 +1907,7 @@ export default function AlphaGapIndexPage() {
                   <h2 className="font-display text-3xl font-semibold tracking-tight text-white mb-3">You&apos;re ready to deploy</h2>
                   <p className="text-gray-500 text-sm mb-7 max-w-md mx-auto leading-relaxed">
                     {isMember
-                      ? "Your wallet is registered with the AlphaGap Subnet Index. Sit back — TrustedStake handles everything from here."
+                      ? "Your wallet is registered with the AlphaGap Subnet Index. Sit back - TrustedStake handles everything from here."
                       : "Connect your wallet and join the Index above to start earning. The entire flow takes under 2 minutes."}
                   </p>
                   {isMember ? (

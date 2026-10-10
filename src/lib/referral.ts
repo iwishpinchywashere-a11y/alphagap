@@ -1,5 +1,5 @@
 /**
- * Referral system — Vercel Blob backed.
+ * Referral system - Vercel Blob backed.
  *
  * Blob keys:
  *   referral/codes/{CODE}.json        → ReferralCode  (code → user lookup)
@@ -342,7 +342,7 @@ export async function payPendingCommissions(): Promise<number> {
         commission.commissionAmount,
         commission.currency,
         affiliate.stripeConnectAccountId,
-        `AlphaGap affiliate commission — invoice ${commission.invoiceId}`,
+        `AlphaGap affiliate commission - invoice ${commission.invoiceId}`,
       );
       await writeBlob(`referral/commissions/${commission.invoiceId}.json`, {
         ...commission,
@@ -439,7 +439,7 @@ export async function getAffiliateStats(userId: string, userEmail: string): Prom
     (a, b) => new Date(b.signedUpAt).getTime() - new Date(a.signedUpAt).getTime(),
   );
 
-  // Look up actual subscription status for each referred user — this is the
+  // Look up actual subscription status for each referred user - this is the
   // source of truth so the status badge reflects reality, not just whether a
   // commission was recorded (commission recording can lag or fail).
   const referredUsers = await Promise.all(

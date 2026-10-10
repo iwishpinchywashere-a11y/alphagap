@@ -1,5 +1,5 @@
 /**
- * AgIcon — AlphaGap's branded icon set.
+ * AgIcon - AlphaGap's branded icon set.
  *
  * Replaces OS default emojis site-wide (🔥 ⚡ 🐋 …) with consistent
  * line-style SVG marks that inherit currentColor, so they always match

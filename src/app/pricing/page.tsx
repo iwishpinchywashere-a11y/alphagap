@@ -50,19 +50,18 @@ const PLANS: Array<{
     highlight: false,
     features: [
       { icon: "leaderboard", text: "Full Alpha Leaderboard (all 128 subnets)" },
-      { icon: "signals",     text: "All intelligence signals — unlimited" },
+      { icon: "signals",     text: "All intelligence signals - unlimited" },
       { icon: "reports",     text: "Daily Deep Dive reports" },
-      { icon: "oracle",      text: "TAO Oracle — live AI chat using data from every subnet (10 queries/day)" },
-      { icon: "alerts",      text: "Telegram Alerts — 7 customisable alert types, straight to your phone" },
-      { icon: "investing",   text: "Investing Analysis — long-term aGap scoring for serious investors" },
+      { icon: "oracle",      text: "TAO Oracle - live AI chat using data from every subnet (10 queries/day)" },
+      { icon: "alerts",      text: "Telegram Alerts - 7 customisable alert types, straight to your phone" },
+      { icon: "investing",   text: "Investing Analysis - long-term aGap scoring for serious investors" },
       { icon: "whale",       text: "Whale & smart money tracking" },
       { icon: "social",      text: "Twitter/X social momentum feed" },
       { icon: "discord",     text: "Discord scanner finds alpha in real time" },
       { icon: "analytics",   text: "Subnet analytics & score history" },
-      { icon: "performance", text: "Portfolio performance tracker" },
-      { icon: "wallet",      text: "Wallet Tracker — track any TAO wallet across all subnets" },
-      { icon: "benchmarks",  text: "Benchmark comparisons vs AWS/GCP" },
-      { icon: "pumplab",     text: "Pump Autopsy Lab (backtesting)" },
+      { icon: "performance", text: "Performance Tracker: which signals fired before each pump" },
+      { icon: "wallet",      text: "Wallet Tracker - track any TAO wallet across all subnets" },
+      { icon: "benchmarks",  text: "Revenue & Valuations: ARR, buybacks and P/S for every subnet" },
       { icon: "early",       text: "Early access to new features" },
       { icon: "cancel",      text: "Cancel anytime" },
     ],
@@ -76,9 +75,9 @@ const PLANS: Array<{
     highlight: true,
     features: [
       { icon: "check",     text: "Everything in Premium" },
-      { icon: "index",     text: "AlphaGap Index — auto-invest your TAO into the top 10 subnets" },
+      { icon: "index",     text: "AlphaGap Index - auto-invest your TAO into the top 10 subnets" },
       { icon: "rebalance", text: "Weekly auto-rebalancing tracks the top 10 as scores shift" },
-      { icon: "oracle",    text: "TAO Oracle — 20 queries/day (2× Premium)" },
+      { icon: "oracle",    text: "TAO Oracle - 20 queries/day (2× Premium)" },
       { icon: "priority",  text: "Priority access to new Ultra-only features" },
       { icon: "cancel",    text: "Cancel anytime" },
     ],
@@ -94,7 +93,7 @@ export default function PricingPage() {
     setLoading(plan);
     try {
       if (status === "authenticated") {
-        // Already logged in — go straight to checkout
+        // Already logged in - go straight to checkout
         const res = await fetch("/api/stripe/checkout", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -107,7 +106,7 @@ export default function PricingPage() {
           router.push("/dashboard");
         }
       } else {
-        // Not logged in — go to signup with plan pre-selected
+        // Not logged in - go to signup with plan pre-selected
         router.push(`/auth/signup?plan=${plan}`);
       }
     } finally {
@@ -142,10 +141,10 @@ export default function PricingPage() {
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
-              <span className="font-display text-white font-semibold text-sm">TAO Oracle — now included in Premium</span>
+              <span className="font-display text-white font-semibold text-sm">TAO Oracle - now included in Premium</span>
               <span className="font-mono text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-400/10 text-emerald-400 border border-emerald-400/20 uppercase tracking-[0.16em]">New</span>
             </div>
-            <p className="text-gray-400 text-xs leading-relaxed">Live AI chat using data from every Bittensor subnet. Ask about whale flows, dev momentum, red flags, top picks — get instant answers in plain English.</p>
+            <p className="text-gray-400 text-xs leading-relaxed">Live AI chat using data from every Bittensor subnet. Ask about whale flows, dev momentum, red flags, top picks - get instant answers in plain English.</p>
           </div>
           <Link
             href="/"

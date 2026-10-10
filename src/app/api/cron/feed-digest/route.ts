@@ -1,20 +1,20 @@
 /**
- * GET /api/cron/feed-digest — every 6 hours.
+ * GET /api/cron/feed-digest - every 6 hours.
  *
  * Builds the /feed page's content: one written card per subnet that actually
  * did something in the last 48h, instead of a filterable firehose of raw
  * signals. The old feed made the user do the aggregation; this does it for
- * them — every subnet's recent story in one card.
+ * them - every subnet's recent story in one card.
  *
  * MATERIALITY BAR. 110 of 123 subnets fire some signal in any 48h window,
  * almost all of it flow noise (a hundred-plus flow_spike/flow_warning rows).
- * A card requires a real event — shipped code, a gate move, a large score or
+ * A card requires a real event - shipped code, a gate move, a large score or
  * price move. Flow only ever appears as supporting detail inside a card, and
  * a quiet subnet gets no card at all. Fewer, denser posts is the point.
  *
  * COST CONTROL. Each card stores a fingerprint of the facts it was written
  * from. If a subnet's facts have not changed since its last card, the card is
- * carried forward untouched — no rewrite, no drift, no Haiku call. A full run
+ * carried forward untouched - no rewrite, no drift, no Haiku call. A full run
  * with nothing new costs zero model calls.
  */
 
@@ -31,7 +31,7 @@ const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY || "";
 const DIGEST_BLOB = "feed-digest.json";
 // Volume target is a few dozen cards per DAY at most, fewer when quiet.
 // 8 per run x 4 runs = 32/day worst case, and the fingerprint carry-forward
-// means a typical day writes far fewer — only genuinely new events.
+// means a typical day writes far fewer - only genuinely new events.
 const MAX_NEW_CARDS_PER_RUN = 8;
 const CARD_TTL_DAYS = 7;
 
@@ -61,7 +61,7 @@ export interface FeedCard {
   headline: string;
   /** Legacy single-paragraph body; kept so pre-bullet cards still render. */
   body: string;
-  /** 1-3 short bullets — one per distinct thing that happened. */
+  /** 1-3 short bullets - one per distinct thing that happened. */
   bullets?: string[];
   facts: string[];          // short chips rendered under the body
   tags: string[];           // category badges: DEV, SOCIAL, EMISSIONS, …
@@ -112,7 +112,7 @@ Readers are INVESTORS, not engineers. Most have never run a validator and do
 not know what one is. Every card must be understandable by a smart person who
 knows nothing about software.
 
-TRANSLATE, don't recite. The facts you get are full of technical terms —
+TRANSLATE, don't recite. The facts you get are full of technical terms -
 validators, miners, memory leaks, APIs, endpoints, commits, cross-chain
 scoring. Turn each into what it MEANS:
 - "fixed critical validator bugs" -> "fixed serious problems that were
@@ -130,7 +130,7 @@ version numbers).
 Rules:
 - HEADLINE: max 9 words, no emoji, no subnet name, no technical terms. Say
   what happened in plain words: "Fixed the problems blocking new contributors".
-- BULLETS: 1-3 short bullets, one per DISTINCT thing that happened — a
+- BULLETS: 1-3 short bullets, one per DISTINCT thing that happened - a
   shipped feature is one bullet, an emissions move is another, community
   news a third. Each bullet is a single plain sentence under 130 characters.
   Do NOT pad: one real event means one bullet, never split a single story
@@ -188,7 +188,7 @@ export async function GET(req: NextRequest) {
   ]);
   const leaderboard = scan?.leaderboard ?? [];
   if (leaderboard.length < 50) {
-    return NextResponse.json({ ok: false, reason: "leaderboard thin — not overwriting feed" }, { status: 500 });
+    return NextResponse.json({ ok: false, reason: "leaderboard thin - not overwriting feed" }, { status: 500 });
   }
   // Same staleness rule as the X bot: never present frozen stats as news.
   const scanAgeH = scan?.lastScan ? (Date.now() - new Date(scan.lastScan).getTime()) / 3600000 : Infinity;
@@ -250,7 +250,7 @@ export async function GET(req: NextRequest) {
     }
     const heat = (heatBy.get(row.netuid) ?? []).sort((a, b) => (b.heat_score ?? 0) - (a.heat_score ?? 0));
     // Threshold calibrated against the live distribution (n=105: p50=31,
-    // p90=44, max=53). The first draft used 60 — above the maximum ever
+    // p90=44, max=53). The first draft used 60 - above the maximum ever
     // recorded, so the X wire could never fire. Same lesson as the mcap
     // ladder: never set a threshold without looking at the data it gates.
     if (heat.length && (heat[0].heat_score ?? 0) >= 45) {
@@ -260,7 +260,7 @@ export async function GET(req: NextRequest) {
       materiality += 15; facts.push(`whales accumulating ${row.whale_ratio!.toFixed(1)}x`);
     }
 
-    // Flow is context, not a qualifying event — it fires on a third of the
+    // Flow is context, not a qualifying event - it fires on a third of the
     // network every window and would rebuild the firehose this replaces.
     if (materiality > 0 && (row.net_flow_24h ?? 0) !== 0) {
       facts.push(`${(row.net_flow_24h ?? 0) > 0 ? "+" : ""}${(row.net_flow_24h ?? 0).toFixed(0)} TAO net 24h`);

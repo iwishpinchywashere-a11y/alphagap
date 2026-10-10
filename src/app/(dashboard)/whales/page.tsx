@@ -1,6 +1,6 @@
 /**
  * /whales has been renamed to /flow.
- * This component redirects immediately — the canonical URL is /flow.
+ * This component redirects immediately - the canonical URL is /flow.
  */
 "use client";
 import { useEffect } from "react";

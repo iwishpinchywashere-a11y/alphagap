@@ -91,9 +91,9 @@ export interface AdminAffiliateEntry {
   totalSignups: number;
   proSubs: number;
   premiumSubs: number;
-  totalEarned: number;    // cents — paid commissions
-  pendingEarned: number;  // cents — pending commissions
-  monthlyEarnings: number; // cents — last 30 days
+  totalEarned: number;    // cents - paid commissions
+  pendingEarned: number;  // cents - pending commissions
+  monthlyEarnings: number; // cents - last 30 days
   payoutsEnabled: boolean;
   hasStripeConnect: boolean;
   joinedAt: string;

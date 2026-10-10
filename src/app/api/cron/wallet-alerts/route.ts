@@ -165,7 +165,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: true, message: "No users with active wallet alerts" });
   }
 
-  // Build netuid → subnet name map from the scan blob — zero TaoStats calls
+  // Build netuid → subnet name map from the scan blob - zero TaoStats calls
   // (best-effort; falls back to "SNxx")
   const subnetNames = new Map<number, string>();
   try {
@@ -173,7 +173,7 @@ export async function GET(req: NextRequest) {
     for (const s of scan?.leaderboard ?? []) {
       if (s.netuid != null && s.name) subnetNames.set(s.netuid, s.name);
     }
-  } catch { /* non-fatal — alerts still send without names */ }
+  } catch { /* non-fatal - alerts still send without names */ }
 
   // ── Pass 2: collect unique addresses across all users ────────────
   const allAddresses = new Set<string>();
@@ -215,7 +215,7 @@ export async function GET(req: NextRequest) {
         if (processed.has(hash)) continue; // already alerted
 
         const usdValue = parseFloat(ev.usd ?? "0") || 0;
-        // Do NOT mark as processed when below threshold — if the user lowers
+        // Do NOT mark as processed when below threshold - if the user lowers
         // their minimum later this event should still be deliverable.
         if (usdValue < u.minUsd) continue;
 
@@ -254,6 +254,6 @@ export async function GET(req: NextRequest) {
   state.updatedAt = new Date().toISOString();
   await writeBlob(stateKey, state);
 
-  console.log(`[wallet-alerts] Done — ${alertsSent} alerts sent`);
+  console.log(`[wallet-alerts] Done - ${alertsSent} alerts sent`);
   return NextResponse.json({ ok: true, uniqueWallets: allAddresses.size, totalEvents, alertsSent });
 }

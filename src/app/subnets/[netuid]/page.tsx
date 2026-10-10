@@ -130,7 +130,7 @@ function taoPageSlug(netuid: number, name: string): string {
     .replace(/^-+|-+$/g, "") || `sn${netuid}`;
 }
 
-// ── Shared crosshair helper (SVG lines + dot only — no text) ─────
+// ── Shared crosshair helper (SVG lines + dot only - no text) ─────
 // The tooltip text is rendered as an HTML overlay outside the SVG so it
 // isn't squished by preserveAspectRatio="none" on mobile screens.
 function Crosshair({
@@ -232,7 +232,7 @@ function PriceChart({ data, color }: { data: PricePoint[]; color: string }) {
         </div>
       )}
 
-      {/* Y labels left, chart right — HTML labels don't squish on mobile */}
+      {/* Y labels left, chart right - HTML labels don't squish on mobile */}
       <div className="flex items-stretch gap-1.5">
         {/* Y-axis labels */}
         <div className="flex flex-col justify-between py-[8px] shrink-0 w-12 text-right">
@@ -252,7 +252,7 @@ function PriceChart({ data, color }: { data: PricePoint[]; color: string }) {
                 <stop offset="100%" stopColor={color} stopOpacity="0.01" />
               </linearGradient>
             </defs>
-            {/* Grid lines only — no SVG text */}
+            {/* Grid lines only - no SVG text */}
             {yTicks.map((v, i) => (
               <line key={i} x1={PAD.left} y1={yS(v).toFixed(1)} x2={PAD.left + cW} y2={yS(v).toFixed(1)}
                 stroke="#1f2937" strokeWidth="1" />
@@ -311,7 +311,7 @@ function ScoreChart({ data, color, label, formatY = (v: number) => v.toFixed(0),
 
   // ── Dimensions ────────────────────────────────────────────────────
   // Axis labels are rendered as HTML overlays (not SVG text) so they scale
-  // correctly on all screen sizes — SVG text squishes on mobile with
+  // correctly on all screen sizes - SVG text squishes on mobile with
   // preserveAspectRatio="none". The SVG itself has no left/bottom padding;
   // the parent container reserves space via CSS margins/padding.
   const W = 600; const H = 120;
@@ -322,7 +322,7 @@ function ScoreChart({ data, color, label, formatY = (v: number) => v.toFixed(0),
   if (data.length < 2) {
     return (
       <div className="flex flex-col items-center justify-center h-32 gap-1">
-        <span className="text-gray-600 text-xs text-center">No history yet — chart builds<br />with each scan (~30 min)</span>
+        <span className="text-gray-600 text-xs text-center">No history yet - chart builds<br />with each scan (~30 min)</span>
       </div>
     );
   }
@@ -390,14 +390,14 @@ function ScoreChart({ data, color, label, formatY = (v: number) => v.toFixed(0),
 
       {/* Chart area: Y labels left, SVG right */}
       <div className="flex items-stretch gap-1">
-        {/* Y-axis labels — HTML so they don't squish on mobile */}
+        {/* Y-axis labels - HTML so they don't squish on mobile */}
         <div className="flex flex-col justify-between py-[10px] shrink-0 w-8 text-right">
           {[...yTicks].reverse().map((v, i) => (
             <span key={i} className="text-[10px] leading-none text-gray-600">{formatY(v)}</span>
           ))}
         </div>
 
-        {/* SVG chart — no left/bottom padding needed, labels are HTML */}
+        {/* SVG chart - no left/bottom padding needed, labels are HTML */}
         <div className="flex-1 min-w-0">
           <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`} className="w-full cursor-crosshair select-none"
             style={{ height: "120px", display: "block" }} preserveAspectRatio="none"
@@ -409,7 +409,7 @@ function ScoreChart({ data, color, label, formatY = (v: number) => v.toFixed(0),
                 <stop offset="100%" stopColor={color} stopOpacity="0.02" />
               </linearGradient>
             </defs>
-            {/* Horizontal grid lines only — no SVG text */}
+            {/* Horizontal grid lines only - no SVG text */}
             {yTicks.map((v, i) => (
               <line key={i} x1={PAD.left} y1={yS(v).toFixed(1)} x2={PAD.left + cW} y2={yS(v).toFixed(1)}
                 stroke="#1f2937" strokeWidth="1" />
@@ -424,7 +424,7 @@ function ScoreChart({ data, color, label, formatY = (v: number) => v.toFixed(0),
             )}
           </svg>
 
-          {/* X-axis labels — HTML so they don't squish on mobile */}
+          {/* X-axis labels - HTML so they don't squish on mobile */}
           <div className="flex justify-between mt-0.5">
             {xLabelIdxs.map((idx, i) => (
               <span key={i} className="text-[10px] leading-none text-gray-600">
@@ -515,7 +515,7 @@ function TaoFlowChart({ allData }: { allData: { x: string; y: number }[] }) {
 
   const values = data.map(d => d.y);
   const minV = Math.min(...values); const maxV = Math.max(...values);
-  // Ensure zero is always visible — expand range to include 0
+  // Ensure zero is always visible - expand range to include 0
   const yMin = Math.min(minV, 0) - Math.abs(maxV - minV) * 0.08;
   const yMax = Math.max(maxV, 0) + Math.abs(maxV - minV) * 0.08;
   const range = yMax - yMin || 1;
@@ -595,7 +595,7 @@ function TaoFlowChart({ allData }: { allData: { x: string; y: number }[] }) {
                 <line key={i} x1={PAD.left} y1={yS(v).toFixed(1)} x2={PAD.left + cW} y2={yS(v).toFixed(1)}
                   stroke="#1f2937" strokeWidth="1" />
               ))}
-              {/* Zero baseline — always visible */}
+              {/* Zero baseline - always visible */}
               <line x1={PAD.left} y1={zeroY} x2={PAD.left + cW} y2={zeroY}
                 stroke="#374151" strokeWidth="1.5" strokeDasharray="4 3" />
               <polygon points={area} fill={`url(#flowGrad)`} />
@@ -645,7 +645,7 @@ export default function SubnetDetailPage({ params }: { params: Promise<{ netuid:
   const [error, setError] = useState<string | null>(null);
   const [timeframe, setTimeframe] = useState<Timeframe>("1M");
 
-  // ── Watchlist (self-contained — subnet page is outside the dashboard layout) ──
+  // ── Watchlist (self-contained - subnet page is outside the dashboard layout) ──
   const [watchlist, setWatchlist] = useState<Set<number>>(new Set());
   const [watchlistBusy, setWatchlistBusy] = useState(false);
   const [watchlistError, setWatchlistError] = useState<string | null>(null);
@@ -667,7 +667,7 @@ export default function SubnetDetailPage({ params }: { params: Promise<{ netuid:
         ? await fetch(`/api/watchlist?netuid=${id}`, { method: "DELETE" })
         : await fetch("/api/watchlist", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ netuid: Number(id) }) });
       if (!r.ok) {
-        // Revert optimistic update — save failed
+        // Revert optimistic update - save failed
         setWatchlist(prev => { const next = new Set(prev); watching ? next.add(id) : next.delete(id); return next; });
         const err = await r.json().catch(() => ({}));
         setWatchlistError(err?.error || `Error ${r.status}`);
@@ -682,7 +682,7 @@ export default function SubnetDetailPage({ params }: { params: Promise<{ netuid:
     } catch {
       // Revert on network error
       setWatchlist(prev => { const next = new Set(prev); watching ? next.add(id) : next.delete(id); return next; });
-      setWatchlistError("Network error — try again");
+      setWatchlistError("Network error - try again");
     } finally {
       setWatchlistBusy(false);
     }
@@ -870,7 +870,7 @@ export default function SubnetDetailPage({ params }: { params: Promise<{ netuid:
           {/* ── LEFT: Price chart + scores ───────────────────────── */}
           <div className="space-y-5">
 
-            {/* Header — intentionally minimal (logo · SN · name) so mobile
+            {/* Header - intentionally minimal (logo · SN · name) so mobile
                 screenshots of the chart are clean and shareable; every action
                 and link lives in the row below the chart */}
             <div className="ag-glass p-5 flex items-center gap-4">
@@ -887,7 +887,7 @@ export default function SubnetDetailPage({ params }: { params: Promise<{ netuid:
             <div className="ag-glass p-5">
               <div className="flex items-end gap-4 mb-1">
                 <span className="font-display text-4xl md:text-5xl font-semibold tracking-[-0.02em] text-white tabular-nums">
-                  {ms ? fmtPrice(ms.priceUsd) : "—"}
+                  {ms ? fmtPrice(ms.priceUsd) : "-"}
                 </span>
                 {ms && (
                   <div className="flex items-center gap-3 mb-1">
@@ -1046,7 +1046,7 @@ export default function SubnetDetailPage({ params }: { params: Promise<{ netuid:
                     <ScoreChart data={d} color={color} label={label} formatY={formatY} />
                   </div>
                 ))}
-                {/* aGap Rank chart — inverted y-axis, rank 1 = top */}
+                {/* aGap Rank chart - inverted y-axis, rank 1 = top */}
                 <div className="ag-glass p-3">
                   <div className="flex items-center justify-between mb-2">
                     <div>
@@ -1054,7 +1054,7 @@ export default function SubnetDetailPage({ params }: { params: Promise<{ netuid:
                       <span className="text-[10px] text-gray-600 ml-1.5">best rank per day</span>
                     </div>
                     <span className="font-display text-lg font-semibold tabular-nums text-amber-400">
-                      {currentRank != null ? `#${currentRank}` : "—"}
+                      {currentRank != null ? `#${currentRank}` : "-"}
                     </span>
                   </div>
                   <ScoreChart
@@ -1084,7 +1084,7 @@ export default function SubnetDetailPage({ params }: { params: Promise<{ netuid:
                   <div>
                     <h2 className="font-mono text-[11px] font-semibold text-gray-500 uppercase tracking-[0.16em]">Emission Trajectory</h2>
                     <p className="text-xs text-gray-500 mt-0.5">
-                      This subnet&apos;s share of total TAO emissions over time. Rising emissions = network is rewarding this subnet more heavily — often a leading indicator of price action.
+                      This subnet&apos;s share of total TAO emissions over time. Rising emissions = network is rewarding this subnet more heavily - often a leading indicator of price action.
                     </p>
                   </div>
                   <div className="text-right flex-shrink-0 ml-4">
@@ -1177,7 +1177,7 @@ export default function SubnetDetailPage({ params }: { params: Promise<{ netuid:
                       <p className="text-sm text-emerald-400/90 mt-1.5">{bench.perf_delta}</p>
                     </div>
                   </div>
-                  <p className="text-sm text-gray-400 leading-relaxed mt-3">{bench.benchmark_summary}</p>
+                  <p className="text-sm text-gray-400 leading-relaxed mt-3">{bench.benchmark_summary.split(" CAVEATS:")[0].split(" AUDIT:")[0]}</p>
                   {(bench.dashboards?.length ?? 0) > 0 && (
                     <div className="flex flex-wrap gap-2 mt-3">
                       {(bench.dashboards ?? []).map((d, i) => (
@@ -1189,7 +1189,7 @@ export default function SubnetDetailPage({ params }: { params: Promise<{ netuid:
                     </div>
                   )}
                   <div className="font-mono text-[10px] text-gray-600 uppercase tracking-[0.16em] mt-4">
-                    Last verified {bench.last_updated}
+                    Product research, Aug 2026. Revenue and buybacks on the Revenue &amp; Valuations page.
                   </div>
                 </div>
               </div>
@@ -1321,17 +1321,17 @@ export default function SubnetDetailPage({ params }: { params: Promise<{ netuid:
             {/* Market data */}
             <div className="ag-glass p-3.5">
               <div className="font-mono text-[10px] font-semibold text-gray-500 uppercase tracking-[0.16em] mb-2">Market Data</div>
-              <StatItem label="Market Cap" value={ms ? fmtUsd(ms.marketCapUsd) : "—"} />
-              <StatItem label="FDV" value={ms ? fmtUsd(ms.fdvUsd) : "—"} />
-              <StatItem label="24h Volume" value={ms ? fmtUsd(ms.volume24hUsd) : "—"} />
+              <StatItem label="Market Cap" value={ms ? fmtUsd(ms.marketCapUsd) : "-"} />
+              <StatItem label="FDV" value={ms ? fmtUsd(ms.fdvUsd) : "-"} />
+              <StatItem label="24h Volume" value={ms ? fmtUsd(ms.volume24hUsd) : "-"} />
               {/* Trade counts only exist in TaoStats. When it has none (null),
                   hide the row instead of showing "0 / 0", which reads as a dead market. */}
               {ms && ms.buys24h != null && ms.sells24h != null && (ms.buys24h > 0 || ms.sells24h > 0) && (
                 <StatItem label="Buys / Sells" value={`${ms.buys24h} / ${ms.sells24h}`} sub="24h" />
               )}
-              <StatItem label="Circ. Supply" value={ms ? fmtNum(ms.circulatingSupply) : "—"} />
-              <StatItem label="In Pool" value={ms ? fmtNum(ms.alphaInPool) : "—"} />
-              <StatItem label="Staked" value={ms ? fmtNum(ms.alphaStaked) : "—"} />
+              <StatItem label="Circ. Supply" value={ms ? fmtNum(ms.circulatingSupply) : "-"} />
+              <StatItem label="In Pool" value={ms ? fmtNum(ms.alphaInPool) : "-"} />
+              <StatItem label="Staked" value={ms ? fmtNum(ms.alphaStaked) : "-"} />
             </div>
 
             {/* Fear & Greed */}
@@ -1373,7 +1373,7 @@ export default function SubnetDetailPage({ params }: { params: Promise<{ netuid:
               <StatItem label="Validators" value={String(data.metagraph.validators)} />
               <StatItem label="Miners" value={String(data.metagraph.miners)} />
               <StatItem label="Neurons" value={String(data.metagraph.totalNeurons)} />
-              <StatItem label="Emission" value={emissionPct > 0 ? `${(emissionPct * 100).toFixed(2)}%` : "—"} />
+              <StatItem label="Emission" value={emissionPct > 0 ? `${(emissionPct * 100).toFixed(2)}%` : "-"} />
             </div>
 
             {data.lastScan && (
@@ -1387,7 +1387,7 @@ export default function SubnetDetailPage({ params }: { params: Promise<{ netuid:
 
       {/* Footer */}
       <footer className="border-t border-white/[0.08] px-6 py-3 flex flex-wrap items-center justify-between gap-3 text-xs text-gray-600">
-        <span>AlphaGap v0.3 — Bittensor Subnet Intelligence</span>
+        <span>AlphaGap v0.3 - Bittensor Subnet Intelligence</span>
         <SocialLinks />
       </footer>
     </div>

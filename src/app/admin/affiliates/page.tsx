@@ -156,7 +156,7 @@ export default function AdminAffiliatesPage() {
               <span className="text-gray-600 text-sm">/</span>
               <span className="text-sm font-semibold text-purple-400">Affiliates</span>
             </div>
-            <p className="text-gray-500 text-sm">Referral commission program — {affiliates.length} affiliate{affiliates.length !== 1 ? "s" : ""}</p>
+            <p className="text-gray-500 text-sm">Referral commission program - {affiliates.length} affiliate{affiliates.length !== 1 ? "s" : ""}</p>
           </div>
           <div className="flex items-center gap-3">
             <Link
@@ -241,7 +241,7 @@ export default function AdminAffiliatesPage() {
               )}
               {repairResult.usersChecked?.map((u: { email: string; referredBy: string; commissionsAdded: number; invoicesFound: number; issue?: string }, i: number) => (
                 <div key={i} className="mt-2 text-xs text-gray-400 font-mono">
-                  {u.email} (via {u.referredBy}) — {u.invoicesFound} invoice(s), {u.commissionsAdded} commission(s) added
+                  {u.email} (via {u.referredBy}) - {u.invoicesFound} invoice(s), {u.commissionsAdded} commission(s) added
                   {u.issue && <span className="text-yellow-500"> ⚠ {u.issue}</span>}
                 </div>
               ))}
@@ -262,7 +262,7 @@ export default function AdminAffiliatesPage() {
                   ? `Webhook OK · invoice.payment_succeeded enabled · ${diag.webhookStatus.url}`
                   : diag.webhookStatus?.error
                     ? `Webhook check failed: ${diag.webhookStatus.error}`
-                    : `invoice.payment_succeeded NOT in webhook events — commissions will never fire! Add it in Stripe Dashboard.`
+                    : `invoice.payment_succeeded NOT in webhook events - commissions will never fire! Add it in Stripe Dashboard.`
                 }
               </div>
 
@@ -286,7 +286,7 @@ export default function AdminAffiliatesPage() {
 
               {diag.totalMissed > 0 && (
                 <p className="mt-3 text-sm text-yellow-400">
-                  Found {diag.totalMissed} attribution(s) with missed commissions — click <strong>Repair & Pay</strong> to backfill them.
+                  Found {diag.totalMissed} attribution(s) with missed commissions - click <strong>Repair & Pay</strong> to backfill them.
                 </p>
               )}
               {diag.totalMissed === 0 && diag.attributions.length > 0 && (
@@ -385,7 +385,7 @@ export default function AdminAffiliatesPage() {
                             {a.referralCode}
                           </span>
                         ) : (
-                          <span className="text-xs text-gray-600">—</span>
+                          <span className="text-xs text-gray-600">-</span>
                         )}
                       </td>
 

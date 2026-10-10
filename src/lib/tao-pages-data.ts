@@ -1,7 +1,7 @@
 /**
  * Curated SEO content for TAO Pages (/taopages/[slug])
  * Each entry contains rich, plain-English descriptions written for
- * anyone — zero crypto or AI knowledge required.
+ * anyone - zero crypto or AI knowledge required.
  */
 
 export type SubnetType =
@@ -48,7 +48,7 @@ export const TAO_PAGES_SUBNETS: TaoPageSubnet[] = [
     problem:
       "Running AI in production is expensive and complicated. You either pay for idle GPU capacity around the clock or deal with slow cold-start times that frustrate users. Most developers and startups simply can't afford to deploy their AI models at real scale.",
     differentiator:
-      "Chutes uses Bittensor's incentive layer to continuously attract the cheapest, most available GPU compute worldwide. With 400,000+ users and 100 billion tokens processed every day, it's one of the most widely used real applications built on Bittensor — and it costs 85% less than AWS.",
+      "Chutes uses Bittensor's incentive layer to continuously attract the cheapest, most available GPU compute worldwide. With 400,000+ users and 100 billion tokens processed every day, it's one of the most widely used real applications built on Bittensor - and it costs 85% less than AWS.",
     keywords: [
       "serverless AI compute",
       "GPU inference marketplace",
@@ -68,9 +68,9 @@ export const TAO_PAGES_SUBNETS: TaoPageSubnet[] = [
     tagline: "Run AI so private even the server can't read your data",
     mainstream: "OpenAI API (but with cryptographic privacy guarantees)",
     problem:
-      "Most AI APIs can see everything you send them — your questions, your documents, your proprietary business data. For hospitals, law firms, and any company handling sensitive information, that's a dealbreaker. Switching to open-source models still requires trusting whoever runs the servers.",
+      "Most AI APIs can see everything you send them - your questions, your documents, your proprietary business data. For hospitals, law firms, and any company handling sensitive information, that's a dealbreaker. Switching to open-source models still requires trusting whoever runs the servers.",
     differentiator:
-      "Targon (by Manifold Labs) runs AI inside Intel TDX and AMD SEV trusted execution environments — hardware-level cryptographic enclaves where even the server operator can't read your data. With $70M+ in NVIDIA hardware (H200s, L40s), 1,500+ GPU nodes, ~$100K/month in real revenue, and a $10.5M Series A raised in August 2025, it's one of the most commercially validated subnets in the entire Bittensor ecosystem.",
+      "Targon (by Manifold Labs) runs AI inside Intel TDX and AMD SEV trusted execution environments - hardware-level cryptographic enclaves where even the server operator can't read your data. With $70M+ in NVIDIA hardware (H200s, L40s), 1,500+ GPU nodes, ~$100K/month in real revenue, and a $10.5M Series A raised in August 2025, it's one of the most commercially validated subnets in the entire Bittensor ecosystem.",
     keywords: [
       "private AI inference",
       "confidential computing AI",
@@ -91,7 +91,7 @@ export const TAO_PAGES_SUBNETS: TaoPageSubnet[] = [
     problem:
       "Almost all AI model evaluations are run by the companies that built the models. There's an obvious incentive to inflate scores and hide weaknesses. Single-lab evaluations can also miss blind spots that a diverse group of evaluators would catch.",
     differentiator:
-      "Affine coordinates multiple independent teams who evaluate AI models simultaneously without being able to compare notes or coordinate results. The outcome is an unbiased, multi-perspective assessment that's far more trustworthy than any single lab's review — like having ten independent auditors instead of one.",
+      "Affine coordinates multiple independent teams who evaluate AI models simultaneously without being able to compare notes or coordinate results. The outcome is an unbiased, multi-perspective assessment that's far more trustworthy than any single lab's review - like having ten independent auditors instead of one.",
     keywords: [
       "AI model evaluation",
       "independent AI benchmarking",
@@ -107,12 +107,12 @@ export const TAO_PAGES_SUBNETS: TaoPageSubnet[] = [
     name: "Lium",
     category: "GPU Compute",
     subnetType: "Compute",
-    tagline: "AI-grade GPUs at 90% off — no waiting list, no enterprise contract",
+    tagline: "AI-grade GPUs at 90% off - no waiting list, no enterprise contract",
     mainstream: "RunPod or Vast.ai",
     problem:
       "High-performance GPU compute is expensive and bottlenecked by a handful of big cloud providers. AI researchers, startups, and independent developers are routinely priced out of the hardware they need. Waiting lists and opaque pricing make planning nearly impossible.",
     differentiator:
-      "Lium delivers AI-grade GPUs at 90% less cost than RunPod or Vast.ai, with comparable or better performance benchmarks. Because GPU providers compete continuously on the Bittensor network, prices stay low and quality stays high — not as a promise, but as a structural outcome.",
+      "Lium delivers AI-grade GPUs at 90% less cost than RunPod or Vast.ai, with comparable or better performance benchmarks. Because GPU providers compete continuously on the Bittensor network, prices stay low and quality stays high - not as a promise, but as a structural outcome.",
     keywords: [
       "cheap GPU rental",
       "AI compute marketplace",
@@ -133,7 +133,7 @@ export const TAO_PAGES_SUBNETS: TaoPageSubnet[] = [
     problem:
       "Talented traders can't access real capital without joining a traditional prop firm that takes large cuts and imposes restrictive rules. The evaluation process is expensive, the terms are opaque, and disputes have no neutral arbiter.",
     differentiator:
-      "Vanta is the first decentralized, trustless prop trading infrastructure. Prove your strategy works, get access to a funded account, and keep 100% of profits. All performance is verified on-chain — no disputes, no hidden rules, no middleman taking a cut.",
+      "Vanta is the first decentralized, trustless prop trading infrastructure. Prove your strategy works, get access to a funded account, and keep 100% of profits. All performance is verified on-chain - no disputes, no hidden rules, no middleman taking a cut.",
     keywords: [
       "decentralized prop trading",
       "funded trader program",
@@ -149,12 +149,12 @@ export const TAO_PAGES_SUBNETS: TaoPageSubnet[] = [
     name: "Ridges",
     category: "AI Dev Tools",
     subnetType: "Tools",
-    tagline: "AI agents that actually close GitHub issues — not just autocomplete",
+    tagline: "AI agents that actually close GitHub issues - not just autocomplete",
     mainstream: "GitHub Copilot or Devin (Cognition AI)",
     problem:
-      "AI coding tools generate code snippets, but they don't actually solve problems. Real software development requires understanding a codebase, writing tests, running them, and iterating until the issue is resolved — not just suggesting the next line of code.",
+      "AI coding tools generate code snippets, but they don't actually solve problems. Real software development requires understanding a codebase, writing tests, running them, and iterating until the issue is resolved - not just suggesting the next line of code.",
     differentiator:
-      "Ridges agents are benchmarked against real GitHub issues and SWE-bench — the gold standard for AI software engineering — not toy puzzles. At $10/month versus $200+/year for GitHub Copilot, it costs a fraction of the price while solving far more complex tasks.",
+      "Ridges agents are benchmarked against real GitHub issues and SWE-bench - the gold standard for AI software engineering - not toy puzzles. At $10/month versus $200+/year for GitHub Copilot, it costs a fraction of the price while solving far more complex tasks.",
     keywords: [
       "AI coding agent",
       "GitHub issue solver",
@@ -171,12 +171,12 @@ export const TAO_PAGES_SUBNETS: TaoPageSubnet[] = [
     name: "Score",
     category: "Computer Vision",
     subnetType: "Tools",
-    tagline: "Full match analytics in 2 minutes for $10 — for any team in the world",
+    tagline: "Full match analytics in 2 minutes for $10 - for any team in the world",
     mainstream: "Second Spectrum or Hawk-Eye (pro sports tracking)",
     problem:
-      "Advanced sports analytics — player tracking, movement heat maps, tactical breakdowns — costs tens of thousands of dollars per team annually. Only elite professional clubs can afford it. Grassroots teams, academies, and semi-pro leagues are completely locked out.",
+      "Advanced sports analytics - player tracking, movement heat maps, tactical breakdowns - costs tens of thousands of dollars per team annually. Only elite professional clubs can afford it. Grassroots teams, academies, and semi-pro leagues are completely locked out.",
     differentiator:
-      "Score analyzes a full 90-minute match in under 2 minutes for $10, tracking every player's position, speed, and movement throughout the game. This makes professional-grade sports analytics accessible to any team at any level — from Sunday league to the first division.",
+      "Score analyzes a full 90-minute match in under 2 minutes for $10, tracking every player's position, speed, and movement throughout the game. This makes professional-grade sports analytics accessible to any team at any level - from Sunday league to the first division.",
     keywords: [
       "AI sports analytics",
       "computer vision football",
@@ -192,12 +192,12 @@ export const TAO_PAGES_SUBNETS: TaoPageSubnet[] = [
     name: "Iota",
     category: "AI Model Training",
     subnetType: "Training",
-    tagline: "Train frontier AI models from your laptop — no PhD required",
+    tagline: "Train frontier AI models from your laptop - no PhD required",
     mainstream: "SETI@home or Folding@home (but building AI instead of searching for aliens)",
     problem:
       "Training frontier AI models costs hundreds of millions of dollars and is only possible for OpenAI, Google, and a handful of other companies. The rest of the world uses whatever those companies decide to release. There has never been a permissionless way to participate in building foundational AI.",
     differentiator:
-      "IOTA (Incentivised Orchestrated Training Architecture, by Macrocosmos) uses pipeline-parallel training to distribute model layers across miners, streaming activations between them — enabling model sizes that exceed any single GPU's VRAM. A 'Train at Home' initiative lets consumer GPU owners contribute with zero ML knowledge required. Model size scales with the number of participants, not individual VRAM, making it adversarially robust even with untrusted nodes.",
+      "IOTA (Incentivised Orchestrated Training Architecture, by Macrocosmos) uses pipeline-parallel training to distribute model layers across miners, streaming activations between them - enabling model sizes that exceed any single GPU's VRAM. A 'Train at Home' initiative lets consumer GPU owners contribute with zero ML knowledge required. Model size scales with the number of participants, not individual VRAM, making it adversarially robust even with untrusted nodes.",
     keywords: [
       "distributed AI training",
       "decentralized LLM training",
@@ -214,12 +214,12 @@ export const TAO_PAGES_SUBNETS: TaoPageSubnet[] = [
     name: "Hippius",
     category: "Decentralized Cloud",
     subnetType: "Storage",
-    tagline: "60% cheaper than Amazon S3 — with a public receipt for every file",
+    tagline: "60% cheaper than Amazon S3 - with a public receipt for every file",
     mainstream: "Amazon S3 or Dropbox",
     problem:
-      "Cloud storage is controlled by AWS, Google, and Azure — centralized services that can read your files, shut down your account, and raise prices whenever they want. Developers and businesses have no real alternative that offers comparable reliability and tooling.",
+      "Cloud storage is controlled by AWS, Google, and Azure - centralized services that can read your files, shut down your account, and raise prices whenever they want. Developers and businesses have no real alternative that offers comparable reliability and tooling.",
     differentiator:
-      "Hippius offers decentralized file storage for 60% less than Amazon S3, using familiar developer tools (S3-compatible APIs) so there's no migration overhead. Every storage operation is verifiable on-chain — you can independently confirm your files are intact and exactly what you're paying for.",
+      "Hippius offers decentralized file storage for 60% less than Amazon S3, using familiar developer tools (S3-compatible APIs) so there's no migration overhead. Every storage operation is verifiable on-chain - you can independently confirm your files are intact and exactly what you're paying for.",
     keywords: [
       "decentralized cloud storage",
       "Amazon S3 alternative",
@@ -235,10 +235,10 @@ export const TAO_PAGES_SUBNETS: TaoPageSubnet[] = [
     name: "Gradients",
     category: "AutoML",
     subnetType: "Training",
-    tagline: "Fine-tune AI models for $5/hr — life sciences teams already use it",
+    tagline: "Fine-tune AI models for $5/hr - life sciences teams already use it",
     mainstream: "AWS SageMaker or DataRobot",
     problem:
-      "Fine-tuning AI models for specific industries requires expensive ML engineers and cloud compute that costs $30–60 per hour. Most companies end up using generic off-the-shelf models that don't fit their specific domain — in medicine, finance, or law, that gap really matters.",
+      "Fine-tuning AI models for specific industries requires expensive ML engineers and cloud compute that costs $30–60 per hour. Most companies end up using generic off-the-shelf models that don't fit their specific domain - in medicine, finance, or law, that gap really matters.",
     differentiator:
       "Gradients delivers AI model fine-tuning for $5/hour versus $30–60/hour on AWS, using a competitive network of GPU providers. Life sciences companies are already using it for specialized medical model training that was previously cost-prohibitive. The competitive network structure means price and quality improve over time, not just once.",
     keywords: [
@@ -259,9 +259,9 @@ export const TAO_PAGES_SUBNETS: TaoPageSubnet[] = [
     tagline: "Scanning 65 billion molecules to find the next medicine",
     mainstream: "Schrödinger or Insilico Medicine (computational drug discovery)",
     problem:
-      "Drug discovery takes 12+ years and costs $2.6 billion per approved drug. The biggest bottleneck is the computational experimentation phase — running molecular simulations to identify which of billions of candidate molecules are worth testing in a lab. Only major pharmaceutical companies can afford this.",
+      "Drug discovery takes 12+ years and costs $2.6 billion per approved drug. The biggest bottleneck is the computational experimentation phase - running molecular simulations to identify which of billions of candidate molecules are worth testing in a lab. Only major pharmaceutical companies can afford this.",
     differentiator:
-      "Nova (MetaNova Labs) screens 65 billion drug molecules to identify the most promising candidates, with 79% greater accuracy than previous methods. By distributing the compute across the Bittensor network, it makes pharmaceutical-grade molecular modeling accessible to any research team — not just the ones with supercomputers.",
+      "Nova (MetaNova Labs) screens 65 billion drug molecules to identify the most promising candidates, with 79% greater accuracy than previous methods. By distributing the compute across the Bittensor network, it makes pharmaceutical-grade molecular modeling accessible to any research team - not just the ones with supercomputers.",
     keywords: [
       "drug discovery AI",
       "molecular docking simulation",
@@ -281,9 +281,9 @@ export const TAO_PAGES_SUBNETS: TaoPageSubnet[] = [
     tagline: "Type a description. Get a 3D model. Print it or build with it.",
     mainstream: "Meshy AI or Luma AI (3D generation tools)",
     problem:
-      "Creating 3D assets is extremely expensive — a single professional 3D model can cost thousands of dollars and weeks of work. Game studios, architects, VR developers, and e-commerce businesses are constantly bottlenecked by the cost and time of 3D content production.",
+      "Creating 3D assets is extremely expensive - a single professional 3D model can cost thousands of dollars and weeks of work. Game studios, architects, VR developers, and e-commerce businesses are constantly bottlenecked by the cost and time of 3D content production.",
     differentiator:
-      "404—GEN built the world's largest open-source 3D dataset with over 21 million models. A competitive network of AI generators keeps quality continuously improving through Bittensor's incentive model. The result is a text-to-3D pipeline that produces print-ready and game-ready models on demand, for a fraction of traditional production cost.",
+      "404-GEN built the world's largest open-source 3D dataset with over 21 million models. A competitive network of AI generators keeps quality continuously improving through Bittensor's incentive model. The result is a text-to-3D pipeline that produces print-ready and game-ready models on demand, for a fraction of traditional production cost.",
     keywords: [
       "AI 3D model generation",
       "text to 3D model",
@@ -299,12 +299,12 @@ export const TAO_PAGES_SUBNETS: TaoPageSubnet[] = [
   name: "Apex",
   category: "AI Competition Platform",
   subnetType: "Tools",
-  tagline: "Game-theoretic AI competitions where any algorithm can win — on-chain, every round",
+  tagline: "Game-theoretic AI competitions where any algorithm can win - on-chain, every round",
   mainstream: "Kaggle, ARC Prize, or OpenAI Evals",
   problem:
     "There is no open, on-chain competitive arena for algorithm and agent development that rewards genuine innovation on arbitrary problem domains. Kaggle competitions are centralized and infrequent; academic benchmarks don't pay out.",
   differentiator:
-    "Apex (by Macrocosmos) has evolved into a modular competition platform where miners submit Python-based algorithms evaluated across diverse problem domains in competitive Rounds. Apex 3.0 outsources inference to Chutes (SN64) and web retrieval to Data Universe (SN13), making it a hub in the Bittensor ecosystem. Any algorithmic or agentic task can be hosted — miners earn TAO for winning, not just participating.",
+    "Apex (by Macrocosmos) has evolved into a modular competition platform where miners submit Python-based algorithms evaluated across diverse problem domains in competitive Rounds. Apex 3.0 outsources inference to Chutes (SN64) and web retrieval to Data Universe (SN13), making it a hub in the Bittensor ecosystem. Any algorithmic or agentic task can be hosted - miners earn TAO for winning, not just participating.",
   keywords: [
     "AI competition platform",
     "algorithm optimization",
@@ -321,12 +321,12 @@ export const TAO_PAGES_SUBNETS: TaoPageSubnet[] = [
   name: "DSperse",
   category: "Zero-Knowledge AI Verification",
   subnetType: "Tools",
-  tagline: "160 million ZK proofs — trustless AI inference you can independently verify",
+  tagline: "160 million ZK proofs - trustless AI inference you can independently verify",
   mainstream: "Modulus Labs, EZKL, or Proof of AI",
   problem:
-    "AI outputs from unknown servers can't be independently verified. Businesses using AI APIs have to trust the provider ran the correct model on the correct input — there is no cryptographic receipt. In regulated industries, healthcare, and financial services, that blind trust is a liability.",
+    "AI outputs from unknown servers can't be independently verified. Businesses using AI APIs have to trust the provider ran the correct model on the correct input - there is no cryptographic receipt. In regulated industries, healthcare, and financial services, that blind trust is a liability.",
   differentiator:
-    "DSperse (formerly Omron) has processed 160 million+ zero-knowledge proofs — making it the world's largest decentralized ZK proving cluster. Every AI inference is accompanied by a cryptographic proof that the computation happened correctly, without revealing the underlying data. Enterprise-focused with a Rust-based Expander ZK backend for high performance.",
+    "DSperse (formerly Omron) has processed 160 million+ zero-knowledge proofs - making it the world's largest decentralized ZK proving cluster. Every AI inference is accompanied by a cryptographic proof that the computation happened correctly, without revealing the underlying data. Enterprise-focused with a Rust-based Expander ZK backend for high performance.",
   keywords: [
     "zero-knowledge proofs AI",
     "verifiable AI inference",
@@ -390,9 +390,9 @@ export const TAO_PAGES_SUBNETS: TaoPageSubnet[] = [
   tagline: "A swarm of competing AI agents that predict the future better than any single model",
   mainstream: "Metaculus, Polymarket, or Good Judgment Project",
   problem:
-    "Single-model forecasting is brittle and overconfident — one AI's prediction is only as good as its training data and assumptions. Geopolitical events, market shocks, and complex social dynamics require diverse perspectives and genuine uncertainty quantification that no single system can provide.",
+    "Single-model forecasting is brittle and overconfident - one AI's prediction is only as good as its training data and assumptions. Geopolitical events, market shocks, and complex social dynamics require diverse perspectives and genuine uncertainty quantification that no single system can provide.",
   differentiator:
-    "Numinous coordinates a competitive swarm of autonomous forecasting agents that analyze geopolitical, financial, and social signals, evaluated using rigorous Brier scoring. It recently launched 'Indicia' — a curated OSINT signal engine fed by X and Liveuamap with timestamps and confidence scores — giving miners real-world intelligence to work with. The competitive pressure between agents produces calibrated predictions that emerge from diversity rather than being imposed by a single model.",
+    "Numinous coordinates a competitive swarm of autonomous forecasting agents that analyze geopolitical, financial, and social signals, evaluated using rigorous Brier scoring. It recently launched 'Indicia' - a curated OSINT signal engine fed by X and Liveuamap with timestamps and confidence scores - giving miners real-world intelligence to work with. The competitive pressure between agents produces calibrated predictions that emerge from diversity rather than being imposed by a single model.",
   keywords: [
     "AI forecasting agents",
     "prediction markets",
@@ -456,9 +456,9 @@ export const TAO_PAGES_SUBNETS: TaoPageSubnet[] = [
   tagline: "The on-chain market for AI agent prompts that actually cut costs",
   mainstream: "PromptLayer, Braintrust, or LangSmith",
   problem:
-    "Deploying AI agents in production is expensive — models burn tokens on verbose instructions, redundant tool calls, and poorly-structured prompts that cost more but perform worse. There has been no competitive market to discover the most cost-efficient agent policies at scale.",
+    "Deploying AI agents in production is expensive - models burn tokens on verbose instructions, redundant tool calls, and poorly-structured prompts that cost more but perform worse. There has been no competitive market to discover the most cost-efficient agent policies at scale.",
   differentiator:
-    "TrajectoryRL runs an on-chain tournament where miners write self-contained 'policy packs' — system prompts, tool rules, and stop conditions — evaluated on safety, cost-efficiency, and task correctness. The cheapest qualifying submission wins, creating a structural incentive to drive LLM agent costs down. No GPU required to mine — just prompt engineering skill.",
+    "TrajectoryRL runs an on-chain tournament where miners write self-contained 'policy packs' - system prompts, tool rules, and stop conditions - evaluated on safety, cost-efficiency, and task correctness. The cheapest qualifying submission wins, creating a structural incentive to drive LLM agent costs down. No GPU required to mine - just prompt engineering skill.",
   keywords: [
     "prompt optimization",
     "AI agent policy",
@@ -497,12 +497,12 @@ export const TAO_PAGES_SUBNETS: TaoPageSubnet[] = [
   name: "Data Universe",
   category: "Decentralized Data",
   subnetType: "Data",
-  tagline: "17 billion items of live social data — the largest open-source social dataset in existence",
+  tagline: "17 billion items of live social data - the largest open-source social dataset in existence",
   mainstream: "Bright Data, Apify, or Common Crawl",
   problem:
-    "High-quality, fresh, large-scale training data is expensive and controlled by a few vendors charging enterprise fees. AI teams especially need recent social media data — Reddit posts, X/Twitter content — but getting it at scale requires expensive commercial contracts.",
+    "High-quality, fresh, large-scale training data is expensive and controlled by a few vendors charging enterprise fees. AI teams especially need recent social media data - Reddit posts, X/Twitter content - but getting it at scale requires expensive commercial contracts.",
   differentiator:
-    "Data Universe (by Macrocosmos) mines 350M+ rows per day from Reddit and X, with 17+ billion total items published on HuggingFace — 10x the size of the previously largest open-source social media dataset. The 'Gravity' marketplace lets customers specify exactly what data they want, miners collect it, and customers pay for verified datasets. It now powers other Bittensor subnets, including GAIA (SN57) for weather signal augmentation.",
+    "Data Universe (by Macrocosmos) mines 350M+ rows per day from Reddit and X, with 17+ billion total items published on HuggingFace - 10x the size of the previously largest open-source social media dataset. The 'Gravity' marketplace lets customers specify exactly what data they want, miners collect it, and customers pay for verified datasets. It now powers other Bittensor subnets, including GAIA (SN57) for weather signal augmentation.",
   keywords: [
     "social media AI data",
     "Reddit training data",
@@ -585,7 +585,7 @@ export const TAO_PAGES_SUBNETS: TaoPageSubnet[] = [
   name: "Zeus",
   category: "Climate Forecasting",
   subnetType: "Science",
-  tagline: "Decentralized climate forecasting — accuracy verified on-chain",
+  tagline: "Decentralized climate forecasting - accuracy verified on-chain",
   mainstream: "The Weather Company (IBM) or Climate Corp",
   problem:
     "Commercial weather and climate forecasting is dominated by centralized providers whose models are expensive, opaque, and inaccessible to smaller businesses, researchers, and developing-world users who need accurate forecasts the most.",
@@ -673,12 +673,12 @@ export const TAO_PAGES_SUBNETS: TaoPageSubnet[] = [
   name: "Desearch",
   category: "AI Search Engine",
   subnetType: "Inference",
-  tagline: "AI-powered search across the entire web — unbiased, verifiable, and uncensored",
+  tagline: "AI-powered search across the entire web - unbiased, verifiable, and uncensored",
   mainstream: "Perplexity AI, You.com, or Bing AI",
   problem:
     "Centralized AI search engines curate results based on advertising relationships and opaque ranking algorithms. Users can't tell if results are being filtered or promoted. For research, journalism, or any high-stakes query, that lack of transparency is a fundamental problem.",
   differentiator:
-    "Desearch is a decentralized AI search engine that returns verifiable results across X, Reddit, Arxiv, Hacker News, Wikipedia, YouTube, and the general web — with no single company controlling rankings. Every result has a traceable source, and the distributed architecture means no government or advertiser can suppress results.",
+    "Desearch is a decentralized AI search engine that returns verifiable results across X, Reddit, Arxiv, Hacker News, Wikipedia, YouTube, and the general web - with no single company controlling rankings. Every result has a traceable source, and the distributed architecture means no government or advertiser can suppress results.",
   keywords: [
     "AI search engine",
     "decentralized search",
@@ -700,7 +700,7 @@ export const TAO_PAGES_SUBNETS: TaoPageSubnet[] = [
   problem:
     "Safety evaluation and red-teaming of frontier models is done behind closed doors by the same labs building the models, with no open, trustless, continuously-incentivized auditing at scale.",
   differentiator:
-    "Automates the safety loop via open competition — miners are economically rewarded for surfacing misaligned behaviors, producing a continuously-updated, decentralized safety benchmark rather than one-off internal audits.",
+    "Automates the safety loop via open competition - miners are economically rewarded for surfacing misaligned behaviors, producing a continuously-updated, decentralized safety benchmark rather than one-off internal audits.",
   keywords: [
     "AI alignment",
     "safety auditing",
@@ -742,9 +742,9 @@ export const TAO_PAGES_SUBNETS: TaoPageSubnet[] = [
   tagline: "Decentralized compute for drug discovery, protein folding, and molecular dynamics",
   mainstream: "Folding@home, D.E. Shaw Research, or Schrödinger",
   problem:
-    "Computational biology workloads — protein folding, molecular dynamics, drug-ligand docking — require enormous GPU clusters that smaller biotech companies and academic research groups simply cannot afford. Life science breakthroughs are being delayed because only the biggest pharmaceutical companies can run the simulations.",
+    "Computational biology workloads - protein folding, molecular dynamics, drug-ligand docking - require enormous GPU clusters that smaller biotech companies and academic research groups simply cannot afford. Life science breakthroughs are being delayed because only the biggest pharmaceutical companies can run the simulations.",
   differentiator:
-    "Mainframe (by Macrocosmos) is Bittensor's DeSci flagship, supporting OpenMM molecular dynamics, DiffDock protein-ligand docking, and neural network potentials via a production partnership with Rowan Scientific. It has evolved from a single-task protein folding subnet into a generalizable platform for any computational biology workload — accessible to any research team worldwide.",
+    "Mainframe (by Macrocosmos) is Bittensor's DeSci flagship, supporting OpenMM molecular dynamics, DiffDock protein-ligand docking, and neural network potentials via a production partnership with Rowan Scientific. It has evolved from a single-task protein folding subnet into a generalizable platform for any computational biology workload - accessible to any research team worldwide.",
   keywords: [
     "drug discovery compute",
     "protein folding AI",
@@ -846,12 +846,12 @@ export const TAO_PAGES_SUBNETS: TaoPageSubnet[] = [
   name: "It's AI",
   category: "AI Content Detection",
   subnetType: "Tools",
-  tagline: "The world's most accurate AI-generated text detector — ranked #1 on MGTD and RAID",
+  tagline: "The world's most accurate AI-generated text detector - ranked #1 on MGTD and RAID",
   mainstream: "GPTZero, Originality.ai, Copyleaks, or Turnitin",
   problem:
-    "AI-generated text is flooding academic institutions, newsrooms, and enterprise environments — and existing detectors are unreliable, easily fooled, and can't keep pace with the pace of new LLM releases. A single wrong accusation can destroy a student's career; a false negative lets AI fraud slide through.",
+    "AI-generated text is flooding academic institutions, newsrooms, and enterprise environments - and existing detectors are unreliable, easily fooled, and can't keep pace with the pace of new LLM releases. A single wrong accusation can destroy a student's career; a false negative lets AI fraud slide through.",
   differentiator:
-    "It's AI ranked #1 on the MGTD benchmark (ICAIE 2025) with 92%+ ROC-AUC and achieves 98.3% accuracy on the RAID benchmark — detecting outputs from 30+ LLMs with adversarial augmentation testing. With 22K+ monthly visits and enterprise pilots running at private schools in the UAE, it's one of the most production-validated AI detection tools available.",
+    "It's AI ranked #1 on the MGTD benchmark (ICAIE 2025) with 92%+ ROC-AUC and achieves 98.3% accuracy on the RAID benchmark - detecting outputs from 30+ LLMs with adversarial augmentation testing. With 22K+ monthly visits and enterprise pilots running at private schools in the UAE, it's one of the most production-validated AI detection tools available.",
   keywords: [
     "AI text detection",
     "LLM detection",
@@ -868,12 +868,12 @@ export const TAO_PAGES_SUBNETS: TaoPageSubnet[] = [
   name: "ReadyAI",
   category: "Data Annotation",
   subnetType: "Data",
-  tagline: "660x cheaper than Mechanical Turk — enterprise-grade data annotation at AI scale",
+  tagline: "660x cheaper than Mechanical Turk - enterprise-grade data annotation at AI scale",
   mainstream: "Scale AI, Appen, or Amazon Mechanical Turk",
   problem:
     "Manual data labeling costs thousands of dollars per hour at Mechanical Turk scale, and quality is inconsistent across contractors. AI companies and enterprises are bottlenecked on the annotated data they need to train and improve their models.",
   differentiator:
-    "ReadyAI uses fine-tuned LLMs to convert unstructured data — transcripts, PDFs, social posts — into AI-ready structured formats, at 660x lower cost than Mechanical Turk and outperforming GPT-4o by 50% on benchmarks. It has a production partnership with Ipsos for survey tagging, proving real enterprise utility beyond the benchmark.",
+    "ReadyAI uses fine-tuned LLMs to convert unstructured data - transcripts, PDFs, social posts - into AI-ready structured formats, at 660x lower cost than Mechanical Turk and outperforming GPT-4o by 50% on benchmarks. It has a production partnership with Ipsos for survey tagging, proving real enterprise utility beyond the benchmark.",
   keywords: [
     "data annotation AI",
     "structured data pipeline",
@@ -890,12 +890,12 @@ export const TAO_PAGES_SUBNETS: TaoPageSubnet[] = [
   name: "BitMind",
   category: "Deepfake Detection",
   subnetType: "Tools",
-  tagline: "Detect AI-generated images in real time — 95% accuracy, browser extension with 150K+ weekly detections",
+  tagline: "Detect AI-generated images in real time - 95% accuracy, browser extension with 150K+ weekly detections",
   mainstream: "Intel FakeCatcher, Microsoft Video Authenticator, or Hive Moderation",
   problem:
-    "Deepfakes are proliferating at scale — fake images in news stories, fake videos of politicians, synthetic media used for fraud and manipulation. Centralized detection tools can't improve fast enough because they rely on a single team of researchers, while deepfake generators improve continuously.",
+    "Deepfakes are proliferating at scale - fake images in news stories, fake videos of politicians, synthetic media used for fraud and manipulation. Centralized detection tools can't improve fast enough because they rely on a single team of researchers, while deepfake generators improve continuously.",
   differentiator:
-    "BitMind (by BitMind AI) has achieved 95% deepfake image detection accuracy across 100+ countries, with a Chrome Extension delivering 150K+ weekly detections and mobile apps on both App Store and Play Store. The competitive miner network — trained against 30+ generative models — has improved detection accuracy by 20%+ since launch purely through decentralized competition.",
+    "BitMind (by BitMind AI) has achieved 95% deepfake image detection accuracy across 100+ countries, with a Chrome Extension delivering 150K+ weekly detections and mobile apps on both App Store and Play Store. The competitive miner network - trained against 30+ generative models - has improved detection accuracy by 20%+ since launch purely through decentralized competition.",
   keywords: [
     "deepfake detection",
     "AI-generated image detection",
@@ -1022,7 +1022,7 @@ export const TAO_PAGES_SUBNETS: TaoPageSubnet[] = [
   name: "Ralph",
   category: "Decentralized AI Research / Model Training",
   subnetType: "Training",
-  tagline: "Decentralized, autonomous AI research — an open, continuously improving training recipe",
+  tagline: "Decentralized, autonomous AI research - an open, continuously improving training recipe",
   mainstream: "Centralized model-training labs / AutoML & hyperparameter search (Google Vizier, HF AutoTrain, closed frontier-lab research)",
   problem:
     "Frontier training know-how is siloed inside closed labs; there's no open, continuously improving, verifiable recipe with published negative results.",
@@ -1069,7 +1069,7 @@ export const TAO_PAGES_SUBNETS: TaoPageSubnet[] = [
   tagline: "Draw the connections that make your data make sense",
   mainstream: "Neo4j or AWS Neptune",
   problem:
-    "Graph databases are powerful for modeling relationships between entities — customers, products, fraud networks — but are notoriously hard to scale and expensive to host. Most teams default to relational databases and miss critical relational insights as a result.",
+    "Graph databases are powerful for modeling relationships between entities - customers, products, fraud networks - but are notoriously hard to scale and expensive to host. Most teams default to relational databases and miss critical relational insights as a result.",
   differentiator:
     "Graphite provides a decentralized graph intelligence layer, distributing graph storage and query processing across Bittensor miners. It automatically discovers and surfaces relationships in your data that traditional databases would miss, at a cost that scales with actual usage.",
   keywords: [
@@ -1198,12 +1198,12 @@ export const TAO_PAGES_SUBNETS: TaoPageSubnet[] = [
   name: "Synth",
   category: "Price Forecasting",
   subnetType: "Finance",
-  tagline: "1,000 simulated price paths per asset — the full probability distribution, not a guess",
+  tagline: "1,000 simulated price paths per asset - the full probability distribution, not a guess",
   mainstream: "Numerai or QuantConnect",
   problem:
-    "Single-point price predictions are dangerously overconfident — they give a number but hide the full range of outcomes. AI agent decision-making in DeFi and trading requires a real probability distribution, not just 'price will go up.'",
+    "Single-point price predictions are dangerously overconfident - they give a number but hide the full range of outcomes. AI agent decision-making in DeFi and trading requires a real probability distribution, not just 'price will go up.'",
   differentiator:
-    "Synth (by Mode Network) generates 1,000 Monte Carlo simulated price paths per asset per request for BTC, ETH, SOL, XAU, and tokenized equities (NVDA, TSLA, AAPL, GOOGL, SPY) — plus XRP, HYPE, and crude oil added in March 2026. Each miner produces a full probability distribution, which is the foundation for genuinely intelligent DeFAI (DeFi AI) systems that make decisions under uncertainty.",
+    "Synth (by Mode Network) generates 1,000 Monte Carlo simulated price paths per asset per request for BTC, ETH, SOL, XAU, and tokenized equities (NVDA, TSLA, AAPL, GOOGL, SPY) - plus XRP, HYPE, and crude oil added in March 2026. Each miner produces a full probability distribution, which is the foundation for genuinely intelligent DeFAI (DeFi AI) systems that make decisions under uncertainty.",
   keywords: [
     "price forecasting AI",
     "Monte Carlo simulation",
@@ -1220,12 +1220,12 @@ export const TAO_PAGES_SUBNETS: TaoPageSubnet[] = [
   name: "Dojo",
   category: "RLHF Data Collection",
   subnetType: "Data",
-  tagline: "Decentralized human feedback data for AI alignment — backed by CZ's fund",
+  tagline: "Decentralized human feedback data for AI alignment - backed by CZ's fund",
   mainstream: "Scale AI RLHF, Prolific, or Surge AI",
   problem:
     "RLHF (Reinforcement Learning from Human Feedback) requires expensive, high-quality human preference data to align AI models with human values. The entire industry depends on a handful of centralized labeling companies, creating both bottlenecks and misaligned incentives.",
   differentiator:
-    "Dojo (by Tensorplex) creates a decentralized network of human contributors who provide preference feedback and alignment data for AI model training. Backed by CZ's BNB Chain fund, it has attracted significant institutional attention as the only crypto-native RLHF data platform — rewarding contributors in TAO while producing the data that makes AI safer and more useful.",
+    "Dojo (by Tensorplex) creates a decentralized network of human contributors who provide preference feedback and alignment data for AI model training. Backed by CZ's BNB Chain fund, it has attracted significant institutional attention as the only crypto-native RLHF data platform - rewarding contributors in TAO while producing the data that makes AI safer and more useful.",
   keywords: [
     "RLHF data collection",
     "human feedback AI",
@@ -1242,12 +1242,12 @@ export const TAO_PAGES_SUBNETS: TaoPageSubnet[] = [
   name: "Engy",
   category: "AI Inference",
   subnetType: "Compute",
-  tagline: "Verified inference for frontier open models — proof you got the model you paid for",
+  tagline: "Verified inference for frontier open models - proof you got the model you paid for",
   mainstream: "OpenAI API, Z.ai, or OpenRouter",
   problem:
-    "When you buy LLM inference from an API, you can't verify what actually served your request. Providers can silently swap in a cheaper quantized model and pocket the difference — and with agentic coding tools burning millions of tokens, nobody would ever know. Trusted-hardware solutions (TEEs) just move the trust to the chip vendor.",
+    "When you buy LLM inference from an API, you can't verify what actually served your request. Providers can silently swap in a cheaper quantized model and pocket the difference - and with agentic coding tools burning millions of tokens, nobody would ever know. Trusted-hardware solutions (TEEs) just move the trust to the chip vendor.",
   differentiator:
-    "Engy, built by Hanlin AI (ex-Google Brain), pins each model's exact weights and quantization via published Merkle roots and attaches a cryptographic activation fingerprint to every response — proof the pinned checkpoint produced your output, with no trusted hardware required. It runs frontier open models like the 753B GLM-5.2 on consumer GPUs at roughly half of first-party pricing, with an OpenAI/Anthropic-compatible API that plugs straight into Claude Code and Cursor.",
+    "Engy, built by Hanlin AI (ex-Google Brain), pins each model's exact weights and quantization via published Merkle roots and attaches a cryptographic activation fingerprint to every response - proof the pinned checkpoint produced your output, with no trusted hardware required. It runs frontier open models like the 753B GLM-5.2 on consumer GPUs at roughly half of first-party pricing, with an OpenAI/Anthropic-compatible API that plugs straight into Claude Code and Cursor.",
   keywords: [
     "verified AI inference",
     "Engy Bittensor",
@@ -1267,9 +1267,9 @@ export const TAO_PAGES_SUBNETS: TaoPageSubnet[] = [
   tagline: "Adversarial synthetic identity data that keeps KYC/AML systems battle-hardened",
   mainstream: "LexisNexis Risk Solutions, Jumio, or Onfido",
   problem:
-    "Financial crime is increasingly sophisticated — synthetic identities, deepfake biometrics, and coordinated fraud attacks exploit weaknesses in KYC/AML systems. Regulators require continuous validation, but generating realistic adversarial test data manually is expensive and slow.",
+    "Financial crime is increasingly sophisticated - synthetic identities, deepfake biometrics, and coordinated fraud attacks exploit weaknesses in KYC/AML systems. Regulators require continuous validation, but generating realistic adversarial test data manually is expensive and slow.",
   differentiator:
-    "Yanez MIID (Modular Identity Intelligence Defense) generates adversarial synthetic identities, deepfake-resistant biometrics, sanctions-variation patterns, and structural adversarial KYC data at scale — for stress-testing and hardening compliance systems. Sitting at the intersection of deepfake proliferation and regulatory pressure, it turns Bittensor's incentive layer into a continuously improving adversarial data factory.",
+    "Yanez MIID (Modular Identity Intelligence Defense) generates adversarial synthetic identities, deepfake-resistant biometrics, sanctions-variation patterns, and structural adversarial KYC data at scale - for stress-testing and hardening compliance systems. Sitting at the intersection of deepfake proliferation and regulatory pressure, it turns Bittensor's incentive layer into a continuously improving adversarial data factory.",
   keywords: [
     "KYC AML defense",
     "synthetic identity AI",
@@ -1355,9 +1355,9 @@ export const TAO_PAGES_SUBNETS: TaoPageSubnet[] = [
   tagline: "Speech-to-speech translation that starts before you finish speaking",
   mainstream: "Google Translate real-time, DeepL, or Meta SeamlessM4T",
   problem:
-    "Traditional speech translation has inherent latency — systems must wait for a complete utterance before translating. For live conversation, conferences, or real-time media, this delay makes the tool frustrating to use. Every fraction of a second of latency breaks the illusion of real-time communication.",
+    "Traditional speech translation has inherent latency - systems must wait for a complete utterance before translating. For live conversation, conferences, or real-time media, this delay makes the tool frustrating to use. Every fraction of a second of latency breaks the illusion of real-time communication.",
   differentiator:
-    "BabelBit uses predictive language modeling to begin translating before an utterance is complete — LLMs can often predict sentence-final verbs from context. Founded by Matthew Karas (25+ years in speech/audio research), it distributes this low-latency inference across Bittensor miners, with competition driving the latency even lower over time.",
+    "BabelBit uses predictive language modeling to begin translating before an utterance is complete - LLMs can often predict sentence-final verbs from context. Founded by Matthew Karas (25+ years in speech/audio research), it distributes this low-latency inference across Bittensor miners, with competition driving the latency even lower over time.",
   keywords: [
     "speech translation AI",
     "low-latency translation",
@@ -1399,7 +1399,7 @@ export const TAO_PAGES_SUBNETS: TaoPageSubnet[] = [
   tagline: "Attack your own system before attackers do",
   mainstream: "HackerOne or Cobalt (bug bounty platforms)",
   problem:
-    "Red team exercises — simulated attacks on your own systems — are expensive and infrequent, typically done once or twice a year by specialized consultants. This leaves long windows where new vulnerabilities introduced in software updates go undetected.",
+    "Red team exercises - simulated attacks on your own systems - are expensive and infrequent, typically done once or twice a year by specialized consultants. This leaves long windows where new vulnerabilities introduced in software updates go undetected.",
   differentiator:
     "RedTeam deploys automated adversarial agents that continuously probe your systems for vulnerabilities, with miners competing to find the highest-severity issues. Organizations get the equivalent of a permanent red team operating around the clock at a fraction of the cost of human consultants.",
   keywords: [
@@ -1443,7 +1443,7 @@ export const TAO_PAGES_SUBNETS: TaoPageSubnet[] = [
   tagline: "Private compute that no one can inspect or censor",
   mainstream: "Mullvad VPN or Tailscale",
   problem:
-    "Sensitive compute workloads — medical records processing, legal document analysis, financial modeling — cannot safely run on shared cloud infrastructure where the provider could theoretically access your data. Private on-premise infrastructure is expensive to build and maintain.",
+    "Sensitive compute workloads - medical records processing, legal document analysis, financial modeling - cannot safely run on shared cloud infrastructure where the provider could theoretically access your data. Private on-premise infrastructure is expensive to build and maintain.",
   differentiator:
     "TAO Private Network routes compute jobs through trusted enclaves in the Bittensor miner network, using hardware-level isolation to guarantee that even the miner processing your job cannot see its contents. Users get cloud-scale private compute without trusting any single provider.",
   keywords: [
@@ -1484,7 +1484,7 @@ export const TAO_PAGES_SUBNETS: TaoPageSubnet[] = [
   name: "Harnyx",
   category: "Deep Research API",
   subnetType: "Inference",
-  tagline: "Deep research as a commodity — deep enough to trust, cheap enough to scale",
+  tagline: "Deep research as a commodity - deep enough to trust, cheap enough to scale",
   mainstream: "OpenAI Deep Research, Perplexity, Google Gemini Deep Research, Exa",
   problem:
     "Deep research is expensive ($1.54-$3.68/query) and slow (5-30 min), while cheap search loses depth and lacks synthesis and citations; agents must stitch many calls together.",
@@ -1619,7 +1619,7 @@ export const TAO_PAGES_SUBNETS: TaoPageSubnet[] = [
   tagline: "Byzantine fault tolerance, built for the real world",
   mainstream: "PagerDuty or Datadog",
   problem:
-    "Distributed systems fail in complex and unexpected ways that single-vendor monitoring tools are not designed to detect. Byzantine failures — where components fail silently or send contradictory signals — are especially hard to diagnose and can cause catastrophic cascading outages.",
+    "Distributed systems fail in complex and unexpected ways that single-vendor monitoring tools are not designed to detect. Byzantine failures - where components fail silently or send contradictory signals - are especially hard to diagnose and can cause catastrophic cascading outages.",
   differentiator:
     "Byzantium deploys a distributed monitoring network that can itself tolerate Byzantine failures, providing trustworthy system health signals even when your infrastructure is partially compromised. Miners cross-validate each other's observations, making the monitoring layer immune to the failures it is designed to detect.",
   keywords: [
@@ -1654,7 +1654,7 @@ export const TAO_PAGES_SUBNETS: TaoPageSubnet[] = [
   ],
 },
 
-// SN78 (Loosh) — deregistered
+// SN78 (Loosh) - deregistered
 
 {
   netuid: 79,
@@ -1719,7 +1719,7 @@ export const TAO_PAGES_SUBNETS: TaoPageSubnet[] = [
   ],
 },
 
-// SN82 (Hermes) — deregistered
+// SN82 (Hermes) - deregistered
 
 {
   netuid: 83,
@@ -1730,7 +1730,7 @@ export const TAO_PAGES_SUBNETS: TaoPageSubnet[] = [
   tagline: "Network science meets artificial intelligence",
   mainstream: "Gephi or NetworkX",
   problem:
-    "Analyzing large network graphs — social networks, biological networks, supply chains — requires specialized algorithms and significant computational resources. Most researchers work with stripped-down samples of their data because full-scale graph analysis is prohibitively slow.",
+    "Analyzing large network graphs - social networks, biological networks, supply chains - requires specialized algorithms and significant computational resources. Most researchers work with stripped-down samples of their data because full-scale graph analysis is prohibitively slow.",
   differentiator:
     "CliqueAI distributes large-scale graph analysis across Bittensor miners, applying AI-enhanced network science algorithms at scales previously only possible on supercomputers. Researchers submit graph datasets and receive comprehensive structural insights in minutes rather than weeks.",
   keywords: [
@@ -1815,7 +1815,7 @@ export const TAO_PAGES_SUBNETS: TaoPageSubnet[] = [
   tagline: "Building the trust layer for AI execution",
   mainstream: "Centralized AI observability / eval & audit-trail platforms (LangSmith, Galileo, Arize)",
   problem:
-    "Agentic AI execution is unverifiable — no standard way to prove an AI workflow actually did the required work correctly, which blocks safe cross-platform agent coordination.",
+    "Agentic AI execution is unverifiable - no standard way to prove an AI workflow actually did the required work correctly, which blocks safe cross-platform agent coordination.",
   differentiator:
     "Turns structured workflow execution into on-chain-scored evidence with predefined requirement contracts; incentivized, multi-miner verification of the same workflow so only verified complete execution earns a high score.",
   keywords: [
@@ -2029,7 +2029,7 @@ export const TAO_PAGES_SUBNETS: TaoPageSubnet[] = [
   name: "Thirty Spokes",
   category: "LLM Router / API Gateway",
   subnetType: "Tools",
-  tagline: "Thirty spokes share one hub — it is the empty space at the center that makes the wheel useful",
+  tagline: "Thirty spokes share one hub - it is the empty space at the center that makes the wheel useful",
   mainstream: "OpenRouter (and to a degree Requesty / Martian model routing)",
   problem:
     "Developers juggle many model providers, keys, and price/quality tradeoffs; a single routing layer that optimizes quality-per-dollar is centralized (OpenRouter) and opaque about routing decisions.",
@@ -2045,7 +2045,7 @@ export const TAO_PAGES_SUBNETS: TaoPageSubnet[] = [
   ],
 },
 
-// SN100 (Plaτform) — first subnet deregistered under Bittensor's 4-month pruning mechanism (late 2025)
+// SN100 (Plaτform) - first subnet deregistered under Bittensor's 4-month pruning mechanism (late 2025)
 
 {
   netuid: 102,
@@ -2080,7 +2080,7 @@ export const TAO_PAGES_SUBNETS: TaoPageSubnet[] = [
   problem:
     "Personal finance management tools provide dashboards and historical reporting but no genuine intelligence about what to do next. Users are left to interpret their own data without access to the sophisticated modeling that financial advisors charge thousands of dollars to provide.",
   differentiator:
-    "Djinn combines your personal financial data with Bittensor-powered AI modeling to generate genuinely personalized financial recommendations — not generic advice, but specific actions tailored to your situation, risk tolerance, and goals.",
+    "Djinn combines your personal financial data with Bittensor-powered AI modeling to generate genuinely personalized financial recommendations - not generic advice, but specific actions tailored to your situation, risk tolerance, and goals.",
   keywords: [
     "AI personal finance",
     "decentralized financial advisor",
@@ -2190,7 +2190,7 @@ export const TAO_PAGES_SUBNETS: TaoPageSubnet[] = [
   problem:
     "GPU compute is expensive and carbon-intensive; centralized clouds offer no verifiable green-energy sourcing and charge a premium over commodity GPUs.",
   differentiator:
-    "'Verified by Nature' on-chain green-energy verification (carbon-registry + hardware-location proofs) gating miner rewards — a renewable-provenance layer no centralized GPU cloud provides, at commodity per-minute pricing.",
+    "'Verified by Nature' on-chain green-energy verification (carbon-registry + hardware-location proofs) gating miner rewards - a renewable-provenance layer no centralized GPU cloud provides, at commodity per-minute pricing.",
   keywords: [
     "gpu compute",
     "renewable energy",
@@ -2276,7 +2276,7 @@ export const TAO_PAGES_SUBNETS: TaoPageSubnet[] = [
   tagline: "Whole-brain AI inference for complex real-world tasks",
   mainstream: "Anthropic Claude or OpenAI GPT-4",
   problem:
-    "Complex reasoning tasks require more than a single model call — they need orchestrated reasoning across different cognitive functions. Current AI inference APIs treat every query as a single-step operation, missing the structured reasoning that humans apply to difficult problems.",
+    "Complex reasoning tasks require more than a single model call - they need orchestrated reasoning across different cognitive functions. Current AI inference APIs treat every query as a single-step operation, missing the structured reasoning that humans apply to difficult problems.",
   differentiator:
     "SOMA implements a multi-stage cognitive inference pipeline where different specialized models handle perception, reasoning, planning, and response generation. The Bittensor network rewards miners whose pipeline stages produce the highest quality integrated outputs.",
   keywords: [
@@ -2405,9 +2405,9 @@ export const TAO_PAGES_SUBNETS: TaoPageSubnet[] = [
   tagline: "Sweet AI agents with all the right toppings",
   mainstream: "Zapier or Make.com",
   problem:
-    "Most automation platforms offer a fixed menu of pre-built integrations that cover only the most common use cases. When your workflow doesn't fit a template, you're stuck — customization requires developer resources that defeat the purpose of a no-code platform.",
+    "Most automation platforms offer a fixed menu of pre-built integrations that cover only the most common use cases. When your workflow doesn't fit a template, you're stuck - customization requires developer resources that defeat the purpose of a no-code platform.",
   differentiator:
-    "sundae_bar offers modular, composable agent building blocks that users mix and match to automate any workflow, no matter how unusual. Miners contribute custom toppings — specialized capabilities — that are immediately available to all users, expanding the palette continuously.",
+    "sundae_bar offers modular, composable agent building blocks that users mix and match to automate any workflow, no matter how unusual. Miners contribute custom toppings - specialized capabilities - that are immediately available to all users, expanding the palette continuously.",
   keywords: [
     "composable AI agents",
     "modular automation platform",
@@ -2471,7 +2471,7 @@ export const TAO_PAGES_SUBNETS: TaoPageSubnet[] = [
   tagline: "Collective intelligence at the scale of a swarm",
   mainstream: "OpenMPI or Dask (distributed computing frameworks)",
   problem:
-    "Swarm intelligence algorithms — particle swarms, ant colonies, genetic algorithms — are powerful optimization techniques but are difficult to implement at meaningful scale without distributed computing expertise. Most applications use simplified versions that miss the full power of the approach.",
+    "Swarm intelligence algorithms - particle swarms, ant colonies, genetic algorithms - are powerful optimization techniques but are difficult to implement at meaningful scale without distributed computing expertise. Most applications use simplified versions that miss the full power of the approach.",
   differentiator:
     "Swarm implements production-grade swarm intelligence across the Bittensor miner network, with each miner acting as a node in a massive coordinated swarm. Scientists and engineers submit optimization problems and receive solutions that benefit from true large-scale swarm dynamics.",
   keywords: [
@@ -2515,7 +2515,7 @@ export const TAO_PAGES_SUBNETS: TaoPageSubnet[] = [
   tagline: "Play with AI opponents who always raise the stakes",
   mainstream: "PokerStars or GGPoker",
   problem:
-    "Online poker platforms rely on human opponents and are vulnerable to collusion, bot abuse, and rigged random number generation — problems that players can rarely detect or prove. Trust in online card games is at an all-time low.",
+    "Online poker platforms rely on human opponents and are vulnerable to collusion, bot abuse, and rigged random number generation - problems that players can rarely detect or prove. Trust in online card games is at an all-time low.",
   differentiator:
     "Poker44 combines verifiable on-chain randomness with AI-powered opponents trained by Bittensor miners, creating fair games that are mathematically provable. Players can choose between human opponents with on-chain fraud detection or AI opponents of configurable skill levels.",
   keywords: [
@@ -2537,7 +2537,7 @@ export const TAO_PAGES_SUBNETS: TaoPageSubnet[] = [
   tagline: "Navigate complexity with a star to guide you",
   mainstream: "Notion AI or Confluence AI",
   problem:
-    "Enterprise knowledge management fails because information is scattered across dozens of systems, written in different styles, and never kept up to date. When employees need answers, they ask colleagues instead of searching documentation — creating bottlenecks and knowledge silos.",
+    "Enterprise knowledge management fails because information is scattered across dozens of systems, written in different styles, and never kept up to date. When employees need answers, they ask colleagues instead of searching documentation - creating bottlenecks and knowledge silos.",
   differentiator:
     "Astrid builds and maintains a living knowledge graph of your organization by continuously mining your existing tools and documents. Bittensor miners handle the extraction and synthesis, while the incentive layer ensures accuracy by validating knowledge claims against primary sources.",
   keywords: [
@@ -2583,7 +2583,7 @@ export const TAO_PAGES_SUBNETS: TaoPageSubnet[] = [
   problem:
     "Sending prompts to frontier-model APIs exposes potentially sensitive data to the provider and any intermediary aggregator, and there is no cryptographic guarantee about what code is handling your request or your keys. Teams that need privacy have few drop-in options.",
   differentiator:
-    "Built by Taostats, the team behind Bittensor's primary block explorer, which is unusual provenance for a subnet. Every request runs through an Intel TDX-attested enclave on Phala Cloud with Intel-signed measurements verifying the exact gateway code, so neither operators nor hosts see prompts or upstream keys. 38 models verified serving on 2026-08-05 — 23 frontier, 13 confidential TEE-hosted (Kimi K3, DeepSeek V4-Flash, Qwen3.5-397B, GLM-5.1) and 2 open — priced at or below official maker rates across six upstream provider routes. Billing is production-grade rather than token-flat: an 11-dimension price vector per model covering cache read, cache write at 5m and 1h TTLs, audio in/out and separate long-context tiers. OpenAI-API-compatible so it drops into Cursor, Cline, Claude Code and the Vercel AI SDK unchanged, and it takes USDC or a bank card rather than requiring TAO.",
+    "Built by Taostats, the team behind Bittensor's primary block explorer, which is unusual provenance for a subnet. Every request runs through an Intel TDX-attested enclave on Phala Cloud with Intel-signed measurements verifying the exact gateway code, so neither operators nor hosts see prompts or upstream keys. 38 models verified serving on 2026-08-05 - 23 frontier, 13 confidential TEE-hosted (Kimi K3, DeepSeek V4-Flash, Qwen3.5-397B, GLM-5.1) and 2 open - priced at or below official maker rates across six upstream provider routes. Billing is production-grade rather than token-flat: an 11-dimension price vector per model covering cache read, cache write at 5m and 1h TTLs, audio in/out and separate long-context tiers. OpenAI-API-compatible so it drops into Cursor, Cline, Claude Code and the Vercel AI SDK unchanged, and it takes USDC or a bank card rather than requiring TAO.",
   keywords: [
     "confidential inference",
     "bittensor gm",

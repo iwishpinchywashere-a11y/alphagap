@@ -116,7 +116,7 @@ function MockSignal({ type, subnet, title, insight, time }: {
         <div className="text-xs font-semibold text-green-400 mb-1">AlphaGap Take</div>
         <p className="text-xs text-green-300/80 leading-relaxed">
           {type === "github"
-            ? "Strong technical signal — team shipping consistently. Price hasn't reacted yet. Watching for catalyst."
+            ? "Strong technical signal - team shipping consistently. Price hasn't reacted yet. Watching for catalyst."
             : "New model deployment signals active research. First mover advantage window open. Emission data trending up."}
         </p>
       </div>
@@ -186,14 +186,14 @@ function UpgradeModal({ plan, proratedAmount, onConfirm, onCancel, loading }: {
   const monthlyPrice = isUltra ? "$99" : "$49";
   const features = isUltra
     ? [
-        { icon: "index",     text: "AlphaGap Index — auto-invest your TAO into the top 10 subnets" },
-        { icon: "oracle",    text: "TAO Oracle — 20 queries/day (2× Premium)" },
+        { icon: "index",     text: "AlphaGap Index - auto-invest your TAO into the top 10 subnets" },
+        { icon: "oracle",    text: "TAO Oracle - 20 queries/day (2× Premium)" },
         { icon: "priority",  text: "Priority access to new Ultra-only features" },
       ]
     : [
-        { icon: "performance", text: "Portfolio performance tracker — simulated $100 auto-buys" },
-        { icon: "signals",     text: "aGap Velocity score — momentum signals before the market" },
-        { icon: "investing",   text: "Investing aGap — long-term value scoring" },
+        { icon: "performance", text: "Performance Tracker - which signals fired before each pump" },
+        { icon: "signals",     text: "aGap Velocity score - momentum signals before the market" },
+        { icon: "investing",   text: "Investing aGap - long-term value scoring" },
         { icon: "whale",       text: "Whale accumulation & smart-money signals" },
         { icon: "analytics",   text: "Full price history, sparklines & volume surge alerts" },
         { icon: "ai",          text: "AI-generated subnet reports" },
@@ -299,7 +299,7 @@ function SubscribeContent() {
       router.push("/dashboard");
       return;
     }
-    // Subscribed user upgrading — show confirmation modal with prorated amount
+    // Subscribed user upgrading - show confirmation modal with prorated amount
     if (isSubscribed && (plan === "premium" || plan === "ultra")) {
       setCheckoutLoading(true);
       setUpgradePlan(plan);
@@ -315,7 +315,7 @@ function SubscribeContent() {
       setShowUpgradeModal(true);
       return;
     }
-    // New subscriber — go through Stripe Checkout
+    // New subscriber - go through Stripe Checkout
     setCheckoutLoading(true);
     try {
       const res = await fetch("/api/stripe/checkout", {
@@ -391,7 +391,7 @@ function SubscribeContent() {
 
       {params.get("canceled") === "true" && (
         <div className="fixed top-16 left-0 right-0 z-40 bg-yellow-500/10 border-b border-yellow-500/20 text-yellow-300 text-sm text-center py-2 px-4">
-          Payment was canceled. Your account is ready when you are — subscribe anytime below.
+          Payment was canceled. Your account is ready when you are - subscribe anytime below.
         </div>
       )}
 
@@ -483,19 +483,18 @@ function SubscribeContent() {
               </div>
               <ul className="space-y-2.5 mb-8 flex-1">
                 {([
-                  { icon: "leaderboard", text: "Full Alpha Leaderboard — all 128 subnets" },
-                  { icon: "signals",     text: "AI Signal Intelligence — all signals" },
+                  { icon: "leaderboard", text: "Full Alpha Leaderboard - all 128 subnets" },
+                  { icon: "signals",     text: "AI Signal Intelligence - all signals" },
                   { icon: "reports",     text: "Daily AI Deep-Dive Reports" },
-                  { icon: "oracle",      text: "Oracle — 10 queries/day" },
+                  { icon: "oracle",      text: "Oracle - 10 queries/day" },
                   { icon: "investing",   text: "Investing Analysis" },
                   { icon: "whale",       text: "Whale & Smart Money Tracker" },
                   { icon: "social",      text: "Twitter/X social momentum feed" },
                   { icon: "discord",     text: "Discord scanner" },
-                  { icon: "pumplab",     text: "Performance" },
                   { icon: "performance", text: "Performance Tracker" },
                   { icon: "wallet",      text: "Wallet Tracker" },
                   { icon: "analytics",   text: "Analytics & Scatter Plots" },
-                  { icon: "benchmarks",  text: "Benchmark Rankings" },
+                  { icon: "benchmarks",  text: "Revenue & Valuations" },
                 ] as { icon: string; text: string }[]).map(f => (
                   <li key={f.text} className="flex items-start gap-2 text-xs text-gray-300">
                     <span className="text-purple-400 shrink-0 mt-0.5"><PIcon name={f.icon} /></span>
@@ -508,7 +507,7 @@ function SubscribeContent() {
                 disabled={checkoutLoading}
                 className="w-full bg-gradient-to-r from-purple-600 to-violet-700 text-white font-bold rounded-xl py-3.5 text-sm hover:from-purple-500 hover:to-violet-600 transition-all shadow-lg shadow-purple-500/20 disabled:opacity-60"
               >
-                {isSubscribed ? "Open Dashboard →" : checkoutLoading ? "Loading…" : session ? "Subscribe — $49/mo →" : "Get Premium — $49/mo →"}
+                {isSubscribed ? "Open Dashboard →" : checkoutLoading ? "Loading…" : session ? "Subscribe - $49/mo →" : "Get Premium - $49/mo →"}
               </button>
               <p className="text-center text-[11px] text-gray-700 mt-3">Powered by Stripe · Secure checkout</p>
             </div>
@@ -542,7 +541,7 @@ function SubscribeContent() {
                   { icon: "index",     text: "Auto-invest your TAO into the top 10 subnets" },
                   { icon: "rebalance", text: "Weekly auto-rebalancing as scores shift" },
                   { icon: "leaderboard", text: "Weight proportional to aGap score" },
-                  { icon: "wallet",    text: "Non-custodial — your TAO never leaves your wallet" },
+                  { icon: "wallet",    text: "Non-custodial - your TAO never leaves your wallet" },
                   { icon: "priority",  text: "Powered by TrustedStake" },
                 ] as { icon: string; text: string }[]).map(f => (
                   <li key={f.text} className="flex items-start gap-2 text-xs text-gray-300">
@@ -552,7 +551,7 @@ function SubscribeContent() {
                 ))}
                 <li className="mt-3 mb-1 font-mono text-[10px] font-bold text-amber-400 uppercase tracking-wider">Oracle</li>
                 {([
-                  { icon: "oracle",    text: "20 queries/day — 2× more than Premium" },
+                  { icon: "oracle",    text: "20 queries/day - 2× more than Premium" },
                 ] as { icon: string; text: string }[]).map(f => (
                   <li key={f.text} className="flex items-start gap-2 text-xs text-gray-300">
                     <span className="text-amber-400 shrink-0 mt-0.5"><PIcon name={f.icon} /></span>
@@ -565,23 +564,23 @@ function SubscribeContent() {
                 disabled={checkoutLoading}
                 className="w-full bg-gradient-to-r from-amber-400 to-orange-400 text-black font-bold rounded-xl py-3.5 text-sm hover:from-amber-300 hover:to-orange-300 transition-all shadow-lg shadow-amber-400/25 disabled:opacity-60"
               >
-                {isSubscribed ? "Open Dashboard →" : checkoutLoading ? "Loading…" : session ? "Subscribe — $99/mo →" : "Get Ultra — $99/mo →"}
+                {isSubscribed ? "Open Dashboard →" : checkoutLoading ? "Loading…" : session ? "Subscribe - $99/mo →" : "Get Ultra - $99/mo →"}
               </button>
               <p className="text-center text-[11px] text-gray-700 mt-3">Powered by Stripe · Secure checkout</p>
             </div>
 
           </div>
 
-          {/* What we monitor — graphic boxes */}
+          {/* What we monitor - graphic boxes */}
           <p className="font-mono text-xs font-semibold text-gray-500 uppercase tracking-widest text-center mb-4">Harness The Power Of:</p>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 max-w-3xl mx-auto text-left">
             {([
               { icon: "dev",       title: "Dev Activity",        desc: "Every GitHub commit, release, and engineering milestone across all subnets" },
               { icon: "whale",     title: "Whale Wallets",       desc: "Smart money flows, large stake moves, and whale buy/sell ratios in real time" },
               { icon: "megaphone", title: "Social Buzz",         desc: "KOL tweets, community hype, and viral momentum before it hits the price" },
-              { icon: "chain",     title: "Emission Signals",    desc: "On-chain allocation shifts — when the Bittensor network votes more TAO to a subnet" },
+              { icon: "chain",     title: "Emission Signals",    desc: "On-chain allocation shifts - when the Bittensor network votes more TAO to a subnet" },
               { icon: "rocket",    title: "Product Launches",    desc: "New feature releases, live apps, and real-world deployments detected automatically" },
-              { icon: "time",      title: "128 Subnets · 24/7",  desc: "Every active Bittensor subnet tracked continuously — nothing slips through" },
+              { icon: "time",      title: "128 Subnets · 24/7",  desc: "Every active Bittensor subnet tracked continuously - nothing slips through" },
             ] as { icon: string; title: string; desc: string }[]).map(item => (
               <div key={item.title} className="ag-glass ag-glass-hover !rounded-xl p-4">
                 <div className="mb-2 text-green-400"><PIcon name={item.icon} className="w-6 h-6" /></div>
@@ -619,7 +618,7 @@ function SubscribeContent() {
               {
                 icon: "lag",
                 title: "Markets react too slowly",
-                desc: "Token prices lag behind fundamentals by days or weeks. The window between a team shipping real progress and the market pricing it in — that's where the alpha lives. But only if you find it first.",
+                desc: "Token prices lag behind fundamentals by days or weeks. The window between a team shipping real progress and the market pricing it in - that's where the alpha lives. But only if you find it first.",
               },
             ] as { icon: string; title: string; desc: string }[]).map(c => (
               <div key={c.title} className="ag-glass ag-glass-hover p-6">
@@ -704,7 +703,7 @@ function SubscribeContent() {
               <p className="text-sm text-gray-400 leading-relaxed mb-4">
                 Every GitHub commit and HuggingFace model deployment across all subnet repos is automatically analyzed by AI.
                 You get a plain-English breakdown of <em>what was built</em>, <em>why it matters</em>,
-                and most importantly — <span className="text-green-400 font-semibold">what it means for your investment</span>.
+                and most importantly - <span className="text-green-400 font-semibold">what it means for your investment</span>.
                 No technical knowledge required.
               </p>
               <div className="grid sm:grid-cols-2 gap-3">
@@ -712,32 +711,32 @@ function SubscribeContent() {
                   type="github"
                   subnet="Score (SN44)"
                   title="Merged: Real-time dispatch pipeline v3.1"
-                  insight="Cuts alert-to-action latency by 55% across enterprise camera networks. Fourth infra PR this sprint — team is in full shipping mode."
+                  insight="Cuts alert-to-action latency by 55% across enterprise camera networks. Fourth infra PR this sprint - team is in full shipping mode."
                   time="2h ago"
                 />
                 <MockSignal
                   type="hf"
                   subnet="distil (SN97)"
                   title="New model: distil-qwen3-4.8b-v2 deployed"
-                  insight="4.8B student model beats the 5.25B benchmark ceiling on 14/17 eval axes. Second major release this month — distillation pipeline maturing fast."
+                  insight="4.8B student model beats the 5.25B benchmark ceiling on 14/17 eval axes. Second major release this month - distillation pipeline maturing fast."
                   time="5h ago"
                 />
               </div>
             </FeatureCard>
 
             {/* Feature 3: Social */}
-            <FeatureCard icon="broadcast" title="Social Intelligence — KOL Radar & Discord Alpha">
+            <FeatureCard icon="broadcast" title="Social Intelligence - KOL Radar & Discord Alpha">
               <p className="text-sm text-gray-400 leading-relaxed mb-4">
                 We track <span className="text-white font-medium">300+ Bittensor KOLs on X/Twitter</span> in real-time,
                 scoring every subnet mention with a <span className="text-green-400 font-semibold">Heat Score</span>.
-                Plus, our AI reads every subnet channel in the Bittensor Discord every 3 hours —
+                Plus, our AI reads every subnet channel in the Bittensor Discord every 3 hours -
                 flagging genuine <span className="text-green-400">ALPHA</span> before it spreads.
               </p>
               <div className="bg-black/30 backdrop-blur-[14px] rounded-xl border border-white/[0.08] p-4">
                 <div className="text-xs text-gray-600 mb-3 font-medium uppercase tracking-wide flex items-center gap-1.5"><PIcon name="signals" className="w-3 h-3 text-orange-400" /> Hot KOL Activity</div>
-                <MockKolEvent kol="const" tier={1} subnet="Score" heat={97} text="SN44 Score just signed PwC France as a strategic partner. Enterprise physical AI is the unlock — this is the real world use case we've been waiting for..." time="1h ago" />
+                <MockKolEvent kol="const" tier={1} subnet="Score" heat={97} text="SN44 Score just signed PwC France as a strategic partner. Enterprise physical AI is the unlock - this is the real world use case we've been waiting for..." time="1h ago" />
                 <MockKolEvent kol="taoshi_" tier={1} subnet="Chutes" heat={91} text="Chutes (SN64) just crossed 9 trillion tokens served. 85% cheaper than AWS and growing 40% month over month. The infra layer is won." time="2h ago" />
-                <MockKolEvent kol="jollygreenmoney" tier={2} subnet="ninja" heat={74} text="SN66 ninja's coding agent arena is undervalued. Miners fixing real GitHub bugs scored on quality — this is how you benchmark agents properly." time="4h ago" />
+                <MockKolEvent kol="jollygreenmoney" tier={2} subnet="ninja" heat={74} text="SN66 ninja's coding agent arena is undervalued. Miners fixing real GitHub bugs scored on quality - this is how you benchmark agents properly." time="4h ago" />
               </div>
             </FeatureCard>
 
@@ -745,7 +744,7 @@ function SubscribeContent() {
             <FeatureCard icon="reports" title="Daily AI Deep-Dive Reports">
               <p className="text-sm text-gray-400 leading-relaxed mb-4">
                 Every day, our AI generates a comprehensive deep-dive on the highest-scoring subnet.
-                Think of it as having a <span className="text-white font-medium">crypto research analyst</span> on your team —
+                Think of it as having a <span className="text-white font-medium">crypto research analyst</span> on your team -
                 covering the team, tech stack, recent progress, on-chain position, and investment thesis.
                 All in plain English. Ready when you wake up.
               </p>
@@ -753,7 +752,7 @@ function SubscribeContent() {
                 <div className="flex items-center justify-between mb-4">
                   <div>
                     <div className="text-xs text-gray-600 font-medium uppercase tracking-wide mb-1">Daily Report · {new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</div>
-                    <h4 className="font-display font-bold text-white text-lg">Score (SN44) — Deep Dive</h4>
+                    <h4 className="font-display font-bold text-white text-lg">Score (SN44) - Deep Dive</h4>
                   </div>
                   <div className="text-right">
                     <div className="text-2xl font-bold text-green-400">91</div>
@@ -762,8 +761,8 @@ function SubscribeContent() {
                 </div>
                 <div className="space-y-3 text-sm">
                   {[
-                    { label: "What they&apos;re building", text: "Score turns enterprise camera feeds into real-time operational intelligence — physical AI for logistics, retail, and security. PwC France signed as strategic partner." },
-                    { label: "Recent progress", text: "4 inference PRs merged this week. PwC France partnership announced. Emission share at 21.4% — 2nd highest in the network. Enterprise pilots up 3 new sites in 30 days." },
+                    { label: "What they&apos;re building", text: "Score turns enterprise camera feeds into real-time operational intelligence - physical AI for logistics, retail, and security. PwC France signed as strategic partner." },
+                    { label: "Recent progress", text: "4 inference PRs merged this week. PwC France partnership announced. Emission share at 21.4% - 2nd highest in the network. Enterprise pilots up 3 new sites in 30 days." },
                     { label: "Market position", text: "Price up 12% since the PwC announcement but still massively undervalued vs the TAM. Real-world revenue + top-tier emissions not yet priced into current market cap." },
                     { label: "Investment thesis", text: "Enterprise partnership validation + highest conviction score on-chain + rising emissions = textbook AlphaGap setup. This is physical AI with paying customers." },
                   ].map(s => (
@@ -777,7 +776,7 @@ function SubscribeContent() {
             </FeatureCard>
 
             {/* Feature 5: Subnet Detail */}
-            <FeatureCard icon="search" title="Subnet Deep Dives — 128 Individual Pages">
+            <FeatureCard icon="search" title="Subnet Deep Dives - 128 Individual Pages">
               <p className="text-sm text-gray-400 leading-relaxed mb-4">
                 Every subnet gets its own dedicated intelligence page. Click any subnet in the dashboard
                 to see its complete picture: score history charts, all detected signals over time, team links,
@@ -789,7 +788,7 @@ function SubscribeContent() {
                   { icon: "trending",  label: "Score history charts", desc: "30/90 day trends" },
                   { icon: "signals",   label: "All signals timeline", desc: "Every dev event" },
                   { icon: "social",    label: "Team & social links", desc: "GitHub, X, Discord" },
-                  { icon: "analytics", label: "Price & market data", desc: "Live from TaoStats" },
+                  { icon: "analytics", label: "Price & market data", desc: "Live from the chain" },
                 ] as { icon: string; label: string; desc: string }[]).map(f => (
                   <div key={f.label} className="bg-white/[0.03] border border-white/[0.08] rounded-lg p-3 text-center">
                     <div className="mb-1.5 flex justify-center text-green-400"><PIcon name={f.icon} className="w-5 h-5" /></div>
@@ -804,7 +803,7 @@ function SubscribeContent() {
             <FeatureCard icon="whale" title="Whale & Smart Money Tracker" badge="NEW">
               <p className="text-sm text-gray-400 leading-relaxed mb-4">
                 A dedicated live feed of every whale wallet move, smart money flow, and unusual volume spike across all subnets.
-                See exactly <span className="text-white font-medium">who is buying, who is selling, and how hard</span> — before the price moves.
+                See exactly <span className="text-white font-medium">who is buying, who is selling, and how hard</span> - before the price moves.
               </p>
               <div className="grid sm:grid-cols-3 gap-3 mb-4">
                 {([
@@ -841,10 +840,10 @@ function SubscribeContent() {
             </FeatureCard>
 
             {/* Feature 5c: Performance */}
-            <FeatureCard icon="pumplab" title="Performance — Early Alpha Detector" badge="NEW">
+            <FeatureCard icon="pumplab" title="Flow - Early Alpha Detector" badge="NEW">
               <p className="text-sm text-gray-400 leading-relaxed mb-4">
                 Track subnets showing early signs of a pump <span className="text-white font-medium">before the crowd catches on</span>.
-                Performance monitors a curated watchlist for unusual staking inflows, volume acceleration, and social heat all converging at once.
+                Flow watches every subnet for unusual staking inflows, volume acceleration, whale moves and social heat converging at once.
                 It&apos;s the closest thing to a heads-up the market will give you.
               </p>
               <div className="bg-black/30 backdrop-blur-[14px] rounded-xl border border-white/[0.08] overflow-hidden">
@@ -882,11 +881,11 @@ function SubscribeContent() {
             </FeatureCard>
 
             {/* Feature 5d: Wallet Tracker */}
-            <FeatureCard icon="wallet" title="Wallet Tracker — Follow the Smart Money" badge="NEW">
+            <FeatureCard icon="wallet" title="Wallet Tracker - Follow the Smart Money" badge="NEW">
               <p className="text-sm text-gray-400 leading-relaxed mb-4">
                 Track <span className="text-white font-medium">any TAO wallet</span> across the entire Bittensor network.
                 See the top wallets ranked by 24h movement, their complete alpha positions across every subnet,
-                and whether they&apos;re staking or pulling out. Known wallets — validators, founders, whales — are
+                and whether they&apos;re staking or pulling out. Known wallets - validators, founders, whales - are
                 labelled automatically so you always know <span className="text-green-400 font-semibold">who&apos;s really moving the market</span>.
               </p>
               <div className="grid sm:grid-cols-3 gap-3 mb-4">
@@ -930,11 +929,11 @@ function SubscribeContent() {
             </FeatureCard>
 
             {/* Feature 6: Performance */}
-            <FeatureCard icon="trending" title="Performance Tracker — Signals That Actually Work">
+            <FeatureCard icon="trending" title="Performance Tracker - Signals That Actually Work">
               <p className="text-sm text-gray-400 leading-relaxed mb-4">
-                We put our money where our mouth is. AlphaGap automatically &apos;buys&apos; $100 of alpha
-                tokens when a subnet hits aGap 80+ for the first time, then tracks how the position performs over time.
-                See the real-world returns of following our signals — updated every scan.
+                We grade our own signals. Every pump on every subnet is traced back to the aGap scores,
+                dev events, whale moves and social heat that fired before it, so you can see which
+                signals actually lead price and which just follow it. Updated every scan.
               </p>
               <div className="bg-black/30 backdrop-blur-[14px] rounded-xl border border-white/[0.08] overflow-hidden">
                 <div className="px-4 py-3 border-b border-gray-800">
@@ -973,18 +972,18 @@ function SubscribeContent() {
               </div>
             </FeatureCard>
 
-            {/* Feature 7: AlphaGap Index — Ultra Exclusive */}
+            {/* Feature 7: AlphaGap Index - Ultra Exclusive */}
             <div className="bg-gradient-to-b from-amber-950/30 to-white/[0.03] backdrop-blur-[18px] border border-amber-400/25 rounded-2xl overflow-hidden">
               <div className="px-6 py-5 border-b border-amber-400/10">
                 <div className="flex items-center gap-3 mb-1">
                   <span className="text-amber-400"><PIcon name="index" className="w-5 h-5" /></span>
-                  <h3 className="font-bold text-lg text-white">AlphaGap Index — Auto-Invest in the Top 10</h3>
+                  <h3 className="font-bold text-lg text-white">AlphaGap Index - Auto-Invest in the Top 10</h3>
                   <span className="text-[10px] font-bold bg-amber-400/15 text-amber-400 border border-amber-400/25 px-2 py-0.5 rounded-full ml-auto">ULTRA ONLY</span>
                 </div>
               </div>
               <div className="p-4">
                 <p className="text-sm text-gray-400 leading-relaxed mb-5">
-                  The AlphaGap Index is a <span className="text-white font-medium">managed portfolio strategy</span> that automatically allocates your TAO across the top-scoring subnets every week. Instead of picking individual subnets, you own the entire leaderboard — auto-rebalanced as scores shift.
+                  The AlphaGap Index is a <span className="text-white font-medium">managed portfolio strategy</span> that automatically allocates your TAO across the top-scoring subnets every week. Instead of picking individual subnets, you own the entire leaderboard - auto-rebalanced as scores shift.
                 </p>
 
                 {/* How it works steps */}
@@ -992,7 +991,7 @@ function SubscribeContent() {
                   {[
                     { step: "1", icon: "leaderboard", title: "Score every subnet", desc: "AlphaGap runs its full 20+ signal analysis across all 128 subnets every week" },
                     { step: "2", icon: "priority",    title: "Select the top 10", desc: "The 10 highest composite aGap scores become the Index constituents for that week" },
-                    { step: "3", icon: "rebalance",   title: "Auto-rebalance", desc: "Your TAO is redistributed weekly — winners stay in, falling subnets are trimmed" },
+                    { step: "3", icon: "rebalance",   title: "Auto-rebalance", desc: "Your TAO is redistributed weekly - winners stay in, falling subnets are trimmed" },
                   ].map(s => (
                     <div key={s.step} className="bg-amber-950/20 border border-amber-400/15 rounded-xl p-4">
                       <div className="flex items-center gap-2 mb-2">
@@ -1006,7 +1005,7 @@ function SubscribeContent() {
                 </div>
 
                 <a href="/pricing" className="w-full inline-flex items-center justify-center gap-2 px-5 py-3 bg-gradient-to-r from-amber-400 to-orange-400 hover:from-amber-300 hover:to-orange-300 text-black font-bold rounded-xl transition-all shadow-lg shadow-amber-400/20 text-sm">
-                  Unlock Ultra — $99/mo →
+                  Unlock Ultra - $99/mo →
                 </a>
               </div>
             </div>
@@ -1019,7 +1018,7 @@ function SubscribeContent() {
       <section className="py-20 px-5">
         <div className="max-w-4xl mx-auto">
           <h2 className="font-display text-3xl font-semibold tracking-[-0.02em] text-center mb-3">
-            The <span className="ag-gradient-text">aGap Score</span> — 5 signals. One number.
+            The <span className="ag-gradient-text">aGap Score</span> - 5 signals. One number.
           </h2>
           <p className="text-gray-500 text-center text-sm mb-12 max-w-xl mx-auto">
             Every subnet is evaluated across five independent dimensions to produce the composite alpha gap score.
@@ -1027,11 +1026,11 @@ function SubscribeContent() {
           </p>
           <div className="grid sm:grid-cols-5 gap-3">
             {([
-              { label: "Dev Score",    icon: "dev",        iColor: "text-green-400",  color: "from-green-500/20 to-emerald-500/10 border-green-500/20", desc: "GitHub commits, PRs, releases, HuggingFace models — measures actual shipping velocity" },
-              { label: "Flow Score",   icon: "whale",      iColor: "text-blue-400",   color: "from-blue-500/20 to-cyan-500/10 border-blue-500/20", desc: "Price momentum + whale accumulation + volume surges + fear/greed — detects smart money" },
-              { label: "eVal Score",   icon: "benchmarks", iColor: "text-purple-400", color: "from-purple-500/20 to-violet-500/10 border-purple-500/20", desc: "Emission allocation vs market cap — finds where the network is paying more than the market knows" },
-              { label: "Social Score", icon: "megaphone",  iColor: "text-yellow-400", color: "from-yellow-500/20 to-amber-500/10 border-yellow-500/20", desc: "KOL heat events + Discord alpha signals — detects early buzz before it goes mainstream" },
-              { label: "Price Lag",    icon: "lag",        iColor: "text-red-400",    color: "from-red-500/20 to-rose-500/10 border-red-500/20", desc: "Multi-timeframe price momentum vs fundamental quality — the bigger the lag, the bigger the gap" },
+              { label: "Dev Score",    icon: "dev",        iColor: "text-green-400",  color: "from-green-500/20 to-emerald-500/10 border-green-500/20", desc: "GitHub commits, PRs, releases, HuggingFace models - measures actual shipping velocity" },
+              { label: "Flow Score",   icon: "whale",      iColor: "text-blue-400",   color: "from-blue-500/20 to-cyan-500/10 border-blue-500/20", desc: "Price momentum + whale accumulation + volume surges + fear/greed - detects smart money" },
+              { label: "eVal Score",   icon: "benchmarks", iColor: "text-purple-400", color: "from-purple-500/20 to-violet-500/10 border-purple-500/20", desc: "Emission allocation vs market cap - finds where the network is paying more than the market knows" },
+              { label: "Social Score", icon: "megaphone",  iColor: "text-yellow-400", color: "from-yellow-500/20 to-amber-500/10 border-yellow-500/20", desc: "KOL heat events + Discord alpha signals - detects early buzz before it goes mainstream" },
+              { label: "Price Lag",    icon: "lag",        iColor: "text-red-400",    color: "from-red-500/20 to-rose-500/10 border-red-500/20", desc: "Multi-timeframe price momentum vs fundamental quality - the bigger the lag, the bigger the gap" },
             ] as { label: string; icon: string; iColor: string; color: string; desc: string }[]).map(s => (
               <div key={s.label} className={`bg-gradient-to-b ${s.color} border rounded-xl p-4 text-center`}>
                 <div className={`mb-2 flex justify-center ${s.iColor}`}><PIcon name={s.icon} className="w-6 h-6" /></div>
@@ -1076,7 +1075,7 @@ function SubscribeContent() {
               <h3 className="font-bold text-green-400 mb-4">✓ With AlphaGap</h3>
               <ul className="space-y-3 text-sm text-gray-400">
                 {[
-                  "Open dashboard — top subnets ranked by aGap",
+                  "Open dashboard - top subnets ranked by aGap",
                   "Whale Tracker shows exactly who's buying",
                   "Volume surges flagged automatically",
                   "Performance detects early momentum convergence",
@@ -1109,15 +1108,15 @@ function SubscribeContent() {
             {[
               {
                 q: "What exactly is Bittensor?",
-                a: "Bittensor is a decentralized AI network where 128 independent subnet teams compete to build the best AI models and services. Each subnet has a native alpha token whose value is driven by the team's work and the network's allocation of emissions (TAO). AlphaGap helps you identify which subnets are undervalued before the market catches on.",
+                a: "Bittensor is a decentralized AI network where 128 independent subnet teams compete to build the best AI models and services. Each subnet has a native alpha token whose value is driven by the team's work and the network's allocation of emissions (TAO). AlphaGap helps you spot the subnets the market may be under-pricing before it catches on.",
               },
               {
                 q: "How often is the data updated?",
-                a: "The main scan runs every 10 minutes, pulling fresh data from GitHub, HuggingFace, TaoStats, SubnetRadar, and on-chain sources. The KOL Twitter monitor runs every 2 hours. Discord channels are scanned every 3 hours. Daily reports are generated every morning.",
+                a: "The main scan runs every 10 minutes, pulling fresh data from GitHub, HuggingFace, SubnetRadar and the Bittensor chain itself. The KOL Twitter monitor runs every 2 hours. Discord channels are scanned every 3 hours. Daily reports are generated every morning.",
               },
               {
-                q: "I'm not technical — will I understand it?",
-                a: "Absolutely. Every signal is explained in plain English with an investment take. You don't need to understand the code — you need to understand what the signal means for the price. That's exactly what we translate for you.",
+                q: "I'm not technical - will I understand it?",
+                a: "Absolutely. Every signal is explained in plain English with an investment take. You don't need to understand the code - you need to understand what the signal means for the price. That's exactly what we translate for you.",
               },
               {
                 q: "Can I cancel anytime?",
@@ -1125,11 +1124,11 @@ function SubscribeContent() {
               },
               {
                 q: "Is this financial advice?",
-                a: "No. AlphaGap provides intelligence and analysis tools to help you make better-informed decisions. All investment decisions are your own. Crypto markets are volatile — never invest more than you can afford to lose.",
+                a: "No. AlphaGap provides intelligence and analysis tools to help you make better-informed decisions. All investment decisions are your own. Crypto markets are volatile - never invest more than you can afford to lose.",
               },
               {
                 q: "What payment methods do you accept?",
-                a: "All major credit and debit cards via Stripe. The payment is handled entirely by Stripe — we never see or store your card details.",
+                a: "All major credit and debit cards via Stripe. The payment is handled entirely by Stripe - we never see or store your card details.",
               },
             ].map(faq => (
               <details key={faq.q} className="group ag-glass">
@@ -1189,7 +1188,7 @@ function SubscribeContent() {
         <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2 text-gray-500 text-sm">
             <div className="w-5 h-5 rounded bg-gradient-to-br from-green-400 to-emerald-600 flex items-center justify-center text-[10px] font-bold text-black">α</div>
-            AlphaGap — Bittensor Subnet Intelligence
+            AlphaGap - Bittensor Subnet Intelligence
           </div>
           <div className="flex items-center gap-5 text-sm text-gray-600">
             <Link href="/dashboard" className="hover:text-gray-400 transition-colors">Dashboard</Link>

@@ -219,7 +219,7 @@ export default function AlertsPage() {
     );
   }
 
-  // ── Feature showcase — not signed in OR signed in but not premium ─────────
+  // ── Feature showcase - not signed in OR signed in but not premium ─────────
 
   if (status === "unauthenticated" || !isPremium) {
     const isSignedOut = status === "unauthenticated";
@@ -227,7 +227,7 @@ export default function AlertsPage() {
       {
         icon: <AgIcon name="chart" className="w-5 h-5 text-green-400" />,
         label: "aGap Score Change",
-        description: "Get notified the moment a subnet's composite aGap score moves by your threshold — catch momentum shifts before the market reacts.",
+        description: "Get notified the moment a subnet's composite aGap score moves by your threshold - catch momentum shifts before the market reacts.",
       },
       {
         icon: <AgIcon name="bolt" className="w-5 h-5 text-green-400" />,
@@ -330,7 +330,7 @@ export default function AlertsPage() {
             <div>
               <p className="text-sm font-semibold text-white mb-1">Only the subnets you care about</p>
               <p className="text-xs text-gray-400 leading-relaxed">
-                Every alert is scoped to your personal watchlist — no noise from subnets you don&apos;t follow. Add or remove subnets from your watchlist anytime and alerts update instantly.
+                Every alert is scoped to your personal watchlist - no noise from subnets you don&apos;t follow. Add or remove subnets from your watchlist anytime and alerts update instantly.
               </p>
             </div>
           </div>

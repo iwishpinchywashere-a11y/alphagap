@@ -1,6 +1,6 @@
-// AlphaGap — HuggingFace Scanner
+// AlphaGap - HuggingFace Scanner
 // Scans ALL Bittensor subnets for HuggingFace presence and NEW model/dataset/space drops.
-// "New" = createdAt within last 48h — not just "has content" (which never changes).
+// "New" = createdAt within last 48h - not just "has content" (which never changes).
 // Auto-discovers HF orgs from subnet GitHub org names so coverage grows automatically.
 
 import { put, get as blobGet } from "@vercel/blob";
@@ -20,58 +20,58 @@ function hfHeaders(): Record<string, string> {
 const KNOWN_HF_ORGS: Array<{ org: string; netuid?: number }> = [
   // Opentensor Foundation (core, no specific subnet)
   { org: "opentensor" },
-  // SN1 — Apex / Macrocosm
+  // SN1 - Apex / Macrocosm
   { org: "macrocosm-os", netuid: 1 },
-  // SN2 — DSperse / Inference Labs
+  // SN2 - DSperse / Inference Labs
   { org: "inferencelabs", netuid: 2 },
-  // SN4 — Targon by Manifold
+  // SN4 - Targon by Manifold
   { org: "manifold-inc", netuid: 4 },
-  // SN6 — Nous Research
+  // SN6 - Nous Research
   { org: "NousResearch", netuid: 6 },
-  // SN8 — Vanta / Taoshi
+  // SN8 - Vanta / Taoshi
   { org: "Taoshi", netuid: 8 },
-  // SN9 — Pretraining / Rao Foundation
+  // SN9 - Pretraining / Rao Foundation
   { org: "RaoFoundation", netuid: 9 },
-  // SN15 — ORO
+  // SN15 - ORO
   { org: "oro-ai", netuid: 15 },
-  // SN17 — 404-Gen
+  // SN17 - 404-Gen
   { org: "404-Gen", netuid: 17 },
-  // SN18 — Zeus / Orpheus (Cortex)
+  // SN18 - Zeus / Orpheus (Cortex)
   { org: "CortexLM", netuid: 18 },
-  // SN20 — BitAgent
+  // SN20 - BitAgent
   { org: "BitAgent", netuid: 20 },
-  // SN24 — Omega Labs / Quasar
+  // SN24 - Omega Labs / Quasar
   { org: "omegalabsinc", netuid: 24 },
-  // SN27 — Nodexo / Neural Internet
+  // SN27 - Nodexo / Neural Internet
   { org: "NeuralInternet", netuid: 27 },
-  // SN33 — ReadyAI
+  // SN33 - ReadyAI
   { org: "ReadyAi", netuid: 33 },
-  // SN34 — BitMind (image detection)
+  // SN34 - BitMind (image detection)
   { org: "bitmind", netuid: 34 },
   { org: "bitmind-ai", netuid: 34 },
-  // SN40 — Chunking (VectorChat)
+  // SN40 - Chunking (VectorChat)
   { org: "chunking-ai", netuid: 40 },
-  // SN41 — Almanac / SportsTensor
+  // SN41 - Almanac / SportsTensor
   { org: "sportstensor", netuid: 41 },
-  // SN47 — EvolAI (openevolai)
+  // SN47 - EvolAI (openevolai)
   { org: "evolai", netuid: 47 },
-  // SN52 — Dojo (Tensorplex Labs)
+  // SN52 - Dojo (Tensorplex Labs)
   { org: "tensorplex-labs", netuid: 52 },
-  // SN61 — RedTeam (Innerworks)
+  // SN61 - RedTeam (Innerworks)
   { org: "innerworks", netuid: 61 },
-  // SN62 — Ridges
+  // SN62 - Ridges
   { org: "ridgesai", netuid: 62 },
-  // SN64 — Chutes
+  // SN64 - Chutes
   { org: "chutesai", netuid: 64 },
-  // SN65 — TAO Private Network (Taofu)
+  // SN65 - TAO Private Network (Taofu)
   { org: "taofu", netuid: 65 },
-  // SN72 — StreetVision by NATIX
+  // SN72 - StreetVision by NATIX
   { org: "natix-network", netuid: 72 },
-  // SN75 — Hippius (thenervelab)
+  // SN75 - Hippius (thenervelab)
   { org: "hippius", netuid: 75 },
-  // SN9 participants — pretraining miners publish models here
+  // SN9 participants - pretraining miners publish models here
   { org: "borggAI", netuid: 9 },
-  // SN29 — Coldint validator/miner models
+  // SN29 - Coldint validator/miner models
   { org: "coldint", netuid: 29 },
   // Others with known HF presence (subnet TBD or spans multiple)
   { org: "SocialTensor" },
@@ -279,7 +279,7 @@ export async function scanAllSubnetsHF(
           if (!item.author) continue;
           const lower = item.author.toLowerCase();
           if (!orgToNetuid.has(lower) && !(lower in discoveryCache)) {
-            // Log unknown bittensor org for review — can be added to KNOWN_HF_ORGS manually
+            // Log unknown bittensor org for review - can be added to KNOWN_HF_ORGS manually
             console.log(`[hf-scanner] 📌 Found untracked bittensor org: ${item.author} (${type})`);
             orgOriginalCase.set(lower, item.author);
             // We don't know which subnet it maps to, so skip for now

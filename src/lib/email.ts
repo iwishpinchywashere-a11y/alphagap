@@ -61,9 +61,9 @@ export async function sendSubscriptionConfirmationEmail(
   });
 
   const proFeatures = [
-    "Full Alpha Leaderboard — all 128 subnets ranked",
+    "Full Alpha Leaderboard - all 128 subnets ranked",
     "All sorting & filtering tools",
-    "AI Signal Intelligence — GitHub & HuggingFace signals",
+    "AI Signal Intelligence - GitHub & HuggingFace signals",
     "Daily AI Deep-Dive Reports",
     "All 128 Subnet Detail pages",
     "Leaderboard updated every 10 minutes",
@@ -73,18 +73,17 @@ export async function sendSubscriptionConfirmationEmail(
     "Everything in Pro",
     "🐋 Whale & Smart Money Tracker",
     "📡 Social Intelligence & KOL Radar",
-    "🧪 Performance — early alpha detector",
     "📈 Performance Tracker",
     "📊 Analytics & Scatter Plots",
-    "🏆 Benchmark Rankings",
+    "🏆 Revenue & Valuations",
     "Discord Alpha Scanner",
     "Full access to every page",
   ];
 
   const ultraFeatures = [
     "Everything in Premium",
-    "📊 AlphaGap Index — auto-invest TAO into top 10 subnets",
-    "🔮 TAO Oracle — 20 queries/day",
+    "📊 AlphaGap Index - auto-invest TAO into top 10 subnets",
+    "🔮 TAO Oracle - 20 queries/day",
     "⭐ Priority access to new Ultra-only features",
   ];
 
@@ -156,12 +155,12 @@ export async function sendSubscriptionConfirmationEmail(
   return resend.emails.send({
     from: FROM,
     to: email,
-    subject: `You're in — ${tierLabel} access confirmed`,
+    subject: `You're in - ${tierLabel} access confirmed`,
     html,
   });
 }
 
-/** Cancellation confirmation — access continues until period end */
+/** Cancellation confirmation - access continues until period end */
 export async function sendCancellationEmail(
   name: string,
   email: string,
@@ -197,7 +196,7 @@ export async function sendCancellationEmail(
     <div style="background:#0d1117;border:1px solid #1f2937;border-radius:12px;padding:20px 28px;margin:0 0 24px 0;">
       <p style="color:#6b7280;font-size:13px;margin:0;line-height:1.7;">
         Changed your mind? You can resubscribe anytime from
-        <a href="${BASE_URL}/account" style="color:#10b981;text-decoration:none;">Account Settings</a> —
+        <a href="${BASE_URL}/account" style="color:#10b981;text-decoration:none;">Account Settings</a> -
         your data and history will still be there.
       </p>
     </div>
@@ -216,7 +215,7 @@ export async function sendCancellationEmail(
   });
 }
 
-/** Telegram Bot announcement blast — sent to all users */
+/** Telegram Bot announcement blast - sent to all users */
 export async function sendTelegramAnnouncementEmail(
   name: string,
   email: string,
@@ -232,13 +231,13 @@ export async function sendTelegramAnnouncementEmail(
     : "Available on the Premium plan · $49/mo · Cancel anytime";
 
   const alertTypes = [
-    { icon: "📊", label: "aGap Score Change", desc: "Catch momentum shifts the second they happen — before the market reacts." },
+    { icon: "📊", label: "aGap Score Change", desc: "Catch momentum shifts the second they happen - before the market reacts." },
     { icon: "⚡", label: "Emissions Change", desc: "Know the moment validators rotate weight to a subnet. Be first." },
     { icon: "🔮", label: "Development Updates", desc: "GitHub commit spikes & HuggingFace model releases, filtered by signal strength so you only see the real ones." },
-    { icon: "🐋", label: "Whale Activity / Volume Surge", desc: "Large wallet accumulation and unusual on-chain volume — straight from the flow page." },
+    { icon: "🐋", label: "Whale Activity / Volume Surge", desc: "Large wallet accumulation and unusual on-chain volume - straight from the flow page." },
     { icon: "💬", label: "Discord Alpha", desc: "AlphaGap scans every Bittensor subnet Discord in real time. High-signal posts come straight to you." },
     { icon: "𝕏", label: "Going Viral on X", desc: "When a KOL thread breaks in the Bittensor ecosystem, you'll know within minutes." },
-    { icon: "💰", label: "Price Movement", desc: "Your threshold, your subnets. Fires once per 24h per subnet — no spam." },
+    { icon: "💰", label: "Price Movement", desc: "Your threshold, your subnets. Fires once per 24h per subnet - no spam." },
   ];
 
   const alertRows = alertTypes.map(a => `
@@ -282,7 +281,7 @@ export async function sendTelegramAnnouncementEmail(
       The gap between what a team ships and when the market prices it in closes fast. By the time you open a dashboard, the opportunity may already be moving.
     </p>
     <p style="color:#9ca3af;font-size:15px;line-height:1.8;margin:0 0 32px 0;">
-      We just launched the <strong style="color:#ffffff;">AlphaGap Telegram Bot</strong> — the fastest way to stay ahead. The moment something worth acting on happens on your watchlist, you get a ping. No refreshing. No missed signals. No FOMO.
+      We just launched the <strong style="color:#ffffff;">AlphaGap Telegram Bot</strong> - the fastest way to stay ahead. The moment something worth acting on happens on your watchlist, you get a ping. No refreshing. No missed signals. No FOMO.
     </p>
 
     <!-- Alert types -->
@@ -298,13 +297,13 @@ export async function sendTelegramAnnouncementEmail(
     <!-- How to connect (premium only) or upgrade prompt -->
     ${isPremium ? `
     <div style="background:#0d2b1f;border:1px solid #10b98130;border-radius:14px;padding:24px 28px;margin:0 0 28px 0;">
-      <p style="color:#10b981;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;margin:0 0 16px 0;">You already have access — set up in 60 seconds</p>
+      <p style="color:#10b981;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;margin:0 0 16px 0;">You already have access - set up in 60 seconds</p>
       <table cellpadding="0" cellspacing="0" width="100%">
         ${[
           "Head to alphagap.io/alerts",
           "Click &ldquo;Get connect code&rdquo;",
           "Open Telegram, find @alphagapalertsbot, send the code",
-          "Pick your alert types — done",
+          "Pick your alert types - done",
         ].map((step, i) => `
           <tr>
             <td style="padding:8px 0;vertical-align:top;">
@@ -327,7 +326,7 @@ export async function sendTelegramAnnouncementEmail(
     <div style="background:#0a0f1a;border:1px solid #1f2937;border-radius:14px;padding:20px 28px;margin:0 0 28px 0;">
       <p style="color:#9ca3af;font-size:13px;line-height:1.7;margin:0;">
         Telegram Alerts are available on the <strong style="color:#ffffff;">Premium plan ($49/mo)</strong>.
-        If you're already finding alpha on Pro — this takes it to the next level.
+        If you're already finding alpha on Pro - this takes it to the next level.
         Upgrade anytime and keep everything you already have.
       </p>
     </div>
@@ -345,7 +344,7 @@ export async function sendTelegramAnnouncementEmail(
     <!-- Sign-off -->
     <p style="color:#6b7280;font-size:13px;line-height:1.7;margin:0;border-top:1px solid #1a1a2e;padding-top:24px;">
       Good luck out there,<br>
-      <strong style="color:#9ca3af;">— The AlphaGap Team</strong>
+      <strong style="color:#9ca3af;">- The AlphaGap Team</strong>
     </p>
   `);
 
@@ -357,7 +356,7 @@ export async function sendTelegramAnnouncementEmail(
   });
 }
 
-/** TAO Oracle launch announcement — two versions: premium (you have it) vs free/pro (upgrade) */
+/** TAO Oracle launch announcement - two versions: premium (you have it) vs free/pro (upgrade) */
 export async function sendOracleAnnouncementEmail(
   name: string,
   email: string,
@@ -373,14 +372,14 @@ export async function sendOracleAnnouncementEmail(
     : "Available on Premium ($49/mo) · Includes everything in Pro · Cancel anytime";
 
   const subject = isPremium
-    ? "🔮 TAO Oracle is live — ask it anything about Bittensor"
-    : "🔮 Introducing TAO Oracle — your AI analyst for every Bittensor subnet";
+    ? "🔮 TAO Oracle is live - ask it anything about Bittensor"
+    : "🔮 Introducing TAO Oracle - your AI analyst for every Bittensor subnet";
 
   const useCases = [
     { icon: "🐋", q: "Which subnets are whales accumulating right now?", a: "Shows live stake inflows across all 128 subnets ranked by whale conviction." },
     { icon: "🚩", q: "What are the biggest red flags on the leaderboard today?", a: "Surfaces emissions drops, dev inactivity, and falling aGap scores in plain English." },
     { icon: "🔥", q: "Which subnets have the strongest dev momentum this week?", a: "Combines GitHub commit velocity, HuggingFace model uploads, and score trajectory." },
-    { icon: "📊", q: "Compare Subnet 15 and Subnet 36 — which one looks better?", a: "Side-by-side breakdown of scores, signals, team activity, and market metrics." },
+    { icon: "📊", q: "Compare Subnet 15 and Subnet 36 - which one looks better?", a: "Side-by-side breakdown of scores, signals, team activity, and market metrics." },
     { icon: "⚡", q: "Any subnets about to have emissions changes?", a: "Flags subnets with validator weight rotation signals before they hit the leaderboard." },
     { icon: "💡", q: "Give me your top 5 picks right now with reasoning.", a: "Ranks subnets by composite aGap score + signal strength and explains why each made the list." },
   ];
@@ -409,7 +408,7 @@ export async function sendOracleAnnouncementEmail(
       <div style="display:inline-block;background:linear-gradient(135deg,#0a1f0d,#0d1a2b);border:1px solid #10b98130;border-radius:16px;padding:28px 36px;margin-bottom:24px;">
         <div style="font-size:54px;line-height:1;margin-bottom:14px;">🔮</div>
         <div style="display:inline-block;background:#10b98115;border:1px solid #10b98130;border-radius:20px;padding:4px 14px;margin-bottom:16px;">
-          <span style="color:#10b981;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;">${isPremium ? "Now Live in Your Account" : "New — Premium Feature"}</span>
+          <span style="color:#10b981;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;">${isPremium ? "Now Live in Your Account" : "New - Premium Feature"}</span>
         </div>
         <h1 style="color:#ffffff;font-size:28px;font-weight:800;margin:0 0 8px 0;line-height:1.2;">
           Introducing<br>TAO Oracle
@@ -424,17 +423,17 @@ export async function sendOracleAnnouncementEmail(
     </p>
     ${isPremium ? `
     <p style="color:#9ca3af;font-size:15px;line-height:1.8;margin:0 0 16px 0;">
-      We just launched something we&apos;ve been building for a while — and as a Premium member, it&apos;s live in your account right now, no action needed.
+      We just launched something we&apos;ve been building for a while - and as a Premium member, it&apos;s live in your account right now, no action needed.
     </p>
     <p style="color:#9ca3af;font-size:15px;line-height:1.8;margin:0 0 32px 0;">
-      <strong style="color:#ffffff;">TAO Oracle</strong> is a live AI chat that knows everything AlphaGap knows. Every subnet score, every whale flow, every GitHub signal, every emissions change — all of it searchable in plain English. Ask a question, get a real answer in seconds.
+      <strong style="color:#ffffff;">TAO Oracle</strong> is a live AI chat that knows everything AlphaGap knows. Every subnet score, every whale flow, every GitHub signal, every emissions change - all of it searchable in plain English. Ask a question, get a real answer in seconds.
     </p>
     ` : `
     <p style="color:#9ca3af;font-size:15px;line-height:1.8;margin:0 0 16px 0;">
-      Bittensor moves fast. By the time you&apos;ve refreshed the leaderboard, checked GitHub, scanned whale activity, and read the latest Discord — the window has already closed.
+      Bittensor moves fast. By the time you&apos;ve refreshed the leaderboard, checked GitHub, scanned whale activity, and read the latest Discord - the window has already closed.
     </p>
     <p style="color:#9ca3af;font-size:15px;line-height:1.8;margin:0 0 16px 0;">
-      Today we&apos;re launching <strong style="color:#ffffff;">TAO Oracle</strong> — a live AI analyst that has access to every signal AlphaGap tracks. Ask it anything, in plain English. Get a real, data-backed answer in seconds.
+      Today we&apos;re launching <strong style="color:#ffffff;">TAO Oracle</strong> - a live AI analyst that has access to every signal AlphaGap tracks. Ask it anything, in plain English. Get a real, data-backed answer in seconds.
     </p>
     <p style="color:#9ca3af;font-size:15px;line-height:1.8;margin:0 0 32px 0;">
       No dashboards to dig through. No tabs to open. Just ask.
@@ -451,7 +450,7 @@ export async function sendOracleAnnouncementEmail(
           ["🔧", "GitHub commit velocity & HuggingFace model activity"],
           ["⚡", "Emissions rates & validator weight changes"],
           ["💬", "Discord alpha scanner & X/Twitter social momentum"],
-          ["🧪", "Performance — historical alpha patterns & case studies"],
+          ["🧪", "Performance - historical alpha patterns & case studies"],
         ].map(([icon, text]) => `
           <tr>
             <td style="padding:7px 0;vertical-align:top;">
@@ -490,7 +489,7 @@ export async function sendOracleAnnouncementEmail(
     <div style="background:#0a0f1a;border:1px solid #1f2937;border-radius:14px;padding:20px 28px;margin:0 0 28px 0;">
       <p style="color:#9ca3af;font-size:13px;line-height:1.7;margin:0;">
         TAO Oracle is included in the <strong style="color:#ffffff;">Premium plan ($49/mo)</strong>.
-        You&apos;ll keep everything you have now — Pro features, full leaderboard, all signals — and unlock Oracle, Telegram Alerts, Wallet Tracker, Performance, and every other Premium feature in one upgrade.
+        You&apos;ll keep everything you have now - Pro features, full leaderboard, all signals - and unlock Oracle, Telegram Alerts, Wallet Tracker, Performance, and every other Premium feature in one upgrade.
       </p>
     </div>
     `}
@@ -507,7 +506,7 @@ export async function sendOracleAnnouncementEmail(
     <!-- Sign-off -->
     <p style="color:#6b7280;font-size:13px;line-height:1.7;margin:0;border-top:1px solid #1a1a2e;padding-top:24px;">
       This one&apos;s a game changer. Hope you love it,<br>
-      <strong style="color:#9ca3af;">— The AlphaGap Team</strong>
+      <strong style="color:#9ca3af;">- The AlphaGap Team</strong>
     </p>
   `);
 
@@ -519,7 +518,7 @@ export async function sendOracleAnnouncementEmail(
   });
 }
 
-/** Conviction page announcement — Premium has full access; Free/Pro see teaser + upgrade prompt */
+/** Conviction page announcement - Premium has full access; Free/Pro see teaser + upgrade prompt */
 export async function sendConvictionAnnouncementEmail(
   name: string,
   email: string,
@@ -531,18 +530,18 @@ export async function sendConvictionAnnouncementEmail(
   const ctaHref  = isPremium ? `${BASE_URL}/conviction` : `${BASE_URL}/pricing`;
   const ctaLabel = isPremium ? "View Conviction Page →" : "Unlock Full Access →";
   const ctaNote  = isPremium
-    ? "Live at alphagap.io/conviction — updated every 10 minutes"
+    ? "Live at alphagap.io/conviction - updated every 10 minutes"
     : "Premium plan · $49/mo · Cancel anytime · Includes everything in Pro";
 
   const subject = isPremium
-    ? "🔒 New: The Conviction Page — see where real money is locked right now"
+    ? "🔒 New: The Conviction Page - see where real money is locked right now"
     : "🔒 New feature: see exactly which subnets smart money is locked into";
 
   const signals = [
-    { icon: "🏆", label: "Conviction Leaderboard", desc: "Every subnet ranked by total locked alpha — the harder the lock, the higher the conviction. See who is putting real capital behind what." },
+    { icon: "🏆", label: "Conviction Leaderboard", desc: "Every subnet ranked by total locked alpha - the harder the lock, the higher the conviction. See who is putting real capital behind what." },
     { icon: "📈", label: "aGap + Invest Score Side-by-Side", desc: "Each subnet&apos;s intelligence score and investability score displayed together. Know which high-conviction subnets also have strong fundamentals." },
     { icon: "⚡", label: "Live Lock & Unlock Events", desc: "A real-time feed of every significant lock and unlock across the network. When a whale moves, you see it the moment it happens." },
-    { icon: "🐋", label: "Top Locker Breakdown", desc: "Drill into any subnet and see the individual wallets driving its conviction — how much they locked, when, and how it&apos;s changed." },
+    { icon: "🐋", label: "Top Locker Breakdown", desc: "Drill into any subnet and see the individual wallets driving its conviction - how much they locked, when, and how it&apos;s changed." },
     { icon: "🔍", label: "128 Subnets Tracked", desc: "Every subnet in the network, ranked. Filter by lock size, score, or recent activity to find where conviction is building." },
   ];
 
@@ -585,23 +584,23 @@ export async function sendConvictionAnnouncementEmail(
     </p>
     ${isPremium ? `
     <p style="color:#9ca3af;font-size:15px;line-height:1.8;margin:0 0 16px 0;">
-      We just launched the Conviction Page — and as a Premium member, it&apos;s live in your account right now.
+      We just launched the Conviction Page - and as a Premium member, it&apos;s live in your account right now.
     </p>
     <p style="color:#9ca3af;font-size:15px;line-height:1.8;margin:0 0 16px 0;">
       Alpha locking is one of the most important on-chain signals in Bittensor. When validators and stakers lock alpha into a subnet, they are putting real capital on the line and committing to it. They don&apos;t do that unless they believe in what&apos;s being built.
     </p>
     <p style="color:#9ca3af;font-size:15px;line-height:1.8;margin:0 0 32px 0;">
-      The Conviction Page shows you exactly which subnets are attracting that locked capital — ranked, updated every 10 minutes, with a live feed of every lock and unlock event happening across the network. This is the clearest signal of where smart money has the highest conviction right now.
+      The Conviction Page shows you exactly which subnets are attracting that locked capital - ranked, updated every 10 minutes, with a live feed of every lock and unlock event happening across the network. This is the clearest signal of where smart money has the highest conviction right now.
     </p>
     ` : `
     <p style="color:#9ca3af;font-size:15px;line-height:1.8;margin:0 0 16px 0;">
       Prices react to conviction. The question is: how do you find conviction before it shows up in price?
     </p>
     <p style="color:#9ca3af;font-size:15px;line-height:1.8;margin:0 0 16px 0;">
-      On Bittensor, one of the clearest answers is <strong style="color:#ffffff;">alpha locking</strong>. When validators and stakers lock alpha into a subnet, they are putting real capital on the line. Not speculation — locked capital. They can&apos;t move it. They don&apos;t lock unless they genuinely believe.
+      On Bittensor, one of the clearest answers is <strong style="color:#ffffff;">alpha locking</strong>. When validators and stakers lock alpha into a subnet, they are putting real capital on the line. Not speculation - locked capital. They can&apos;t move it. They don&apos;t lock unless they genuinely believe.
     </p>
     <p style="color:#9ca3af;font-size:15px;line-height:1.8;margin:0 0 32px 0;">
-      Today we&apos;re launching the <strong style="color:#ffffff;">Conviction Page</strong> — a live ranking of every subnet by locked alpha, updated every 10 minutes, with individual locker breakdowns and a real-time event feed. <strong style="color:#ffffff;">This is the page you check before making any move.</strong>
+      Today we&apos;re launching the <strong style="color:#ffffff;">Conviction Page</strong> - a live ranking of every subnet by locked alpha, updated every 10 minutes, with individual locker breakdowns and a real-time event feed. <strong style="color:#ffffff;">This is the page you check before making any move.</strong>
     </p>
     `}
 
@@ -609,7 +608,7 @@ export async function sendConvictionAnnouncementEmail(
     <div style="background:#0a1f0d;border:1px solid #10b98130;border-radius:14px;padding:22px 28px;margin:0 0 24px 0;">
       <p style="color:#10b981;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;margin:0 0 12px 0;">Why locked alpha matters</p>
       <p style="color:#d1d5db;font-size:14px;line-height:1.8;margin:0 0 12px 0;">
-        Locked alpha is irreversible for a period. Lockers give up liquidity in exchange for enhanced yield — but only if the subnet performs. That&apos;s real skin in the game.
+        Locked alpha is irreversible for a period. Lockers give up liquidity in exchange for enhanced yield - but only if the subnet performs. That&apos;s real skin in the game.
       </p>
       <p style="color:#9ca3af;font-size:13px;line-height:1.8;margin:0;">
         A subnet with rising locked alpha has something the market hasn&apos;t fully priced in yet: <strong style="color:#ffffff;">people who know the ecosystem best are betting on it with committed capital.</strong> That&apos;s your edge.
@@ -632,7 +631,7 @@ export async function sendConvictionAnnouncementEmail(
       <p style="color:#9ca3af;font-size:13px;line-height:1.7;margin:0;">
         Find it in the navigation under <strong style="color:#ffffff;">Conviction</strong>, or go straight to
         <a href="${BASE_URL}/conviction" style="color:#10b981;text-decoration:none;">alphagap.io/conviction</a>.
-        We recommend checking it every day — locked alpha changes fast, and the early signals are in the data before they hit anyone&apos;s feed.
+        We recommend checking it every day - locked alpha changes fast, and the early signals are in the data before they hit anyone&apos;s feed.
       </p>
     </div>
     ` : `
@@ -641,11 +640,11 @@ export async function sendConvictionAnnouncementEmail(
       <p style="color:#6b7280;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;margin:0 0 16px 0;">What you&apos;re currently missing</p>
       <table cellpadding="0" cellspacing="0" width="100%">
         ${[
-          "Full conviction leaderboard — all 128 subnets ranked by locked alpha",
+          "Full conviction leaderboard - all 128 subnets ranked by locked alpha",
           "aGap + Invest score next to every subnet's lock data",
-          "Live event feed — every significant lock and unlock as it happens",
-          "Individual locker wallets — see exactly who is building conviction and how much",
-          "Historical conviction trends — catch subnets before they break out",
+          "Live event feed - every significant lock and unlock as it happens",
+          "Individual locker wallets - see exactly who is building conviction and how much",
+          "Historical conviction trends - catch subnets before they break out",
         ].map(item => `
           <tr>
             <td style="padding:8px 0;border-bottom:1px solid #1a2235;">
@@ -666,7 +665,7 @@ export async function sendConvictionAnnouncementEmail(
     <div style="background:#0a0f1a;border:1px solid #1f2937;border-radius:14px;padding:20px 28px;margin:0 0 28px 0;">
       <p style="color:#9ca3af;font-size:13px;line-height:1.7;margin:0;">
         The Conviction Page is included in <strong style="color:#ffffff;">Premium ($49/mo)</strong>.
-        You&apos;ll keep everything you have now — full leaderboard, all signals, reports — and unlock Conviction, Whale Tracker, Performance, Analytics, Telegram Alerts, and every other Premium feature in one upgrade.
+        You&apos;ll keep everything you have now - full leaderboard, all signals, reports - and unlock Conviction, Whale Tracker, Performance, Analytics, Telegram Alerts, and every other Premium feature in one upgrade.
       </p>
     </div>
     `}
@@ -683,7 +682,7 @@ export async function sendConvictionAnnouncementEmail(
     <!-- Sign-off -->
     <p style="color:#6b7280;font-size:13px;line-height:1.7;margin:0;border-top:1px solid #1a1a2e;padding-top:24px;">
       This one&apos;s important. Check it daily,<br>
-      <strong style="color:#9ca3af;">— The AlphaGap Team</strong>
+      <strong style="color:#9ca3af;">- The AlphaGap Team</strong>
     </p>
   `);
 
@@ -695,7 +694,7 @@ export async function sendConvictionAnnouncementEmail(
   });
 }
 
-/** Password reset email — token expires in 1 hour */
+/** Password reset email - token expires in 1 hour */
 export async function sendPasswordResetEmail(name: string, email: string, resetToken: string) {
   const firstName = name.split(" ")[0];
   const resetUrl = `${BASE_URL}/auth/reset-password?token=${resetToken}`;
@@ -714,7 +713,7 @@ export async function sendPasswordResetEmail(name: string, email: string, resetT
       <p style="color:#4b5563;font-size:11px;margin:16px 0 0 0;">This link expires in <strong style="color:#9ca3af;">1 hour</strong></p>
     </div>
     <p style="color:#4b5563;font-size:12px;margin:0;line-height:1.6;">
-      If you didn&apos;t request a password reset, you can safely ignore this email — your password won&apos;t change.
+      If you didn&apos;t request a password reset, you can safely ignore this email - your password won&apos;t change.
     </p>
   `);
 
@@ -726,7 +725,7 @@ export async function sendPasswordResetEmail(name: string, email: string, resetT
   });
 }
 
-/** Wallet Tracker launch announcement — two versions: premium (you have it) vs free/pro (upgrade) */
+/** Wallet Tracker launch announcement - two versions: premium (you have it) vs free/pro (upgrade) */
 export async function sendWalletTrackerAnnouncementEmail(
   name: string,
   email: string,
@@ -743,12 +742,12 @@ export async function sendWalletTrackerAnnouncementEmail(
 
   const subject = isPremium
     ? "Your new superpower: track what TAO whales are doing in real time 🐋"
-    : "We just added a whale tracker — here's why it matters 🐋";
+    : "We just added a whale tracker - here's why it matters 🐋";
 
   const features = [
-    { icon: "🎯", label: "Top 200 Alpha Whale Wallets", desc: "The biggest alpha portfolio holders ranked by TAO staked across all subnets — updated every hour. See exactly who has the most skin in the game." },
+    { icon: "🎯", label: "Top 200 Alpha Whale Wallets", desc: "The biggest alpha portfolio holders ranked by TAO staked across all subnets - updated every hour. See exactly who has the most skin in the game." },
     { icon: "🚀", label: "Big Winners (24h)", desc: "Which wallets made the most TAO in the last 24 hours? Smart money leaves footprints. Follow them here." },
-    { icon: "🌊", label: "Active Movers (Live)", desc: "Real-time SubnetRadar data — see who is staking and unstaking RIGHT NOW, across every alpha subnet." },
+    { icon: "🌊", label: "Active Movers (Live)", desc: "Real-time SubnetRadar data - see who is staking and unstaking RIGHT NOW, across every alpha subnet." },
     { icon: "🏗️", label: "Big Deployers (30d)", desc: "The largest capital deployments of the last 30 days. Spot conviction before price does." },
     { icon: "👛", label: "Full Portfolio View", desc: "Click any wallet to see every subnet they hold, position size, full trade history, P&L, and avg hold time." },
     { icon: "🔔", label: "Telegram Alerts on Moves", desc: "Track a whale and get pinged the moment they stake or unstake. Set your own USD threshold to cut out the noise." },
@@ -794,17 +793,17 @@ export async function sendWalletTrackerAnnouncementEmail(
     </p>
     ${isPremium ? `
     <p style="color:#9ca3af;font-size:15px;line-height:1.8;margin:0 0 16px 0;">
-      We just shipped something that changes how you track alpha on Bittensor — and as a Premium member, it&apos;s live in your account right now.
+      We just shipped something that changes how you track alpha on Bittensor - and as a Premium member, it&apos;s live in your account right now.
     </p>
     <p style="color:#9ca3af;font-size:15px;line-height:1.8;margin:0 0 32px 0;">
-      <strong style="color:#ffffff;">Wallet Tracker</strong> lets you see the top 200 TAO whale wallets, their complete alpha portfolios, and exactly what they&apos;re staking or unstaking in real time — then get Telegram alerts the moment they move.
+      <strong style="color:#ffffff;">Wallet Tracker</strong> lets you see the top 200 TAO whale wallets, their complete alpha portfolios, and exactly what they&apos;re staking or unstaking in real time - then get Telegram alerts the moment they move.
     </p>
     ` : `
     <p style="color:#9ca3af;font-size:15px;line-height:1.8;margin:0 0 16px 0;">
-      In Bittensor, the smartest alpha investors move before the crowd. They stake into subnets early, build positions quietly, and by the time it&apos;s in the feed — it&apos;s already priced in.
+      In Bittensor, the smartest alpha investors move before the crowd. They stake into subnets early, build positions quietly, and by the time it&apos;s in the feed - it&apos;s already priced in.
     </p>
     <p style="color:#9ca3af;font-size:15px;line-height:1.8;margin:0 0 16px 0;">
-      Today we&apos;re launching <strong style="color:#ffffff;">Wallet Tracker</strong> — a live feed of the top 200 TAO whale wallets, their full alpha portfolios, and exactly what they&apos;re doing right now.
+      Today we&apos;re launching <strong style="color:#ffffff;">Wallet Tracker</strong> - a live feed of the top 200 TAO whale wallets, their full alpha portfolios, and exactly what they&apos;re doing right now.
     </p>
     <p style="color:#9ca3af;font-size:15px;line-height:1.8;margin:0 0 32px 0;">
       This is a Premium feature. Here&apos;s everything it includes:
@@ -835,7 +834,7 @@ export async function sendWalletTrackerAnnouncementEmail(
     <div style="background:#0a0f1a;border:1px solid #1f2937;border-radius:14px;padding:20px 28px;margin:0 0 28px 0;">
       <p style="color:#9ca3af;font-size:13px;line-height:1.7;margin:0;">
         Wallet Tracker is available on the <strong style="color:#ffffff;">Premium plan ($49/mo)</strong>.
-        You&apos;ll keep everything you have now and unlock Wallet Tracker, Performance, Alerts, Analytics, and every other Premium feature — all in one upgrade.
+        You&apos;ll keep everything you have now and unlock Wallet Tracker, Performance, Alerts, Analytics, and every other Premium feature - all in one upgrade.
       </p>
     </div>
     `}
@@ -852,7 +851,7 @@ export async function sendWalletTrackerAnnouncementEmail(
     <!-- Sign-off -->
     <p style="color:#6b7280;font-size:13px;line-height:1.7;margin:0;border-top:1px solid #1a1a2e;padding-top:24px;">
       Excited for you to use this one,<br>
-      <strong style="color:#9ca3af;">— The AlphaGap Team</strong>
+      <strong style="color:#9ca3af;">- The AlphaGap Team</strong>
     </p>
   `);
 
@@ -870,7 +869,7 @@ export async function sendSystemAlertEmail(subject: string, lines: string[]) {
     <h1 style="color:#ffffff;font-size:22px;font-weight:800;margin:0 0 16px;">⚠️ ${subject}</h1>
     ${lines.map(l => `<p style="color:#9ca3af;font-size:14px;line-height:1.7;margin:0 0 10px;">${l}</p>`).join("")}
     <p style="color:#6b7280;font-size:13px;line-height:1.7;margin:24px 0 0;border-top:1px solid #1a1a2e;padding-top:24px;">
-      — AlphaGap health watch
+      - AlphaGap health watch
     </p>
   `);
 
@@ -1022,7 +1021,7 @@ export async function sendIndexAnnouncementEmail(name: string, email: string, is
     from: FROM,
     to: email,
     subject: isUltra
-      ? "The AlphaGap Index is live — you already have access"
+      ? "The AlphaGap Index is live - you already have access"
       : "The Bittensor TAO Index has launched",
     html: idxShell(inner, email),
   });

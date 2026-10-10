@@ -26,7 +26,7 @@ export default function TermsPage() {
 
           {/* 2 */}
           <section>
-            <h2 className="text-lg font-bold text-white mb-3">2. Not Financial Advice — Important Disclaimer</h2>
+            <h2 className="text-lg font-bold text-white mb-3">2. Not Financial Advice - Important Disclaimer</h2>
             <p className="mb-3">
               <strong className="text-white">AlphaGap is an educational and informational intelligence tool only. Nothing on this Platform constitutes financial advice, investment advice, trading advice, or any recommendation to buy, sell, or hold any cryptocurrency, digital asset, token, or other financial instrument.</strong>
             </p>
@@ -48,7 +48,7 @@ export default function TermsPage() {
               AlphaGap offers both free and paid subscription tiers. Paid subscriptions are billed monthly through our payment processor, Stripe. By subscribing, you authorise Beanstock Finance Ltd. to charge your payment method on a recurring monthly basis until you cancel.
             </p>
             <p className="mb-3">
-              You may cancel your subscription at any time through your account settings. Cancellation takes effect at the end of the current billing period — no partial refunds are issued for unused time in the billing cycle. We reserve the right to modify subscription pricing with at least 14 days&apos; notice.
+              You may cancel your subscription at any time through your account settings. Cancellation takes effect at the end of the current billing period - no partial refunds are issued for unused time in the billing cycle. We reserve the right to modify subscription pricing with at least 14 days&apos; notice.
             </p>
             <p>
               We reserve the right to suspend or terminate your account at any time for violation of these Terms, suspected fraud, or any other reason at our sole discretion. In such cases, you will not be entitled to a refund of any fees paid.
@@ -59,7 +59,7 @@ export default function TermsPage() {
           <section>
             <h2 className="text-lg font-bold text-white mb-3">4. Intellectual Property</h2>
             <p className="mb-3">
-              All content on the Platform — including but not limited to the aGap scoring methodology, signal algorithms, reports, software, design, and branding — is the exclusive property of Beanstock Finance Ltd. and is protected by applicable copyright, trademark, and intellectual property laws.
+              All content on the Platform - including but not limited to the aGap scoring methodology, signal algorithms, reports, software, design, and branding - is the exclusive property of Beanstock Finance Ltd. and is protected by applicable copyright, trademark, and intellectual property laws.
             </p>
             <p>
               You are granted a limited, non-exclusive, non-transferable licence to access and use the Platform for your own personal, non-commercial purposes. You may not copy, reproduce, redistribute, scrape, resell, or create derivative works from any content on the Platform without our prior written consent.
@@ -85,7 +85,7 @@ export default function TermsPage() {
           <section>
             <h2 className="text-lg font-bold text-white mb-3">6. Data Accuracy &amp; Limitation of Liability</h2>
             <p className="mb-3">
-              While we strive to provide accurate and up-to-date data, we make no warranties — express or implied — regarding the accuracy, completeness, reliability, or timeliness of any information on the Platform. Data may be delayed, incomplete, or contain errors.
+              While we strive to provide accurate and up-to-date data, we make no warranties - express or implied - regarding the accuracy, completeness, reliability, or timeliness of any information on the Platform. Data may be delayed, incomplete, or contain errors.
             </p>
             <p className="mb-3">
               To the maximum extent permitted by applicable law, Beanstock Finance Ltd., its directors, employees, and affiliates shall not be liable for any direct, indirect, incidental, special, consequential, or exemplary damages, including but not limited to loss of profits, loss of data, or financial losses arising from your use of or inability to use the Platform or any content thereon.
@@ -105,7 +105,7 @@ export default function TermsPage() {
             <h3 className="font-semibold text-white mt-4 mb-2">Information We Collect</h3>
             <ul className="list-disc list-inside space-y-1.5 text-gray-400 ml-2">
               <li><strong className="text-gray-300">Account information:</strong> name, email address, and hashed password when you register</li>
-              <li><strong className="text-gray-300">Payment information:</strong> processed securely by Stripe — we do not store card details on our servers</li>
+              <li><strong className="text-gray-300">Payment information:</strong> processed securely by Stripe - we do not store card details on our servers</li>
               <li><strong className="text-gray-300">Usage data:</strong> pages visited, features used, session duration, and similar analytics to improve the Platform</li>
               <li><strong className="text-gray-300">Technical data:</strong> IP address, browser type, device information, and cookies</li>
             </ul>
@@ -121,7 +121,7 @@ export default function TermsPage() {
 
             <h3 className="font-semibold text-white mt-4 mb-2">Data Sharing</h3>
             <p className="mb-3">
-              We do not sell your personal information. We share data only with trusted third-party service providers necessary to operate the Platform — including Stripe (payments), Resend (email), and Vercel (hosting) — who are contractually bound to protect your data. We may also disclose information if required by law or to protect our legal rights.
+              We do not sell your personal information. We share data only with trusted third-party service providers necessary to operate the Platform - including Stripe (payments), Resend (email), and Vercel (hosting) - who are contractually bound to protect your data. We may also disclose information if required by law or to protect our legal rights.
             </p>
 
             <h3 className="font-semibold text-white mt-4 mb-2">Data Retention &amp; Deletion</h3>

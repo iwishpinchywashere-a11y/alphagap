@@ -3,7 +3,7 @@
  *
  * Seeds subnet-scores-history.json with the current leaderboard scores
  * stamped as "25 hours ago". On the next scan the diff will be ~0
- * (velo shows 50/neutral for everyone) but the column stops showing "—".
+ * (velo shows 50/neutral for everyone) but the column stops showing "-".
  * Real deltas emerge naturally over the next 24h as scores drift.
  */
 

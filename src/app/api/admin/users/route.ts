@@ -14,7 +14,7 @@ function isAdmin(session: any): boolean {
   return adminEmails.includes((session.user.email ?? "").toLowerCase());
 }
 
-// GET /api/admin/users — list all users with subscription details
+// GET /api/admin/users - list all users with subscription details
 export async function GET(req: Request) {
   const session = await getServerSession(authOptions);
   if (!isAdmin(session)) return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
@@ -23,7 +23,7 @@ export async function GET(req: Request) {
   const action = url.searchParams.get("action");
 
   if (action === "stripe-stats") {
-    // Pull live stats from Stripe — only count AlphaGap subscriptions
+    // Pull live stats from Stripe - only count AlphaGap subscriptions
     try {
       const stripe = getStripe();
       // Only subscriptions with AlphaGap metadata
@@ -52,14 +52,14 @@ export async function GET(req: Request) {
   return NextResponse.json({ users });
 }
 
-// POST /api/admin/users — grant/revoke access manually
+// POST /api/admin/users - grant/revoke access manually
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
   if (!isAdmin(session)) return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
 
   const { action, email, tier } = await req.json();
 
-  // Delete doesn't require the user blob to exist — just wipe everything by email
+  // Delete doesn't require the user blob to exist - just wipe everything by email
   if (action === "delete") {
     await deleteUser(email);
     return NextResponse.json({ ok: true, message: `Account deleted: ${email}` });
@@ -76,7 +76,7 @@ export async function POST(req: Request) {
 
   if (action === "grant") {
     const updated = await updateUser(email, { subscriptionStatus: "active" });
-    // upsert into list — works even if the entry was missing
+    // upsert into list - works even if the entry was missing
     await addToUserList(updated);
     return NextResponse.json({ ok: true, message: `Access granted to ${email}` });
   }

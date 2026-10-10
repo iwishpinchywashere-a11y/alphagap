@@ -3,7 +3,7 @@
  *
  * Called from the dashboard after returning from Stripe payment.
  * Directly fetches the user's subscription from Stripe and updates the
- * user blob — so we don't depend on the webhook arriving first.
+ * user blob - so we don't depend on the webhook arriving first.
  */
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
@@ -48,7 +48,7 @@ export async function POST() {
     }
 
     // If already active/trialing at the expected tier, nothing to do.
-    // But don't early-exit during an upgrade — the blob tier may have just changed.
+    // But don't early-exit during an upgrade - the blob tier may have just changed.
     const sessionTier = (session?.user as any)?.subscriptionTier;
     if (
       (user.subscriptionStatus === "active" || user.subscriptionStatus === "trialing") &&

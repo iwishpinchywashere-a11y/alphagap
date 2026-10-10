@@ -58,7 +58,7 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // Fetch metadata for legacy entries (old format had only netuid) — parallel but capped
+    // Fetch metadata for legacy entries (old format had only netuid) - parallel but capped
     const LEGACY_LIMIT = 60; // don't fetch more than this many old files per request
     const legacyToFetch = legacyDates.slice(0, LEGACY_LIMIT);
     const legacyResults = await Promise.all(

@@ -6,7 +6,7 @@
  * (estimated from reports history), and seeds multiple history snapshots
  * so the chart has enough data points to render.
  *
- * Safe to run multiple times — only updates buy dates if current date is today,
+ * Safe to run multiple times - only updates buy dates if current date is today,
  * and only adds history entries that don't already exist.
  */
 
@@ -19,21 +19,21 @@ export const dynamic = "force-dynamic";
 // Best-estimate buy dates based on when each subnet was seen at aGap ≥ 80
 // Derived from /api/reports history and scan patterns.
 const KNOWN_BUY_DATES: Record<number, string> = {
-  62:  "2026-04-05",  // Ridges — report 2026-04-05 @ score 81
-  11:  "2026-04-30",  // TrajectoryRL — recent high scorer
-  120: "2026-04-10",  // Affine — report 2026-04-09 @ score 79, likely crossed 80 next day
-  97:  "2026-04-25",  // distil — report 2026-04-25 @ score 100
-  8:   "2026-04-30",  // Vanta — recent high scorer
-  51:  "2026-04-06",  // lium.io — report 2026-04-06 @ score 92
-  34:  "2026-05-01",  // BitMind — recent addition
+  62:  "2026-04-05",  // Ridges - report 2026-04-05 @ score 81
+  11:  "2026-04-30",  // TrajectoryRL - recent high scorer
+  120: "2026-04-10",  // Affine - report 2026-04-09 @ score 79, likely crossed 80 next day
+  97:  "2026-04-25",  // distil - report 2026-04-25 @ score 100
+  8:   "2026-04-30",  // Vanta - recent high scorer
+  51:  "2026-04-06",  // lium.io - report 2026-04-06 @ score 92
+  34:  "2026-05-01",  // BitMind - recent addition
 };
 
-// Historical buy prices (USD) — approximate from report dates or recent data
+// Historical buy prices (USD) - approximate from report dates or recent data
 // If not specified, keeps whatever is currently stored
 const KNOWN_BUY_PRICES: Record<number, number> = {
-  62:  8.90,   // Ridges — from 2026-04-05 report
-  51:  15.36,  // lium.io — from 2026-04-06 report
-  97:  11.02,  // distil — approximate from around Apr 25
+  62:  8.90,   // Ridges - from 2026-04-05 report
+  51:  15.36,  // lium.io - from 2026-04-06 report
+  97:  11.02,  // distil - approximate from around Apr 25
 };
 
 export async function GET() {
@@ -77,7 +77,7 @@ export async function GET() {
 
       const existing = portfolio.history.find(h => h.date === date);
       if (!existing) {
-        // Use cost basis for seed value — positions started at $100 each
+        // Use cost basis for seed value - positions started at $100 each
         // Earliest days: just cost basis; more recent days: slight appreciation
         const costBasis = portfolio.positions.reduce((sum, pos) => {
           // Only include positions that were "bought" by this date

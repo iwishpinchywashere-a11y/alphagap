@@ -1,6 +1,6 @@
 import Stripe from "stripe";
 
-// Lazy singleton — only instantiated when first used
+// Lazy singleton - only instantiated when first used
 let _stripe: Stripe | null = null;
 
 export function getStripe(): Stripe {
@@ -12,7 +12,7 @@ export function getStripe(): Stripe {
   return _stripe;
 }
 
-/** Legacy single-plan config — kept for backwards compat */
+/** Legacy single-plan config - kept for backwards compat */
 export const PLAN = {
   name: "AlphaGap Pro",
   description: "Full access to AlphaGap Bittensor subnet intelligence",

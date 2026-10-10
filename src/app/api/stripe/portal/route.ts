@@ -19,7 +19,7 @@ export async function POST() {
     const stripe = getStripe();
     const baseUrl = (process.env.NEXTAUTH_URL || "https://alphagap.io").replace(/\/$/, "");
 
-    // Resolve Stripe customer ID — prefer stored value, fall back to email lookup
+    // Resolve Stripe customer ID - prefer stored value, fall back to email lookup
     let customerId = user?.stripeCustomerId;
     if (!customerId) {
       const existing = await stripe.customers.list({ email, limit: 1 });

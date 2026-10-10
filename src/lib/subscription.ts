@@ -19,7 +19,7 @@ export function getTier(session: any): Tier {
   // canceled / none / anything else = no paid access.
   const isPaid = s === "active" || s === "trialing" || s === "past_due";
 
-  // Explicit tier field (new subscriptions) — only honour if subscription is paid
+  // Explicit tier field (new subscriptions) - only honour if subscription is paid
   if (isPaid) {
     if (u.subscriptionTier === "ultra")   return "ultra";
     if (u.subscriptionTier === "premium") return "premium";

@@ -116,7 +116,7 @@ export async function POST(req: Request) {
           const user = await getUserByStripeCustomerId(sub.customer as string);
           if (user) {
             if (user.stripeSubscriptionId && user.stripeSubscriptionId !== sub.id) {
-              console.log(`[webhook] payment_failed on stale sub ${sub.id} (current: ${user.stripeSubscriptionId}) — ignoring`);
+              console.log(`[webhook] payment_failed on stale sub ${sub.id} (current: ${user.stripeSubscriptionId}) - ignoring`);
               break;
             }
             // Even for the sub on file, confirm the customer has nothing else
@@ -129,7 +129,7 @@ export async function POST(req: Request) {
             }).catch(() => null);
             const otherActive = live?.data.find(s => s.id !== sub.id);
             if (otherActive) {
-              console.log(`[webhook] payment_failed on ${sub.id} but ${otherActive.id} is active — keeping access`);
+              console.log(`[webhook] payment_failed on ${sub.id} but ${otherActive.id} is active - keeping access`);
               break;
             }
             await updateUser(user.email, { subscriptionStatus: "past_due" });
@@ -215,7 +215,7 @@ export async function POST(req: Request) {
     }
   } catch (e) {
     console.error("[webhook] Handler error:", e);
-    // Return 200 so Stripe doesn't retry — we'll handle errors internally
+    // Return 200 so Stripe doesn't retry - we'll handle errors internally
   }
 
   return NextResponse.json({ received: true });

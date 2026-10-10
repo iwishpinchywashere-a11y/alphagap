@@ -1,6 +1,6 @@
 // Portfolio performance tracker
 // Tracks mock $100 buys whenever a subnet's aGap score crosses 80
-// Auto-buy logic runs inside /api/scan — this route handles reads
+// Auto-buy logic runs inside /api/scan - this route handles reads
 
 import { NextResponse } from "next/server";
 import { get as blobGet } from "@vercel/blob";
@@ -16,7 +16,7 @@ export interface PortfolioPosition {
   amountUsd: number;      // always $100
   alphaTokens: number;    // amountUsd / buyPriceUsd
   peakPrice?: number;     // highest alpha price seen since buy (updated by scan cron)
-  manualPeakPrice?: number; // manually set peak — never overwritten by scan
+  manualPeakPrice?: number; // manually set peak - never overwritten by scan
 }
 
 export interface PortfolioSnapshot {
@@ -27,7 +27,7 @@ export interface PortfolioSnapshot {
 export interface Portfolio {
   positions: PortfolioPosition[];
   history: PortfolioSnapshot[];
-  // All netuids ever purchased — prevents re-buying if a position is removed
+  // All netuids ever purchased - prevents re-buying if a position is removed
   purchasedNetUids?: number[];
 }
 
@@ -83,7 +83,7 @@ export async function GET() {
       const pnl24hUsd = currentValue * (change24h / 100);
 
       // Max P&L: manualPeakPrice (set via admin PATCH) takes priority over scan-tracked peakPrice.
-      // Clamped to 0 — if peakPrice never exceeded buy price the best outcome was breakeven, not a loss.
+      // Clamped to 0 - if peakPrice never exceeded buy price the best outcome was breakeven, not a loss.
       const peakPrice = pos.manualPeakPrice ?? pos.peakPrice ?? null;
       const rawMaxPnlUsd = peakPrice != null ? pos.alphaTokens * peakPrice - pos.amountUsd : null;
       const maxPnlUsd = rawMaxPnlUsd != null ? Math.max(0, rawMaxPnlUsd) : null;
@@ -109,7 +109,7 @@ export async function GET() {
     const totalPnlPct = totalCost > 0 ? ((totalValue - totalCost) / totalCost) * 100 : 0;
 
     // Max Return: equal-weighted average of per-position peak return.
-    // Each trade counts equally regardless of position size — prevents recently-added
+    // Each trade counts equally regardless of position size - prevents recently-added
     // large manual positions from diluting the metric for the auto-buy trades.
     const maxReturnUsd = enriched.reduce((s, p) => s + (p.maxPnlUsd ?? 0), 0);
     const posWithPeak = enriched.filter(p => p.maxPnlPct != null);
@@ -136,7 +136,7 @@ export async function GET() {
   }
 }
 
-// PATCH /api/portfolio — update or remove position(s) by netuid
+// PATCH /api/portfolio - update or remove position(s) by netuid
 // Body: { netuid: number, remove?: boolean, ... } OR { netuids: number[], remove: true } for batch removal
 // To add a new position manually: { netuid, name, buyDate, buyPriceUsd, buyAGapScore, add: true }
 export async function PATCH(req: Request) {
@@ -270,7 +270,7 @@ export async function loadPortfolio(): Promise<Portfolio> {
         if (done) break;
         chunks.push(value);
       }
-      // Parse throws on corruption — callers will catch and abort instead of overwriting
+      // Parse throws on corruption - callers will catch and abort instead of overwriting
       return JSON.parse(Buffer.concat(chunks).toString("utf-8"));
 
     } catch (err) {
@@ -285,6 +285,6 @@ export async function loadPortfolio(): Promise<Portfolio> {
       }
     }
   }
-  // All retries exhausted — throw so callers abort rather than overwriting with empty
+  // All retries exhausted - throw so callers abort rather than overwriting with empty
   throw lastErr;
 }

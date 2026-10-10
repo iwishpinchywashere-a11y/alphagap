@@ -1,4 +1,4 @@
-// Shared notification types — no server-side imports so safe to use in client components
+// Shared notification types - no server-side imports so safe to use in client components
 
 export type NotificationType = "score" | "signal" | "whale" | "report" | "social" | "benchmark";
 

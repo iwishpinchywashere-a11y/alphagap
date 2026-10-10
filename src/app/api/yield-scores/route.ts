@@ -1,7 +1,7 @@
 /**
  * GET /api/yield-scores
  *
- * Public endpoint (no auth required) — returns staking APY per subnet from
+ * Public endpoint (no auth required) - returns staking APY per subnet from
  * the yield-latest.json blob so the dashboard can populate the APY column
  * independently of the main scan cycle.
  *

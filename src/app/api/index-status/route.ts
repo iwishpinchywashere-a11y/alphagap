@@ -2,7 +2,7 @@
  * GET /api/index-status
  * Returns the last AlphaGap Index rebalance result from Vercel Blob.
  * Used by the /alphagapindex page to show live last-rebalanced date and holdings.
- * Public endpoint — no auth required (holdings are public marketing info).
+ * Public endpoint - no auth required (holdings are public marketing info).
  */
 
 import { NextResponse } from "next/server";

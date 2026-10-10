@@ -41,7 +41,7 @@ export default function WatchlistPage() {
   const tier = getTier(session);
   const isPro = canAccessPro(tier);
 
-  // Local pending state — what the user has checked but not yet saved
+  // Local pending state - what the user has checked but not yet saved
   const [pending, setPending] = useState<Set<number>>(new Set());
   const [search, setSearch] = useState("");
   const [saving, setSaving] = useState(false);
@@ -60,7 +60,7 @@ export default function WatchlistPage() {
       userEdited.current = false;
       setPending(new Set(watchlist));
     } else if (!userEdited.current) {
-      // Server-side refresh (e.g. visibility change refetch) — safe to update
+      // Server-side refresh (e.g. visibility change refetch) - safe to update
       setPending(new Set(watchlist));
     }
   }, [loading, watchlist]);
@@ -113,7 +113,7 @@ export default function WatchlistPage() {
       setSavedFlash(true);
       setTimeout(() => setSavedFlash(false), 2000);
     } catch {
-      // silent — user can try again
+      // silent - user can try again
     } finally {
       setSaving(false);
     }

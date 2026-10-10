@@ -1,7 +1,7 @@
 /**
  * GET /api/admin/refresh-social-scores
  *
- * Zero-cost social score refresh — reads existing blob data only.
+ * Zero-cost social score refresh - reads existing blob data only.
  * Recomputes social_score (v3 formula) and adjusts composite_score
  * without making any Desearch, GitHub, or Taostats API calls.
  *
@@ -43,7 +43,7 @@ interface LeaderboardEntry {
 }
 
 // ── Social Score v3 (mirrors scan/route.ts exactly) ─────────────
-// Dedupe to best event per unique KOL — breadth of voices is the signal.
+// Dedupe to best event per unique KOL - breadth of voices is the signal.
 // To hit 90+: 2+ unique KOLs within 4h. To hit 100: 3+ KOLs + discord alpha.
 function computeSocialScoreV3(
   netuid: number,
@@ -101,7 +101,7 @@ function computeSocialScoreV3(
 }
 
 // Estimate what the OLD socialGap was (v2 formula) from stored social_score + dev_score.
-// socialGap was based on mentions/engagement — we approximate from the stored social score.
+// socialGap was based on mentions/engagement - we approximate from the stored social score.
 function estimateOldSocialGap(oldSocialScore: number, devScore: number): number {
   if (devScore < 20) return 0; // socialGap only applied when devScore >= 20
   // Old social scores without KOL heat: 0 = no mentions, 15 = minimal/fallback, 45 = some organic
@@ -155,7 +155,7 @@ export async function GET() {
   const now = Date.now();
   let socialChangedCount = 0;
 
-  // Only update social_score — composite_score is left untouched until the next
+  // Only update social_score - composite_score is left untouched until the next
   // full scan computes it from scratch with all components. This keeps the refresh
   // idempotent: running it multiple times converges to the same social scores.
   const updatedLeaderboard = scanData.leaderboard.map(entry => {

@@ -139,7 +139,7 @@ export default function ReportsPage() {
               Deep Dive <span className="ag-gradient-text">Reports</span>
             </h1>
             <p className="text-sm md:text-[14.5px] text-gray-400 max-w-xl leading-[1.65] mb-4">
-              Daily deep-dives on the top-ranked subnet. Product maturity, developer velocity, market position, and key catalysts — published every morning at 7am PT.
+              Daily deep-dives on the top-ranked subnet. Product maturity, developer velocity, market position, and key catalysts - published every morning at 7am PT.
             </p>
             <div className="inline-flex items-center gap-2 font-mono text-[11px] tracking-wider text-gray-500 uppercase mb-4">
               <span className="ag-live-dot" />
@@ -150,7 +150,7 @@ export default function ReportsPage() {
             <div className="flex flex-wrap items-center gap-2">
               {!isPro && (
                 <span className="flex items-center gap-1.5 bg-white/[0.04] border border-white/[0.08] backdrop-blur-[14px] rounded-full px-3.5 py-1.5 font-mono text-[10.5px] uppercase tracking-wider text-gray-500">
-                  <AgIcon name="lock" /> Analysis sections — Pro only
+                  <AgIcon name="lock" /> Analysis sections - Pro only
                 </span>
               )}
               <span className="flex items-center gap-1.5 bg-white/[0.04] border border-white/[0.08] backdrop-blur-[14px] rounded-full px-3.5 py-1.5 font-mono text-[10.5px] uppercase tracking-wider text-gray-500">
@@ -198,7 +198,7 @@ export default function ReportsPage() {
         )}
 
         <div className="space-y-3">
-          {/* Latest report — always accessible (free tier gets first 2 sections) */}
+          {/* Latest report - always accessible (free tier gets first 2 sections) */}
           {filtered.slice(0, 1).map((r) => {
             const isExpanded = currentReport?.date === r.date;
             const dateLabel = new Date(r.date + "T12:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" });
@@ -216,7 +216,7 @@ export default function ReportsPage() {
                   <div className="flex items-center gap-3 min-w-0">
                     <div className="w-1 h-8 bg-gradient-to-b from-green-500 to-emerald-600 rounded-full flex-shrink-0" />
                     <span className="font-display text-sm font-semibold text-white truncate">
-                      {r.subnet_name ? `${r.subnet_name} — ${dateLabel}` : dateLabel}
+                      {r.subnet_name ? `${r.subnet_name} - ${dateLabel}` : dateLabel}
                     </span>
                     <span className="ag-badge ag-badge-buy flex-shrink-0">Latest</span>
                   </div>
@@ -243,7 +243,7 @@ export default function ReportsPage() {
             );
           })}
 
-          {/* Older reports — locked for free users */}
+          {/* Older reports - locked for free users */}
           {filtered.length > 1 && (
             <BlurGate tier={tier} required="pro" minHeight="300px">
               <div className="space-y-2.5">
@@ -264,7 +264,7 @@ export default function ReportsPage() {
                         <div className="flex items-center gap-3 min-w-0">
                           <div className="w-1 h-8 bg-gradient-to-b from-gray-600 to-gray-700 rounded-full flex-shrink-0" />
                           <span className="font-display text-sm font-semibold text-white truncate">
-                            {r.subnet_name ? `${r.subnet_name} — ${dateLabel}` : dateLabel}
+                            {r.subnet_name ? `${r.subnet_name} - ${dateLabel}` : dateLabel}
                           </span>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">

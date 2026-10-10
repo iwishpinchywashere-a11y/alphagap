@@ -6,7 +6,7 @@
  *
  * Endpoint: POST /api/v1/share-links/{token}/join
  *
- * This — not /membership/register — is the endpoint for joining a private
+ * This - not /membership/register - is the endpoint for joining a private
  * strategy. /membership/register always answers "Cannot join private strategy
  * without a share link" no matter how the invite is supplied, because it has no
  * way to accept one: its `shareLinkId` field passes validation but does not
@@ -16,7 +16,7 @@
  *   - the invite token is in the URL path, so nothing about it is signed
  *   - `action` MUST be "join_via_share_link" (the endpoint names the expected
  *     action in its error if you get it wrong)
- *   - `data` may be empty — no proxy, no strategyId, no fromBlock
+ *   - `data` may be empty - no proxy, no strategyId, no fromBlock
  *   - NO on-chain anchor block is involved, so TrustedStake's node lag cannot
  *     cause a failure, and one signature is always enough
  *

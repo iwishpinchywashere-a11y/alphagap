@@ -63,7 +63,7 @@ function buildPrompt(ctx: SignalContext): string {
     contextBlock += `\n## Latest Release\n${ctx.releaseNotes.slice(0, 1000)}\n`;
   }
   if (ctx.recentPRs?.length) {
-    contextBlock += `\n## Recently Merged Pull Requests (IMPORTANT — these describe WHAT was built)\n${ctx.recentPRs.slice(0, 8).join("\n\n")}\n`;
+    contextBlock += `\n## Recently Merged Pull Requests (IMPORTANT - these describe WHAT was built)\n${ctx.recentPRs.slice(0, 8).join("\n\n")}\n`;
   }
   if (ctx.recentCommits?.length) {
     contextBlock += `\n## Recent Commits (read these to understand what changed)\n${ctx.recentCommits.slice(0, 15).join("\n")}\n`;
@@ -76,13 +76,13 @@ function buildPrompt(ctx: SignalContext): string {
     ? `Current alpha token price: $${ctx.alphaPrice.toFixed(2)} | Market cap: $${ctx.marketCap ? (ctx.marketCap / 1e6).toFixed(1) + "M" : "N/A"} | 24h TAO flow: ${ctx.netFlow ? ctx.netFlow.toFixed(0) : "N/A"}`
     : "";
 
-  return `You are AlphaGap's super brain — the best signal analyst in the Bittensor TAO ecosystem. Your job is to evaluate whether each signal is actually significant and could move the subnet's alpha token price.
+  return `You are AlphaGap's super brain - the best signal analyst in the Bittensor TAO ecosystem. Your job is to evaluate whether each signal is actually significant and could move the subnet's alpha token price.
 
 CRITICAL ACCURACY RULE: The "Official Description" below is the GROUND TRUTH about what this subnet does. NEVER guess or invent capabilities.
 
 ## Subnet Identity (GROUND TRUTH)
 - **Name**: ${ctx.subnetName}
-- **Official Description**: ${ctx.subnetDescription || "No description available — DO NOT guess what this subnet does"}
+- **Official Description**: ${ctx.subnetDescription || "No description available - DO NOT guess what this subnet does"}
 
 ## Signal Detected
 - **Signal type**: ${ctx.signalType}
@@ -98,13 +98,13 @@ YOUR JOB: Analyze this signal and decide how significant it really is.
 Ask yourself:
 - Is this a major product launch, breakthrough, or new capability? Or just routine maintenance?
 - Could this actually move the token price? Would a smart investor care?
-- Is there an ALPHA GAP here — the subnet shipping hard but price hasn't caught up yet?
+- Is there an ALPHA GAP here - the subnet shipping hard but price hasn't caught up yet?
 - Is this a nothing-burger dressed up as news?
 
 Write your response in this EXACT format:
 
 📊 SCORE: [1-100]
-USE THE FULL RANGE. Your score is absolute — not relative to other signals.
+USE THE FULL RANGE. Your score is absolute - not relative to other signals.
 - 90-100: Major product launch, live integration with real users, breakthrough model, partnership announced
 - 80-89: Significant new feature shipped, important infrastructure upgrade, meaningful model/dataset drop
 - 65-79: Multiple solid PRs merged, real product features being built, meaningful progress
@@ -117,7 +117,7 @@ USE THE FULL RANGE. Your score is absolute — not relative to other signals.
 
 💡 WHY IT MATTERS: One sentence connecting the work to real-world impact based on the Official Description.
 
-🎯 ALPHA ANGLE: One sentence — is there an alpha gap here? Is the market sleeping on this? Or is this already priced in? Factor in the current price movement and TAO flow data.
+🎯 ALPHA ANGLE: One sentence - is there an alpha gap here? Is the market sleeping on this? Or is this already priced in? Factor in the current price movement and TAO flow data.
 
 Rules:
 - Good solid feature work = 65-79. Don't underscore real shipping.
@@ -127,7 +127,7 @@ Rules:
 - If price is DOWN but development is significant = boost score (alpha gap!)
 - If price is UP and development is routine = lower score (already priced in)
 - ACCURACY over hype. Never inflate insignificant work.
-- NO markdown bold/italic — just plain text with emoji headers
+- NO markdown bold/italic - just plain text with emoji headers
 - If you can't determine what was done, score it low and say so`;
 }
 
@@ -136,7 +136,7 @@ export async function analyzePendingSignals(maxBatch: number = 30): Promise<numb
   const db = getDb();
 
   // Get signals that need analysis.
-  // Minimum strength 35 (was 20) — scores below this are routine noise
+  // Minimum strength 35 (was 20) - scores below this are routine noise
   // (version bumps, CI fixes, dep updates) not worth an AI call.
   // Also skip anything already analyzed in the last 24h to prevent
   // re-queueing the same signal after a score recalibration wipe.
@@ -192,7 +192,7 @@ export async function analyzePendingSignals(maxBatch: number = 30): Promise<numb
       const { analysis, score } = await analyzeSignal(ctx);
 
       if (analysis) {
-        // AI determines the score — overwrite the hardcoded one
+        // AI determines the score - overwrite the hardcoded one
         updateSignal.run(analysis, "done", score, signal.id);
         analyzed++;
         console.log(`Analyzed signal ${signal.id} [score=${score}]: ${signal.title.slice(0, 50)}...`);
@@ -208,7 +208,7 @@ export async function analyzePendingSignals(maxBatch: number = 30): Promise<numb
     }
   }
 
-  // No post-processing normalization — Claude scores stand as-is.
+  // No post-processing normalization - Claude scores stand as-is.
   // The prompt is calibrated to use the full range directly.
 
   return analyzed;

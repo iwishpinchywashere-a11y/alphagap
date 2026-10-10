@@ -21,13 +21,13 @@ export interface PumpTrackerData {
   blocklist: string[];
 }
 
-// Stored autopsy result — everything the page needs to render, no refetch required
+// Stored autopsy result - everything the page needs to render, no refetch required
 export interface CachedAutopsy {
-  pumpEvent:    unknown | null;   // PumpEvent — keep as unknown to avoid cross-file type issues
+  pumpEvent:    unknown | null;   // PumpEvent - keep as unknown to avoid cross-file type issues
   findings:     unknown[];        // SignalFinding[]
   narrative:    string;
   research:     unknown | null;   // ResearchResult
-  priceHistory: unknown[];        // PricePoint[] — needed to render the chart without re-fetching
+  priceHistory: unknown[];        // PricePoint[] - needed to render the chart without re-fetching
   cachedAt:     string;
 }
 
@@ -74,7 +74,7 @@ function parseTrackerData(json: unknown): PumpTrackerData {
   };
 }
 
-// ── GET — return tracked list + full autopsy cache ────────────────────────────
+// ── GET - return tracked list + full autopsy cache ────────────────────────────
 
 export async function GET() {
   if (!token()) return NextResponse.json({ tracked: [], blocklist: [], cache: {} });
@@ -88,7 +88,7 @@ export async function GET() {
   return NextResponse.json({ ...data, cache });
 }
 
-// ── POST — add new pumper ─────────────────────────────────────────────────────
+// ── POST - add new pumper ─────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
   if (!token()) return NextResponse.json({ error: "no token" }, { status: 500 });
@@ -138,7 +138,7 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({ ok: true, entry: newEntry });
 }
 
-// ── PATCH — save computed autopsy to cache ────────────────────────────────────
+// ── PATCH - save computed autopsy to cache ────────────────────────────────────
 
 export async function PATCH(req: NextRequest) {
   if (!token()) return NextResponse.json({ error: "no token" }, { status: 500 });
@@ -159,7 +159,7 @@ export async function PATCH(req: NextRequest) {
   return NextResponse.json({ ok: true });
 }
 
-// ── PUT — remove a name from the blocklist (allows re-adding) ────────────────
+// ── PUT - remove a name from the blocklist (allows re-adding) ────────────────
 
 export async function PUT(req: NextRequest) {
   if (!token()) return NextResponse.json({ error: "no token" }, { status: 500 });
@@ -180,7 +180,7 @@ export async function PUT(req: NextRequest) {
   return NextResponse.json({ ok: true, removed: before - data.blocklist.length });
 }
 
-// ── DELETE — remove pumper + blocklist + clear cache entry ───────────────────
+// ── DELETE - remove pumper + blocklist + clear cache entry ───────────────────
 
 export async function DELETE(req: NextRequest) {
   if (!token()) return NextResponse.json({ error: "no token" }, { status: 500 });

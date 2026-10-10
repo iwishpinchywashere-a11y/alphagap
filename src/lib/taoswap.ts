@@ -55,7 +55,7 @@ export interface TaoSwapSubnet {
 
 export async function getTaoSwapSubnets(): Promise<TaoSwapSubnet[]> {
   try {
-    // Note: trailing slash required — /subnets (no slash) returns a 301 redirect
+    // Note: trailing slash required - /subnets (no slash) returns a 301 redirect
     const res = await fetch(`${TAOSWAP_BASE}/subnets/?limit=300`, {
       headers: { "User-Agent": "AlphaGap/1.0" },
       next: { revalidate: 0 },

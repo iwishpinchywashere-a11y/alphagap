@@ -16,14 +16,14 @@
  *     dialog and the order is whatever the browser injects first, which is not
  *     stable between page loads;
  *   - a wallet chooser appeared only sometimes: that was the non-determinism
- *     showing through, not a feature — nothing in the old code ever asked
+ *     showing through, not a feature - nothing in the old code ever asked
  *     which wallet to use.
  *
  * So we enumerate `window.injectedWeb3` ourselves without enabling anything,
  * let the caller present a picker, and enable exactly ONE extension. One
  * approval dialog, from the wallet the user actually chose, every time.
  *
- * Because we bypass web3Enable, `web3FromAddress` would not work either — it
+ * Because we bypass web3Enable, `web3FromAddress` would not work either - it
  * reads a registry that only web3Enable populates. We keep the enabled
  * injector here and sign through it directly.
  */
@@ -57,7 +57,7 @@ const WALLET_LABELS: Record<string, string> = {
 interface InjectedLike {
   enable: (origin: string) => Promise<{
     accounts: { get: () => Promise<Array<{ address: string; name?: string }>> };
-    // The full injected signer — signPayload as well as signRaw, so it can be
+    // The full injected signer - signPayload as well as signRaw, so it can be
     // handed straight to tx.signAndSend for the proxy grant and unstake batch.
     signer?: Signer;
   }>;
@@ -100,7 +100,7 @@ export async function listWallets(): Promise<InstalledWallet[]> {
 /**
  * Nothing in the extension API is guaranteed to settle.
  *
- * `enable()` resolves when the user approves the site in the wallet popup — but
+ * `enable()` resolves when the user approves the site in the wallet popup - but
  * if that popup never opens, or opened behind the browser window, or the user
  * previously dismissed or blocked this site (several wallets remember that and
  * silently never re-prompt), the promise simply hangs. A customer sat on a
@@ -149,7 +149,7 @@ export async function connectWallet(source?: string): Promise<WalletAccount[]> {
   const ext = await withTimeout(
     target.enable("AlphaGap Subnet Index"),
     30_000,
-    `${label} did not respond. Open the ${label} extension — there may be a pending ` +
+    `${label} did not respond. Open the ${label} extension - there may be a pending ` +
     `connection request waiting for approval, possibly behind this window. If you have ` +
     `previously rejected this site, remove it from the wallet's connected-sites or trusted-apps ` +
     `list and try again.`,
@@ -179,7 +179,7 @@ export async function connectWallet(source?: string): Promise<WalletAccount[]> {
 
 /**
  * Backwards-compatible shim. Throws MULTIPLE_WALLETS when a choice is needed,
- * which is the whole point — the old silent behaviour was the bug.
+ * which is the whole point - the old silent behaviour was the bug.
  */
 export async function getWalletAccounts(): Promise<WalletAccount[]> {
   return connectWallet();

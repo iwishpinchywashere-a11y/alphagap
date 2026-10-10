@@ -160,7 +160,7 @@ function ScatterPlot({
   const overY2 = alphaY === "bottom" ? yMidSvg : PAD.top + cH;
 
   // Hover handling: find nearest point.
-  // NOTE: deliberately a plain function, not useCallback — the old useCallback
+  // NOTE: deliberately a plain function, not useCallback - the old useCallback
   // sat AFTER the `valid.length < 2` early return, which is a Rules-of-Hooks
   // violation that crashed this page ("Rendered more hooks than during the
   // previous render") the moment data arrived. Its deps (valid/xS/yS) are
@@ -350,7 +350,7 @@ function ScatterPlot({
 }
 
 // ── Top-10 value list ─────────────────────────────────────────────
-// Shows subnets ranked by score / log10(marketCap) — best "alpha per dollar"
+// Shows subnets ranked by score / log10(marketCap) - best "alpha per dollar"
 function Top10List({
   points,
   scoreLabel,
@@ -381,7 +381,7 @@ function Top10List({
   return (
     <div className="ag-glass p-4 mt-3">
       <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
-        <h4 className="font-mono text-[11px] uppercase tracking-[0.16em] text-emerald-400/80">Top 10 — Best {ratioLabel}</h4>
+        <h4 className="font-mono text-[11px] uppercase tracking-[0.16em] text-emerald-400/80">Top 10 - Best {ratioLabel}</h4>
         <span className="font-mono text-[10px] uppercase tracking-wider text-gray-600">ranked by {scoreLabel} ÷ log(market cap)</span>
       </div>
       <div className="space-y-1.5">
@@ -463,7 +463,7 @@ export default function AnalyticsPage() {
   const n = leaderboard.length;
 
   // ── Build scatter point arrays ────────────────────────────────────
-  // 1. Dev Score vs Market Cap (signature — bottom-right = high dev, low cap)
+  // 1. Dev Score vs Market Cap (signature - bottom-right = high dev, low cap)
   const devVsMcap: ScatterPoint[] = leaderboard
     .filter(s => s.dev_score > 0 && (s.market_cap ?? 0) > 0)
     .map(s => ({ netuid: s.netuid, name: s.name, x: s.dev_score, y: s.market_cap!, agap: s.composite_score }));
@@ -499,7 +499,7 @@ export default function AnalyticsPage() {
             </span>
           </div>
           <p className="text-sm md:text-[14.5px] text-gray-400 max-w-2xl leading-[1.65] mb-4">
-            Scatter plots revealing where alpha is hiding. The <span className="text-emerald-400 font-medium">bottom-right quadrant</span> is the alpha zone — high signal, low market cap. Click any dot to open the subnet.
+            Scatter plots revealing where alpha is hiding. The <span className="text-emerald-400 font-medium">bottom-right quadrant</span> is the alpha zone - high signal, low market cap. Click any dot to open the subnet.
           </p>
 
           <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
@@ -520,7 +520,7 @@ export default function AnalyticsPage() {
       {/* ── Charts ────────────────────────────────────────────────── */}
       <div className="max-w-screen-xl mx-auto px-4 md:px-6 py-8 space-y-6">
 
-        {/* Chart 1: aGap Score vs Market Cap — SIGNATURE */}
+        {/* Chart 1: aGap Score vs Market Cap - SIGNATURE */}
         <div>
           <div className="flex items-center gap-2 mb-3">
             <span className="ag-badge ag-badge-buy">Signature Chart</span>
@@ -573,7 +573,7 @@ export default function AnalyticsPage() {
             <ScatterPlot
               points={emVsMcap}
               title="Emission Share vs Market Cap"
-              subtitle="High network emissions, low market cap — the market hasn't priced in what the network is paying out."
+              subtitle="High network emissions, low market cap - the market hasn't priced in what the network is paying out."
               xLabel="Emission % (log scale)"
               yLabel="Market Cap"
               formatX={v => v >= 1 ? `${v.toFixed(1)}%` : `${v.toFixed(3)}%`}
@@ -594,7 +594,7 @@ export default function AnalyticsPage() {
             <ScatterPlot
               points={socialVsMcap}
               title="Social Velocity vs Market Cap"
-              subtitle="High social buzz, low market cap — community and KOL attention that hasn't been priced in yet."
+              subtitle="High social buzz, low market cap - community and KOL attention that hasn't been priced in yet."
               xLabel="Social Score"
               yLabel="Market Cap"
               formatX={v => v.toFixed(0)}

@@ -114,7 +114,7 @@ function EarningsCalc() {
       </div>
 
       <p className="text-xs text-gray-600 text-center">
-        Based on {Math.round(commission * 100) / 100}% commission per ${price}/mo subscriber · Lifetime — commissions never expire
+        Based on {Math.round(commission * 100) / 100}% commission per ${price}/mo subscriber · Lifetime - commissions never expire
       </p>
     </div>
   );
@@ -212,7 +212,7 @@ function AffiliateDashboard({ userId, userEmail }: { userId: string; userEmail: 
             </div>
             <p className="text-xs text-purple-400/80 flex items-center gap-1.5">
               <AgIcon name="gift" />
-              Anyone who clicks this link gets <span className="font-semibold">10% off their first month</span> — automatically at checkout
+              Anyone who clicks this link gets <span className="font-semibold">10% off their first month</span> - automatically at checkout
             </p>
           </div>
         ) : (
@@ -275,7 +275,7 @@ function AffiliateDashboard({ userId, userEmail }: { userId: string; userEmail: 
         ) : (
           <div className="space-y-3">
             <p className="text-sm text-gray-400">
-              Connect your bank account via Stripe. When someone you referred subscribes, the commission transfers automatically — no manual steps.
+              Connect your bank account via Stripe. When someone you referred subscribes, the commission transfers automatically - no manual steps.
             </p>
             <button
               onClick={handleConnectStripe}
@@ -348,7 +348,7 @@ function AffiliateDashboard({ userId, userEmail }: { userId: string; userEmail: 
                     <td className="px-4 py-3 text-right text-gray-300 text-xs">
                       {r.commissionEarned > 0 ? (
                         <span className="text-green-400 font-medium">{formatDollars(r.commissionEarned)}</span>
-                      ) : "—"}
+                      ) : "-"}
                     </td>
                   </tr>
                 ))}
@@ -396,7 +396,7 @@ export default function ReferralPage() {
 
           <p className="text-gray-400 text-lg max-w-xl mx-auto leading-relaxed">
             Share AlphaGap with your network. When someone subscribes through your link,
-            you get 20% of every payment they make — forever.
+            you get 20% of every payment they make - forever.
           </p>
 
           {/* Referral bonus callout */}
@@ -404,7 +404,7 @@ export default function ReferralPage() {
             <span className="text-lg text-purple-300"><AgIcon name="gift" /></span>
             <span className="text-purple-300">
               <span className="font-semibold text-purple-200">Your referrals get 10% off their first month</span>
-              {" "}— automatically applied at checkout
+              {" "}- automatically applied at checkout
             </span>
           </div>
 
@@ -469,7 +469,7 @@ export default function ReferralPage() {
                 step: "02",
                 icon: <AgIcon name="chat" />,
                 title: "Share it anywhere",
-                desc: "Post it on X/Twitter, Discord, Telegram, your newsletter — anywhere the Bittensor community lives. Anyone who clicks your link gets 10% off their first month, automatically.",
+                desc: "Post it on X/Twitter, Discord, Telegram, your newsletter - anywhere the Bittensor community lives. Anyone who clicks your link gets 10% off their first month, automatically.",
               },
               {
                 step: "03",
@@ -517,7 +517,7 @@ export default function ReferralPage() {
 
         {/* ── Fine print ── */}
         <p className="text-xs text-gray-600 text-center leading-relaxed">
-          20% commission on every payment made by referred subscribers · Commissions are lifetime — they never expire ·
+          20% commission on every payment made by referred subscribers · Commissions are lifetime - they never expire ·
           Referred users receive 10% off their first month, automatically applied at checkout ·
           Payouts via Stripe Connect direct to your bank · 90-day attribution window · Self-referrals are not eligible ·
           AlphaGap reserves the right to modify or terminate the program with 30 days notice

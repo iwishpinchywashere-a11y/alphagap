@@ -1,10 +1,10 @@
-// Bittensor KOL Database — Top 300 from Stitch3.ai/kols?ecosystems=tao
+// Bittensor KOL Database - Top 300 from Stitch3.ai/kols?ecosystems=tao
 // Scraped April 2026, ranked by Stitch3 influence score
 //
 // Weight formula (non-tier-1):
 //   w = clamp(round(score/10 + min(20, log10(max(followers, 100)) * 3.5)), 10, 79)
 // Tier 1 overrides (founders/core): weight 80-100
-// Tier 2 manual override: jollygreenmoney (weight 65) — user-elevated
+// Tier 2 manual override: jollygreenmoney (weight 65) - user-elevated
 //
 // Tiers: 1=founders/core (80-100), 2=major KOLs (50-79),
 //        3=active community (25-49), 4=broader ecosystem (10-24)

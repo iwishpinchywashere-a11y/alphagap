@@ -12,7 +12,7 @@
  *   - Nakamoto coefficient    (TaoSwap)
  *   - HHI normalised          (TaoSwap)
  *   - Top-10 share            (TaoSwap)
- *   - Emission miner burn %   (TaoSwap — more accurate than TaoStats)
+ *   - Emission miner burn %   (TaoSwap - more accurate than TaoStats)
  *   - Holders count           (TaoSwap)
  *   - Chain buy %             (TaoSwap)
  *   - Inflow / outflow        (TaoSwap)
@@ -255,7 +255,7 @@ function computeAudit(
     validators = neurons.filter(n => n.validator_permit);
     miners     = neurons.filter(n => !n.validator_permit);
 
-    // Weight staleness — `updated` = blocks since last weight set; 7200 ≈ 24h
+    // Weight staleness - `updated` = blocks since last weight set; 7200 ≈ 24h
     const STALE_THRESHOLD = 7200;
     for (const v of validators) {
       const lag = v.updated ?? 0;
@@ -265,7 +265,7 @@ function computeAudit(
     staleValidatorPct = validators.length > 0
       ? Math.round((staleValidatorCount / validators.length) * 100) : 0;
 
-    // Zero-incentive miners (displayed as a column, NOT used in scoring —
+    // Zero-incentive miners (displayed as a column, NOT used in scoring -
     // 80–98% ZI miners is normal in Bittensor and not a reliable quality signal)
     const INCENTIVE_THRESHOLD = 0.001;
     const activeMiners        = miners.filter(n => n.active);
@@ -285,7 +285,7 @@ function computeAudit(
     top3ValidatorTrustShare     = totalDividends > 0
       ? Math.round((top3Dividends / totalDividends) * 100) : 0;
 
-    // Average VTrust — how aligned validators are with the honest stake-weighted majority
+    // Average VTrust - how aligned validators are with the honest stake-weighted majority
     const vtrustVals = validators.map(v => parseFloat(v.validator_trust || "0")).filter(v => !isNaN(v));
     avgVTrustVal = vtrustVals.length > 0
       ? Math.round(vtrustVals.reduce((s, v) => s + v, 0) / vtrustVals.length * 100) / 100
@@ -295,22 +295,22 @@ function computeAudit(
   // ── Weighted composite score ──────────────────────────────────────
   //
   // Each component is scored 0–100 independently, then combined by weight.
-  // Components are only included when their data source is available —
+  // Components are only included when their data source is available -
   // missing data never hard-zeros the score.
   //
   // Weights (design intent, sum to 100):
-  //   Nakamoto   20  — security foundation
-  //   Miner burn 20  — ecosystem sustainability
-  //   HHI        15  — stake concentration
-  //   Top-10     15  — token distribution
-  //   Chain buy  10  — organic demand signal
-  //   Holders     8  — adoption proxy
-  //   TAO Pool    7  — liquidity depth
-  //   Stale val   5  — validator operational health (metagraph only)
+  //   Nakamoto   20  - security foundation
+  //   Miner burn 20  - ecosystem sustainability
+  //   HHI        15  - stake concentration
+  //   Top-10     15  - token distribution
+  //   Chain buy  10  - organic demand signal
+  //   Holders     8  - adoption proxy
+  //   TAO Pool    7  - liquidity depth
+  //   Stale val   5  - validator operational health (metagraph only)
   //
   // Gini and ZI Miners excluded from scoring:
-  //   ZI Miners — 80–98% is normal in Bittensor (slot-holders), very noisy
-  //   Gini      — redundant with Nakamoto/HHI; kept as display column only
+  //   ZI Miners - 80–98% is normal in Bittensor (slot-holders), very noisy
+  //   Gini      - redundant with Nakamoto/HHI; kept as display column only
 
   const components: { score: number; weight: number }[] = [];
 
@@ -330,7 +330,7 @@ function computeAudit(
 
   let score: number;
   if (components.length === 0) {
-    score = 0; // No data at all — truly unknown
+    score = 0; // No data at all - truly unknown
   } else {
     const totalWeight = components.reduce((s, c) => s + c.weight, 0);
     const weightedSum = components.reduce((s, c) => s + c.score * c.weight, 0);
@@ -341,7 +341,7 @@ function computeAudit(
   const flags: AuditFlag[] = [];
 
   if (!hasNeuronData) {
-    flags.push({ type: "no_validators", severity: "warning", message: "No metagraph data — scored on market metrics only" });
+    flags.push({ type: "no_validators", severity: "warning", message: "No metagraph data - scored on market metrics only" });
   }
 
   if (hasNeuronData && staleValidatorPct >= 60) {
@@ -360,36 +360,36 @@ function computeAudit(
   if (burnPct >= 60) {
     flags.push({ type: "high_emission_burn",
       severity: burnPct >= 80 ? "critical" : "warning",
-      message: `${burnPct.toFixed(1)}% of miner emissions burned — ${burnPct >= 80 ? "miners are net losers" : "reduces miner sustainability"}` });
+      message: `${burnPct.toFixed(1)}% of miner emissions burned - ${burnPct >= 80 ? "miners are net losers" : "reduces miner sustainability"}` });
   }
 
   if (nakamotoCoefficient > 0 && nakamotoCoefficient <= 2) {
     flags.push({ type: "low_nakamoto", severity: "critical",
-      message: `Nakamoto coefficient is ${nakamotoCoefficient} — network can be controlled by just ${nakamotoCoefficient} validator(s)` });
+      message: `Nakamoto coefficient is ${nakamotoCoefficient} - network can be controlled by just ${nakamotoCoefficient} validator(s)` });
   } else if (nakamotoCoefficient > 0 && nakamotoCoefficient <= 4) {
     flags.push({ type: "low_nakamoto", severity: "warning",
-      message: `Nakamoto coefficient is ${nakamotoCoefficient} — low decentralisation, ${nakamotoCoefficient} validators could collude` });
+      message: `Nakamoto coefficient is ${nakamotoCoefficient} - low decentralisation, ${nakamotoCoefficient} validators could collude` });
   }
 
   if (hhiNormalized > 0.40) {
     flags.push({ type: "high_concentration",
       severity: hhiNormalized > 0.60 ? "critical" : "warning",
-      message: `High HHI concentration (${hhiNormalized.toFixed(3)}) — stake distribution is very uneven` });
+      message: `High HHI concentration (${hhiNormalized.toFixed(3)}) - stake distribution is very uneven` });
   }
 
   if (hasNeuronData && activeMinerPct < 20 && miners.length >= 10) {
     flags.push({ type: "low_activity", severity: "warning",
-      message: `Only ${activeMinerPct}% of miners active — network underutilised` });
+      message: `Only ${activeMinerPct}% of miners active - network underutilised` });
   }
 
   if (hasNeuronData && validators.length < 3) {
     flags.push({ type: "no_validators", severity: "warning",
-      message: `Only ${validators.length} validator(s) — insufficient decentralisation` });
+      message: `Only ${validators.length} validator(s) - insufficient decentralisation` });
   }
 
   if (flags.length === 0) {
     flags.push({ type: "healthy", severity: "info",
-      message: "All systems nominal — no anomalies detected" });
+      message: "All systems nominal - no anomalies detected" });
   }
 
   const grade = auditGrade(score, flags);
@@ -468,7 +468,7 @@ export async function GET(req: Request) {
 
   // ── Cross-check TaoSwap emission stats against our scan (TaoStats) ──
   // When a netuid is recycled (old subnet deregs, new one takes the slot),
-  // TaoSwap can keep serving the dead predecessor's emission stats — e.g.
+  // TaoSwap can keep serving the dead predecessor's emission stats - e.g.
   // SN53 "engy" showed emission 0% / 100% miner burn while TaoStats showed
   // live emissions. Scoring those leftovers as fact tanked the audit score.
   // If TaoSwap says a subnet emits nothing but our scan sees real emissions,
@@ -485,15 +485,15 @@ export async function GET(req: Request) {
         if (e.netuid != null && e.emission_pct != null) scanEmissionMap.set(e.netuid, e.emission_pct);
       }
     }
-  } catch { /* cross-check unavailable — TaoSwap values used as-is */ }
+  } catch { /* cross-check unavailable - TaoSwap values used as-is */ }
 
   let emissionCorrections = 0;
   for (const [uid, ts] of taoswapMap) {
     const scanEmission = scanEmissionMap.get(uid) ?? 0;
     if ((ts.emission_percent ?? 0) === 0) {
-      // Either TaoSwap is stale (subnet emits per TaoStats — use scan's figure)
+      // Either TaoSwap is stale (subnet emits per TaoStats - use scan's figure)
       // or no emissions flow at all (e.g. emissions not yet enabled for a
-      // recycled netuid) — in both cases burn% and chain-buy% are ratios of
+      // recycled netuid) - in both cases burn% and chain-buy% are ratios of
       // nothing and must score as unknown, not worst-case.
       taoswapMap.set(uid, {
         ...ts,

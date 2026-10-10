@@ -60,7 +60,7 @@ export function WatchlistProvider({ children }: { children: ReactNode }) {
       });
   }, [isPro]);
 
-  // Re-fetch whenever the tab becomes visible — picks up changes made on other devices
+  // Re-fetch whenever the tab becomes visible - picks up changes made on other devices
   useEffect(() => {
     function onVisibilityChange() {
       if (document.visibilityState === "visible") fetchWatchlist();

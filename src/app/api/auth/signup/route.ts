@@ -67,7 +67,7 @@ export async function POST(req: Request) {
 
     // ── Referral attribution ────────────────────────────────────────
     // Read ag_ref cookie set by ReferralTracker when the user landed via a ref link.
-    // Non-blocking — never fail signup if referral logic errors.
+    // Non-blocking - never fail signup if referral logic errors.
     if (process.env.REFERRAL_ENABLED) {
       try {
         const cookieHeader = req.headers.get("cookie") ?? "";
@@ -85,7 +85,7 @@ export async function POST(req: Request) {
     }
 
     // ── Create session cookie right here, same request, same instance ──
-    // The user blob was just written above — no cross-instance propagation needed.
+    // The user blob was just written above - no cross-instance propagation needed.
     const adminEmails = (process.env.ADMIN_EMAILS || "")
       .split(",").map((e: string) => e.trim().toLowerCase()).filter(Boolean);
     const isAdmin = adminEmails.includes(cleanEmail);

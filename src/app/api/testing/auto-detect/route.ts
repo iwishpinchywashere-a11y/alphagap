@@ -1,6 +1,6 @@
-// Auto-detect performance additions — called by the main scan cron after each run.
+// Auto-detect performance additions - called by the main scan cron after each run.
 // Checks the fresh leaderboard for any subnet with >30% 7D gain not yet tracked.
-// Respects the blocklist — manually-deleted entries are never re-added.
+// Respects the blocklist - manually-deleted entries are never re-added.
 
 import { NextResponse } from "next/server";
 import { put, get as blobGet } from "@vercel/blob";
@@ -54,7 +54,7 @@ async function writeData(token: string, data: PumpTrackerData) {
   });
 }
 
-// scan-latest.json is private — use blobGet with stream reader
+// scan-latest.json is private - use blobGet with stream reader
 async function readScanLatest(token: string): Promise<{ leaderboard?: Array<{ netuid: number; name: string; price_change_7d?: number }> }> {
   try {
     const result = await blobGet("scan-latest.json", { token, access: "private" });

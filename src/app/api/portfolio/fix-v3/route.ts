@@ -8,7 +8,7 @@
  *      showing portfolio value stepping up as each position was bought,
  *      then using live prices for today
  *
- * This endpoint is idempotent — safe to run multiple times.
+ * This endpoint is idempotent - safe to run multiple times.
  * Once real peak prices are available from /api/portfolio/find-peaks,
  * use PATCH /api/portfolio { peaks: {...} } to overwrite with real data.
  */
@@ -19,11 +19,11 @@ import { loadPortfolio } from "../route";
 
 export const dynamic = "force-dynamic";
 
-// Known / recalled peak prices (USD) — best estimates before real data lookup
+// Known / recalled peak prices (USD) - best estimates before real data lookup
 // ORO: user recalls ~350% gain. buyPrice=$4.11, 350% → $4.11*(1+3.5) = $18.495
 // Others: set to buyPrice floor until find-peaks provides real data
 const PEAK_FLOOR_OVERRIDES: Record<number, number> = {
-  15: 18.50,   // ORO — user recalls ~350% peak
+  15: 18.50,   // ORO - user recalls ~350% peak
 };
 
 export async function GET() {
@@ -68,7 +68,7 @@ export async function GET() {
         newPeak = Math.max(override, currentLive, floor);
         changes.push(`SN${pos.netuid} ${pos.name}: manualPeakPrice → $${newPeak.toFixed(4)} (override)`);
       } else if (pos.manualPeakPrice != null && pos.manualPeakPrice >= floor) {
-        // Already correct — just ensure it's not below current live price
+        // Already correct - just ensure it's not below current live price
         newPeak = Math.max(pos.manualPeakPrice, currentLive);
         if (newPeak !== pos.manualPeakPrice) {
           changes.push(`SN${pos.netuid} ${pos.name}: manualPeakPrice raised to current live $${newPeak.toFixed(4)}`);
@@ -76,7 +76,7 @@ export async function GET() {
           changes.push(`SN${pos.netuid} ${pos.name}: peak $${newPeak.toFixed(4)} unchanged (already valid)`);
         }
       } else {
-        // Peak was missing or below buy price — set to max(live, buy)
+        // Peak was missing or below buy price - set to max(live, buy)
         newPeak = Math.max(currentLive, floor);
         changes.push(`SN${pos.netuid} ${pos.name}: manualPeakPrice set to $${newPeak.toFixed(4)} (floor fix)`);
       }

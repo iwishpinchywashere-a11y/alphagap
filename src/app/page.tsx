@@ -135,7 +135,7 @@ export default function LandingPage() {
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
             {[
-              // Row 1: Development Updates — Emission Shifts — Miner Activity — Price Lag
+              // Row 1: Development Updates - Emission Shifts - Miner Activity - Price Lag
               {
                 icon: (
                   <svg viewBox="0 0 24 24" className="w-8 h-8" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
@@ -166,7 +166,7 @@ export default function LandingPage() {
                 border: "group-hover:border-purple-400/30",
                 iconBg: "bg-purple-500/10",
               },
-              // Row 2: Social Velocity — Reddit Chatter — Discord Buzz — Whale Watching
+              // Row 2: Social Velocity - Reddit Chatter - Discord Buzz - Whale Watching
               {
                 icon: (
                   <svg viewBox="0 0 24 24" className="w-8 h-8" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
@@ -239,7 +239,7 @@ export default function LandingPage() {
             <span className="text-gray-500">You have no idea what they&apos;re doing.</span>
           </h2>
           <p className="text-gray-400 text-center max-w-2xl mx-auto text-lg leading-relaxed mb-12">
-            Bittensor subnet teams are constantly developing, shipping updates, and pushing breakthroughs —
+            Bittensor subnet teams are constantly developing, shipping updates, and pushing breakthroughs -
             but it&apos;s nearly impossible to track where and when they release new code, models, or features.
             Updates are scattered across dozens of technical platforms that most investors never check.
             By the time social media catches on, the opportunity has already moved.
@@ -260,7 +260,7 @@ export default function LandingPage() {
               {
                 icon: <AgIcon name="bulb" className="w-8 h-8 text-yellow-400" />,
                 title: "The gap is your alpha",
-                desc: "Between a team shipping a breakthrough and the market pricing it in — there's a window. We find that window before anyone else.",
+                desc: "Between a team shipping a breakthrough and the market pricing it in - there's a window. We find that window before anyone else.",
               },
             ].map((card) => (
               <div key={card.title} className="ag-glass ag-glass-hover p-6">
@@ -289,26 +289,26 @@ export default function LandingPage() {
               {
                 step: "01",
                 title: "Scan everything",
-                desc: "We continuously monitor thousands of data points across the entire Bittensor ecosystem — development activity, on-chain metrics, social sentiment, and market data for all 128 subnets.",
+                desc: "We continuously monitor thousands of data points across the entire Bittensor ecosystem - development activity, on-chain metrics, social sentiment, and market data for all 128 subnets.",
                 sources: ["Development", "On-chain", "Social", "Market Data"],
               },
               {
                 step: "02",
                 title: "Analyze with AI",
-                desc: "Our proprietary AI engine digests complex technical updates and translates them into plain English. We tell you exactly what a subnet is building and why it matters — no technical knowledge required.",
+                desc: "Our proprietary AI engine digests complex technical updates and translates them into plain English. We tell you exactly what a subnet is building and why it matters - no technical knowledge required.",
                 sources: ["AI Analysis", "Plain English", "Actionable Insights"],
               },
               {
                 step: "03",
                 title: "Find the gap",
-                desc: "We cross-reference development quality against market awareness using multiple proprietary scoring algorithms. When a subnet is building hard but the market hasn't noticed — that's the alpha gap.",
+                desc: "We cross-reference development quality against market awareness using multiple proprietary scoring algorithms. When a subnet is building hard but the market hasn't noticed - that's the alpha gap.",
                 sources: ["Proprietary Scoring", "Gap Detection", "Multi-Signal"],
               },
               {
                 step: "04",
                 title: "Deliver actionable alpha",
                 desc: "Every signal comes with a full intelligence breakdown and our take on the opportunity. Plus daily deep-dive reports on the top alpha gap subnets so you always know where the smart money should be looking.",
-                sources: ["Signal Feed", "Daily Reports", "Leaderboard"],
+                sources: ["The Feed", "Daily Reports", "Leaderboard"],
               },
             ].map((item) => (
               <div key={item.step} className="flex gap-6 items-start">
@@ -378,7 +378,7 @@ export default function LandingPage() {
               {
                 icon: <AgIcon name="brain" className="w-6 h-6 text-cyan-400" />,
                 title: "AI Intelligence Feed",
-                desc: "Every GitHub push and HuggingFace deployment — analyzed by AI and broken down into 4 sections: What they built, Why it matters, In simple terms, and The AlphaGap take. No technical knowledge required.",
+                desc: "Every GitHub push and HuggingFace deployment - analyzed by AI and broken down into 4 sections: What they built, Why it matters, In simple terms, and The AlphaGap take. No technical knowledge required.",
                 color: "from-blue-500/20 to-cyan-500/20",
               },
               {
@@ -396,7 +396,7 @@ export default function LandingPage() {
               {
                 icon: <AgIcon name="flame" className="w-6 h-6 text-orange-400" />,
                 title: "Early Trend Detection",
-                desc: "We monitor social campaigns, influencer activity, and marketing launches across the ecosystem. Get flagged when buzz is about to spike — before the crowd piles in.",
+                desc: "We monitor social campaigns, influencer activity, and marketing launches across the ecosystem. Get flagged when buzz is about to spike - before the crowd piles in.",
                 color: "from-orange-500/20 to-amber-500/20",
               },
               {
@@ -421,7 +421,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* TAO Oracle — Featured Premium Section */}
+      {/* TAO Oracle - Featured Premium Section */}
       <section className="py-24 px-6 relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-b from-transparent via-green-950/10 to-transparent pointer-events-none" />
         <div className="absolute top-1/2 right-1/4 -translate-y-1/2 w-[500px] h-[500px] bg-green-500/[0.04] rounded-full blur-[100px] pointer-events-none" />
@@ -430,7 +430,7 @@ export default function LandingPage() {
           <div className="text-center mb-14">
             <div className="inline-flex items-center gap-2 bg-green-500/10 border border-green-500/20 rounded-full px-4 py-1.5 mb-5">
               <span className="ag-live-dot" />
-              <span className="text-green-400 font-mono text-[11px] font-bold uppercase tracking-widest">New — Premium Feature</span>
+              <span className="text-green-400 font-mono text-[11px] font-bold uppercase tracking-widest">New - Premium Feature</span>
             </div>
             <h2 className="font-display text-3xl sm:text-4xl font-semibold tracking-[-0.02em] mb-4">
               Ask the{" "}
@@ -438,7 +438,7 @@ export default function LandingPage() {
               {" "}anything
             </h2>
             <p className="text-gray-400 text-lg max-w-2xl mx-auto leading-relaxed">
-              Live AI chat using data from every Bittensor subnet — scores, signals, whale activity, dev momentum, and more. Ask anything, get instant answers in plain English.
+              Live AI chat using data from every Bittensor subnet - scores, signals, whale activity, dev momentum, and more. Ask anything, get instant answers in plain English.
             </p>
           </div>
 
@@ -466,9 +466,9 @@ export default function LandingPage() {
                   <div className="w-7 h-7 rounded-lg bg-green-500/15 border border-green-500/25 flex items-center justify-center flex-shrink-0 mt-0.5"><AgIcon name="oracle" className="w-4 h-4 text-green-400" /></div>
                   <div className="bg-white/[0.03] border border-white/[0.08] rounded-2xl px-4 py-3 text-gray-200 space-y-1.5">
                     <p><strong className="text-white">3 subnets with heavy smart-money flow:</strong></p>
-                    <p>▸ <strong className="text-white">SN64 Chutes</strong> — buy/sell ratio 3.1× above avg, large wallets added positions in the last 6h</p>
-                    <p>▸ <strong className="text-white">SN19</strong> — Const wallet bought 840 TAO, aGap 82</p>
-                    <p>▸ <strong className="text-white">SN4 Targon</strong> — flow score spiking, unusual volume, smart money entering</p>
+                    <p>▸ <strong className="text-white">SN64 Chutes</strong> - buy/sell ratio 3.1× above avg, large wallets added positions in the last 6h</p>
+                    <p>▸ <strong className="text-white">SN19</strong> - Const wallet bought 840 TAO, aGap 82</p>
+                    <p>▸ <strong className="text-white">SN4 Targon</strong> - flow score spiking, unusual volume, smart money entering</p>
                   </div>
                 </div>
                 <div className="flex justify-end">
@@ -479,7 +479,7 @@ export default function LandingPage() {
                 <div className="flex gap-3">
                   <div className="w-7 h-7 rounded-lg bg-green-500/15 border border-green-500/25 flex items-center justify-center flex-shrink-0 mt-0.5"><AgIcon name="oracle" className="w-4 h-4 text-green-400" /></div>
                   <div className="bg-white/[0.03] border border-white/[0.08] rounded-2xl px-4 py-3 text-gray-200">
-                    ▸ <strong className="text-white">SN77</strong> has a Nakamoto coefficient of 1 — a single validator controls consensus. Critical centralisation risk worth avoiding until that changes.
+                    ▸ <strong className="text-white">SN77</strong> has a Nakamoto coefficient of 1 - a single validator controls consensus. Critical centralisation risk worth avoiding until that changes.
                   </div>
                 </div>
               </div>
@@ -487,12 +487,12 @@ export default function LandingPage() {
 
             {/* Right: what you can ask + CTA */}
             <div className="space-y-5">
-              <p className="font-mono text-[11px] text-gray-500 uppercase tracking-widest font-semibold">Ask anything — for example</p>
+              <p className="font-mono text-[11px] text-gray-500 uppercase tracking-widest font-semibold">Ask anything - for example</p>
               <div className="space-y-3">
                 {[
                   { icon: <AgIcon name="whale" className="w-5 h-5 text-blue-400" />, label: "Smart money & whale flows", ex: "\"Who's accumulating before the next pump?\"" },
                   { icon: <AgIcon name="bolt" className="w-5 h-5 text-yellow-400" />, label: "Dev momentum", ex: "\"Which subnets shipped the most code this week?\"" },
-                  { icon: <AgIcon name="chart" className="w-5 h-5 text-green-400" />, label: "Top picks with reasoning", ex: "\"Best long-term holds right now — top 3\"" },
+                  { icon: <AgIcon name="chart" className="w-5 h-5 text-green-400" />, label: "Top picks with reasoning", ex: "\"Best long-term holds right now - top 3\"" },
                   { icon: <AgIcon name="warning" className="w-5 h-5 text-red-400" />, label: "Red flags & risks", ex: "\"What are the biggest centralisation risks?\"" },
                   { icon: <AgIcon name="chat" className="w-5 h-5 text-indigo-400" />, label: "Social & KOL activity", ex: "\"What are KOLs buzzing about right now?\"" },
                 ].map((q) => (
@@ -533,7 +533,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* AlphaGap Index — Ultra feature showcase */}
+      {/* AlphaGap Index - Ultra feature showcase */}
       <section className="py-24 px-6 relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-b from-transparent via-amber-950/10 to-transparent pointer-events-none" />
         <div className="absolute top-1/2 left-1/4 -translate-y-1/2 w-[600px] h-[600px] bg-amber-400/[0.04] rounded-full blur-[120px] pointer-events-none" />
@@ -549,7 +549,7 @@ export default function LandingPage() {
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-orange-400">AlphaGap Index</span>
             </h2>
             <p className="text-gray-400 text-lg max-w-2xl mx-auto leading-relaxed">
-              Stop picking individual subnets. Let AlphaGap&apos;s scoring engine do it for you — automatically allocating your TAO across the top 10 subnets and rebalancing every week.
+              Stop picking individual subnets. Let AlphaGap&apos;s scoring engine do it for you - automatically allocating your TAO across the top 10 subnets and rebalancing every week.
             </p>
           </div>
 
@@ -560,9 +560,9 @@ export default function LandingPage() {
               <div className="space-y-3">
                 {[
                   { step: "01", icon: "◈", title: "Score every subnet, every week", desc: "AlphaGap runs its full 20+ signal analysis across all 128 active subnets to generate fresh composite scores." },
-                  { step: "02", icon: "◉", title: "Select the top 10", desc: "The 10 highest-scoring subnets become the Index constituents. Weight is proportional to score — higher scores get bigger allocations." },
+                  { step: "02", icon: "◉", title: "Select the top 10", desc: "The 10 highest-scoring subnets become the Index constituents. Weight is proportional to score - higher scores get bigger allocations." },
                   { step: "03", icon: "⟳", title: "Auto-rebalance weekly", desc: "Winners stay in. Fading subnets are trimmed. New high-scorers replace them. Your TAO always tracks the best opportunities." },
-                  { step: "04", icon: "◆", title: "Powered by TrustedStake", desc: "Execution happens automatically via TrustedStake — a non-custodial staking protocol. You stay in control of your TAO at all times." },
+                  { step: "04", icon: "◆", title: "Powered by TrustedStake", desc: "Execution happens automatically via TrustedStake - a non-custodial staking protocol. You stay in control of your TAO at all times." },
                 ].map(s => (
                   <div key={s.step} className="flex gap-4 p-4 rounded-xl bg-white/[0.02] border border-white/[0.05] hover:border-amber-400/15 transition-colors">
                     <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-amber-400/10 border border-amber-400/20 flex items-center justify-center text-[11px] font-bold text-amber-400">{s.step}</div>
@@ -578,12 +578,12 @@ export default function LandingPage() {
               </div>
 
               <div className="bg-white/[0.02] border border-amber-400/15 rounded-xl p-5">
-                <p className="font-mono text-[11px] text-amber-400 uppercase tracking-widest font-semibold mb-3">Included in Ultra — $99/mo</p>
+                <p className="font-mono text-[11px] text-amber-400 uppercase tracking-widest font-semibold mb-3">Included in Ultra - $99/mo</p>
                 <ul className="space-y-2 mb-5">
                   {[
                     "Auto-invest across the top 10 subnets",
-                    "Weekly rebalancing — always tracks best opportunities",
-                    "Non-custodial — you keep control of your TAO",
+                    "Weekly rebalancing - always tracks best opportunities",
+                    "Non-custodial - you keep control of your TAO",
                     "20 Oracle queries/day included",
                     "Cancel anytime",
                   ].map(f => (
@@ -597,7 +597,7 @@ export default function LandingPage() {
                   href="/pricing"
                   className="w-full inline-flex items-center justify-center px-5 py-3 bg-gradient-to-r from-amber-400 to-orange-400 hover:from-amber-300 hover:to-orange-300 text-black font-bold rounded-xl transition-all shadow-lg shadow-amber-400/20 text-sm"
                 >
-                  Unlock the Index — Ultra →
+                  Unlock the Index - Ultra →
                 </Link>
               </div>
             </div>
@@ -605,7 +605,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Telegram Alerts — Premium feature showcase */}
+      {/* Telegram Alerts - Premium feature showcase */}
       <section className="py-24 px-6 relative overflow-hidden">
         {/* Background accent */}
         <div className="absolute inset-0 bg-gradient-to-b from-transparent via-blue-950/10 to-transparent pointer-events-none" />
@@ -622,7 +622,7 @@ export default function LandingPage() {
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-300">Let the screen watch for you.</span>
             </h2>
             <p className="text-gray-400 text-lg max-w-2xl mx-auto leading-relaxed">
-              AlphaGap Premium connects directly to your Telegram. The moment something worth acting on happens — price move, dev spike, whale accumulation, viral post — you get a ping. No dashboards. No FOMO.
+              AlphaGap Premium connects directly to your Telegram. The moment something worth acting on happens - price move, dev spike, whale accumulation, viral post - you get a ping. No dashboards. No FOMO.
             </p>
           </div>
 
@@ -651,7 +651,7 @@ export default function LandingPage() {
                   <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl px-3.5 py-3">
                     <div className="flex items-center gap-2 mb-1.5">
                       <AgIcon name="whale" className="w-4 h-4 text-blue-300" />
-                      <span className="font-semibold text-blue-300">Whale Activity — SN19 Nineteen</span>
+                      <span className="font-semibold text-blue-300">Whale Activity - SN19 Nineteen</span>
                     </div>
                     <p className="text-gray-300 text-xs leading-relaxed">Unusual volume surge detected. Buy/sell ratio 3.1× above 7-day avg. Large wallets accumulating.</p>
                     <p className="text-gray-600 text-xs mt-1.5">just now</p>
@@ -661,7 +661,7 @@ export default function LandingPage() {
                   <div className="bg-green-500/10 border border-green-500/20 rounded-xl px-3.5 py-3">
                     <div className="flex items-center gap-2 mb-1.5">
                       <AgIcon name="oracle" className="w-4 h-4 text-green-300" />
-                      <span className="font-semibold text-green-300">Development Update — SN64 Chutes</span>
+                      <span className="font-semibold text-green-300">Development Update - SN64 Chutes</span>
                     </div>
                     <p className="text-gray-300 text-xs leading-relaxed">4 commits · 3 contributors · New inference API deployed. Signal strength: <span className="text-green-400 font-semibold">82/100</span></p>
                     <p className="text-gray-600 text-xs mt-1.5">2 min ago</p>
@@ -671,7 +671,7 @@ export default function LandingPage() {
                   <div className="bg-indigo-500/10 border border-indigo-500/20 rounded-xl px-3.5 py-3">
                     <div className="flex items-center gap-2 mb-1.5">
                       <AgIcon name="chat" className="w-4 h-4 text-indigo-300" />
-                      <span className="font-semibold text-indigo-300">Discord Alpha — SN9 Pretraining</span>
+                      <span className="font-semibold text-indigo-300">Discord Alpha - SN9 Pretraining</span>
                     </div>
                     <p className="text-gray-300 text-xs leading-relaxed">High-signal post detected in main channel. Team announcement: testnet v2 launching this week.</p>
                     <p className="text-gray-600 text-xs mt-1.5">14 min ago</p>
@@ -681,7 +681,7 @@ export default function LandingPage() {
                   <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-xl px-3.5 py-3">
                     <div className="flex items-center gap-2 mb-1.5">
                       <AgIcon name="bolt" className="w-4 h-4 text-yellow-300" />
-                      <span className="font-semibold text-yellow-300">Emission Spike — SN8 Proprioception</span>
+                      <span className="font-semibold text-yellow-300">Emission Spike - SN8 Proprioception</span>
                     </div>
                     <p className="text-gray-300 text-xs leading-relaxed">Emission share ↑ 31% in last scan cycle. Network weight rotating in. aGap: <span className="text-yellow-400 font-semibold">+12 pts</span></p>
                     <p className="text-gray-600 text-xs mt-1.5">1 hr ago</p>
@@ -691,7 +691,7 @@ export default function LandingPage() {
                   <div className="bg-gray-400/10 border border-gray-400/20 rounded-xl px-3.5 py-3">
                     <div className="flex items-center gap-2 mb-1.5">
                       <span className="text-base leading-none font-bold text-gray-300">𝕏</span>
-                      <span className="font-semibold text-gray-300">Going Viral — SN11 Transcription</span>
+                      <span className="font-semibold text-gray-300">Going Viral - SN11 Transcription</span>
                     </div>
                     <p className="text-gray-300 text-xs leading-relaxed">Post gaining rapid traction. 1.2K engagements in 2 hours. KOL thread breaking. Heat score: <span className="text-gray-300 font-semibold">78</span></p>
                     <p className="text-gray-600 text-xs mt-1.5">2 hr ago</p>
@@ -715,11 +715,11 @@ export default function LandingPage() {
                   {[
                     { icon: <AgIcon name="chart" className="w-5 h-5 text-green-400" />, label: "aGap Score Change", desc: "Catches momentum shifts the moment they happen" },
                     { icon: <AgIcon name="bolt" className="w-5 h-5 text-yellow-400" />, label: "Emissions Change", desc: "Be first when validators rotate weight to a subnet" },
-                    { icon: <AgIcon name="oracle" className="w-5 h-5 text-emerald-400" />, label: "Development Updates", desc: "GitHub spikes & HuggingFace releases — filtered by signal strength" },
+                    { icon: <AgIcon name="oracle" className="w-5 h-5 text-emerald-400" />, label: "Development Updates", desc: "GitHub spikes & HuggingFace releases - filtered by signal strength" },
                     { icon: <AgIcon name="whale" className="w-5 h-5 text-blue-400" />, label: "Whale Activity / Volume Surge", desc: "Large wallet moves & unusual volume detected from on-chain flow" },
                     { icon: <AgIcon name="chat" className="w-5 h-5 text-indigo-400" />, label: "Discord Alpha", desc: "High-signal posts across all Bittensor subnet servers" },
-                    { icon: "𝕏", label: "Going Viral on X", desc: "KOL posts catching fire — before the crowd piles in" },
-                    { icon: <AgIcon name="money" className="w-5 h-5 text-emerald-400" />, label: "Price Movement", desc: "Your threshold, your subnets — once per 24h to avoid spam" },
+                    { icon: "𝕏", label: "Going Viral on X", desc: "KOL posts catching fire - before the crowd piles in" },
+                    { icon: <AgIcon name="money" className="w-5 h-5 text-emerald-400" />, label: "Price Movement", desc: "Your threshold, your subnets - once per 24h to avoid spam" },
                   ].map(a => (
                     <div key={a.label} className="flex items-start gap-3 p-3 rounded-xl bg-white/[0.02] border border-white/[0.05] hover:border-white/[0.10] transition-colors">
                       <span className="text-xl flex-shrink-0 leading-none mt-0.5">{a.icon}</span>
@@ -740,7 +740,7 @@ export default function LandingPage() {
                     "Upgrade to Premium ($49/mo)",
                     "Connect your Telegram in one tap",
                     "Pick exactly which alerts you want",
-                    "Done — alerts arrive instantly",
+                    "Done - alerts arrive instantly",
                   ].map((step, i) => (
                     <div key={i} className="flex items-center gap-3">
                       <span className="w-6 h-6 rounded-full bg-green-500/15 border border-green-500/30 text-green-400 text-xs font-bold flex items-center justify-center flex-shrink-0">{i + 1}</span>
@@ -889,7 +889,7 @@ export default function LandingPage() {
         <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2 text-gray-500 text-sm">
             <div className="w-5 h-5 rounded bg-gradient-to-br from-green-400 to-emerald-600 flex items-center justify-center text-[10px] font-bold text-black">α</div>
-            AlphaGap — Bittensor Subnet Intelligence
+            AlphaGap - Bittensor Subnet Intelligence
           </div>
           <div className="flex items-center gap-6 text-sm text-gray-600">
             <Link href="/dashboard" className="hover:text-gray-400 transition-colors">Dashboard</Link>

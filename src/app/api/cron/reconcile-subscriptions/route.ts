@@ -1,10 +1,10 @@
 /**
- * GET /api/cron/reconcile-subscriptions — daily at 05:00 UTC.
+ * GET /api/cron/reconcile-subscriptions - daily at 05:00 UTC.
  *
  * Stripe is the source of truth for who has paid. Our user blobs are a cache of
  * that, kept in sync by webhooks. Webhooks are not reliable enough to be the
- * only path: they can be missed, they can arrive out of order, and — as
- * happened on 2026-08-06 — they can be handled wrongly.
+ * only path: they can be missed, they can arrive out of order, and - as
+ * happened on 2026-08-06 - they can be handled wrongly.
  *
  * That incident: a customer's April subscription lapsed to past_due. They bought
  * a fresh Ultra subscription on 06 Aug which activated correctly. Stripe then
@@ -78,7 +78,7 @@ export async function GET(req: NextRequest) {
       const ourStatus = user.subscriptionStatus ?? "none";
 
       if (live.length > 0) {
-        // Newest live subscription wins — that is the one they most recently paid for.
+        // Newest live subscription wins - that is the one they most recently paid for.
         const best = live.sort((a, b) => b.created - a.created)[0];
         const cents = best.items.data[0]?.price?.unit_amount ?? 0;
         const tier = tierFromAmount(cents);
@@ -94,7 +94,7 @@ export async function GET(req: NextRequest) {
           fixed.push({ email, from: `${ourStatus}/${user.subscriptionTier ?? "none"}`, to: "active", tier, sub: best.id });
           console.warn(`[reconcile] RESTORED ${email}: ${ourStatus}/${user.subscriptionTier} → active/${tier} (${best.id})`);
         } else if (user.stripeSubscriptionId && user.stripeSubscriptionId !== best.id) {
-          // Right access, wrong subscription on file — the exact condition that
+          // Right access, wrong subscription on file - the exact condition that
           // lets a dead subscription's events act on a live customer.
           await updateUser(email, { stripeSubscriptionId: best.id });
           stale.push({ email, onFile: user.stripeSubscriptionId, live: best.id });
@@ -111,6 +111,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ success: false, error: String(e), checked, fixed, overGranted }, { status: 500 });
   }
 
-  console.log(`[reconcile] Checked ${checked} paying users — restored ${fixed.length}, repointed ${stale.length}, ${overGranted.length} to review`);
+  console.log(`[reconcile] Checked ${checked} paying users - restored ${fixed.length}, repointed ${stale.length}, ${overGranted.length} to review`);
   return NextResponse.json({ success: true, checked, restored: fixed, repointed: stale, review: overGranted });
 }

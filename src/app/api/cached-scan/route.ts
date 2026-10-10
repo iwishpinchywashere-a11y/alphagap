@@ -4,7 +4,7 @@ import { get } from "@vercel/blob";
 export const dynamic = "force-dynamic";
 
 // NOTE: the hard SCORE_OVERRIDES for SN3/39/81 (Apr 9 2026 dump episode)
-// were removed on 2026-07-28 at the owner's request — all subnets now score
+// were removed on 2026-07-28 at the owner's request - all subnets now score
 // naturally from live scan data. applyScoreOverrides is kept as a no-op
 // passthrough so a future manual lock can be reinstated in one place.
 const SCORE_OVERRIDES = new Map<number, number>([]);
@@ -51,7 +51,7 @@ export async function GET() {
       // as missing so we fall through to the price snapshot. Only use it as an
       // absolute last resort if no better data is available anywhere.
       if (fullLeaderboardSize < 50) {
-        console.warn(`[cached-scan] Stored blob has only ${fullLeaderboardSize} subnets — trying price snapshot first.`);
+        console.warn(`[cached-scan] Stored blob has only ${fullLeaderboardSize} subnets - trying price snapshot first.`);
         // Try price snapshot before giving up
         const prices = await readBlob("scan-prices.json", token).catch(() => null);
         if (prices && (Array.isArray(prices.leaderboard) ? prices.leaderboard.length : 0) >= 50) {
@@ -60,18 +60,18 @@ export async function GET() {
         // Last resort: serve the degraded full scan rather than returning 404 and
         // forcing a client-side runScan() that may also fail (e.g. during an outage).
         if (fullLeaderboardSize > 0) {
-          console.warn(`[cached-scan] No better data available — serving degraded blob as last resort.`);
+          console.warn(`[cached-scan] No better data available - serving degraded blob as last resort.`);
           return NextResponse.json(applyScoreOverrides({ ...full, cached: true, stale: true }));
         }
-        // Nothing usable at all — fall through to 404
+        // Nothing usable at all - fall through to 404
       } else {
-        // Check freshness — prefer full scan if < 4h old
+        // Check freshness - prefer full scan if < 4h old
         const age = full.lastScan ? Date.now() - new Date(full.lastScan).getTime() : Infinity;
         if (age < 4 * 60 * 60 * 1000) {
           return NextResponse.json(applyScoreOverrides({ ...full, cached: true }));
         }
 
-        // Full scan is stale — try price snapshot as a supplement
+        // Full scan is stale - try price snapshot as a supplement
         const prices = await readBlob("scan-prices.json", token).catch(() => null);
         if (prices && prices.lastScan && (Array.isArray(prices.leaderboard) ? prices.leaderboard.length : 0) >= 50) {
           const priceAge = Date.now() - new Date(prices.lastScan).getTime();
@@ -86,12 +86,12 @@ export async function GET() {
           }
         }
 
-        // Fall back to stale full scan — still better than nothing
+        // Fall back to stale full scan - still better than nothing
         return NextResponse.json(applyScoreOverrides({ ...full, cached: true, stale: true }));
       }
     }
 
-    // No full scan yet — try price-only snapshot
+    // No full scan yet - try price-only snapshot
     const prices = await readBlob("scan-prices.json", token).catch(() => null);
     if (prices) {
       return NextResponse.json(applyScoreOverrides({ ...prices, cached: true, partial: true }));

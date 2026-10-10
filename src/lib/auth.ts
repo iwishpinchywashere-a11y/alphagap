@@ -14,7 +14,7 @@ export const authOptions: NextAuthOptions = {
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null;
         // Retry up to 3x (1.8s total) to handle Vercel Blob propagation delay
-        // after a fresh signup — the user blob may not yet be visible on this
+        // after a fresh signup - the user blob may not yet be visible on this
         // serverless instance even though it was just written on another.
         const user = await getUserByEmail(credentials.email, { retries: 3 });
         if (!user) return null;
@@ -56,11 +56,11 @@ export const authOptions: NextAuthOptions = {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const passed = sessionData as any;
       if (trigger === "update" && passed?.subscriptionStatus) {
-        // Client passed explicit fresh data — apply directly (fastest path)
+        // Client passed explicit fresh data - apply directly (fastest path)
         token.subscriptionStatus = passed.subscriptionStatus;
         token.subscriptionTier = passed.subscriptionTier ?? null;
       } else if (token.email) {
-        // Read live from blob — no retries to avoid serverless timeout
+        // Read live from blob - no retries to avoid serverless timeout
         const fresh = await getUserByEmail(token.email as string);
         if (fresh) {
           token.subscriptionStatus = fresh.subscriptionStatus;

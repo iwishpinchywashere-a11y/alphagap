@@ -1,4 +1,4 @@
-// One-time portfolio seeder — call once to bootstrap initial positions
+// One-time portfolio seeder - call once to bootstrap initial positions
 // GET /api/portfolio/seed
 // Seeds SN17 (Vidaio) at today's live price
 // Seeds SN11 (Trajectory RL) at YESTERDAY's price (it hit aGap 80 yesterday)
@@ -24,7 +24,7 @@ export async function GET() {
     });
 
     if (!scanBlob?.stream) {
-      return NextResponse.json({ error: "No scan data — run a scan first" }, { status: 400 });
+      return NextResponse.json({ error: "No scan data - run a scan first" }, { status: 400 });
     }
 
     const reader = scanBlob.stream.getReader();
@@ -50,7 +50,7 @@ export async function GET() {
     const added: string[] = [];
     const skipped: string[] = [];
 
-    // ── SN17 Vidaio — buy at today's price ───────────────────────
+    // ── SN17 Vidaio - buy at today's price ───────────────────────
     if (portfolio.positions.some(p => p.netuid === 17)) {
       skipped.push("SN17 Vidaio (already in portfolio)");
     } else {
@@ -68,11 +68,11 @@ export async function GET() {
           amountUsd: BUY_AMOUNT,
           alphaTokens,
         });
-        added.push(`SN17 ${entry.name} @ $${entry.alpha_price.toFixed(4)} (${alphaTokens.toFixed(2)} tokens) — TODAY`);
+        added.push(`SN17 ${entry.name} @ $${entry.alpha_price.toFixed(4)} (${alphaTokens.toFixed(2)} tokens) - TODAY`);
       }
     }
 
-    // ── SN11 Trajectory RL — buy at YESTERDAY's price ────────────
+    // ── SN11 Trajectory RL - buy at YESTERDAY's price ────────────
     // It hit aGap 80 yesterday. Back-calculate yesterday's price from
     // today's price and the 24h price change %.
     if (portfolio.positions.some(p => p.netuid === 11)) {

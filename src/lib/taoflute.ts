@@ -23,7 +23,7 @@ export async function queryTaofluteMessages(
 ): Promise<TaofluteMessage[]> {
   if (channelIds.length === 0) return [];
 
-  // Build the SQL IN clause (safe — all values are Discord snowflakes, numeric strings)
+  // Build the SQL IN clause (safe - all values are Discord snowflakes, numeric strings)
   const channelList = channelIds.map(id => `'${id.replace(/[^0-9]/g, "")}'`).join(", ");
 
   const rawSql = [

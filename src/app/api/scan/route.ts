@@ -53,7 +53,7 @@ interface ConstTracker {
 
 // Wallets attributed to Const (Bittensor founder). Anything in here is
 // broadcast publicly as the founder's activity, so ONLY add an address with a
-// verifiable public source — never a plausible-looking whale.
+// verifiable public source - never a plausible-looking whale.
 //
 // REMOVED 2026-08-01: 5G62K98tpNqsaffgyJmTvDSTCEFzva8WkmMqB2CEFSDgawrS. It was
 // added unsourced alongside the other in the original Const Tracker commit and
@@ -151,7 +151,7 @@ interface TMCSubnet {
   circulating_supply: number;
   neuron_regs_burned_24h: number;
   subnet_ema_tao_flow: number | null; // EMA of net TAO flow (rao); positive=inflow, negative=outflow
-  subnet_moving_price?: number | null; // de-manipulated moving price — what the v440 gate acts on
+  subnet_moving_price?: number | null; // de-manipulated moving price - what the v440 gate acts on
   emission_enabled?: boolean;          // subnets with emission off are not in the gate distribution
   tao_liquidity: number | null;       // TAO in the liquidity pool (rao)
   alpha_liquidity?: number | null;    // alpha in the pool (rao)
@@ -224,8 +224,8 @@ export const maxDuration = 800;
 
 const RAO = 1e9;
 
-// ── Desearch social cache — avoid calling Desearch on every 10-min scan ──
-// Primary: Vercel Blob ("social-cache.json") — survives cold starts and is shared
+// ── Desearch social cache - avoid calling Desearch on every 10-min scan ──
+// Primary: Vercel Blob ("social-cache.json") - survives cold starts and is shared
 //          across all Lambda instances so deploys don't spike API costs.
 // Secondary: in-memory fallback for within-instance speed (skips Blob read).
 const SOCIAL_CACHE_TTL_MS = 3 * 60 * 60 * 1000; // 3 hours
@@ -372,8 +372,8 @@ interface LeaderboardEntry {
   invest_agap?: number;          // Investing (long-term) aGap score 0-100
   audit_score?: number;          // Operational health / decentralisation score 0-100
   apy_7d?: number;               // Stake-weighted avg 7-day APY across top validators (0–1 scale)
-  apy_1h?: number;               // 1-hour APY (annualised) — for divergence detection
-  apy_30d?: number;              // 30-day APY (annualised) — baseline for divergence
+  apy_1h?: number;               // 1-hour APY (annualised) - for divergence detection
+  apy_30d?: number;              // 30-day APY (annualised) - baseline for divergence
   loc_30d?: number;              // Lines of code (additions+deletions) in last 30 days
   score_delta_24h?: number;      // Raw aGap score change in last 24h (signed, e.g. +4.2 or -1.8)
   const_buy_tao?: number;        // TAO Const staked into this subnet in current SR window
@@ -409,7 +409,7 @@ async function getStitchCampaigns(): Promise<StitchCampaign[]> {
 }
 
 // Fallback: hardcoded from latest Stitch3 scrape (updated 2026-04-03)
-// NOTE: active filtering is date-based — status field alone is not trusted.
+// NOTE: active filtering is date-based - status field alone is not trusted.
 function getDefaultStitchCampaigns(): StitchCampaign[] {
   return [
     { id: "034_its_ai",   subnet: "It's AI",  netuid: 32, reward: "$2,000", startDate: "2026-03-31", endDate: "2026-04-09", tweets: 6,  views: 9603,   status: "Active" },
@@ -420,6 +420,17 @@ function getDefaultStitchCampaigns(): StitchCampaign[] {
 }
 
 // ── Main scan handler ─────────────────────────────────────────────
+/** Read a private JSON blob by pathname; null when missing, empty or unparsable. */
+async function readBlobJson<T>(pathname: string, timeoutMs = 8000): Promise<T | null> {
+  try {
+    const b = await blobGet(pathname, { token: process.env.BLOB_READ_WRITE_TOKEN || "", access: "private", abortSignal: AbortSignal.timeout(timeoutMs) });
+    if (!b?.stream) return null;
+    const reader = b.stream.getReader(); const chunks: Uint8Array[] = [];
+    while (true) { const { done, value } = await reader.read(); if (done) break; chunks.push(value); }
+    return JSON.parse(Buffer.concat(chunks).toString("utf-8")) as T;
+  } catch { return null; }
+}
+
 export async function GET() {
   const startTime = Date.now();
 
@@ -428,7 +439,7 @@ export async function GET() {
   // so during a data-source outage every visitor would otherwise pile a full
   // scan (and its TaoStats spend) on top of the cron. Serve the latest blob if
   // it's fresh, and refuse to start a second scan within 8 min of the last
-  // attempt — concurrent visitors get the last known data instead.
+  // attempt - concurrent visitors get the last known data instead.
   const GUARD_TOKEN = process.env.BLOB_READ_WRITE_TOKEN || "";
   // SCAN_FORCE is an environment switch for running a scan by hand (verifying
   // a change end to end). It is never set in production, so no request can
@@ -442,7 +453,7 @@ export async function GET() {
         const cached = JSON.parse(Buffer.concat(chunks).toString("utf-8"));
         const age = cached.lastScan ? Date.now() - new Date(cached.lastScan).getTime() : Infinity;
         if (age < 8 * 60 * 1000) {
-          console.log(`[scan] Fresh blob (${Math.round(age / 60000)}min old) — skipping scan.`);
+          console.log(`[scan] Fresh blob (${Math.round(age / 60000)}min old) - skipping scan.`);
           return NextResponse.json({ ...cached, cached: true });
         }
         const attempt = await blobGet("scan-attempt.json", { token: GUARD_TOKEN, access: "private", abortSignal: AbortSignal.timeout(5000) }).catch(() => null);
@@ -451,12 +462,12 @@ export async function GET() {
           while (true) { const { done, value } = await r2.read(); if (done) break; c2.push(value); }
           const { at } = JSON.parse(Buffer.concat(c2).toString("utf-8"));
           if (at && Date.now() - new Date(at).getTime() < 8 * 60 * 1000) {
-            console.log("[scan] Another scan attempt started <8min ago — serving last blob.");
+            console.log("[scan] Another scan attempt started <8min ago - serving last blob.");
             return NextResponse.json({ ...cached, cached: true, stale: age > 4 * 60 * 60 * 1000 });
           }
         }
       }
-    } catch { /* guard is best-effort — proceed with the scan */ }
+    } catch { /* guard is best-effort - proceed with the scan */ }
     put("scan-attempt.json", JSON.stringify({ at: new Date().toISOString() }), {
       access: "private" as never, token: GUARD_TOKEN,
       addRandomSuffix: false, allowOverwrite: true, contentType: "application/json",
@@ -520,7 +531,7 @@ export async function GET() {
   const BLOB_TOKEN_CACHE = process.env.BLOB_READ_WRITE_TOKEN || "";
 
   // Identities (names/repos/socials) change rarely. Serve them from the blob
-  // cache and only refresh from TaoStats on the first scan of each 6h window —
+  // cache and only refresh from TaoStats on the first scan of each 6h window -
   // saves ~140 TaoStats credits/day vs fetching on every 10-min scan.
   const scanStart = new Date();
   const identityRefreshDue = scanStart.getUTCHours() % 6 === 0 && scanStart.getUTCMinutes() < 10;
@@ -566,7 +577,7 @@ export async function GET() {
 
   // ── Blob-cached fallback for identities + pools ───────────────────────────
   // These are the two feeds that kill isHealthyScan when TaoStats goes down.
-  // Same pattern as dev-activity-cache — save fresh data each run, load stale on failure.
+  // Same pattern as dev-activity-cache - save fresh data each run, load stale on failure.
   if (identities.length > 0) {
     if (!identitiesFromCache) {
       put("identity-cache.json", JSON.stringify(identities), {
@@ -581,7 +592,7 @@ export async function GET() {
         const reader = cached.stream.getReader(); const chunks: Uint8Array[] = [];
         while (true) { const { done, value } = await reader.read(); if (done) break; chunks.push(value); }
         identities = JSON.parse(Buffer.concat(chunks).toString("utf-8"));
-        console.warn(`[scan] TaoStats identities unavailable — using cache (${identities.length} entries)`);
+        console.warn(`[scan] TaoStats identities unavailable - using cache (${identities.length} entries)`);
       }
     } catch { console.warn("[scan] identity-cache read failed"); }
   }
@@ -621,7 +632,7 @@ export async function GET() {
   // Batch 2: flows + emissions + TaoStats dev (historical 7d/30d) + TMC + SubnetRadar + burned alpha
   // NOTE: TaoStats dev is used for 7d/30d historical context only.
   //       24h commit data comes from the direct GitHub scanner below.
-  // TaoStats dev history moves slowly — refresh from TaoStats only on the
+  // TaoStats dev history moves slowly - refresh from TaoStats only on the
   // first scan of each hour, otherwise the blob cache below serves it.
   const devRefreshDue = scanStart.getUTCMinutes() < 10;
   console.log(`[scan] Batch 2: flows + emissions + dev history (${devRefreshDue ? "fetch" : "cache"}) + TMC + SubnetRadar...`);
@@ -690,7 +701,7 @@ export async function GET() {
     }).catch(() => {});
     console.log(`[scan] dev-activity-cache updated (${devActivity.length} entries)`);
   } else {
-    // TaoStats failed — try the cache
+    // TaoStats failed - try the cache
     try {
       const cacheResult = await blobGet(DEV_CACHE_BLOB, { token: BLOB_TOKEN_DEV, access: "private" });
       if (cacheResult?.stream) {
@@ -698,10 +709,10 @@ export async function GET() {
         const chunks: Uint8Array[] = [];
         while (true) { const { done, value } = await reader.read(); if (done) break; chunks.push(value); }
         devActivity = JSON.parse(Buffer.concat(chunks).toString("utf-8"));
-        console.log(`[scan] dev-activity from ${devRefreshDue ? "cache (TaoStats failed)" : "cache (hourly refresh window not due)"} — ${devActivity.length} entries`);
+        console.log(`[scan] dev-activity from ${devRefreshDue ? "cache (TaoStats failed)" : "cache (hourly refresh window not due)"} - ${devActivity.length} entries`);
       }
     } catch {
-      console.warn("[scan] dev-activity-cache read failed — dev scores will be low this cycle");
+      console.warn("[scan] dev-activity-cache read failed - dev scores will be low this cycle");
     }
   }
 
@@ -733,10 +744,10 @@ export async function GET() {
   // ── Stale on-chain identity overrides ─────────────────────────────
   // Some LIVE subnets never updated their on-chain identity: SN3/39/81 are
   // Covenant AI's Templar / Basilica / Grail, but their chain identity still
-  // reads "deprecated" — which the deprecated-name filter below would drop
+  // reads "deprecated" - which the deprecated-name filter below would drop
   // from the leaderboard entirely. Patch them here so every downstream
   // consumer (name filter, GitHub scan, signals, alerts) sees the real
-  // project. Applied ONLY while the chain name is still a placeholder — if
+  // project. Applied ONLY while the chain name is still a placeholder - if
   // the team sets a real identity on-chain, the chain wins.
   const STALE_IDENTITY_OVERRIDES: Record<number, Partial<SubnetIdentity>> = {
     3:  { subnet_name: "Teutonic",  github_repo: "https://github.com/one-covenant/templar",  subnet_url: "https://www.tplr.ai" },
@@ -949,7 +960,7 @@ export async function GET() {
   const emissionMap = new Map<number, number>(
     emissions.map((e) => [e.netuid, parseFloat(e.alpha_rewards) / RAO])
   );
-  // TaoStats devMap — used for 7d/30d history and repo URLs
+  // TaoStats devMap - used for 7d/30d history and repo URLs
   const devMap = new Map<number, GithubActivity>(devActivity.map((d) => [d.netuid, d]));
 
   // Total emission for share calculation
@@ -980,7 +991,7 @@ export async function GET() {
   // ── Const wallet detection ──────────────────────────────────────
   // Distinguish true buys/sells from validator swaps.
   // A validator swap = unstake from hotkey A + restake to hotkey B on the SAME
-  // subnet in the same scan window — the gross legs cancel out to near-zero net.
+  // subnet in the same scan window - the gross legs cancel out to near-zero net.
   //
   // Strategy: aggregate all stake/unstake legs per subnet, then inspect the NET.
   //   net > +10 TAO  → genuine new position  → buy event
@@ -990,7 +1001,7 @@ export async function GET() {
   // These feed: (1) const-latest.json for the flow page + alerts,
   //             (2) per-subnet const_buy_tao / const_sell_tao for aGap boost.
 
-  // Pass 1 — accumulate gross staked/unstaked per subnet, track metadata
+  // Pass 1 - accumulate gross staked/unstaked per subnet, track metadata
   interface ConstLeg { staked: number; unstaked: number; wallet: string; latestTs: string }
   const constLegs = new Map<number, ConstLeg>();
   for (const move of srWhaleMoves) {
@@ -1005,7 +1016,7 @@ export async function GET() {
     constLegs.set(move.netuid, leg);
   }
 
-  // Pass 2 — compute net per subnet, fire events only for genuine moves
+  // Pass 2 - compute net per subnet, fire events only for genuine moves
   const SWAP_THRESHOLD_TAO = 10; // legs within 10 TAO of each other = validator swap
   const constBuyMap  = new Map<number, number>();  // netuid → net TAO bought
   const constSellMap = new Map<number, number>();  // netuid → net TAO sold
@@ -1015,8 +1026,8 @@ export async function GET() {
   for (const [netuid, leg] of constLegs) {
     const net = leg.staked - leg.unstaked;
     if (Math.abs(net) <= SWAP_THRESHOLD_TAO) {
-      // Validator swap — both legs cancel. Log for visibility but no alert.
-      console.log(`[scan] Const SN${netuid}: stake=${leg.staked.toFixed(1)} unstake=${leg.unstaked.toFixed(1)} → net=${net.toFixed(1)} TAO — validator swap, skipped`);
+      // Validator swap - both legs cancel. Log for visibility but no alert.
+      console.log(`[scan] Const SN${netuid}: stake=${leg.staked.toFixed(1)} unstake=${leg.unstaked.toFixed(1)} → net=${net.toFixed(1)} TAO - validator swap, skipped`);
       continue;
     }
     if (net > 0) {
@@ -1059,23 +1070,23 @@ export async function GET() {
   // Subnets where the on-chain identity registry has no entry or the wrong repo.
   // Values here take precedence over what taostats returns.
   const GITHUB_REPO_OVERRIDES: Record<number, string> = {
-    5:   "https://github.com/manifold-inc/hone",                  // Hone — TaoStats still points to dead OpenKaito repo
-    36:  "https://github.com/autoppia/autoppia_web_agents_subnet", // Autoppia Web Agents — missing from registry
-    42:  "https://github.com/masa-finance/masa-bittensor",          // Masa real-time social data — missing from registry
-    44:  "https://github.com/score-technologies/turbovision",       // Score — team migrated from score-vision to turbovision (active daily commits)
-    47:  "https://github.com/openevolai/evolai",                   // EvolAI — registry URL had .git suffix which breaks scanner
-    70:  "https://github.com/RendixNetwork/nexisgen",              // NexisGen — missing from registry
-    74:  "https://github.com/entrius/gittensor",                   // Gittensor — registry URL had /tree/main suffix, not a repo root
-    87:  "https://github.com/luminar-network/luminar-sn",          // Luminar Network — missing from registry
-    99:  "https://github.com/RendixNetwork/leoma",                 // Leoma — missing from registry
-    105: "https://github.com/Beam-Network/beam",                   // Beam — registry had org-page URL, not repo
-    18:  "https://github.com/Orpheus-AI/Zeus",                    // Zeus — TaoStats tracked wrong org (zeussubnet, 404)
-    118: "https://github.com/ditto-assistant/ditto-mcp-servers",  // Ditto — registry had org-page URL, not repo
-    // NOTE: SN82 override REMOVED — was wrongly pointing to Hermes (old SN82 tenant).
+    5:   "https://github.com/manifold-inc/hone",                  // Hone - TaoStats still points to dead OpenKaito repo
+    36:  "https://github.com/autoppia/autoppia_web_agents_subnet", // Autoppia Web Agents - missing from registry
+    42:  "https://github.com/masa-finance/masa-bittensor",          // Masa real-time social data - missing from registry
+    44:  "https://github.com/score-technologies/turbovision",       // Score - team migrated from score-vision to turbovision (active daily commits)
+    47:  "https://github.com/openevolai/evolai",                   // EvolAI - registry URL had .git suffix which breaks scanner
+    70:  "https://github.com/RendixNetwork/nexisgen",              // NexisGen - missing from registry
+    74:  "https://github.com/entrius/gittensor",                   // Gittensor - registry URL had /tree/main suffix, not a repo root
+    87:  "https://github.com/luminar-network/luminar-sn",          // Luminar Network - missing from registry
+    99:  "https://github.com/RendixNetwork/leoma",                 // Leoma - missing from registry
+    105: "https://github.com/Beam-Network/beam",                   // Beam - registry had org-page URL, not repo
+    18:  "https://github.com/Orpheus-AI/Zeus",                    // Zeus - TaoStats tracked wrong org (zeussubnet, 404)
+    118: "https://github.com/ditto-assistant/ditto-mcp-servers",  // Ditto - registry had org-page URL, not repo
+    // NOTE: SN82 override REMOVED - was wrongly pointing to Hermes (old SN82 tenant).
     // SN82 is now Compelle; TaoStats correctly tracks compelle/compelle-validator.
   };
 
-  // Verified X/Twitter handle overrides — sourced from @PinchyAlpha/following list (Apr 2026).
+  // Verified X/Twitter handle overrides - sourced from @PinchyAlpha/following list (Apr 2026).
   // Many subnets have X accounts that are not in the TaoStats identity registry.
   // These supplement (not replace) registry data; registry handle takes priority if set.
   const TWITTER_HANDLE_OVERRIDES: Record<number, string> = {
@@ -1083,7 +1094,7 @@ export async function GET() {
     2:  "omron_ai",    // Omron (zkML / Inference)
     3:  "tplr_ai",    // Templar (τemplar)
     4:  "TargonCompute",    // Targon
-    5:  "traininghone",    // Hone (SN5) — official product account; @manifoldlabs is the dev company
+    5:  "traininghone",    // Hone (SN5) - official product account; @manifoldlabs is the dev company
     6:  "numinous_ai",    // Numinous
     7:  "SubVortexTao",    // SubVortex
     8:  "VantaTrading",    // Vanta
@@ -1114,7 +1125,7 @@ export async function GET() {
     37:  "aureliusaligned",    // Aurelius
     38:  "chronollm",    // SN38 (verified 2026-07-21)
     39:  "basilic_ai",    // Basilica
-    40:  "vectorchatai",    // Ralph (SN40) — rebranded from Chunking; official X is @vectorchatai
+    40:  "vectorchatai",    // Ralph (SN40) - rebranded from Chunking; official X is @vectorchatai
     41:  "almanac_market",    // SN41 (verified 2026-07-21)
     42:  "getmasafi",    // Masa (real-time social data)
     43:  "GraphiteSubnet",    // Graphite
@@ -1125,7 +1136,7 @@ export async function GET() {
     50:  "SynthdataCo",    // Synth
     51:  "lium_io",    // lium.io
     52:  "TensorplexLabs",    // Dojo (SN52)
-    53:  "totheagi",    // Engy (SN53) — no official subnet account yet; founder Ning Ren (Hanlin AI). NOT @the_engy (a band)
+    53:  "totheagi",    // Engy (SN53) - no official subnet account yet; founder Ning Ren (Hanlin AI). NOT @the_engy (a band)
     54:  "yanez__ai",    // Yanez MIID
     55:  "GenomesDAO",    // NIOME / GenomesDAO
     56:  "gradients_ai",    // Gradients
@@ -1166,8 +1177,8 @@ export async function GET() {
     124:  "SwarmSubnet",    // Swarm
   };
 
-  // ── Step 3a: Direct GitHub scan — ALL subnets, real-time data ──────
-  // This is our OWN BACKBONE — independent of TaoStats. Queries GitHub API
+  // ── Step 3a: Direct GitHub scan - ALL subnets, real-time data ──────
+  // This is our OWN BACKBONE - independent of TaoStats. Queries GitHub API
   // directly for every subnet with a registered github_repo. We now fetch
   // the full 30d commit window so we own commits7d/30d, prs_merged_7d/30d,
   // and contributors_30d without any TaoStats dependency.
@@ -1198,7 +1209,7 @@ export async function GET() {
     }).catch(() => {});
     console.log(`[scan] github-scan-latest cache updated (${githubScanMap.size} repos)`);
   } else {
-    // Scanner failed — load our own backbone cache
+    // Scanner failed - load our own backbone cache
     try {
       const ghCacheResult = await blobGet(GH_SCAN_CACHE_BLOB, { token: BLOB_TOKEN_GH, access: "private" });
       if (ghCacheResult?.stream) {
@@ -1207,19 +1218,19 @@ export async function GET() {
         while (true) { const { done, value } = await reader.read(); if (done) break; chunks.push(value); }
         const ghCacheObj: Record<number, GitHubScanResult> = JSON.parse(Buffer.concat(chunks).toString("utf-8"));
         for (const [k, v] of Object.entries(ghCacheObj)) githubScanMap.set(Number(k), v);
-        console.log(`[scan] GitHub scanner failed — using backbone cache (${githubScanMap.size} repos)`);
+        console.log(`[scan] GitHub scanner failed - using backbone cache (${githubScanMap.size} repos)`);
       }
     } catch {
-      console.warn("[scan] github-scan-latest cache read failed — GitHub data will be missing this cycle");
+      console.warn("[scan] github-scan-latest cache read failed - GitHub data will be missing this cycle");
     }
   }
 
-  // ── Merge github scan into devMap — OWN DATA ALWAYS WINS ─────────
+  // ── Merge github scan into devMap - OWN DATA ALWAYS WINS ─────────
   // Our direct scanner now provides commits7d/30d, prs_merged_7d/30d,
   // and contributors_30d independently of TaoStats. We always trust our
   // own numbers (they're from the same GitHub API, just queried directly).
   // Only skip overwriting if our scan returned 0 AND we have non-zero TaoStats
-  // data — protects against rate-limited/failed scan responses.
+  // data - protects against rate-limited/failed scan responses.
   for (const [netuid, ghResult] of githubScanMap) {
     if (GITHUB_REPO_OVERRIDES[netuid] !== undefined) {
       console.log(`[scan] Override SN${netuid}: c24h=${ghResult.commits24h} c7d=${ghResult.commits7d} c30d=${ghResult.commits30d} pr7d=${ghResult.prs_merged_7d} repo=${ghResult.repoUrl}`);
@@ -1233,7 +1244,7 @@ export async function GET() {
       existing.unique_contributors_1d = ghResult.contributors24h;
       if (ghResult.commits24h > 0) existing.last_event_at = nowIso;
 
-      // Trust our scanner for 7d/30d data — only overwrite if we got a non-zero result
+      // Trust our scanner for 7d/30d data - only overwrite if we got a non-zero result
       // (a 0 COULD mean GitHub rate-limited this specific repo; don't clobber good TaoStats data)
       if (ghResult.commits7d > 0 || ghResult.commits30d > 0) {
         existing.commits_7d = ghResult.commits7d;
@@ -1246,7 +1257,7 @@ export async function GET() {
         existing.prs_merged_30d = ghResult.prs_merged_30d;
       }
     } else {
-      // Subnet wasn't in TaoStats dev data — add it if it has any signal
+      // Subnet wasn't in TaoStats dev data - add it if it has any signal
       const isOverride = GITHUB_REPO_OVERRIDES[netuid] !== undefined;
       if (isOverride || ghResult.commits30d > 0 || ghResult.commits24h > 0 || ghResult.hasNewRelease) {
         devMap.set(netuid, {
@@ -1278,7 +1289,7 @@ export async function GET() {
     }
   }
 
-  // ── Step 3b: HuggingFace scan — all known orgs + auto-discovery ──
+  // ── Step 3b: HuggingFace scan - all known orgs + auto-discovery ──
   // Comprehensive scan of ALL subnets with HF presence.
   // Only fires signals for content NEWLY CREATED in last 48h.
   console.log("[scan] Step 3b: HuggingFace scan (all subnets + discovery)...");
@@ -1297,7 +1308,7 @@ export async function GET() {
   const elapsed1 = Date.now() - startTime;
   console.log(`[scan] All data fetched in ${elapsed1}ms.`);
 
-  // ── Step 4: Desearch social (cached — fires at most once per 3h) ──
+  // ── Step 4: Desearch social (cached - fires at most once per 3h) ──
   // In-memory cache is fast but resets on cold starts (deploys). Blob cache is the
   // source of truth: shared across all Lambda instances, survives restarts.
   const timeLeftForSocial = 50000 - (Date.now() - startTime);
@@ -1311,7 +1322,7 @@ export async function GET() {
     for (const [k, v] of _socialCache!.data) socialMap.set(k, v);
     console.log(`[scan] Social data from memory cache (${socialMap.size} subnets, ${Math.round((Date.now() - _socialCache!.ts) / 60000)}min old). Skipping Desearch.`);
   } else if (process.env.BLOB_READ_WRITE_TOKEN) {
-    // Cold start or first run — check Blob before hitting Desearch API
+    // Cold start or first run - check Blob before hitting Desearch API
     try {
       const { get: blobGetSocial } = await import("@vercel/blob");
       const cacheBlob = await blobGetSocial(SOCIAL_CACHE_BLOB, {
@@ -1331,11 +1342,11 @@ export async function GET() {
           console.log(`[scan] Social data from Blob cache (${socialMap.size} subnets, ${Math.round((Date.now() - cached.ts) / 60000)}min old). Skipping Desearch.`);
         }
       }
-    } catch { /* Blob miss — will fetch fresh */ }
+    } catch { /* Blob miss - will fetch fresh */ }
   }
 
   if (!socialCacheHit && timeLeftForSocial > 5000 && DESEARCH_KEY) {
-    console.log("[scan] Cache miss — fetching fresh Desearch social data...");
+    console.log("[scan] Cache miss - fetching fresh Desearch social data...");
 
     // Build handle->netuid and name->netuid maps from identities
     // Twitter handle priority: registry data → TWITTER_HANDLE_OVERRIDES
@@ -1362,13 +1373,13 @@ export async function GET() {
       if (norm.length >= 4) normalizedNameToNetuid.set(norm, netuid);
     }
 
-    // Bittensor context gate — same logic as social-pulse to keep scoring consistent.
+    // Bittensor context gate - same logic as social-pulse to keep scoring consistent.
     const BITTENSOR_SIGNALS_SCAN = [
       "bittensor", "$tao", "#tao", "dtao", "opentensor", "taoshi",
       "macrocosmos", "subnet", "netuid", "metagraph", "yuma",
       "tao alpha", "taomarketcap", "taostats",
       "affine_io", "affine foundation", // SN120
-      "maxscore", "manako", "wearescore", // SN44 Score — founder @MaxScore
+      "maxscore", "manako", "wearescore", // SN44 Score - founder @MaxScore
     ];
     function hasBTContext(text: string): boolean {
       const t = text.toLowerCase();
@@ -1377,13 +1388,13 @@ export async function GET() {
       return false;
     }
 
-    // Generic English words that happen to be subnet names — skip for name-based matching.
+    // Generic English words that happen to be subnet names - skip for name-based matching.
     const GENERIC_NAME_BLOCKLIST_SCAN = new Set([
       "investing", "vision", "atlas", "apex", "prime", "core", "genesis",
       "nexus", "origin", "signal", "pulse", "oracle", "forge", "bridge",
       "score", "quasar", "synth", "swarm", "beam", "echo",
       "liquidity", "leverage", "margin", "trading", "market", "alpha", "delta",
-      "grail", "vanta", "soma", "kaito", // "hone" removed — it's a specific Bittensor subnet (SN5), not a generic word
+      "grail", "vanta", "soma", "kaito", // "hone" removed - it's a specific Bittensor subnet (SN5), not a generic word
       "swap", "yield", "stake", "pool", "mint", "launch", "flow", "base",
     ]);
 
@@ -1392,7 +1403,7 @@ export async function GET() {
       const author = tweet.user.username.toLowerCase();
       const matched = new Set<number>();
 
-      // Official subnet handle — require Bittensor context or own name mention
+      // Official subnet handle - require Bittensor context or own name mention
       if (handleToNetuid.has(author)) {
         const authorNetuid = handleToNetuid.get(author)!;
         if (hasBTContext(text)) matched.add(authorNetuid);
@@ -1406,12 +1417,12 @@ export async function GET() {
       // All other matches require Bittensor context
       if (!hasBTContext(text)) return [];
 
-      // @subnet_handle mentions — collect ALL mentioned handles
+      // @subnet_handle mentions - collect ALL mentioned handles
       for (const [handle, netuid] of handleToNetuid) {
         if (text.includes(`@${handle}`)) matched.add(netuid);
       }
 
-      // SN# explicit mentions — collect ALL SN numbers in the tweet
+      // SN# explicit mentions - collect ALL SN numbers in the tweet
       // Matches: "SN3", "SN 3", "SN#3", "subnet 3", "subnet #3", "netuid 3"
       const snPatterns = [
         /\bsn\s*#?\s*(\d{1,3})\b/gi,
@@ -1425,7 +1436,7 @@ export async function GET() {
         }
       }
 
-      // Subnet name — ≥5 chars, skip generic English words
+      // Subnet name - ≥5 chars, skip generic English words
       for (const [name, netuid] of nameToNetuid) {
         if (name.length >= 5 && !GENERIC_NAME_BLOCKLIST_SCAN.has(name) && text.includes(name)) {
           matched.add(netuid);
@@ -1441,7 +1452,7 @@ export async function GET() {
       return [...matched];
     }
 
-    // 9 targeted searches — mix of broad + subnet-specific
+    // 9 targeted searches - mix of broad + subnet-specific
     // ~9 credits/scan × 6 scans/day = 54 credits/day → $10 lasts ~180 days
     const searches = [
       { query: "bittensor subnet", count: 100, sort: "Top" as const },
@@ -1492,7 +1503,7 @@ export async function GET() {
       }
     }
     // KOL timeline fetches are handled entirely by the social-pulse cron (hourly, 100 KOLs).
-    // Duplicating them here added 29 API calls per cache miss for no extra value — removed.
+    // Duplicating them here added 29 API calls per cache miss for no extra value - removed.
     console.log(`[scan] Desearch broad search done. ${allTweets.size} tweets, ${socialMap.size} subnets.`);
 
     // PASS 2: Search for tweets FROM official subnet X handles
@@ -1505,7 +1516,7 @@ export async function GET() {
     }
 
     // Search ALL known subnet handles (up to 50, batched 5 at a time = 10 Desearch queries)
-    // Previously limited to top-15 priority subnets — now we scan everything in the handle map
+    // Previously limited to top-15 priority subnets - now we scan everything in the handle map
     // so @PinchyAlpha's full following list is covered every scan.
     const handleEntries = [...twitterHandleMap.entries()].slice(0, 50);
 
@@ -1566,37 +1577,40 @@ export async function GET() {
   // ── Save velocity snapshot from current social data ─────────────
   if (process.env.BLOB_READ_WRITE_TOKEN && socialMap.size > 0) {
     try {
+      // ROLLING BUFFER, one blob. This used to write a new blob per scan
+      // (social-velocity/<ms>.json) and read back "the first 10" from the
+      // store, which lists by key: with 50,000 snapshots accumulated, the
+      // first 10 were from March, so velocity was measured against a six
+      // month old baseline and came out as noise. Keep the last 24 hours in
+      // a single file and compare against the snapshot nearest one hour ago.
       const { put: putBlob } = await import("@vercel/blob");
       const snapshotData: Record<number, { mentions: number; engagement: number }> = {};
-      for (const [netuid, data] of socialMap) {
-        snapshotData[netuid] = data;
-      }
-      // Save timestamped snapshot for velocity comparison
-      await putBlob(`social-velocity/${Date.now()}.json`, JSON.stringify({
-        timestamp: new Date().toISOString(),
-        subnets: snapshotData,
-      }), { access: "private", addRandomSuffix: false, contentType: "application/json" });
-      console.log(`[scan] Velocity snapshot saved (${socialMap.size} subnets)`);
+      for (const [netuid, data] of socialMap) snapshotData[netuid] = data;
+      const prior = (await readBlobJson<{ snaps: Array<{ timestamp: string; subnets: Record<number, { mentions: number; engagement: number }> }> }>("social-velocity-recent.json"))?.snaps ?? [];
+      const cutoff = Date.now() - 24 * 3600_000;
+      const snaps = [...prior.filter((x: { timestamp: string }) => new Date(x.timestamp).getTime() > cutoff), { timestamp: new Date().toISOString(), subnets: snapshotData }];
+      await putBlob("social-velocity-recent.json", JSON.stringify({ snaps }), { access: "private", addRandomSuffix: false, allowOverwrite: true, contentType: "application/json" });
+      console.log(`[scan] Velocity buffer saved (${snaps.length} snapshots, ${socialMap.size} subnets)`);
     } catch (e) {
       console.error("[scan] Failed to save velocity snapshot:", e);
     }
   }
 
   // ── Step 5: Generate signals (dev + HF ONLY) ───────────────────
-  // Flow/price signals REMOVED — this feed is purely about development intelligence
+  // Flow/price signals REMOVED - this feed is purely about development intelligence
 
   // ── RICH DEV SIGNALS: AI analysis for EVERY active subnet ───────
-  // No cap — every subnet with commits today gets a real analysis, not a placeholder.
+  // No cap - every subnet with commits today gets a real analysis, not a placeholder.
   // Commit messages already fetched by github-scanner (no extra GitHub API calls).
   // Top 10 by activity also get PRs + release fetched for richer context.
   const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
 
   // IMPORTANT: Only use subnets confirmed active by our direct GitHub scanner.
-  // Never trust TaoStats commits_1d alone — it's a stale daily snapshot that
+  // Never trust TaoStats commits_1d alone - it's a stale daily snapshot that
   // could make yesterday's (or last week's) commits appear as "today" signals.
   //
   // QUALITY GATE: require ≥2 commits OR a new release OR ≥1 commit + ≥1 merged PR.
-  // Single-commit activity (CI fixes, version bumps, README edits) is noise —
+  // Single-commit activity (CI fixes, version bumps, README edits) is noise -
   // not worth an AI call. This filters out ~30-40% of borderline repos.
   const allActiveDevSubnets = [...devMap.values()]
     .filter(a => {
@@ -1605,11 +1619,11 @@ export async function GET() {
       if (ghResult.hasNewRelease) return true;              // always analyze releases
       if (ghResult.commits24h >= 2) return true;            // 2+ commits = real activity
       if (ghResult.commits24h >= 1 && a.prs_merged_1d >= 1) return true; // commit + PR
-      return false;                                         // single-commit noise — skip
+      return false;                                         // single-commit noise - skip
     })
     .sort((a, b) => (b.commits_1d + b.prs_merged_1d * 5) - (a.commits_1d + a.prs_merged_1d * 5));
 
-  console.log(`[scan] ${allActiveDevSubnets.length} active subnets — fetching PR/release context for top 10, commit-only for the rest...`);
+  console.log(`[scan] ${allActiveDevSubnets.length} active subnets - fetching PR/release context for top 10, commit-only for the rest...`);
 
   type DevContext = { act: GithubActivity; owner: string; repo: string; commits: string[]; prs: string[]; release: { tag: string; name: string; body: string; date: string } | null };
   const devContexts: DevContext[] = [];
@@ -1653,7 +1667,7 @@ export async function GET() {
   console.log(`[scan] Context built for ${devContexts.length} subnets. Running AI analysis on all of them...`);
 
   // ── Load dev-analysis cache (prevents re-analyzing unchanged commits) ─────
-  // Cache key = first commit message (contains date+sha — changes when new commits land).
+  // Cache key = first commit message (contains date+sha - changes when new commits land).
   // Only call Claude when the commit set has changed since the last analysis.
   type DevAnalysisCache = Record<number, { cacheKey: string; description: string; score: number; headline: string | null; cachedAt: string }>;
   let devAnalysisCache: DevAnalysisCache = {};
@@ -1677,7 +1691,7 @@ export async function GET() {
   async function analyzeDevActivity(ctx: DevContext): Promise<{ description: string; score: number; headline: string | null }> {
     if (!ANTHROPIC_KEY) return { description: buildFallbackDescription(ctx), score: fallbackScore(ctx), headline: null };
 
-    // Cache check — two-tier dedup to limit API costs:
+    // Cache check - two-tier dedup to limit API costs:
     // 1. Exact match: same commits + same prompt version → always use cache
     // 2. Time-based: if analyzed <4h ago, reuse even if commits changed.
     //    Active repos pushing commits every 30min would otherwise re-burn haiku
@@ -1687,11 +1701,11 @@ export async function GET() {
     const cacheKey = `${ctx.commits[0] ?? `release:${ctx.release?.tag ?? "none"}`}:${PROMPT_VERSION}`;
     const cached = devAnalysisCache[ctx.act.netuid];
     if (cached) {
-      // Exact cache hit — commits haven't changed
+      // Exact cache hit - commits haven't changed
       if (cached.cacheKey === cacheKey) {
         return { description: cached.description, score: cached.score, headline: cached.headline };
       }
-      // Time-based dedup — new commits landed but last analysis is fresh enough
+      // Time-based dedup - new commits landed but last analysis is fresh enough
       const cacheAgeMs = Date.now() - new Date(cached.cachedAt).getTime();
       if (cacheAgeMs < MIN_REANALYZE_MS) {
         return { description: cached.description, score: cached.score, headline: cached.headline };
@@ -1711,7 +1725,7 @@ export async function GET() {
     const identity = identityMap.get(ctx.act.netuid);
     const subnetDescription = identity?.description || identity?.summary || "";
 
-    const prompt = `You are the AlphaGap intelligence engine — the world's sharpest Bittensor subnet analyst. You read raw GitHub commits and PRs and produce investment-grade intelligence signals.
+    const prompt = `You are the AlphaGap intelligence engine - the world's sharpest Bittensor subnet analyst. You read raw GitHub commits and PRs and produce investment-grade intelligence signals.
 
 Your job is to score the INVESTMENT OPPORTUNITY, not just the dev work in isolation. The score answers: "How much should a serious crypto investor care about this right now?"
 
@@ -1722,7 +1736,7 @@ Description: ${subnetDescription || "No description available"}
 Token: $${price} (24h change: ${priceChange}%) | Market Cap: ${mcap}
 Today's activity: ${ctx.act.commits_1d} commits, ${ctx.act.prs_merged_1d} merged PRs, ${ctx.act.unique_contributors_1d} contributors
 
-RAW COMMITS (this is the evidence — read carefully):
+RAW COMMITS (this is the evidence - read carefully):
 ${commitText || "No commits found"}
 
 MERGED PULL REQUESTS:
@@ -1733,10 +1747,10 @@ ${releaseText}
 Write your intelligence report in this EXACT format:
 
 SCORE: [number 1-100]
-HEADLINE: [10 words max. Plain English — what they actually shipped. Concrete and specific. No crypto jargon, no buzzwords, no filler. Write it like a newspaper sub-headline: "Fixed validator emission bug, unified model naming", "Launched public API for external developers", "Shipped new inference engine with 40% speed gain". Do NOT write "pushed X commits", "updated codebase", or anything starting with "Exciting".]
+HEADLINE: [10 words max. Plain English - what they actually shipped. Concrete and specific. No crypto jargon, no buzzwords, no filler. Write it like a newspaper sub-headline: "Fixed validator emission bug, unified model naming", "Launched public API for external developers", "Shipped new inference engine with 40% speed gain". Do NOT write "pushed X commits", "updated codebase", or anything starting with "Exciting".]
 
 🏗️ What is ${name}:
-[1-2 sentences. What does this subnet do? Plain English — a smart friend with no Bittensor knowledge should get it instantly.]
+[1-2 sentences. What does this subnet do? Plain English - a smart friend with no Bittensor knowledge should get it instantly.]
 
 🔧 What they built:
 [1-2 sentences. Name the specific things shipped. No vague statements.]
@@ -1750,18 +1764,18 @@ HEADLINE: [10 words max. Plain English — what they actually shipped. Concrete 
 🎯 The AlphaGap take:
 [1-2 sentences. Your direct investment call. Is the market sleeping on this or not? Be opinionated and brief.]
 
-HOW TO SCORE — the score is INVESTMENT SIGNAL STRENGTH: (dev quality) × (market opportunity).
-Use the FULL range 1–100. Score accurately — neither inflate noise NOR undersell real work.
+HOW TO SCORE - the score is INVESTMENT SIGNAL STRENGTH: (dev quality) × (market opportunity).
+Use the FULL range 1–100. Score accurately - neither inflate noise NOR undersell real work.
 
 DEV QUALITY tiers:
 - Noise (1–20): version bumps, dep updates, CI fixes, README edits, typos, linting
 - Routine (21–40): small bug fixes, minor config changes, test additions, solo-contributor chores
 - Incremental (41–55): small features, refactors with purpose, moderate PRs, consistent team activity
-- Meaningful (56–70): real new capability, new API endpoint, protocol improvement, multi-contributor sprint with tangible output — THIS IS WHERE MOST SOLID DEV WORK LANDS
+- Meaningful (56–70): real new capability, new API endpoint, protocol improvement, multi-contributor sprint with tangible output - THIS IS WHERE MOST SOLID DEV WORK LANDS
 - Significant (71–85): major feature launch, new model shipped, protocol upgrade, public release, important fix that unblocks users
-- Extraordinary (86–100): paradigm shift, breakthrough capability, first-ever feature in category, massive release — genuinely rare
+- Extraordinary (86–100): paradigm shift, breakthrough capability, first-ever feature in category, massive release - genuinely rare
 
-MARKET OPPORTUNITY — adjust UP or DOWN based on context:
+MARKET OPPORTUNITY - adjust UP or DOWN based on context:
 - Small mcap ($1M–$10M) building hard, token flat/down → undervalued, +5 to +12
 - Medium mcap ($10M–$50M) meaningful dev, token flat → undervalued, +3 to +8
 - Large mcap ($50M+) routine commits → likely priced in, −5 to −15
@@ -1770,7 +1784,7 @@ MARKET OPPORTUNITY — adjust UP or DOWN based on context:
 - 3+ unique contributors in one day → team is serious, +4
 - Subnet severely underpriced relative to output → this is the whole point of AlphaGap, +5 to +12
 
-CALIBRATION EXAMPLES — match these precisely:
+CALIBRATION EXAMPLES - match these precisely:
 - Bumped npm deps + CI fix at $80M mcap: 8
 - Fixed a bug, solo contributor at $5M mcap: 25
 - Added tests + refactored module, token flat at $12M: 40
@@ -1817,7 +1831,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
         .replace(/^HEADLINE:\s*.+\n?/m, "")
         .trim();
 
-      console.log(`[scan] AI scored SN${ctx.act.netuid} (${name}): ${score}/100 — ${headline || "no headline"}`);
+      console.log(`[scan] AI scored SN${ctx.act.netuid} (${name}): ${score}/100 - ${headline || "no headline"}`);
       // Store in cache
       devAnalysisCache[ctx.act.netuid] = { cacheKey, description, score, headline, cachedAt: new Date().toISOString() };
       return { description, score, headline };
@@ -1842,9 +1856,9 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     return desc || `${ctx.act.commits_1d} commits and ${ctx.act.prs_merged_1d} PRs merged today.`;
   }
 
-  // Fallback score when AI is unavailable — uses full range to avoid clustering at 28.
+  // Fallback score when AI is unavailable - uses full range to avoid clustering at 28.
   function fallbackScore(ctx: DevContext): number {
-    // Base on event type — releases are highest, PRs next, pushes lowest
+    // Base on event type - releases are highest, PRs next, pushes lowest
     let s = ctx.release ? 45 : ctx.act.prs_merged_1d > 0 ? 30 : 15;
     // Commit volume
     if (ctx.act.commits_1d >= 20) s += 25;
@@ -1855,7 +1869,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     if (ctx.act.prs_merged_1d >= 5) s += 15;
     else if (ctx.act.prs_merged_1d >= 3) s += 10;
     else if (ctx.act.prs_merged_1d >= 1) s += 5;
-    return Math.min(85, s); // fallback cap — AI can push higher with full context
+    return Math.min(85, s); // fallback cap - AI can push higher with full context
   }
 
   // Try AI analysis for as many signals as time allows
@@ -1903,7 +1917,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
   // Seed from this scan's fresh analyses first, then backfill from cache for any
   // subnet that wasn't active today but has a recent quality score (≤7 days old).
   // This prevents subnets from losing their quality signal just because they didn't
-  // commit in the past 24h — a team shipping 20 commits on Monday shouldn't look
+  // commit in the past 24h - a team shipping 20 commits on Monday shouldn't look
   // the same as a dormant subnet on Tuesday.
   const aiQualityMap = new Map<number, number>();
   for (const { ctx, score } of analyzedDevSignals) {
@@ -1918,7 +1932,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     aiQualityMap.set(netuid, entry.score);
   }
 
-  // Create rich dev signals — score from AI quality assessment, date from real commits
+  // Create rich dev signals - score from AI quality assessment, date from real commits
   for (const { ctx, description, score, headline } of analyzedDevSignals) {
     const name = identityMap.get(ctx.act.netuid)?.subnet_name || `SN${ctx.act.netuid}`;
     const ghResult = githubScanMap.get(ctx.act.netuid);
@@ -1940,7 +1954,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
       ctx.act.prs_merged_1d > 0 ? `${ctx.act.prs_merged_1d} PRs` : "",
       ghResult?.hasNewRelease ? `released ${ghResult.releaseTag}` : "",
     ].filter(Boolean).join(", ");
-    const fallbackTitle = `${name} — ${activitySummary} (${displayDate})`;
+    const fallbackTitle = `${name} - ${activitySummary} (${displayDate})`;
 
     addSignal({
       netuid: ctx.act.netuid,
@@ -1955,9 +1969,9 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     });
   }
 
-  // (No fallback loop — every active subnet is now in devContexts and gets AI analysis)
+  // (No fallback loop - every active subnet is now in devContexts and gets AI analysis)
 
-  // New release signals — from direct GitHub scanner (fires when a release was published in last 24h)
+  // New release signals - from direct GitHub scanner (fires when a release was published in last 24h)
   for (const [netuid, ghResult] of githubScanMap) {
     if (!ghResult.hasNewRelease) continue;
     const name = identityMap.get(netuid)?.subnet_name || `SN${netuid}`;
@@ -1976,7 +1990,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     });
   }
 
-  // HuggingFace update signals — only fires when new content published in last 48h
+  // HuggingFace update signals - only fires when new content published in last 48h
   // Coverage: ALL subnets tracked by hf-scanner (known orgs + auto-discovered)
   for (const [netuid, hf] of hfScanMap) {
     const newTotal = hf.newModels + hf.newDatasets + hf.newSpaces;
@@ -2067,7 +2081,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     category: string;         // subnet category (Training, Inference, Agents, etc.)
     sparklinePrices: number[]; // trimmed historical prices for mini chart (30 pts)
     alphaStakedPct: number;   // % of total alpha that is staked (not in DEX pool)
-    rootProp: number;          // root_prop from pool — % of emissions from root validators
+    rootProp: number;          // root_prop from pool - % of emissions from root validators
   }
 
   const rawSubnets: RawSubnet[] = [];
@@ -2160,8 +2174,8 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
       })(),
       // TaoStats /dtao/pool returns root_prop as a 0-1 FRACTION (0.138 … 0.892
       // as of 2026-08-07) and the thresholds below are written for that scale.
-      // TaoMarketCap returns the SAME quantity as a percent (13.79 … 89.21) —
-      // exactly 100x apart — and TMCSubnet also declares a root_prop field, so
+      // TaoMarketCap returns the SAME quantity as a percent (13.79 … 89.21) -
+      // exactly 100x apart - and TMCSubnet also declares a root_prop field, so
       // swapping the source would silently hand every subnet the maximum bonus
       // rather than failing. Normalise defensively instead of trusting the feed.
       rootProp: (() => {
@@ -2169,7 +2183,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
         if (!Number.isFinite(raw) || raw <= 0) return 0;
         return raw > 1 ? raw / 100 : raw;
       })(),
-      // Keep 30 evenly-spaced points — enough shape for a sparkline, keeps blob lean.
+      // Keep 30 evenly-spaced points - enough shape for a sparkline, keeps blob lean.
       // If SubnetRadar has no sparkline, synthesize from known price-change percentages.
       sparklinePrices: (() => {
         const prices = srSubnetMap.get(netuid)?.sparklinePrices;
@@ -2208,7 +2222,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     const prs30d        = dev?.prs_merged_30d || 0;
     const contrib30d    = dev?.unique_contributors_30d || 0;
     const daysSinceLast = dev?.days_since_last_event ?? 999;
-    // loc30d comes from our DIRECT GitHub scanner — more trustworthy than TaoStats
+    // loc30d comes from our DIRECT GitHub scanner - more trustworthy than TaoStats
     const loc30d        = ghScan?.loc_30d ?? 0;
 
     const hasGithub = !!dev || !!ghScan;
@@ -2219,7 +2233,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     if (!hasGithub && !hasHf) return 0;
 
     // ── "No real recent activity" detection ───────────────────────────
-    // TaoStats commits_30d can be STALE — a deprecated subnet might still show
+    // TaoStats commits_30d can be STALE - a deprecated subnet might still show
     // commits_30d=15 from a snapshot taken when it was active.
     // Use loc30d (direct GitHub scan) and commits_7d as the ground truth.
     // If BOTH are zero, the subnet has nothing verifiable from this week and
@@ -2228,7 +2242,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
 
     // No GitHub activity verified AND nothing in TaoStats 7d window → dormant
     if (hasGithub && !hasVerifiedRecentActivity && !hasHf) {
-      // daysSinceLast is from TaoStats — may be stale, but ≥30d with no 7d signal
+      // daysSinceLast is from TaoStats - may be stale, but ≥30d with no 7d signal
       // means the subnet genuinely has nothing happening this month → 0
       if (daysSinceLast >= 30) return 0;
       // Active within 30d but quiet this week → minimal holding score
@@ -2237,26 +2251,26 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
 
     let score = 0;
 
-    // ── 1. QUANTITY — weekly commits (0-35 pts) ───────────────────────
+    // ── 1. QUANTITY - weekly commits (0-35 pts) ───────────────────────
     // Calibrated to real Bittensor subnet activity. Most active teams ship
-    // 15-35 commits/wk — thresholds reflect that reality, not an ideal ceiling.
+    // 15-35 commits/wk - thresholds reflect that reality, not an ideal ceiling.
     if      (commits7d >= 30) score += 35;
     else if (commits7d >= 15) score += 28;
     else if (commits7d >= 7)  score += 22;
     else if (commits7d >= 3)  score += 16;
     else if (commits7d >= 1)  score += 10;
-    // NOTE: no points awarded for commits30d alone — TaoStats 30d data can be stale.
+    // NOTE: no points awarded for commits30d alone - TaoStats 30d data can be stale.
     // loc30d (direct scan) carries the "active but quiet week" signal instead.
 
-    // ── 2. QUALITY SIGNAL — PRs merged (0-15 pts) ────────────────────
-    // PRs = reviewed, intentional features — higher signal than raw commits
+    // ── 2. QUALITY SIGNAL - PRs merged (0-15 pts) ────────────────────
+    // PRs = reviewed, intentional features - higher signal than raw commits
     if      (prs7d >= 6) score += 15;
     else if (prs7d >= 3) score += 11;
     else if (prs7d >= 2) score += 8;
     else if (prs7d >= 1) score += 4;
-    // No fallback to prs30d — stale TaoStats data not trusted here
+    // No fallback to prs30d - stale TaoStats data not trusted here
 
-    // ── 3. TEAM SIZE — contributors (0-10 pts) ────────────────────────
+    // ── 3. TEAM SIZE - contributors (0-10 pts) ────────────────────────
     // Only awarded when there IS verified recent activity (to avoid stale inflation)
     if (hasVerifiedRecentActivity) {
       if      (contrib30d >= 8)  score += 10;
@@ -2265,8 +2279,8 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
       else if (contrib30d >= 1)  score += 3;
     }
 
-    // ── 4. CODE VOLUME — lines of code in 30d (0-20 pts) ─────────────
-    // Direct GitHub scan — trustworthy source of truth for real code shipped.
+    // ── 4. CODE VOLUME - lines of code in 30d (0-20 pts) ─────────────
+    // Direct GitHub scan - trustworthy source of truth for real code shipped.
     // Thresholds lowered to reflect that 10-30k LOC/month is genuinely strong.
     if      (loc30d >= 30_000) score += 20;
     else if (loc30d >= 12_000) score += 16;
@@ -2277,7 +2291,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     else if (loc30d >=     50) score += 2;
     else if (loc30d >       0) score += 1;
 
-    // ── 5. HUGGINGFACE — models / datasets / downloads (0-10 pts) ────
+    // ── 5. HUGGINGFACE - models / datasets / downloads (0-10 pts) ────
     {
       let hf = 0;
       if      (d.hfModels >= 5) hf += 6;
@@ -2291,7 +2305,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     }
 
     // Hard cap at 60 before quality adjustment.
-    // Quantity (commits, LOC, PRs) can only carry you to 60 — quality is what
+    // Quantity (commits, LOC, PRs) can only carry you to 60 - quality is what
     // separates a focused team shipping real work from a noisy commit farm.
     // A moderate-volume team with excellent AI quality (60+40=100) should outrank
     // a high-volume team that never ships anything meaningful (60−15=45).
@@ -2308,20 +2322,20 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     //   <25  → spam          (trivial, no signal)
     //
     // The 65–80 band deliberately gets +18 because "solid shipping on a small
-    // cap with flat token" is exactly what AlphaGap should surface — the AI
+    // cap with flat token" is exactly what AlphaGap should surface - the AI
     // prompt scores this range 65–78 and it should move the score meaningfully.
     const aiQuality = aiQualityMap.get(d.netuid);
     if (aiQuality !== undefined) {
       const adj =
-        aiQuality >= 90 ? 40 :   // extraordinary — paradigm shift / breakthrough
-        aiQuality >= 80 ? 28 :   // significant — major feature or public launch
-        aiQuality >= 65 ? 18 :   // meaningful — solid multi-PR work, real new capability
-        aiQuality >= 45 ? 10 :   // incremental — small features, purposeful refactors
-        aiQuality >= 25 ? 2  :   // routine/noise — dep bumps, CI fixes, solo chores
+        aiQuality >= 90 ? 40 :   // extraordinary - paradigm shift / breakthrough
+        aiQuality >= 80 ? 28 :   // significant - major feature or public launch
+        aiQuality >= 65 ? 18 :   // meaningful - solid multi-PR work, real new capability
+        aiQuality >= 45 ? 10 :   // incremental - small features, purposeful refactors
+        aiQuality >= 25 ? 2  :   // routine/noise - dep bumps, CI fixes, solo chores
         -15;                      // spam / trivial changes
       score = Math.min(100, Math.max(0, score + adj));
     } else if (hasVerifiedRecentActivity) {
-      // No AI quality data at all — neutral +5 so active subnets with no
+      // No AI quality data at all - neutral +5 so active subnets with no
       // cached score aren't penalised relative to unscanned noise.
       score = Math.min(100, score + 5);
     }
@@ -2335,7 +2349,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
       else if (hoursAgo < 72) score = Math.min(100, score + 4);
     }
 
-    // Freshness bonus — commits happened TODAY
+    // Freshness bonus - commits happened TODAY
     if      (commits1d >= 10) score = Math.min(100, score + 5);
     else if (commits1d >= 3)  score = Math.min(100, score + 3);
     else if (commits1d >= 1)  score = Math.min(100, score + 1);
@@ -2345,7 +2359,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     else if (prs1d >= 1) score = Math.min(100, score + 2);
 
     // ── 8. STALENESS DECAY ────────────────────────────────────────────
-    // daysSinceLast from TaoStats may be stale — use it conservatively.
+    // daysSinceLast from TaoStats may be stale - use it conservatively.
     // Also decay hard when commits7d=0 AND loc30d=0 (nothing verifiable this week).
     if (hasGithub) {
       if      (daysSinceLast >= 42) score = Math.round(score * 0.30);
@@ -2366,7 +2380,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     const pch7d = d.priceChange1w || 0;
     const pch30d = d.priceChange1m || 0;
 
-    // WHALE ACTIVITY (0-15 pts) — avg buy size vs avg sell size
+    // WHALE ACTIVITY (0-15 pts) - avg buy size vs avg sell size
     // If whales are buying (big avg buy), that's a leading flow indicator
     let whaleScore = 0;
     const poolData = poolMap.get(d.netuid);
@@ -2390,7 +2404,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
       }
     }
 
-    // 24h momentum (0-35 pts) — most weighted for recency (reduced from 40 to make room for whales)
+    // 24h momentum (0-35 pts) - most weighted for recency (reduced from 40 to make room for whales)
     let score24h = 0;
     if (pch24h >= 15) score24h = 35;
     else if (pch24h >= 8) score24h = 30;
@@ -2422,7 +2436,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     else if (pch30d >= -50) score30d = 3;
     else score30d = 1;
 
-    // REVERSAL BONUS (0-10 pts) — down long-term but turning up short-term
+    // REVERSAL BONUS (0-10 pts) - down long-term but turning up short-term
     // This is the magic: "just starting to perk up" signal
     let reversalBonus = 0;
     if (pch30d <= -20 && pch24h >= 2) reversalBonus = 10;  // Down 20%+ monthly, up 2%+ today
@@ -2445,7 +2459,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     // VOLUME SURGE boost (0-28 pts)
     // Unusual buying activity = smart money positioning before a move.
     // Requires: current 24h buy vol ≥20 TAO AND ≥2.5x the rolling historical avg.
-    // This is a strong leading indicator — weight it heavily.
+    // This is a strong leading indicator - weight it heavily.
     const surgeRatio = volumeSurgeMap.get(d.netuid) || 0;
     let volumeSurgeScore = 0;
     if (surgeRatio >= 10) volumeSurgeScore = 28;      // 10x+ surge: massive accumulation
@@ -2456,7 +2470,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
 
     // Fear & Greed sentiment modifier (±3 pts)
     // Greed confirms momentum when price is also rising (not a false signal).
-    // Extreme fear in a downtrend is a contrarian setup — exactly what AlphaGap hunts.
+    // Extreme fear in a downtrend is a contrarian setup - exactly what AlphaGap hunts.
     const fg = d.fearGreedIndex;
     let fgScore = 0;
     if (fg >= 80 && pch24h >= 2) fgScore = 3;       // extreme greed + price up = confirmed momentum
@@ -2465,9 +2479,9 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     else if (fg <= 35 && pch7d <= -10) fgScore = 1;  // fear in downtrend = mild contrarian signal
     else if (fg >= 85 && pch7d >= 30) fgScore = -2;  // extreme greed after big 7d pump = overextended
 
-    // SELL-OFF PENALTY — hard dump detected in 24h price action
+    // SELL-OFF PENALTY - hard dump detected in 24h price action
     // A single-day crash this severe signals active distribution / token dump.
-    // Overrides all positive signals — smart money is fleeing regardless of dev quality.
+    // Overrides all positive signals - smart money is fleeing regardless of dev quality.
     let selloffPenalty = 0;
     if (pch24h <= -41) {
       selloffPenalty = -65; // HUGE penalty: token in freefall, virtually no flow score
@@ -2479,7 +2493,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
   }
 
   // ── eVal: Emissions-to-Valuation score ──────────────────────────
-  // Compares the emission a subnet earns against what it costs — emission
+  // Compares the emission a subnet earns against what it costs - emission
   // share over market-cap share.
   //
   // READ THIS BEFORE TRUSTING IT. This was designed pre-v440, when emission
@@ -2493,13 +2507,13 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
   // below. It is closer to a size proxy than a mispricing measure.
   //
   // It is NOT evidence of undervaluation. Whether it predicts returns at all
-  // is unknown — see docs/EVAL_BACKTEST_2026-08.md, where 30 days of history
+  // is unknown - see docs/EVAL_BACKTEST_2026-08.md, where 30 days of history
   // gave four non-overlapping cohorts and nothing significant in any cut.
   // Its weight in the trading aGap was cut from 15 points to 5 on 2026-08-06
   // for that reason. A size-neutral replacement is being shadow-recorded as
   // eval_adj in the score history; do not wire it in without a head-to-head.
   //
-  // Also factors in emission TREND — if emissions are rising but
+  // Also factors in emission TREND - if emissions are rising but
   // price isn't following, that's a widening value gap.
 
   // Pre-compute total emission and total mcap for normalization
@@ -2526,7 +2540,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     //       the gate throttling their emission, not the market overpaying.
     const evalRatio = mcShare > 0.0001 ? emShare / mcShare : 0;
 
-    // 1. EMISSION LEVEL (max 35 pts) — how much is the network emitting to this subnet?
+    // 1. EMISSION LEVEL (max 35 pts) - how much is the network emitting to this subnet?
     if (emPct >= 10) score += 35;        // Top tier (Templar 20%, Targon 18%)
     else if (emPct >= 5) score += 30;    // Strong (grail 6%)
     else if (emPct >= 3) score += 25;    // Good (Affine 3.7%, basilica 2.9%)
@@ -2535,7 +2549,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     else if (emPct > 0) score += 8;      // Minimal
     // 0% = no emissions, no points
 
-    // 2. VALUATION GAP (max 40 pts) — emissions outpacing market cap
+    // 2. VALUATION GAP (max 40 pts) - emissions outpacing market cap
     if (evalRatio >= 20) score += 40;     // Massively undervalued by emissions
     else if (evalRatio >= 10) score += 35;
     else if (evalRatio >= 5) score += 30;
@@ -2574,14 +2588,14 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     const vals = d.validatorCount;
     const regs = d.regsBurned24h;
 
-    // Validator count (max 8 pts) — more validators = more confidence
+    // Validator count (max 8 pts) - more validators = more confidence
     if (vals >= 60) score += 8;
     else if (vals >= 50) score += 6;
     else if (vals >= 40) score += 5;
     else if (vals >= 30) score += 3;
     else if (vals >= 15) score += 2;
 
-    // Registration burns in 24h (max 7 pts) — new miners joining
+    // Registration burns in 24h (max 7 pts) - new miners joining
     // neuron_regs_burned_24h is in rao (1e9 = 1 TAO)
     const regsTao = regs / 1e9;
     if (regsTao >= 5) score += 7;      // Heavy registration activity
@@ -2589,7 +2603,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     else if (regsTao >= 0.5) score += 3;
     else if (regsTao > 0) score += 1;
 
-    // 5. MARKET CAP PENALTY — tiny subnets get inflated ratios
+    // 5. MARKET CAP PENALTY - tiny subnets get inflated ratios
     // A $200K subnet with 0.5% emissions looks like 10x ratio but it's just illiquid
     if (mcapUsd < 100000) score -= 40;        // ghost subnet, ratio is meaningless
     else if (mcapUsd < 300000) score -= 30;   // micro cap, very risky
@@ -2597,7 +2611,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     else if (mcapUsd < 1000000) score -= 12;  // small, moderate penalty
     else if (mcapUsd < 3000000) score -= 5;   // emerging, slight discount
 
-    // 6. MINER BURN PENALTY — subnet burning miner emissions instead of paying them
+    // 6. MINER BURN PENALTY - subnet burning miner emissions instead of paying them
     // High burn = miners aren't getting rewarded = structural weakness signal
     // Healthy subnets pay their miners; chronic burners have 0% miner yield
     const burnPct = d.minerBurnPct;
@@ -2606,7 +2620,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     else if (burnPct >= 60) score -= 5;
     else if (burnPct >= 40) score -= 3;
 
-    // 7. HEALTH BOOST — TAO locked + liquidity signal from SubnetRadar (max +8 pts)
+    // 7. HEALTH BOOST - TAO locked + liquidity signal from SubnetRadar (max +8 pts)
     // More TAO locked = more conviction from stakers + deeper liquidity = healthier subnet
     const taoLocked = d.taoLocked;
     const liqScore = d.liquidityScore;
@@ -2623,17 +2637,15 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
   let velocityData: Record<number, { velocityScore: number; acceleration: number; trend: string }> = {};
   if (process.env.BLOB_READ_WRITE_TOKEN && socialMap.size > 0) {
     try {
-      const { list: listBlobs } = await import("@vercel/blob");
-      const { blobs } = await listBlobs({ prefix: "social-velocity/", limit: 10 });
+      // Baseline = the buffered snapshot nearest to one hour ago (see the
+      // buffer writer above for why this is no longer a blob listing).
+      const buf = (await readBlobJson<{ snaps: Array<{ timestamp: string; subnets: Record<number, { mentions: number; engagement: number }> }> }>("social-velocity-recent.json"))?.snaps ?? [];
+      const target = Date.now() - 60 * 60_000;
+      const oldest = buf.length >= 2
+        ? buf.reduce((best, x) => Math.abs(new Date(x.timestamp).getTime() - target) < Math.abs(new Date(best.timestamp).getTime() - target) ? x : best)
+        : null;
 
-      if (blobs.length >= 2) {
-        // Get oldest snapshot to compare against
-        const sorted = blobs.sort((a, b) => a.pathname.localeCompare(b.pathname));
-        const oldestBlob = sorted[0]; // oldest
-
-        const oldRes = await fetch(oldestBlob.downloadUrl, { signal: AbortSignal.timeout(8000) });
-        if (oldRes.ok) {
-          const oldest = await oldRes.json();
+      if (oldest) {
           const oldTime = new Date(oldest.timestamp).getTime();
           const nowTime = Date.now();
           const timeDiffMin = (nowTime - oldTime) / 60000;
@@ -2664,9 +2676,8 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
             }
             console.log(`[scan] Velocity computed for ${Object.keys(velocityData).length} subnets (${timeDiffMin.toFixed(0)}min window)`);
           }
-        }
       } else {
-        console.log("[scan] Need 2+ snapshots for velocity (have " + blobs.length + ")");
+        console.log("[scan] Need 2+ snapshots for velocity (have " + buf.length + ")");
       }
     } catch (e) {
       console.log("[scan] Velocity computation skipped:", String(e).slice(0, 100));
@@ -2676,7 +2687,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
   // ── Build Discord signal map for social scoring ─────────────────
   // netuid → { signal, messageCount, uniquePosters, scannedAt, releaseHint }
   // Founder posts (founderPost: true) are processed last so their alphaScore
-  // can only boost — never reduce — what the regular channel scan found.
+  // can only boost - never reduce - what the regular channel scan found.
   const discordMap = new Map<number, { signal: string; alphaScore?: number; messageCount: number; uniquePosters: number; scannedAt: string; releaseHint?: boolean }>();
   const regularResults = discordResults.filter(d => !(d as Record<string, unknown>).founderPost);
   const founderResults = discordResults.filter(d => (d as Record<string, unknown>).founderPost);
@@ -2753,7 +2764,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
         }
         console.log(`[scan] Loaded subnet activity data for ${subnetActivityMap.size} subnets`);
       }
-    } catch { /* not written yet — runs after first social-pulse */ }
+    } catch { /* not written yet - runs after first social-pulse */ }
   }
 
   // ── Social Score v3: Early Trend Detector ──────────────────────
@@ -2761,7 +2772,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
   // LOW score = no signal or single voice that has aged out
   //
   // Key design principles:
-  //  - Dedupe to BEST event per unique KOL — 40 tweets from one account
+  //  - Dedupe to BEST event per unique KOL - 40 tweets from one account
   //    counts the same as 1 (repetition ≠ signal breadth)
   //  - Multiple DIFFERENT KOLs within 4h = cluster bonus (rare, serious)
   //  - To hit 90+: need 2+ unique KOLs active within 4h OR 3+ within 4h + discord alpha
@@ -2781,7 +2792,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
       .filter(e => e.heat >= 20);
 
     // DEDUPE: only the best event per unique KOL handle
-    // One account tweeting 40 times counts once — breadth of voices is the signal
+    // One account tweeting 40 times counts once - breadth of voices is the signal
     const bestPerKol = new Map<string, { heat: number; hoursOld: number }>();
     for (const e of allDecayed) {
       const prev = bestPerKol.get(e.handle);
@@ -2798,7 +2809,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     kolPts = Math.min(70, Math.round(kolPts));
 
     // Cluster bonus: multiple DIFFERENT KOLs active within 4h = coordinated early viral signal
-    // 4+ KOLs in 4h is rare and deserves a major boost — that's a true early trend.
+    // 4+ KOLs in 4h is rare and deserves a major boost - that's a true early trend.
     const recent4hKOLs = uniqueKols.filter(([, v]) => v.hoursOld <= 4).length;
     const clusterBonus = recent4hKOLs >= 4 ? 35 : recent4hKOLs >= 3 ? 24 : recent4hKOLs >= 2 ? 14 : 0;
 
@@ -2811,7 +2822,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     // ── Discord freshness signal (max 55 pts for huge alpha) ──
     // Partnerships, cross-subnet integrations, launch announcements = rare, high-value.
     // When the AI scores something 85+, it should dramatically move the social score
-    // even if no KOL has tweeted about it yet — that's the whole point of Discord scanning.
+    // even if no KOL has tweeted about it yet - that's the whole point of Discord scanning.
     const disc = discordMap.get(netuid);
     let discordPts = 0;
     if (disc) {
@@ -2822,12 +2833,12 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
       if (disc.alphaScore != null) {
         // Non-linear scaling: huge alpha (85+) gets outsized impact on social score.
         // alphaScore 0-84 → up to 40 pts | alphaScore 85-100 → 55–70 pts
-        // The 85+ range must move the needle even without KOL support — that's the
+        // The 85+ range must move the needle even without KOL support - that's the
         // whole point of Discord scanning. Founder announcements + betas = unmissable.
         // releaseHint adds 8 pts on top (partnership/launch/integration going live)
         let base: number;
         if (disc.alphaScore >= 85) {
-          // 85→55, 90→62, 95→66, 100→70 — true big alpha is unmissable
+          // 85→55, 90→62, 95→66, 100→70 - true big alpha is unmissable
           base = Math.round(55 + (disc.alphaScore - 85) / 15 * 15);
         } else {
           base = Math.round(disc.alphaScore / 100 * 40);
@@ -2844,7 +2855,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
       }
     }
 
-    // ── Organic volume (max 5 pts — tiebreaker only, not a primary signal) ──
+    // ── Organic volume (max 5 pts - tiebreaker only, not a primary signal) ──
     let organicPts = 0;
     if (mentions >= 30) organicPts = 5;
     else if (mentions >= 15) organicPts = 4;
@@ -2853,7 +2864,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     else if (mentions >= 1) organicPts = 1;
 
     // ── Subnet own-account activity (max 25 pts) ──
-    // Credit subnets that actively post on their own Twitter — consistent updates,
+    // Credit subnets that actively post on their own Twitter - consistent updates,
     // milestones, and community engagement are genuine signals of team health,
     // independent of whether any KOL has picked them up this week.
     const ownActivity = subnetActivityMap.get(netuid);
@@ -2861,7 +2872,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
 
     // ── Fallback: no active signals anywhere ──
     // Even with zero mentions/KOL/discord/activity, give a small baseline if the
-    // subnet has a registered Twitter — they exist, they just aren't buzzing right now.
+    // subnet has a registered Twitter - they exist, they just aren't buzzing right now.
     if (kolPts === 0 && discordPts === 0 && ownActivityPts === 0 && mentions <= 0) {
       const identity = identityMap.get(netuid);
       if (identity?.twitter) return 8;
@@ -2914,7 +2925,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
   }
 
   // scores from crashing overnight when one data point changes.
-  // Bump this when leaderboard formula changes — forces EMA history reset so old
+  // Bump this when leaderboard formula changes - forces EMA history reset so old
   // baselines don't drag new scores down for hours after a formula update.
   const AGAP_HISTORY_VERSION = 10; // bump only when EMA itself needs resetting
   type AGapHistoryEntry = {
@@ -2946,9 +2957,9 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
           chunks.push(value);
         }
         const loaded: AGapHistory = JSON.parse(Buffer.concat(chunks).toString("utf-8"));
-        // Reset EMA if formula version changed — prevents old baselines dragging new scores
+        // Reset EMA if formula version changed - prevents old baselines dragging new scores
         if ((loaded.__version ?? 0) < AGAP_HISTORY_VERSION) {
-          console.log(`[scan] AGap history version outdated (${loaded.__version ?? 0} < ${AGAP_HISTORY_VERSION}) — resetting EMA`);
+          console.log(`[scan] AGap history version outdated (${loaded.__version ?? 0} < ${AGAP_HISTORY_VERSION}) - resetting EMA`);
           agapHistory = { __version: AGAP_HISTORY_VERSION };
         } else {
           agapHistory = loaded;
@@ -2987,7 +2998,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
         console.log(`[scan] Loaded audit scores for ${auditScoreMap.size} subnets`);
       }
     } catch {
-      console.log("[scan] No audit-data.json yet — skipping audit integration");
+      console.log("[scan] No audit-data.json yet - skipping audit integration");
     }
   }
 
@@ -3017,7 +3028,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
         console.log(`[scan] Loaded yield data for ${yieldMap.size} subnets`);
       }
     } catch {
-      console.log("[scan] No yield-latest.json yet — skipping yield integration");
+      console.log("[scan] No yield-latest.json yet - skipping yield integration");
     }
   }
 
@@ -3028,7 +3039,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
 
     const prevEma = prev.ema;
     if (rawScore >= prevEma) {
-      // RISING: fast reaction — market hasn't priced it in yet
+      // RISING: fast reaction - market hasn't priced it in yet
       return Math.round(0.8 * rawScore + 0.2 * prevEma);
     } else {
       // FALLING: moderate decay (55% current, 45% historical)
@@ -3062,7 +3073,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
       }
     }
   } catch {
-    // No emission history yet — first scan
+    // No emission history yet - first scan
   }
 
   // ── Load volume history + build surge map ───────────────────────
@@ -3085,7 +3096,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
         volumeHistory = JSON.parse(Buffer.concat(chunks).toString("utf-8"));
       }
     }
-  } catch { /* first scan — no history yet */ }
+  } catch { /* first scan - no history yet */ }
 
   // Build surge ratio map: netuid → (currentVol / historicalAvg)
   // Only fires when: current vol ≥ 20 TAO AND history has ≥ 5 readings AND avg > 0.5 TAO
@@ -3132,22 +3143,22 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     // THESIS: Find subnets where VALUE has been created but MARKET hasn't noticed yet.
     //
     // Two types of gap we're hunting:
-    //   A) FRESH ACTIVITY GAP — dev work just shipped that nobody priced in yet
+    //   A) FRESH ACTIVITY GAP - dev work just shipped that nobody priced in yet
     //      (Templar posts insane work → market takes 4 days to react)
-    //   B) ACCUMULATION GAP — smart money (whales/validators/stakers) loading up
+    //   B) ACCUMULATION GAP - smart money (whales/validators/stakers) loading up
     //      while price is still low or falling
     //
     // Signals are scored as: LEADING (new info market doesn't have) vs LAGGING (already priced in)
     // v7 cuts lagging signal weight and amplifies leading signals.
 
-    // 1. BUILDING QUALITY (0-25 pts) — baseline dev health
-    // This is the "known quality" signal — established dev reputation is already priced in.
+    // 1. BUILDING QUALITY (0-25 pts) - baseline dev health
+    // This is the "known quality" signal - established dev reputation is already priced in.
     // We WANT good dev subnets, but not to over-reward ones the market already knows.
     // The FRESH ACTIVITY bonus below is the gap signal, not the level.
     const buildingPts = devScore * 0.25;
 
     // CONSISTENT BUILDER BONUS (0-10 pts)
-    // Rewards teams that ship week after week — sustained 30d cadence
+    // Rewards teams that ship week after week - sustained 30d cadence
     // that the spike detector misses because it looks for outliers.
     // High 30d commits + contributors = the market probably still hasn't
     // fully priced in institutional-grade dev output.
@@ -3164,14 +3175,14 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     } else if (spikeDailyBaseline30 >= 1 && cb_contributors30d >= 2) {
       consistentBuilderBonus = 5;
     } else if (spikeDailyBaseline30 >= 1) {
-      // Solo consistent builder — still worth something
+      // Solo consistent builder - still worth something
       consistentBuilderBonus = 3;
     }
 
-    // DEV SPIKE BONUS (0-15 pts) — THE KEY GAP SIGNAL FOR DEV
+    // DEV SPIKE BONUS (0-15 pts) - THE KEY GAP SIGNAL FOR DEV
     // Detects: today's commits are significantly above this subnet's own 30d daily average.
     // This is the "Templar just posted something insane at 2am" signal.
-    // Market takes hours to days to price in fresh GitHub activity — we catch it first.
+    // Market takes hours to days to price in fresh GitHub activity - we catch it first.
     //
     // Quiet subnet suddenly shipping = MAXIMUM new information.
     // Always-active subnet with another normal day = already expected, already priced in.
@@ -3185,12 +3196,12 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
 
     if (spikeCommits1d > 0) {
       if (spikeDailyBaseline < 0.5) {
-        // Normally quiet subnet — any activity today is new information
+        // Normally quiet subnet - any activity today is new information
         if      (spikeCommits1d >= 10) devSpikeBonus = 12;
         else if (spikeCommits1d >= 5)  devSpikeBonus = 9;
         else if (spikeCommits1d >= 1)  devSpikeBonus = 5;
       } else {
-        // Has history — measure how much above their own average
+        // Has history - measure how much above their own average
         const spikeRatio = spikeCommits1d / spikeDailyBaseline;
         if      (spikeRatio >= 10) devSpikeBonus = 12;
         else if (spikeRatio >= 5)  devSpikeBonus = 9;
@@ -3198,7 +3209,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
         else if (spikeRatio >= 2)  devSpikeBonus = 3;
       }
 
-      // AI quality multiplier — groundbreaking work amplifies the spike signal
+      // AI quality multiplier - groundbreaking work amplifies the spike signal
       // "Shipped new inference engine" is a bigger gap than "fixed typos"
       if (spikeAiQuality !== undefined) {
         if      (spikeAiQuality >= 90) devSpikeBonus = Math.min(15, Math.round(devSpikeBonus * 1.5));
@@ -3207,15 +3218,15 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
       }
     }
 
-    // 2. PRICE LAG / FLOW (0-20 pts) — multi-timeframe gap detection
-    // No longer gated by devScore — flow is an independent signal.
+    // 2. PRICE LAG / FLOW (0-20 pts) - multi-timeframe gap detection
+    // No longer gated by devScore - flow is an independent signal.
     // Mature subnets with great price setups deserve full flow points regardless of commit pace.
     let priceLag = 0;
     const pch24h = d.priceChange24h || 0;
     const pch7d = d.priceChange1w || 0;
     const pch30d = d.priceChange1m || 0;
 
-    // 30D price lag (0-8 pts) — long-term underperformance = biggest gap
+    // 30D price lag (0-8 pts) - long-term underperformance = biggest gap
     if (pch30d <= -40) priceLag += 8;
     else if (pch30d <= -25) priceLag += 7;
     else if (pch30d <= -15) priceLag += 5;
@@ -3239,7 +3250,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     else if (pch24h <= 3) priceLag += 1;
     else if (pch24h >= 10) priceLag -= 2;
 
-    // REVERSAL BONUS (0-5 pts) — THE MAGIC
+    // REVERSAL BONUS (0-5 pts) - THE MAGIC
     // Down long-term but turning up short-term = price is waking up
     if (pch30d <= -20 && pch24h >= 3) priceLag += 5;       // Down 20%+ monthly, up 3%+ today!
     else if (pch30d <= -15 && pch24h >= 1) priceLag += 4;
@@ -3248,21 +3259,21 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
 
     priceLag = Math.min(20, Math.max(-8, priceLag));
 
-    // SUSTAINED DECLINE DISCOUNT — the market may just be right
+    // SUSTAINED DECLINE DISCOUNT - the market may just be right
     // If price is falling across ALL timeframes with zero reversal signal, this is no
-    // longer a "gap" — it's a trend. The algo would otherwise reward chronic bleeders
+    // longer a "gap" - it's a trend. The algo would otherwise reward chronic bleeders
     // every scan because each day's decline re-earns priceLag points.
     // The reversal bonus (above) already rewards when momentum turns; this is the
     // missing counterpart: penalise when it never does.
     const sustainedDecline     = pch30d <= -20 && pch7d <= -10 && pch24h <= 0;
     const deepSustainedDecline = pch30d <= -35 && pch7d <= -20 && pch24h <= -3;
     if (deepSustainedDecline) {
-      priceLag = Math.max(-8, priceLag - 12);  // accelerating bleed — steep cut
+      priceLag = Math.max(-8, priceLag - 12);  // accelerating bleed - steep cut
     } else if (sustainedDecline) {
-      priceLag = Math.max(-8, priceLag - 8);   // consistent bleed — meaningful cut
+      priceLag = Math.max(-8, priceLag - 8);   // consistent bleed - meaningful cut
     }
 
-    // PRICE FLOOR REVERSAL — bounced hard off recent low (bottom reversal pattern)
+    // PRICE FLOOR REVERSAL - bounced hard off recent low (bottom reversal pattern)
     let floorReversalBonus = 0;
     if (d.sparklinePrices.length >= 10) {
       const recentPrices = d.sparklinePrices.slice(-14);
@@ -3277,7 +3288,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
       }
     }
 
-    // 3. SOCIAL MOMENTUM (0-18 pts) — are we catching an early social trend?
+    // 3. SOCIAL MOMENTUM (0-18 pts) - are we catching an early social trend?
     // High social score = fresh KOL cluster or discord alpha = open alpha window
     // Bumped ceiling to 18 to reward early viral events (4+ KOLs, discord alpha spikes)
     let socialMomentum = 0;
@@ -3286,7 +3297,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     else if (socialScore >= 40) socialMomentum = 8;
     else if (socialScore >= 20) socialMomentum = 3;
 
-    // 4. EMISSION VALUE GAP (0-6 pts) — network paying more than market realizes
+    // 4. EMISSION VALUE GAP (0-6 pts) - network paying more than market realizes
     // Reduced from 12 → 6 max: evalScore changes very slowly (weekly at best) so it
     // was acting as a permanent structural floor for high-eval subnets, keeping them at
     // the top of the trading leaderboard even when there was no fresh catalyst.
@@ -3340,12 +3351,12 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     else if (evalScore >= 40 && pch7d  <= -5)  evalVsPriceBonus = 2;
     // Halve under sustained decline: if the market has been consistently
     // disagreeing with validators for weeks, the "informed money" thesis gets
-    // weaker — maybe validators are wrong, or their conviction is fading.
+    // weaker - maybe validators are wrong, or their conviction is fading.
     if (sustainedDecline) evalVsPriceBonus = Math.floor(evalVsPriceBonus / 2);
 
-    // 5. MARKET CAP VIABILITY — too small = uninvestable / too illiquid to act on
+    // 5. MARKET CAP VIABILITY - too small = uninvestable / too illiquid to act on
     // Subnets under $1M are hard to enter/exit without moving the price significantly.
-    // Penalties are steep below $1M. No bonus for large caps — they have the LEAST upside.
+    // Penalties are steep below $1M. No bonus for large caps - they have the LEAST upside.
     const mcap = d.marketCapUsd || 0;
     // MONOTONIC IN SIZE. The whole ladder is restated rather than bolted onto,
     // because bolting a stronger $1-2M tier onto the old one inverted it: a
@@ -3367,13 +3378,13 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     // every score, which is exactly how it looked on the leaderboard.
     //
     // Now the bite lands on the bottom quartile and the middle of the board is
-    // barely touched. Must stay monotonic — the penalty shrinks as size grows.
+    // barely touched. Must stay monotonic - the penalty shrinks as size grows.
     let viability = 0;
     if      (mcap <    250_000) viability = -45; // ghost subnet
     else if (mcap <    500_000) viability = -38;
     else if (mcap <    750_000) viability = -32;
     else if (mcap <  1_000_000) viability = -26;
-    else if (mcap <  2_000_000) viability = -22; // bottom quartile — genuinely thin,
+    else if (mcap <  2_000_000) viability = -22; // bottom quartile - genuinely thin,
                                                  // and the tier that was keeping $1.4M names
                                                  // like Harnyx out of the top 3. Independent
                                                  // of the mid-board tiers below.
@@ -3381,11 +3392,11 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     else if (mcap <  5_000_000) viability = -3;
     // Note: no large/mid-cap bonus. Large caps are well-known and have the least gap upside.
 
-    // ALPHA STAKING RATIO — high staked% = thin float = price sensitive to buy pressure
+    // ALPHA STAKING RATIO - high staked% = thin float = price sensitive to buy pressure
     // Reduced from 12 → 6 max: alphaStakedPct changes very slowly, making it a structural
     // floor rather than a fresh signal. Subnets with persistently high APY (e.g. 109%)
     // were permanently locked at max stakingBoost regardless of any recent activity.
-    // The TREND (stakingTrendBonus) is kept at full weight — that's the fresh signal.
+    // The TREND (stakingTrendBonus) is kept at full weight - that's the fresh signal.
     let stakingBoost = 0;
     if (d.alphaStakedPct >= 75) stakingBoost = 9;
     else if (d.alphaStakedPct >= 65) stakingBoost = 6;
@@ -3395,13 +3406,13 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     // Level tells us the float constraint. TREND tells us conviction is building or fading.
     // Staked% rising = more holders locking up = thinning supply → price is more reactive.
     // Staked% falling = unlock pressure building → near-term sell risk.
-    // Uses persisted sph (staked pct history) from agapHistory — needs 3+ readings.
+    // Uses persisted sph (staked pct history) from agapHistory - needs 3+ readings.
     const prevStakedHistory: number[] = (agapHistory[d.netuid] as AGapHistoryEntry | undefined)?.sph ?? [];
     let stakingTrendBonus = 0;
     if (d.alphaStakedPct > 0 && prevStakedHistory.length >= 3) {
       const oldestStaked = prevStakedHistory[0];
       const stakedDelta = d.alphaStakedPct - oldestStaked; // positive = rising conviction
-      if      (stakedDelta >= 8)  stakingTrendBonus = 10; // strong inflow — rapid float compression
+      if      (stakedDelta >= 8)  stakingTrendBonus = 10; // strong inflow - rapid float compression
       else if (stakedDelta >= 5)  stakingTrendBonus =  7;
       else if (stakedDelta >= 3)  stakingTrendBonus =  4;
       else if (stakedDelta >= 1)  stakingTrendBonus =  2; // mild but consistent accumulation
@@ -3412,13 +3423,13 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     // Append current reading; keep last 10 scans (~1 week at 2/day cadence)
     const newStakedHistory = [...prevStakedHistory, d.alphaStakedPct].slice(-10);
 
-    // ROOT PROPORTION — high root_prop means top validators allocated stake here
+    // ROOT PROPORTION - high root_prop means top validators allocated stake here
     let rootPropBonus = 0;
     if (d.rootProp >= 0.35) rootPropBonus = 8;
     else if (d.rootProp >= 0.25) rootPropBonus = 5;
     else if (d.rootProp >= 0.15) rootPropBonus = 2;
 
-    // 6. STITCH3 CAMPAIGN BOOST (0-8 pts) — small signal that marketing is running
+    // 6. STITCH3 CAMPAIGN BOOST (0-8 pts) - small signal that marketing is running
     // Intentionally small: campaigns are paid activity, not organic conviction.
     // Real KOL signal (social score) is the stronger indicator.
     let campaignBoost = 0;
@@ -3431,19 +3442,19 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
       const elapsed = now.getTime() - start.getTime();
 
       if (elapsed < 0) {
-        campaignBoost = 8;  // Not started yet — slightly elevated
+        campaignBoost = 8;  // Not started yet - slightly elevated
       } else if (elapsed <= totalDuration * 0.5) {
-        campaignBoost = 6;  // First half — running
+        campaignBoost = 6;  // First half - running
       } else if (elapsed <= totalDuration) {
-        campaignBoost = 3;  // Second half — winding down
+        campaignBoost = 3;  // Second half - winding down
       }
       // Campaign over = 0 boost
     }
 
-    // 6. EMISSION MOMENTUM (±18 pts) — are validators routing more/less to this subnet?
+    // 6. EMISSION MOMENTUM (±18 pts) - are validators routing more/less to this subnet?
     // Rising emissions = validators actively choosing this subnet → strong bullish signal
     // Falling emissions = validators leaving → bearish signal
-    // This is the most direct "smart money" signal on Bittensor — validators vote with emissions.
+    // This is the most direct "smart money" signal on Bittensor - validators vote with emissions.
     // A 50%+ weekly emission spike is a major signal and deserves a large boost.
     let emissionBoost = 0;
     let emissionChangePct: number | undefined;
@@ -3477,14 +3488,14 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
             // reflects a data-source inconsistency in early history, not a real signal.
             // Log it but don't score it.
             if (Math.abs(rawChange) > 500) {
-              console.warn(`[scan] Emission outlier SN${d.netuid}: ${rawChange.toFixed(0)}% (baseline=${candidate.pct}, current=${currentPct}, age=${Math.round(baselineAgeMs / 3600000)}h) — skipping`);
+              console.warn(`[scan] Emission outlier SN${d.netuid}: ${rawChange.toFixed(0)}% (baseline=${candidate.pct}, current=${currentPct}, age=${Math.round(baselineAgeMs / 3600000)}h) - skipping`);
             } else {
               const changePct = rawChange;
               emissionChangePct = Math.round(changePct * 10) / 10;
               if (changePct >= 5) emissionTrend = "up";
               else if (changePct <= -5) emissionTrend = "down";
 
-              // Boost: up to +20 for surging emissions (was +34 — reduced; emission spikes
+              // Boost: up to +20 for surging emissions (was +34 - reduced; emission spikes
               // attract mercenary capital that already found the subnet, not undiscovered alpha)
               if      (changePct >= 300) emissionBoost = 20;
               else if (changePct >= 200) emissionBoost = 17;
@@ -3506,7 +3517,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
       }
     }
 
-    // 7. WHALE DETECTION — pool buy/sell ratio + SubnetRadar real-time staking moves
+    // 7. WHALE DETECTION - pool buy/sell ratio + SubnetRadar real-time staking moves
     const poolForWhale = poolMap.get(d.netuid);
     let whaleRatio: number | undefined;
     let whaleSignal: "accumulating" | "distributing" | null = null;
@@ -3523,11 +3534,11 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
           whaleRatio = Math.round(avgBuy / avgSell * 100) / 100;
           // Require ratio >= 2.5 AND avg buy size >= 20 TAO (~$7k) to suppress
           // small-dollar noise where tiny $2-5k average buys trigger whale signals.
-          // The absolute floor means ratio alone isn't enough — the actual
+          // The absolute floor means ratio alone isn't enough - the actual
           // transaction size must be meaningful.
           if (whaleRatio >= 2.5 && avgBuy >= 20) {
             whaleSignal = "accumulating";
-            // Whale accumulation boost — bigger boost if dev is also high
+            // Whale accumulation boost - bigger boost if dev is also high
             if (whaleRatio >= 4.0 && devScore >= 40) whaleBoost = 16; // very strong: big buys + dev
             else if (whaleRatio >= 3.0) whaleBoost = 12;              // strong whale accumulation
             else whaleBoost = 7;                                        // meaningful buy-side lean (2.5-3.0)
@@ -3538,7 +3549,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
         }
       }
 
-      // Volume surge as whale buy signal — if unusual buying volume AND net positive flow,
+      // Volume surge as whale buy signal - if unusual buying volume AND net positive flow,
       // treat as smart money accumulation even if individual tx sizes are modest
       const surgeRatio = volumeSurgeMap.get(d.netuid) || 0;
       const netFlow = d.netFlow24h ?? 0;
@@ -3552,8 +3563,8 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     // This catches staking conviction not visible in the DEX pool buy/sell data
     const srWhaleNet = d.srWhaleNetTao;
     // SubnetRadar thresholds raised to filter out small staking moves.
-    // Old: 200/500 TAO — caused low-value staking events to flag as whale activity.
-    // New: 500/1000 TAO — only meaningful large-wallet conviction triggers a signal.
+    // Old: 200/500 TAO - caused low-value staking events to flag as whale activity.
+    // New: 500/1000 TAO - only meaningful large-wallet conviction triggers a signal.
     if (srWhaleNet >= 1000) {
       // Strong net staking-in: override to accumulating if not already distributing
       if (whaleSignal !== "distributing") {
@@ -3579,7 +3590,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     // ── WHALE RATIO VELOCITY + SUSTAINED ACCUMULATION (±15 pts) ────────────────
     // Snapshot whale ratio tells us the LEVEL. Velocity tells us the TREND.
     // A ratio climbing from 1.5 → 2.0 → 2.5 → 3.0 over 4 runs is a leading signal.
-    // SUSTAINED: ratio ≥ 2.5 for 5+ consecutive scans = smart money holding conviction —
+    // SUSTAINED: ratio ≥ 2.5 for 5+ consecutive scans = smart money holding conviction -
     // more powerful than an improving trend (which the market may already be acting on).
     // Deteriorating trend: discount the existing whaleBoost so stale signals don't over-score.
     const histEntryForVelocity = agapHistory[d.netuid] as AGapHistoryEntry | undefined;
@@ -3603,27 +3614,27 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
       }
 
       if (sustainedCount >= 5) {
-        // 5+ scans of consistent accumulation — smart money isn't leaving
+        // 5+ scans of consistent accumulation - smart money isn't leaving
         whaleVelocityBonus = ratioSnapshot >= 3.0 ? 15 : 12;
       } else if (sustainedCount >= 3) {
-        whaleVelocityBonus = 7; // 3-4 scans of sustained buying — thesis holding
+        whaleVelocityBonus = 7; // 3-4 scans of sustained buying - thesis holding
       } else if (improvements >= 3 && ratioSnapshot >= 2.0) {
-        // Strong uptrend building (non-sustained) — larger bonus if ratio is already meaningful
+        // Strong uptrend building (non-sustained) - larger bonus if ratio is already meaningful
         whaleVelocityBonus = ratioSnapshot >= 3.0 ? 8 : 5;
       } else if (improvements >= 2 && ratioSnapshot >= 1.5) {
         whaleVelocityBonus = 3; // mild uptrend forming
       } else if (deteriorations >= 3 && whaleBoost > 0) {
-        // Consistently declining ratio — the accumulation thesis is weakening
+        // Consistently declining ratio - the accumulation thesis is weakening
         whaleBoost = Math.round(whaleBoost * 0.55);
       }
     }
     // Save snapshot for next run (persisted to agapHistory at end of loop)
     const newRatioHistory = [...prevRatioHistory.slice(-7), ratioSnapshot];
 
-    // Volume surge — buying pressure is real but lagging (someone already found it).
+    // Volume surge - buying pressure is real but lagging (someone already found it).
     // Reduced ceiling from 18 → 10 pts: by the time you see 10x volume, the gap is closing.
     // Only counts when net flow is positive (more buy TAO than sell TAO). If tao_buy_volume_24_hr
-    // is high but net flow is negative, it means sell pressure is even bigger — not bullish.
+    // is high but net flow is negative, it means sell pressure is even bigger - not bullish.
     const surgeRatioForAGap = volumeSurgeMap.get(d.netuid) || 0;
     const surgeIsNetPositive = (d.netFlow24h ?? 0) > 0;
     let volBoost = 0;
@@ -3637,7 +3648,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
 
     // ── THIN POOL PRESSURE (0-6 pts, minor) ────────────────────────────────────
     // When daily trading volume is a meaningful fraction of total pool TAO, each
-    // incremental buy order moves price significantly. Only adds a small bonus —
+    // incremental buy order moves price significantly. Only adds a small bonus -
     // this sets up the explosive move, not the move itself.
     // Requires: volume surge already detected (real buying), net positive flow.
     let thinPoolBonus = 0;
@@ -3655,15 +3666,15 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     }
 
     // ── MOMENTUM CONFIRMATION (±5 pts) ──────────────────────────────────────
-    // Only rewards EARLY movement (5–10%). Large moves mean the gap is already closing —
+    // Only rewards EARLY movement (5–10%). Large moves mean the gap is already closing -
     // those are handled by gapClosurePenalty below, not rewarded here.
     let momentumBoost = 0;
 
-    // 7D uptrend: only reward early signs. 20%+ means the gap is already closing — neutral.
+    // 7D uptrend: only reward early signs. 20%+ means the gap is already closing - neutral.
     if      (pch7d >= 5 && pch7d < 10) momentumBoost += 1;  // early signal, small reward
     else if (pch7d <= -25) momentumBoost -= 2;               // sustained downtrend penalty
 
-    // 30D uptrend (secondary) — only reward if not already captured by gap closure
+    // 30D uptrend (secondary) - only reward if not already captured by gap closure
     if      (pch30d >= 40) momentumBoost += 1;  // was 2, reduced since big moves = gap closing
     else if (pch30d >= 15) momentumBoost += 1;
 
@@ -3675,13 +3686,13 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
 
     // ── GAP CLOSURE PENALTY ──────────────────────────────────────────────────
     // When price has already moved significantly UP on multiple timeframes, the market
-    // is actively pricing in the thesis — the gap is CLOSING, not open.
+    // is actively pricing in the thesis - the gap is CLOSING, not open.
     // Two timeframes confirming together is stronger signal than either alone.
     let gapClosurePenalty = 0;
     if      (pch7d >= 20 && pch24h >= 5)  gapClosurePenalty = -15; // gap closing fast on both TFs
     else if (pch7d >= 15 && pch24h >= 3)  gapClosurePenalty = -10;
     else if (pch7d >= 10 && pch24h >= 5)  gapClosurePenalty = -8;  // shorter window, same pattern
-    else if (pch7d >= 20)                 gapClosurePenalty = -8;  // 7d run, today flat — still closed
+    else if (pch7d >= 20)                 gapClosurePenalty = -8;  // 7d run, today flat - still closed
     else if (pch7d >= 10)                 gapClosurePenalty = -4;  // mild 7d run
 
     // ── PRODUCT / UTILITY SCORE (0–100 scale) ────────────────────────────────
@@ -3707,7 +3718,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     );
 
     // ── PRODUCT SIGNALS (3 components, max ~40 pts combined) ────────────────
-    // Product is the CORE alpha thesis — real utility the market hasn't priced in yet.
+    // Product is the CORE alpha thesis - real utility the market hasn't priced in yet.
     // Three separate signals stack to reward the specific case of:
     //   "amazing product + nobody knows about it + price still underwater"
 
@@ -3716,13 +3727,13 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     //    Reduced from 0.35 to balance against Flow (whale/volume) signals.
     const productAGapPts = productScore * 0.25;
 
-    // 2. Product awareness gap (0–12 pts) — THE CORE ALPHA THESIS
+    // 2. Product awareness gap (0–12 pts) - THE CORE ALPHA THESIS
     //    High product score + low social = market genuinely hasn't noticed yet.
-    //    Chutes/Targon (high product + high social) score 0 here — gap is already closed.
+    //    Chutes/Targon (high product + high social) score 0 here - gap is already closed.
     //    Leadpoet (high product + B2B/low CT presence) scores full 12 pts.
     //
     //    Revenue confidence scale: a subnet with $10M ARR that nobody's talking about is a TRUE gap.
-    //    A subnet with $100K ARR and low social may just be early-stage — market is accurately cautious.
+    //    A subnet with $100K ARR and low social may just be early-stage - market is accurately cautious.
     //    Scale both awareness and price bonuses proportionally so low-revenue subnets can't hit 100.
     const valSig = getValuationSignals(d.netuid);
     // Credited ARR (confidence-weighted) from the valuation research, falling
@@ -3731,7 +3742,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     const confirmedArrForAwareness = valSig ? valSig.creditedArrUsd : (BENCHMARK_MAP.get(d.netuid)?.annual_revenue_usd ?? 0);
     // The ladder must be MONOTONIC in revenue, and "we have no revenue figure"
     // must not outrank a disclosed one. It used to do both wrong: unknown
-    // scored 0.85 — above $500K (0.72), nearly double $100K (0.45), and level
+    // scored 0.85 - above $500K (0.72), nearly double $100K (0.45), and level
     // with a $1M business. Since 62 of 73 benchmarked subnets carry
     // annual_revenue_usd 0, and anything unbenchmarked defaults to 0 too, that
     // handed the second-highest multiplier to ~85% of the board while
@@ -3741,12 +3752,12 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     // mid-ladder: we discount a gap thesis we cannot corroborate, without
     // punishing it harder than a disclosed pilot.
     const awarenessRevScale =
-      confirmedArrForAwareness >= 5_000_000 ? 1.00  // proven business — full gap signal
+      confirmedArrForAwareness >= 5_000_000 ? 1.00  // proven business - full gap signal
       : confirmedArrForAwareness >= 1_000_000 ? 0.85  // strong traction
       : confirmedArrForAwareness >= 500_000   ? 0.72  // solid early revenue
       : confirmedArrForAwareness >= 100_000   ? 0.60  // real but early
       : confirmedArrForAwareness >  0         ? 0.50  // pilot / minimal revenue
-      : 0.55;                                          // unknown or pre-revenue — unproven, not disqualified
+      : 0.55;                                          // unknown or pre-revenue - unproven, not disqualified
 
     // HALVED 2026-08-12 (was 12/6/4). This and productVsPriceBonus below are
     // the "nobody has noticed / it has fallen, therefore cheap" thesis. That
@@ -3766,12 +3777,12 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     else if (productScore >= 60 && socialScore <= 50) productAwarenessGap = Math.round(3 * awarenessRevScale);
     else if (productScore >= 80 && socialScore <= 60) productAwarenessGap = Math.round(2 * awarenessRevScale);
 
-    // 3. Product vs price gap (0–8 pts) — mirrors evalVsPriceBonus but for product signal
+    // 3. Product vs price gap (0–8 pts) - mirrors evalVsPriceBonus but for product signal
     //    High product + price underwater = market pricing the asset as if the product doesn't exist.
     //    Uses raw pch30d/pch7d (not clamped priceLag) so thresholds are always reachable.
     //    Also revenue-scaled: a price-down signal on $100K ARR deserves less weight than $5M ARR.
     let productVsPriceBonus = 0;
-    // Halved with productAwarenessGap above (was 8/4/4/3) — same "cheap
+    // Halved with productAwarenessGap above (was 8/4/4/3) - same "cheap
     // because it fell" mechanic, same reason.
     if      (productScore >= 70 && pch30d <= -20) productVsPriceBonus = Math.round(4 * awarenessRevScale);
     else if (productScore >= 70 && pch30d <= -10) productVsPriceBonus = Math.round(2 * awarenessRevScale);
@@ -3781,7 +3792,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     // ── GITHUB STAR VELOCITY (0-8 pts) ──────────────────────────────────────────
     // External developer discovery: other people starring / forking the repo precedes
     // KOL attention by days. If a repo grows 30%+ in stars over 7 days, the broader
-    // dev community has found it — this is a leading signal distinct from commits.
+    // dev community has found it - this is a leading signal distinct from commits.
     // Uses starsHistory stored in agapHistory to compute week-over-week growth.
     const ghScanForStars = githubScanMap.get(d.netuid);
     const prevStarsHistory = (agapHistory[d.netuid] as AGapHistoryEntry | undefined)?.sh ?? [];
@@ -3812,18 +3823,18 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     // ── SOCIAL VELOCITY BONUS (0-10 pts) ─────────────────────────────────────────
     // velocityData is computed each scan comparing socialMap vs oldest snapshot.
     // Accelerating social attention on an UNDISCOVERED subnet = gap opening, not closing.
-    // If social is already high (≥60), the velocity just confirms everyone already knows —
+    // If social is already high (≥60), the velocity just confirms everyone already knows -
     // no gap to close, so we don't double-count with socialMomentum.
     const velo = velocityData[d.netuid];
     let socialVelocityBonus = 0;
     if (velo) {
       if (velo.trend === "accelerating" && socialScore < 60) {
-        // Under-the-radar subnet going viral — strongest leading signal
+        // Under-the-radar subnet going viral - strongest leading signal
         socialVelocityBonus = velo.velocityScore >= 50 ? 10
           : velo.velocityScore >= 25 ? 7
           : 5;
       } else if (velo.trend === "growing" && socialScore < 40) {
-        // Slow build on a quiet subnet — early but real
+        // Slow build on a quiet subnet - early but real
         socialVelocityBonus = 3;
       }
     }
@@ -3840,19 +3851,19 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
       socialVelocityBonus >= 5,    // accelerating social attention on quiet subnet
     ].filter(Boolean).length;
     let confluenceBonus = 0;
-    if      (confluenceSignals >= 4) confluenceBonus = 15; // all 4 firing — rare and powerful
-    else if (confluenceSignals >= 3) confluenceBonus = 8;  // 3/4 — Templar pattern
-    else if (confluenceSignals >= 2) confluenceBonus = 2;  // 2 signals — early setup forming
+    if      (confluenceSignals >= 4) confluenceBonus = 15; // all 4 firing - rare and powerful
+    else if (confluenceSignals >= 3) confluenceBonus = 8;  // 3/4 - Templar pattern
+    else if (confluenceSignals >= 2) confluenceBonus = 2;  // 2 signals - early setup forming
 
-    // ── BREAKOUT BONUS (0-14) — the thesis actually playing out ──────────────
+    // ── BREAKOUT BONUS (0-14) - the thesis actually playing out ──────────────
     //
-    // Every "cheap" leg in this formula — productVsPriceBonus, evalVsPriceBonus,
-    // priceLag, floorReversalBonus — pays out while a subnet is FALLING and
+    // Every "cheap" leg in this formula - productVsPriceBonus, evalVsPriceBonus,
+    // priceLag, floorReversalBonus - pays out while a subnet is FALLING and
     // switches off the moment it rises. Nothing replaced them, so a subnet was
     // penalised for succeeding.
     //
     // Observed on Bitcast (SN93) 2026-08-17: +7.8% on 24h, +26.0% on 7d, and
-    // +647 TAO of net inflow. flow_score correctly rose to 65 — and the aGap
+    // +647 TAO of net inflow. flow_score correctly rose to 65 - and the aGap
     // score FELL from 49 to 22, because the cheapness bonuses vanished. velo
     // then read 36, since velo tracks aGap velocity and the score was
     // collapsing. A clean breakout looked like a dying signal.
@@ -3873,11 +3884,11 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
 
     const rawAGap = buybackTradingBonus + buildingPts + consistentBuilderBonus + devSpikeBonus + priceLag + floorReversalBonus + socialMomentum + evalBoost + evalVsPriceBonus + viability + campaignBoost + whaleBoost + whaleVelocityBonus + emissionBoost + volBoost + thinPoolBonus + stakingBoost + stakingTrendBonus + rootPropBonus + productAGapPts + productAwarenessGap + productVsPriceBonus + momentumBoost + gapClosurePenalty + starVelocityBonus + socialVelocityBonus + confluenceBonus + breakoutBonus;
 
-    // SUSTAINED DECLINE CEILING — hard cap on the final score for chronic bleeders.
+    // SUSTAINED DECLINE CEILING - hard cap on the final score for chronic bleeders.
     // Reducing individual components (priceLag, evalVsPriceBonus) wasn't enough because
     // other strong pillars (dev, emissions, staking) can still push the score above 80.
     // If price is falling across ALL timeframes with no reversal anywhere, the market
-    // has spoken consistently — cap the score so it can't trigger auto-buy signals.
+    // has spoken consistently - cap the score so it can't trigger auto-buy signals.
     //
     // POST-PUMP FADE: pch30d can be misleadingly high after a pump even as price bleeds.
     // Catch this separately using short-term timeframes only.
@@ -3887,7 +3898,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
       : 100;
     const clampedRaw = Math.max(1, Math.min(sustainedDeclineCap, Math.round(rawAGap)));
 
-    // ── Audit health penalty (trading aGap — asymmetric risk filter only) ─────
+    // ── Audit health penalty (trading aGap - asymmetric risk filter only) ─────
     // High audit = no boost (structural health isn't a trading signal).
     // Low audit = penalty (centralized/unhealthy subnet = elevated risk).
     const auditScore = auditScoreMap.get(d.netuid) ?? null;
@@ -3902,13 +3913,13 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
 
     let aGap = smoothAGap(d.netuid, clampedWithAudit);
 
-    // Const founder buy = positive boost (muted — he buys frequently); sell = smaller negative
+    // Const founder buy = positive boost (muted - he buys frequently); sell = smaller negative
     if (constBuy > 0) aGap = Math.min(100, aGap + Math.min(13, 7 + constBuy / 150));
     if (constSell > 0) aGap = Math.max(1, aGap - Math.min(10, 3 + constSell / 200));
 
     // ── INVESTING aGap (PILLAR-CAPPED + REVENUE-ANCHORED formula, v22) ──────────
     // Monthly horizon. Rewards broad-based quality: real product, clean audit,
-    // emission health, and founder conviction — not just cheap price + staking lock.
+    // emission health, and founder conviction - not just cheap price + staking lock.
     //
     // Architecture: 6 pillars + RevTraction + MktVal + Synergy + GrowthBonuses + Quality Bonuses + Revenue Floor
     //   Conviction(24) + AuditDecen(20) + Dev(12) + Product(20) + Network(10) + GrowthTiming(10)
@@ -3917,16 +3928,16 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     //   Max theoretical = ~163 → always clamped to 100.
     //
     // Key changes from v21:
-    //   • CONST CONVICTION tripled (max 4 → 12) — founder buying is the #1 long-term signal
-    //   • GROWTH BONUS CAP — pillarGrowthTiming + growthPotentialBonus capped at 10 combined
+    //   • CONST CONVICTION tripled (max 4 → 12) - founder buying is the #1 long-term signal
+    //   • GROWTH BONUS CAP - pillarGrowthTiming + growthPotentialBonus capped at 10 combined
     //     (they represent the same thesis; was double-counting for cheap no-revenue subnets)
-    //   • BROAD BASE SOFT CAP — pillarDev + pillarProduct < 15 → score capped at 70
+    //   • BROAD BASE SOFT CAP - pillarDev + pillarProduct < 15 → score capped at 70
     //     (prevents weak-fundamentals subnets from reaching elite scores via staking alone)
-    //   • NEW PROVEN PRODUCT BONUS (0–15 pts) — benchmarked productScore tiers
+    //   • NEW PROVEN PRODUCT BONUS (0–15 pts) - benchmarked productScore tiers
     //     directly reward Chutes (100), Score (91), Targon (79)
-    //   • NEW EMISSION DOMINANCE BONUS (0–10 pts) — emissionPct + auditScore combo
+    //   • NEW EMISSION DOMINANCE BONUS (0–10 pts) - emissionPct + auditScore combo
     //     rewards NOVA (10.3%, AUD 72), Score (8.7%, AUD 73)
-    //   • NEW PROVEN QUALITY BONUS (0–12 pts) — high audit + high product + positive emissions
+    //   • NEW PROVEN QUALITY BONUS (0–12 pts) - high audit + high product + positive emissions
     //     rewards broad-based excellence that no single pillar captures alone
     //
     // Revenue floors: confirmed ARR guarantees a minimum score so network penalties
@@ -3953,7 +3964,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     else if (devScore >= 65 && socialScore <= 15) investPreLaunch = 6;
 
     // ── REVENUE TRACTION BONUS (0–20 pts) ────────────────────────────────────
-    // THE core investing differentiator — completely absent from trading formula.
+    // THE core investing differentiator - completely absent from trading formula.
     const benchEntry  = BENCHMARK_MAP.get(d.netuid);
     const milestEntry = MILESTONE_MAP.get(d.netuid);
     // Revenue from the valuation research (confidence-weighted), with the
@@ -4020,7 +4031,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     else if (constSell > 0) investConstConviction = Math.max(-8, -constSell / 200);
 
     // BIT-0011 on-chain conviction (max 6 bonus pts added on top of existing pillar)
-    // Real locked alpha from SubnetRadar — the most direct "skin in the game" signal.
+    // Real locked alpha from SubnetRadar - the most direct "skin in the game" signal.
     let investBit0011 = 0;
     const convRow = srConvictionMap.get(d.netuid);
     if (convRow && convRow.totalLockedAlpha > 0) {
@@ -4053,7 +4064,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
                                + investBit0011;
     const pillarConviction = Math.min(30, Math.round(rawConvictionPillar));
 
-    // ── PILLAR 2: AUDIT + DECENTRALIZATION (max 20) — was Health max 11 ──────
+    // ── PILLAR 2: AUDIT + DECENTRALIZATION (max 20) - was Health max 11 ──────
     // Centralisation is an existential risk for long-term holders.
     // High audit = meaningful bonus. Very centralised = hard structural penalty.
     // Decentralisation (rootProp) added as second sub-signal.
@@ -4071,13 +4082,13 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     else if (d.rootProp >= 0.15) investDecen = 1;
     const pillarAuditDecen = Math.min(20, Math.round(investAuditPts + investDecen));
 
-    // ── PILLAR 3: DEV (max 12) — compressed from 25 ──────────────────────────
+    // ── PILLAR 3: DEV (max 12) - compressed from 25 ──────────────────────────
     // Consistent shipping matters. Raw commit frequency matters less for
-    // long-term thesis — sustained consistent output > spike/burst activity.
+    // long-term thesis - sustained consistent output > spike/burst activity.
     const rawDevPillarV21 = (buildingPts * 0.62) + (consistentBuilderBonus * 1.4) + (devSpikeBonus * 0.04);
     const pillarDev = Math.min(12, Math.round(rawDevPillarV21));
 
-    // ── PILLAR 4: PRODUCT + ADOPTION (max 20) — was Product max 31 ───────────
+    // ── PILLAR 4: PRODUCT + ADOPTION (max 20) - was Product max 31 ───────────
     // Tightened ceiling. Adds user growth trajectory and partnership/adoption
     // signals that were previously buried in the social sub-score.
     const iProductSourceMult = (productSource === "benchmark" || productSource === "valuation") ? 1.3 :
@@ -4099,16 +4110,16 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
                                + investPartnership;
     const pillarProduct = Math.min(20, Math.round(rawProductPillarV21));
 
-    // ── PILLAR 5: NETWORK (max 10) — trimmed from 12 ─────────────────────────
+    // ── PILLAR 5: NETWORK (max 10) - trimmed from 12 ─────────────────────────
     // Eval/emissions are weekly signals. A subnet can be a great long-term
-    // investment with moderate on-chain metrics — don't over-penalise.
+    // investment with moderate on-chain metrics - don't over-penalise.
     const rawNetworkPillarV21 = (evalBoost               * 0.40)
                                + (evalVsPriceBonus        * 0.8)
                                + (Math.max(0, emissionBoost) * 0.25)
                                + Math.max(0, investNetworkHealth);
     const pillarNetwork = Math.min(10, Math.round(rawNetworkPillarV21));
 
-    // ── PILLAR 6: GROWTH TIMING (max 10) — NEW ───────────────────────────────
+    // ── PILLAR 6: GROWTH TIMING (max 10) - NEW ───────────────────────────────
     // Fires for quality projects the market hasn't priced in yet.
     // Strong fundamentals + price down = the best risk/reward setup for investors.
     // Only meaningful when the underlying project is genuinely strong.
@@ -4125,13 +4136,13 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     }
     const pillarGrowthTiming = Math.min(10, Math.round(investGrowthTiming));
 
-    // ── CROSS-PILLAR SYNERGY (max 5) — thresholds updated for v21 ────────────
+    // ── CROSS-PILLAR SYNERGY (max 5) - thresholds updated for v21 ────────────
     let investSynergy = 0;
     if      (pillarDev >= 10 && pillarProduct >= 16) investSynergy = 5;
     else if (pillarDev >=  7 && pillarProduct >= 11) investSynergy = 3;
     else if (pillarDev >=  4 && pillarProduct >=  7) investSynergy = 1;
 
-    // ── GROWTH POTENTIAL BONUS (0–10 pts) — thresholds updated for v21 ───────
+    // ── GROWTH POTENTIAL BONUS (0–10 pts) - thresholds updated for v21 ───────
     // Only fires when confirmedArr === 0 (no verified revenue data).
     // Strong dev + strong product + no ARR = undiscovered gem.
     // Subnets WITH confirmed revenue already get RevTraction + MktVal instead.
@@ -4147,14 +4158,14 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     // pillarGrowthTiming and growthPotentialBonus both represent the same thesis:
     // "undiscovered, no revenue, strong fundamentals at a discount." Letting both
     // fire at full strength double-counted the discount thesis for cheap subnets.
-    // Combined cap = 10 pts — same as either bonus alone at max.
+    // Combined cap = 10 pts - same as either bonus alone at max.
     const combinedGrowthBonus = Math.min(10, pillarGrowthTiming + growthPotentialBonus);
     // Use combinedGrowthBonus in rawInvestAGap instead of both individually.
 
     // ── PROVEN PRODUCT BONUS (0–15 pts) ──────────────────────────────────────
     // Benchmarked subnets with high product scores have been manually verified
     // to have real, working products. This is one of the strongest long-term
-    // investing signals — a great product that's formally evaluated.
+    // investing signals - a great product that's formally evaluated.
     // Directly rewards: Chutes (PROD 100), Score (PROD 91), Targon (PROD 79).
     let provenProductBonus = 0;
     if (isBenchmarked) {
@@ -4166,7 +4177,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     // ── EMISSION DOMINANCE BONUS (0–10 pts) ──────────────────────────────────
     // Capturing ≥3–10% of Bittensor emissions while maintaining a clean audit
     // score is one of the strongest long-term investment fundamentals.
-    // Audit gate matters — emission share with a centralised structure is a risk.
+    // Audit gate matters - emission share with a centralised structure is a risk.
     // Directly rewards: NOVA (10.9% EM, AUD 72), Score (9.2% EM, AUD 78).
     let emissionDominanceBonus = 0;
     if      (d.emissionPct >= 10 && (auditScore ?? 0) >= 70) emissionDominanceBonus = 10;
@@ -4176,7 +4187,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
 
     // ── PROVEN QUALITY BONUS (0–12 pts) ──────────────────────────────────────
     // Fires when a subnet is excellent across multiple dimensions simultaneously.
-    // Two tiers: with emissions (full bonus) or without (partial — product+audit alone
+    // Two tiers: with emissions (full bonus) or without (partial - product+audit alone
     // is still quality, just not as deep a long-term fundamental as having network weight).
     // Directly rewards Affine (AUD 82, PROD 78), Chutes (AUD 86, PROD 100), Leadpoet (PROD 88).
     let provenQualityBonus = 0;
@@ -4189,7 +4200,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     // ── PENALTIES ─────────────────────────────────────────────────────────────
     const emissionPenalty      = Math.round(Math.min(0, emissionBoost) * 0.45);
     const networkHealthPenalty = Math.round(Math.min(0, investNetworkHealth) * 0.5);
-    // Whale distributing penalty — reduced multiplier (conviction pillar already
+    // Whale distributing penalty - reduced multiplier (conviction pillar already
     // excludes negative whale from the positive accumulation score)
     const whalePenalty         = Math.round(Math.min(0, whaleBoost) * 0.5);
     const investDeregPenalty   = d.deregRisk ? -18 : 0;
@@ -4202,7 +4213,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     //
     // Was a bare `=== 0` test worth -20. Two problems: it missed everything
     // just above zero, and -20 was not enough to keep a subnet earning NOTHING
-    // out of the index — Data Universe sat at invest_agap 87 and rank 6 on
+    // out of the index - Data Universe sat at invest_agap 87 and rank 6 on
     // exactly 0% emission with that penalty already applied.
     //
     // Since v440 emission is s*gate(s), and the bar sits near ~1.1% demand
@@ -4224,7 +4235,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     // were treated identically on size. That cliff is why Swarm ($7.9M) and
     // Data Universe ($6.4M) reached ranks 5 and 6, above Vanta ($29M) and
     // Templar ($27.6M). The index concentrates real member funds into 10
-    // names — at single-digit millions the position cannot be entered or
+    // names - at single-digit millions the position cannot be entered or
     // exited without moving the price, whatever the product score says.
     let investViability = 0;
     if      (mcap < 100_000)   investViability = -50; // ghost subnet
@@ -4260,10 +4271,10 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     // ── REVENUE FLOOR ────────────────────────────────────────────────────────
     // A subnet generating real fiat revenue can't be buried below a minimum by
     // bad on-chain signals on a given day. The floor is what matters for a monthly
-    // thesis — not whether emissions ticked down this week.
+    // thesis - not whether emissions ticked down this week.
     // Confirmed ARR (BENCHMARK_DATA) gets a +4 floor bonus vs milestone estimates.
     //
-    // EXCEPTION: zero-emission subnets are at de-registration risk — the product
+    // EXCEPTION: zero-emission subnets are at de-registration risk - the product
     // thesis only matters if the subnet survives. Revenue floors are capped at 50
     // for zero-emission subnets so the structural risk is always reflected.
     const floorBenchBonus = isBenchmarked ? 4 : 0;
@@ -4289,7 +4300,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     else if (floorArrEstimated >=    100_000) investRevFloor = 42;
     else if (floorArrEstimated >=     10_000) investRevFloor = 36; // small but real; $10K minimum keeps trivial estimates off the ladder
 
-    // Cap revenue floor for zero-emission subnets — de-reg risk trumps ARR
+    // Cap revenue floor for zero-emission subnets - de-reg risk trumps ARR
     if (isZeroEmission && investRevFloor > 50) investRevFloor = 50;
 
     const investAGap = Math.max(investRevFloor, clampedInvestAGap);
@@ -4399,7 +4410,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
   //   2. TaoMarketCap deregistration_risk boolean
   //   3. SubnetRadar bottom-3 by healthScore (last resort)
 
-  // Tier 1: SR status field (most accurate — mirrors the deregwatch page directly)
+  // Tier 1: SR status field (most accurate - mirrors the deregwatch page directly)
   const srAtRiskNetuids = new Set(
     leaderboard
       .map(e => srSubnetMap.get(e.netuid))
@@ -4484,7 +4495,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
               signal_type: "flow_inflection",
               strength: Math.min(95, Math.round(50 + mag)),
               title: `Flow turned positive: +${cur.toFixed(2)} TAO/24h`,
-              description: `Net flow flipped from ${prev.toFixed(2)} to +${cur.toFixed(2)} TAO. Buyers now outweigh sellers — early accumulation signal.`,
+              description: `Net flow flipped from ${prev.toFixed(2)} to +${cur.toFixed(2)} TAO. Buyers now outweigh sellers - early accumulation signal.`,
               source: "taostats",
               signal_date: today,
             });
@@ -4500,7 +4511,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
               signal_type: "flow_spike",
               strength,
               title: `Flow spiked ${ratio.toFixed(1)}x`,
-              description: `24h net flow jumped from ${prev.toFixed(2)} to ${cur.toFixed(2)} TAO — buy pressure accelerating sharply.`,
+              description: `24h net flow jumped from ${prev.toFixed(2)} to ${cur.toFixed(2)} TAO - buy pressure accelerating sharply.`,
               source: "taostats",
               signal_date: today,
             });
@@ -4531,18 +4542,18 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
   // Root Reborn is live on mainnet (spec_version 443) but validator root-weight
   // setting ships disabled. The day governance enables it, root_prop stops
   // describing a passive stake distribution and starts describing active
-  // capital allocation — the same number meaning something different, which is
+  // capital allocation - the same number meaning something different, which is
   // exactly how v440 quietly changed eVal underneath us. Catch it on the day
   // rather than discovering it in a backtest months later.
   try {
     const rootStatus = await readRootWeightStatus();
     if (!rootStatus.read) {
-      console.log("[scan] Root-weight flag: RPC unreadable — state unknown (not assuming disabled)");
+      console.log("[scan] Root-weight flag: RPC unreadable - state unknown (not assuming disabled)");
     } else if (rootStatus.enabled) {
       console.warn(
         "[scan] *** RootWeightSettingEnabled IS NOW TRUE (spec " + rootStatus.specVersion + ") *** " +
         "Validators are setting root weights. root_prop now measures active allocation, not passive " +
-        "stake — rootPropBonus and investDecen are calibrated for the old meaning and need review. " +
+        "stake - rootPropBonus and investDecen are calibrated for the old meaning and need review. " +
         "Validator root-weight vectors are now readable and are the strongest available capital signal."
       );
     } else {
@@ -4579,7 +4590,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
       // we do not model, or the feed changed. Publishing convexity numbers off
       // a broken fit would be worse than publishing nothing.
       if ((gateParams.rSquared ?? 0) < 0.85) {
-        console.log(`[scan] Emission gate fit too weak (R2=${gateParams.rSquared?.toFixed(3)}) — signals skipped`);
+        console.log(`[scan] Emission gate fit too weak (R2=${gateParams.rSquared?.toFixed(3)}) - signals skipped`);
       } else {
         console.log(`[scan] Emission gate: q=${gateParams.quantile} h=${gateParams.exponent} bar@rank${gateParams.barRank} R2=${gateParams.rSquared?.toFixed(3)}`);
         const gateToday = new Date().toISOString().slice(0, 10);
@@ -4601,11 +4612,11 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
               signal_type: "gate_convexity",
               // Strength rises as the payoff per unit of demand rises.
               strength: Math.min(95, Math.round(45 + (g.elasticity - 1) * 16)),
-              title: `Near the emission bar — ${g.elasticity.toFixed(1)}x payoff on demand`,
+              title: `Near the emission bar - ${g.elasticity.toFixed(1)}x payoff on demand`,
               description:
                 `Sits at ${g.barRatio.toFixed(2)}x the v440 emission bar with demand up ${demand7d.toFixed(0)}% over 7d. ` +
                 `At this point on the gate a further +10% in demand share converts to roughly +${uplift10.toFixed(0)}% emission, ` +
-                `against +10% for subnets well above the bar. This is mechanical, not a forecast — it follows from the ` +
+                `against +10% for subnets well above the bar. This is mechanical, not a forecast - it follows from the ` +
                 `gate function itself. It says nothing about whether demand will actually grow.`,
               source: "v440-gate",
               signal_date: gateToday,
@@ -4633,7 +4644,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
               subnet_name: entry.name,
               signal_type: "gate_cliff_risk",
               strength: Math.min(95, Math.round(50 + Math.abs(drop) / 2)),
-              title: `Sliding toward the emission bar — ${g.barRatio.toFixed(2)}x and falling`,
+              title: `Sliding toward the emission bar - ${g.barRatio.toFixed(2)}x and falling`,
               description:
                 `Demand share is down ${Math.abs(slide).toFixed(0)}% over ${window} while sitting just ${g.barRatio.toFixed(2)}x above the ` +
                 `v440 bar. Repeating that move implies roughly ${drop.toFixed(0)}% emission. Below the bar the gate throttles ` +
@@ -4655,7 +4666,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
   if (process.env.BLOB_READ_WRITE_TOKEN) {
     try {
       const { get: getBlob2 } = await import("@vercel/blob");
-      // eval_adj is a SHADOW metric — recorded, never scored on. The live eVal
+      // eval_adj is a SHADOW metric - recorded, never scored on. The live eVal
       // ratio is emissionShare/mcapShare, which post-v440 correlates with size
       // (+0.182 against log mcap) because the gate crushes tail emission while
       // market cap is untouched. eval_adj divides actual emission by what the
@@ -4684,7 +4695,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
           veloFallback = JSON.parse(Buffer.concat(chunks).toString("utf-8"));
           console.log(`[scan] Velo fallback loaded: ${Object.keys(veloFallback).length} subnets`);
         }
-      } catch { /* no fallback blob yet — first run */ }
+      } catch { /* no fallback blob yet - first run */ }
 
       let scoreHistory: Record<string, Record<string, ScoreRow>> = {};
       try {
@@ -4695,9 +4706,9 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
           while (true) { const { done, value } = await reader.read(); if (done) break; chunks.push(value); }
           const raw = Buffer.concat(chunks);
           if (raw.byteLength > 40_000_000) {
-            // Blob too large (>40 MB) — was written with per-scan keys; start fresh
+            // Blob too large (>40 MB) - was written with per-scan keys; start fresh
             // to purge the bloat. Velo will recompute once hourly entries accumulate.
-            console.warn(`[scan] subnet-scores-history.json too large (${(raw.byteLength / 1e6).toFixed(1)} MB) — resetting to prevent parse failure`);
+            console.warn(`[scan] subnet-scores-history.json too large (${(raw.byteLength / 1e6).toFixed(1)} MB) - resetting to prevent parse failure`);
           } else {
             scoreHistory = JSON.parse(raw.toString("utf-8"));
           }
@@ -4709,18 +4720,18 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
       const now24 = Date.now();
       const target24h = now24 - 24 * 3600 * 1000;
       const target7d  = now24 - 7 * 24 * 3600 * 1000;
-      // Filter out empty snapshots (subnets=0) — these come from failed scans and cause
+      // Filter out empty snapshots (subnets=0) - these come from failed scans and cause
       // d24/dailyAvg7d to be null for all subnets, collapsing every VELO score to 50.
       const allTs = Object.keys(scoreHistory)
         .filter(ts => Object.keys(scoreHistory[ts]).length > 0)
         .sort(); // ascending ISO strings sort correctly
 
       // Find the snapshot closest to a target epoch.
-      // NO tolerance gate — we always return the closest available snapshot.
-      // The old ±18h / ±5d tolerance gates caused VELO to show "—" for hours after
+      // NO tolerance gate - we always return the closest available snapshot.
+      // The old ±18h / ±5d tolerance gates caused VELO to show "-" for hours after
       // any history reset (transient blob read failure, deploy, etc.) because all fresh
       // snapshots were too recent to fall inside the window. historyWeight (0→1 over 72
-      // snapshots) already dampens the signal when history is thin — the tolerance gate
+      // snapshots) already dampens the signal when history is thin - the tolerance gate
       // was redundant and harmful. Removing it makes VELO permanently stable.
       function bestSnapshot(targetMs: number): { data: Record<string, ScoreRow>; actualMs: number } | null {
         if (allTs.length === 0) return null;
@@ -4733,7 +4744,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
         return { data: scoreHistory[best], actualMs: new Date(best).getTime() };
       }
 
-      // Always resolves to the closest available snapshot — never null when history exists.
+      // Always resolves to the closest available snapshot - never null when history exists.
       // Velocity is normalised to per-day rate using ACTUAL elapsed time, so a 2h-old
       // snapshot vs a 26h-old snapshot produce correctly-scaled velocity values.
       const snap24h = bestSnapshot(target24h);
@@ -4741,7 +4752,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
 
       console.log(`[scan] Velo: ${allTs.length} history snapshots, snap24h=${snap24h ? `found(${((now24 - snap24h.actualMs)/3600000).toFixed(1)}h ago)` : "null"}, snap7d=${snap7d ? `found(${((now24 - snap7d.actualMs)/3600000).toFixed(1)}h ago)` : "null"}, oldest=${allTs[0] ?? "none"}, newest=${allTs[allTs.length - 1] ?? "none"}`);
 
-      // Time elapsed for snap24h — used to scale d24 proportionally.
+      // Time elapsed for snap24h - used to scale d24 proportionally.
       // A 16h snapshot covers 16/24 of a day; don't treat it the same as a full 24h snapshot.
       const snap24hAge = snap24h ? (now24 - snap24h.actualMs) / 3600000 : 0; // hours
 
@@ -4760,7 +4771,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
 
         // d7: delta from the long-term snapshot, normalised to per-day by ACTUAL elapsed days
         // (may be 8+ days if bridging a data gap, not assumed to always be exactly 7).
-        // IMPORTANT: require ≥2 days old — prevents fresh-blob case where snap7d resolves
+        // IMPORTANT: require ≥2 days old - prevents fresh-blob case where snap7d resolves
         // to the same snapshot as snap24h, doubling the extreme 24h delta into dailyAvg7d.
         let dailyAvg7d: number | null = null;
         if (snap7d && snap7d.data[key] != null) {
@@ -4794,13 +4805,13 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
           const historyWeight = Math.min(allTs.length / 72, 1.0);
 
           // Neutral baseline = 50. tanh compresses extreme values gracefully.
-          // Divisor=2 gives wide variance — rocketing subnets reach 90-100,
+          // Divisor=2 gives wide variance - rocketing subnets reach 90-100,
           // declining subnets fall to 30-40, flat sits near 50.
           // Calibration (7d primary, lm≈0.8):
           //   velocity=0           → velo=50  (flat/neutral)
           //   velocity=+1/day      → velo≈67  (solid uptrend)
           //   velocity=+2/day      → velo≈80  (strong uptrend)
-          //   velocity=+3/day      → velo≈88  (very strong — near top)
+          //   velocity=+3/day      → velo≈88  (very strong - near top)
           //   velocity=+5/day      → velo≈97  (rocketing)
           //   velocity=-1/day      → velo≈33  (declining)
           //   velocity=-2/day      → velo≈20  (clear decline)
@@ -4810,7 +4821,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
           entry.agap_velo = velo;
         } else {
           // Zero history in blob (first scan after fresh deploy or hard reset).
-          // Show neutral 50 so the column is never blank "—".
+          // Show neutral 50 so the column is never blank "-".
           entry.agap_velo = 50;
         }
 
@@ -4823,18 +4834,18 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
       // ── Apply velo fallback + change damper ─────────────────────────────
       // Three protection layers now that velo loop has run:
       //
-      // Layer 1 — Fill all-50 with fallback:
+      // Layer 1 - Fill all-50 with fallback:
       //   Any subnet whose velo loop produced the default 50 (no history /
       //   thin history / blob read failed) gets replaced with last-known-good.
       //   This prevents the 3-day "all-50 rebuild period" from being visible.
       //
-      // Layer 2 — Change damper (±30 pts per scan max):
+      // Layer 2 - Change damper (±30 pts per scan max):
       //   A single bad scan (e.g. TaoStats down → dev scores collapse → composite
       //   drops 25pts for all) cannot swing VELO by more than 30 pts in one hour.
       //   Over 2-3 good scans the score self-corrects. Prevents "all-5" or "all-95"
       //   from appearing after a noisy scan.
       //
-      // Layer 3 — Save fallback for next scan:
+      // Layer 3 - Save fallback for next scan:
       //   Always persist the final (post-damper) velo scores so next scan's
       //   fallback is up-to-date. Fallback drifts toward truth over time.
       //
@@ -4845,13 +4856,13 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
         const computed = entry.agap_velo ?? 50;
 
         if (fb === undefined) {
-          // No fallback yet — accept whatever was computed
+          // No fallback yet - accept whatever was computed
           entry.agap_velo = computed;
         } else if (computed === 50 && allTs.length < 3) {
           // Layer 1: no real history → use last-known-good
           entry.agap_velo = fb;
         } else {
-          // Layer 2: damper — clamp change vs fallback to ±30 pts
+          // Layer 2: damper - clamp change vs fallback to ±30 pts
           const delta = computed - fb;
           if (Math.abs(delta) > MAX_VELO_CHANGE) {
             entry.agap_velo = Math.round(fb + Math.sign(delta) * MAX_VELO_CHANGE);
@@ -4880,7 +4891,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
       const scanTs = _d.toISOString(); // e.g. "2026-05-05T14:00:00.000Z"
       // Only write the snapshot if the leaderboard is healthy:
       //   • non-empty (obvious)
-      //   • mean composite > 15 — a lower mean signals a bad scan (TaoStats down, etc.)
+      //   • mean composite > 15 - a lower mean signals a bad scan (TaoStats down, etc.)
       //     and we must not poison the history with those scores
       const meanComposite = leaderboard.length > 0
         ? leaderboard.reduce((s, e) => s + e.composite_score, 0) / leaderboard.length
@@ -4949,7 +4960,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
             mcap: recordMarket ? (entry.market_cap || 0) : undefined,
             emission_pct: recordMarket ? (entry.emission_pct || 0) : undefined,
             // Undefined rather than 0 when the gate model does not explain this
-            // subnet — a wrong number is worse than a gap in the series.
+            // subnet - a wrong number is worse than a gap in the series.
             eval_adj: (() => {
               const gr = gateReadingsOuter?.get(entry.netuid);
               if (!gr || gr.modelBroken || gr.predictedEmissionPct <= 0.001) return undefined;
@@ -4960,13 +4971,13 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
           };
         }
       } else {
-        console.warn(`[scan] Skipping history write — unhealthy snapshot: ${leaderboard.length} subnets, mean composite=${meanComposite.toFixed(1)}`);
+        console.warn(`[scan] Skipping history write - unhealthy snapshot: ${leaderboard.length} subnets, mean composite=${meanComposite.toFixed(1)}`);
       }
 
       // ── Retention: hourly for a week, daily beyond that ──────────────
       // Was: 30 days of hourly, everything older deleted. That capped the
       // whole archive at ~720 snapshots and made any real backtest impossible
-      // — a 7-day forward test over 30 days yields four non-overlapping
+      // - a 7-day forward test over 30 days yields four non-overlapping
       // cohorts, which is not enough to conclude anything (see
       // docs/EVAL_BACKTEST_2026-08.md, where exactly that happened).
       //
@@ -4974,7 +4985,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
       // 7 days of it and downsample everything older to one snapshot per day.
       // ~168 hourly + ~730 daily is roughly 900 snapshots against today's 720,
       // about 13.7MB at the current ~15.7KB per snapshot, still far under the
-      // 40MB blob limit — and it buys two years of history instead of one month.
+      // 40MB blob limit - and it buys two years of history instead of one month.
       const HOURLY_WINDOW_DAYS = 7;
       const DAILY_RETENTION_DAYS = 730;
       const nowMsHist = Date.now();
@@ -4983,7 +4994,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
 
       // For each older day keep the snapshot nearest midday UTC, so the daily
       // series is evenly spaced rather than landing on whatever hour the scan
-      // happened to run — an uneven series would bias any forward-return work
+      // happened to run - an uneven series would bias any forward-return work
       // built on top of it.
       const keepPerDay = new Map<string, string>();
       for (const tsKey of Object.keys(scoreHistory)) {
@@ -5060,7 +5071,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
 
       // ── Daily raw net flow, for a real 7-day window ──────────────────
       // flow-history.json below stores subnet_ema_tao_flow, a rolling EMA. It
-      // cannot be summed into a multi-day total — Bitcast sat pinned at -0.003
+      // cannot be summed into a multi-day total - Bitcast sat pinned at -0.003
       // across 1,153 readings while its actual 24h net flow was +647 TAO.
       //
       // net_flow_24h (buyVol - sellVol) is the real per-period number and
@@ -5170,7 +5181,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
       console.log("[scan] Early price snapshot saved to scan-prices.json");
     } catch (e) { console.error("[scan] Failed early save:", e); }
   } else if (leaderboard.length < 50) {
-    console.warn(`[scan] Skipping early price snapshot — only ${leaderboard.length} subnets loaded.`);
+    console.warn(`[scan] Skipping early price snapshot - only ${leaderboard.length} subnets loaded.`);
   }
 
   // Sort signals by strength desc
@@ -5221,7 +5232,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
 
   // ── Evict contradictory flow signals ──────────────────────────────────────
   // flow_inflection (positive flip) and flow_warning (negative flip) are mutually
-  // exclusive states — a subnet can't be flowing positive AND negative at the same
+  // exclusive states - a subnet can't be flowing positive AND negative at the same
   // time. If both exist for the same netuid+day, keep only the most recently
   // generated one (the current scan's signal always has the newest created_at).
   {
@@ -5304,7 +5315,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
   }
 
   // ── Append current buy volumes to history ─────────────────────────
-  // Mirror of the emission history loop above — was missing, which meant
+  // Mirror of the emission history loop above - was missing, which meant
   // hist.length was always 0 and no volume surges were ever detected.
   // Throttle to ~1 reading per hour so history stays compact.
   const nowVol = new Date().toISOString();
@@ -5380,8 +5391,8 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
   // Cache result to Vercel Blob for instant page loads
   // SAFEGUARD: never overwrite a good blob with a degraded result.
   // Two failure modes we guard against:
-  // 1. Count failure: TaoStats returns 0 subnets (total outage) — covered by MIN_HEALTHY_SUBNETS.
-  // 2. Data-quality failure: pool API fails silently (Promise.allSettled → pools=[]) — all subnets
+  // 1. Count failure: TaoStats returns 0 subnets (total outage) - covered by MIN_HEALTHY_SUBNETS.
+  // 2. Data-quality failure: pool API fails silently (Promise.allSettled → pools=[]) - all subnets
   //    still appear (from emissions/github) but with null prices and 0% price changes, which tanks
   //    AGAP scores. Catch this by requiring at least 60 subnets to have valid alpha prices.
   const MIN_HEALTHY_SUBNETS = 50;
@@ -5422,7 +5433,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
         console.log(`[scan] Conviction data saved (${srConvictionData.rows.length} subnets)`);
       }
 
-      // Save aGap history for EMA smoothing — include version so stale history gets reset
+      // Save aGap history for EMA smoothing - include version so stale history gets reset
       agapHistory.__version = AGAP_HISTORY_VERSION;
       await put("agap-history.json", JSON.stringify(agapHistory), {
         access: "private",
@@ -5465,7 +5476,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
       for (const entry of leaderboard) {
         if (entry.composite_score < BUY_THRESHOLD) continue;
         if (!entry.alpha_price || entry.alpha_price <= 0) continue;
-        if (purchased.has(entry.netuid)) continue; // already bought once — never re-buy
+        if (purchased.has(entry.netuid)) continue; // already bought once - never re-buy
 
         const alphaTokens = BUY_AMOUNT_USD / entry.alpha_price;
         portfolio.positions.push({
@@ -5525,7 +5536,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
         // of this scan run (e.g. a restore ran concurrently), trust the blob.
         if (freshPortfolio.positions.length > portfolio.positions.length) {
           console.warn(
-            `[scan] Portfolio abort: blob has ${freshPortfolio.positions.length} positions but in-memory has ${portfolio.positions.length} — skipping save to protect data`
+            `[scan] Portfolio abort: blob has ${freshPortfolio.positions.length} positions but in-memory has ${portfolio.positions.length} - skipping save to protect data`
           );
         } else {
           for (const pos of portfolio.positions) {
@@ -5560,7 +5571,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
   // ── Flow snapshot (fire-and-forget) ──────────────────────────────
   // Persists whale/volume/yield signals so the flow page can show
   // today's AND yesterday's events, even after conditions change.
-  // NOTE: alert-scanner is intentionally NOT triggered here — it runs
+  // NOTE: alert-scanner is intentionally NOT triggered here - it runs
   // exclusively on its own 5-min cron to prevent concurrent executions
   // that cause duplicate Telegram alerts.
   if (isHealthyScan && process.env.BLOB_READ_WRITE_TOKEN) {
@@ -5615,7 +5626,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
   }
 
   // A degraded scan (prices missing, zero-price leaderboard) must never reach
-  // the client as if it were real — the dashboard would replace good cached
+  // the client as if it were real - the dashboard would replace good cached
   // data with $0.00 rows. Serve the last good blob instead.
   if (!isHealthyScan && process.env.BLOB_READ_WRITE_TOKEN) {
     try {
@@ -5627,7 +5638,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
         const reader = lastGood.stream.getReader(); const chunks: Uint8Array[] = [];
         while (true) { const { done, value } = await reader.read(); if (done) break; chunks.push(value); }
         const cached = JSON.parse(Buffer.concat(chunks).toString("utf-8"));
-        console.warn("[scan] Degraded result — serving last good blob to the client instead.");
+        console.warn("[scan] Degraded result - serving last good blob to the client instead.");
         return NextResponse.json({ ...cached, cached: true, stale: true, degradedScanAt: new Date().toISOString() });
       }
     } catch { /* fall through to the degraded result as an absolute last resort */ }

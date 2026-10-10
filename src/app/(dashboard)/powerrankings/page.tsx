@@ -42,7 +42,7 @@ function fmtMcap(v?: number) {
   return `$${(v / 1e3).toFixed(0)}K`;
 }
 
-// Gradient for the score bar — emerald for strong scores, warmer for weaker.
+// Gradient for the score bar - emerald for strong scores, warmer for weaker.
 function scorebarStyle(score: number): React.CSSProperties {
   const bg =
     score >= 65 ? undefined :
@@ -52,7 +52,7 @@ function scorebarStyle(score: number): React.CSSProperties {
   return bg ? { width: `${score}%`, background: bg } : { width: `${score}%` };
 }
 
-// Big Space Grotesk rank number — #1 gets the emerald glow.
+// Big Space Grotesk rank number - #1 gets the emerald glow.
 function RankNum({ rank, muted = false }: { rank: number; muted?: boolean }) {
   return (
     <span
@@ -256,7 +256,7 @@ function RankCard({ entry, rank, mode, watched = false }: { entry: SubnetEntry; 
                   ? "text-red-400 bg-red-500/[0.07]"
                   : "text-white/30 bg-white/[0.04]"
             }`}>
-              {delta > 0 ? `▲ ${delta.toFixed(1)}` : delta < 0 ? `▼ ${Math.abs(delta).toFixed(1)}` : "—"}
+              {delta > 0 ? `▲ ${delta.toFixed(1)}` : delta < 0 ? `▼ ${Math.abs(delta).toFixed(1)}` : "-"}
             </span>
           )}
 
@@ -347,7 +347,7 @@ export default function PowerRankingsPage() {
             Power <span className="ag-gradient-text">Rankings</span>
           </h1>
           <p className="text-[14.5px] text-white/50 leading-[1.65] max-w-xl mb-3">
-            Every Bittensor subnet ranked by its <span className="text-white font-medium">aGap score</span> — a 0–100 grade for what&apos;s happening and whether the market has noticed yet.
+            Every Bittensor subnet ranked by its <span className="text-white font-medium">aGap score</span> - a 0–100 grade for what&apos;s happening and whether the market has noticed yet.
           </p>
           <div className="inline-flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.12em] text-white/35 mb-5">
             <span className="ag-live-dot" />
@@ -374,7 +374,7 @@ export default function PowerRankingsPage() {
 
       <main className="flex-1 overflow-auto p-4 md:p-6 w-full max-w-5xl mx-auto">
 
-        {/* ── What is aGap — collapsible explainer ────────────────── */}
+        {/* ── What is aGap - collapsible explainer ────────────────── */}
         <div className="ag-glass rounded-[16px] mb-6 overflow-hidden">
           <button
             onClick={() => setShowExplainer(s => !s)}
@@ -392,7 +392,7 @@ export default function PowerRankingsPage() {
                   The <span className="text-white">aGap score</span> looks at four things: how much <strong className="text-white/80">code is being shipped</strong>, how much <strong className="text-white/80">money is flowing in</strong>, how much <strong className="text-white/80">buzz it&apos;s getting</strong>, and whether its <strong className="text-white/80">price is cheap relative to its activity</strong>.
                 </p>
                 <p>
-                  A score of <span className="text-emerald-400 font-semibold">80+</span> means a lot is happening but the price might not have caught up yet — that&apos;s the &quot;alpha gap.&quot; A score of <span className="text-red-400 font-semibold">30 or below</span> means quiet activity and a price that may already reflect it.
+                  A score of <span className="text-emerald-400 font-semibold">80+</span> means a lot is happening but the price might not have caught up yet - that&apos;s the &quot;alpha gap.&quot; A score of <span className="text-red-400 font-semibold">30 or below</span> means quiet activity and a price that may already reflect it.
                 </p>
               </div>
             </div>
@@ -423,7 +423,7 @@ export default function PowerRankingsPage() {
               </div>
             </button>
 
-            {/* Investing tab — Premium gated */}
+            {/* Investing tab - Premium gated */}
             <div className="relative flex-1">
               {showInvestingGate && (
                 <>
@@ -433,7 +433,7 @@ export default function PowerRankingsPage() {
                     onClick={(e) => e.stopPropagation()}
                   >
                     <div className="font-semibold text-emerald-400 mb-1.5 flex items-center gap-1.5"><AgIcon name="trendUp" className="w-3.5 h-3.5" /> Investing Analysis</div>
-                    <p className="text-white/50 mb-3 leading-relaxed">Long-term aGap scoring designed for serious investors. Weights real product development, smart money positioning, and fundamental conviction — not short-term noise.</p>
+                    <p className="text-white/50 mb-3 leading-relaxed">Long-term aGap scoring designed for serious investors. Weights real product development, smart money positioning, and fundamental conviction - not short-term noise.</p>
                     <p className="text-white/30 text-[10px] mb-3">Available on Premium only.</p>
                     <a
                       href="/pricing"
@@ -524,7 +524,7 @@ export default function PowerRankingsPage() {
             ))}
           </div>
         ) : sorted.length === 0 ? (
-          <div className="text-center py-16 text-white/35">No data available — check back soon.</div>
+          <div className="text-center py-16 text-white/35">No data available - check back soon.</div>
         ) : (
           <>
             {!isPro ? (
@@ -593,7 +593,7 @@ export default function PowerRankingsPage() {
         <div className="mt-10 pt-6 border-t border-white/[0.06] text-center">
           <p className="text-xs text-white/30 max-w-lg mx-auto">
             Rankings update every 10 minutes. aGap scores reflect live on-chain data, GitHub activity, and market metrics.
-            This is not financial advice — always do your own research.
+            This is not financial advice - always do your own research.
           </p>
           <p className="text-xs text-white/20 mt-1">
             Powered by <span className="text-white/40">alphagap.io</span>

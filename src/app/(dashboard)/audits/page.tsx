@@ -15,27 +15,27 @@ import type { SubnetAudit } from "@/app/api/cron/audit-scan/route";
 
 // ── Formatters ────────────────────────────────────────────────────
 function pct(v: number | null | undefined, decimals = 1): string {
-  if (v == null) return "—";
+  if (v == null) return "-";
   return `${v.toFixed(decimals)}%`;
 }
 function num(v: number | null | undefined): string {
-  if (v == null) return "—";
+  if (v == null) return "-";
   return v.toFixed(3);
 }
 function fmtK(v: number | null | undefined): string {
-  if (v == null) return "—";
+  if (v == null) return "-";
   if (Math.abs(v) >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M`;
   if (Math.abs(v) >= 1_000)     return `${(v / 1_000).toFixed(1)}K`;
   return v.toFixed(0);
 }
 function fmtTao(v: number | null | undefined): string {
-  if (v == null) return "—";
+  if (v == null) return "-";
   if (Math.abs(v) >= 1_000_000) return `${(v / 1_000_000).toFixed(2)}M τ`;
   if (Math.abs(v) >= 1_000)     return `${(v / 1_000).toFixed(1)}K τ`;
   return `${v.toFixed(2)} τ`;
 }
 function fmtLoc(v: number | undefined): string {
-  if (v === undefined) return "—";
+  if (v === undefined) return "-";
   if (v === 0)         return "0";
   if (v >= 1_000_000)  return `${(v / 1_000_000).toFixed(1)}M`;
   if (v >= 1_000)      return `${(v / 1_000).toFixed(0)}K`;
@@ -66,7 +66,7 @@ function CellVal({
   dir?: Dir;
   thresholds?: [number, number]; // [warn, critical]
 }) {
-  if (value === "—") return <span className="text-gray-600 text-sm">—</span>;
+  if (value === "-") return <span className="text-gray-600 text-sm">-</span>;
   if (raw == null || dir === "neutral") return <span className="text-gray-300 tabular-nums text-sm">{value}</span>;
 
   const [warn, crit] = thresholds ?? [50, 80];
@@ -78,7 +78,7 @@ function CellVal({
     else if (raw < crit)   cls = "text-yellow-400";
     else                   cls = "text-emerald-400";
   } else {
-    // low_good — lower is better: above crit = red, warn–crit = yellow, below warn = green
+    // low_good - lower is better: above crit = red, warn–crit = yellow, below warn = green
     if      (raw >= crit)  cls = "text-red-400";
     else if (raw >= warn)  cls = "text-yellow-400";
     else                   cls = "text-emerald-400";
@@ -87,7 +87,7 @@ function CellVal({
   return <span className={`tabular-nums font-medium text-sm ${cls}`}>{value}</span>;
 }
 
-// ── Info tooltip — portal-based so it escapes overflow clipping ────
+// ── Info tooltip - portal-based so it escapes overflow clipping ────
 function InfoTip({ text }: { text: string }) {
   const [open, setOpen] = useState(false);
   const [pos, setPos]   = useState({ top: 0, left: 0 });
@@ -208,7 +208,7 @@ const SORT_DEFAULTS: Record<SortKey, "asc" | "desc"> = {
 };
 
 /**
- * Conviction Score (0–100) — BIT-0011 on-chain commitment signal.
+ * Conviction Score (0–100) - BIT-0011 on-chain commitment signal.
  * Built from signals already in the leaderboard:
  *   • alpha_staked_pct  → 0–50 pts  (primary: % of supply locked, not in DEX)
  *   • tao_locked        → 0–30 pts  (capital depth / liquidity confidence)
@@ -235,10 +235,10 @@ function convictionMaturityPct(lastUpdateBlock: number, observedAtBlock: number,
  * Score a subnet's on-chain BIT-0011 conviction (0–100).
  *
  * Components:
- *   40 pts — raw locked α (absolute commitment size)
- *   20 pts — lock type (perpetual > decaying)
- *   25 pts — % of total supply locked (relative commitment)
- *   15 pts — conviction maturity (how long it has been locked)
+ *   40 pts - raw locked α (absolute commitment size)
+ *   20 pts - lock type (perpetual > decaying)
+ *   25 pts - % of total supply locked (relative commitment)
+ *   15 pts - conviction maturity (how long it has been locked)
  */
 function scoreFromConviction(row: ConvictionApiRow, observedAtBlock: number): number {
   if (!row.totalLockedAlpha) return 0;
@@ -278,7 +278,7 @@ function scoreFromConviction(row: ConvictionApiRow, observedAtBlock: number): nu
   return Math.min(100, lockedPts + typePts + supplyPts + maturityPts);
 }
 
-/** Legacy proxy formula — used as fallback for subnets not in conviction API */
+/** Legacy proxy formula - used as fallback for subnets not in conviction API */
 function convictionScoreFallback(
   alphaStakedPct: number | undefined,
   taoLocked: number | undefined,
@@ -357,7 +357,7 @@ export default function AuditsPage() {
     [leaderboard]
   );
 
-  // Build netuid → market cap (USD) from leaderboard — same source as main dashboard
+  // Build netuid → market cap (USD) from leaderboard - same source as main dashboard
   const marketCapUsdMap = useMemo(
     () => new Map(leaderboard.map(s => [s.netuid, s.market_cap as number | undefined])),
     [leaderboard]
@@ -395,7 +395,7 @@ export default function AuditsPage() {
         convictionScoreFallback(s.alpha_staked_pct, s.tao_locked, s.const_buy_tao, s.const_sell_tao),
       ])
     );
-    // Real BIT-0011 on-chain scores — overwrite any fallback entry
+    // Real BIT-0011 on-chain scores - overwrite any fallback entry
     for (const r of convictionRows) {
       merged.set(Number(r.netuid), scoreFromConviction(r, convictionBlock));
     }
@@ -496,7 +496,7 @@ export default function AuditsPage() {
         <div className="text-center py-16 text-gray-600 text-sm">Loading audit data…</div>
       ) : error ? (
         <div className="text-center py-16 text-gray-600 text-sm">
-          {error.includes("first cron run") ? "Audit data not yet available — runs every 6 hours." : `Error: ${error}`}
+          {error.includes("first cron run") ? "Audit data not yet available - runs every 6 hours." : `Error: ${error}`}
         </div>
       ) : filtered.length === 0 ? (
         <div className="text-center py-16 text-gray-600 text-sm">No subnets match your search.</div>
@@ -540,7 +540,7 @@ export default function AuditsPage() {
                     tooltip="Minimum number of validators needed to collude and control 51% of the network. Higher means more decentralised and harder to attack. Anything below 3 is a critical risk."
                     onClick={() => handleSort("nakamoto")} sorted={sortKey === "nakamoto"} />
                   <ColHeader label="HHI" sub="lower=better"
-                    tooltip="Herfindahl-Hirschman Index — measures stake concentration. 0 = perfectly competitive, 1 = complete monopoly. Below 0.20 is healthy; above 0.50 is a red flag."
+                    tooltip="Herfindahl-Hirschman Index - measures stake concentration. 0 = perfectly competitive, 1 = complete monopoly. Below 0.20 is healthy; above 0.50 is a red flag."
                     onClick={() => handleSort("hhi")} sorted={sortKey === "hhi"} />
                   <ColHeader label="Top 10%" sub="supply held"
                     tooltip="Percentage of the total alpha token supply held by the top 10 wallet addresses. Lower means ownership is more distributed across the community."
@@ -548,7 +548,7 @@ export default function AuditsPage() {
 
                   {/* Emission economics */}
                   <ColHeader label="M Burn" sub="% emiss burned"
-                    tooltip="Percentage of miner emissions that are burned instead of paid out. Very high burn (80%+) means miners are net losers and may leave. 0% is ideal — miners keep all rewards."
+                    tooltip="Percentage of miner emissions that are burned instead of paid out. Very high burn (80%+) means miners are net losers and may leave. 0% is ideal - miners keep all rewards."
                     onClick={() => handleSort("burn")} sorted={sortKey === "burn"} />
                   <ColHeader label="Chain Buy%" sub="emiss recycled"
                     tooltip="Percentage of emissions that are recycled back into buying the subnet's own token on-chain. This creates organic buy pressure. Higher is generally better for token holders."
@@ -561,13 +561,13 @@ export default function AuditsPage() {
 
                   {/* Metagraph health */}
                   <ColHeader label="Stale Val%" sub=">24h behind"
-                    tooltip="Percentage of validators whose on-chain weights are more than 24 hours old. High staleness means validators aren't actively scoring miners — a sign of neglect or automation failure."
+                    tooltip="Percentage of validators whose on-chain weights are more than 24 hours old. High staleness means validators aren't actively scoring miners - a sign of neglect or automation failure."
                     onClick={() => handleSort("staleVal")} sorted={sortKey === "staleVal"} />
                   <ColHeader label="ZI Miners%" sub="zero incentive"
                     tooltip="Percentage of registered miners currently receiving zero incentive. High values mean many registered miners aren't contributing useful work, wasting network slots."
                     onClick={() => handleSort("ziMiners")} sorted={sortKey === "ziMiners"} />
                   <ColHeader label="VTrust" sub="validator align"
-                    tooltip="Average validator trust score (0–1.0) across all validators. Measures how aligned each validator's weight-setting is with the honest stake-weighted majority. 1.0 = perfect consensus. Low VTrust means validators disagree on which miners are good — often a sign of manipulation, spam, or poor coordination." />
+                    tooltip="Average validator trust score (0–1.0) across all validators. Measures how aligned each validator's weight-setting is with the honest stake-weighted majority. 1.0 = perfect consensus. Low VTrust means validators disagree on which miners are good - often a sign of manipulation, spam, or poor coordination." />
 
 
                 </tr>
@@ -619,7 +619,7 @@ export default function AuditsPage() {
                       <td className="px-1.5 py-2 text-right">
                         {(() => {
                           const agap = agapMap.get(audit.netuid);
-                          if (agap == null) return <span className="text-gray-600">—</span>;
+                          if (agap == null) return <span className="text-gray-600">-</span>;
                           return (
                             <span className={`tabular-nums font-semibold text-sm ${agap >= 70 ? "text-emerald-400" : agap >= 40 ? "text-yellow-400" : "text-red-400"}`}>
                               {Math.round(agap)}
@@ -632,7 +632,7 @@ export default function AuditsPage() {
                       <td className="px-1.5 py-2 text-right">
                         {(() => {
                           const mcap = marketCapUsdMap.get(audit.netuid);
-                          if (mcap == null) return <span className="text-gray-600 text-sm">—</span>;
+                          if (mcap == null) return <span className="text-gray-600 text-sm">-</span>;
                           return <span className="text-gray-300 tabular-nums text-sm">${formatNum(mcap)}</span>;
                         })()}
                       </td>
@@ -641,7 +641,7 @@ export default function AuditsPage() {
                       <td className="px-1.5 py-2 text-right">
                         {(() => {
                           const cv = convictionMap.get(Number(audit.netuid));
-                          if (cv == null) return <span className="text-gray-600 text-sm">—</span>;
+                          if (cv == null) return <span className="text-gray-600 text-sm">-</span>;
                           const label = cv >= 70 ? "HIGH" : cv >= 40 ? "MED" : "LOW";
                           const hasRealData = convictionRows.some(r => Number(r.netuid) === Number(audit.netuid));
                           const cls =
@@ -673,7 +673,7 @@ export default function AuditsPage() {
                       {/* Nakamoto */}
                       <td className="px-1.5 py-2 text-right">
                         <CellVal
-                          value={audit.nakamotoCoefficient > 0 ? String(audit.nakamotoCoefficient) : "—"}
+                          value={audit.nakamotoCoefficient > 0 ? String(audit.nakamotoCoefficient) : "-"}
                           raw={audit.nakamotoCoefficient}
                           dir="high_good"
                           thresholds={[5, 10]}
@@ -746,7 +746,7 @@ export default function AuditsPage() {
                         />
                       </td>
 
-                      {/* VTrust — avg validator trust alignment */}
+                      {/* VTrust - avg validator trust alignment */}
                       <td className="px-1.5 py-2 text-right">
                         {audit.avgVTrust != null ? (
                           <CellVal
@@ -756,7 +756,7 @@ export default function AuditsPage() {
                             thresholds={[0.5, 0.8]}
                           />
                         ) : (
-                          <span className="text-gray-600 text-sm">—</span>
+                          <span className="text-gray-600 text-sm">-</span>
                         )}
                       </td>
 
@@ -780,7 +780,7 @@ export default function AuditsPage() {
     </div>
   );
 
-  // Session still loading — show nothing to avoid flash
+  // Session still loading - show nothing to avoid flash
   if (sessionStatus === "loading") {
     return (
       <main className="flex-1 flex items-center justify-center">
@@ -789,7 +789,7 @@ export default function AuditsPage() {
     );
   }
 
-  // Gated — render blurred preview + overlay (same pattern as power rankings)
+  // Gated - render blurred preview + overlay (same pattern as power rankings)
   if (!session || !isPremium) {
     const isSignedOut = !session;
     // Build a fake filtered list using placeholder data
@@ -830,10 +830,10 @@ export default function AuditsPage() {
                     </td>
                     <td className="px-1.5 py-2 text-right"><div className="flex justify-end"><ScoreBadge score={audit.operationalScore} /></div></td>
                     <td className="px-1.5 py-2 text-right">
-                      {agap != null ? <span className={`tabular-nums font-semibold text-sm ${agap >= 70 ? "text-emerald-400" : agap >= 40 ? "text-yellow-400" : "text-red-400"}`}>{Math.round(agap)}</span> : <span className="text-gray-600">—</span>}
+                      {agap != null ? <span className={`tabular-nums font-semibold text-sm ${agap >= 70 ? "text-emerald-400" : agap >= 40 ? "text-yellow-400" : "text-red-400"}`}>{Math.round(agap)}</span> : <span className="text-gray-600">-</span>}
                     </td>
                     <td className="px-1.5 py-2 text-right">
-                      {mcap != null ? <span className="text-gray-300 tabular-nums text-sm">${formatNum(mcap)}</span> : <span className="text-gray-600 text-sm">—</span>}
+                      {mcap != null ? <span className="text-gray-300 tabular-nums text-sm">${formatNum(mcap)}</span> : <span className="text-gray-600 text-sm">-</span>}
                     </td>
                     <td className="px-1.5 py-2 text-right"><CellVal value={fmtK(audit.holdersCount)} raw={audit.holdersCount} dir="high_good" thresholds={[500, 2000]} /></td>
                     <td className="px-1.5 py-2 text-right"><CellVal value={String(audit.nakamotoCoefficient)} raw={audit.nakamotoCoefficient} dir="high_good" thresholds={[5, 10]} /></td>
@@ -864,7 +864,7 @@ export default function AuditsPage() {
               <span className="ag-badge text-yellow-400 border-yellow-500/30 bg-yellow-500/[0.06]">Premium</span>
             </div>
             <p className="text-sm md:text-[14.5px] text-gray-400 max-w-2xl leading-[1.65] mb-4">
-              Deep operational health across every active subnet — decentralisation scores, miner burn economics, validator freshness, liquidity, and adoption. On-chain data you can't get anywhere else.
+              Deep operational health across every active subnet - decentralisation scores, miner burn economics, validator freshness, liquidity, and adoption. On-chain data you can't get anywhere else.
             </p>
             <div className="flex flex-wrap items-center gap-2">
               {[
@@ -899,7 +899,7 @@ export default function AuditsPage() {
                 <div className="mb-3 flex justify-center"><AgIcon name="chart" className="w-10 h-10 text-green-400" /></div>
                 <h2 className="font-display text-lg font-semibold text-white mb-2">Subnet <span className="ag-gradient-text">Audits</span></h2>
                 <p className="text-gray-400 text-sm mb-1 leading-relaxed">
-                  Deep operational intelligence — decentralisation scores, miner burn economics, validator health, and more across all {PREVIEW_ROWS.length > 0 ? "119" : ""} active subnets.
+                  Deep operational intelligence - decentralisation scores, miner burn economics, validator health, and more across all {PREVIEW_ROWS.length > 0 ? "119" : ""} active subnets.
                 </p>
                 <p className="text-gray-500 text-xs mb-5">
                   {isSignedOut ? "Sign in to access. Available on Premium." : "Available on Premium only."}
@@ -950,7 +950,7 @@ export default function AuditsPage() {
             </h1>
           </div>
           <p className="text-sm md:text-[14.5px] text-gray-400 max-w-2xl leading-[1.65] mb-4">
-            Deep operational health across every active subnet — decentralisation, miner burn economics, validator freshness, liquidity and adoption. Click any column header to sort.
+            Deep operational health across every active subnet - decentralisation, miner burn economics, validator freshness, liquidity and adoption. Click any column header to sort.
           </p>
           <div className="inline-flex items-center gap-2 font-mono text-[11px] tracking-wider text-gray-500 uppercase mb-4">
             <span className="ag-live-dot" />

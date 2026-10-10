@@ -25,7 +25,7 @@ export default function ActivatingPage() {
     let cancelled = false;
 
     // blobConfirmed = true means sync-subscription verified the blob is active.
-    // Only call updateSession() in that case — it re-reads from the blob and
+    // Only call updateSession() in that case - it re-reads from the blob and
     // refreshes the JWT correctly.
     //
     // If blob was NOT confirmed (timeout path), we MUST NOT call updateSession()
@@ -37,7 +37,7 @@ export default function ActivatingPage() {
         try {
           await updateSession();
         } catch {
-          // ignore — redirect regardless
+          // ignore - redirect regardless
         }
       }
       if (!cancelled) {
@@ -51,8 +51,8 @@ export default function ActivatingPage() {
     const poll = async () => {
       if (cancelled) return;
       if (attempts >= maxAttempts) {
-        // Timeout — go to dashboard and trust the JWT payment-success already minted.
-        // Do NOT call updateSession() here — it would read the stale blob and
+        // Timeout - go to dashboard and trust the JWT payment-success already minted.
+        // Do NOT call updateSession() here - it would read the stale blob and
         // overwrite our "active" JWT back to "none".
         setMessage("Taking you to your dashboard");
         await redirectToDashboard(false);
@@ -66,19 +66,19 @@ export default function ActivatingPage() {
         const data = await res.json() as { status?: string };
 
         if (data.status === "active" || data.status === "trialing") {
-          setMessage("Access confirmed — loading your dashboard");
-          // Blob is confirmed active — safe to call updateSession()
+          setMessage("Access confirmed - loading your dashboard");
+          // Blob is confirmed active - safe to call updateSession()
           await redirectToDashboard(true);
           return;
         }
       } catch {
-        // network error — keep retrying
+        // network error - keep retrying
       }
 
       if (attempts === 5) {
         setMessage("Verifying payment with Stripe");
       } else if (attempts === 10) {
-        setMessage("Almost there — finalising access");
+        setMessage("Almost there - finalising access");
       }
 
       timerId = setTimeout(poll, 2000);
@@ -117,7 +117,7 @@ export default function ActivatingPage() {
           <span className="text-green-400">{dots}</span>
         </p>
         <p className="text-gray-600 text-sm">
-          Your payment was successful — we&apos;re activating your access
+          Your payment was successful - we&apos;re activating your access
         </p>
       </div>
 

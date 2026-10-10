@@ -60,7 +60,7 @@ export default function DashboardNav() {
           <span className={`block h-[2px] w-4 rounded-full transition-colors ${open ? "bg-emerald-400" : "bg-gray-500"}`} />
         </div>
 
-        {/* Current page name — active pill */}
+        {/* Current page name - active pill */}
         <span className="ag-pill-tabs flex-1 max-w-full">
           <span className="ag-pill-tab ag-pill-tab-on inline-flex items-center">{activeTab.label}</span>
         </span>

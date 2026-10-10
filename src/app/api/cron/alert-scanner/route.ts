@@ -8,26 +8,26 @@
  * have crossed their configured thresholds.
  *
  * Alert types:
- *   scoreChange    — aGap composite score moved by >= threshold pts
- *   emissionChange — emission % changed by >= threshold %
- *   priceMove      — 24h price change >= threshold %
- *   whaleActivity  — whale signal appeared / changed OR unusual volume surge
- *   newSignal      — new alpha signal generated
- *   goingViralX    — new high-heat KOL tweet (heat_score >= 40)
- *   discordEntry   — new high-quality Discord entry (alphaScore >= 70)
+ *   scoreChange    - aGap composite score moved by >= threshold pts
+ *   emissionChange - emission % changed by >= threshold %
+ *   priceMove      - 24h price change >= threshold %
+ *   whaleActivity  - whale signal appeared / changed OR unusual volume surge
+ *   newSignal      - new alpha signal generated
+ *   goingViralX    - new high-heat KOL tweet (heat_score >= 40)
+ *   discordEntry   - new high-quality Discord entry (alphaScore >= 70)
  *
  * ── Dedup architecture ────────────────────────────────────────────────────────
  * Metric-based alerts (scoreChange, emissionChange, priceMove, whaleActivity)
  * use a per-user per-subnet per-type 60-minute cooldown stored in scanner state
- * (lastAlertedAt). This is the authoritative dedup — it lives in the scanner
+ * (lastAlertedAt). This is the authoritative dedup - it lives in the scanner
  * itself, is written in a SINGLE state write at the end, and is checked BEFORE
  * any enqueueAlert call. enqueueAlert has its own 15-min subnet-level dedup as
  * a secondary safety net, and the bot has an in-memory 15-min dedup as tertiary.
  *
  * Event-based alerts (newSignal, goingViralX, discordEntry, volumeSurge) use
- * processedIds sets — these are one-fire-per-event and don't need the cooldown.
+ * processedIds sets - these are one-fire-per-event and don't need the cooldown.
  *
- * State is written ONCE — at the end, after all alerts are processed. There is
+ * State is written ONCE - at the end, after all alerts are processed. There is
  * no early partial write, which was the root cause of state corruption.
  */
 
@@ -91,7 +91,7 @@ interface ScanEntry {
   alpha_price?: number;
   price_change_24h?: number;
   whale_signal?: "accumulating" | "distributing" | null;
-  whale_ratio?: number; // avg buy size / avg sell size — higher = stronger signal
+  whale_ratio?: number; // avg buy size / avg sell size - higher = stronger signal
 }
 
 interface ScanLatest {
@@ -131,9 +131,9 @@ interface DiscordEntry {
   summary: string;
   signal: string;
   scannedAt: string;
-  /** Actual Discord message timestamp — stable across scan cycles */
+  /** Actual Discord message timestamp - stable across scan cycles */
   lastActivityAt?: string;
-  /** True for Const (Bittensor founder) posts — always alert regardless of watchlist */
+  /** True for Const (Bittensor founder) posts - always alert regardless of watchlist */
   founderPost?: boolean;
   channelName?: string;
 }
@@ -151,7 +151,7 @@ interface FlowEvent {
   headline: string;
   detail: string;
   volumeRatio?: number;
-  /** "2026-04-30" — calendar-day dedup key */
+  /** "2026-04-30" - calendar-day dedup key */
   dayKey: string;
   detectedAt: string;
 }
@@ -226,7 +226,7 @@ interface ScannerState {
 }
 
 /**
- * Separate lock blob — written immediately at the START of each run.
+ * Separate lock blob - written immediately at the START of each run.
  * Stored in a different file from ScannerState so claiming the run
  * never corrupts the main state (which is only written at the end).
  */
@@ -241,16 +241,16 @@ const ALERT_COOLDOWN_MS = 60 * 60_000;
 
 /** 4-hour cooldown for whale activity alerts.
  *  Whale ratios near the 0.5/1.5 threshold frequently oscillate null→distributing→null
- *  across consecutive scans — a 60-min cooldown is too short to absorb that noise.
+ *  across consecutive scans - a 60-min cooldown is too short to absorb that noise.
  *  4 hours ensures one alert per meaningful move, not per oscillation tick. */
 const WHALE_COOLDOWN_MS = 4 * 60 * 60_000;
 
-/** 6-hour cooldown for Discord entry alerts — scanner re-scans every ~3h and
+/** 6-hour cooldown for Discord entry alerts - scanner re-scans every ~3h and
  *  the AI rewrites summaries slightly each cycle, causing false "new" entries.
  *  A longer cooldown ensures the same subnet doesn't spam across multiple scan cycles. */
 const DISCORD_COOLDOWN_MS = 6 * 60 * 60_000;
 
-/** Minimum seconds between scanner runs — enforced by the lock blob */
+/** Minimum seconds between scanner runs - enforced by the lock blob */
 const RUN_COOLDOWN_SECONDS = 180;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -300,7 +300,7 @@ function recordAlert(
  * keep the blob from growing unboundedly. Keeps at most 2000 entries.
  *
  * IMPORTANT: must use the LONGEST cooldown in the system as the retention window.
- * discordEntry uses DISCORD_COOLDOWN_MS (6h) — if we prune at ALERT_COOLDOWN_MS×2 (2h),
+ * discordEntry uses DISCORD_COOLDOWN_MS (6h) - if we prune at ALERT_COOLDOWN_MS×2 (2h),
  * the discord cooldown entry disappears before the 6h window expires, allowing
  * the same subnet to fire again when the time bucket rolls over (e.g. 4:59→6:01 AM).
  */
@@ -328,7 +328,7 @@ export async function GET(req: NextRequest) {
   // This is the mutex that prevents concurrent scanner runs from racing past
   // the cooldown check. The lock blob is small (just a timestamp) and is
   // written before we do any meaningful work. The main state blob is NEVER
-  // written early — only once, at the end, after all alerts are processed.
+  // written early - only once, at the end, after all alerts are processed.
   //
   // Without this: two concurrent invocations both read prevState.lastRunAt,
   // both see "5 minutes have passed", both proceed, and both send the same
@@ -348,12 +348,12 @@ export async function GET(req: NextRequest) {
   if (lock?.lockedAt) {
     const secondsSinceLast = (Date.now() - new Date(lock.lockedAt).getTime()) / 1000;
     if (secondsSinceLast < RUN_COOLDOWN_SECONDS) {
-      console.log(`[alert-scanner] Last run was ${secondsSinceLast.toFixed(0)}s ago — skipping (cooldown)`);
+      console.log(`[alert-scanner] Last run was ${secondsSinceLast.toFixed(0)}s ago - skipping (cooldown)`);
       return NextResponse.json({ ok: true, skipped: `cooldown (${secondsSinceLast.toFixed(0)}s since last run)` });
     }
   }
 
-  // Claim the run — write the lock NOW (before any alert processing).
+  // Claim the run - write the lock NOW (before any alert processing).
   // Any concurrent invocation that reads this lock after this write will see
   // a fresh timestamp and bail out. This blob contains NO state data, so
   // writing it here cannot corrupt the main ScannerState.
@@ -368,7 +368,7 @@ export async function GET(req: NextRequest) {
     scan.leaderboard.map(e => [e.netuid, e])
   );
 
-  // Previous state — read once, never written early
+  // Previous state - read once, never written early
   const prevSubnets: Record<string, SubnetState> = prevState?.subnets ?? {};
   const processedSignalIds = new Set<number>(prevState?.processedSignalIds ?? []);
   const processedSignalKeys = new Set<string>(prevState?.processedSignalKeys ?? []);
@@ -420,7 +420,7 @@ export async function GET(req: NextRequest) {
     // NOTE: do NOT early-exit on empty watchlist here. Non-watchlist alerts
     // (discordEntry founder posts, constActivity, walletTracker) must still fire
     // for users who haven't added any subnets. Per-subnet sections handle the
-    // empty case naturally — they just iterate over zero items.
+    // empty case naturally - they just iterate over zero items.
 
     // ── Per-subnet metric alerts ──────────────────────────────────────
     for (const netuid of watchlist) {
@@ -552,7 +552,7 @@ export async function GET(req: NextRequest) {
         }
       }
 
-      // Whale activity — fire for meaningful signals on either side.
+      // Whale activity - fire for meaningful signals on either side.
       // whale_ratio = avg buy size / avg sell size:
       //   accumulating signal: ratio >= 1.5 (scan threshold), alert at >= 2.0 (quality bar)
       //   distributing signal: ratio <= 0.5 (scan threshold), alert at any distributing signal
@@ -574,8 +574,8 @@ export async function GET(req: NextRequest) {
           } else {
             const emoji = current.whale_signal === "accumulating" ? "🐋" : "🔴";
             const action = current.whale_signal === "accumulating"
-              ? "accumulating — large wallets staking in"
-              : "distributing — large wallets unstaking";
+              ? "accumulating - large wallets staking in"
+              : "distributing - large wallets unstaking";
             const ratioStr = current.whale_signal === "accumulating"
               ? `Avg buy ${whaleRatio.toFixed(1)}× larger than avg sell`
               : `Avg sell ${(1 / whaleRatio).toFixed(1)}× larger than avg buy`;
@@ -584,7 +584,7 @@ export async function GET(req: NextRequest) {
               netuid,
               subnetName: label,
               message:
-                `${emoji} *Whale Activity — ${label}*\n\n` +
+                `${emoji} *Whale Activity - ${label}*\n\n` +
                 `Whales are *${action}*.\n` +
                 `${ratioStr}.\n\n` +
                 `[View on flow page →](${BASE_URL}/flow)`,
@@ -596,10 +596,10 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // ── Volume surge (event-based — processedVolumeKeys dedup) ──────
+    // ── Volume surge (event-based - processedVolumeKeys dedup) ──────
     // Reads from flow-events.json (written by flow-snapshot cron).
     // Fires once per netuid per calendar day (dayKey dedup).
-    // Uses the same whaleActivity toggle — it's the "unusual volume spike" half
+    // Uses the same whaleActivity toggle - it's the "unusual volume spike" half
     // of the "Whale activity / volume spike" alert description.
     if (settings.whaleActivity?.enabled && flowEvents?.events?.length) {
       const watchlistSet = new Set(watchlist);
@@ -632,14 +632,14 @@ export async function GET(req: NextRequest) {
     }
 
     // ── New signals (composite-key dedup) ────────────────────────────
-    // Signal IDs auto-increment from 1 on EVERY scan run — useless for dedup.
+    // Signal IDs auto-increment from 1 on EVERY scan run - useless for dedup.
     // created_at is optional and sometimes absent, so date-only dedup breaks.
     //
     // We use a persistent processedSignalKeys Set (stored in scanner state)
     // keyed by "netuid:signal_type:title[:50]". Each unique signal fires
     // exactly once per user, regardless of whether created_at is present.
     //
-    // Only dev/research signals (dev_spike, hf_update) fire here — they
+    // Only dev/research signals (dev_spike, hf_update) fire here - they
     // represent GitHub commits and HuggingFace updates and link to /signals.
     // Flow-type signals belong on /flow and are covered by whaleActivity above.
     if (settings.newSignal?.enabled && scan.signals?.length) {
@@ -648,13 +648,13 @@ export async function GET(req: NextRequest) {
       for (const signal of scan.signals) {
         if (!watchlistSet.has(signal.netuid)) continue;
 
-        // Skip flow signals — those belong to the /flow page, not /signals
+        // Skip flow signals - those belong to the /flow page, not /signals
         if (signal.signal_type?.startsWith("flow_")) continue;
 
-        // Apply user's minimum score threshold FIRST — cheap check, reject early
+        // Apply user's minimum score threshold FIRST - cheap check, reject early
         if (newSignalMinScore > 0 && signal.strength < newSignalMinScore) continue;
 
-        // Composite dedup key — stable across runs, doesn't depend on created_at
+        // Composite dedup key - stable across runs, doesn't depend on created_at
         const sigKey = `${signal.netuid}:${signal.signal_type}:${(signal.title || "").slice(0, 50)}`;
         if (processedSignalKeys.has(sigKey)) continue;
 
@@ -682,7 +682,7 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // ── Going viral on X (event-based — processedIds dedup) ──────────
+    // ── Going viral on X (event-based - processedIds dedup) ──────────
     if (settings.goingViralX?.enabled && socialHot?.events?.length) {
       const watchlistSet = new Set(watchlist);
       const goingViralMinScore = Math.max(40, settings.goingViralX.minScore ?? 0);
@@ -730,7 +730,7 @@ export async function GET(req: NextRequest) {
       for (const entry of discordLatest.results) {
         const isFounder = entry.founderPost === true;
 
-        // Skip Const thumbs-up/down reaction messages — they fire every scan and carry no signal.
+        // Skip Const thumbs-up/down reaction messages - they fire every scan and carry no signal.
         if (isFounder) {
           const THUMBS_RE = /^[\s👍👎🤙✅❌✔✖+\-1]*$|thumbs\s*(up|down)|\+1|-1/i;
           if (THUMBS_RE.test(entry.summary ?? "")) continue;
@@ -742,17 +742,17 @@ export async function GET(req: NextRequest) {
         // Watchlist gate: skip non-founder entries whose subnet isn't watched
         if (!isFounder && (entry.netuid == null || !watchlistSet.has(entry.netuid))) continue;
 
-        // Score gate: founder posts bypass this — every significant Const post fires
+        // Score gate: founder posts bypass this - every significant Const post fires
         if (!isFounder && entry.alphaScore < discordMinScore) continue;
 
         // Dedup key:
         // - Founder: 48-hour epoch bucket keyed on channelName. DO NOT use
-        //   lastActivityAt — it changes every discord scan as new messages arrive,
+        //   lastActivityAt - it changes every discord scan as new messages arrive,
         //   causing the date to roll over midnight and produce a new key that
         //   bypasses the processedDiscordKeys set (root cause of repeated Const alerts).
         //   A 48h bucket means any two fires within 48h of each other are always the same key.
         // - Regular: use lastActivityAt truncated to hour precision ("2026-05-07T12").
-        //   This is the ACTUAL Discord message timestamp — stable across scan cycles
+        //   This is the ACTUAL Discord message timestamp - stable across scan cycles
         //   even when the AI rewrites summaries. The old approach used a wall-clock
         //   time bucket (0/6/12/18 UTC) which rotated every 6h independent of the
         //   Discord content, so a scanner run at 5:58 and another at 6:02 produced
@@ -771,7 +771,7 @@ export async function GET(req: NextRequest) {
           : `${entry.netuid}:${entry.lastActivityAt?.slice(0, 13) ?? fallbackBucket}`;
         if (processedDiscordKeys.has(key)) continue;
 
-        // Cooldown gate for regular entries (6h) — prevents same subnet re-alerting
+        // Cooldown gate for regular entries (6h) - prevents same subnet re-alerting
         // across scan cycles when the AI generates new summaries of the same discussion.
         // Founder posts bypass.
         if (!isFounder) {
@@ -803,7 +803,7 @@ export async function GET(req: NextRequest) {
           : `💬 *Discord Activity Alert*\n` +
             `*${label}*\n\n` +
             `${entry.summary}\n\n` +
-            `Alpha score: *${entry.alphaScore}/100* — meaningful alpha discussion is happening in this subnet's Discord right now.\n\n` +
+            `Alpha score: *${entry.alphaScore}/100* - meaningful alpha discussion is happening in this subnet's Discord right now.\n\n` +
             `[View on social page →](${BASE_URL}/social)`;
 
         await enqueueAlert(hash, {
@@ -819,7 +819,7 @@ export async function GET(req: NextRequest) {
     }
 
     // ── Deleted Discord messages ──────────────────────────────────────
-    // Uses the discordEntry toggle — "just like any other Discord message"
+    // Uses the discordEntry toggle - "just like any other Discord message"
     // Only fires for significant deletions on watched subnets
     // 6h cooldown per netuid (same as discordEntry) to prevent spam on reruns
     if (settings.discordEntry?.enabled && deletedData?.messages?.length) {
@@ -848,7 +848,7 @@ export async function GET(req: NextRequest) {
           netuid: msg.netuid,
           subnetName: label,
           message:
-            `${emoji} *Deleted Discord Message — ${label}*\n\n` +
+            `${emoji} *Deleted Discord Message - ${label}*\n\n` +
             `@${msg.username} deleted a message that was flagged as significant.\n\n` +
             `_"${truncated}"_\n\n` +
             `${msg.significance ? `${msg.significance}\n\n` : ""}` +
@@ -925,7 +925,7 @@ export async function GET(req: NextRequest) {
     };
   }
 
-  // ── Single state write — happens ONCE, at the end, after all alerts fired ──
+  // ── Single state write - happens ONCE, at the end, after all alerts fired ──
   // This is critical: writing state before processing (the old pattern) caused
   // stale prevWhale/prevScore values to persist when the handler timed out,
   // leading to the same alert firing on every subsequent run.

@@ -192,7 +192,7 @@ export function detectFlowInflections(): Signal[] {
 // 80-90=major launch/release, 95=once-in-a-while breakthrough.
 export function scoreDevQuality(events: Array<{ title: string; event_type: string }>): number {
   // Event type base: releases >> PRs >> pushes
-  // Bittensor repos ship heavily via pushes — don't penalise push-heavy workflows
+  // Bittensor repos ship heavily via pushes - don't penalise push-heavy workflows
   const hasRelease = events.some(e => e.event_type === "ReleaseEvent");
   const prCount    = events.filter(e => e.event_type === "PullRequestEvent").length;
   const pushCount  = events.filter(e => e.event_type === "PushEvent").length;
@@ -223,7 +223,7 @@ export function scoreDevQuality(events: Array<{ title: string; event_type: strin
   const t3hits = tier3.filter(k => allText.includes(k)).length;
   const phits  = penalty.filter(k => allText.includes(k)).length;
 
-  // More generous keyword scoring — tier2 work ("implement", "add") is real dev signal
+  // More generous keyword scoring - tier2 work ("implement", "add") is real dev signal
   const keywordPts = Math.min(55, t1hits * 22 + t2hits * 10 + t3hits * 5) - Math.min(15, phits * 5);
 
   const raw = typePts + keywordPts;
@@ -281,7 +281,7 @@ export function detectDevSpikes(): Signal[] {
         signal_type: "dev_spike",
         strength: qualityScore,
         title: `${qualityLabel}: ${row.recent_events} events in 24h`,
-        description: `${row.repo} — ${row.recent_events} events in 24h vs ${dailyAvg.toFixed(1)} daily avg. Top events: ${events.slice(0, 3).map(e => e.title).join(" · ")}`,
+        description: `${row.repo} - ${row.recent_events} events in 24h vs ${dailyAvg.toFixed(1)} daily avg. Top events: ${events.slice(0, 3).map(e => e.title).join(" · ")}`,
         source: "github",
         source_url: `https://github.com/${row.repo}`,
       });
@@ -465,7 +465,7 @@ export function computeLeaderboard(): SubnetScore[] {
     let score = 0;
 
     // Total alpha staked (0-35 pts): how much alpha validators are holding
-    // This is the STRONGEST signal — validators putting skin in the game
+    // This is the STRONGEST signal - validators putting skin in the game
     const totalStaked = s.total_alpha_staked || 0;
     if (totalStaked >= 2000000) score += 35;       // Top tier (2M+)
     else if (totalStaked >= 1500000) score += 30;   // Very high
@@ -608,13 +608,13 @@ export function computeLeaderboard(): SubnetScore[] {
     // ── ALPHA GAP FORMULA v5 ────────────────────────────────────
     // Priority: Dev (most important) > Flow & Social > Staking & Revenue
     //
-    // Dev is the FOUNDATION — if you're not building, nothing else matters
+    // Dev is the FOUNDATION - if you're not building, nothing else matters
     // Flow (price lag) and Social (awareness gap) are the GAP DETECTORS
     // Staking and Revenue are CONFIDENCE BOOSTERS
     //
     // Formula: Base (from dev) + Gap Bonus (from flow/social) + Confidence (staking/rev)
 
-    // 1. DEV BASE (0-55 pts): Most important — are they shipping?
+    // 1. DEV BASE (0-55 pts): Most important - are they shipping?
     const devBase = devScore * 0.55;
 
     // 2. FLOW GAP (0-25 pts): Price lagging behind fundamentals?
@@ -626,10 +626,10 @@ export function computeLeaderboard(): SubnetScore[] {
       else if (priceChange < -5) flowGap = 15;       // Clear gap
       else if (priceChange < -2) flowGap = 10;       // Mild gap
       else if (priceChange < 0) flowGap = 6;         // Slight gap
-      else if (priceChange < 3) flowGap = 3;         // Flat — tiny gap
-      else if (priceChange < 8) flowGap = 0;         // Price catching up — no gap
-      else if (priceChange < 15) flowGap = -5;       // Pumping — gap closing
-      else flowGap = -12;                              // Mooning — alpha is GONE
+      else if (priceChange < 3) flowGap = 3;         // Flat - tiny gap
+      else if (priceChange < 8) flowGap = 0;         // Price catching up - no gap
+      else if (priceChange < 15) flowGap = -5;       // Pumping - gap closing
+      else flowGap = -12;                              // Mooning - alpha is GONE
     }
 
     // 3. SOCIAL GAP (0-10 pts): Is the market aware of the building?
@@ -645,15 +645,15 @@ export function computeLeaderboard(): SubnetScore[] {
     let socialGap = 0;
     if (devScore > 40) { // Only matters if they're building something
       if (socialMentions <= 2 && socialEngagement < 50) {
-        socialGap = 10;    // Ghost mode — nobody knows, maximum alpha
+        socialGap = 10;    // Ghost mode - nobody knows, maximum alpha
       } else if (socialMentions <= 8 && socialEngagement < 300) {
         socialGap = 6;     // Under the radar
       } else if (socialMentions <= 15 && socialEngagement < 800) {
         socialGap = 3;     // Some awareness
       } else if (socialMentions > 30 && socialEngagement > 2000) {
-        socialGap = -3;    // Crowded — less alpha
+        socialGap = -3;    // Crowded - less alpha
       } else if (socialMentions > 50 && socialEngagement > 5000) {
-        socialGap = -8;    // Viral — alpha evaporated
+        socialGap = -8;    // Viral - alpha evaporated
       }
     }
 

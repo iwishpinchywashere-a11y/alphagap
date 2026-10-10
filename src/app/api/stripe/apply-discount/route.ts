@@ -17,13 +17,13 @@ async function getOrCreateCoupon(): Promise<string> {
     const existing = await stripe.coupons.retrieve(SAVE_COUPON_ID);
     return existing.id;
   } catch {
-    // Doesn't exist yet — create it
+    // Doesn't exist yet - create it
     const coupon = await stripe.coupons.create({
       id: SAVE_COUPON_ID,
       percent_off: 40,
       duration: "repeating",
       duration_in_months: 3,
-      name: "40% off — 3 months (save offer)",
+      name: "40% off - 3 months (save offer)",
     });
     return coupon.id;
   }

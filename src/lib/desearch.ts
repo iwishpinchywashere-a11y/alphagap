@@ -47,7 +47,7 @@ async function fetchTweets(query: string, count: number = 100, sort: "Top" | "La
   }
 }
 
-// ── Bulk social scan — ONE big search, then match to subnets ─────
+// ── Bulk social scan - ONE big search, then match to subnets ─────
 // Instead of 50+ individual API calls, we do 3-5 broad searches
 // and match tweets to subnets by handle/name mention
 export interface SubnetSocialData {

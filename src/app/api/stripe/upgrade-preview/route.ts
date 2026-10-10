@@ -2,7 +2,7 @@
  * GET /api/stripe/upgrade-preview?plan=premium|ultra
  *
  * Returns the prorated amount due today if the user upgrades to the given plan.
- * Uses Stripe's upcoming invoice API — no charges, no changes, read-only.
+ * Uses Stripe's upcoming invoice API - no charges, no changes, read-only.
  */
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
@@ -50,7 +50,7 @@ export async function GET(req: Request) {
       product_data: { name: targetPlan.name },
     });
 
-    // Preview the prorated charge — no changes made, read-only
+    // Preview the prorated charge - no changes made, read-only
     const preview = await stripe.invoices.createPreview({
       customer: sub.customer as string,
       subscription: subId,

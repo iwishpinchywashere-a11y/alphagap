@@ -78,7 +78,7 @@ html {
   pointer-events: none;
   z-index: 0;
 }
-/* Lift children above the fixed aurora backdrop — but NEVER override an
+/* Lift children above the fixed aurora backdrop - but NEVER override an
    explicit positioning utility (this once forced an `absolute` glow div into
    normal flow on /oracle, shoving the whole page 600px down). */
 .ag-aurora > *:not(.absolute):not(.fixed):not(.sticky) { position: relative; z-index: 1; }

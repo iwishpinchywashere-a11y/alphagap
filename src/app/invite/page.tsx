@@ -38,13 +38,13 @@ export default function InvitePage() {
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error || "Registration failed — please try again");
+        setError(data.error || "Registration failed - please try again");
         return;
       }
       setSuccess(true);
       setTimeout(() => router.push("/auth/signin"), 2500);
     } catch {
-      setError("Something went wrong — please try again");
+      setError("Something went wrong - please try again");
     } finally {
       setLoading(false);
     }

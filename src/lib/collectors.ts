@@ -145,7 +145,7 @@ export async function collectTaoStats(): Promise<{
     console.error("Failed to detect flow signals:", e);
   }
 
-  // 4. Generate signals from pool data — big movers, volume spikes
+  // 4. Generate signals from pool data - big movers, volume spikes
   try {
     const pools = poolMap || new Map();
     for (const [netuid, pool] of pools) {
@@ -175,7 +175,7 @@ export async function collectTaoStats(): Promise<{
       if (totalVol > 100) { // minimum 100 TAO volume
         const volRatio = buyVol / Math.max(sellVol, 1);
         if (volRatio > 1.5 && priceChange > 0) {
-          // Buy volume dominates AND price is up — real buy pressure
+          // Buy volume dominates AND price is up - real buy pressure
           insertSignal({
             netuid,
             signal_type: "buy_pressure",
@@ -186,7 +186,7 @@ export async function collectTaoStats(): Promise<{
           });
           signalCount++;
         } else if (volRatio < 0.67 && priceChange < 0) {
-          // Sell volume dominates AND price is down — real sell pressure
+          // Sell volume dominates AND price is down - real sell pressure
           insertSignal({
             netuid,
             signal_type: "sell_pressure",
@@ -291,7 +291,7 @@ export async function collectGitHub(): Promise<{
           signal_type: "dev_spike",
           strength,
           title: `Hot dev activity: ${act.commits_1d} commits, ${act.prs_merged_1d} PRs in 24h`,
-          description: `${repoName} — ${act.unique_contributors_1d} active contributors. 7d trend: ${act.commits_7d} commits.`,
+          description: `${repoName} - ${act.unique_contributors_1d} active contributors. 7d trend: ${act.commits_7d} commits.`,
           source: "github",
           source_url: act.repo_url,
         });
@@ -485,7 +485,7 @@ export async function collectAllFast() {
     results.taostats = { error: String(e) };
   }
 
-  // 2. GitHub — ONLY TaoStats dev_activity (skip direct repo polling) ~3s
+  // 2. GitHub - ONLY TaoStats dev_activity (skip direct repo polling) ~3s
   try {
     const gh = await collectGitHubFast();
     results.github = gh;
@@ -493,7 +493,7 @@ export async function collectAllFast() {
     results.github = { error: String(e) };
   }
 
-  // 3. HuggingFace — skip org discovery on Vercel (too slow), just fetch items for known orgs
+  // 3. HuggingFace - skip org discovery on Vercel (too slow), just fetch items for known orgs
   try {
     // Seed the orgs from seed list without discovery
     const hfDb = getDb();
@@ -511,7 +511,7 @@ export async function collectAllFast() {
     results.huggingface = { error: String(e) };
   }
 
-  // 4. Check time budget — skip optional collectors if running low
+  // 4. Check time budget - skip optional collectors if running low
   const elapsed = Date.now() - startTime;
   const timeLeft = 50000 - elapsed; // 50s hard limit (leave 10s buffer)
 
@@ -531,7 +531,7 @@ export async function collectAllFast() {
   const timeLeft2 = 50000 - elapsed2;
 
   if (timeLeft2 > 8000) {
-    // 4b. Staking — LIGHT version ~5s
+    // 4b. Staking - LIGHT version ~5s
     try {
       const staking = await collectStakingData();
       results.staking = staking;
@@ -557,7 +557,7 @@ export async function collectAllFast() {
     results.revenue = { skipped: "time budget exceeded" };
   }
 
-  // 5. AI Analysis — only if we have >10s left, limit to 3 signals
+  // 5. AI Analysis - only if we have >10s left, limit to 3 signals
   const elapsed4 = Date.now() - startTime;
   const timeLeft4 = 55000 - elapsed4;
 
@@ -678,7 +678,7 @@ async function collectGitHubFast(): Promise<{ repos: number; events: number; sig
           netuid: act.netuid, signal_type: "dev_spike",
           strength: Math.min(90, 30 + act.commits_1d * 2 + act.prs_merged_1d * 10),
           title: `Hot dev activity: ${act.commits_1d} commits, ${act.prs_merged_1d} PRs in 24h`,
-          description: `${repoName} — ${act.unique_contributors_1d} active contributors. 7d trend: ${act.commits_7d} commits.`,
+          description: `${repoName} - ${act.unique_contributors_1d} active contributors. 7d trend: ${act.commits_7d} commits.`,
           source: "github", source_url: act.repo_url,
         });
         signalCount++;

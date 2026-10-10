@@ -2,18 +2,18 @@
  * GET /api/wallet-tracker
  *
  * Returns the top 200 wallets (by total TAO) that hold ≥ 2 distinct alpha
- * tokens (subnet 0 / root network excluded — not an alpha token).
+ * tokens (subnet 0 / root network excluded - not an alpha token).
  * Per-wallet positions are included so the UI can expand without extra fetches.
  *
  * First cold request: ~10-15s (batch-fetches detail for 350 wallets).
- * Cached in Vercel Blob for 45 min — subsequent requests are instant.
+ * Cached in Vercel Blob for 45 min - subsequent requests are instant.
  *
  * GET ?mode=winners  → top 50 by 24h TAO gain (20-min cache, fast)
  *
  * Data source: TaoMarketCap public/v1/accounts/coldkeys
  */
 
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { put, get as blobGet } from "@vercel/blob";
 
 import { taoUsdCached } from "@/lib/market-data";
@@ -23,7 +23,7 @@ export const maxDuration = 120;
 
 const TMC_API_KEY  = process.env.TMC_API_KEY || "";
 const RAO_PER_TAO  = 1_000_000_000;
-const ROOT_NETUID  = 0; // subnet 0 = root/legacy — NOT an alpha token
+const ROOT_NETUID  = 0; // subnet 0 = root/legacy - NOT an alpha token
 
 const MAIN_CACHE_KEY    = "wallet-tracker-v14.json";
 const MAIN_CACHE_TTL_MS = 60 * 60 * 1000; // 60 min (expensive to compute)
@@ -38,7 +38,7 @@ const WIN_CACHE_TTL_MS  = 20 * 60 * 1000; // 20 min
 export const KNOWN_WALLETS: Record<string, { label: string; emoji: string; category: string }> = {
 
   // ── Founders ──────────────────────────────────────────────────────
-  // Only add an address here with a verifiable public source — these labels are
+  // Only add an address here with a verifiable public source - these labels are
   // broadcast as founder activity. 5G62K98tpNqsaffgyJmTvDSTCEFzva8WkmMqB2CEFSDgawrS
   // was removed 2026-08-01: unsourced, and publicly corrected as not Const's.
   "5GH2aUTMRUh1RprCgH4x3tRyCaKeUi5BfmYCfs1NARA8R54n": { label: "Const",        emoji: "👑", category: "founder" },
@@ -373,7 +373,7 @@ function extractTSAlphaAddresses(raw: unknown): Set<string> {
 //   Fallback: Previously-built TSWhales cache (same alpha-staker pool, avoids
 //             a blank list when TaoStats is temporarily slow/down).
 //   Enrichment: TMC top-200 list for rank + 24h change data only (NOT used
-//             as candidate source — TMC top-by-tao_staked are mostly validators
+//             as candidate source - TMC top-by-tao_staked are mostly validators
 //             with root-network stake and zero alpha positions).
 async function buildMainList(): Promise<WalletEntry[]> {
   const TAOSTATS_KEY = process.env.TAOSTATS_API_KEY || "";
@@ -487,7 +487,7 @@ async function buildMainList(): Promise<WalletEntry[]> {
     });
   }
 
-  // Sort by alpha staked — most active alpha investors first.
+  // Sort by alpha staked - most active alpha investors first.
   // Known wallets are always included (not subject to the 200-wallet cap).
   const sorted = enriched.sort((a, b) => b.staked_tao - a.staked_tao);
   const topRegular = sorted.filter(w => !knownSet.has(w.address)).slice(0, 200);
@@ -578,14 +578,14 @@ async function buildTSWhales(): Promise<TSWhaleWallet[]> {
   }
 
   // Sort by total USD deployed (largest alpha investors first)
-  // NOTE: No filterToAlphaHolders — TS data is already filtered to netuid > 0 delegation
+  // NOTE: No filterToAlphaHolders - TS data is already filtered to netuid > 0 delegation
   //       events. Adding that filter caused massive extra latency (100+ API calls).
   return result.sort((a, b) => b.total_usd - a.total_usd).slice(0, 200);
 }
 
 // ── Build SubnetRadar whale wallet list ───────────────────────────
 async function buildSRWhales(): Promise<SRWhaleWallet[]> {
-  // Try multiple endpoint variants — SR has changed its API shape over time
+  // Try multiple endpoint variants - SR has changed its API shape over time
   const endpoints = [
     "https://subnetradar.com/api/whales",
     "https://subnetradar.com/api/whale-activity",
@@ -611,7 +611,7 @@ async function buildSRWhales(): Promise<SRWhaleWallet[]> {
 
   if (raw == null) throw new Error(`SubnetRadar unavailable: ${lastErr}`);
 
-  // Robust response shape extraction — handles any nesting
+  // Robust response shape extraction - handles any nesting
   function extractMoves(obj: unknown): SRWhaleMoveRaw[] {
     if (Array.isArray(obj)) return obj as SRWhaleMoveRaw[];
     if (obj && typeof obj === "object") {
@@ -696,7 +696,7 @@ async function buildSRWhales(): Promise<SRWhaleWallet[]> {
   }
 
   // Sort by total volume (staked + unstaked), most active first
-  // NOTE: No filterToAlphaHolders here — SR data IS already staking activity on alpha
+  // NOTE: No filterToAlphaHolders here - SR data IS already staking activity on alpha
   //       subnets. Adding that filter caused 20-30s extra latency (100+ extra API calls).
   return result
     .sort((a, b) => (b.total_staked + b.total_unstaked) - (a.total_staked + a.total_unstaked))
@@ -721,7 +721,7 @@ export async function GET(request: NextRequest) {
       const whales = await buildTSWhales();
       // Guard: never overwrite a valid cache with an empty result
       if (whales.length === 0 && cached) {
-        console.warn("[ts-whales] Rebuilt 0 whales — serving stale cache");
+        console.warn("[ts-whales] Rebuilt 0 whales - serving stale cache");
         return NextResponse.json(cached);
       }
       const result: TSCache = { whales, updatedAt: new Date().toISOString() };
@@ -744,7 +744,7 @@ export async function GET(request: NextRequest) {
       const whales = await buildSRWhales();
       // Guard: never overwrite a valid cache with an empty result (upstream outage)
       if (whales.length === 0 && cached) {
-        console.warn("[sr-whales] Rebuilt 0 whales — serving stale cache");
+        console.warn("[sr-whales] Rebuilt 0 whales - serving stale cache");
         return NextResponse.json(cached);
       }
       const result: SRCache = { whales, updatedAt: new Date().toISOString() };
@@ -785,7 +785,7 @@ export async function GET(request: NextRequest) {
         })
         .slice(0, 80);
 
-      // Sort by biggest 24h gain first — already pre-filtered to tao_staked > 0
+      // Sort by biggest 24h gain first - already pre-filtered to tao_staked > 0
       // (filterToAlphaHolders removed: it added 20s+ latency with 80+ extra API calls)
       const winners = candidates
         .sort((a, b) => b.change_24h_tao - a.change_24h_tao)
@@ -801,7 +801,7 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // ── Single wallet PROFILE (positions + P&L only — trades are fetched separately) ──
+  // ── Single wallet PROFILE (positions + P&L only - trades are fetched separately) ──
   if (mode === "wallet-profile") {
     const address = request.nextUrl.searchParams.get("address");
     if (!address) return NextResponse.json({ error: "Missing address" }, { status: 400 });
@@ -813,7 +813,7 @@ export async function GET(request: NextRequest) {
         fetchDetail(address),
         fetchSubnetNames(),
         taoUsdCached(process.env.BLOB_READ_WRITE_TOKEN || "").catch(() => 0),
-        // Retry once on timeout — 20s per attempt
+        // Retry once on timeout - 20s per attempt
         (async () => {
           for (let attempt = 0; attempt < 2; attempt++) {
             if (attempt > 0) await new Promise(res => setTimeout(res, 2000));
@@ -857,7 +857,7 @@ export async function GET(request: NextRequest) {
         historyComplete = totalItems <= 500;
       } else {
         trades_failed = true;
-        console.warn(`[wallet-profile] Trades fetch failed for ${address} — returning empty trades with flag`);
+        console.warn(`[wallet-profile] Trades fetch failed for ${address} - returning empty trades with flag`);
       }
 
       // Build display trades (most recent first, only alpha subnets)
@@ -973,7 +973,7 @@ export async function GET(request: NextRequest) {
         avg_hold_days,
         positions,
         trades,
-        trades_failed,  // true when TaoStats was unreachable — UI shows retry button
+        trades_failed,  // true when TaoStats was unreachable - UI shows retry button
       });
     } catch (e) {
       return NextResponse.json({ error: String(e) }, { status: 500 });
@@ -1031,7 +1031,7 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ trades: rawDisplayRows2 });
       } catch { /* retry */ }
     }
-    return NextResponse.json({ error: "TaoStats unavailable after 3 attempts" }, { status: 503 });
+    return NextResponse.json({ error: "Trade history could not be fetched" }, { status: 503 });
   }
 
   // ── Single wallet detail (on-demand positions for other tabs) ──
@@ -1063,35 +1063,48 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // ── Default: filtered multi-asset list (45-min cache) ────────
+  // ── Default: filtered multi-asset list (60-min cache) ────────
+  // Cache-first: a rebuild takes ~1 minute, so a request that finds the cache
+  // past its TTL serves the cached list immediately and rebuilds after the
+  // response. Only a request with no cache at all waits for the build.
   const cached = await readBlob<MainCache>(MAIN_CACHE_KEY);
   if (cached && Date.now() - new Date(cached.updatedAt).getTime() < MAIN_CACHE_TTL_MS) {
     return NextResponse.json(cached);
   }
+  if (cached?.wallets?.length) {
+    after(async () => {
+      try { await rebuildMainList(cached); } catch (e) { console.error("[wallet-tracker] Background rebuild error:", String(e)); }
+    });
+    return NextResponse.json(cached);
+  }
 
   try {
+    return NextResponse.json(await rebuildMainList(cached));
+  } catch (e) {
+    console.error("[wallet-tracker] Build error:", String(e));
+    const prev = await readBlob<MainCache>("wallet-tracker-v9.json");
+    if (prev?.wallets?.length) return NextResponse.json(prev);
+    return NextResponse.json({ error: String(e) }, { status: 500 });
+  }
+}
+
+/** Build the main list, guard against regressions, persist and return it. */
+async function rebuildMainList(cached: MainCache | null): Promise<MainCache> {
+  {
     const wallets = await buildMainList();
     // Guard: never overwrite a valid cache with empty / known-only results
     const nonKnownCount = wallets.filter(w => !w.is_known).length;
     const cachedNonKnown = (cached?.wallets ?? []).filter(w => !w.is_known).length;
-    if (nonKnownCount === 0 && cachedNonKnown > 0) {
-      console.warn(`[wallet-tracker] Built ${wallets.length} wallets (0 non-known) — serving stale cache with ${cachedNonKnown} non-known wallets`);
-      return NextResponse.json(cached);
+    if (nonKnownCount === 0 && cachedNonKnown > 0 && cached) {
+      console.warn(`[wallet-tracker] Built ${wallets.length} wallets (0 non-known) - keeping cache with ${cachedNonKnown} non-known wallets`);
+      return cached;
     }
     if (wallets.length === 0 && cached) {
-      console.warn("[wallet-tracker] Built 0 wallets — serving stale cache");
-      return NextResponse.json(cached);
+      console.warn("[wallet-tracker] Built 0 wallets - keeping cache");
+      return cached;
     }
     const result: MainCache = { wallets, updatedAt: new Date().toISOString() };
     await writeBlob(MAIN_CACHE_KEY, result);
-    return NextResponse.json(result);
-  } catch (e) {
-    console.error("[wallet-tracker] Build error:", String(e));
-    // On rate-limit or transient error, serve stale cache rather than showing error
-    if (cached) return NextResponse.json(cached);
-    // Last-resort: try reading the previous cache version
-    const prev = await readBlob<MainCache>("wallet-tracker-v9.json");
-    if (prev?.wallets?.length) return NextResponse.json(prev);
-    return NextResponse.json({ error: String(e) }, { status: 500 });
+    return result;
   }
 }

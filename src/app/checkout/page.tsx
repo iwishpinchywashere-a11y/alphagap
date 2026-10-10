@@ -1,14 +1,14 @@
 /**
  * /checkout?plan=pro|premium
  *
- * Server component — session cookies are guaranteed to be present.
+ * Server component - session cookies are guaranteed to be present.
  *
  * IMPORTANT: redirect() must NOT be called inside try/catch in Next.js
  * because redirect() works by throwing NEXT_REDIRECT, which catch blocks catch.
  *
  * DESIGN: We do NOT hard-require the user blob to exist here. On fresh signups
  * the Vercel Blob can take >10s to propagate across serverless instances.
- * All we need for Stripe is email + name + userId — which are already in the
+ * All we need for Stripe is email + name + userId - which are already in the
  * session JWT. The webhook fires after payment (30s+) when the blob is
  * guaranteed to exist and does all the subscription status updates.
  */
@@ -58,7 +58,7 @@ export default async function CheckoutPage({
   }
 
   // ── 2. Best-effort user blob lookup (3 retries / ~1.8s) ───────
-  // We do NOT hard-fail if this returns null — session has what we need.
+  // We do NOT hard-fail if this returns null - session has what we need.
   const user = await getUserByEmail(email, { retries: 3 });
 
   // Fallback identity from the JWT (always present)

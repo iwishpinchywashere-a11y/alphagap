@@ -117,6 +117,6 @@ export async function GET() {
     veloReadyOnNextScan: snap24hFound,
     message: snap24hFound
       ? `✅ Velo and Em Δ will compute on the next scan (~10 min).`
-      : `⚠️ No snapshot found within 6–42h window. Oldest entry is ${snap24hAgeH}h old — wait for more history to accumulate.`,
+      : `⚠️ No snapshot found within 6–42h window. Oldest entry is ${snap24hAgeH}h old - wait for more history to accumulate.`,
   });
 }

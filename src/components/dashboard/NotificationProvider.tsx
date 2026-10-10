@@ -136,7 +136,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
                     type: "benchmark",
                     netuid: s.netuid,
                     subnetName: s.name,
-                    message: `Benchmark ${bdelta > 0 ? "improved" : "dropped"} ${Math.abs(Math.round(bdelta))} pts → ${Math.round(s.benchmark_score)}`,
+                    message: `Product score ${bdelta > 0 ? "improved" : "dropped"} ${Math.abs(Math.round(bdelta))} pts → ${Math.round(s.benchmark_score)}`,
                     url: `/benchmarks`,
                     timestamp: now,
                     read: false,
@@ -271,13 +271,13 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const clearAll = useCallback(async () => {
-    // Await the DELETE before updating UI — fire-and-forget was causing notifications
+    // Await the DELETE before updating UI - fire-and-forget was causing notifications
     // to reappear on refresh if the request hadn't landed before the page reloaded.
     try {
       const res = await fetch("/api/notifications", { method: "DELETE" });
       if (!res.ok) return; // Don't clear UI if server rejected the request
     } catch {
-      return; // Network error — leave UI unchanged so user knows it didn't work
+      return; // Network error - leave UI unchanged so user knows it didn't work
     }
     setNotifications([]);
     // Reset snapshot ref so the next background check establishes a fresh baseline

@@ -118,7 +118,7 @@ export async function GET() {
     });
   }
 
-  // Sort by abs(correlation) desc — most correlated first
+  // Sort by abs(correlation) desc - most correlated first
   subnets.sort((a, b) => Math.abs(b.correlation) - Math.abs(a.correlation));
 
   return NextResponse.json({ subnets, snapshotCount: timestamps.length });

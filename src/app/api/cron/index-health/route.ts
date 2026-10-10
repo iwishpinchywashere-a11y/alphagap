@@ -1,5 +1,5 @@
 /**
- * GET /api/cron/index-health — every 6 hours.
+ * GET /api/cron/index-health - every 6 hours.
  *
  * Verifies what ACTUALLY happened on chain, not what we asked TrustedStake to
  * do. Every index problem so far reached us through a member complaining:
@@ -34,7 +34,7 @@ const RPC = "wss://entrypoint-finney.opentensor.ai:443";
 
 /** Undeployed this long after joining is a fault, not latency. */
 const STALE_HOURS = 48;
-/** Ignore dust — below this a wallet has nothing to deploy anyway. */
+/** Ignore dust - below this a wallet has nothing to deploy anyway. */
 const MIN_TAO = 2;
 
 interface Delegator { walletAddress: string; joinedAt: string; isActive?: boolean; leftAt?: string | null }
@@ -82,7 +82,7 @@ export async function GET(req: NextRequest) {
     const delegators: Delegator[] = Array.isArray(raw) ? raw : (raw?.delegators ?? []);
 
     if (!delegators.length) {
-      warnings.push("Delegator list empty or unreadable — per-member checks skipped.");
+      warnings.push("Delegator list empty or unreadable - per-member checks skipped.");
     } else {
       const { ApiPromise, WsProvider } = await import("@polkadot/api");
       api = await ApiPromise.create({ provider: new WsProvider(RPC), noInitWarn: true });
@@ -106,7 +106,7 @@ export async function GET(req: NextRequest) {
 
           const ageHours = (Date.now() - new Date(d.joinedAt).getTime()) / 3_600_000;
 
-          // Registered, funded, past the grace window — and nothing deployed.
+          // Registered, funded, past the grace window - and nothing deployed.
           if (staked <= 0.01 && freeTao >= MIN_TAO && ageHours > STALE_HOURS) {
             problems.push({
               kind: "member_funds_undeployed",
@@ -117,7 +117,7 @@ export async function GET(req: NextRequest) {
               hasProxy,
             });
           }
-          // Registered but never completed the on-chain half — they will never
+          // Registered but never completed the on-chain half - they will never
           // deploy and nothing tells them so.
           if (!hasProxy && freeTao >= MIN_TAO) {
             problems.push({ kind: "registered_without_proxy", wallet: addr, freeTao: Number(freeTao.toFixed(4)), joinedAt: d.joinedAt });
@@ -135,7 +135,7 @@ export async function GET(req: NextRequest) {
 
   // Loud, because the whole point is that these stopped being silent.
   for (const p of problems) console.error("[index-health] PROBLEM", JSON.stringify(p));
-  if (!problems.length) console.log(`[index-health] OK — ${checked} delegators, all deployed`);
+  if (!problems.length) console.log(`[index-health] OK - ${checked} delegators, all deployed`);
 
   // ── Tell the owner ────────────────────────────────────────────────
   // console.error alone is not an alarm: nobody reads Vercel logs. A member

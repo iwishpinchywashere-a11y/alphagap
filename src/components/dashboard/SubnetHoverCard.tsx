@@ -191,7 +191,7 @@ export default function SubnetHoverCard({ sub, mouseX, mouseY, taoPrice, onKeepA
     }
     if (cached === "error") { setLoading(false); return; }
 
-    // Not yet fetched — kick off request
+    // Not yet fetched - kick off request
     fetchCache.set(sub.netuid, "loading");
     fetch(`/api/subnets/${sub.netuid}`)
       .then(r => r.ok ? r.json() : Promise.reject())
@@ -319,7 +319,7 @@ export default function SubnetHoverCard({ sub, mouseX, mouseY, taoPrice, onKeepA
               {agapHistory.length >= 2 ? (
                 <Sparkline values={agapHistory} width={118} height={28} color={agapColor} fill={false} />
               ) : (
-                <div className="h-7 flex items-center text-[10px] text-gray-700">—</div>
+                <div className="h-7 flex items-center text-[10px] text-gray-700">-</div>
               )}
             </div>
             <div className="flex-1">
@@ -327,7 +327,7 @@ export default function SubnetHoverCard({ sub, mouseX, mouseY, taoPrice, onKeepA
               {emission30.length >= 2 ? (
                 <Sparkline values={emission30} width={118} height={28} color="#818cf8" fill={false} />
               ) : (
-                <div className="h-7 flex items-center text-[10px] text-gray-700">—</div>
+                <div className="h-7 flex items-center text-[10px] text-gray-700">-</div>
               )}
             </div>
           </div>
@@ -347,7 +347,7 @@ export default function SubnetHoverCard({ sub, mouseX, mouseY, taoPrice, onKeepA
             <div>
               <div className="text-[8px] text-gray-600 uppercase tracking-wider mb-0.5">MCap</div>
               <div className="text-[11px] font-semibold text-gray-300 tabular-nums">
-                {sub.market_cap != null ? `$${formatNum(sub.market_cap)}` : "—"}
+                {sub.market_cap != null ? `$${formatNum(sub.market_cap)}` : "-"}
               </div>
             </div>
             <div>
@@ -357,7 +357,7 @@ export default function SubnetHoverCard({ sub, mouseX, mouseY, taoPrice, onKeepA
                 sub.emission_change_pct != null && sub.emission_change_pct < 0 ? "text-red-400" :
                 "text-gray-300"
               }`}>
-                {sub.emission_pct != null ? `${(sub.emission_pct * 100).toFixed(2)}%` : "—"}
+                {sub.emission_pct != null ? `${(sub.emission_pct * 100).toFixed(2)}%` : "-"}
                 {sub.emission_change_pct != null && sub.emission_change_pct !== 0 && (
                   <span className="text-[8px] ml-0.5">
                     {sub.emission_change_pct > 0 ? "↑" : "↓"}
@@ -372,7 +372,7 @@ export default function SubnetHoverCard({ sub, mouseX, mouseY, taoPrice, onKeepA
                 sub.apy_7d != null && sub.apy_7d >= 0.2 ? "text-yellow-400" :
                 "text-gray-300"
               }`}>
-                {sub.apy_7d != null ? `${(sub.apy_7d * 100).toFixed(0)}%` : "—"}
+                {sub.apy_7d != null ? `${(sub.apy_7d * 100).toFixed(0)}%` : "-"}
               </div>
             </div>
             <div>
@@ -384,7 +384,7 @@ export default function SubnetHoverCard({ sub, mouseX, mouseY, taoPrice, onKeepA
               }`}>
                 {sub.net_flow_24h != null && taoPrice != null
                   ? `${sub.net_flow_24h > 0 ? "+" : ""}$${formatNum(Math.round(Math.abs(sub.net_flow_24h) * taoPrice))}`
-                  : "—"}
+                  : "-"}
               </div>
             </div>
             <div>
@@ -395,7 +395,7 @@ export default function SubnetHoverCard({ sub, mouseX, mouseY, taoPrice, onKeepA
                 sub.audit_score >= 50 ? "text-yellow-400" :
                 "text-orange-400"
               }`}>
-                {sub.audit_score ?? "—"}
+                {sub.audit_score ?? "-"}
               </div>
             </div>
             <div>
@@ -405,7 +405,7 @@ export default function SubnetHoverCard({ sub, mouseX, mouseY, taoPrice, onKeepA
                 sub.agap_velo != null && sub.agap_velo >= 40 ? "text-yellow-400" :
                 "text-gray-300"
               }`}>
-                {sub.agap_velo ?? "—"}
+                {sub.agap_velo ?? "-"}
               </div>
             </div>
           </div>

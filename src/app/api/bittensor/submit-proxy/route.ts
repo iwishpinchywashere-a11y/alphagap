@@ -65,7 +65,7 @@ export async function POST(request: Request) {
       console.error("[submit-proxy] RPC error:", full, "| raw data:", rpcData.error?.data);
 
       // "AlreadyImported" / "Priority is too low" / "Duplicate" / "already" = proxy
-      // already exists on chain — treat as success
+      // already exists on chain - treat as success
       const already =
         full.toLowerCase().includes("already") ||
         full.toLowerCase().includes("priority is too low") ||

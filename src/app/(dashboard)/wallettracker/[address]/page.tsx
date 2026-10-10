@@ -316,7 +316,7 @@ export default function WalletProfilePage() {
           label="ROI"
           value={profile.roi_pct != null
             ? `${profile.roi_pct >= 0 ? "+" : ""}${profile.roi_pct.toFixed(2)}%`
-            : "—"}
+            : "-"}
           color={profile.roi_pct != null ? pnlColor(profile.roi_pct) as "green" | "red" | "white" : "white"}
         />
       </div>
@@ -339,7 +339,7 @@ export default function WalletProfilePage() {
             ? profile.avg_hold_days >= 1
               ? `${profile.avg_hold_days.toFixed(1)}d`
               : `${Math.round(profile.avg_hold_days * 24)}h`
-            : "—"}
+            : "-"}
           color="cyan"
         />
       </div>
@@ -396,7 +396,7 @@ export default function WalletProfilePage() {
 
                   {/* USD */}
                   <div className="hidden sm:block text-right w-16">
-                    <div className="text-xs text-gray-500 tabular-nums">{pos.staked_usd > 0 ? fmtUsd(pos.staked_usd) : "—"}</div>
+                    <div className="text-xs text-gray-500 tabular-nums">{pos.staked_usd > 0 ? fmtUsd(pos.staked_usd) : "-"}</div>
                   </div>
 
                   {/* Allocation */}
@@ -480,7 +480,7 @@ export default function WalletProfilePage() {
                       {trade.netuid != null && trade.netuid > 0 && (
                         <SubnetLogo netuid={trade.netuid} name={trade.subnet_name} size={16} />
                       )}
-                      <span className="text-[9px] text-gray-600 font-mono flex-shrink-0">SN{trade.netuid ?? "—"}</span>
+                      <span className="text-[9px] text-gray-600 font-mono flex-shrink-0">SN{trade.netuid ?? "-"}</span>
                       <span className="text-xs text-gray-300 truncate">{trade.subnet_name}</span>
                       {trade.is_validator_swap && (
                         <span className="flex-shrink-0 inline-flex items-center gap-0.5 text-[9px] font-semibold px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">

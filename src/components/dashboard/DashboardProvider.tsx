@@ -44,10 +44,10 @@ export default function DashboardProvider({ children }: { children: React.ReactN
 
   const hasAutoScanned = useRef(false);
   const analyzingRef = useRef(new Set<number>());
-  // Audit scores fetched once on mount — merged into leaderboard immediately
+  // Audit scores fetched once on mount - merged into leaderboard immediately
   // so the Audit column populates without waiting for the next full scan.
   const auditScoresRef = useRef<Record<string, number>>({});
-  // Yield scores fetched once on mount — merged into leaderboard for APY column.
+  // Yield scores fetched once on mount - merged into leaderboard for APY column.
   const yieldScoresRef = useRef<Record<string, { apy_7d: number; apy_1h: number; apy_30d: number }>>({});
 
   const mergeAuditScores = useCallback((entries: SubnetScore[]): SubnetScore[] => {
@@ -110,25 +110,26 @@ export default function DashboardProvider({ children }: { children: React.ReactN
 
       if (freshLeaderboard.length < 50 || withPrice < 50) {
         // Scan returned a degraded result (data source outage / API credits exhausted).
-        // Do NOT overwrite the existing leaderboard — users should keep seeing the last
+        // Do NOT overwrite the existing leaderboard - users should keep seeing the last
         // good data rather than a blank table. Still surface fresh signals if available.
         if ((data.signals as Signal[])?.length) {
           setSignals(data.signals as Signal[]);
         }
-        setScanError("Data sources temporarily unavailable — showing last known leaderboard.");
+        // Keep the last good leaderboard on screen. Outages are reported to the
+        // owner by the health-watch cron, never to users.
+        console.warn("[dashboard] Scan returned a degraded leaderboard; keeping the current one");
       } else {
         loadData(data);
       }
     } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      setScanError(msg);
+      console.warn("[dashboard] Scan refresh failed; keeping the current leaderboard:", e instanceof Error ? e.message : String(e));
     } finally {
       setScanning(false);
       setScanStep(null);
     }
   }, [loadData, setSignals]);
 
-  // Current schema version — must match SCAN_SCHEMA_VERSION in scan/route.ts.
+  // Current schema version - must match SCAN_SCHEMA_VERSION in scan/route.ts.
   // If the cached blob has an older version, force a background rescan immediately
   // so the dashboard never shows stale-format data to the user.
   const CURRENT_SCHEMA_VERSION = 21; // keep in sync with SCAN_SCHEMA_VERSION in scan/route.ts
@@ -156,7 +157,7 @@ export default function DashboardProvider({ children }: { children: React.ReactN
 
   // Fetch audit scores once on mount and merge into whatever leaderboard is current.
   // This runs independently of the scan so the Audit column is always populated
-  // immediately from the hourly audit-data.json blob — no scan required.
+  // immediately from the hourly audit-data.json blob - no scan required.
   useEffect(() => {
     fetch("/api/audit-scores")
       .then(r => r.ok ? r.json() : null)

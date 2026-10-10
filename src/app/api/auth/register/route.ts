@@ -2,7 +2,7 @@
  * POST /api/auth/register
  *
  * Secret free-account registration endpoint.
- * Creates a user with subscriptionStatus: "none" — admin upgrades them manually.
+ * Creates a user with subscriptionStatus: "none" - admin upgrades them manually.
  * Not linked from any public page; URL is shared privately.
  */
 
@@ -54,6 +54,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true });
   } catch (e) {
     console.error("[register]", e);
-    return NextResponse.json({ error: "Registration failed — please try again" }, { status: 500 });
+    return NextResponse.json({ error: "Registration failed - please try again" }, { status: 500 });
   }
 }

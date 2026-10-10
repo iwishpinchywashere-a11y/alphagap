@@ -1,4 +1,4 @@
-// Discord Alpha Scanner — reads Bittensor subnet channels and classifies the chatter
+// Discord Alpha Scanner - reads Bittensor subnet channels and classifies the chatter
 // Runs as a cron (once per day) or on-demand via GET /api/discord-scan
 // Results cached in Vercel Blob as discord-latest.json
 
@@ -17,7 +17,7 @@ import {
 import { queryTaofluteMessages, type TaofluteMessage } from "@/lib/taoflute";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 240; // 4 min — fits Vercel Pro limit comfortably
+export const maxDuration = 240; // 4 min - fits Vercel Pro limit comfortably
 
 async function readBlob<T>(name: string): Promise<T | null> {
   try {
@@ -38,37 +38,37 @@ const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY || "";
 // ── Bittensor Founder tracking ────────────────────────────────────────────────
 // Const's known Discord usernames (case-insensitive, add more if display name changes)
 // Match on username (account handle) AND global_name (display name).
-// Const's display name is "const [τ, τ]" — username may differ; we catch both.
+// Const's display name is "const [τ, τ]" - username may differ; we catch both.
 // Any account whose username OR display name starts with "const" is treated as the founder.
 const FOUNDER_USERNAMES = new Set(["consttt", "constt", "const", "const.tt"]);
-// Discord user IDs never change — more reliable than name matching
+// Discord user IDs never change - more reliable than name matching
 const FOUNDER_USER_IDS = new Set<string>([
-  "229609371013029888", // const [τ, τ] — confirmed from live Bittensor Discord messages
+  "229609371013029888", // const [τ, τ] - confirmed from live Bittensor Discord messages
 ]);
 
-// Prioritise channels we can map to a netuid — keep under timeout budget
+// Prioritise channels we can map to a netuid - keep under timeout budget
 // 120 × (80ms delay + ~300ms fetch) ≈ 45s fetch + ~100s AI = ~145s well under 4min limit
 const MAX_CHANNELS = 120;
-// Messages per channel — Discord API hard cap is 100; keep at 100
+// Messages per channel - Discord API hard cap is 100; keep at 100
 const MESSAGES_PER_CHANNEL = 100;
-// Minimum messages to bother analyzing — 1 so no channel with any activity is skipped
+// Minimum messages to bother analyzing - 1 so no channel with any activity is skipped
 const MIN_MESSAGES_TO_ANALYZE = 1;
 // Delay between channel fetches (ms)
 const RATE_LIMIT_DELAY = 80;
-// Founder post lookback window — 7 days so we catch posts even if the cron missed several
-// runs. The 72h window was too short — a few failed cron runs would lose all founder history.
+// Founder post lookback window - 7 days so we catch posts even if the cron missed several
+// runs. The 72h window was too short - a few failed cron runs would lose all founder history.
 const FOUNDER_LOOKBACK_HOURS = 168; // 7 days
-// Minimum entries to surface on the social page — if below this, relax signal thresholds
+// Minimum entries to surface on the social page - if below this, relax signal thresholds
 const MIN_ENTRIES_TARGET = 10;
 // Extra general/announcement channels to scan for Const posts (name substrings).
-// Keep broad — we want EVERY channel Const might post in, not just subnet channels.
+// Keep broad - we want EVERY channel Const might post in, not just subnet channels.
 const FOUNDER_CHANNEL_PATTERNS = [
   "general", "announce", "ecosystem", "governance", "core-team",
   "const", "update", "news", "dev-chat", "builders", "official",
   "root", "validator", "subnet-owner", "protocol", "research",
   "founders", "team", "alpha", "community", "public",
 ];
-const MAX_FOUNDER_CHANNELS = 50; // increased from 20 — Const posts across many channels
+const MAX_FOUNDER_CHANNELS = 50; // increased from 20 - Const posts across many channels
 
 // ── Deleted message detection ────────────────────────────────────────────────
 
@@ -84,7 +84,7 @@ export interface DeletedMessageResult {
   postedAt: string;
   detectedAt: string;
   significant: boolean;
-  sinister: boolean;     // legal/security/exit risk — triggers aGap penalty
+  sinister: boolean;     // legal/security/exit risk - triggers aGap penalty
   significance: string;  // AI explanation of why it matters
 }
 
@@ -169,7 +169,7 @@ async function classifyDeletedMessages(
 
 ${items}
 
-For each message, determine if it's significant enough to surface to investors. Most deletions are NOT significant — be conservative. Only flag something if you are confident it would matter to a Bittensor investor.
+For each message, determine if it's significant enough to surface to investors. Most deletions are NOT significant - be conservative. Only flag something if you are confident it would matter to a Bittensor investor.
 
 SIGNIFICANT: Team/founders deleting disclosures, deleted partnership announcements, security warnings, legal/regulatory mentions, exit signals, explicit "don't share this" content, revealing project problems.
 NOT SIGNIFICANT: Typo corrections, spam removal, casual chat, test messages, normal bot deletions.
@@ -187,7 +187,7 @@ Respond with a JSON array (one object per message, same order):
 ]
 
 Rules:
-- Be VERY conservative — false positives hurt trust. If in doubt: significant=false.
+- Be VERY conservative - false positives hurt trust. If in doubt: significant=false.
 - sinister=true ONLY when there is strong evidence of harm to investors.
 - Respond with ONLY the JSON array.`;
 
@@ -279,7 +279,7 @@ export async function GET() {
     });
 
     const channelsToScan = sorted.slice(0, MAX_CHANNELS);
-    // Fetch 72h of messages — the full window needed for founder post detection.
+    // Fetch 72h of messages - the full window needed for founder post detection.
     // Regular AI analysis uses only the 24h subset; founder scan uses all 72h.
     // This catches Const's posts even if the cron missed a run or two.
     const afterSnowflake72h = getHoursAgoSnowflake(FOUNDER_LOOKBACK_HOURS);
@@ -332,7 +332,7 @@ export async function GET() {
       }
     }
 
-    // Fetch general channels (founder detection only — no AI batch)
+    // Fetch general channels (founder detection only - no AI batch)
     for (const channel of founderExtraChannels) {
       try {
         const messages = await fetchChannelMessages(DISCORD_TOKEN, channel.id, {
@@ -354,9 +354,9 @@ export async function GET() {
 
     // For AI analysis, include messages from the last 48h (expanded from 24h so that
     // high-signal announcements posted yesterday aren't silently dropped).
-    // Additionally, any message with ≥15 total reactions is included up to 72h —
+    // Additionally, any message with ≥15 total reactions is included up to 72h -
     // high community engagement is a strong signal regardless of age.
-    // Exclude founderOnly channels — those are for Const detection only, not AI batch.
+    // Exclude founderOnly channels - those are for Const detection only, not AI batch.
     const channelScans24h = channelScans
       .filter(c => !c.founderOnly)
       .map(c => ({
@@ -375,7 +375,7 @@ export async function GET() {
     const activeChannels = channelScans24h.filter(c => c.messages.length >= MIN_MESSAGES_TO_ANALYZE);
     console.log(`[discord-scan] ${activeChannels.length} channels have ${MIN_MESSAGES_TO_ANALYZE}+ messages in last 24h`);
 
-    // 4. Batch AI analysis — group channels into batches of 6
+    // 4. Batch AI analysis - group channels into batches of 6
     // (smaller batches prevent max_tokens truncation of the JSON response)
     const results: DiscordAlphaResult[] = [];
     const BATCH_SIZE = 6;
@@ -385,7 +385,7 @@ export async function GET() {
 
     for (let i = 0; i < activeChannels.length; i += BATCH_SIZE) {
       if (Date.now() - scanStart > AI_BUDGET_MS) {
-        console.warn(`[discord-scan] Time budget reached — skipping remaining ${activeChannels.length - i} channels`);
+        console.warn(`[discord-scan] Time budget reached - skipping remaining ${activeChannels.length - i} channels`);
         // Add fallback results for skipped channels
         for (const ch of activeChannels.slice(i)) results.push(fallbackResult(ch));
         break;
@@ -485,7 +485,7 @@ export async function GET() {
         const significant = newDeleted.filter(d => d.significant).length;
         console.log(`[discord-scan] Deleted detection: ${newDeleted.length} verified, ${significant} significant (${Date.now() - delStart}ms)`);
 
-        // Merge with previous — keep 7-day rolling window, dedup by messageId
+        // Merge with previous - keep 7-day rolling window, dedup by messageId
         const cutoff7d = Date.now() - 7 * 24 * 60 * 60 * 1000;
         const prev = (prevDeleted?.messages ?? []).filter(m => new Date(m.detectedAt).getTime() > cutoff7d);
         const existingIds = new Set(prev.map(m => m.id));
@@ -517,7 +517,7 @@ export async function GET() {
       });
       console.log("[discord-scan] Saved discord-latest.json to blob");
 
-      // Alert scanner is NOT triggered here — it runs on its own 5-min cron only.
+      // Alert scanner is NOT triggered here - it runs on its own 5-min cron only.
     }
 
     return NextResponse.json({
@@ -600,24 +600,24 @@ async function analyzeBatch(
 
   const prompt = `You are an alpha intelligence analyst for Bittensor subnet investments. Analyze these Discord channel conversations from the last 24 hours and extract every useful signal.
 
-Your goal is to surface ACTIONABLE INTEL that serious investors would pay for. Err on the side of classifying channels as "active" — we want to show investors what's happening across the ecosystem.
+Your goal is to surface ACTIONABLE INTEL that serious investors would pay for. Err on the side of classifying channels as "active" - we want to show investors what's happening across the ecosystem.
 
 SIGNAL TYPES:
-- "alpha": Genuine alpha — dev previews, partnership hints, unreleased features, technical breakthroughs, insider mentions, launch dates, validator announcements, major protocol changes, cross-subnet integrations. Something a serious investor NEEDS to know.
-- "active": Any real activity worth noting — technical discussion, builder questions, team engagement, community updates, support activity, bug reports showing a live product, feedback on features.
-- "quiet": Minimal or generic chat — only 1-3 messages with no substance, mostly greetings or filler.
+- "alpha": Genuine alpha - dev previews, partnership hints, unreleased features, technical breakthroughs, insider mentions, launch dates, validator announcements, major protocol changes, cross-subnet integrations. Something a serious investor NEEDS to know.
+- "active": Any real activity worth noting - technical discussion, builder questions, team engagement, community updates, support activity, bug reports showing a live product, feedback on features.
+- "quiet": Minimal or generic chat - only 1-3 messages with no substance, mostly greetings or filler.
 - "noise": Spam, bots, price complaints, pure shitposting with zero informational value.
 
-ALPHA SCORE (0-100) — BE AGGRESSIVE, DO NOT UNDERSCORE:
-- 90-100: HUGE alpha — confirmed partnership with named company/protocol, imminent launch with date, major product announcement, cross-subnet integration live or announced, exclusive technical breakthrough, team confirming something the market doesn't know yet. IF YOU SEE THIS, SCORE 90+.
-- 80-89: Strong confirmed alpha — partnership hinted strongly, major feature shipping imminently, dev sharing unreleased work publicly, significant validator/miner milestone
-- 60-79: Clear signal — dev previewing work, integration teased, team milestone, noteworthy technical update
-- 40-59: Active + quality — real technical discussion, builder engagement, multiple substantive posts
-- 20-39: Active — decent activity, community alive, some substance even if no big news
-- 5-19: Quiet — low volume, mostly generic
+ALPHA SCORE (0-100) - BE AGGRESSIVE, DO NOT UNDERSCORE:
+- 90-100: HUGE alpha - confirmed partnership with named company/protocol, imminent launch with date, major product announcement, cross-subnet integration live or announced, exclusive technical breakthrough, team confirming something the market doesn't know yet. IF YOU SEE THIS, SCORE 90+.
+- 80-89: Strong confirmed alpha - partnership hinted strongly, major feature shipping imminently, dev sharing unreleased work publicly, significant validator/miner milestone
+- 60-79: Clear signal - dev previewing work, integration teased, team milestone, noteworthy technical update
+- 40-59: Active + quality - real technical discussion, builder engagement, multiple substantive posts
+- 20-39: Active - decent activity, community alive, some substance even if no big news
+- 5-19: Quiet - low volume, mostly generic
 - 0: Noise/spam only
 
-CRITICAL — THESE ARE ALWAYS ALPHA (score 85+):
+CRITICAL - THESE ARE ALWAYS ALPHA (score 85+):
 - Any mention of a partnership with a named company, protocol, or other Bittensor subnet
 - Any cross-subnet collaboration or integration being announced or discussed by team members
 - Product launches, mainnet announcements, or major upgrades with specifics
@@ -626,41 +626,41 @@ CRITICAL — THESE ARE ALWAYS ALPHA (score 85+):
 - Exclusive access, early beta invites, whitelist announcements
 
 KEY INSIGHT TYPES:
-- "partnership": New partner, integration, or protocol collaboration — cross-subnet too
+- "partnership": New partner, integration, or protocol collaboration - cross-subnet too
 - "feature": New product feature, capability, or technical upgrade
 - "launch": Launch date, mainnet, public release, or major milestone
 - "dev_update": Dev commits, GitHub activity, code update, technical progress
 - "team": New hire, advisor, community growth, or key team activity
-- "community": Strong community signal — engagement, sentiment, builder activity
+- "community": Strong community signal - engagement, sentiment, builder activity
 - "general": Other useful intel
 
-RELEASE HINT — set true for: imminent release/launch being discussed, devs previewing unreleased work, confirmed launch dates, major architectural announcements, or partnership going live imminently.
+RELEASE HINT - set true for: imminent release/launch being discussed, devs previewing unreleased work, confirmed launch dates, major architectural announcements, or partnership going live imminently.
 
 ${channelTexts.join("\n\n")}
 
-Respond with a JSON array — one object per channel IN THE SAME ORDER:
+Respond with a JSON array - one object per channel IN THE SAME ORDER:
 [
   {
     "channelName": "exact channel name",
     "signal": "alpha|active|quiet|noise",
     "alphaScore": 45,
     "releaseHint": false,
-    "summary": "One punchy, specific sentence. Name the actual feature/partner/activity — not 'community discussing updates' but 'Team announcing integration with Targon (SN4) for compute routing, going live next week'.",
+    "summary": "One punchy, specific sentence. Name the actual feature/partner/activity - not 'community discussing updates' but 'Team announcing integration with Targon (SN4) for compute routing, going live next week'.",
     "keyInsights": [
-      { "text": "Specific insight here — name features, people, dates, partner names", "type": "partnership" }
+      { "text": "Specific insight here - name features, people, dates, partner names", "type": "partnership" }
     ],
-    "alphaTake": "REQUIRED — always include this field for every entry. 1-2 plain English sentences for a non-technical investor. Be direct: say exactly what this means and whether it's worth acting on. Tailor to the signal level: Alpha → 'The team just [specific action] — this is the kind of early signal that moves before the market catches up. Worth watching closely.' Active → 'The [subnet name] community is actively building — nothing price-moving yet but the dev momentum is real. Keep it on your radar.' Quiet/noise → 'Nothing meaningful happening here right now. Move on.' Never leave this blank — every entry needs an AlphaGap Take."
+    "alphaTake": "REQUIRED - always include this field for every entry. 1-2 plain English sentences for a non-technical investor. Be direct: say exactly what this means and whether it's worth acting on. Tailor to the signal level: Alpha → 'The team just [specific action] - this is the kind of early signal that moves before the market catches up. Worth watching closely.' Active → 'The [subnet name] community is actively building - nothing price-moving yet but the dev momentum is real. Keep it on your radar.' Quiet/noise → 'Nothing meaningful happening here right now. Move on.' Never leave this blank - every entry needs an AlphaGap Take."
   }
 ]
 
 Rules:
-- Be GENEROUS with "active" — if 3+ real humans posted anything substantive, it's active.
-- Be STINGY with "quiet" and "noise" — only use these for truly dead channels.
-- DO NOT underscore partnership/launch/integration events. These are rare and high-value — always score 85+.
-- Summary must be SPECIFIC — mention actual topics, features, people, partner names, or events.
+- Be GENEROUS with "active" - if 3+ real humans posted anything substantive, it's active.
+- Be STINGY with "quiet" and "noise" - only use these for truly dead channels.
+- DO NOT underscore partnership/launch/integration events. These are rare and high-value - always score 85+.
+- Summary must be SPECIFIC - mention actual topics, features, people, partner names, or events.
 - keyInsights: 0 for quiet/noise, 1-3 for active, 1-5 for alpha. Name actual companies, projects, features.
 - alphaScore reflects BOTH quality AND quantity. A channel where the founder announces a partnership = 90+.
-- alphaTake is MANDATORY — every single entry must have a non-empty alphaTake string. No exceptions.
+- alphaTake is MANDATORY - every single entry must have a non-empty alphaTake string. No exceptions.
 - Respond with ONLY the JSON array, no other text.`;
 
   // Attempt AI analysis with one retry on failure
@@ -695,7 +695,7 @@ Rules:
       text = await attemptAnalysis();
     }
     if (!text) {
-      console.error("[discord-scan] AI batch failed after retry — using fallback");
+      console.error("[discord-scan] AI batch failed after retry - using fallback");
       return channels.map(ch => fallbackResult(ch));
     }
 
@@ -715,7 +715,7 @@ Rules:
       const ai = parsed[idx] || { signal: "quiet" as const, summary: "Analysis unavailable.", keyInsights: [], alphaScore: 0 };
       const uniquePosters = new Set(ch.messages.filter(m => !m.author.bot).map(m => m.author.username)).size;
 
-      // Normalise keyInsights — AI may return objects or strings
+      // Normalise keyInsights - AI may return objects or strings
       const keyInsights: string[] = (ai.keyInsights || []).map(k =>
         typeof k === "string" ? k : `${k.text}`
       );
@@ -761,7 +761,7 @@ Rules:
 }
 
 // ── Founder fallback entries (used when AI analysis errors) ─────────────────
-// Only surfaces entries that have a real content snippet — skips channels where
+// Only surfaces entries that have a real content snippet - skips channels where
 // every Const message was filtered out (polls, single-emoji posts, etc.).
 function buildFallbackFounderEntries(
   byChannel: Map<string, { channelId: string; channelName: string; netuid: number | null; msgs: DiscordMessage[] }>
@@ -771,7 +771,7 @@ function buildFallbackFounderEntries(
     if (ch.msgs.length === 0) continue; // nothing real to surface
     const lastMsg = ch.msgs.at(-1);
     const snippet = ch.msgs.map(m => m.content.slice(0, 1000)).join(" · ").slice(0, 2000).trim();
-    // Only emit if we have an actual snippet — the generic fallback string by itself
+    // Only emit if we have an actual snippet - the generic fallback string by itself
     // tells users nothing and just creates noise on the Social page.
     if (!snippet) continue;
     entries.push({
@@ -785,7 +785,7 @@ function buildFallbackFounderEntries(
       releaseHint: false,
       summary: snippet,
       keyInsights: [],
-      alphaTake: "Const posted here — review manually for context.",
+      alphaTake: "Const posted here - review manually for context.",
       founderPost: true,
       messageCount: ch.msgs.length,
       uniquePosters: 1,
@@ -825,14 +825,14 @@ async function analyzeFounderPosts(
         FOUNDER_USER_IDS.has(msg.author.id) ||
         uname.startsWith("const") ||
         displayName.startsWith("const");
-      // Skip thumbs-up / thumbs-down reaction messages — Const uses these constantly
+      // Skip thumbs-up / thumbs-down reaction messages - Const uses these constantly
       // to vote on things and they generate duplicate noise with no signal.
       const IGNORE_PATTERNS = /^(👍|👎|🤙|✅|❌|thumbs\s*up|thumbs\s*down|\+1|-1|✔|✖)+$/i;
       // Also skip Const's recurring subnet-poll messages ("Miners, thumbs up if legit…")
-      // — these are posted in every subnet Discord and carry zero alpha signal.
+      // - these are posted in every subnet Discord and carry zero alpha signal.
       const CONST_POLL_PATTERN = /miners[,.]?\s*(thumbs|vote|👍|👎)|if\s+this\s+subnet\s+is\s+(legit|bunk)/i;
       if (isFounder && (IGNORE_PATTERNS.test(msg.content.trim()) || CONST_POLL_PATTERN.test(msg.content))) continue;
-      // Track all other Const posts — even short ones.
+      // Track all other Const posts - even short ones.
       if (isFounder && msg.content.trim().length > 2) {
         if (!byChannel.has(scan.channelName)) {
           byChannel.set(scan.channelName, {
@@ -868,26 +868,26 @@ async function analyzeFounderPosts(
     })
     .join("\n\n");
 
-  const prompt = `You are an analyst for Bittensor subnet investors. The following are Discord messages posted by Const — the founder of Bittensor — in various subnet Discord channels in the last 72 hours. Each section is a separate channel.
+  const prompt = `You are an analyst for Bittensor subnet investors. The following are Discord messages posted by Const - the founder of Bittensor - in various subnet Discord channels in the last 72 hours. Each section is a separate channel.
 
 ${channelSections}
 
 For EACH channel section, determine if the messages are SIGNIFICANT (not just greetings, "lol", one-word replies, or generic support). A message is significant if it reveals governance decisions, technical direction, security issues, subnet removals, partnerships, or anything an investor would want to know.
 
-Respond with a JSON array — one object per channel, IN THE SAME ORDER as the sections above:
+Respond with a JSON array - one object per channel, IN THE SAME ORDER as the sections above:
 [
   {
     "channelName": "exact channel name without the # prefix",
     "significant": true or false,
     "alphaScore": 0-100,
-    "summary": "One specific punchy sentence about what Const said HERE in this channel — quote or closely paraphrase his actual words. Do NOT generalize across channels.",
+    "summary": "One specific punchy sentence about what Const said HERE in this channel - quote or closely paraphrase his actual words. Do NOT generalize across channels.",
     "keyInsights": ["Direct quote or close paraphrase of key point 1 from this channel", "key point 2"],
     "alphaTake": "1-2 plain English sentences: what does THIS message mean for investors in this specific subnet? Is it actionable?"
   }
 ]
 
 Rules:
-- Each entry must only cover what Const said in THAT specific channel — no mixing across channels.
+- Each entry must only cover what Const said in THAT specific channel - no mixing across channels.
 - If a channel's messages are not significant, set "significant": false (summary/keyInsights can be empty).
 - alphaScore: 85-100 for governance/security/enforcement, 70-84 for technical direction or major commentary, 50-69 for notable but less critical posts.
 - Respond with ONLY the JSON array, no other text.`;
@@ -908,7 +908,7 @@ Rules:
     });
 
     if (!res.ok) {
-      console.warn(`[discord-scan] Founder AI analysis failed (${res.status}) — surfacing all posts with fallback scores`);
+      console.warn(`[discord-scan] Founder AI analysis failed (${res.status}) - surfacing all posts with fallback scores`);
       return buildFallbackFounderEntries(byChannel);
     }
 
@@ -927,7 +927,7 @@ Rules:
     try {
       aiResults = JSON.parse(jsonText);
     } catch {
-      console.warn("[discord-scan] Founder AI JSON parse failed — surfacing all posts with fallback scores");
+      console.warn("[discord-scan] Founder AI JSON parse failed - surfacing all posts with fallback scores");
       return buildFallbackFounderEntries(byChannel);
     }
 
@@ -938,11 +938,11 @@ Rules:
       const ch = channelList[i];
       const ai = aiResults[i];
 
-      // Never drop Const's posts — even "not significant" posts show he's active.
+      // Never drop Const's posts - even "not significant" posts show he's active.
       // If AI says not significant, we still surface it with a lower alphaScore (30)
       // so the user always knows when Const has posted anywhere.
       if (!ai?.significant) {
-        console.log(`[discord-scan] Founder post in #${ch.channelName} marked not significant — surfacing anyway with low score`);
+        console.log(`[discord-scan] Founder post in #${ch.channelName} marked not significant - surfacing anyway with low score`);
       }
 
       const lastMsg = ch.msgs.at(-1);
@@ -975,7 +975,7 @@ Rules:
     return entries;
   } catch (e) {
     console.error("[discord-scan] Founder analysis error:", e);
-    // Even on error, surface all Const posts with fallback scores — never silently drop them
+    // Even on error, surface all Const posts with fallback scores - never silently drop them
     return buildFallbackFounderEntries(byChannel);
   }
 }
@@ -983,13 +983,13 @@ Rules:
 // Fallback AlphaGap Take when the AI doesn't return one
 function defaultAlphaTake(signal: string, alphaScore?: number): string {
   if (signal === "alpha" && (alphaScore ?? 0) >= 80) {
-    return "Strong alpha signal — something significant is happening here. Worth digging into before the wider market notices.";
+    return "Strong alpha signal - something significant is happening here. Worth digging into before the wider market notices.";
   }
   if (signal === "alpha") {
-    return "Real alpha is surfacing in this channel — the community is discussing something that could matter. Keep this subnet on your radar.";
+    return "Real alpha is surfacing in this channel - the community is discussing something that could matter. Keep this subnet on your radar.";
   }
   if (signal === "active") {
-    return "Active community with builders engaging — no single big catalyst yet, but the momentum is real. Worth monitoring.";
+    return "Active community with builders engaging - no single big catalyst yet, but the momentum is real. Worth monitoring.";
   }
   return "Nothing actionable here right now. Move on.";
 }
@@ -1008,7 +1008,7 @@ function fallbackResult(ch: {
   // Build a real summary from the actual message content instead of a raw count
   const humanMsgs = ch.messages.filter(m => !m.author.bot);
   const summary = humanMsgs.length > 0
-    ? `${subnetName} community is active — ${humanMsgs.length} messages from ${uniquePosters} contributors in the last 24h.`
+    ? `${subnetName} community is active - ${humanMsgs.length} messages from ${uniquePosters} contributors in the last 24h.`
     : `No significant activity in the last 24 hours.`;
 
   return {

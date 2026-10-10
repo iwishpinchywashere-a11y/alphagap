@@ -28,7 +28,7 @@ export async function generateMetadata({
   const desc = getSubnetDescription(row.netuid, row.subnetType);
 
   const name = row.name;
-  const title = `What is ${name}? | Bittensor SN${row.netuid} Explained — TAO Pages`;
+  const title = `What is ${name}? | Bittensor SN${row.netuid} Explained - TAO Pages`;
   const description = `${desc.blurb} ${desc.analogy} Learn what ${name} does, what problem it solves, and how it compares to mainstream alternatives.`;
   const url = `https://www.alphagap.io/taopages/${slug}`;
 
@@ -57,13 +57,13 @@ export async function generateMetadata({
 // ── Helpers ───────────────────────────────────────────────────────
 
 function fmtMcap(v: number) {
-  if (!v) return "—";
+  if (!v) return "-";
   if (v >= 1e9) return `$${(v / 1e9).toFixed(2)}B`;
   if (v >= 1e6) return `$${(v / 1e6).toFixed(1)}M`;
   return `$${(v / 1e3).toFixed(0)}K`;
 }
 function fmtPrice(v: number) {
-  if (!v) return "—";
+  if (!v) return "-";
   if (v < 0.01) return `$${v.toFixed(4)}`;
   return `$${v.toFixed(2)}`;
 }
@@ -178,7 +178,7 @@ function PageFooter({ name }: { name: string }) {
       <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
         <div className="flex items-center gap-2 text-gray-500 text-sm">
           <div className="w-5 h-5 rounded bg-gradient-to-br from-green-400 to-emerald-600 flex items-center justify-center text-[10px] font-bold text-black">α</div>
-          TAO Pages by AlphaGap — Bittensor Subnet Intelligence
+          TAO Pages by AlphaGap - Bittensor Subnet Intelligence
         </div>
         <p className="text-xs text-gray-700 text-center sm:text-right max-w-sm">
           Informational purposes only. Not financial advice. Not affiliated with {name} or its team.
@@ -272,7 +272,7 @@ function CtaSection({ name }: { name: string }) {
         </h2>
         <p className="text-gray-400 text-lg mb-10 max-w-xl mx-auto">
           AlphaGap tracks signals, whale flows, developer commits, and the aGap score
-          for every Bittensor subnet — updated continuously. Find the alpha gap before
+          for every Bittensor subnet - updated continuously. Find the alpha gap before
           everyone else.
         </p>
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-8">
@@ -318,17 +318,17 @@ function HowBittensorSection({ name, subnetType }: { name: string; subnetType: s
             {
               step: "02",
               title: "Validators score the work",
-              desc: `Validators continuously evaluate miner outputs against objective benchmarks. The best performers rise, the worst are replaced. There&apos;s no human committee — the protocol decides.`,
+              desc: `Validators continuously evaluate miner outputs against objective benchmarks. The best performers rise, the worst are replaced. There&apos;s no human committee - the protocol decides.`,
             },
             {
               step: "03",
               title: "Rewards flow to the best",
-              desc: `Miners are paid in the ${name} alpha token in proportion to how good their work is. This creates a continuous competitive pressure that drives quality up and cost down — structurally, not just as a promise.`,
+              desc: `Miners are paid in the ${name} alpha token in proportion to how good their work is. This creates a continuous competitive pressure that drives quality up and cost down - structurally, not just as a promise.`,
             },
             {
               step: "04",
               title: "The whole network benefits",
-              desc: `Because every participant is aligned toward the same goal — producing the best ${categoryLabel} results — the network improves continuously without requiring a central team to manage it.`,
+              desc: `Because every participant is aligned toward the same goal - producing the best ${categoryLabel} results - the network improves continuously without requiring a central team to manage it.`,
             },
           ].map((item) => (
             <div key={item.step} className="flex gap-6 items-start">
@@ -444,7 +444,7 @@ export default async function TaoPageDetail({ params }: { params: Promise<{ slug
     .sort((a, b) => (b.market_cap ?? 0) - (a.market_cap ?? 0));
   const mcapRank = sortedByMcap.findIndex((s) => s.netuid === netuid) + 1;
 
-  // Colors — prefer rich data category, fall back to subnet type
+  // Colors - prefer rich data category, fall back to subnet type
   const colors =
     (richData ? CATEGORY_COLORS[richData.category] : null) ??
     SUBNET_TYPE_COLORS[subnetType] ??
@@ -457,7 +457,7 @@ export default async function TaoPageDetail({ params }: { params: Promise<{ slug
 
   // ── RICH PAGE (featured subnets) ─────────────────────────────────
   if (richData) {
-    // Same as original — full landing page
+    // Same as original - full landing page
     const related = getAllSubnetRows()
       .filter((s) => s.slug !== slug)
       .slice(0, 5);
@@ -624,17 +624,17 @@ export default async function TaoPageDetail({ params }: { params: Promise<{ slug
                 {
                   step: "02",
                   title: "Validators score the work",
-                  desc: `Validators continuously evaluate miner outputs against objective benchmarks. ${richData.benchmarkLabel ? `For ${name}, this includes ${richData.benchmarkLabel}.` : "The best performers rise, the worst are replaced."} There's no human committee — the protocol decides.`,
+                  desc: `Validators continuously evaluate miner outputs against objective benchmarks. ${richData.benchmarkLabel ? `For ${name}, this includes ${richData.benchmarkLabel}.` : "The best performers rise, the worst are replaced."} There's no human committee - the protocol decides.`,
                 },
                 {
                   step: "03",
                   title: "Rewards flow to the best",
-                  desc: `Miners are paid in the ${name} alpha token in proportion to how good their work is. This creates a continuous competitive pressure that drives quality up and cost down — structurally, not just as a promise.`,
+                  desc: `Miners are paid in the ${name} alpha token in proportion to how good their work is. This creates a continuous competitive pressure that drives quality up and cost down - structurally, not just as a promise.`,
                 },
                 {
                   step: "04",
                   title: "The whole network benefits",
-                  desc: `Because every participant is aligned toward the same goal — producing the best ${richData.category.toLowerCase()} results — the network improves continuously without requiring a central team to manage it.`,
+                  desc: `Because every participant is aligned toward the same goal - producing the best ${richData.category.toLowerCase()} results - the network improves continuously without requiring a central team to manage it.`,
                 },
               ].map((item) => (
                 <div key={item.step} className="flex gap-6 items-start">
@@ -659,7 +659,7 @@ export default async function TaoPageDetail({ params }: { params: Promise<{ slug
                 The <span className="ag-gradient-text">aGap Score</span> for {name}
               </h2>
               <p className="text-gray-400 text-center max-w-xl mx-auto mb-12">
-                AlphaGap&apos;s proprietary composite score — how undervalued is this subnet right now?
+                AlphaGap&apos;s proprietary composite score - how undervalued is this subnet right now?
                 High aGap = the team is shipping hard but the price hasn&apos;t caught up yet.
               </p>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 max-w-3xl mx-auto mb-8">
@@ -696,7 +696,7 @@ export default async function TaoPageDetail({ params }: { params: Promise<{ slug
               {[
                 {
                   q: `What is ${name} on Bittensor?`,
-                  a: `${name} is Subnet ${netuid} (SN${netuid}) on the Bittensor network — a decentralized AI protocol built on the TAO blockchain. ${desc.blurb}`,
+                  a: `${name} is Subnet ${netuid} (SN${netuid}) on the Bittensor network - a decentralized AI protocol built on the TAO blockchain. ${desc.blurb}`,
                 },
                 {
                   q: `What problem does ${name} solve?`,
@@ -712,7 +712,7 @@ export default async function TaoPageDetail({ params }: { params: Promise<{ slug
                 },
                 {
                   q: `Is ${name} a good investment?`,
-                  a: `AlphaGap tracks ${name} using its aGap score — a composite of development activity, token flow, and social signals. This page is for informational purposes only and is not financial advice. Always do your own research before making any investment decisions.`,
+                  a: `AlphaGap tracks ${name} using its aGap score - a composite of development activity, token flow, and social signals. This page is for informational purposes only and is not financial advice. Always do your own research before making any investment decisions.`,
                 },
               ].map(({ q, a }) => (
                 <div key={q} className="border-b border-white/5 pb-6">
@@ -921,7 +921,7 @@ export default async function TaoPageDetail({ params }: { params: Promise<{ slug
               The <span className="ag-gradient-text">aGap Score</span> for {name}
             </h2>
             <p className="text-gray-400 text-center max-w-xl mx-auto mb-12">
-              AlphaGap&apos;s proprietary composite score — how undervalued is this subnet right now?
+              AlphaGap&apos;s proprietary composite score - how undervalued is this subnet right now?
               High aGap = the team is shipping hard but the price hasn&apos;t caught up yet.
             </p>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 max-w-3xl mx-auto mb-8">
@@ -958,7 +958,7 @@ export default async function TaoPageDetail({ params }: { params: Promise<{ slug
             {[
               {
                 q: `What is ${name} on Bittensor?`,
-                a: `${name} is Subnet ${netuid} (SN${netuid}) on the Bittensor network — a decentralized AI protocol built on the TAO blockchain. ${desc.blurb}`,
+                a: `${name} is Subnet ${netuid} (SN${netuid}) on the Bittensor network - a decentralized AI protocol built on the TAO blockchain. ${desc.blurb}`,
               },
               {
                 q: `What type of subnet is ${name}?`,
@@ -974,7 +974,7 @@ export default async function TaoPageDetail({ params }: { params: Promise<{ slug
               },
               {
                 q: `Is ${name} a good investment?`,
-                a: `AlphaGap tracks ${name} using its aGap score — a composite of development activity, token flow, and social signals. This page is for informational purposes only and is not financial advice. Always do your own research before making any investment decisions.`,
+                a: `AlphaGap tracks ${name} using its aGap score - a composite of development activity, token flow, and social signals. This page is for informational purposes only and is not financial advice. Always do your own research before making any investment decisions.`,
               },
             ].map(({ q, a }) => (
               <div key={q} className="border-b border-white/5 pb-6">

@@ -13,7 +13,7 @@ export async function POST() { return scanWebsites(); }
 
 // ── Website URL overrides ─────────────────────────────────────────
 // Priority: official product website > docs > GitHub pages
-// GitHub-only repos omitted — no product page to analyze
+// GitHub-only repos omitted - no product page to analyze
 const WEBSITE_URL_OVERRIDES: Record<number, string> = {
   // ── SN 1–20 ───────────────────────────────────────────────────────────────
   1:  "https://apex.macrocosmos.ai",

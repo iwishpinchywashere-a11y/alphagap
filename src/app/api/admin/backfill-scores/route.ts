@@ -3,7 +3,7 @@
  *
  * One-shot endpoint: reads scan-latest.json and seeds subnet-scores-history.json
  * with daily entries going back `days` days (default 14), using today's scores
- * as the baseline.  Existing entries are never overwritten — the backfill only
+ * as the baseline.  Existing entries are never overwritten - the backfill only
  * fills in *missing* dates, so running it twice is safe.
  *
  * Usage:

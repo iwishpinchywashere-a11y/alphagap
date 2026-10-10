@@ -1,6 +1,6 @@
 /**
  * tao-pages-slugs.ts
- * Utility functions and mappings for TAO Pages — expanded to all ~110 subnets.
+ * Utility functions and mappings for TAO Pages - expanded to all ~110 subnets.
  */
 
 import { getDb } from "./db";
@@ -40,7 +40,7 @@ export function slugify(name: string, netuid?: number): string {
  *        Science | Creative | Agents | Tools
  */
 export const SUBNET_TYPES: Record<number, SubnetType> = {
-  // Inference — running AI on demand
+  // Inference - running AI on demand
   4:   "Inference",
   19:  "Inference",
   22:  "Inference",
@@ -48,7 +48,7 @@ export const SUBNET_TYPES: Record<number, SubnetType> = {
   64:  "Inference",
   114: "Inference",
 
-  // Training — building/fine-tuning models
+  // Training - building/fine-tuning models
   3:   "Training",
   9:   "Training",
   21:  "Training",  // OMEGA Any-to-Any
@@ -60,7 +60,7 @@ export const SUBNET_TYPES: Record<number, SubnetType> = {
   81:  "Training",
   94:  "Training",
 
-  // Compute — raw GPU/infrastructure
+  // Compute - raw GPU/infrastructure
   7:   "Compute",
   12:  "Compute",
   27:  "Compute",
@@ -71,11 +71,11 @@ export const SUBNET_TYPES: Record<number, SubnetType> = {
   105: "Compute",
   128: "Compute",
 
-  // Storage — file/data storage
+  // Storage - file/data storage
   40:  "Storage",
   75:  "Storage",
 
-  // Finance — trading, DeFi, financial
+  // Finance - trading, DeFi, financial
   8:   "Finance",
   10:  "Finance",
   14:  "Finance",
@@ -101,7 +101,7 @@ export const SUBNET_TYPES: Record<number, SubnetType> = {
   125: "Finance",
   127: "Finance",
 
-  // Data — data collection/labeling/intelligence
+  // Data - data collection/labeling/intelligence
   13:  "Data",
   23:  "Data",
   24:  "Data",  // OMEGA Labs (was Inference)
@@ -114,7 +114,7 @@ export const SUBNET_TYPES: Record<number, SubnetType> = {
   87:  "Data",
   119: "Data",
 
-  // Science — research, biotech, scientific
+  // Science - research, biotech, scientific
   18:  "Science",
   25:  "Science",
   26:  "Science",  // Kinitro robotics (was Storage)
@@ -128,7 +128,7 @@ export const SUBNET_TYPES: Record<number, SubnetType> = {
   107: "Science",
   124: "Science",
 
-  // Creative — generative media, creative AI
+  // Creative - generative media, creative AI
   17:  "Creative",
   85:  "Creative",
   92:  "Creative",
@@ -138,7 +138,7 @@ export const SUBNET_TYPES: Record<number, SubnetType> = {
   117: "Creative",
   126: "Creative",
 
-  // Agents — autonomous AI agents
+  // Agents - autonomous AI agents
   5:   "Agents",
   6:   "Agents",   // Numinous forecasting agents (was Finance)
   36:  "Agents",
@@ -149,7 +149,7 @@ export const SUBNET_TYPES: Record<number, SubnetType> = {
   115: "Agents",
   121: "Agents",
 
-  // Tools — everything else
+  // Tools - everything else
   1:   "Tools",   // Apex competition platform (was Inference)
   2:   "Tools",
   11:  "Tools",   // TrajectoryRL prompt opt (was Creative)
@@ -265,7 +265,7 @@ const EXCLUDED_NAMES = new Set(["Unknown", "Pending", "Reserved", "for sale (bur
 // ── Static fallback list (used when DB is unavailable at build time) ──
 
 /**
- * Hardcoded snapshot of all subnets — used as a fallback in generateStaticParams
+ * Hardcoded snapshot of all subnets - used as a fallback in generateStaticParams
  * when the SQLite database cannot be reached (e.g. during Vercel build).
  * Keep this in sync with the production DB whenever new subnets are registered.
  */
@@ -287,7 +287,7 @@ const STATIC_SUBNET_LIST: Array<{ netuid: number; name: string }> = [
   { netuid: 14,  name: "Cacheon" },
   { netuid: 15,  name: "ORO" },
   { netuid: 16,  name: "Fast Thinker" },
-  { netuid: 17,  name: "404—GEN" },
+  { netuid: 17,  name: "404-GEN" },
   { netuid: 18,  name: "Zeus" },
   { netuid: 19,  name: "blockmachine" },
   { netuid: 20,  name: "GroundLayer" },
@@ -422,7 +422,7 @@ export function getAllSubnetRows(): SubnetRow[] {
       )
       .all() as Array<{ netuid: number; name: string }>;
   } catch {
-    // DB unavailable (e.g. during Vercel build) — fall back to static snapshot
+    // DB unavailable (e.g. during Vercel build) - fall back to static snapshot
   }
 
   // If DB returned no rows (empty DB on Vercel at build time), use the static snapshot

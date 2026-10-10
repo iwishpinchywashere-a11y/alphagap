@@ -140,7 +140,7 @@ export async function POST(): Promise<NextResponse> {
         }
 
         if (!customerId) {
-          row.issue = "No Stripe customer found — user may never have subscribed";
+          row.issue = "No Stripe customer found - user may never have subscribed";
           report.usersChecked.push(row);
           continue;
         }

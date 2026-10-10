@@ -93,11 +93,6 @@ export default function DashboardHeader() {
         </div>
 
         <div className="flex items-center gap-4">
-          {scanError && (
-            <span className="text-xs text-red-400 max-w-xs truncate hidden sm:inline" title={scanError}>
-              Error: {scanError.slice(0, 60)}
-            </span>
-          )}
           {scanning && (
             <span className="text-xs text-emerald-400 animate-pulse hidden sm:inline">Refreshing…</span>
           )}
@@ -123,7 +118,7 @@ export default function DashboardHeader() {
         </div>
       </header>
 
-      {/* Dropdown — rendered at root via fixed positioning, defeats all stacking contexts */}
+      {/* Dropdown - rendered at root via fixed positioning, defeats all stacking contexts */}
       {open && pos && (
         <div
           ref={dropdownRef}

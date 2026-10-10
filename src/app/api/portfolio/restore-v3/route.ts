@@ -38,7 +38,7 @@ const POSITIONS: Array<{
   buyPrice: number; manualPeakPrice?: number;
 }> = [
   // ── Original April positions (from restore-v2, scaled to $1000) ───────────
-  // manualPeakPrice column: use best known peak — either from pre-wipe screenshot
+  // manualPeakPrice column: use best known peak - either from pre-wipe screenshot
   // or from TaoStats find-peaks (max TAO price since buy × TAO price at time of peak).
   // For positions where manualPeakPrice is omitted, the scan will track peaks going forward.
   { netuid: 15,  name: "ORO",          buyDate: "2026-04-10", buyAGapScore: 84, buyPrice: 4.11,  manualPeakPrice: 18.50    }, // user recalled +350%

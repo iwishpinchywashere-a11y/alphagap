@@ -11,7 +11,7 @@ export async function createConnectAccount(
   userId: string,
 ): Promise<string> {
   const stripe = getStripe();
-  // Do NOT pre-set country or capabilities — Stripe's hosted onboarding will
+  // Do NOT pre-set country or capabilities - Stripe's hosted onboarding will
   // ask the affiliate to choose their country and will configure the correct
   // capabilities for that country automatically. Pre-setting capabilities
   // causes Stripe to default to the platform's home country (CA) for Express

@@ -31,7 +31,7 @@ export default function SignalsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const { isWatched, watchlist } = useWatchlist();
   const [watchlistOnly, setWatchlistOnly] = useState(false);
-  // Feed pagination — hundreds of signals rendered at once produced a 73k-px
+  // Feed pagination - hundreds of signals rendered at once produced a 73k-px
   // page (unusable on mobile). Show a page at a time.
   const FEED_PAGE = 30;
   const [visibleLimit, setVisibleLimit] = useState(FEED_PAGE);
@@ -64,7 +64,7 @@ export default function SignalsPage() {
       return a.netuid - b.netuid;
     }), [signals]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Flow/whale signals belong on /whales — exclude them here
+  // Flow/whale signals belong on /whales - exclude them here
   const WHALES_PAGE_TYPES = new Set(["flow_inflection", "flow_spike", "flow_warning", "whale_buy", "whale_sell"]);
 
   const base = signalSort === "score" ? byScore : byDate;
@@ -85,7 +85,7 @@ export default function SignalsPage() {
                 Live <span className="ag-gradient-text">Signals</span>
               </h1>
               <p className="text-sm md:text-[14.5px] text-gray-400 max-w-xl leading-[1.65] mb-4">
-                AI-scored developer activity across every active subnet — commits, model releases, and protocol upgrades ranked by signal strength.
+                AI-scored developer activity across every active subnet - commits, model releases, and protocol upgrades ranked by signal strength.
               </p>
               <div className="inline-flex items-center gap-2 font-mono text-[11px] tracking-wider text-gray-500 uppercase">
                 <span className="ag-live-dot" />
@@ -198,7 +198,7 @@ export default function SignalsPage() {
                     }`}
                     onClick={() => !isLocked && router.push(`/subnets/${sig.netuid}`)}
                   >
-                    {/* Score — top-right corner (higher = better update) */}
+                    {/* Score - top-right corner (higher = better update) */}
                     <div
                       className={`absolute top-4 right-4 z-10 flex flex-col items-center px-2.5 py-1.5 rounded-lg border font-mono tabular-nums ${
                         sig.strength >= 80
@@ -207,7 +207,7 @@ export default function SignalsPage() {
                           ? "text-yellow-300 border-yellow-500/40 bg-yellow-500/10"
                           : "text-gray-400 border-white/[0.14] bg-white/[0.04]"
                       }`}
-                      title="Signal strength — how significant this update is (0–100)"
+                      title="Signal strength - how significant this update is (0–100)"
                     >
                       <span className="text-lg font-bold leading-none">{sig.strength}</span>
                       <span className="text-[8.5px] tracking-[0.14em] mt-0.5 opacity-70">SCORE</span>

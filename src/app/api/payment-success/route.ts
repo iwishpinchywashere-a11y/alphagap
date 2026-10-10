@@ -5,7 +5,7 @@
  * We verify the payment, update the user blob, write a fresh JWT cookie with
  * subscriptionStatus:"active", then redirect to /dashboard.
  *
- * Everything is server-side — no client JS, no polling, no race conditions.
+ * Everything is server-side - no client JS, no polling, no race conditions.
  */
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
@@ -35,7 +35,7 @@ export async function GET(req: Request) {
   try {
     const stripe = getStripe();
 
-    // 1. Verify payment with Stripe — run in parallel with user blob lookup
+    // 1. Verify payment with Stripe - run in parallel with user blob lookup
     //    We read the email from the current session cookie so both can start together.
     const session = await getServerSession(authOptions);
     const sessionEmail = session?.user?.email ?? null;
@@ -44,7 +44,7 @@ export async function GET(req: Request) {
       stripe.checkout.sessions.retrieve(sessionId, {
         expand: ["subscription", "subscription.items.data.price"],
       }),
-      // Retry up to 5× — Vercel Blob propagation delay can cause the user blob
+      // Retry up to 5× - Vercel Blob propagation delay can cause the user blob
       // to be invisible on the serverless instance handling this redirect.
       sessionEmail ? getUserByEmail(sessionEmail, { retries: 5 }).catch(() => null) : Promise.resolve(null),
     ]);
@@ -70,10 +70,10 @@ export async function GET(req: Request) {
     const periodEnd = (sub as any).current_period_end as number;
 
     // Use blob user we already fetched, or look up by Stripe email if different.
-    // Retry here too — different code path for when session email != sub email.
+    // Retry here too - different code path for when session email != sub email.
     const user = userFromSession ?? await getUserByEmail(email, { retries: 5 }).catch(() => null);
 
-    // 2. Encode fresh JWT immediately — this is the critical path for the user experience.
+    // 2. Encode fresh JWT immediately - this is the critical path for the user experience.
     //    Blob updates happen in parallel below; webhook is the authoritative backup.
     const adminEmails = (process.env.ADMIN_EMAILS || "")
       .split(",").map((e: string) => e.trim().toLowerCase()).filter(Boolean);
@@ -92,7 +92,7 @@ export async function GET(req: Request) {
       maxAge: 30 * 24 * 60 * 60,
     });
 
-    // 3. Persist subscription to blob before redirecting — Vercel terminates the
+    // 3. Persist subscription to blob before redirecting - Vercel terminates the
     //    function as soon as we return, so fire-and-forget won't complete.
     //    Run all three writes in parallel; /activating page will sync-verify via Stripe
     //    as a belt-and-suspenders check once the user lands there.
@@ -111,7 +111,7 @@ export async function GET(req: Request) {
     }
 
     // 4. Cancel any other active subscriptions for this customer.
-    // One customer should never have two active subscriptions — this handles
+    // One customer should never have two active subscriptions - this handles
     // Pro → Premium upgrades without relying on metadata being threaded correctly.
     try {
       const allSubs = await stripe.subscriptions.list({ customer: customerId, status: "active" });
@@ -144,7 +144,7 @@ export async function GET(req: Request) {
 
   } catch (e) {
     console.error("[payment-success]", e);
-    // On any error, just go to dashboard — they can refresh
+    // On any error, just go to dashboard - they can refresh
     return NextResponse.redirect(`${baseUrl}/dashboard`);
   }
 }

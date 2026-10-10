@@ -59,7 +59,7 @@ interface FlowEvent {
   constType?: "buy" | "sell";
 }
 
-/** Persisted flow-event badges may still contain legacy emoji prefixes — strip them for display. */
+/** Persisted flow-event badges may still contain legacy emoji prefixes - strip them for display. */
 const BADGE_EMOJI_ICONS: [string, AgIconName][] = [
   ["\u{1F40B}", "whale"], ["\u{1F525}", "flame"], ["\u{1F53B}", "trendDown"], ["\u{1F911}", "money"],
   ["\u{1F4C8}", "trendUp"], ["\u{1F4C9}", "trendDown"], ["\u{26A1}", "bolt"], ["\u{26A0}", "warning"],
@@ -107,7 +107,7 @@ export default function FlowPage() {
   const { isWatched, watchlist } = useWatchlist();
   const [watchlistOnly, setWatchlistOnly] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  // Feed pagination — the 72h window can hold hundreds of events; rendering
+  // Feed pagination - the 72h window can hold hundreds of events; rendering
   // them all at once produced a 165k-px page (unusable on mobile).
   const FEED_PAGE = 40;
   const [visibleLimit, setVisibleLimit] = useState(FEED_PAGE);
@@ -158,7 +158,7 @@ export default function FlowPage() {
           name: sub.name,
           type: "accumulating",
           strength: Math.round(strength),
-          headline: `${sub.whale_ratio}x avg buy size vs sells — whales accumulating`,
+          headline: `${sub.whale_ratio}x avg buy size vs sells - whales accumulating`,
           detail: flowUsd != null
             ? `Net ${flowUsd > 0 ? "+" : ""}$${formatNum(Math.abs(Math.round(flowUsd)))} in 24h · ${sub.whale_ratio}x whale buy/sell ratio`
             : `${sub.whale_ratio}x whale buy/sell ratio detected`,
@@ -187,8 +187,8 @@ export default function FlowPage() {
           strength: 40,
           headline: `Emission chain buys driving buy-side volume (${sub.miner_burn_pct?.toFixed(0)}% miner burn)`,
           detail: flowUsd != null
-            ? `+$${formatNum(Math.abs(Math.round(flowUsd)))} 24h net flow — primarily automated emission recycling, not whale buying. Miner burn rate: ${sub.miner_burn_pct?.toFixed(0)}%.`
-            : `Miner burn recycled as on-chain buys — ${sub.miner_burn_pct?.toFixed(0)}% of miner emissions burned and re-spent.`,
+            ? `+$${formatNum(Math.abs(Math.round(flowUsd)))} 24h net flow - primarily automated emission recycling, not whale buying. Miner burn rate: ${sub.miner_burn_pct?.toFixed(0)}%.`
+            : `Miner burn recycled as on-chain buys - ${sub.miner_burn_pct?.toFixed(0)}% of miner emissions burned and re-spent.`,
           badge: "CHAIN BUY",
           badgeIcon: "flame",
           badgeColor: "bg-orange-500/20 text-orange-400 border-orange-500/30",
@@ -213,10 +213,10 @@ export default function FlowPage() {
           name: sub.name,
           type: "distributing",
           strength: Math.round(Math.max(30, strength)),
-          headline: `${sellRatio}x avg sell size vs buys — smart money exiting`,
+          headline: `${sellRatio}x avg sell size vs buys - smart money exiting`,
           detail: flowUsd != null
             ? `Net ${flowUsd >= 0 ? "+" : ""}$${formatNum(Math.round(flowUsd))} in 24h · avg sells ${sellRatio}x larger than buys`
-            : `Avg sells ${sellRatio}x larger than buys — significant distribution pressure`,
+            : `Avg sells ${sellRatio}x larger than buys - significant distribution pressure`,
           badge: "WHALE SELL",
           badgeIcon: "trendDown",
           badgeColor: "bg-red-500/20 text-red-400 border-red-500/30",
@@ -246,7 +246,7 @@ export default function FlowPage() {
           type: "volume_surge",
           strength: isEmissionDriven ? Math.round(strength * 0.6) : strength,
           headline: isEmissionDriven
-            ? `${sub.volume_surge_ratio}x volume spike — likely emission chain buys (${burnPct.toFixed(0)}% burn rate)`
+            ? `${sub.volume_surge_ratio}x volume spike - likely emission chain buys (${burnPct.toFixed(0)}% burn rate)`
             : `${sub.volume_surge_ratio}x unusual buy volume vs 5-day average`,
           detail: isEmissionDriven
             ? `Volume spike driven by emission recycling, not organic demand. ${burnPct.toFixed(0)}% of miner emissions are burned and re-entered as chain buys.${buyVolUsd != null ? ` Net: +$${formatNum(Math.round(buyVolUsd))}.` : ""}`
@@ -284,7 +284,7 @@ export default function FlowPage() {
             type: "yield_spike",
             strength: Math.round(strength),
             headline: `Staking yield spiked ${pctAbove}% above 30-day baseline`,
-            detail: `1H APY ${apy1hPct}% vs 30d avg ${apy30dPct}% — sudden shift in staking dynamics. Could signal validator exit, emissions change, or stake redistribution.`,
+            detail: `1H APY ${apy1hPct}% vs 30d avg ${apy30dPct}% - sudden shift in staking dynamics. Could signal validator exit, emissions change, or stake redistribution.`,
             badge: "YIELD SPIKE",
             badgeIcon: "trendUp",
             badgeColor: "bg-lime-500/20 text-lime-300 border-lime-500/30",
@@ -304,7 +304,7 @@ export default function FlowPage() {
             type: "yield_dip",
             strength: Math.round(Math.max(30, strength)),
             headline: `Staking yield compressed ${pctBelow}% below 30-day baseline`,
-            detail: `1H APY ${apy1hPct}% vs 30d avg ${apy30dPct}% — yield compression often follows large stake inflows or increased competition among validators.`,
+            detail: `1H APY ${apy1hPct}% vs 30d avg ${apy30dPct}% - yield compression often follows large stake inflows or increased competition among validators.`,
             badge: "YIELD DIP",
             badgeIcon: "trendDown",
             badgeColor: "bg-orange-500/20 text-orange-400 border-orange-500/30",
@@ -430,7 +430,7 @@ export default function FlowPage() {
           name: subName,
           type: "accumulating",
           strength: 50,
-          headline: `Const re-delegated stake on ${subName} — validator swap, not exit`,
+          headline: `Const re-delegated stake on ${subName} - validator swap, not exit`,
           detail: `Const unstaked ${sellAmt} and re-staked ${buyAmt} on ${subName}. This is a validator re-delegation (moving stake between validators), not a position change. No buy/sell signal.`,
           badge: "CONST SWAP",
           badgeIcon: "repost",
@@ -452,7 +452,7 @@ export default function FlowPage() {
           type: ev.type === "buy" ? "accumulating" : "distributing",
           strength: ev.type === "buy" ? 95 : 70,
           headline: ev.type === "buy"
-            ? `Const staked ${amtStr}${usdStr} — founder conviction`
+            ? `Const staked ${amtStr}${usdStr} - founder conviction`
             : `Const unstaked ${amtStr}${usdStr}`,
           detail: ev.type === "buy"
             ? `Bittensor founder added ${amtStr} to ${ev.subnetName ?? `SN${ev.netuid}`}. Const's buys are historically significant signals.`
@@ -552,7 +552,7 @@ export default function FlowPage() {
               Capital <span className="ag-gradient-text">Flow</span>
             </h1>
             <p className="text-[14.5px] text-gray-400 max-w-xl leading-relaxed">
-              Whale movements, smart money flows, unusual volume, and staking yield anomalies — live and from the last 72 hours.
+              Whale movements, smart money flows, unusual volume, and staking yield anomalies - live and from the last 72 hours.
             </p>
           </div>
           {scanning && (
@@ -755,9 +755,9 @@ function FlowMiniLeaderboard({
     <div className="px-4 md:px-6 pb-2">
       <div className="grid grid-cols-1 lg:grid-cols-[1.15fr_0.85fr] gap-4">
 
-        {/* Flow Book — diverging bars */}
+        {/* Flow Book - diverging bars */}
         <div className="ag-glass p-5 md:p-6">
-          <h2 className="font-display text-lg font-semibold mb-2">Flow Book — Top Movers</h2>
+          <h2 className="font-display text-lg font-semibold mb-2">Flow Book - Top Movers</h2>
           <div>
             {book.map((s, i) => {
               const flow = s.net_flow_24h ?? 0;

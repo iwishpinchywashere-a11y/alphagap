@@ -64,7 +64,7 @@ export async function POST() {
         signal_type: "dev_spike",
         strength: qualityScore,
         title: `${qualityLabel}: ${row.recent_events} events in 48h`,
-        description: `${row.repo} — ${row.recent_events} events in 48h vs ${dailyAvg.toFixed(1)} daily avg. Top events: ${events.slice(0, 3).map(e => e.title).join(" · ")}`,
+        description: `${row.repo} - ${row.recent_events} events in 48h vs ${dailyAvg.toFixed(1)} daily avg. Top events: ${events.slice(0, 3).map(e => e.title).join(" · ")}`,
         source: "github",
         source_url: `https://github.com/${row.repo}`,
       });
