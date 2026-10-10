@@ -215,7 +215,7 @@ export default function FlowPage() {
           strength: Math.round(Math.max(30, strength)),
           headline: `${sellRatio}x avg sell size vs buys - smart money exiting`,
           detail: flowUsd != null
-            ? `Net ${flowUsd >= 0 ? "+" : ""}$${formatNum(Math.round(flowUsd))} in 24h · avg sells ${sellRatio}x larger than buys`
+            ? `Net ${flowUsd >= 0 ? "+" : "-"}$${formatNum(Math.abs(Math.round(flowUsd)))} in 24h · avg sells ${sellRatio}x larger than buys`
             : `Avg sells ${sellRatio}x larger than buys - significant distribution pressure`,
           badge: "WHALE SELL",
           badgeIcon: "trendDown",
@@ -380,9 +380,21 @@ export default function FlowPage() {
   const events = useMemo<FlowEvent[]>(() => {
     const liveKeys = new Set(liveEvents.map(e => `${e.netuid}:${e.type}`));
 
+    // The snapshot store keys events by netuid:type:UTC day, so a signal that
+    // is still firing just after midnight is stored twice (23:50 and 00:10).
+    // Keep only the newest copy of a netuid:type within 12 hours.
+    const newestByKey = new Map<string, number>();
+    for (const h of historicalEvents) {
+      const k = `${h.netuid}:${h.type}`;
+      const t = new Date(h.detectedAt).getTime();
+      if (t > (newestByKey.get(k) ?? -Infinity)) newestByKey.set(k, t);
+    }
     const historicalAsFlowEvents: FlowEvent[] = historicalEvents
       .filter(h => {
         if (liveKeys.has(`${h.netuid}:${h.type}`)) return false;
+        const newest = newestByKey.get(`${h.netuid}:${h.type}`) ?? 0;
+        const t = new Date(h.detectedAt).getTime();
+        if (t < newest && newest - t < 12 * 3600_000) return false;
         if (h.type === "registration_spike" && (h.regsTao ?? 0) < MIN_MINER_RUSH_TAO) return false;
         return true;
       })
@@ -950,7 +962,7 @@ function FlowCard({
             <span>
               <span className="text-gray-500">Net flow </span>
               <span className={`font-semibold tabular-nums ${ev.netFlow >= 0 ? "text-green-400" : "text-red-400"}`}>
-                {ev.netFlow >= 0 ? "+" : ""}${formatNum(Math.abs(Math.round(ev.netFlow * taoPrice)))}
+                {ev.netFlow >= 0 ? "+$" : "-$"}{formatNum(Math.abs(Math.round(ev.netFlow * taoPrice)))}
               </span>
             </span>
           )}

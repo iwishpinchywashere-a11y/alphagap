@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
 import AgIcon, { type AgIconName } from "@/components/AgIcon";
 
-const TOUR_KEY = "alphagap_tour_v2";
+const TOUR_KEY = "alphagap_tour_v1";
 
 const STEPS: { title: string; icon?: AgIconName; body: string; target: string | null; arrow?: boolean }[] = [
   {

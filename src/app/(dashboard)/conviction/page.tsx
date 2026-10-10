@@ -602,9 +602,9 @@ function IntelligenceSidebar({ rows, events }: { rows: ConvictionRow[]; events: 
               <div className="flex-1 min-w-0">
                 <div className="text-[11px]">
                   <span className="font-semibold text-white">{ev.name}</span>
-                  <span className="text-gray-500"> locked </span>
-                  <span className="font-bold text-green-400">
-                    {(ev.deltaAlpha ?? 0) >= 1000 ? `${((ev.deltaAlpha ?? 0) / 1000).toFixed(1)}k` : (ev.deltaAlpha ?? 0).toFixed(0)} α
+                  <span className="text-gray-500">{(ev.deltaAlpha ?? 0) < 0 ? " unlocked " : " locked "}</span>
+                  <span className={`font-bold ${(ev.deltaAlpha ?? 0) < 0 ? "text-red-400" : "text-green-400"}`}>
+                    {Math.abs(ev.deltaAlpha ?? 0) >= 1000 ? `${(Math.abs(ev.deltaAlpha ?? 0) / 1000).toFixed(1)}k` : Math.abs(ev.deltaAlpha ?? 0).toFixed(0)} α
                   </span>
                 </div>
                 <div className="text-[9px] text-gray-700 mt-0.5">{timeAgo(ev.t)} · SN{ev.netuid}</div>
