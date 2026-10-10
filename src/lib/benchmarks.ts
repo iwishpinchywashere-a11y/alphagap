@@ -3094,11 +3094,14 @@ export function computeProductScore(
   const v = getValuationSignals(netuid);
   if (v) {
     if (v.status === "dead") return { score: 0, estimated: false, source: "valuation" };
-    // Revenue traction bonus (0-20) on CREDITED ARR, so a self-reported figure
-    // counts at 70% and an estimate at 50% of a confirmed one.
-    const c = v.creditedArrUsd;
-    const revBonus = c >= 10_000_000 ? 20 : c >= 2_000_000 ? 14 : c >= 500_000 ? 8 : c >= 100_000 ? 3 : c > 0 ? 1 : 0;
-    return { score: Math.min(100, v.qualityScore + revBonus), estimated: !v.liveProduct, source: "valuation" };
+    // Business bonus (0-20) from the Valuation Index: credited revenue,
+    // revenue-funded alpha buybacks and growth, in the index's own 45/20/10
+    // proportions. This replaced a revenue-only bonus on 2026-10-10 so that a
+    // subnet returning 100% of revenue to its token (engy, Almanac) scores
+    // above one with the same revenue and no buyback (SayGM). Same 0-20 range
+    // as before, so the pillar mean is unchanged (52 -> 53 across live subnets).
+    const businessBonus = Math.round(v.businessScore / 5);
+    return { score: Math.min(100, v.qualityScore + businessBonus), estimated: !v.liveProduct, source: "valuation" };
   }
 
   // ── 1. Formally benchmarked (fallback for subnets registered after the research) ──

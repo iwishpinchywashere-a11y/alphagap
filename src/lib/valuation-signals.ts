@@ -10,7 +10,7 @@
  */
 
 import research from "@/data/valuation.json";
-import { CONFIDENCE_WEIGHT, type ResearchRecord, type BuybackStatus, type GrowthTrend, type Confidence } from "./valuation";
+import { CONFIDENCE_WEIGHT, revenueComponent, buybackComponent, growthComponent, type ResearchRecord, type BuybackStatus, type GrowthTrend, type Confidence } from "./valuation";
 
 export interface ValuationSignals {
   status: "live" | "dead" | "unknown";
@@ -23,21 +23,33 @@ export interface ValuationSignals {
   buybackStatus: BuybackStatus;
   buybackPctOfRevenue: number | null;
   growthTrend: GrowthTrend;
+  /**
+   * 0-100: the business side of the Valuation Index (revenue 45 / buybacks 20 /
+   * growth 10, renormalised without the product-quality 25). Growth counts only
+   * when there is revenue to grow, so a pre-revenue subnet sits at 0 here
+   * unless it has a buyback plan.
+   */
+  businessScore: number;
 }
 
 const BY_NETUID = new Map<number, ValuationSignals>(
   (research as unknown as ResearchRecord[]).map(r => {
     const arr = r.revenue.arr_usd ?? 0;
+    const credited = arr * (CONFIDENCE_WEIGHT[r.revenue.confidence] ?? 0);
+    const businessScore = Math.round(
+      (revenueComponent(credited) * 45 + buybackComponent(r.buybacks) * 20 + (arr > 0 ? growthComponent(r.growth.trend) : 0) * 10) / 75,
+    );
     return [r.netuid, {
       status: r.status,
       qualityScore: Math.max(0, Math.min(100, r.product.quality_score ?? 0)),
       liveProduct: !!r.product.live_product,
       arrUsd: arr,
       confidence: r.revenue.confidence,
-      creditedArrUsd: arr * (CONFIDENCE_WEIGHT[r.revenue.confidence] ?? 0),
+      creditedArrUsd: credited,
       buybackStatus: r.buybacks.status,
       buybackPctOfRevenue: r.buybacks.pct_of_revenue,
       growthTrend: r.growth.trend,
+      businessScore,
     }];
   }),
 );
