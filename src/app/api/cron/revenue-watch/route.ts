@@ -37,6 +37,9 @@ const KEEP_DAYS = 90;
 
 // Words a revenue / buyback announcement is likely to carry. "$" alone would
 // match every $TAO mention, so a dollar sign must be followed by a digit.
+// Strong terms: a post is kept even when no figure could be extracted
+// (e.g. "we broke even in September", "buyback completed, details in image").
+const STRONG_RE = /\b(revenue|ARR|MRR|run[- ]?rate|annuali[sz]ed|billed|billings?|buy[- ]?backs?|bought back|burn(?:ed|t)?\b.*\b(?:alpha|revenue|fees)|broke even|break[- ]even|profitab|paying (?:customers|clients)|month(?:ly)? in review|monthly metrics|fees? (?:generated|collected|earned))\b/i;
 const REVENUE_RE = /\b(revenue|ARR|MRR|run[- ]?rate|annuali[sz]ed|billed|billings?|invoiced|GPU spend|spend(?:ing)?\s+(?:grew|up|hit|reached|of)|month(?:ly)? in review|monthly metrics|paying customers|renters|customers? paid|buy[- ]?backs?|bought back|burn(?:ed|t)?\s+(?:\$|\d|[\d,.]+\s*(?:alpha|TAO|\$)|and)|GMV|gross merchandise|net revenue|top[- ]line)\b|\$\s?\d[\d,.]*\s?(?:k|K|m|M|B|bn)?\b/;
 
 interface DPost {
@@ -101,7 +104,7 @@ Return ONLY a JSON object:
 {"period": string|null, "revenue_usd": number|null, "revenue_period": "week"|"month"|"30d"|"quarter"|"year"|null, "arr_usd": number|null, "customers": number|null, "buyback_usd": number|null, "summary": string}
 
 Rules:
-- revenue_usd is money the business took in (spend, billed, revenue, GMV) for the stated period; arr_usd only if the post itself states an annualised / run-rate figure. Never derive one from the other.
+- revenue_usd is the business's TOTAL money taken in (spend, billed, revenue, fees, GMV) over a stated period. A single customer's bill, a price list, a bonus or prize pool, payouts to traders or miners, capital offered to users, funding raised, or a market-cap figure are NOT revenue: leave revenue_usd null for those. arr_usd only if the post itself states an annualised / run-rate figure. Never derive one from the other.
 - Token price, market cap, emissions, TAO staked are NOT revenue: leave the fields null.
 - buyback_usd is dollars of the subnet's own alpha bought back or burned with revenue.
 - summary: one plain sentence with the figures and the period, no adjectives. If there are no business figures, every number is null and summary says what the post is about.
@@ -186,7 +189,9 @@ export async function GET(req: NextRequest) {
         const figures = await extractFigures(text, images, r.name); llmCalls++;
         const implied = impliedArr(figures);
         const hasFigure = !!figures && (figures.revenue_usd != null || figures.arr_usd != null || figures.buyback_usd != null);
-        if (!hasFigure && !REVENUE_RE.test(text)) continue;             // vision found nothing and the text was only "update"
+        // Keep only posts that carry a business figure or say something about
+        // revenue/buybacks in so many words. "$129 entry point" is marketing.
+        if (!hasFigure && !STRONG_RE.test(text)) continue;
         const recArr = r.revenue.arr_usd ?? null;
         const newer = !r.revenue.as_of || p.created_at && new Date(p.created_at) > new Date(r.revenue.as_of);
         const differs = implied != null && (recArr == null || Math.abs(implied - recArr) / Math.max(recArr, 1) > 0.15);
