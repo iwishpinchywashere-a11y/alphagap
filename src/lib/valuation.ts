@@ -15,6 +15,8 @@
  *     numbers in front of them, not one we bake into a single figure.
  */
 
+import type { RevenueMention } from "./revenue-mentions";
+
 export type Confidence = "confirmed" | "self_reported" | "estimated" | "pre_revenue" | "unknown";
 export type BuybackStatus = "active" | "announced" | "planned" | "none" | "unknown";
 export type GrowthTrend = "accelerating" | "growing" | "flat" | "declining" | "unknown";
@@ -95,6 +97,8 @@ export interface ValuationRow extends ResearchRecord {
   prodScore: number;
   /** 0-100 business side of the index (revenue 45 / buybacks 20 / growth 10, renormalised). */
   businessScore: number;
+  /** Recent posts from the team's X account that mention revenue or buybacks (revenue-watch cron). */
+  mentions?: RevenueMention[];
   rank: number;
   /** Legacy product benchmark (August research), joined by the API. */
   benchmark?: {

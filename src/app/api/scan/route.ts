@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { put, get as blobGet } from "@vercel/blob";
+import { TWITTER_HANDLE_OVERRIDES } from "@/lib/subnet-x-handles";
 import {
   getSubnetIdentities,
   getSubnetPools,
@@ -1090,96 +1091,7 @@ export async function GET() {
     // SN82 is now Compelle; TaoStats correctly tracks compelle/compelle-validator.
   };
 
-  // Verified X/Twitter handle overrides - sourced from @PinchyAlpha/following list (Apr 2026).
-  // Many subnets have X accounts that are not in the TaoStats identity registry.
-  // These supplement (not replace) registry data; registry handle takes priority if set.
-  const TWITTER_HANDLE_OVERRIDES: Record<number, string> = {
-    1:  "macrocosmosai",    // Macrocosmos (SN1 Apex)
-    2:  "omron_ai",    // Omron (zkML / Inference)
-    3:  "tplr_ai",    // Templar (τemplar)
-    4:  "TargonCompute",    // Targon
-    5:  "traininghone",    // Hone (SN5) - official product account; @manifoldlabs is the dev company
-    6:  "numinous_ai",    // Numinous
-    7:  "SubVortexTao",    // SubVortex
-    8:  "VantaTrading",    // Vanta
-    9:  "IOTA_SN9",    // IOTA (Macrocosmos pretraining)
-    10:  "_taofi_",    // SN10 (verified 2026-07-21)
-    12:  "ComputeHorde",    // Compute Horde
-    13:  "Data_SN13",    // Data Universe
-    14:  "cacheon_ai",    // TAOHash
-    15:  "oroagents",    // ORO
-    16:  "bitads_ai",    // BitAds
-    17:  "404gen_",    // 404-GEN
-    18:  "zeussubnet",    // Zeus
-    19:  "blockmachine_io",    // NineteenAI (Rayon Labs)
-    20:  "groundlayerhq",    // BitAgent / Rizzo (SN20)
-    21:  "adtao_ppcrebel",    // OMEGA Any-to-Any (Omega Labs)
-    22:  "desearch_ai",    // DeSearch
-    23:  "trishoolai",    // Trishool
-    24:  "QuasarModels",    // Quasar
-    26:  "perturbaix",    // Kinitro
-    27:  "nodex0_",    // Nodexo
-    28:  "say_gm_",    // Foundry S&P 500 Oracle
-    29:  "cacheon_ai",    // SN29 (verified 2026-07-21)
-    32:  "ai_detection",    // It's AI (LLM Detection)
-    33:  "ReadyAI_",    // ReadyAI
-    34:  "BitMindAI",    // BitMind
-    35:  "0x_Markets",    // SN35 (verified 2026-07-21)
-    36:  "rendix_network",    // Web Agents - Autoppia
-    37:  "aureliusaligned",    // Aurelius
-    38:  "chronollm",    // SN38 (verified 2026-07-21)
-    39:  "basilic_ai",    // Basilica
-    40:  "vectorchatai",    // Ralph (SN40) - rebranded from Chunking; official X is @vectorchatai
-    41:  "almanac_market",    // SN41 (verified 2026-07-21)
-    42:  "getmasafi",    // Masa (real-time social data)
-    43:  "GraphiteSubnet",    // Graphite
-    44:  "webuildscore",    // Score (SN44)
-    45:  "TeamRizzoAI",    // Talisman AI / SWE-Rizzo (SN45)
-    46:  "resilabsai",    // SN46 (verified 2026-07-21)
-    48:  "qBitTensorLabs",    // SN48 (verified 2026-07-21)
-    50:  "SynthdataCo",    // Synth
-    51:  "lium_io",    // lium.io
-    52:  "TensorplexLabs",    // Dojo (SN52)
-    53:  "totheagi",    // Engy (SN53) - no official subnet account yet; founder Ning Ren (Hanlin AI). NOT @the_engy (a band)
-    54:  "yanez__ai",    // Yanez MIID
-    55:  "GenomesDAO",    // NIOME / GenomesDAO
-    56:  "gradients_ai",    // Gradients
-    57:  "Gaia_AI_",    // Gaia (Geospatial / Weather)
-    58:  "greevils_ai",    // Handshake
-    59:  "babelbit",    // Babelbit
-    60:  "bitsecai",    // Bitsec.ai
-    61:  "_redteam_",    // RedTeam
-    62:  "ridges_ai",    // Ridges
-    63:  "qbittensorlabs",    // qBitTensor (SN63)
-    64:  "chutes_ai",    // Chutes
-    65:  "TPN_Labs",    // TAO Private Network
-    66:  "Ninja_Subnet",    // AlphaCore
-    67:  "harnyx_ai",    // Tenex (DeFi margin)
-    68:  "metanova_labs",    // NOVA (MetaNova Labs)
-    70:  "nexisgen_ai",    // Vericore / dFusion AI
-    71:  "LeadpoetAI",    // Leadpoet
-    72:  "natixnetwork",    // StreetVision / NATIX
-    74:  "gittensor_io",    // Gittensor
-    75:  "hippius_subnet",    // Hippius
-    78:  "Loosh_ai",    // Loosh (machine consciousness)
-    79:  "taos_im",    // SN79 (verified 2026-07-21)
-    81:  "grail_ai",    // grail
-    82:  "HermesSubnet",    // Hermes (SubQuery)
-    85:  "vidaio_",    // Vidaio
-    88:  "Investing88ai",    // Investing (SN88)
-    91:  "bitstarterAI",    // Bitstarter #1
-    93:  "Bitcast_network",    // Bitcast
-    97:  "arbos_born",    // distil / Arbo (SN97)
-    98:  "neverplayalone_",    // Creator (CreatorBid agents)
-    106:  "nodexo",    // SN106 (verified 2026-07-21)
-    111:  "DeSciClaims",    // SN111 (verified 2026-07-21)
-    117:  "glyphresearch",    // SN117 (verified 2026-07-21)
-    118:  "heydittoai",    // SN118 (verified 2026-07-21)
-    120:  "affine_io",    // Affine (SN120)
-    121:  "sundaebar_ai",    // sundae_bar
-    122:  "cookingtao_",    // Bitrecs
-    124:  "SwarmSubnet",    // Swarm
-  };
+  // X handle overrides live in lib/subnet-x-handles.ts (shared with the revenue watch cron).
 
   // ── Step 3a: Direct GitHub scan - ALL subnets, real-time data ──────
   // This is our OWN BACKBONE - independent of TaoStats. Queries GitHub API

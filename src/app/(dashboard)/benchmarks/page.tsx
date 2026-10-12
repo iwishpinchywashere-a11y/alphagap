@@ -228,6 +228,22 @@ function Row({ r, expanded, onToggle, watched }: { r: ValuationRow; expanded: bo
                 </p>
               </div>
 
+              {(r.mentions?.length ?? 0) > 0 && (
+                <div>
+                  <div className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1.5 flex items-center gap-1.5"><AgIcon name="signal" className="w-3 h-3" /> From the team&apos;s X</div>
+                  <ul className="space-y-1.5">
+                    {r.mentions!.map(m => (
+                      <li key={m.id} className="text-xs text-gray-400 leading-relaxed">
+                        <span className="text-gray-600 font-mono text-[10px]">{m.postedAt.slice(0, 10)}</span>{" "}
+                        {m.figures?.summary || m.text.slice(0, 160)}{" "}
+                        <a href={m.url} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} className="text-emerald-500/80 hover:text-emerald-400 underline underline-offset-2">post</a>
+                        {m.flag === "new_figure" && <span className="ml-1.5 text-[10px] text-amber-300/80">newer than our record, under review</span>}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
               {r.benchmark && (
                 <div className="bg-white/[0.03] border border-white/[0.08] rounded-xl p-4">
                   <div className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2 flex items-center gap-1.5"><AgIcon name="target" className="w-3 h-3" /> Product benchmark</div>

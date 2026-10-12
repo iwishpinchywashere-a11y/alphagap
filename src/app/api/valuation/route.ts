@@ -17,6 +17,7 @@ import research from "@/data/valuation.json";
 import { scoreRow, rankRows, type ResearchRecord, type LiveMarket } from "@/lib/valuation";
 import { BENCHMARK_MAP, computeProductScore } from "@/lib/benchmarks";
 import { getValuationSignals } from "@/lib/valuation-signals";
+import type { RevenueMention } from "@/lib/revenue-mentions";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 15;
@@ -42,8 +43,25 @@ async function readMarket(): Promise<MarketLatest | null> {
   } catch { return null; }
 }
 
+async function readMentions(): Promise<Map<number, RevenueMention[]>> {
+  const out = new Map<number, RevenueMention[]>();
+  try {
+    const b = await blobGet("revenue-mentions.json", {
+      token: process.env.BLOB_READ_WRITE_TOKEN || "", access: "private", abortSignal: AbortSignal.timeout(6000),
+    });
+    if (!b?.stream) return out;
+    const store = JSON.parse(await new Response(b.stream).text()) as { mentions: RevenueMention[] };
+    for (const m of store.mentions ?? []) {
+      const list = out.get(m.netuid) ?? [];
+      if (list.length < 3) list.push(m);
+      out.set(m.netuid, list);
+    }
+  } catch { /* no mentions yet */ }
+  return out;
+}
+
 export async function GET() {
-  const market = await readMarket();
+  const [market, mentions] = await Promise.all([readMarket(), readMentions()]);
   const records = research as unknown as ResearchRecord[];
 
   const scored = records.map(r => {
@@ -76,7 +94,7 @@ export async function GET() {
     // The one score: same number as the PROD pillar inside aGap.
     const prodScore = computeProductScore(r.netuid).score;
     const businessScore = getValuationSignals(r.netuid)?.businessScore ?? 0;
-    return { ...scored1, benchmark, prodScore, businessScore };
+    return { ...scored1, benchmark, prodScore, businessScore, mentions: mentions.get(r.netuid) ?? [] };
   });
   const rows = rankRows(scored);
 
