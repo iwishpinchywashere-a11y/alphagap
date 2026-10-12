@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import SocialLinks from "@/components/dashboard/SocialLinks";
 import SubnetLogo from "@/components/dashboard/SubnetLogo";
+import LineChart, { type ChartPoint } from "@/components/charts/LineChart";
 import AgIcon from "@/components/AgIcon";
 import { BENCHMARK_MAP } from "@/lib/benchmarks";
 
@@ -130,369 +131,102 @@ function taoPageSlug(netuid: number, name: string): string {
     .replace(/^-+|-+$/g, "") || `sn${netuid}`;
 }
 
-// ── Shared crosshair helper (SVG lines + dot only - no text) ─────
-// The tooltip text is rendered as an HTML overlay outside the SVG so it
-// isn't squished by preserveAspectRatio="none" on mobile screens.
-function Crosshair({
-  cx, cy, W, H, PAD, color,
-}: {
-  cx: number; cy: number; W: number; H: number;
-  PAD: { top: number; right: number; bottom: number; left: number };
-  color: string;
+// ── Charts ────────────────────────────────────────────────────────
+// All three chart types render through components/charts/LineChart, which
+// draws in real pixels (no stretched viewBox) and scrubs with pointer events.
+
+function parseTsMs(ts: string): number {
+  if (/^\d+$/.test(ts)) { const n = parseInt(ts, 10); return n < 1e12 ? n * 1000 : n; }
+  return Date.parse(ts);
+}
+
+function useIsMobile(): boolean {
+  const [m, setM] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 640px)");
+    const on = () => setM(mq.matches); on();
+    mq.addEventListener("change", on); return () => mq.removeEventListener("change", on);
+  }, []);
+  return m;
+}
+
+const axisTimeFor = (tf: Timeframe) => (t: number) => {
+  const d = new Date(t);
+  if (tf === "1D") return d.toLocaleTimeString("en-US", { hour: "numeric", hour12: true });
+  if (tf === "1Y") return d.toLocaleDateString("en-US", { month: "short", year: "2-digit" });
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+};
+const tipTimeFor = (tf: Timeframe) => (t: number) => {
+  const d = new Date(t);
+  if (tf === "1D" || tf === "7D") return d.toLocaleDateString("en-US", { month: "short", day: "numeric" }) + ", " + d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+};
+
+function toPoints(data: PricePoint[]): ChartPoint[] {
+  return data.map(p => ({ t: parseTsMs(p.timestamp), v: p.price }))
+    .filter(p => Number.isFinite(p.t) && Number.isFinite(p.v) && p.v > 0)
+    .sort((a, b) => a.t - b.t);
+}
+
+function PriceChart({ data, color, timeframe, onHover }: {
+  data: PricePoint[]; color: string; timeframe: Timeframe; onHover?: (p: ChartPoint | null) => void;
 }) {
+  const mobile = useIsMobile();
+  const pts = useMemo(() => toPoints(data), [data]);
   return (
-    <g style={{ pointerEvents: "none" }}>
-      {/* Vertical dashed line */}
-      <line x1={cx} y1={PAD.top} x2={cx} y2={H - PAD.bottom}
-        stroke="#6b7280" strokeWidth="1" strokeDasharray="4 3" />
-      {/* Horizontal dashed line */}
-      <line x1={PAD.left} y1={cy} x2={W - PAD.right} y2={cy}
-        stroke="#6b7280" strokeWidth="1" strokeDasharray="4 3" />
-      {/* Snap dot */}
-      <circle cx={cx} cy={cy} r="5" fill={color} stroke="#0a0a0f" strokeWidth="2" />
-    </g>
+    <LineChart points={pts} color={color} height={mobile ? 210 : 280}
+      formatValue={fmtPrice} formatAxisTime={axisTimeFor(timeframe)} formatTooltipTime={tipTimeFor(timeframe)}
+      showExtremes onHover={onHover} animateKey={`${timeframe}:${pts.length}`} />
   );
 }
 
-// ── SVG price chart (CoinGecko-style, interactive) ────────────────
-function PriceChart({ data, color }: { data: PricePoint[]; color: string }) {
-  const [hoverIdx, setHoverIdx] = useState<number | null>(null);
-  const svgRef = useRef<SVGSVGElement>(null);
-
-  const W = 900; const H = 180;
-  const PAD = { top: 8, right: 4, bottom: 4, left: 4 };
-  const cW = W - PAD.left - PAD.right;
-  const cH = H - PAD.top - PAD.bottom;
-
-  if (data.length < 2) {
-    return <div className="flex items-center justify-center h-48 text-gray-600 text-xs">No price data available</div>;
-  }
-
-  const prices = data.map((d) => d.price);
-  const minP = Math.min(...prices);
-  const maxP = Math.max(...prices);
-  const range = maxP - minP || minP * 0.01 || 0.001;
-  const yMin = minP - range * 0.08;
-  const yMax = maxP + range * 0.08;
-
-  const xS = (i: number) => PAD.left + (i / Math.max(data.length - 1, 1)) * cW;
-  const yS = (v: number) => PAD.top + cH - ((v - yMin) / (yMax - yMin)) * cH;
-
-  const pts = data.map((d, i) => `${xS(i).toFixed(1)},${yS(d.price).toFixed(1)}`).join(" ");
-  const lastX = xS(data.length - 1);
-  const baseY = PAD.top + cH;
-  const area = `${xS(0).toFixed(1)},${baseY} ${pts} ${lastX.toFixed(1)},${baseY}`;
-  const yTicks = niceYTicks(yMin, yMax);
-  const xIdxs = data.length <= 5
-    ? data.map((_, i) => i)
-    : [0, Math.floor(data.length * 0.33), Math.floor(data.length * 0.66), data.length - 1];
-
-  const parseTs = (ts: string): Date => {
-    if (/^\d+$/.test(ts)) { const n = parseInt(ts, 10); return new Date(n < 1e12 ? n * 1000 : n); }
-    return new Date(ts);
-  };
-  const fmtAxisDate = (ts: string) => {
-    const d = parseTs(ts);
-    return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-  };
-  const fmtTooltipDate = (ts: string) => {
-    const d = parseTs(ts);
-    return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-  };
-
-  const handleMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
-    if (!svgRef.current) return;
-    const rect = svgRef.current.getBoundingClientRect();
-    // Map screen coords → viewBox coords (preserveAspectRatio="none" so linear)
-    const svgX = ((e.clientX - rect.left) / rect.width) * W;
-    const raw = (svgX - PAD.left) / cW * (data.length - 1);
-    setHoverIdx(Math.max(0, Math.min(data.length - 1, Math.round(raw))));
-  };
-
-  const handleTouchMove = (e: React.TouchEvent<SVGSVGElement>) => {
-    e.preventDefault();
-    if (!svgRef.current || e.touches.length === 0) return;
-    const rect = svgRef.current.getBoundingClientRect();
-    const svgX = ((e.touches[0].clientX - rect.left) / rect.width) * W;
-    const raw = (svgX - PAD.left) / cW * (data.length - 1);
-    setHoverIdx(Math.max(0, Math.min(data.length - 1, Math.round(raw))));
-  };
-
-  const h = hoverIdx !== null ? hoverIdx : null;
-
-  return (
-    <div className="relative">
-      {/* HTML tooltip */}
-      {h !== null && (
-        <div className="absolute inset-x-0 top-1 flex justify-center pointer-events-none z-10">
-          <div className="bg-gray-900/95 border border-gray-700 rounded-xl px-4 py-2 text-center shadow-xl">
-            <div className="text-white font-bold font-mono text-xl leading-tight">{fmtPrice(data[h].price)}</div>
-            <div className="text-gray-400 text-sm mt-0.5">{fmtTooltipDate(data[h].timestamp)}</div>
-          </div>
-        </div>
-      )}
-
-      {/* Y labels left, chart right - HTML labels don't squish on mobile */}
-      <div className="flex items-stretch gap-1.5">
-        {/* Y-axis labels */}
-        <div className="flex flex-col justify-between py-[8px] shrink-0 w-12 text-right">
-          {[...yTicks].reverse().map((v, i) => (
-            <span key={i} className="text-[10px] leading-none text-gray-600">{fmtPrice(v)}</span>
-          ))}
-        </div>
-
-        <div className="flex-1 min-w-0">
-          <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`} className="w-full cursor-crosshair select-none"
-            style={{ height: "180px", display: "block" }} preserveAspectRatio="none"
-            onMouseMove={handleMouseMove} onMouseLeave={() => setHoverIdx(null)}
-            onTouchMove={handleTouchMove} onTouchEnd={() => setHoverIdx(null)}>
-            <defs>
-              <linearGradient id="priceGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor={color} stopOpacity="0.25" />
-                <stop offset="100%" stopColor={color} stopOpacity="0.01" />
-              </linearGradient>
-            </defs>
-            {/* Grid lines only - no SVG text */}
-            {yTicks.map((v, i) => (
-              <line key={i} x1={PAD.left} y1={yS(v).toFixed(1)} x2={PAD.left + cW} y2={yS(v).toFixed(1)}
-                stroke="#1f2937" strokeWidth="1" />
-            ))}
-            <polygon points={area} fill="url(#priceGrad)" />
-            <polyline points={pts} fill="none" stroke={color} strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
-            {h === null && (
-              <circle cx={lastX.toFixed(1)} cy={yS(prices[prices.length - 1]).toFixed(1)} r="4" fill={color} />
-            )}
-            {h !== null && (
-              <Crosshair cx={xS(h)} cy={yS(data[h].price)} W={W} H={H} PAD={PAD} color={color} />
-            )}
-          </svg>
-
-          {/* X-axis labels */}
-          <div className="flex justify-between mt-0.5">
-            {xIdxs.map((idx, i) => (
-              <span key={i} className="text-[10px] leading-none text-gray-600">
-                {fmtAxisDate(data[idx].timestamp)}
-              </span>
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── Compute readable Y-axis ticks ────────────────────────────────
-// Returns 3 values that fall at "nice" round numbers within the data range.
-function niceYTicks(min: number, max: number): number[] {
-  const range = max - min || 1;
-  // Pick a step that lands on round numbers
-  const roughStep = range / 4;
-  const mag = Math.pow(10, Math.floor(Math.log10(roughStep)));
-  const step = Math.ceil(roughStep / mag) * mag || 1;
-  const start = Math.ceil((min + range * 0.05) / step) * step;
-  const ticks: number[] = [];
-  for (let v = start; ticks.length < 3 && v <= max - range * 0.05; v += step) {
-    ticks.push(Math.round(v * 1000) / 1000);
-  }
-  // If we got fewer than 3 ticks, fall back to evenly-spaced percentile positions
-  if (ticks.length < 2) {
-    return [0.2, 0.5, 0.8].map((t) => Math.round((min + (max - min) * t) * 100) / 100);
-  }
-  return ticks;
-}
-
-// ── Score line chart (interactive) ───────────────────────────────
-// x values are ISO timestamp strings (one per scan, ~30min apart)
-function ScoreChart({ data, color, label, formatY = (v: number) => v.toFixed(0), invertY = false }: {
-  data: { x: string; y: number }[]; color: string; label: string; formatY?: (v: number) => string; invertY?: boolean;
+// Score history: one point per scan, ~30 min apart
+function ScoreChart({ data, color, formatY = (v: number) => v.toFixed(0), invertY = false, height = 120 }: {
+  data: { x: string; y: number }[]; color: string; label?: string; formatY?: (v: number) => string; invertY?: boolean; height?: number;
 }) {
-  const [hoverIdx, setHoverIdx] = useState<number | null>(null);
-  const svgRef = useRef<SVGSVGElement>(null);
-
-  // ── Dimensions ────────────────────────────────────────────────────
-  // Axis labels are rendered as HTML overlays (not SVG text) so they scale
-  // correctly on all screen sizes - SVG text squishes on mobile with
-  // preserveAspectRatio="none". The SVG itself has no left/bottom padding;
-  // the parent container reserves space via CSS margins/padding.
-  const W = 600; const H = 120;
-  const PAD = { top: 10, right: 6, bottom: 4, left: 4 };
-  const cW = W - PAD.left - PAD.right;
-  const cH = H - PAD.top - PAD.bottom;
-
-  if (data.length < 2) {
+  const pts = useMemo(() => data.map(d => ({ t: parseTsMs(d.x), v: d.y })).filter(p => Number.isFinite(p.t) && Number.isFinite(p.v)).sort((a, b) => a.t - b.t), [data]);
+  if (pts.length < 2) {
     return (
-      <div className="flex flex-col items-center justify-center h-32 gap-1">
-        <span className="text-gray-600 text-xs text-center">No history yet - chart builds<br />with each scan (~30 min)</span>
+      <div className="flex items-center justify-center text-gray-600 text-xs text-center" style={{ height }}>
+        No history yet - builds with each scan
       </div>
     );
   }
-
-  // Tooltip shows date + time for precise hover info
-  const fmtTooltipTs = (ts: string) => {
-    const d = new Date(ts);
-    return d.toLocaleDateString("en-US", { month: "short", day: "numeric" }) + " " +
-      d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
-  };
-
-  const values = data.map((d) => d.y);
-  const minV = Math.min(...values); const maxV = Math.max(...values);
-  const range = maxV - minV || 1;
-  const yMin = minV - range * 0.12; const yMax = maxV + range * 0.12;
-  const xS = (i: number) => PAD.left + (i / Math.max(data.length - 1, 1)) * cW;
-  const yS = (v: number) => invertY
-    ? PAD.top + ((v - yMin) / (yMax - yMin)) * cH
-    : PAD.top + cH - ((v - yMin) / (yMax - yMin)) * cH;
-  const pts = data.map((d, i) => `${xS(i).toFixed(1)},${yS(d.y).toFixed(1)}`).join(" ");
-  const area = `${xS(0).toFixed(1)},${PAD.top + cH} ${pts} ${xS(data.length - 1).toFixed(1)},${PAD.top + cH}`;
-  const gradId = `sg-${label.replace(/[\s%]+/g, "")}`;
-
-  // Y ticks: nice round values inside the data range
-  const yTicks = niceYTicks(yMin, yMax);
-
-  // X labels: pick 3 evenly-spaced indices across the data
-  const xLabelIdxs = data.length <= 2
-    ? [0, data.length - 1]
-    : [0, Math.floor((data.length - 1) / 2), data.length - 1];
-
-  const fmtXLabel = (ts: string) =>
-    new Date(ts).toLocaleDateString("en-US", { month: "short", day: "numeric" });
-
-  const handleMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
-    if (!svgRef.current) return;
-    const rect = svgRef.current.getBoundingClientRect();
-    const svgX = ((e.clientX - rect.left) / rect.width) * W;
-    const raw = (svgX - PAD.left) / cW * (data.length - 1);
-    setHoverIdx(Math.max(0, Math.min(data.length - 1, Math.round(raw))));
-  };
-
-  const handleTouchMove = (e: React.TouchEvent<SVGSVGElement>) => {
-    e.preventDefault();
-    if (!svgRef.current || e.touches.length === 0) return;
-    const rect = svgRef.current.getBoundingClientRect();
-    const svgX = ((e.touches[0].clientX - rect.left) / rect.width) * W;
-    const raw = (svgX - PAD.left) / cW * (data.length - 1);
-    setHoverIdx(Math.max(0, Math.min(data.length - 1, Math.round(raw))));
-  };
-
-  const h = hoverIdx;
-
   return (
-    <div className="relative">
-      {/* HTML tooltip */}
-      {h !== null && (
-        <div className="absolute inset-x-0 top-0.5 flex justify-center pointer-events-none z-10">
-          <div className="bg-gray-900/95 border border-gray-700 rounded-xl px-3 py-1.5 text-center shadow-xl">
-            <div className="text-white font-bold font-mono text-lg leading-tight">{formatY(data[h].y)}</div>
-            <div className="text-gray-400 text-xs mt-0.5">{fmtTooltipTs(data[h].x)}</div>
-          </div>
-        </div>
-      )}
-
-      {/* Chart area: Y labels left, SVG right */}
-      <div className="flex items-stretch gap-1">
-        {/* Y-axis labels - HTML so they don't squish on mobile */}
-        <div className="flex flex-col justify-between py-[10px] shrink-0 w-8 text-right">
-          {[...yTicks].reverse().map((v, i) => (
-            <span key={i} className="text-[10px] leading-none text-gray-600">{formatY(v)}</span>
-          ))}
-        </div>
-
-        {/* SVG chart - no left/bottom padding needed, labels are HTML */}
-        <div className="flex-1 min-w-0">
-          <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`} className="w-full cursor-crosshair select-none"
-            style={{ height: "120px", display: "block" }} preserveAspectRatio="none"
-            onMouseMove={handleMouseMove} onMouseLeave={() => setHoverIdx(null)}
-            onTouchMove={handleTouchMove} onTouchEnd={() => setHoverIdx(null)}>
-            <defs>
-              <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor={color} stopOpacity="0.25" />
-                <stop offset="100%" stopColor={color} stopOpacity="0.02" />
-              </linearGradient>
-            </defs>
-            {/* Horizontal grid lines only - no SVG text */}
-            {yTicks.map((v, i) => (
-              <line key={i} x1={PAD.left} y1={yS(v).toFixed(1)} x2={PAD.left + cW} y2={yS(v).toFixed(1)}
-                stroke="#1f2937" strokeWidth="1" />
-            ))}
-            <polygon points={area} fill={`url(#${gradId})`} />
-            <polyline points={pts} fill="none" stroke={color} strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
-            {h === null && (
-              <circle cx={xS(data.length - 1).toFixed(1)} cy={yS(values[values.length - 1]).toFixed(1)} r="3.5" fill={color} />
-            )}
-            {h !== null && (
-              <Crosshair cx={xS(h)} cy={yS(data[h].y)} W={W} H={H} PAD={PAD} color={color} />
-            )}
-          </svg>
-
-          {/* X-axis labels - HTML so they don't squish on mobile */}
-          <div className="flex justify-between mt-0.5">
-            {xLabelIdxs.map((idx, i) => (
-              <span key={i} className="text-[10px] leading-none text-gray-600">
-                {fmtXLabel(data[idx].x)}
-              </span>
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>
+    <LineChart points={pts} color={color} height={height} invertY={invertY}
+      formatValue={formatY}
+      formatAxisTime={t => new Date(t).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+      formatTooltipTime={t => new Date(t).toLocaleDateString("en-US", { month: "short", day: "numeric" }) + ", " + new Date(t).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })}
+      animateKey={pts.length} />
   );
 }
 
-// ── TAO Flow EMA Chart ────────────────────────────────────────────
-// Full-width interactive chart with timeframe selector.
-// Positive flow (inflow) = green, negative (outflow) = red.
-// Data comes from TaoMarketCap subnet_ema_tao_flow, sampled every 10 min.
+// TAO Flow EMA: net TAO into/out of the pool, sampled every 10 min from chain state
 type FlowTf = "1D" | "7D" | "1M" | "3M";
 function TaoFlowChart({ allData }: { allData: { x: string; y: number }[] }) {
   const [tf, setTf] = useState<FlowTf>("7D");
-  const [hoverIdx, setHoverIdx] = useState<number | null>(null);
-  const svgRef = useRef<SVGSVGElement>(null);
-
-  const cutoffMs: Record<FlowTf, number> = {
-    "1D": 1 * 86400000,
-    "7D": 7 * 86400000,
-    "1M": 30 * 86400000,
-    "3M": 90 * 86400000,
-  };
-
-  const data = useMemo(() => {
+  const mobile = useIsMobile();
+  const cutoffMs: Record<FlowTf, number> = { "1D": 86400000, "7D": 7 * 86400000, "1M": 30 * 86400000, "3M": 90 * 86400000 };
+  const pts = useMemo(() => {
     const since = Date.now() - cutoffMs[tf];
-    const filtered = allData.filter(d => new Date(d.x).getTime() >= since);
-    // Downsample for longer ranges to keep SVG fast
-    if (filtered.length <= 200) return filtered;
-    const step = Math.ceil(filtered.length / 200);
-    return filtered.filter((_, i) => i % step === 0 || i === filtered.length - 1);
+    return allData.map(d => ({ t: parseTsMs(d.x), v: d.y })).filter(p => Number.isFinite(p.t) && Number.isFinite(p.v) && p.t >= since).sort((a, b) => a.t - b.t);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [allData, tf]);
-
-  // Colour: green if latest value is positive, red if negative
-  const latest = data.length > 0 ? data[data.length - 1].y : 0;
+  const latest = pts.length ? pts[pts.length - 1].v : 0;
   const color = latest >= 0 ? "#4ade80" : "#f87171";
-
-  const W = 600; const H = 200;
-  const PAD = { top: 16, right: 6, bottom: 4, left: 4 };
-  const cW = W - PAD.left - PAD.right;
-  const cH = H - PAD.top - PAD.bottom;
-
+  // Decimals follow the plotted range so a flat EMA near zero does not print
+  // the same "-0.001 τ" on every gridline.
+  const span = pts.length ? Math.max(...pts.map(p => Math.abs(p.v))) : 1;
+  const smallDecimals = span >= 1 ? 1 : Math.min(6, Math.max(3, Math.ceil(-Math.log10(span || 1)) + 2));
   const fmtFlow = (v: number) => {
-    const abs = Math.abs(v);
-    const sign = v >= 0 ? "+" : "−";
+    const abs = Math.abs(v); const sign = v >= 0 ? "+" : "-";
     if (abs >= 1000) return `${sign}${(abs / 1000).toFixed(1)}K τ`;
     if (abs >= 1) return `${sign}${abs.toFixed(1)} τ`;
-    return `${sign}${abs.toFixed(3)} τ`;
+    return `${sign}${abs.toFixed(smallDecimals)} τ`;
   };
-
-  const fmtDate = (ts: string) => {
-    const d = new Date(ts);
-    if (tf === "1D") return d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
-    return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-  };
-
-  const handleMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
-    if (!svgRef.current || data.length < 2) return;
-    const rect = svgRef.current.getBoundingClientRect();
-    const svgX = ((e.clientX - rect.left) / rect.width) * W;
-    const raw = (svgX - PAD.left) / cW * (data.length - 1);
-    setHoverIdx(Math.max(0, Math.min(data.length - 1, Math.round(raw))));
+  const fmtTime = (t: number) => {
+    const d = new Date(t);
+    return tf === "1D" ? d.toLocaleTimeString("en-US", { hour: "numeric", hour12: true }) : d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
   };
 
   if (allData.length === 0) {
@@ -504,118 +238,20 @@ function TaoFlowChart({ allData }: { allData: { x: string; y: number }[] }) {
     );
   }
 
-  if (data.length < 2) {
-    return (
-      <div className="flex flex-col items-center justify-center py-16 gap-2 text-center">
-        <div className="text-gray-600 text-sm">Not enough data for this timeframe yet</div>
-        <div className="text-gray-700 text-xs">Try a shorter range or check back later</div>
-      </div>
-    );
-  }
-
-  const values = data.map(d => d.y);
-  const minV = Math.min(...values); const maxV = Math.max(...values);
-  // Ensure zero is always visible - expand range to include 0
-  const yMin = Math.min(minV, 0) - Math.abs(maxV - minV) * 0.08;
-  const yMax = Math.max(maxV, 0) + Math.abs(maxV - minV) * 0.08;
-  const range = yMax - yMin || 1;
-
-  const xS = (i: number) => PAD.left + (i / Math.max(data.length - 1, 1)) * cW;
-  const yS = (v: number) => PAD.top + cH - ((v - yMin) / range) * cH;
-  const zeroY = yS(0).toFixed(1); // pixel position of the zero line
-
-  const pts = data.map((d, i) => `${xS(i).toFixed(1)},${yS(d.y).toFixed(1)}`).join(" ");
-  const area = `${xS(0).toFixed(1)},${zeroY} ${pts} ${xS(data.length - 1).toFixed(1)},${zeroY}`;
-
-  const yTicks = niceYTicks(yMin, yMax);
-  const xIdxs = data.length <= 2 ? [0, data.length - 1]
-    : [0, Math.floor((data.length - 1) / 2), data.length - 1];
-
-  const h = hoverIdx;
-
   return (
     <div className="space-y-3">
-      {/* Timeframe buttons */}
       <div className="flex items-center gap-1.5">
         <div className="ag-pill-tabs">
           {(["1D", "7D", "1M", "3M"] as FlowTf[]).map(t => (
-            <button key={t} onClick={() => { setTf(t); setHoverIdx(null); }}
-              className={`ag-pill-tab !px-4 !py-1.5 text-xs ${tf === t ? "ag-pill-tab-on" : ""}`}>
-              {t}
-            </button>
+            <button key={t} onClick={() => setTf(t)} className={`ag-pill-tab !px-4 !py-1.5 text-xs ${tf === t ? "ag-pill-tab-on" : ""}`}>{t}</button>
           ))}
         </div>
-        <span className="ml-auto font-mono text-[10.5px] text-gray-600 tabular-nums">{data.length} data points</span>
+        <span className="ml-auto font-mono text-[10.5px] text-gray-600 tabular-nums">{pts.length} points</span>
       </div>
-
-      {/* Chart */}
-      <div className="relative">
-        {/* Hover tooltip */}
-        {h !== null && (
-          <div className="absolute inset-x-0 top-0.5 flex justify-center pointer-events-none z-10">
-            <div className="bg-gray-900/95 border border-gray-700 rounded-xl px-4 py-2 text-center shadow-xl">
-              <div className={`font-bold font-mono text-xl leading-tight ${data[h].y >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-                {fmtFlow(data[h].y)}
-              </div>
-              <div className="text-gray-400 text-xs mt-0.5">{fmtDate(data[h].x)}</div>
-            </div>
-          </div>
-        )}
-
-        <div className="flex items-stretch gap-1.5">
-          {/* Y-axis labels */}
-          <div className="flex flex-col justify-between py-[16px] shrink-0 w-14 text-right">
-            {[...yTicks].reverse().map((v, i) => (
-              <span key={i} className={`text-[10px] leading-none ${v >= 0 ? "text-gray-600" : "text-red-800"}`}>
-                {fmtFlow(v)}
-              </span>
-            ))}
-          </div>
-
-          <div className="flex-1 min-w-0">
-            <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`} className="w-full cursor-crosshair select-none"
-              style={{ height: "200px", display: "block" }} preserveAspectRatio="none"
-              onMouseMove={handleMouseMove} onMouseLeave={() => setHoverIdx(null)}
-              onTouchMove={(e) => {
-                e.preventDefault();
-                if (!svgRef.current || e.touches.length === 0) return;
-                const rect = svgRef.current.getBoundingClientRect();
-                const svgX = ((e.touches[0].clientX - rect.left) / rect.width) * W;
-                setHoverIdx(Math.max(0, Math.min(data.length - 1, Math.round((svgX - PAD.left) / cW * (data.length - 1)))));
-              }}
-              onTouchEnd={() => setHoverIdx(null)}>
-              <defs>
-                <linearGradient id="flowGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={color} stopOpacity="0.30" />
-                  <stop offset="100%" stopColor={color} stopOpacity="0.02" />
-                </linearGradient>
-              </defs>
-              {/* Grid lines */}
-              {yTicks.map((v, i) => (
-                <line key={i} x1={PAD.left} y1={yS(v).toFixed(1)} x2={PAD.left + cW} y2={yS(v).toFixed(1)}
-                  stroke="#1f2937" strokeWidth="1" />
-              ))}
-              {/* Zero baseline - always visible */}
-              <line x1={PAD.left} y1={zeroY} x2={PAD.left + cW} y2={zeroY}
-                stroke="#374151" strokeWidth="1.5" strokeDasharray="4 3" />
-              <polygon points={area} fill={`url(#flowGrad)`} />
-              <polyline points={pts} fill="none" stroke={color} strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
-              {h === null && (
-                <circle cx={xS(data.length - 1).toFixed(1)} cy={yS(latest).toFixed(1)} r="4" fill={color} />
-              )}
-              {h !== null && <Crosshair cx={xS(h)} cy={yS(data[h].y)} W={W} H={H} PAD={PAD} color={color} />}
-            </svg>
-
-            {/* X-axis labels */}
-            <div className="flex justify-between mt-0.5">
-              {xIdxs.map((idx, i) => (
-                <span key={i} className="text-[10px] leading-none text-gray-600">{fmtDate(data[idx].x)}</span>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-
+      <LineChart points={pts} color={color} height={mobile ? 180 : 220} baseline={0}
+        formatValue={fmtFlow} formatAxisTime={fmtTime}
+        formatTooltipTime={t => new Date(t).toLocaleDateString("en-US", { month: "short", day: "numeric" }) + ", " + new Date(t).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })}
+        animateKey={`${tf}:${pts.length}`} />
       <p className="text-[11px] text-gray-700 leading-relaxed">
         TAO Flow EMA measures net TAO moving into or out of this subnet&apos;s liquidity pool (7-day exponential moving average, read from chain state). Sustained positive flow → emission share rising. Sustained negative flow → emission share falling. This is a leading indicator of where emissions are heading next.
       </p>
@@ -773,29 +409,51 @@ export default function SubnetDetailPage({ params }: { params: Promise<{ netuid:
     return chartData[chartData.length - 1].price >= chartData[0].price ? "#4ade80" : "#f87171";
   }, [chartData]);
 
-  // Price change % for selected timeframe
+  // Scrubbing: the header follows the finger/cursor like a brokerage app
+  const [hoverPt, setHoverPt] = useState<ChartPoint | null>(null);
+  useEffect(() => { setHoverPt(null); }, [timeframe]);
+
+  // Price change for the selected timeframe, measured on the SAME USD series
+  // the chart draws. The chain's change24h/7d/30d are TAO-denominated (alpha
+  // per TAO), so on a page priced in dollars they disagreed with the line
+  // whenever TAO itself moved: ORO once read -27.5% over a chart that fell
+  // 13.7%. Number, colour and line now come from one series.
+  const seriesChange = (from: number | undefined, to: number | undefined) =>
+    from && to && from > 0 && Number.isFinite(from) && Number.isFinite(to) ? (to / from - 1) * 100 : null;
   const tfChangePct = useMemo(() => {
-    const ms = data?.marketStats;
-    // 1D/7D/1M are measured on chain at exact offsets, so prefer those.
-    if (ms) {
-      if (timeframe === "1D") return ms.priceChangePct24h;
-      if (timeframe === "7D") return ms.priceChangePct7d;
-      if (timeframe === "1M") return ms.priceChangePct30d;
-    }
-    // 3M and 1Y have no precomputed figure: there is no chain reading at a
-    // "90 days ago" offset, which is why this used to return null and the
-    // header simply showed no percentage on those two tabs. Measure the
-    // series being drawn instead. That is also what colours the line, so the
-    // number and the colour can never disagree.
-    if (chartData.length >= 2) {
-      const first = chartData[0].price;
-      const last = chartData[chartData.length - 1].price;
-      if (first > 0 && Number.isFinite(first) && Number.isFinite(last)) {
-        return (last / first - 1) * 100;
+    if (chartData.length < 2) return null;
+    const first = chartData[0].price;
+    const last = hoverPt ? hoverPt.v : chartData[chartData.length - 1].price;
+    return seriesChange(first, last);
+  }, [chartData, hoverPt]);
+
+  // 1h / 24h / 7d / 30d in USD from our own hourly and daily series: the point
+  // nearest each offset, accepted only if it is close enough to be that offset.
+  const usdChanges = useMemo(() => {
+    if (!data) return null;
+    const live = data.marketStats?.priceUsd ?? 0;
+    const now = Date.now();
+    // Nearest point to the offset, but never a point younger than 3/4 of the
+    // offset: the hourly series ends at the live price, and "1h ago" must not
+    // resolve to it (that read +0.00%).
+    const pick = (series: PricePoint[], hoursAgo: number, toleranceH: number) => {
+      const target = now - hoursAgo * 3600_000, youngest = now - hoursAgo * 3600_000 * 0.75;
+      let best: PricePoint | null = null, bestD = Infinity;
+      for (const p of series) {
+        const t = parseTsMs(p.timestamp); if (t > youngest) continue;
+        const d = Math.abs(t - target); if (d < bestD) { bestD = d; best = p; }
       }
-    }
-    return null;
-  }, [data, timeframe, chartData]);
+      return best && bestD <= toleranceH * 3600_000 ? best.price : undefined;
+    };
+    const hourly = data.sevenDayPrices, daily = data.priceHistory;
+    return {
+      h1: seriesChange(pick(hourly, 1, 1.5), live),
+      h24: seriesChange(pick(hourly, 24, 2), live),
+      d7: seriesChange(pick(hourly.length ? hourly : daily, 24 * 7, 24), live),
+      d30: seriesChange(pick(daily, 24 * 30, 36), live),
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data]);
 
   if (loading) return (
     <div className="min-h-screen bg-[#07090b] text-gray-100 ag-aurora flex items-center justify-center">
@@ -884,77 +542,78 @@ export default function SubnetDetailPage({ params }: { params: Promise<{ netuid:
             </div>
 
             {/* Price hero */}
-            <div className="ag-glass p-5">
-              <div className="flex items-end gap-4 mb-1">
-                <span className="font-display text-4xl md:text-5xl font-semibold tracking-[-0.02em] text-white tabular-nums">
-                  {ms ? fmtPrice(ms.priceUsd) : "-"}
-                </span>
-                {ms && (
-                  <div className="flex items-center gap-3 mb-1">
+            <div className="ag-glass p-4 md:p-5">
+              {/* Price + change for the selected window. While scrubbing, both follow the pointer. */}
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2.5 flex-wrap">
+                    <span className="font-display text-[2.35rem] leading-none md:text-5xl font-semibold tracking-[-0.03em] text-white tabular-nums">
+                      {hoverPt ? fmtPrice(hoverPt.v) : ms ? fmtPrice(ms.priceUsd) : "-"}
+                    </span>
                     {tfChangePct != null && (
-                      <span className={`text-base font-semibold ${pctColor(tfChangePct)}`}>
-                        {fmtPct(tfChangePct)} ({timeframe})
-                      </span>
-                    )}
-                    {ms.taoPrice > 0 && (
-                      <span className="text-sm text-gray-500">
-                        {ms.priceUsd > 0 ? `${(ms.priceUsd / ms.taoPrice).toFixed(6)} TAO` : ""}
+                      <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[13px] font-semibold tabular-nums border ${
+                        tfChangePct >= 0 ? "bg-emerald-500/10 border-emerald-500/25 text-emerald-300" : "bg-red-500/10 border-red-500/25 text-red-300"}`}>
+                        <span className="text-[10px]">{tfChangePct >= 0 ? "▲" : "▼"}</span>
+                        {fmtPct(Math.abs(tfChangePct)).replace("+", "")}
+                        <span className="font-mono text-[10px] opacity-70 ml-0.5">{timeframe}</span>
                       </span>
                     )}
                   </div>
-                )}
+                  <div className="mt-1.5 font-mono text-[11px] text-gray-500 tabular-nums">
+                    {hoverPt
+                      ? tipTimeFor(timeframe)(hoverPt.t)
+                      : ms && ms.taoPrice > 0 && ms.priceUsd > 0
+                        ? `${(ms.priceUsd / ms.taoPrice).toFixed(6)} TAO · τ ${fmtUsd(ms.taoPrice, 2)}`
+                        : ""}
+                  </div>
+                </div>
               </div>
 
-              {/* Change badges for all timeframes */}
-              {ms && (
-                <div className="flex gap-3 mb-4">
-                  {[
-                    { label: "1h", val: ms.priceChangePct1h },
-                    { label: "24h", val: ms.priceChangePct24h },
-                    { label: "7d", val: ms.priceChangePct7d },
-                    { label: "30d", val: ms.priceChangePct30d },
-                  ].map(({ label, val }) => (
-                    <div key={label} className="font-mono text-[11px] tabular-nums">
-                      <span className="text-gray-600 mr-1 uppercase">{label}</span>
-                      <span className={pctColor(val)}>{fmtPct(val)}</span>
+              {/* USD change at fixed offsets, from the same series as the chart */}
+              {usdChanges && (
+                <div className="grid grid-cols-4 gap-1.5 mt-3.5">
+                  {([["1h", usdChanges.h1], ["24h", usdChanges.h24], ["7d", usdChanges.d7], ["30d", usdChanges.d30]] as const).map(([label, val]) => (
+                    <div key={label} className="rounded-xl bg-white/[0.03] border border-white/[0.06] px-2 py-1.5 text-center">
+                      <div className="font-mono text-[9.5px] uppercase tracking-[0.12em] text-gray-600">{label}</div>
+                      <div className={`font-mono text-[12px] font-semibold tabular-nums ${val == null ? "text-gray-600" : pctColor(val)}`}>{val == null ? "-" : fmtPct(val)}</div>
                     </div>
                   ))}
                 </div>
               )}
 
-              {/* Timeframe toggle */}
-              <div className="ag-pill-tabs mb-3">
+              {/* Timeframe: full-width segmented control on phones */}
+              <div className="ag-pill-tabs !flex w-full sm:!inline-flex sm:w-auto mt-3.5 mb-2">
                 {TIMEFRAMES.map((tf) => (
-                  <button
-                    key={tf}
-                    onClick={() => setTimeframe(tf)}
-                    className={`ag-pill-tab !px-4 !py-1.5 text-xs ${timeframe === tf ? "ag-pill-tab-on" : ""}`}
-                  >
+                  <button key={tf} onClick={() => setTimeframe(tf)}
+                    className={`ag-pill-tab flex-1 sm:flex-none !px-3 sm:!px-4 !py-1.5 text-xs text-center ${timeframe === tf ? "ag-pill-tab-on" : ""}`}>
                     {tf}
                   </button>
                 ))}
               </div>
 
               {/* Chart */}
-              {yearLoading && timeframe === "1Y" && chartData.length < 2
-                ? <div className="flex items-center justify-center h-48 text-gray-600 text-xs gap-2">
-                    <span className="animate-spin">⟳</span> Loading 1Y price history…
-                  </div>
-                : <PriceChart data={chartData} color={chartColor} />
-              }
+              <div className="-mx-1">
+                {yearLoading && timeframe === "1Y" && chartData.length < 2
+                  ? <div className="flex items-center justify-center h-[210px] md:h-[280px] text-gray-600 text-xs gap-2">
+                      <span className="animate-spin">⟳</span> Loading 1Y price history…
+                    </div>
+                  : <PriceChart data={chartData} color={chartColor} timeframe={timeframe} onHover={setHoverPt} />
+                }
+              </div>
 
               {/* 24h range */}
               {ms && ms.high24hUsd > 0 && (
-                <div className="mt-3 flex items-center gap-3 text-xs text-gray-500">
-                  <span>24h Low: <span className="text-red-400">{fmtPrice(ms.low24hUsd)}</span></span>
-                  <div className="flex-1 h-1 bg-white/[0.06] rounded-full overflow-hidden">
-                    <div className="h-full bg-gradient-to-r from-red-500 to-green-500 rounded-full" style={{
+                <div className="mt-3 flex items-center gap-3 font-mono text-[10.5px] text-gray-500 tabular-nums">
+                  <span><span className="text-gray-600">L</span> <span className="text-red-300">{fmtPrice(ms.low24hUsd)}</span></span>
+                  <div className="flex-1 h-1 bg-white/[0.06] rounded-full overflow-hidden relative">
+                    <div className="h-full bg-gradient-to-r from-red-400/70 to-emerald-400/70 rounded-full" style={{
                       width: ms.high24hUsd > ms.low24hUsd
-                        ? `${((ms.priceUsd - ms.low24hUsd) / (ms.high24hUsd - ms.low24hUsd) * 100).toFixed(1)}%`
+                        ? `${Math.max(2, Math.min(100, (ms.priceUsd - ms.low24hUsd) / (ms.high24hUsd - ms.low24hUsd) * 100)).toFixed(1)}%`
                         : "50%"
                     }} />
                   </div>
-                  <span>24h High: <span className="text-green-400">{fmtPrice(ms.high24hUsd)}</span></span>
+                  <span><span className="text-gray-600">H</span> <span className="text-emerald-300">{fmtPrice(ms.high24hUsd)}</span></span>
+                  <span className="text-gray-700 hidden sm:inline">24h range</span>
                 </div>
               )}
             </div>
@@ -1049,9 +708,9 @@ export default function SubnetDetailPage({ params }: { params: Promise<{ netuid:
                 {/* aGap Rank chart - inverted y-axis, rank 1 = top */}
                 <div className="ag-glass p-3">
                   <div className="flex items-center justify-between mb-2">
-                    <div>
+                    <div className="min-w-0">
                       <span className="font-mono text-[10.5px] text-gray-500 uppercase tracking-[0.16em]">aGap Rank</span>
-                      <span className="text-[10px] text-gray-600 ml-1.5">best rank per day</span>
+                      <span className="text-[10px] text-gray-600 ml-1.5 hidden sm:inline">best rank per day</span>
                     </div>
                     <span className="font-display text-lg font-semibold tabular-nums text-amber-400">
                       {currentRank != null ? `#${currentRank}` : "-"}

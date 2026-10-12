@@ -79,7 +79,33 @@ async function writeCache(netuid: number, points: PricePoint[]): Promise<void> {
  * axis disagreed with 1D-3M. Convert at each day's TAO/USD close on the way
  * out; the cache stays in TAO so a rate source outage never corrupts it.
  */
+/**
+ * Drop points that are wildly off their neighbours. The TaoStats-cached range
+ * for SN15 carried twelve days in Jan 2026 at ~1000x the real price (raw rao
+ * where TAO was expected), which drew a 1Y chart that was one spike and a
+ * flat line. A point is kept only if it is within 5x either way of the median
+ * of the nearest neighbours (15 each side).
+ */
+function dropOutliers(points: PricePoint[]): PricePoint[] {
+  const n = points.length;
+  if (n < 8) return points;
+  const keep: boolean[] = new Array(n).fill(true);
+  for (let i = 0; i < n; i++) {
+    // 15 neighbours each side: the bad run was 12 days long, so a narrow
+    // window's median was itself bad and the run survived.
+    const nb: number[] = [];
+    for (let k = i - 1; k >= 0 && nb.length < 15; k--) nb.push(points[k].price);
+    for (let k = i + 1; k < n && nb.length < 30; k++) nb.push(points[k].price);
+    const sorted = [...nb].sort((a, b) => a - b);
+    const med = sorted[Math.floor(sorted.length / 2)];
+    const ratio = med > 0 ? points[i].price / med : 1;
+    if (ratio > 5 || ratio < 0.2) keep[i] = false;
+  }
+  return points.filter((_, i) => keep[i]);
+}
+
 async function asUsd(points: PricePoint[], netuid: number): Promise<PricePoint[]> {
+  points = dropOutliers(points);
   const daily = await fetchTaoUsdDaily(TOKEN);
   const latest = [...daily.entries()].sort(([a], [b]) => a.localeCompare(b)).at(-1)?.[1] ?? 0;
   const usd = daily.size === 0 ? points : taoSeriesToUsd(points, daily, latest);
