@@ -28,7 +28,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { getStripe } from "@/lib/stripe-client";
+import { tierFromAmount, getStripe } from "@/lib/stripe-client";
 import { getUserList, getUserByEmail, updateUser, updateUserListEntry } from "@/lib/users";
 
 export const dynamic = "force-dynamic";
@@ -37,11 +37,6 @@ export const maxDuration = 300;
 const LIVE = new Set(["active", "trialing"]);
 
 /** Same price-based tier mapping the webhook uses. */
-function tierFromAmount(cents: number): "pro" | "premium" | "ultra" {
-  if (cents >= 9900) return "ultra";
-  if (cents >= 4900) return "premium";
-  return "pro";
-}
 
 export async function GET(req: NextRequest) {
   const isVercelCron = req.headers.get("x-vercel-cron") === "1";

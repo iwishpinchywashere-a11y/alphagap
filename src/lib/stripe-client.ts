@@ -49,3 +49,23 @@ export const PLANS = {
 } as const;
 
 export type PlanKey = keyof typeof PLANS;
+
+export type SubscriptionTier = "pro" | "premium" | "ultra";
+
+/**
+ * Price (cents/month) -> tier. The ONLY tier mapping: payment-success, the
+ * Stripe webhook, sync-subscription and the reconcile cron all use it.
+ * On 2026-10-12 sync-subscription still carried a "$2 testing" copy that knew
+ * only pro/premium, so an Ultra payer was written back to premium seconds
+ * after payment-success had minted them ultra.
+ */
+export function tierFromAmount(cents: number): SubscriptionTier {
+  if (cents >= 9900) return "ultra";
+  if (cents >= 4900) return "premium";
+  return "pro";
+}
+
+export function tierFromSubscription(sub: { items: { data: Array<{ price?: { unit_amount?: number | null } | null }> } }): SubscriptionTier {
+  return tierFromAmount(sub.items.data[0]?.price?.unit_amount ?? 0);
+}
+

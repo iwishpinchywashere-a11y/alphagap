@@ -11,17 +11,13 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { encode } from "next-auth/jwt";
 import { authOptions } from "@/lib/auth";
-import { getStripe } from "@/lib/stripe-client";
+import { tierFromSubscription, getStripe } from "@/lib/stripe-client";
 import { getUserByEmail, updateUser, updateUserListEntry, setStripeCustomerLookup } from "@/lib/users";
 import type Stripe from "stripe";
 
 export const dynamic = "force-dynamic";
 
-function tierFromSub(sub: Stripe.Subscription): "pro" | "premium" | "ultra" {
-  const amount = sub.items.data[0]?.price?.unit_amount ?? 0;
-  if (amount >= 9900) return "ultra";
-  return amount >= 4900 ? "premium" : "pro";
-}
+const tierFromSub = tierFromSubscription;
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);

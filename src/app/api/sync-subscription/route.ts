@@ -8,15 +8,12 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { getStripe } from "@/lib/stripe-client";
+import { tierFromAmount, getStripe } from "@/lib/stripe-client";
 import { getUserByEmail, updateUser, updateUserListEntry, setStripeCustomerLookup } from "@/lib/users";
 import type Stripe from "stripe";
 
 export const dynamic = "force-dynamic";
 
-function tierFromAmount(amount: number): "pro" | "premium" {
-  return amount >= 200 ? "premium" : "pro"; // threshold: $2 testing (restore to 4900 for launch)
-}
 
 function mapStatus(status: Stripe.Subscription.Status): "active" | "trialing" | "past_due" | "canceled" | "none" {
   switch (status) {

@@ -1,17 +1,12 @@
 import { NextResponse } from "next/server";
 import type Stripe from "stripe";
-import { getStripe } from "@/lib/stripe-client";
+import { tierFromSubscription, getStripe } from "@/lib/stripe-client";
 import { getUserByStripeCustomerId, updateUser, updateUserListEntry } from "@/lib/users";
 import { getAttributionByReferredUser, recordCommission, payPendingCommissions } from "@/lib/referral";
 import { sendSubscriptionConfirmationEmail } from "@/lib/email";
 
 /** Detect tier from subscription price amount (in cents) */
-function tierFromSub(sub: Stripe.Subscription): "pro" | "premium" | "ultra" {
-  const amount = sub.items.data[0]?.price?.unit_amount ?? 0;
-  if (amount >= 9900) return "ultra";
-  if (amount >= 4900) return "premium";
-  return "pro";
-}
+const tierFromSub = tierFromSubscription;
 
 export const dynamic = "force-dynamic";
 

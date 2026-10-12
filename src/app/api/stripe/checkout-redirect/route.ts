@@ -66,7 +66,9 @@ export async function GET(req: Request) {
         },
         quantity: 1,
       }],
-      success_url: `${baseUrl}/dashboard?welcome=true`,
+      // Same landing as the main checkout: payment-success mints the paid JWT
+      // server-side, so access is live on the very first page the user sees.
+      success_url: `${baseUrl}/api/payment-success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${baseUrl}/pricing?canceled=true`,
       allow_promotion_codes: true,
       subscription_data: {
