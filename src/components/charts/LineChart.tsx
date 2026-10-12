@@ -37,7 +37,10 @@ interface Props {
   className?: string;
 }
 
+// The y labels get their own gutter on the right so the line can never run
+// through them (a 1D rally into the right edge used to sit on top of them).
 const PAD = { top: 16, right: 10, bottom: 22, left: 10 };
+const Y_GUTTER = 52;
 const MAX_POINTS = 600;
 
 /** Monotone cubic (Fritsch-Carlson) path through the points; never overshoots. */
@@ -109,7 +112,8 @@ export default function LineChart({
     const span = hi - lo || Math.abs(hi) * 0.02 || 1;
     const yLo = lo - span * 0.10, yHi = hi + span * 0.10;
     const t0 = points[0].t, t1 = points[points.length - 1].t, tSpan = t1 - t0 || 1;
-    const plotW = width - PAD.left - PAD.right, plotH = height - PAD.top - PAD.bottom;
+    const gutter = width >= 260 ? Y_GUTTER : 0;
+    const plotW = width - PAD.left - PAD.right - gutter, plotH = height - PAD.top - PAD.bottom;
     const x = (t: number) => PAD.left + ((t - t0) / tSpan) * plotW;
     const y = (v: number) => {
       const f = (v - yLo) / (yHi - yLo);
@@ -128,9 +132,9 @@ export default function LineChart({
     const xLabels = Array.from({ length: labelCount }, (_, i) => {
       const target = t0 + (tSpan * i) / (labelCount - 1);
       let best = 0; for (let k = 1; k < points.length; k++) if (Math.abs(points[k].t - target) < Math.abs(points[best].t - target)) best = k;
-      return { x: xs[best], t: points[best].t, align: i === 0 ? "left" : i === labelCount - 1 ? "right" : "center" };
+      return { x: i === labelCount - 1 ? PAD.left + plotW : xs[best], t: points[best].t, align: i === 0 ? "left" : i === labelCount - 1 ? "right" : "center" };
     });
-    return { xs, ys, line, area, baseY, minI, maxI, ticks, y, xLabels, plotW, plotH };
+    return { xs, ys, line, area, baseY, minI, maxI, ticks, y, xLabels, plotW, plotH, plotRight: PAD.left + plotW };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [points, width, height, baseline, invertY]);
 
@@ -177,7 +181,7 @@ export default function LineChart({
   const hx = h != null ? geo.xs[h] : null, hy = h != null ? geo.ys[h] : null;
   const last = points.length - 1;
   const tipW = 150;
-  const tipLeft = hx != null ? Math.max(0, Math.min(width - tipW, hx - tipW / 2)) : 0;
+  const tipLeft = hx != null ? Math.max(0, Math.min(geo.plotRight - tipW, hx - tipW / 2)) : 0;
 
   return (
     <div ref={wrapRef} className={`relative w-full select-none ${className}`} style={{ height, touchAction: "pan-y" }}
@@ -202,10 +206,10 @@ export default function LineChart({
 
         {/* grid */}
         {geo.ticks.map((v, i) => (
-          <line key={i} x1={PAD.left} x2={width - PAD.right} y1={geo.y(v)} y2={geo.y(v)} stroke="rgba(255,255,255,0.055)" strokeWidth="1" />
+          <line key={i} x1={PAD.left} x2={geo.plotRight} y1={geo.y(v)} y2={geo.y(v)} stroke="rgba(255,255,255,0.055)" strokeWidth="1" />
         ))}
         {baseline != null && (
-          <line x1={PAD.left} x2={width - PAD.right} y1={geo.baseY} y2={geo.baseY} stroke="rgba(255,255,255,0.18)" strokeWidth="1" strokeDasharray="3 4" />
+          <line x1={PAD.left} x2={geo.plotRight} y1={geo.baseY} y2={geo.baseY} stroke="rgba(255,255,255,0.18)" strokeWidth="1" strokeDasharray="3 4" />
         )}
 
         <g clipPath={`url(#clip-${uid})`}>
@@ -215,7 +219,7 @@ export default function LineChart({
         </g>
 
         {/* dimmed future when scrubbing */}
-        {hx != null && <rect x={hx} y={0} width={Math.max(0, width - hx)} height={height} fill="rgba(7,9,11,0.45)" />}
+        {hx != null && <rect x={hx} y={0} width={Math.max(0, geo.plotRight - hx)} height={height} fill="rgba(7,9,11,0.45)" />}
 
         {/* extremes */}
         {showExtremes && geo.maxI !== geo.minI && h == null && (
@@ -248,8 +252,8 @@ export default function LineChart({
 
       {/* y labels inside the plot, right edge; a 160px card has no room for them */}
       {width >= 260 && geo.ticks.map((v, i) => (
-        <span key={i} className="absolute right-2 -translate-y-1/2 font-mono text-[10px] text-gray-600/90 tabular-nums pointer-events-none bg-[#0b0e10]/60 px-1 rounded"
-          style={{ top: geo.y(v) }}>{formatValue(v)}</span>
+        <span key={i} className="absolute right-0 -translate-y-1/2 font-mono text-[10px] text-gray-500 tabular-nums pointer-events-none whitespace-nowrap text-right"
+          style={{ top: geo.y(v), width: Y_GUTTER - 6 }}>{formatValue(v)}</span>
       ))}
 
       {/* extreme labels */}
@@ -259,10 +263,10 @@ export default function LineChart({
       ].map(({ i, cls, above }) => {
         // Near the right edge the label would sit on the y-axis labels, so it
         // hangs to the left of its point instead of being centred on it.
-        const px = geo.xs[i], nearRight = px > width - 72;
+        const px = geo.xs[i], nearRight = px > geo.plotRight - 40;
         return (
           <span key={i} className={`absolute font-mono text-[10px] pointer-events-none whitespace-nowrap ${cls} ${nearRight ? "-translate-x-full" : "-translate-x-1/2"}`}
-            style={{ left: nearRight ? px - 8 : Math.max(28, px), top: above ? Math.max(0, geo.ys[i] - 18) : geo.ys[i] + 6 }}>
+            style={{ left: nearRight ? px - 8 : Math.min(geo.plotRight - 28, Math.max(28, px)), top: above ? Math.max(0, geo.ys[i] - 18) : geo.ys[i] + 6 }}>
             {formatValue(points[i].v)}
           </span>
         );
