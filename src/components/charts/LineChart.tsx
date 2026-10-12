@@ -39,8 +39,10 @@ interface Props {
 
 // The y labels get their own gutter on the right so the line can never run
 // through them (a 1D rally into the right edge used to sit on top of them).
-const PAD = { top: 16, right: 10, bottom: 22, left: 10 };
-const Y_GUTTER = 52;
+const PAD = { top: 16, right: 4, bottom: 22, left: 10 };
+// Mono 10px runs about 6.1px per character; the gutter is exactly as wide as
+// the longest tick label plus a 6px gap, so the plot keeps the rest.
+const CHAR_W = 6.1;
 const MAX_POINTS = 600;
 
 /** Monotone cubic (Fritsch-Carlson) path through the points; never overshoots. */
@@ -112,8 +114,15 @@ export default function LineChart({
     const span = hi - lo || Math.abs(hi) * 0.02 || 1;
     const yLo = lo - span * 0.10, yHi = hi + span * 0.10;
     const t0 = points[0].t, t1 = points[points.length - 1].t, tSpan = t1 - t0 || 1;
-    const gutter = width >= 260 ? Y_GUTTER : 0;
-    const plotW = width - PAD.left - PAD.right - gutter, plotH = height - PAD.top - PAD.bottom;
+    const plotH = height - PAD.top - PAD.bottom;
+    // Ticks depend on the value range only, so they can be sized before the x scale exists.
+    const vals0 = points.map(p => p.v);
+    let lo0 = Math.min(...vals0), hi0 = Math.max(...vals0);
+    if (baseline != null) { lo0 = Math.min(lo0, baseline); hi0 = Math.max(hi0, baseline); }
+    const span0 = hi0 - lo0 || Math.abs(hi0) * 0.02 || 1;
+    const tickLabels = niceTicks(lo0 - span0 * 0.10, hi0 + span0 * 0.10).map(formatValue);
+    const gutter = width >= 260 ? Math.ceil(Math.max(...tickLabels.map(t => t.length), 3) * CHAR_W) + 6 : 0;
+    const plotW = width - PAD.left - PAD.right - gutter;
     const x = (t: number) => PAD.left + ((t - t0) / tSpan) * plotW;
     const y = (v: number) => {
       const f = (v - yLo) / (yHi - yLo);
@@ -134,7 +143,7 @@ export default function LineChart({
       let best = 0; for (let k = 1; k < points.length; k++) if (Math.abs(points[k].t - target) < Math.abs(points[best].t - target)) best = k;
       return { x: i === labelCount - 1 ? PAD.left + plotW : xs[best], t: points[best].t, align: i === 0 ? "left" : i === labelCount - 1 ? "right" : "center" };
     });
-    return { xs, ys, line, area, baseY, minI, maxI, ticks, y, xLabels, plotW, plotH, plotRight: PAD.left + plotW };
+    return { xs, ys, line, area, baseY, minI, maxI, ticks, y, xLabels, plotW, plotH, plotRight: PAD.left + plotW, gutter };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [points, width, height, baseline, invertY]);
 
@@ -253,7 +262,7 @@ export default function LineChart({
       {/* y labels inside the plot, right edge; a 160px card has no room for them */}
       {width >= 260 && geo.ticks.map((v, i) => (
         <span key={i} className="absolute right-0 -translate-y-1/2 font-mono text-[10px] text-gray-500 tabular-nums pointer-events-none whitespace-nowrap text-right"
-          style={{ top: geo.y(v), width: Y_GUTTER - 6 }}>{formatValue(v)}</span>
+          style={{ top: geo.y(v), width: geo.gutter - 6 }}>{formatValue(v)}</span>
       ))}
 
       {/* extreme labels */}

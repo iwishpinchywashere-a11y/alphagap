@@ -62,7 +62,7 @@ async function mapWithConcurrency(items, limit, fn) {
 }
 
 const taoHeaders = { Authorization: process.env.TAOSTATS_API_KEY || "" };
-const identityRes = await fetch("https://api.taostats.io/api/subnet/identity/v1?limit=200", { headers: taoHeaders })
+const identityRes = await fetch("https://api.taostats.io/v1/subnets/identities?limit=200", { headers: taoHeaders })
   .catch(() => null);
 const identities = identityRes?.ok ? await identityRes.json().then(j => j.data || []) : [];
 if (!identities.length) {

@@ -14,6 +14,7 @@
  */
 
 import { NextRequest, NextResponse, after } from "next/server";
+import { fetchStakeEvents } from "@/lib/taostats";
 import { put, get as blobGet } from "@vercel/blob";
 
 import { taoUsdCached } from "@/lib/market-data";
@@ -379,11 +380,12 @@ async function buildMainList(): Promise<WalletEntry[]> {
   const TAOSTATS_KEY = process.env.TAOSTATS_API_KEY || "";
   const thirtyDaysAgo = Math.floor((Date.now() - 30 * 86400_000) / 1000);
 
+  void TAOSTATS_KEY;
+  // v1 stake-events, 200 rows a page (the old delegation feed, same shape via lib/taostats)
   const tsFetch = (page: number) =>
-    fetch(
-      `https://api.taostats.io/api/delegation/v1?limit=200&page=${page}&order=timestamp_desc&timestamp_start=${thirtyDaysAgo}`,
-      { headers: { Authorization: TAOSTATS_KEY }, signal: AbortSignal.timeout(15000), next: { revalidate: 0 } }
-    ).then(r => r.ok ? r.json() : null).catch(() => null);
+    fetchStakeEvents({ timestampStart: thirtyDaysAgo, max: 200 * page })
+      .then(rows => ({ data: rows.slice((page - 1) * 200) }))
+      .catch(() => null);
 
   // Fetch TaoStats pages + enrichment data + TSWhales cache (fallback seed) in parallel
   const [ts1, ts2, ts3, ts4, ts5, tmcTop, tsWhalesCache, subnetNames, taoPrice] = await Promise.all([
@@ -504,25 +506,13 @@ async function buildTSWhales(): Promise<TSWhaleWallet[]> {
   const TAOSTATS_KEY = process.env.TAOSTATS_API_KEY || "";
   const thirtyDaysAgo = Math.floor((Date.now() - 30 * 86400_000) / 1000);
 
-  // Fetch top 500 delegations by amount in last 30 days
-  const url = `https://api.taostats.io/api/delegation/v1?limit=500&order=amount_desc&timestamp_start=${thirtyDaysAgo}`;
-  const r = await fetch(url, {
-    headers: { Authorization: TAOSTATS_KEY },
-    signal: AbortSignal.timeout(15000),
-    next: { revalidate: 0 },
-  });
-  if (!r.ok) throw new Error(`On-chain data fetch failed (${r.status})`);
-
-  interface TSDelegation {
-    action:    "DELEGATE" | "UNDELEGATE";
-    timestamp: string;
-    nominator: { ss58: string };
-    amount:    string; // rao
-    usd:       string | null;
-    netuid:    number | null;
-  }
-  const json = await r.json() as { data?: TSDelegation[] };
-  const rows = json.data ?? [];
+  void TAOSTATS_KEY;
+  // Large stake events in the last 30 days. v1 cannot sort by amount, so take
+  // the newest 600 events of at least 25 TAO and rank them client-side; the
+  // aggregation below sums per wallet anyway.
+  const rows = (await fetchStakeEvents({ timestampStart: thirtyDaysAgo, amountMin: 25e9, max: 600 })
+    .catch(e => { throw new Error(`On-chain data fetch failed (${String(e).slice(0, 80)})`); }))
+    .sort((a, b) => Number(b.amount) - Number(a.amount));
 
   // Only alpha subnet staking (netuid > 0), skip root network
   const alpha = rows.filter(d => d.netuid != null && d.netuid > 0);
@@ -813,17 +803,12 @@ export async function GET(request: NextRequest) {
         fetchDetail(address),
         fetchSubnetNames(),
         taoUsdCached(process.env.BLOB_READ_WRITE_TOKEN || "").catch(() => 0),
-        // Retry once on timeout - 20s per attempt
+        // Retry once on failure. Up to 500 rows (three v1 pages); historyComplete
+        // below is false when the 500th row exists, i.e. there may be more.
         (async () => {
           for (let attempt = 0; attempt < 2; attempt++) {
             if (attempt > 0) await new Promise(res => setTimeout(res, 2000));
-            try {
-              const r = await fetch(
-                `https://api.taostats.io/api/delegation/v1?nominator=${encodeURIComponent(address)}&limit=500&order=timestamp_desc`,
-                { headers: { Authorization: TAOSTATS_KEY }, signal: AbortSignal.timeout(20000), next: { revalidate: 0 } }
-              );
-              if (r.ok) return r;
-            } catch { /* retry */ }
+            try { return await fetchStakeEvents({ coldkey: address, max: 500 }); } catch { /* retry */ }
           }
           return null;
         })(),
@@ -850,11 +835,9 @@ export async function GET(request: NextRequest) {
       let rawRows: TSDelegationRaw[] = [];
       let historyComplete = true;
       let trades_failed   = false;
-      if (tradesRes?.ok) {
-        const j = await tradesRes.json() as { data?: TSDelegationRaw[]; pagination?: { total_items?: number } };
-        rawRows = j.data ?? [];
-        const totalItems = j.pagination?.total_items ?? rawRows.length;
-        historyComplete = totalItems <= 500;
+      if (tradesRes) {
+        rawRows = tradesRes;
+        historyComplete = rawRows.length < 500;
       } else {
         trades_failed = true;
         console.warn(`[wallet-profile] Trades fetch failed for ${address} - returning empty trades with flag`);
@@ -991,16 +974,10 @@ export async function GET(request: NextRequest) {
     for (let attempt = 0; attempt < 3; attempt++) {
       if (attempt > 0) await new Promise(res => setTimeout(res, 2000));
       try {
-        const r = await fetch(
-          `https://api.taostats.io/api/delegation/v1?nominator=${encodeURIComponent(address)}&limit=500&order=timestamp_desc`,
-          { headers: { Authorization: TAOSTATS_KEY }, signal: AbortSignal.timeout(25000), next: { revalidate: 0 } }
-        );
-        if (!r.ok) continue;
+        const rawRows = await fetchStakeEvents({ coldkey: address, max: 500 }).catch(() => null);
+        if (!rawRows) continue;
 
         const subnetNames = await fetchSubnetNames();
-        interface TSDelegationRaw { action: "DELEGATE" | "UNDELEGATE"; timestamp: string; amount: string; usd: string | null; netuid: number | null; }
-        const j = await r.json() as { data?: TSDelegationRaw[] };
-        const rawRows = j.data ?? [];
         const rawDisplayRows2 = rawRows
           .filter(d => d.netuid != null && d.netuid > 0)
           .slice(0, 50)

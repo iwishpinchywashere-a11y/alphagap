@@ -11,6 +11,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { fetchStakeEvents } from "@/lib/taostats";
 import { list as blobList, get as blobGet, put as blobPut } from "@vercel/blob";
 import { enqueueAlert } from "@/lib/telegram-alerts";
 import type { TelegramConnection } from "@/lib/telegram-alerts";
@@ -76,14 +77,9 @@ interface WalletAlertState {
 
 async function fetchRecentMoves(address: string, since: number): Promise<TSDelegation[]> {
   try {
-    const url = `https://api.taostats.io/api/delegation/v1?nominator=${encodeURIComponent(address)}&limit=50&order=timestamp_desc&timestamp_start=${since}`;
-    const r = await fetch(url, {
-      headers: { Authorization: TAOSTATS_KEY() },
-      signal: AbortSignal.timeout(8000),
-    });
-    if (!r.ok) return [];
-    const j = await r.json() as { data?: TSDelegation[] };
-    return (j.data ?? []).filter(d => d.netuid != null && d.netuid > 0);
+    void TAOSTATS_KEY;
+    const rows = await fetchStakeEvents({ coldkey: address, timestampStart: since, max: 50 });
+    return rows.filter(d => d.netuid != null && d.netuid > 0);
   } catch { return []; }
 }
 

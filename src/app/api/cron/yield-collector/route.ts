@@ -28,14 +28,14 @@ export const maxDuration = 300;
 
 const BLOB_TOKEN = process.env.BLOB_READ_WRITE_TOKEN || "";
 const TAOSTATS_KEY = process.env.TAOSTATS_API_KEY || "";
-const BASE_URL = "https://api.taostats.io/api";
+const BASE_URL = "https://api.taostats.io/v1";
 
 // Fetch the full list of registered netuids from the TaoStats subnet API.
 // This is the authoritative source - always current as new subnets register.
 // Falls back to a static 0-130 range if the API call fails.
 async function getActiveNetuids(): Promise<number[]> {
   try {
-    const res = await fetch(`${BASE_URL}/subnet/latest/v1?limit=200`, {
+    const res = await fetch(`${BASE_URL}/subnets/metrics?limit=200`, {
       headers: { Authorization: TAOSTATS_KEY },
       signal: AbortSignal.timeout(10000),
     });
@@ -71,7 +71,7 @@ interface SubnetYield {
 }
 
 async function fetchSubnetYield(netuid: number, retries = 2): Promise<SubnetYield | null> {
-  const url = `${BASE_URL}/dtao/validator/yield/latest/v1?netuid=${netuid}&limit=100`;
+  const url = `${BASE_URL}/validators/yield?netuid=${netuid}&limit=100`;
   try {
     const res = await fetch(url, {
       headers: { Authorization: TAOSTATS_KEY },
@@ -91,15 +91,17 @@ async function fetchSubnetYield(netuid: number, retries = 2): Promise<SubnetYiel
     if (validators.length === 0) return null;
 
     // Weight averages by stake so large validators dominate the average
-    const totalStake = validators.reduce((s, v) => s + (v.stake || 0), 0);
+    // v1 sends large numbers as strings
+    const num = (x: unknown) => Number(x) || 0;
+    const totalStake = validators.reduce((s, v) => s + num(v.stake), 0);
     if (totalStake === 0) return null;
 
     let weighted7d = 0, weighted1h = 0, weighted30d = 0;
     for (const v of validators) {
-      const w = (v.stake || 0) / totalStake;
-      weighted7d  += (v.seven_day_apy  || 0) * w;
+      const w = num(v.stake) / totalStake;
+      weighted7d  += num(v.seven_day_apy) * w;
       weighted1h  += (v.one_hour_apy   || 0) * w;
-      weighted30d += (v.thirty_day_apy || 0) * w;
+      weighted30d += num(v.thirty_day_apy) * w;
     }
 
     return {
