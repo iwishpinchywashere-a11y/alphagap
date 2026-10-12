@@ -269,7 +269,10 @@ async function fetchKolTimeline(handle: string, count: number = 15): Promise<Des
     clearTimeout(timeout);
     if (!res.ok) return [];
     const data = await res.json();
-    return Array.isArray(data) ? data : (Array.isArray(data?.posts) ? data.posts : []);
+    // Desearch wraps the timeline as { user, tweets }; "posts" was never right, so this returned [] for months
+    if (Array.isArray(data)) return data;
+    for (const k of ["tweets", "posts", "results"]) if (Array.isArray(data?.[k])) return data[k];
+    return [];
   } catch {
     return [];
   }

@@ -71,6 +71,8 @@ async function readIdentities(token: string): Promise<Array<{ netuid: number; tw
   } catch { return []; }
 }
 
+let desearchCostUsd = 0;   // Desearch reports cost_usd per call; summed for the run log
+
 async function fetchPosts(handle: string, count: number): Promise<DPost[]> {
   try {
     const params = new URLSearchParams({ username: handle, count: String(count) });
@@ -79,7 +81,11 @@ async function fetchPosts(handle: string, count: number): Promise<DPost[]> {
     });
     if (!res.ok) return [];
     const data = await res.json();
-    return Array.isArray(data) ? data : (Array.isArray(data?.posts) ? data.posts : []);
+    // Desearch wraps the timeline as { user, tweets } (older docs said posts/results)
+    if (typeof data?.cost_usd === "number") desearchCostUsd += data.cost_usd;
+    if (Array.isArray(data)) return data;
+    for (const k of ["tweets", "posts", "results"]) if (Array.isArray(data?.[k])) return data[k];
+    return [];
   } catch { return []; }
 }
 
@@ -148,6 +154,7 @@ export async function GET(req: NextRequest) {
 
   const token = process.env.BLOB_READ_WRITE_TOKEN || "";
   const dry = req.nextUrl.searchParams.get("dry") === "1";
+  desearchCostUsd = 0;
   const store = await readStore(token);
   // First run looks back a month so the current month-in-review posts are caught; after that, 8 days.
   const days = Number(req.nextUrl.searchParams.get("days")) || (store.updatedAt ? 8 : 30);
@@ -219,7 +226,7 @@ export async function GET(req: NextRequest) {
     await sendSystemAlertEmail(`${alerts.length} subnet revenue post${alerts.length > 1 ? "s" : ""} to review`, lines).catch(e => console.error("[revenue-watch] email failed", e));
   }
 
-  console.log(`[revenue-watch] handles ${scanned}, posts ${posts}, matched ${found.length}, alerts ${alerts.length}, vision calls ${llmCalls}`);
-  return NextResponse.json({ ok: true, dry, days, handles: scanned, posts, matched: found.length, alerts: alerts.length, visionCalls: llmCalls,
+  console.log(`[revenue-watch] handles ${scanned}, posts ${posts}, matched ${found.length}, alerts ${alerts.length}, vision calls ${llmCalls}, desearch $${desearchCostUsd.toFixed(3)}`);
+  return NextResponse.json({ ok: true, dry, days, handles: scanned, posts, matched: found.length, alerts: alerts.length, visionCalls: llmCalls, desearchCostUsd: Math.round(desearchCostUsd * 1000) / 1000,
     found: found.map(m => ({ netuid: m.netuid, name: m.name, postedAt: m.postedAt, flag: m.flag, impliedArrUsd: m.impliedArrUsd, recordArrUsd: m.recordArrUsd, summary: m.figures?.summary, url: m.url })) });
 }
