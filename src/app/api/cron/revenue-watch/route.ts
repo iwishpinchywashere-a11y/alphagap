@@ -200,7 +200,8 @@ export async function GET(req: NextRequest) {
           url: p.url || `https://x.com/${handle}/status/${p.id}`,
           postedAt: new Date(t).toISOString(), text: text.slice(0, 400), images,
           figures, impliedArrUsd: implied, recordArrUsd: recArr, recordAsOf: r.revenue.as_of ?? null,
-          flag: hasFigure && (newer || differs) ? "new_figure" : "mention",
+          // A figure that agrees with the record (lium after the manual update) is confirmation, not a flag.
+          flag: hasFigure && (differs || (newer && recArr == null)) ? "new_figure" : "mention",
           seenAt: new Date().toISOString(),
         });
       }
