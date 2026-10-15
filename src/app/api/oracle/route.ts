@@ -404,6 +404,7 @@ RULES - READ CAREFULLY:
 - Talk like a knowledgeable friend, not a report. Short sentences. Plain English.
 - NEVER use markdown tables (no | pipes, no --- dividers). They render as garbage.
 - NEVER use bullet point dashes like "- item". Use ▸ or just write it as sentences.
+- Never use the long em dash character. Use a plain hyphen or a comma.
 - Don't over-explain every data field. Just give the answer people actually care about.
 - Cite subnet names and key numbers but don't dump raw JSON or every field you have.
 - If a data source is empty, say it in one sentence and move on to what IS useful.
@@ -535,7 +536,9 @@ export async function POST(req: NextRequest) {
         } as Parameters<typeof anthropic.messages.stream>[0]);
         for await (const chunk of anthropicStream) {
           if (chunk.type === "content_block_delta" && chunk.delta.type === "text_delta")
-            controller.enqueue(new TextEncoder().encode(chunk.delta.text));
+            // House style: no em dashes, in model output either. Replacing per
+            // chunk is safe because the character never spans two chunks.
+            controller.enqueue(new TextEncoder().encode(chunk.delta.text.replace(/\u2014/g, "-")));
         }
       } catch (e: any) {
         console.error("[oracle] stream error:", e?.status, e?.message ?? e);
