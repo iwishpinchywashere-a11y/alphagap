@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import valuationResearch from "@/data/valuation.json";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { getTier, canAccessPremium } from "@/lib/subscription";
@@ -122,7 +123,11 @@ function classifyIntent(messages: { role: string; content: string }[]): Set<stri
   if (match(/invest|long.term|hold|best subnet|top subnet|recommend|slept on|undervalued|conviction|revenue|earn|profit|monetiz/)) {
     needs.add("audit-data.json");
     needs.add("conviction-latest.json");
+    needs.add("valuation");
   }
+  // Revenue / ARR / buybacks / valuation / customers: the research index
+  if (match(/revenue|arr\b|buy.?back|burn.*revenue|valuation|p\/s|customers?|paying|business|fundamental/))
+    needs.add("valuation");
 
   // Broad / open-ended questions - default to leaderboard + audit + signals
   if (needs.size === 1) {
@@ -139,6 +144,14 @@ function buildSystemPrompt(loaded: Record<string, any>): string {
   const cutoff72h = Date.now() - 72 * 3600 * 1000;
   const cutoff7d  = Date.now() - 7  * 24 * 3600 * 1000;
   const sections: string[] = [];
+
+  // ── Market (always): the price of TAO itself ─────────────────────
+  // Without this the model has only subnet alpha prices to look at and has
+  // answered "TAO is $29" with lium's alpha price.
+  const scan = loaded["scan-latest.json"] ?? {};
+  const taoUsd = Number(scan.taoPrice) || null;
+  const scanAt = scan.lastScan || scan.timestamp || scan.scannedAt || null;
+  sections.push(`MARKET:\nTAO/USD price: ${taoUsd ? `$${taoUsd.toFixed(2)}` : "unknown"}${scanAt ? ` (as of ${scanAt})` : ""}.\nIn LEADERBOARD, "price" is the SUBNET'S OWN ALPHA TOKEN price in USD (not TAO) and "mcap" is that alpha token's market cap in USD.`);
 
   // ── Leaderboard (always) ────────────────────────────────────────
   const lb = safeArr(loaded["scan-latest.json"]?.leaderboard).map((s: any) => ({
@@ -369,6 +382,19 @@ function buildSystemPrompt(loaded: Record<string, any>): string {
     sections.push(`YIELD / APY DATA:\n${yields.length ? JSON.stringify(yields) : "No data."}`);
   }
 
+  // ── Revenue & valuations (research, committed with the code) ─────
+  if (loaded["valuation"]) {
+    const rows = (valuationResearch as any[])
+      .filter(r => r.status !== "dead" && ((r.revenue?.arr_usd ?? 0) > 0 || !["none", "unknown"].includes(r.buybacks?.status)))
+      .map(r => ({
+        sn: r.netuid, name: r.name, arr_usd: r.revenue?.arr_usd ?? null, confidence: r.revenue?.confidence,
+        as_of: r.revenue?.as_of, growth: r.growth?.trend, customers: r.customers?.count ?? null,
+        buybacks: r.buybacks?.status, buyback_pct_of_revenue: r.buybacks?.pct_of_revenue ?? null, product_quality: r.product?.quality_score,
+      }))
+      .sort((a, b) => (b.arr_usd ?? 0) - (a.arr_usd ?? 0));
+    sections.push(`REVENUE & VALUATIONS (researched, every figure sourced; confidence: confirmed = dashboard/ledger/named press, self_reported = team-stated, estimated = derived):\n${JSON.stringify(rows)}`);
+  }
+
   const loadedKeys = Object.keys(loaded).join(", ");
 
   return `You are the AlphaGap Oracle - expert AI analyst for the Bittensor (TAO) ecosystem. Date: ${today}.
@@ -381,7 +407,8 @@ RULES - READ CAREFULLY:
 - Don't over-explain every data field. Just give the answer people actually care about.
 - Cite subnet names and key numbers but don't dump raw JSON or every field you have.
 - If a data source is empty, say it in one sentence and move on to what IS useful.
-- For "revenue": Bittensor has no P&L. Use emission_pct (TAO earned) as the proxy. Just explain it naturally.
+- The price of TAO itself is ONLY in the MARKET section. Never quote a subnet's alpha "price" as the price of TAO.
+- For "revenue", "ARR", "buybacks", "valuation": use REVENUE & VALUATIONS when loaded (real dollar figures with a confidence grade). Emission is NOT revenue; mention emission_pct only as what the network pays the subnet.
 - For "dev activity": use dev_spike/hf_update/hf_drop signals first, fall back to dev_score ranking.
 - For "discord": if nothing notable, say so in one line then pivot to social/KOL data.
 - Keep answers focused. 3-5 points is usually enough. Don't write essays.
@@ -463,7 +490,8 @@ export async function POST(req: NextRequest) {
 
   // Load only the blobs we need, in parallel
   const blobEntries = await Promise.all(
-    [...neededBlobs].map(async key => [key, await loadBlob(key)] as const)
+    // "valuation" is not a blob: the research ships with the code (src/data/valuation.json)
+    [...neededBlobs].map(async key => [key, key === "valuation" ? true : await loadBlob(key)] as const)
   );
   const loaded: Record<string, any> = Object.fromEntries(blobEntries);
 
