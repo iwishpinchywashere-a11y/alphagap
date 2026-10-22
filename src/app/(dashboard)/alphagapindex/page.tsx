@@ -13,15 +13,13 @@ import type { SubnetScore } from "@/lib/types";
 const TS_STRATEGY_ID = "97d1325b-9ee9-4bd1-bd58-893d707f85c4";
 const TS_PROXY_ADDRESS = "5CeJG2T47NxUAAc42q2zoU7qV1YFy4khL3ogHxooVjNKxUuw";
 const TS_STRATEGY_TABLE = "custom_strategies";
-// Bittensor ProxyType enum: ["Any", "NonTransfer", "Governance", "Staking"].
-// We grant "Staking" only - the least-privilege type, and the one TrustedStake
-// documents. It lets them rebalance stake but NOT transfer the user's TAO.
-const TS_PROXY_TYPE = "Staking";
-// Joining a PRIVATE strategy goes through POST /share-links/{token}/join, NOT
-// /membership/register - see src/app/api/trustedstake/join/route.ts. The invite
-// token lives server-side in that route, so it is deliberately absent here.
-// Fallback only: the same invite as a link, if on-site joining ever fails.
-const TS_INVITE_URL = "https://app.trustedstake.ai/strat/invite/e6efd855f520660338db05c14baf5fd38a15c0e83e12b6c43b8307b2b9c9d237";
+// Joining is TrustedStake's hosted flow (their distribution "share link"):
+// one link does the proxy grant, real-pays-fee, membership registration and
+// the initial allocation, and the same link opens the management view for an
+// existing member. We used to hand-roll every one of those steps here, and
+// each one had its own way of leaving a wallet half set up. The link itself
+// comes from /api/trustedstake/launch so a newly issued one is an env change.
+const TS_APP_URL = "https://app.trustedstake.ai";
 
 /* ── SVG Icons ───────────────────────────────────────────────────────────── */
 const IconChart = ({ className }: { className?: string }) => (
@@ -143,8 +141,6 @@ interface WalletAccount {
   source: string;
 }
 
-type ProxyStep = "idle" | "proxy-connecting" | "proxy-pending" | "proxy-done" | "proxy-error";
-type RegisterStep = "idle" | "awaiting" | "success" | "register-error";
 type LeaveStep = "idle" | "leaving" | "success" | "error";
 
 /* ── Component ───────────────────────────────────────────────────────────── */
@@ -247,19 +243,11 @@ export default function AlphaGapIndexPage() {
 
   // ── Membership state ────────────────────────────────────────────────────
   const [isMember, setIsMember] = useState(false);
-  // Step 1: proxy setup (independent of Step 2)
-  const [proxyStep, setProxyStep] = useState<ProxyStep>("idle");
-  // Retro-fix for members who joined BEFORE we started batching
-  // proxy.setRealPaysFee with addProxy. Without that flag the strategy proxy
-  // cannot pay extrinsic fees, so their funds never deploy - they look
-  // perfectly set up and simply sit there. TrustedStake asked us to surface
-  // this rather than have them message support.
-  const [feeFixStep, setFeeFixStep] = useState<"idle" | "signing" | "done" | "error">("idle");
   // Read from chain, never inferred. null = not checked yet.
   //
   // proxy.realPaysFee(delegator, strategyProxy).toJSON() returns null whether
-  // the entry exists or not, so an earlier symptom-based check asked Josh to
-  // sign something he had ALREADY signed. The real signal is isEmpty: false
+  // the entry exists or not, so an earlier symptom-based check asked a member
+  // to sign something he had ALREADY signed. The real signal is isEmpty: false
   // means an entry exists and the flag is on.
   const [feesEnabled, setFeesEnabled] = useState<boolean | null>(null);
   // Whether the staking proxy actually exists on chain. Membership is decided
@@ -267,14 +255,19 @@ export default function AlphaGapIndexPage() {
   // member who never completed the grant looked fully joined while nothing
   // could be staked for them. One wallet sat that way for 45 days, 2.59 TAO
   // undeployed, with the page showing a normal member view and no prompt.
+  // Either gap now sends the member back through TrustedStake's hosted flow,
+  // which repairs both; we no longer sign repair transactions here.
   const [hasProxy, setHasProxy] = useState<boolean | null>(null);
-  const [feeModalDismissed, setFeeModalDismissed] = useState(false);
-  const [feeFixError, setFeeFixError] = useState<string | null>(null);
-  const [proxyError, setProxyError] = useState<string | null>(null);
-  // Step 2: membership register (independent of Step 1)
-  const [registerStep, setRegisterStep] = useState<RegisterStep>("idle");
-  const [registerError, setRegisterError] = useState<string | null>(null);
-  const [registerWaitNote, setRegisterWaitNote] = useState<string | null>(null);
+  const setupIncomplete = isMember && (hasProxy === false || feesEnabled === false);
+  // Hosted join/manage link from /api/trustedstake/launch.
+  const [launchUrl, setLaunchUrl] = useState<string | null>(null);
+  const [launchError, setLaunchError] = useState<string | null>(null);
+  // Set when the member opens TrustedStake from here, so we know to re-check
+  // membership when they come back. A redirect or a closed tab is not proof
+  // of anything - only the delegator list is.
+  const [joinOpenedAt, setJoinOpenedAt] = useState<number | null>(null);
+  const [joinChecking, setJoinChecking] = useState(false);
+  const [joinNote, setJoinNote] = useState<string | null>(null);
   const [leaveStep, setLeaveStep] = useState<LeaveStep>("idle");
   const [leaveError, setLeaveError] = useState<string | null>(null);
 
@@ -385,42 +378,20 @@ export default function AlphaGapIndexPage() {
     return () => { cancelled = true; api?.disconnect?.().catch(() => {}); };
   }, [selectedAddress, isMember]);
 
-  // Signs proxy.setRealPaysFee(strategyProxy, true) on its own - the one
-  // transaction an already-joined member needs. Deliberately NOT shown to
-  // everyone: only to members whose funds are actually sitting undeployed,
-  // so working members are not nagged into signing something they do not need.
-  const handleEnableFees = useCallback(async () => {
-    if (!selectedAddress) return;
-    setFeeFixStep("signing");
-    setFeeFixError(null);
-    try {
-      const { ApiPromise, WsProvider } = await import("@polkadot/api");
-      const api = await ApiPromise.create({
-        provider: new WsProvider("wss://entrypoint-finney.opentensor.ai:443"),
-        noInitWarn: true,
-      });
-      try {
-        const { getSigner } = await import("@/lib/polkadot-wallet");
-        const signer = await getSigner();
-        const tx = api.tx.proxy.setRealPaysFee(TS_PROXY_ADDRESS, true);
-        await new Promise<void>((resolve, reject) => {
-          const timer = setTimeout(() => reject(new Error("Timed out waiting for the wallet. Check the extension for a pending request.")), 90_000);
-          tx.signAndSend(selectedAddress, { signer }, (result: { status: { isInBlock: boolean; isFinalized: boolean }; dispatchError?: unknown }) => {
-            if (result.dispatchError) { clearTimeout(timer); reject(new Error("The transaction was rejected on chain.")); return; }
-            if (result.status.isInBlock || result.status.isFinalized) { clearTimeout(timer); resolve(); }
-          }).catch((e: unknown) => { clearTimeout(timer); reject(e); });
-        });
-        setFeeFixStep("done");
-      } finally {
-        await api.disconnect().catch(() => {});
-      }
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      if (/cancelled|rejected by user|Rejected/i.test(msg)) { setFeeFixStep("idle"); return; }
-      setFeeFixError(msg);
-      setFeeFixStep("error");
-    }
-  }, [selectedAddress]);
+  // ── Hosted join/manage link ─────────────────────────────────────────────
+  useEffect(() => {
+    if (!selectedAddress || !isUltra) { setLaunchUrl(null); return; }
+    let cancelled = false;
+    fetch(`/api/trustedstake/launch?address=${encodeURIComponent(selectedAddress)}`)
+      .then(async r => {
+        const d = await r.json().catch(() => ({}));
+        if (cancelled) return;
+        if (r.ok && typeof d.url === "string") { setLaunchUrl(d.url); setLaunchError(null); }
+        else setLaunchError(d.error ?? "Couldn't load the TrustedStake link");
+      })
+      .catch(() => { if (!cancelled) setLaunchError("Couldn't load the TrustedStake link"); });
+    return () => { cancelled = true; };
+  }, [selectedAddress, isUltra]);
 
   // ── Connect wallet ──────────────────────────────────────────────────────
   // Enables exactly one extension, then picks an account within it.
@@ -462,157 +433,17 @@ export default function AlphaGapIndexPage() {
     setShowWalletPicker(false);
     setInstalledWallets([]);
     setIsMember(false);
-    setRegisterStep("idle");
+    setJoinOpenedAt(null);
+    setJoinNote(null);
     setLeaveStep("idle");
-    setRegisterError(null);
     setLeaveError(null);
   }, []);
 
-  // ── Proxy setup (on-chain tx, fully in-browser via signAndSend) ───────
-  //
-  // Architecture: @polkadot/api handles all chain-specific payload encoding
-  // internally, exactly like TrustedStake's own app. signAndSend triggers the
-  // Talisman/SubWallet popup and manages signing + submission in one call.
-  //
-  // Flow:
-  //   1. Dynamic import @polkadot/api (browser only)
-  //   2. WsProvider + ApiPromise.create() → connects to chain, downloads metadata
-  //   3. batchAll([proxy.addProxy(...), proxy.setRealPaysFee(..., true)])
-  //      - both are required; a proxy without the fee flag cannot execute
-  //   4. getSigner() → signer from the single wallet the user chose
-  //   5. signAndSend with 45-second timeout race
-  //   6. Resolve on isReady/isBroadcast/isInBlock/isFinalized (tx is on its way)
-  //   7. api.disconnect()
-  //
-  const handleSetupProxy = useCallback(async () => {
-    if (!selectedAddress) return;
-    setProxyStep("proxy-connecting");
-    setProxyError(null);
-
-    try {
-      const { ApiPromise, WsProvider } = await import("@polkadot/api");
-      const provider = new WsProvider("wss://entrypoint-finney.opentensor.ai:443");
-      const api = await ApiPromise.create({ provider });
-
-      try {
-        // ── Pre-check: proxy already exists? ─────────────────────────────
-        // Skip the transaction entirely if the proxy is already set up.
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const proxiesResult: any = await api.query.proxy.proxies(selectedAddress);
-        const proxyDefs = proxiesResult[0] ?? proxiesResult;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const alreadySet = Array.isArray(proxyDefs) && proxyDefs.some(
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (p: any) => (p.delegate?.toString() ?? p.toJSON()?.delegate) === TS_PROXY_ADDRESS
-        );
-        // NOTE: any proxy type to TrustedStake satisfies their membership check,
-        // so an existing `Any` proxy from the old flow still counts - we just
-        // never *create* one (see TS_PROXY_TYPE below).
-        if (alreadySet) {
-          setProxyStep("proxy-done");
-          return;
-        }
-
-        // ── Build and sign addProxy + setRealPaysFee, atomically ──────────
-        //
-        // addProxy ALONE IS NOT ENOUGH. TrustedStake traced the stuck members
-        // to this on 2026-08-17: a wallet could hold a correct Staking proxy
-        // and still be unable to execute, because the chain's real_pays_fee
-        // flag was never set for that delegate. Without it, fee-requiring
-        // operations fail - so the wallet looks perfectly configured from the
-        // outside (registered, active, proxied, funded) and simply never
-        // deploys. Two members sat like that for 5 and 8 days.
-        //
-        // batchAll, not batch: either both land or neither does. A wallet
-        // holding a proxy without the fee flag is exactly the broken
-        // half-state we are fixing, so it must not be reachable.
-        const proxyCalls = [
-          api.tx.proxy.addProxy(TS_PROXY_ADDRESS, TS_PROXY_TYPE, 0),
-          api.tx.proxy.setRealPaysFee(TS_PROXY_ADDRESS, true),
-        ];
-        const tx = api.tx.utility.batchAll(proxyCalls);
-        // getSigner() rather than web3FromAddress: we enable a single chosen
-        // extension instead of calling web3Enable, so the registry that
-        // web3FromAddress reads is never populated.
-        const { getSigner } = await import("@/lib/polkadot-wallet");
-        const injector = { signer: await getSigner() };
-
-        setProxyStep("proxy-pending");
-
-        await new Promise<void>((resolve, reject) => {
-          let unsub: (() => void) | null = null;
-
-          const timeout = setTimeout(() => {
-            unsub?.();
-            resolve(); // Tx was submitted - advance even if callback is slow
-          }, 45_000);
-
-          const subPromise = tx.signAndSend(
-            selectedAddress,
-            { signer: injector.signer },
-            ({ status, dispatchError }) => {
-              if (dispatchError) {
-                clearTimeout(timeout);
-                unsub?.();
-                if (dispatchError.isModule) {
-                  try {
-                    const decoded = api.registry.findMetaError(dispatchError.asModule);
-                    if (decoded.name === "Duplicate") { resolve(); return; }
-                    reject(new Error(`${decoded.section}.${decoded.name}: ${decoded.docs.join(" ")}`));
-                  } catch {
-                    reject(new Error(dispatchError.toString()));
-                  }
-                } else {
-                  reject(new Error(dispatchError.toString()));
-                }
-              } else if (status.isReady || status.isBroadcast || status.isInBlock || status.isFinalized) {
-                clearTimeout(timeout);
-                unsub?.();
-                resolve();
-              } else if (status.isDropped || status.isInvalid) {
-                clearTimeout(timeout);
-                unsub?.();
-                reject(new Error("Transaction was dropped or invalid"));
-              }
-            }
-          );
-
-          subPromise.then((fn) => { unsub = fn; }).catch((err) => {
-            clearTimeout(timeout);
-            reject(err);
-          });
-        });
-      } finally {
-        api.disconnect().catch(() => {});
-      }
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      if (msg.toLowerCase().includes("cancelled") || msg.toLowerCase().includes("rejected") || msg.toLowerCase().includes("user rejected")) {
-        setProxyStep("idle");
-        return;
-      }
-      setProxyError(msg);
-      setProxyStep("proxy-error");
-      return;
-    }
-
-    setProxyStep("proxy-done");
-  }, [selectedAddress]);
-
   // ── Join flow ───────────────────────────────────────────────────────────
-  // Fully on-site. TrustedStake dropped the private-strategy share-link
-  // requirement (verified 2026-07-30), so /membership/register now accepts a
-  // signed registration for our private strategy with no invite token.
-  //
-  // The only gate left is on-chain: the wallet's proxy to TrustedStake must be
-  // visible at a *finalized* anchor block. So we
-  //   1. read the finalized head,
-  //   2. confirm the proxy exists in state at that exact block,
-  //   3. sign { proxy, strategyId, strategyTable, fromBlock, fromTimestamp }
-  //      (strict schema - any extra key is rejected as INVALID_SIGNED_DATA),
-  //   4. POST it through our Ultra-gated /api/trustedstake/join route.
-  // Codes flagged retryable (chain not yet finalized / node unavailable) are
-  // retried; PROXY_NOT_FOUND means step 1 hasn't finalized yet, so we wait too.
+  // The member joins on TrustedStake (hosted flow, opened in a new tab). While
+  // that tab is open we re-check the delegator list every 15s for 20 minutes
+  // and whenever this tab regains focus, so the page flips to the member view
+  // by itself once the registration lands. Nothing is signed here any more.
   const pollRef = React.useRef<ReturnType<typeof setInterval> | null>(null);
   const stopPolling = useCallback(() => {
     if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
@@ -623,54 +454,34 @@ export default function AlphaGapIndexPage() {
     stopPolling();
     localStorage.setItem(`alphagap-ts-member-${address}`, "true");
     setIsMember(true);
-    setRegisterStep("success");
+    setJoinOpenedAt(null);
+    setJoinNote(null);
   }, [stopPolling]);
 
-  const handleJoin = useCallback(async () => {
-    if (!selectedAddress) return;
-    stopPolling();
-    setRegisterStep("awaiting");
-    setRegisterError(null);
+  const handleOpenJoin = useCallback(() => {
+    if (!launchUrl) return;
+    setJoinNote(null);
+    setJoinOpenedAt(Date.now());
+    window.open(launchUrl, "_blank", "noopener,noreferrer");
+  }, [launchUrl]);
 
-    try {
-      // Already in? Never make an existing member sign anything.
-      if (await checkMembership(selectedAddress)) { confirmMembership(selectedAddress); return; }
-
-      // Joining is a pure API call against the invite: one signature, no chain
-      // reads, no anchor block. The server holds the invite token and puts it
-      // in the URL, so nothing about it is signed or shipped to the browser.
-      const { signMessage } = await import("@/lib/polkadot-wallet");
-      const message = JSON.stringify({
-        action: "join_via_share_link",
-        timestamp: Date.now(),
-        nonce: crypto.randomUUID(),
-        data: {},
-      });
-      const signature = await signMessage(selectedAddress, message);
-
-      const res = await fetch("/api/trustedstake/join", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ walletAddress: selectedAddress, signature, message }),
-      });
-      const data = await res.json().catch(() => ({}));
-
-      if (res.ok) { confirmMembership(selectedAddress); return; }
-
-      // It may still have landed even if the response looked unhappy.
-      if (await checkMembership(selectedAddress)) { confirmMembership(selectedAddress); return; }
-
-      setRegisterError(data?.error ?? data?.message ?? `Join failed (${res.status})`);
-      setRegisterStep("register-error");
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      if (/cancelled|rejected/i.test(msg)) { setRegisterStep("idle"); return; }
-      setRegisterError(msg);
-      setRegisterStep("register-error");
-    } finally {
-      setRegisterWaitNote(null);
-    }
-  }, [selectedAddress, checkMembership, confirmMembership, stopPolling]);
+  useEffect(() => {
+    if (!selectedAddress || !joinOpenedAt || isMember) { stopPolling(); return; }
+    const address = selectedAddress;
+    const tick = async () => {
+      if (Date.now() - joinOpenedAt > 20 * 60_000) { stopPolling(); return; }
+      if (await checkMembership(address)) confirmMembership(address);
+    };
+    pollRef.current = setInterval(tick, 15_000);
+    const onFocus = () => { void tick(); };
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onFocus);
+    return () => {
+      stopPolling();
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onFocus);
+    };
+  }, [selectedAddress, joinOpenedAt, isMember, checkMembership, confirmMembership, stopPolling]);
 
   // Value each position and compare its real weight to the index target.
   const portfolio = useMemo(() => {
@@ -713,12 +524,13 @@ export default function AlphaGapIndexPage() {
 
   const handleCheckStatus = useCallback(async () => {
     if (!selectedAddress) return;
-    setRegisterError(null);
-    if (await checkMembership(selectedAddress)) {
-      confirmMembership(selectedAddress);
-    } else {
-      setRegisterError("Not registered yet - complete the join on TrustedStake with this wallet, then check again.");
-      setRegisterStep("register-error");
+    setJoinChecking(true);
+    setJoinNote(null);
+    try {
+      if (await checkMembership(selectedAddress)) confirmMembership(selectedAddress);
+      else setJoinNote("Not registered yet. Finish the join on TrustedStake with this same wallet, then check again - it can take a minute to show up.");
+    } finally {
+      setJoinChecking(false);
     }
   }, [selectedAddress, checkMembership, confirmMembership]);
 
@@ -863,7 +675,6 @@ export default function AlphaGapIndexPage() {
       localStorage.removeItem(`alphagap-ts-member-${selectedAddress}`);
       setIsMember(false);
       setLeaveStep("success");
-      setRegisterStep("idle");
     } catch (err) {
       setLeaveError(err instanceof Error ? err.message : "Failed to leave strategy");
       setLeaveStep("error");
@@ -1028,94 +839,29 @@ export default function AlphaGapIndexPage() {
             </div>
           )}
 
-          {/* Account picker modal */}
-          {/* Shown ONLY to members whose funds are genuinely undeployed after
-              48h. TrustedStake asked for this so pre-fix members can repair
-              themselves; targeting it at the stalled avoids nagging the
-              members for whom everything already works. */}
-          {/* Second path to the same action, per TrustedStake: dismissing the
-              modal must not strand a member with no way back. Only shows once
-              the chain read has actually returned false. */}
           {/* Setup never finished: TrustedStake lists this wallet as a member,
-              but the staking proxy was never granted, so nothing can be
-              deployed. Membership alone used to be enough to show the normal
-              member view, which is how a wallet sat 45 days with 2.59 TAO
-              idle and nothing on screen to explain it. handleSetupProxy is
-              idempotent and re-checks the chain before signing anything. */}
-          {isMember && hasProxy === false && proxyStep !== "proxy-done" && (
-            <div className="mb-4 rounded-xl border border-amber-500/30 bg-amber-500/[0.08] px-4 py-3">
+              but the staking proxy or its fee flag was never set on chain, so
+              nothing can be deployed. Membership alone used to be enough to
+              show the normal member view, which is how a wallet sat 45 days
+              with 2.59 TAO idle and nothing on screen to explain it. The
+              hosted TrustedStake flow repairs both for a returning member;
+              we no longer sign repair transactions from this page. */}
+          {setupIncomplete && (
+            <div className="mb-4 rounded-xl border border-amber-500/30 bg-amber-500/[0.08] px-4 py-3 max-w-xl">
               <p className="text-amber-300 text-sm">
                 <span className="font-semibold">Your setup isn&apos;t finished.</span> You joined the index, but the
-                staking permission was never granted, so your TAO is sitting in your wallet instead of being invested.
-                One transaction fixes it.
+                on-chain staking permission is incomplete, so your TAO is sitting in your wallet instead of being invested.
+                TrustedStake walks you through the missing step.
               </p>
-              {proxyError && <p className="text-red-300 text-xs mt-2">{proxyError}</p>}
-              <button
-                onClick={handleSetupProxy}
-                disabled={proxyStep === "proxy-connecting" || proxyStep === "proxy-pending"}
-                className="mt-3 inline-flex items-center gap-2 rounded-lg bg-amber-500/20 border border-amber-500/40 px-3.5 py-1.5 text-xs font-semibold text-amber-100 hover:bg-amber-500/30 transition-colors disabled:opacity-60"
+              <a
+                href={launchUrl ?? TS_APP_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-3 inline-flex items-center gap-2 rounded-lg bg-amber-500/20 border border-amber-500/40 px-3.5 py-1.5 text-xs font-semibold text-amber-100 hover:bg-amber-500/30 transition-colors"
               >
-                {proxyStep === "proxy-connecting" || proxyStep === "proxy-pending"
-                  ? <><IconLoader className="w-3.5 h-3.5 animate-spin" /> Waiting for your wallet…</>
-                  : <>Finish setup</>}
-              </button>
+                Finish setup on TrustedStake <IconArrow className="w-3.5 h-3.5" />
+              </a>
             </div>
-          )}
-
-          {feesEnabled === false && hasProxy !== false && feeFixStep !== "done" && feeModalDismissed && (
-            <button
-              onClick={() => setFeeModalDismissed(false)}
-              className="w-full mb-4 flex items-center gap-3 rounded-xl border border-amber-500/30 bg-amber-500/[0.08] px-4 py-3 text-left hover:bg-amber-500/[0.12] transition-colors"
-            >
-              <span className="text-amber-300 text-sm flex-1">
-                <span className="font-semibold">Action needed:</span> one on-chain setting is missing, so your TAO
-                cannot be deployed.
-              </span>
-              <span className="text-xs font-semibold text-amber-200 flex-shrink-0">Fix it →</span>
-            </button>
-          )}
-
-          {/* Chain-verified, and never blocking: dismissable, with a banner
-              fallback below so a member who closes it can still get back. */}
-          {feesEnabled === false && hasProxy !== false && feeFixStep !== "done" && !feeModalDismissed && (
-            <Modal onClose={() => setFeeModalDismissed(true)}>
-              <div className="flex items-start justify-between gap-3 mb-1">
-                <h3 className="font-display font-semibold text-white text-lg">One transaction to unblock your TAO</h3>
-                <button onClick={() => setFeeModalDismissed(true)} className="text-gray-500 hover:text-gray-300 flex-shrink-0" aria-label="Close">
-                  <IconX className="w-4 h-4" />
-                </button>
-              </div>
-              <p className="text-sm text-gray-400 leading-relaxed mb-3">
-                Your wallet joined before a required on-chain setting was added to our sign-up. Without it the
-                strategy cannot pay network fees on your behalf, so your {freeTao?.toFixed(2) ?? ""} TAO has been
-                sitting undeployed.
-              </p>
-              <p className="text-xs text-gray-500 leading-relaxed mb-4">
-                This signs a single transaction - <span className="font-mono text-gray-400">proxy.setRealPaysFee</span> -
-                which lets the strategy proxy cover fees. It moves no funds, grants no new spending power, and your
-                TAO stays in your own wallet.
-              </p>
-              <button
-                onClick={handleEnableFees}
-                disabled={feeFixStep === "signing"}
-                className="w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 disabled:opacity-60 text-black font-bold text-sm transition-all"
-              >
-                {feeFixStep === "signing"
-                  ? <><IconLoader className="w-4 h-4 animate-spin" /> Confirm in your wallet…</>
-                  : "Enable and unblock"}
-              </button>
-              {feeFixError && (
-                <div className="mt-3 rounded-xl border border-red-500/30 bg-red-500/10 p-3">
-                  <p className="text-xs text-red-300 leading-relaxed">{feeFixError}</p>
-                </div>
-              )}
-              <p className="text-[11px] text-gray-600 mt-3 text-center">
-                Deployment follows within about 24 hours of the next rebalance.
-              </p>
-              <button onClick={() => setFeeModalDismissed(true)} className="w-full mt-2 text-[11px] text-gray-600 hover:text-gray-400 transition-colors">
-                Not now
-              </button>
-            </Modal>
           )}
 
           {showWalletPicker && (
@@ -1405,7 +1151,7 @@ export default function AlphaGapIndexPage() {
           <h2 className="font-display text-3xl sm:text-4xl font-semibold tracking-tight text-white mb-3">Deploy Your <span className="ag-gradient-text">TAO</span></h2>
           <p className="text-gray-400 text-base mb-8 max-w-2xl">
             {isUltra
-              ? "Two steps to start earning. First, set up your wallet proxy (one-time, on-chain). Then sign one message to join - all without leaving AlphaGap. No TAO leaves your wallet."
+              ? "One step to start earning: connect your wallet here, then finish the join on TrustedStake. They handle the staking permission and your first allocation. No TAO leaves your wallet."
               : "The AlphaGap Index is exclusive to Ultra subscribers. Upgrade to deploy your TAO into the top 10 subnets automatically."}
           </p>
 
@@ -1618,58 +1364,52 @@ export default function AlphaGapIndexPage() {
           )}
 
           {isUltra && selectedAddress && !isMember && (
-            <div className="space-y-4">
-              <div className={`rounded-[20px] border p-6 backdrop-blur-xl transition-all ${proxyStep === "proxy-done" ? "border-emerald-500/25 bg-emerald-500/5 opacity-70" : proxyStep === "proxy-connecting" || proxyStep === "proxy-pending" ? "border-emerald-500/20 bg-emerald-500/5" : "border-white/[0.08] bg-white/[0.035]"}`}>
-                <div className="flex items-start gap-4">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 font-bold text-sm ${proxyStep === "proxy-done" ? "bg-emerald-500/20 text-emerald-400" : proxyStep === "proxy-connecting" || proxyStep === "proxy-pending" ? "bg-emerald-500/15 text-emerald-400" : "bg-white/5 text-gray-400"}`}>
-                    {proxyStep === "proxy-done" ? <IconCheck className="w-4 h-4" /> : proxyStep === "proxy-connecting" || proxyStep === "proxy-pending" ? <IconLoader className="w-4 h-4 animate-spin" /> : "1"}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-display font-semibold text-white text-base mb-1">Authorise TrustedStake as Proxy</p>
-                    <p className="text-gray-400 text-sm mb-4">One-time on-chain transaction. Your wallet signs a message authorising TrustedStake to execute staking on your behalf - your TAO never moves without your instruction.</p>
-                    {proxyStep === "idle" && <button onClick={handleSetupProxy} className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-emerald-500 to-green-500 hover:from-emerald-400 hover:to-green-400 text-black font-bold text-sm rounded-xl transition-all shadow-lg shadow-emerald-500/20 active:scale-95">Set Up Proxy <IconArrow className="w-3.5 h-3.5" /></button>}
-                    {proxyStep === "proxy-connecting" && <p className="text-gray-400 text-sm flex items-center gap-2"><IconLoader className="w-4 h-4 animate-spin text-emerald-400" /> Connecting to Bittensor network…</p>}
-                    {proxyStep === "proxy-pending" && <p className="text-gray-400 text-sm flex items-center gap-2"><IconLoader className="w-4 h-4 animate-spin text-emerald-400" /> Check your wallet - sign the proxy transaction…</p>}
-                    {proxyStep === "proxy-error" && <div className="space-y-3"><p className="text-red-400 text-sm">{proxyError}</p><button onClick={handleSetupProxy} className="inline-flex items-center gap-2 px-5 py-2.5 bg-white/5 hover:bg-white/10 border border-white/8 text-gray-300 font-semibold text-sm rounded-xl transition-all">Retry</button></div>}
-                    {proxyStep === "proxy-done" && <p className="text-emerald-400 text-sm font-medium"><IconCheck className="w-3.5 h-3.5 inline mr-1.5" />Proxy authorised - continue to step 2</p>}
-                  </div>
+            <div className="rounded-[20px] border border-white/[0.08] bg-white/[0.035] backdrop-blur-xl p-6 sm:p-8">
+              <div className="flex items-start gap-4">
+                <div className="w-8 h-8 rounded-full bg-emerald-500/15 text-emerald-400 flex items-center justify-center flex-shrink-0">
+                  <IconZap className="w-4 h-4" />
                 </div>
-              </div>
-              <div className={`rounded-[20px] border p-6 backdrop-blur-xl transition-all ${proxyStep !== "proxy-done" ? "border-white/5 bg-white/[0.01] opacity-40 pointer-events-none" : registerStep === "success" ? "border-emerald-500/25 bg-emerald-500/5" : "border-white/[0.08] bg-white/[0.035]"}`}>
-                <div className="flex items-start gap-4">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 font-bold text-sm ${registerStep === "success" ? "bg-emerald-500/20 text-emerald-400" : "bg-white/5 text-gray-400"}`}>
-                    {registerStep === "success" ? <IconCheck className="w-4 h-4" /> : "2"}
+                <div className="flex-1 min-w-0">
+                  <p className="font-display font-semibold text-white text-lg mb-1">Join the Index on TrustedStake</p>
+                  <p className="text-gray-400 text-sm mb-4">
+                    Joining opens TrustedStake in a new tab with this wallet. You review the current holdings, approve the
+                    staking permission and sign the first allocation there - every approval happens in your own wallet, and no TAO
+                    leaves it. Come back here when it is done and this page switches to your member view.
+                  </p>
+                  <div className="rounded-xl border border-amber-500/20 bg-amber-500/[0.06] p-4 mb-4">
+                    <p className="text-amber-200/90 text-sm font-semibold mb-1">How much TAO goes in?</p>
+                    <p className="text-gray-400 text-sm">All of it. The index uses whatever TAO is in the wallet you connect - there&apos;s no amount to type in. <strong className="text-gray-300">So connect a wallet holding only what you want invested</strong>, and at least 2 TAO. Your TAO never leaves your wallet, and you can pull out any time.</p>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-display font-semibold text-white text-base mb-1">Join the Index</p>
-                    <p className="text-gray-400 text-sm mb-4">The AlphaGap Index is a private strategy - access is exclusive to AlphaGap Ultra. Sign one message to confirm your membership. You stay right here; no other site, no extra account.</p>
-                    <div className="rounded-xl border border-amber-500/20 bg-amber-500/[0.06] p-4 mb-4">
-                      <p className="text-amber-200/90 text-sm font-semibold mb-1">How much TAO goes in?</p>
-                      <p className="text-gray-400 text-sm">All of it. The index uses whatever TAO is in the wallet you connect - there&apos;s no amount to type in. <strong className="text-gray-300">So connect a wallet holding only what you want invested.</strong> Your TAO never leaves your wallet, and you can pull out any time.</p>
-                    </div>
-                    <p className="text-xs text-gray-500 font-mono mb-4 break-all">Wallet: {selectedAddress}</p>
-                    {registerStep === "success" ? (
-                      <div className="flex items-center gap-2 text-emerald-400 font-semibold text-sm"><IconCheck className="w-4 h-4" /> Membership confirmed - you&apos;re in!</div>
-                    ) : registerStep === "register-error" ? (
-                      <div className="space-y-3">
-                        <p className="text-sm text-red-400">{registerError}</p>
-                        <div className="flex flex-wrap gap-3">
-                          <button onClick={handleJoin} className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-emerald-400 to-green-400 text-black font-bold text-sm rounded-xl transition-all active:scale-95">Try Again <IconRefresh className="w-3.5 h-3.5" /></button>
-                          <button onClick={handleCheckStatus} className="inline-flex items-center gap-2 px-5 py-2.5 bg-white/5 hover:bg-white/10 border border-white/8 text-gray-300 font-semibold text-sm rounded-xl transition-all">Check Status <IconRefresh className="w-3.5 h-3.5" /></button>
-                          <a href={TS_INVITE_URL} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 px-5 py-2.5 text-gray-500 hover:text-gray-300 text-sm font-medium transition-colors">Join on TrustedStake instead <IconArrow className="w-3.5 h-3.5" /></a>
-                        </div>
-                      </div>
-                    ) : registerStep === "awaiting" ? (
-                      <div className="space-y-3">
-                        <div className="flex items-center gap-2 text-gray-400 text-sm"><IconLoader className="w-4 h-4 animate-spin text-emerald-400" /> {registerWaitNote ?? "Registering your membership…"}</div>
-                        <p className="text-xs text-gray-500">Keep this tab open. Your wallet will ask you to sign <strong className="text-gray-400">once</strong>, and only when the network is ready - if no popup has appeared yet, nothing is stuck.</p>
-                      </div>
-                    ) : (
-                      <button onClick={handleJoin} disabled={proxyStep !== "proxy-done"} className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-emerald-400 to-green-400 hover:from-emerald-300 hover:to-green-300 disabled:opacity-40 disabled:cursor-not-allowed text-black font-bold text-sm rounded-xl transition-all shadow-lg shadow-emerald-500/20 active:scale-95">
-                        Join the Index <IconArrow className="w-3.5 h-3.5" />
+                  <p className="text-xs text-gray-500 font-mono mb-4 break-all">Wallet: {selectedAddress}</p>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <button
+                      onClick={handleOpenJoin}
+                      disabled={!launchUrl}
+                      className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-emerald-400 to-green-400 hover:from-emerald-300 hover:to-green-300 disabled:opacity-50 disabled:cursor-not-allowed text-black font-bold text-sm rounded-xl transition-all shadow-lg shadow-emerald-500/20 active:scale-95"
+                    >
+                      {launchUrl ? <>Join the Index <IconArrow className="w-3.5 h-3.5" /></> : <><IconLoader className="w-4 h-4 animate-spin" /> Preparing link…</>}
+                    </button>
+                    {joinOpenedAt && (
+                      <button
+                        onClick={handleCheckStatus}
+                        disabled={joinChecking}
+                        className="inline-flex items-center gap-2 px-5 py-2.5 bg-white/5 hover:bg-white/10 border border-white/8 text-gray-300 font-semibold text-sm rounded-xl transition-all disabled:opacity-60"
+                      >
+                        {joinChecking ? <><IconLoader className="w-3.5 h-3.5 animate-spin" /> Checking…</> : <>I&apos;ve joined - check status <IconRefresh className="w-3.5 h-3.5" /></>}
                       </button>
                     )}
                   </div>
+                  {joinOpenedAt && !joinNote && (
+                    <p className="text-xs text-gray-500 mt-3 flex items-center gap-2">
+                      <IconLoader className="w-3.5 h-3.5 animate-spin text-emerald-400" />
+                      Waiting for TrustedStake to confirm this wallet. Finish the steps in the other tab - this page updates on its own.
+                    </p>
+                  )}
+                  {joinNote && <p className="text-sm text-amber-300/90 mt-3">{joinNote}</p>}
+                  {launchError && <p className="text-sm text-red-400 mt-3">{launchError}</p>}
+                  <p className="text-[11px] text-gray-600 mt-4">
+                    Use the same wallet on TrustedStake that you connected here. Membership is confirmed from TrustedStake&apos;s records, never from a redirect, and your first allocation can take a little while after you sign it.
+                  </p>
                 </div>
               </div>
             </div>
@@ -1873,8 +1613,8 @@ export default function AlphaGapIndexPage() {
               { q: "What wallets are supported?", a: "Talisman and SubWallet. Both are Bittensor-native and available as browser extensions." },
               { q: "How often does the index rebalance?", a: "Weekly - every Sunday the index re-targets the top 10 subnets by aGap Investing Score." },
               { q: "What does it cost?", a: "Index access is included in Ultra for $99/mo." },
-              { q: "What is a proxy address?", a: "A TrustedStake proxy is a Bittensor account you authorize to move stake on your behalf. You set it up once in the TrustedStake app, and it allows automated rebalancing without needing your signature every time." },
-              { q: "How do I leave the strategy?", a: "Click 'Leave Strategy' in the delegation section above. Your TAO stays in your wallet - you're just unregistering from the automated strategy." },
+              { q: "What is a proxy address?", a: "A TrustedStake proxy is a Bittensor account you authorise to move stake on your behalf. You grant it once during the join on TrustedStake (staking only - it cannot transfer your TAO), and it allows automated rebalancing without needing your signature every time." },
+              { q: "How do I leave the strategy?", a: "Click 'Leave Strategy' in the delegation section above, or use Manage on TrustedStake. Your TAO stays in your wallet - you're just unregistering from the automated strategy. 'Withdraw All to TAO' then converts your alpha back to TAO." },
             ].map((faq, i) => (
               <div key={faq.q} className="ag-glass !rounded-2xl overflow-hidden">
                 <button
@@ -1911,7 +1651,7 @@ export default function AlphaGapIndexPage() {
                       : "Connect your wallet and join the Index above to start earning. The entire flow takes under 2 minutes."}
                   </p>
                   {isMember ? (
-                    <a href="https://app.trustedstake.ai" target="_blank" rel="noopener noreferrer" className="inline-block bg-gradient-to-r from-emerald-400 to-green-400 hover:from-emerald-300 hover:to-green-300 text-black text-sm font-bold px-8 py-3.5 rounded-xl transition-all shadow-lg shadow-emerald-500/20 active:scale-95">
+                    <a href={launchUrl ?? TS_APP_URL} target="_blank" rel="noopener noreferrer" className="inline-block bg-gradient-to-r from-emerald-400 to-green-400 hover:from-emerald-300 hover:to-green-300 text-black text-sm font-bold px-8 py-3.5 rounded-xl transition-all shadow-lg shadow-emerald-500/20 active:scale-95">
                       Manage on TrustedStake →
                     </a>
                   ) : (
