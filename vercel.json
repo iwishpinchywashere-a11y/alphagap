@@ -18,7 +18,7 @@
     },
     {
       "path": "/api/cron/wallet-alerts",
-      "schedule": "*/5 * * * *"
+      "schedule": "*/10 * * * *"
     },
     {
       "path": "/api/generate-report",
@@ -38,7 +38,7 @@
     },
     {
       "path": "/api/cron/yield-collector",
-      "schedule": "0 */6 * * *"
+      "schedule": "0 6 * * *"
     },
     {
       "path": "/api/cron/pay-commissions",

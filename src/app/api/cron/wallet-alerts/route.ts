@@ -1,9 +1,10 @@
 /**
  * GET /api/cron/wallet-alerts
  *
- * Runs every 5 minutes via Vercel Cron.
+ * Runs every 10 minutes via Vercel Cron.
  *
- * Queries TaoStats directly for each tracked wallet's recent delegation
+ * Reads the global TaoStats stake-events feed once per run and matches it
+ * against every tracked wallet's recent delegation
  * events (stake/unstake). If an event is new and its USD value exceeds the
  * user's threshold, an alert is enqueued for the Railway bot to deliver.
  *
@@ -73,15 +74,45 @@ interface WalletAlertState {
   updatedAt:       string;
 }
 
-// ── Fetch recent events for one wallet from TaoStats ──────────────
-
-async function fetchRecentMoves(address: string, since: number): Promise<TSDelegation[]> {
+// ── Fetch recent events for ALL tracked wallets in one pass ───────
+//
+// This used to be one TaoStats call per tracked wallet, every five minutes.
+// With 98 tracked wallets that was ~28,000 calls a day and it burned through
+// 704k credits in one billing period (the plan is 60k). The global
+// stake-events feed is sorted newest first, so the last few minutes of the
+// whole chain fit in a handful of 200-row pages; read those once and filter
+// to the wallets we care about. amountMin is the smallest alert threshold
+// across all users, so the feed is not paged through dust.
+async function fetchRecentMovesAll(
+  tracked: Set<string>,
+  since: number,
+  amountMinRao: number,
+): Promise<Map<string, TSDelegation[]>> {
+  const byAddr = new Map<string, TSDelegation[]>();
+  let rows: Awaited<ReturnType<typeof fetchStakeEvents>> = [];
   try {
-    void TAOSTATS_KEY;
-    const rows = await fetchStakeEvents({ coldkey: address, timestampStart: since, max: 50 });
-    return rows.filter(d => d.netuid != null && d.netuid > 0);
-  } catch { return []; }
+    rows = await fetchStakeEvents({
+      timestampStart: since,
+      amountMin: amountMinRao > 0 ? amountMinRao : undefined,
+      max: MAX_FEED_ROWS,
+    });
+  } catch { return byAddr; }
+  if (rows.length >= MAX_FEED_ROWS) {
+    console.warn(`[wallet-alerts] feed window hit the ${MAX_FEED_ROWS}-row cap - raise the cap or shorten the lookback`);
+  }
+  for (const d of rows) {
+    if (d.netuid == null || d.netuid <= 0) continue;
+    const addr = d.nominator?.ss58;
+    if (!addr || !tracked.has(addr)) continue;
+    const list = byAddr.get(addr) ?? [];
+    list.push(d);
+    byAddr.set(addr, list);
+  }
+  return byAddr;
 }
+// Five pages of 200. Comfortably more than a 15-minute window of stake
+// events above a sensible USD floor; the warning above fires if it is not.
+const MAX_FEED_ROWS = 1000;
 
 function eventHash(address: string, d: TSDelegation): string {
   return crypto
@@ -120,8 +151,8 @@ export async function GET(req: NextRequest) {
   };
   const processed = new Set(state.processedHashes);
 
-  // Look back 10 minutes (covers 5-min cron + buffer for TaoStats indexing lag)
-  const since = Math.floor((Date.now() - 10 * 60 * 1000) / 1000);
+  // Look back 15 minutes (covers the 10-min cron + buffer for TaoStats indexing lag)
+  const since = Math.floor((Date.now() - 15 * 60 * 1000) / 1000);
 
   // ── Pass 1: collect all telegram users + their tracked wallets ──
   interface UserEntry {
@@ -177,18 +208,17 @@ export async function GET(req: NextRequest) {
 
   console.log(`[wallet-alerts] ${users.length} users, ${allAddresses.size} unique wallets`);
 
-  // ── Pass 3: fetch TaoStats events per wallet (5 concurrent) ──────
-  const CONCURRENCY = 5;
-  const addressList = [...allAddresses];
-  const movesByAddr = new Map<string, TSDelegation[]>();
-
-  for (let i = 0; i < addressList.length; i += CONCURRENCY) {
-    const batch = addressList.slice(i, i + CONCURRENCY);
-    const results = await Promise.all(batch.map(addr => fetchRecentMoves(addr, since)));
-    for (let j = 0; j < batch.length; j++) {
-      if (results[j].length) movesByAddr.set(batch[j], results[j]);
-    }
-  }
+  // ── Pass 3: one read of the global feed, filtered to tracked wallets ──
+  // The floor is the lowest threshold any user set, converted at the current
+  // TAO price (from the scan blob - no extra call). No floor if unknown.
+  const lowestMinUsd = Math.min(...users.map(u => u.minUsd));
+  let amountMinRao = 0;
+  try {
+    const scan = await readBlob<{ taoPrice?: number }>("scan-latest.json");
+    const px = scan?.taoPrice ?? 0;
+    if (px > 0 && lowestMinUsd > 0) amountMinRao = Math.floor((lowestMinUsd / px) * RAO_PER_TAO);
+  } catch { /* no floor */ }
+  const movesByAddr = await fetchRecentMovesAll(allAddresses, since, amountMinRao);
 
   const totalEvents = [...movesByAddr.values()].reduce((s, v) => s + v.length, 0);
   console.log(`[wallet-alerts] ${totalEvents} recent events across ${movesByAddr.size} wallets`);

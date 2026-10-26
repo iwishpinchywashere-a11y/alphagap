@@ -184,7 +184,7 @@ interface TSCache {
   updatedAt: string;
 }
 const TS_CACHE_KEY    = "wallet-tracker-ts-whales.json";
-const TS_CACHE_TTL_MS = 10 * 60 * 1000; // 10 min
+const TS_CACHE_TTL_MS = 60 * 60 * 1000; // 60 min (3 TaoStats calls per rebuild; 10 min was ~13k calls/month)
 
 interface TMCColdkey {
   id:                 string;
@@ -381,15 +381,16 @@ async function buildMainList(): Promise<WalletEntry[]> {
   const thirtyDaysAgo = Math.floor((Date.now() - 30 * 86400_000) / 1000);
 
   void TAOSTATS_KEY;
-  // v1 stake-events, 200 rows a page (the old delegation feed, same shape via lib/taostats)
-  const tsFetch = (page: number) =>
-    fetchStakeEvents({ timestampStart: thirtyDaysAgo, max: 200 * page })
-      .then(rows => ({ data: rows.slice((page - 1) * 200) }))
-      .catch(() => null);
+  // v1 stake-events, newest 1000 rows (5 pages of 200) in ONE paged fetch.
+  // The previous form asked for pages 1..5 as five separate paged fetches,
+  // and each of those re-read every page below it: 15 calls for 5 pages.
+  const tsFeed = fetchStakeEvents({ timestampStart: thirtyDaysAgo, max: 1000 })
+    .then(rows => ({ data: rows }))
+    .catch(() => null);
 
-  // Fetch TaoStats pages + enrichment data + TSWhales cache (fallback seed) in parallel
-  const [ts1, ts2, ts3, ts4, ts5, tmcTop, tsWhalesCache, subnetNames, taoPrice] = await Promise.all([
-    tsFetch(1), tsFetch(2), tsFetch(3), tsFetch(4), tsFetch(5),
+  // Fetch TaoStats feed + enrichment data + TSWhales cache (fallback seed) in parallel
+  const [tsAll, tmcTop, tsWhalesCache, subnetNames, taoPrice] = await Promise.all([
+    tsFeed,
     fetchTMCList("tao_staked", 200).catch(() => [] as TMCColdkey[]),
     readBlob<TSCache>(TS_CACHE_KEY),   // previously built by the TSWhales tab
     fetchSubnetNames(),
@@ -398,9 +399,7 @@ async function buildMainList(): Promise<WalletEntry[]> {
 
   // Collect confirmed alpha investor addresses from TaoStats (format-resilient)
   const tsAddresses = new Set<string>();
-  for (const page of [ts1, ts2, ts3, ts4, ts5]) {
-    for (const addr of extractTSAlphaAddresses(page)) tsAddresses.add(addr);
-  }
+  for (const addr of extractTSAlphaAddresses(tsAll)) tsAddresses.add(addr);
 
   // Supplement with any addresses from the TSWhales cache (robust fallback)
   // These are already confirmed alpha stakers, so they're ideal candidates.
