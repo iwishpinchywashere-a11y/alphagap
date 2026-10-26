@@ -21,6 +21,14 @@ export type Confidence = "confirmed" | "self_reported" | "estimated" | "pre_reve
 export type BuybackStatus = "active" | "announced" | "planned" | "none" | "unknown";
 export type GrowthTrend = "accelerating" | "growing" | "flat" | "declining" | "unknown";
 export type CustomerType = "enterprise" | "developer" | "consumer" | "mixed" | "none";
+/**
+ * Who actually pays. external = arm's-length buyers outside Bittensor;
+ * ecosystem = arm's-length, but the buyers are Bittensor projects (revenue
+ * rises and falls with the ecosystem); circular = team, insiders, miners
+ * paying fees, or ecosystem sponsors buying back ecosystem alpha, i.e. value
+ * that is partly moving in a circle. Set by the research; null = not judged.
+ */
+export type RevenueCustomerQuality = "external" | "ecosystem" | "circular";
 
 export interface ResearchRecord {
   netuid: number;
@@ -41,6 +49,8 @@ export interface ResearchRecord {
     as_of: string | null;
     evidence: string;
     sources: string[];
+    customer_quality?: RevenueCustomerQuality;
+    customer_quality_note?: string;
   };
   growth: {
     trend: GrowthTrend;
@@ -114,6 +124,12 @@ export interface ValuationRow extends ResearchRecord {
  * nothing (the August verifier threw those away and was wrong to), but it is
  * not a dashboard either.
  */
+export const CUSTOMER_QUALITY_WEIGHT: Record<RevenueCustomerQuality, number> = {
+  external: 1.0,
+  ecosystem: 0.8,
+  circular: 0.6,
+};
+
 export const CONFIDENCE_WEIGHT: Record<Confidence, number> = {
   confirmed: 1.0,
   self_reported: 0.7,

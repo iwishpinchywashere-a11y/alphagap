@@ -217,7 +217,8 @@ import { readRootWeightStatus } from "@/lib/root-weights";
 import { fetchChainMarket, fetchTaoUsd, isFresh, readPriceDaily, fillOneDailyGap, PRICE_DAILY_BLOB } from "@/lib/market-data";
 import { fetchRecentCommits, fetchRecentPRs, fetchLatestRelease } from "@/lib/context-fetcher";
 import { computeProductScore, BENCHMARK_MAP, MILESTONE_MAP, type WebsiteSignalData } from "@/lib/benchmarks";
-import { getValuationSignals, revenueTractionPts, buybackPts, growthPts } from "@/lib/valuation-signals";
+import { investBusinessCredit } from "@/lib/invest-business";
+import { getValuationSignals } from "@/lib/valuation-signals";
 import type { WebsiteProductCache } from "@/app/api/scan-websites/route";
 
 export const dynamic = "force-dynamic";
@@ -374,6 +375,7 @@ interface LeaderboardEntry {
   momentum_boost?: number;       // signed MOMENTUM pillar contribution (±15 max)
   agap_velo?: number;            // aGap Velocity score 0-100
   invest_agap?: number;          // Investing (long-term) aGap score 0-100
+  invest_breakdown?: Record<string, number>;
   audit_score?: number;          // Operational health / decentralisation score 0-100
   apy_7d?: number;               // Stake-weighted avg 7-day APY across top validators (0–1 scale)
   apy_1h?: number;               // 1-hour APY (annualised) - for divergence detection
@@ -3898,30 +3900,26 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     const confirmedArr = useLegacy ? (valSig ? 0 : (benchEntry?.annual_revenue_usd ?? 0)) : valSig.creditedArrUsd;
     const estimatedArr = confirmedArr > 0 ? confirmedArr : (useLegacy ? (milestEntry?.estimated_arr_usd ?? 0) : 0);
     const arrIsEstimated = confirmedArr === 0 && estimatedArr > 0;
-    let revTractionBonus = useLegacy ? 0 : revenueTractionPts(valSig!.creditedArrUsd);
-    if (useLegacy) {
-      if      (estimatedArr >= 10_000_000) revTractionBonus = arrIsEstimated ? 17 : 20;
-      else if (estimatedArr >=  2_000_000) revTractionBonus = arrIsEstimated ? 13 : 15;
-      else if (estimatedArr >=  1_000_000) revTractionBonus = arrIsEstimated ?  8 : 10;
-      else if (estimatedArr >=    500_000) revTractionBonus = arrIsEstimated ?  5 :  7;
-      else if (estimatedArr >=    100_000) revTractionBonus = arrIsEstimated ?  3 :  4;
-      else if (estimatedArr >           0) revTractionBonus = arrIsEstimated ?  1 :  2;
-    }
-    // Revenue-funded alpha buybacks (0-10) and revenue growth (-5..+5): the
-    // two things the old formula could not see at all.
-    const buybackInvestBonus = valSig ? buybackPts(valSig.buybackStatus, valSig.buybackPctOfRevenue) : 0;
-    const growthInvestBonus  = valSig ? growthPts(valSig.growthTrend, valSig.arrUsd) : 0;
-
-    // ── BENCHMARK STATUS (used by market validation, proven product, revenue floor) ──
+    // Business credit: revenue, buybacks, growth and market validation share
+    // ONE capped budget, scaled by revenue size and by who the customers are.
+    // See lib/invest-business.ts for why (Bitcast tied Lium at 100 on $750K).
     const isBenchmarked = productSource === "benchmark" || productSource === "valuation";
-
-    // ── MARKET VALIDATION BONUS (0–5 pts) ────────────────────────────────────
-    // Formally benchmarked AND generating revenue = proven PMF.
-    let marketValidationBonus = 0;
-    if      (isBenchmarked && confirmedArr >= 1_000_000) marketValidationBonus = 5;
-    else if (isBenchmarked && confirmedArr >=   100_000) marketValidationBonus = 3;
-    else if (isBenchmarked && confirmedArr >          0) marketValidationBonus = 2;
-    else if (isBenchmarked)                              marketValidationBonus = 1;
+    const bizCredit = investBusinessCredit({
+      arrUsd: useLegacy ? 0 : valSig!.arrUsd,
+      confidence: useLegacy ? "estimated" : valSig!.confidence,
+      customerQuality: useLegacy ? null : valSig!.customerQuality,
+      buybackStatus: valSig?.buybackStatus ?? "unknown",
+      buybackPctOfRevenue: valSig?.buybackPctOfRevenue ?? null,
+      growthTrend: valSig?.growthTrend ?? "unknown",
+      isBenchmarked,
+      qualityScore: useLegacy ? null : valSig!.qualityScore,
+      productScore,
+      legacyEstimatedArrUsd: useLegacy ? estimatedArr : 0,
+    });
+    const revTractionBonus     = bizCredit.revenue;
+    const buybackInvestBonus   = bizCredit.buyback;
+    const growthInvestBonus    = bizCredit.growth;
+    const marketValidationBonus = bizCredit.marketValidation;
 
     // ── PILLAR 1: CONVICTION (max 30) ────────────────────────────────────────
     // For a monthly investing lens, SUSTAINED whale accumulation, staking lock,
@@ -4081,17 +4079,8 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     const combinedGrowthBonus = Math.min(10, pillarGrowthTiming + growthPotentialBonus);
     // Use combinedGrowthBonus in rawInvestAGap instead of both individually.
 
-    // ── PROVEN PRODUCT BONUS (0–15 pts) ──────────────────────────────────────
-    // Benchmarked subnets with high product scores have been manually verified
-    // to have real, working products. This is one of the strongest long-term
-    // investing signals - a great product that's formally evaluated.
-    // Directly rewards: Chutes (PROD 100), Score (PROD 91), Targon (PROD 79).
-    let provenProductBonus = 0;
-    if (isBenchmarked) {
-      if      (productScore >= 90) provenProductBonus = 15;
-      else if (productScore >= 78) provenProductBonus = 10;
-      else if (productScore >= 65) provenProductBonus =  5;
-    }
+    // ── PROVEN PRODUCT BONUS (0-8) - from the research QUALITY score, see lib/invest-business ──
+    const provenProductBonus = bizCredit.provenProduct;
 
     // ── EMISSION DOMINANCE BONUS (0–10 pts) ──────────────────────────────────
     // Capturing ≥3–10% of Bittensor emissions while maintaining a clean audit
@@ -4169,8 +4158,8 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     const rawInvestAGap = pillarConviction + pillarAuditDecen + pillarDev + pillarProduct
                         + pillarNetwork
                         + combinedGrowthBonus          // replaces pillarGrowthTiming + growthPotentialBonus (capped at 10)
-                        + revTractionBonus + buybackInvestBonus + growthInvestBonus
-                        + marketValidationBonus + investSynergy
+                        + bizCredit.business          // = min(28, revTraction + buyback + growth + marketValidation)
+                        + investSynergy
                         + provenProductBonus + emissionDominanceBonus + provenQualityBonus
                         + emissionPenalty + networkHealthPenalty + whalePenalty
                         + investViability + investDeregPenalty + investZeroEmissionPenalty;
@@ -4287,6 +4276,16 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
       growth_trend: valSig?.growthTrend,
       momentum_boost: momentumBoost !== 0 ? momentumBoost : undefined,
       invest_agap: investAGap,
+      invest_breakdown: {
+        conviction: pillarConviction, audit_decen: pillarAuditDecen, dev: pillarDev, product: pillarProduct, network: pillarNetwork,
+        growth_timing: combinedGrowthBonus, synergy: investSynergy,
+        rev_traction: revTractionBonus, buyback: buybackInvestBonus, rev_growth: growthInvestBonus, market_validation: marketValidationBonus,
+        business_capped: bizCredit.business, proven_product: provenProductBonus,
+        emission_dominance: emissionDominanceBonus, proven_quality: provenQualityBonus,
+        emission_penalty: emissionPenalty, network_health_penalty: networkHealthPenalty, whale_penalty: whalePenalty,
+        viability: investViability, dereg_penalty: investDeregPenalty, zero_emission_penalty: investZeroEmissionPenalty,
+        raw: Math.round(rawInvestAGap * 10) / 10, clamped: clampedInvestAGap, revenue_floor: investRevFloor,
+      },
       audit_score: auditScore ?? undefined,
       apy_7d:  yieldMap.get(d.netuid)?.apy_7d,
       apy_1h:  yieldMap.get(d.netuid)?.apy_1h,

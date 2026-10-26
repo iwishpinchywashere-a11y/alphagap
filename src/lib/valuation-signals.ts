@@ -10,7 +10,7 @@
  */
 
 import research from "@/data/valuation.json";
-import { CONFIDENCE_WEIGHT, revenueComponent, buybackComponent, growthComponent, type ResearchRecord, type BuybackStatus, type GrowthTrend, type Confidence } from "./valuation";
+import { CONFIDENCE_WEIGHT, revenueComponent, buybackComponent, growthComponent, type ResearchRecord, type BuybackStatus, type GrowthTrend, type Confidence, type RevenueCustomerQuality } from "./valuation";
 
 export interface ValuationSignals {
   status: "live" | "dead" | "unknown";
@@ -18,6 +18,8 @@ export interface ValuationSignals {
   liveProduct: boolean;
   arrUsd: number;              // stated ARR, 0 if none
   confidence: Confidence;
+  /** Who pays (external / ecosystem / circular); null when the research did not judge it. */
+  customerQuality: RevenueCustomerQuality | null;
   /** ARR x confidence weight (confirmed 1.0, self-reported 0.7, estimated 0.5). */
   creditedArrUsd: number;
   buybackStatus: BuybackStatus;
@@ -45,6 +47,7 @@ const BY_NETUID = new Map<number, ValuationSignals>(
       liveProduct: !!r.product.live_product,
       arrUsd: arr,
       confidence: r.revenue.confidence,
+      customerQuality: r.revenue.customer_quality ?? null,
       creditedArrUsd: credited,
       buybackStatus: r.buybacks.status,
       buybackPctOfRevenue: r.buybacks.pct_of_revenue,

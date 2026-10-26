@@ -1510,7 +1510,7 @@ export default function AlphaGapIndexPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {[
               { icon: <IconTarget className="w-5 h-5" />, color: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20", label: "Real-World Performance", detail: "Head-to-head benchmarks against centralised competitors. Not self-reported metrics." },
-              { icon: <IconDollar className="w-5 h-5" />, color: "text-green-400 bg-green-500/10 border-green-500/20", label: "Revenue Potential", detail: "Real customers, product traction, and clear paths to monetisation." },
+              { icon: <IconDollar className="w-5 h-5" />, color: "text-green-400 bg-green-500/10 border-green-500/20", label: "Revenue Quality", detail: "Verified revenue, scaled by how much there is and who pays. Arm's-length outside customers count in full; ecosystem and circular revenue count less." },
               { icon: <IconTrend className="w-5 h-5" />, color: "text-blue-400 bg-blue-500/10 border-blue-500/20", label: "On-Chain Signals", detail: "Whale accumulation, stake velocity, and validator confidence - before narratives catch up." },
               { icon: <IconUsers className="w-5 h-5" />, color: "text-violet-400 bg-violet-500/10 border-violet-500/20", label: "Team & Execution", detail: "Shipping cadence, founder track record, and real community health." },
             ].map(f => (
