@@ -231,6 +231,26 @@ export default function AlphaGapIndexPage() {
   const [memberSinceMs, setMemberSinceMs] = useState<number | null>(null);
   const stalledHours = memberSinceMs != null ? (Date.now() - memberSinceMs) / 3_600_000 : null;
   const isStalled = (positions?.length ?? 0) === 0 && (freeTao ?? 0) >= 2 && (stalledHours ?? 0) > 48;
+  // ── Allocation, kept strictly separate from membership ──────────────────
+  // TrustedStake (2026-10-27): "Keep membership separate from allocated /
+  // invested status, since membership alone doesn't confirm completed
+  // allocation." Membership comes from their delegator list; this comes from
+  // the chain and nothing else. Never claim a wallet is invested because it
+  // is a member, and never claim it from a join receipt or a redirect.
+  const allocation: "unknown" | "none" | "partial" | "deployed" =
+    positions == null ? "unknown"
+      : positions.length === 0 ? "none"
+      : (freeTao ?? 0) >= 2 ? "partial"
+      : "deployed";
+  const allocationLabel =
+    allocation === "unknown" ? "Reading from chain…"
+      : allocation === "none" ? "Not deployed yet"
+      : allocation === "partial" ? "Partly deployed"
+      : "Deployed";
+  const allocationTone =
+    allocation === "deployed" ? "text-emerald-400"
+      : allocation === "partial" ? "text-amber-300"
+      : "text-gray-400";
   const [copiedAddr, setCopiedAddr] = useState(false);
   // Wallet (extension) picker, distinct from the account picker below it.
   // With two extensions installed the old flow enabled both and whichever
@@ -1183,6 +1203,19 @@ export default function AlphaGapIndexPage() {
                   </div>
                   <p className="text-gray-400 text-sm font-mono">{selectedAddress}</p>
                   <p className="text-gray-500 text-xs mt-1">Your wallet is registered with the AlphaGap Subnet Index strategy.</p>
+                  {/* Two separate facts, never collapsed into one tick.
+                      Membership is TrustedStake's record; allocation is what
+                      is actually staked on chain for this wallet. */}
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-3 py-1 text-[11px]">
+                      <span className="text-gray-400">Membership</span>
+                      <span className="font-semibold text-emerald-400">Active</span>
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-[11px]">
+                      <span className="text-gray-400">Allocation</span>
+                      <span className={`font-semibold ${allocationTone}`}>{allocationLabel}</span>
+                    </span>
+                  </div>
                   {/* Topping up was the single biggest reported friction: there
                       was no staking button here at all, because the strategy
                       deploys your wallet's TAO for you via the proxy. Without
@@ -1193,9 +1226,9 @@ export default function AlphaGapIndexPage() {
                     <p className="text-xs font-semibold text-gray-300 mb-2">Adding more TAO</p>
                     <p className="text-xs text-gray-500 leading-relaxed mb-3">
                       Send TAO to this same wallet - nothing to sign, and no need to leave and re-join.
-                      Top-ups are detected automatically and deployed{" "}
-                      <span className="text-gray-300">within about 24 hours</span>, independently of the weekly
-                      index rebalance.
+                      Top-ups are picked up automatically, separately from the weekly index rebalance.
+                      {" "}<span className="text-gray-300">The allocation status above is read from the chain</span>, so
+                      it is the one to watch rather than any estimate of timing.
                     </p>
                     <p className="text-[11px] text-amber-300/80 leading-relaxed mb-3">
                       Your wallet must hold at least <span className="font-semibold">2 TAO</span>. Below that
@@ -1227,7 +1260,7 @@ export default function AlphaGapIndexPage() {
                           <span className="text-amber-300/90">
                             {isStalled
                               ? `${freeTao.toFixed(4)} TAO here has not deployed. This is a known issue on TrustedStake's side, not something you need to fix - we are chasing it daily and your TAO has never left your wallet.`
-                              : `${freeTao.toFixed(4)} TAO here is not staked yet - it deploys automatically within ~24h.`}
+                              : `${freeTao.toFixed(4)} TAO here is not staked yet. It deploys when TrustedStake next runs for this wallet.`}
                           </span>
                         ) : (
                           <span className="text-gray-600">All TAO in this wallet is deployed.</span>
@@ -1254,7 +1287,7 @@ export default function AlphaGapIndexPage() {
                   <p className="text-sm text-gray-400">
                     {isStalled
                       ? "Your funds have not been deployed yet. This is an execution issue at TrustedStake that we have escalated with your wallet address - it is not something you have set up wrong, and nothing needs redoing. Your TAO stays in your own wallet throughout."
-                      : "No stake yet. Once the next rebalance runs, your positions appear here automatically."}
+                      : "Nothing is deployed on chain for this wallet yet. Your membership is confirmed, but the initial allocation is a separate step - it is not complete until positions show up here."}
                   </p>
                 ) : (
                   <>
@@ -1647,7 +1680,7 @@ export default function AlphaGapIndexPage() {
                   <h2 className="font-display text-3xl font-semibold tracking-tight text-white mb-3">You&apos;re ready to deploy</h2>
                   <p className="text-gray-500 text-sm mb-7 max-w-md mx-auto leading-relaxed">
                     {isMember
-                      ? "Your wallet is registered with the AlphaGap Subnet Index. Sit back - TrustedStake handles everything from here."
+                      ? "Your wallet is registered with the AlphaGap Subnet Index. TrustedStake handles the allocation and the weekly rebalance from here - check the allocation status above to see what is actually deployed."
                       : "Connect your wallet and join the Index above to start earning. The entire flow takes under 2 minutes."}
                   </p>
                   {isMember ? (
