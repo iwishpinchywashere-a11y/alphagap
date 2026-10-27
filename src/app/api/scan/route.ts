@@ -763,13 +763,26 @@ export async function GET() {
   // dead slot.
   const STALE_IDENTITY_OVERRIDES: Record<number, Partial<SubnetIdentity>> = {
     3:  { subnet_name: "Teutonic",  github_repo: "https://github.com/one-covenant/templar",  subnet_url: "https://www.tplr.ai" },
+    // 2026-10-27: Epago was abandoned and its on-chain identity was then
+    // squatted - renamed to "Bittensor", links cleared, description replaced
+    // with abuse. Without this the leaderboard would carry a row literally
+    // called "Bittensor" and render the abuse as that subnet's description.
+    36: { subnet_name: "Epago (abandoned)", github_repo: null, subnet_url: null, description: null, summary: null },
   };
+  // A chain name that claims to be the network itself, or is otherwise a
+  // placeholder, is never a usable subnet name. Treated exactly like an empty
+  // one so the override (or the SNxx fallback) wins.
+  const UNUSABLE_CHAIN_NAMES = new Set(["", "deprecated", "unknown", "bittensor", "tao", "subnet", "n/a", "none", "null"]);
   identities = identities.map(id => {
     const o = STALE_IDENTITY_OVERRIDES[id.netuid];
     const chainName = (id.subnet_name || "").trim().toLowerCase();
-    return o && (chainName === "" || chainName === "deprecated" || chainName === "unknown")
-      ? { ...id, ...o }
-      : id;
+    if (o && UNUSABLE_CHAIN_NAMES.has(chainName)) return { ...id, ...o };
+    // No override on file: drop the unusable name so downstream falls back to
+    // "SNxx" rather than printing a squatted one.
+    if (!o && UNUSABLE_CHAIN_NAMES.has(chainName) && chainName !== "") {
+      return { ...id, subnet_name: "" };
+    }
+    return id;
   });
 
   // ── Step 1b: Market rows ─────────────────────────────────────────
