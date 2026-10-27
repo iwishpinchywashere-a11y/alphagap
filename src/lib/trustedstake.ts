@@ -52,6 +52,24 @@ export interface IndexHolding {
 // ── Weight normalisation ─────────────────────────────────────────────────────
 // Takes top-N subnets by invest_agap score and converts to integer weights
 // that sum to EXACTLY 100 using the largest-remainder method.
+//
+// MEDIUM TAPER (2026-10-27). Weights used to be score/sum, which barely
+// expressed conviction: the top 10 scores sit in a narrow band, so the index
+// came out near equal-weighted (best pick 11%, worst 9% - a 1.2x spread on a
+// ranking we do a lot of work to produce). The basis is now the score's
+// DISTANCE ABOVE THE WEAKEST HOLDING plus a floor, so the spread between
+// picks drives sizing: a tight top 10 stays flattish, a top-heavy one tilts.
+//
+// TAPER_OFFSET is the flattener. Lower = more concentrated. At 8, the board
+// on 2026-10-27 (scores 100 down to 77) priced at 20/12/11/11/10/10/9/7/5/5,
+// against 12/10/10/10/10/10/10/9/9/9 under the old proportional scheme.
+// The exact shape moves with the score spread each week, by design.
+const TAPER_OFFSET = 8;
+// Hard ceiling on any single position. The taper is unbounded by design: if
+// one subnet ever scores far above the rest (100 against a field of 50) it
+// would take ~44% of every member's wallet. These are real funds in ten
+// names, so no single subnet gets more than this regardless of score.
+const MAX_WEIGHT = 25;
 
 export function buildWeights(
   subnets: Array<{ netuid: number; name: string; invest_agap: number }>
@@ -61,9 +79,37 @@ export function buildWeights(
   const total = subnets.reduce((s, e) => s + e.invest_agap, 0);
   if (total === 0) throw new Error("All invest_agap scores are 0");
 
-  // Proportional floored weights + fractional remainder tracking
+  // Taper basis: distance above the weakest holding, plus the flattener.
+  // Always positive, so a subnet can never price at zero.
+  const minScore = Math.min(...subnets.map(s => s.invest_agap));
+  const basisOf = (score: number) => Math.max(0, score - minScore) + TAPER_OFFSET;
+  const basisTotal = subnets.reduce((s, e) => s + basisOf(e.invest_agap), 0);
+
+  // Exact percentages, then pull anything over the ceiling back down and
+  // share the excess across the rest in proportion to their own basis.
+  // Looped because trimming one can push another over.
+  const exactPct = new Map<number, number>(
+    subnets.map(s => [s.netuid, (basisOf(s.invest_agap) / basisTotal) * 100]),
+  );
+  // A ceiling of 25 is impossible to satisfy with fewer than four holdings -
+  // every entry pins to the cap, the excess has nowhere to go, and the
+  // weights stop summing to 100. Raise the effective ceiling to whatever an
+  // equal split would be whenever the configured one cannot be met.
+  const cap = Math.max(MAX_WEIGHT, 100 / subnets.length);
+  for (let pass = 0; pass < 10; pass++) {
+    const over = [...exactPct.entries()].filter(([, v]) => v > cap + 1e-9);
+    if (over.length === 0) break;
+    let excess = 0;
+    for (const [id, v] of over) { excess += v - cap; exactPct.set(id, cap); }
+    const under = [...exactPct.entries()].filter(([, v]) => v < cap - 1e-9);
+    const underTotal = under.reduce((s, [, v]) => s + v, 0);
+    if (underTotal <= 0) break;
+    for (const [id, v] of under) exactPct.set(id, v + excess * (v / underTotal));
+  }
+
+  // Floored weights + fractional remainder tracking
   const items = subnets.map(s => {
-    const exact = (s.invest_agap / total) * 100;
+    const exact = exactPct.get(s.netuid) ?? 0;
     return { ...s, exact, floor: Math.floor(exact), frac: exact - Math.floor(exact) };
   });
 
@@ -91,11 +137,18 @@ export function buildWeights(
   // Final sanity check
   const weightSum = Object.values(weights).reduce((s, w) => s + w, 0);
   if (weightSum !== 100) {
-    // Adjust the highest-weight entry to correct any rounding drift
-    const topKey = Object.entries(weights).sort((a, b) => b[1] - a[1])[0][0];
-    weights[topKey] += (100 - weightSum);
+    const drift = 100 - weightSum;
+    // Correct on the heaviest entry, but when adding points skip anything
+    // already at the ceiling - otherwise this last step could quietly push a
+    // position past MAX_WEIGHT and undo the cap above.
+    const ranked = Object.entries(weights).sort((a, b) => b[1] - a[1]);
+    const target = drift > 0
+      ? (ranked.find(([, w]) => w + drift <= cap) ?? ranked[ranked.length - 1])
+      : ranked[0];
+    const topKey = target[0];
+    weights[topKey] += drift;
     const holding = holdings.find(h => String(h.netuid) === topKey);
-    if (holding) holding.weight += (100 - weightSum);
+    if (holding) holding.weight += drift;
   }
 
   return { weights, holdings };
