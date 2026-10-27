@@ -230,7 +230,6 @@ export default function AlphaGapIndexPage() {
   // saying nothing.
   const [memberSinceMs, setMemberSinceMs] = useState<number | null>(null);
   const stalledHours = memberSinceMs != null ? (Date.now() - memberSinceMs) / 3_600_000 : null;
-  const isStalled = (positions?.length ?? 0) === 0 && (freeTao ?? 0) >= 2 && (stalledHours ?? 0) > 48;
   // ── Allocation, kept strictly separate from membership ──────────────────
   // TrustedStake (2026-10-27): "Keep membership separate from allocated /
   // invested status, since membership alone doesn't confirm completed
@@ -279,6 +278,15 @@ export default function AlphaGapIndexPage() {
   // which repairs both; we no longer sign repair transactions here.
   const [hasProxy, setHasProxy] = useState<boolean | null>(null);
   const setupIncomplete = isMember && (hasProxy === false || feesEnabled === false);
+  // "Stalled" means TrustedStake has everything it needs and still has not
+  // deployed. It must NOT fire when the wallet's own setup is incomplete:
+  // one member sat 70 days with 2.59 TAO undeployed and NO staking proxy
+  // ever granted, and this copy told them it was TrustedStake's fault and
+  // that nothing needed redoing. Both were wrong. A missing proxy or fee
+  // flag is handled by the "finish setup" banner instead.
+  const setupComplete = hasProxy === true && feesEnabled !== false;
+  const isStalled = (positions?.length ?? 0) === 0 && (freeTao ?? 0) >= 2
+    && (stalledHours ?? 0) > 48 && setupComplete;
   // Hosted join/manage link from /api/trustedstake/launch.
   const [launchUrl, setLaunchUrl] = useState<string | null>(null);
   const [launchError, setLaunchError] = useState<string | null>(null);
