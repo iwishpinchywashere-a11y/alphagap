@@ -26,6 +26,9 @@ const CONF = new Set(["confirmed", "self_reported", "estimated", "pre_revenue", 
 const BUY = new Set(["active", "announced", "planned", "none", "unknown"]);
 const GROWTH = new Set(["accelerating", "growing", "flat", "declining", "unknown"]);
 const CTYPE = new Set(["enterprise", "developer", "consumer", "mixed", "none"]);
+// Who actually pays. Scales revenue credit in the investing score, so a
+// dropped value silently over-credits a circular revenue stream.
+const CQUAL = new Set(["external", "ecosystem", "circular"]);
 const STATUS = new Set(["live", "dead", "unknown"]);
 
 const str = (v, max = 600) => (typeof v === "string" ? v.trim().slice(0, max) : "");
@@ -56,6 +59,8 @@ function normalise(r, problems) {
       as_of: /^\d{4}-\d{2}(-\d{2})?$/.test(rv.as_of ?? "") ? rv.as_of : null,
       evidence: str(rv.evidence),
       sources: urls(rv.sources),
+      ...(CQUAL.has(rv.customer_quality) ? { customer_quality: rv.customer_quality } : {}),
+      ...(str(rv.customer_quality_note) ? { customer_quality_note: str(rv.customer_quality_note) } : {}),
     },
     growth: {
       trend: pick(GROWTH, g.trend, "unknown"),
@@ -91,6 +96,12 @@ function normalise(r, problems) {
   if (["active", "announced"].includes(out.buybacks.status) && out.buybacks.sources.length === 0) {
     problems.push(`SN${netuid}: buyback ${out.buybacks.status} with no source URL; set to unknown`);
     out.buybacks.status = "unknown";
+  }
+  if (out.revenue.arr_usd != null && out.revenue.arr_usd > 0 && !out.revenue.customer_quality) {
+    problems.push(`SN${netuid}: revenue with no customer_quality (external/ecosystem/circular)`);
+  }
+  if (rv.customer_quality && !CQUAL.has(rv.customer_quality)) {
+    problems.push(`SN${netuid}: invalid customer_quality "${rv.customer_quality}" dropped`);
   }
   if (out.revenue.arr_usd === 0) out.revenue.arr_usd = null;
   return out;
