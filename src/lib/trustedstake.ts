@@ -60,11 +60,14 @@ export interface IndexHolding {
 // DISTANCE ABOVE THE WEAKEST HOLDING plus a floor, so the spread between
 // picks drives sizing: a tight top 10 stays flattish, a top-heavy one tilts.
 //
-// TAPER_OFFSET is the flattener. Lower = more concentrated. At 8, the board
-// on 2026-10-27 (scores 100 down to 77) priced at 20/12/11/11/10/10/9/7/5/5,
-// against 12/10/10/10/10/10/10/9/9/9 under the old proportional scheme.
+// TAPER_OFFSET is the flattener. Lower = more concentrated. At 16, the board
+// on 2026-10-28 (scores 100 down to 76) prices at 16/15/12/10/9/9/8/8/7/6,
+// against 12/11/11/10/10/10/9/9/9/9 under the old proportional scheme: a
+// 2.7x spread top to bottom rather than 1.3x. Deliberately gentler than the
+// 8 this shipped with (which gave 19/5, 3.8x) - the aim is to reward rank
+// without shrinking the tenth name below a size worth holding.
 // The exact shape moves with the score spread each week, by design.
-const TAPER_OFFSET = 8;
+const TAPER_OFFSET = 16;
 // Hard ceiling on any single position. The taper is unbounded by design: if
 // one subnet ever scores far above the rest (100 against a field of 50) it
 // would take ~44% of every member's wallet. These are real funds in ten
