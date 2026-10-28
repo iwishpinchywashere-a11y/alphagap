@@ -3313,7 +3313,7 @@
     "https://cryptobriefing.com/bittensor-subnets-annualized-revenue/"
    ],
    "customer_quality": "external",
-   "customer_quality_note": "Recorded external (researcher proposed 'mixed', which is not a permitted value). Buyers are arm's-length developers reaching Chutes directly and through OpenRouter, which is external demand, but a material and unquantifiable share of volume comes from Bittensor projects (for example Ridges SN62 routing inference through it), which is ecosystem demand. Chutes publishes registered users, not paying customers, and has withdrawn its revenue series, so the external-versus-ecosystem split cannot be computed. 'mixed' is used deliberately in place of a single label; if forced to choose, the OpenRouter"
+   "customer_quality_note": "Recorded external (researcher proposed 'mixed', which is not a permitted value). Buyers are arm's-length developers reaching Chutes directly and through OpenRouter, which is external demand, but a material and unquantifiable share of volume comes from Bittensor projects (for example Ridges SN62 routing inference through it), which is ecosystem demand. Chutes publishes registered users, not paying customers, and has withdrawn its revenue series, so the external-versus-ecosystem split cannot be computed."
   },
   "growth": {
    "trend": "declining",
