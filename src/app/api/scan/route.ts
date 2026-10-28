@@ -4158,15 +4158,25 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     // Templar ($27.6M). The index concentrates real member funds into 10
     // names - at single-digit millions the position cannot be entered or
     // exited without moving the price, whatever the product score says.
+    // Steepened 2026-10-28. The old rungs (-6 under $8M, -3 under $15M, then
+    // nothing) were too soft to express what size actually costs an index
+    // that concentrates member funds into ten names. Swarm at a $9.8M cap and
+    // $783K of daily volume outranked engy at $49.4M and $2.6M daily, on a
+    // conviction score built from the owner locking their own alpha. Liquidity
+    // is a real constraint on a position we have to be able to exit, so it now
+    // carries real weight, and the ladder keeps stepping past $15M instead of
+    // treating a $16M subnet and a $150M one as identical.
     let investViability = 0;
     if      (mcap < 100_000)   investViability = -50; // ghost subnet
     else if (mcap < 500_000)   investViability = -40; // effectively uninvestable
     else if (mcap < 1_000_000) investViability = -32; // extreme illiquidity
     else if (mcap < 2_000_000) investViability = -24; // very illiquid
     else if (mcap < 3_000_000) investViability = -16; // below threshold
-    else if (mcap < 4_000_000) investViability = -10; // borderline
-    else if (mcap < 8_000_000) investViability = -6;  // thin for a 10-name index
-    else if (mcap < 15_000_000) investViability = -3; // still smallcap
+    else if (mcap < 4_000_000) investViability = -14; // borderline
+    else if (mcap < 8_000_000) investViability = -12; // thin for a 10-name index
+    else if (mcap < 15_000_000) investViability = -8; // smallcap, hard to exit
+    else if (mcap < 25_000_000) investViability = -4; // still thin
+    else if (mcap < 40_000_000) investViability = -1; // mid, minor drag
 
     const rawInvestAGap = pillarConviction + pillarAuditDecen + pillarDev + pillarProduct
                         + pillarNetwork
