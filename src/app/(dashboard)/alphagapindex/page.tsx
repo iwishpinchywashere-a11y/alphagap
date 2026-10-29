@@ -26,6 +26,25 @@ const TS_APP_URL = "https://app.trustedstake.ai";
 const TAPER_OFFSET = 16;
 const MAX_WEIGHT = 25;
 
+/** Mirrors buildWeights in lib/trustedstake.ts: basis = distance above the
+ *  weakest holding + TAPER_OFFSET, normalised to 100, no position over the cap. */
+function taperWeights(scores: number[]): number[] {
+  if (scores.length === 0) return [];
+  const min = Math.min(...scores);
+  const basis = scores.map(v => Math.max(0, v - min) + TAPER_OFFSET);
+  const total = basis.reduce((s, v) => s + v, 0);
+  const cap = Math.max(MAX_WEIGHT, 100 / scores.length);
+  const pct = basis.map(v => (total > 0 ? (v / total) * 100 : 0));
+  for (let pass = 0; pass < 10; pass++) {
+    const excess = pct.reduce((s, v) => s + Math.max(0, v - cap), 0);
+    if (excess <= 1e-9) break;
+    const under = pct.reduce((s, v) => s + (v < cap ? v : 0), 0);
+    if (under <= 0) break;
+    for (let i = 0; i < pct.length; i++) pct[i] = pct[i] > cap ? cap : pct[i] + excess * (pct[i] / under);
+  }
+  return pct.map(v => Math.round(v * 10) / 10);
+}
+
 /* ── SVG Icons ───────────────────────────────────────────────────────────── */
 const IconChart = ({ className }: { className?: string }) => (
   <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round">
@@ -747,28 +766,15 @@ export default function AlphaGapIndexPage() {
         };
       });
     }
-    // Preview must use the SAME taper the rebalance actually applies
-    // (lib/trustedstake buildWeights): basis = distance above the weakest
-    // holding + 16, capped at 25% per position. This used to be plain
-    // score/sum, so the preview showed a near equal-weight split that the
-    // real rebalance would never produce.
-    const scores = top10.map(h => h.score);
-    const minScore = scores.length ? Math.min(...scores) : 0;
-    const basis = scores.map(v => Math.max(0, v - minScore) + TAPER_OFFSET);
-    const basisTotal = basis.reduce((s, v) => s + v, 0);
-    const cap = Math.max(MAX_WEIGHT, basis.length ? 100 / basis.length : 100);
-    const pct = basis.map(v => (basisTotal > 0 ? (v / basisTotal) * 100 : 0));
-    for (let pass = 0; pass < 10; pass++) {
-      const excess = pct.reduce((s, v) => s + Math.max(0, v - cap), 0);
-      if (excess <= 1e-9) break;
-      const underTotal = pct.reduce((s, v) => s + (v < cap ? v : 0), 0);
-      if (underTotal <= 0) break;
-      for (let i = 0; i < pct.length; i++) {
-        pct[i] = pct[i] > cap ? cap : pct[i] + excess * (pct[i] / underTotal);
-      }
-    }
-    return top10.map((h, i) => ({ ...h, weight: Math.round(pct[i] * 10) / 10 }));
+    const w = taperWeights(top10.map(x => x.score));
+    return top10.map((h, i) => ({ ...h, weight: w[i] }));
   }, [actualHoldings, leaderboard, top10]);
+
+  // What the NEXT rebalance will price, from live scores. The holdings table
+  // above shows the LAST rebalance, which may predate a formula change, so the
+  // weighting explainer must quote this rather than that - otherwise it says
+  // "rank drives size" directly above a near equal-weight table.
+  const nextWeights = useMemo(() => taperWeights(top10.map(h => h.score)), [top10]);
 
   // Live APY from TrustedStake - no fabricated fallback; the pill hides when unavailable
   const liveApy = strategyData?.apy ?? null;
@@ -1611,12 +1617,13 @@ export default function AlphaGapIndexPage() {
                 </div>
               ))}
             </div>
-            {holdings.length > 0 && (
+            {nextWeights.length > 0 && (
               <p className="text-sm text-gray-500 leading-relaxed">
-                On the current board that works out to roughly{" "}
-                <span className="text-gray-300">{holdings[0]?.weight}% for the top pick</span> and{" "}
-                <span className="text-gray-300">{holdings[holdings.length - 1]?.weight}% for the tenth</span>.
-                Scores are rebuilt continuously and the index re-weights once a week, so these move.
+                On live scores that is about{" "}
+                <span className="text-gray-300">{nextWeights[0]}% for the top pick</span> and{" "}
+                <span className="text-gray-300">{nextWeights[nextWeights.length - 1]}% for the tenth</span>.
+                The table above shows the last rebalance, so it can differ until the index next re-weights.
+                Scores are rebuilt continuously, so these numbers move.
               </p>
             )}
           </div>
