@@ -47,6 +47,24 @@ the prompt in **Appendix A**, substituting its subnet list and output path, and
 adding any lead you already have (a known announcement, a first-party dashboard
 or ledger URL worth re-deriving from).
 
+**Forbid the browser pane, and put a wall-clock budget on each agent.** On
+2026-10-31 eleven of thirteen batches finished inside 17 minutes while two hung
+on `mcp__Claude_Browser__*` calls that never returned. One ran for 55 hours and
+the other died at 2.75 hours without writing its file, which pushed the pass
+past the Sunday rebalance. Three separate agents reported `navigate` and
+`browser_batch` timing out for their full tool timeout with the tab left blank.
+So: tell every agent to use WebSearch and WebFetch only, to treat an unreadable
+page as "carry the existing record forward and say so", and to write its output
+file before it feels finished rather than after. A carried-forward record costs
+one stale week; a stalled agent costs the whole pass.
+
+**Poll for the output files rather than waiting on notifications.** A dead agent
+never notifies. If a file is missing and the agent's transcript under
+`~/.claude/projects/*/<session>/subagents/agent-<id>.jsonl` has not been written
+to for roughly 20 minutes, it is gone. Relaunch that batch with the browser pane
+forbidden and an explicit tool-call budget; do not try to resume it, because a
+stopped agent never reaches the next tool round where a message would land.
+
 ## 4. Validate before merging. Do not skip this.
 
 The merge script's `pick()` silently degrades any value outside its enum to a
@@ -73,6 +91,16 @@ Fix violations by mapping to the nearest allowed value while preserving the
 researcher's intent, and record what you changed. Common ones: "decelerating"
 and "down" mean `declining`; "up" means `growing`; "mixed" is not a customer
 quality; "ecosystem" and "retail" are not customer types.
+
+Putting the enum table directly in the agent brief took violations from seven
+(2026-10-27) to zero across thirteen batches (2026-11-02). Keep it there.
+
+One case that looks like a violation and is not: `customer_quality` set while
+`arr_usd` is null, with `confidence: unknown`. That records who the buyers are
+for a stream that demonstrably exists but is undisclosed, and scoring multiplies
+it by a zero size factor, so it is inert until a figure lands. Leave it. The
+rule that matters is the reverse direction, `arr_usd > 0` with no
+`customer_quality`, which the merge script reports.
 
 ## 5. Merge and verify
 
