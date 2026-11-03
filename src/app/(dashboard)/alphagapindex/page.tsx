@@ -8,7 +8,7 @@ import { getTier, canAccessUltra } from "@/lib/subscription";
 import { useDashboard } from "@/components/dashboard/DashboardProvider";
 import SubnetLogo from "@/components/dashboard/SubnetLogo";
 import type { SubnetScore } from "@/lib/types";
-import { taperWeights, selectIndexConstituents, INDEX_MIN_MARKET_CAP_USD } from "@/lib/index-eligibility";
+import { taperWeights, selectIndexConstituents, INDEX_MIN_MARKET_CAP_USD, INDEX_HARD_FLOOR_USD } from "@/lib/index-eligibility";
 
 /* ── Constants ───────────────────────────────────────────────────────────── */
 const TS_STRATEGY_ID = "97d1325b-9ee9-4bd1-bd58-893d707f85c4";
@@ -1555,7 +1555,7 @@ export default function AlphaGapIndexPage() {
               { icon: <IconDollar className="w-5 h-5" />, color: "text-green-400 bg-green-500/10 border-green-500/20", label: "Revenue Quality", detail: "Verified revenue, scaled by how much there is and who pays. Arm's-length outside customers count in full; ecosystem and circular revenue count less." },
               { icon: <IconTrend className="w-5 h-5" />, color: "text-blue-400 bg-blue-500/10 border-blue-500/20", label: "On-Chain Signals", detail: "Whale accumulation, stake velocity, and validator confidence - before narratives catch up." },
               { icon: <IconUsers className="w-5 h-5" />, color: "text-violet-400 bg-violet-500/10 border-violet-500/20", label: "Team & Execution", detail: "Shipping cadence, founder track record, and real community health." },
-              { icon: <IconLayers className="w-5 h-5" />, color: "text-amber-400 bg-amber-500/10 border-amber-500/20", label: "Size & Liquidity", detail: `Market cap and depth are scored, not ignored, and there is a hard floor: nothing under $${INDEX_MIN_MARKET_CAP_USD / 1e6}M market cap can be an index constituent, however well it scores. A position the index can't exit without moving the price is a liquidity problem, not a bargain.` },
+              { icon: <IconLayers className="w-5 h-5" />, color: "text-amber-400 bg-amber-500/10 border-amber-500/20", label: "Size & Liquidity", detail: `Size is a rule, not just a score. Above $${INDEX_MIN_MARKET_CAP_USD / 1e6}M market cap a subnet qualifies on size. Between $${INDEX_HARD_FLOOR_USD / 1e6}M and $${INDEX_MIN_MARKET_CAP_USD / 1e6}M it has to earn its place with verified revenue, an active buyback and growth. Under $${INDEX_HARD_FLOOR_USD / 1e6}M it cannot be a constituent, however well it scores - a position the index can't exit without moving the price is a liquidity problem, not a bargain.` },
             ].map(f => (
               <div key={f.label} className="ag-glass ag-glass-hover flex gap-4 p-5">
                 <div className={`w-10 h-10 rounded-xl border flex items-center justify-center flex-shrink-0 ${f.color}`}>{f.icon}</div>
@@ -1574,7 +1574,7 @@ export default function AlphaGapIndexPage() {
               <h3 className="font-display font-semibold text-white text-xl">How the weights are set</h3>
             </div>
             <p className="text-gray-400 text-base leading-relaxed mb-5">
-              Every subnet gets an aGap Investing Score out of 100. The ten highest <span className="text-gray-200">with a market cap above ${INDEX_MIN_MARKET_CAP_USD / 1e6}M</span> become the index.
+              Every subnet gets an aGap Investing Score out of 100. The ten highest <span className="text-gray-200">that clear the size rule</span> become the index: a market cap above ${INDEX_MIN_MARKET_CAP_USD / 1e6}M qualifies outright, and between ${INDEX_HARD_FLOOR_USD / 1e6}M and ${INDEX_MIN_MARKET_CAP_USD / 1e6}M a subnet gets in only by proving itself, with verified revenue over $500K, an active buyback, and revenue that is growing. Under ${INDEX_HARD_FLOOR_USD / 1e6}M, never.
               Position size is then driven by <span className="text-gray-200">how far each subnet scores above the weakest
               holding in the index</span>, not by its raw score. That matters: the top ten usually sit in a narrow band,
               so weighting on raw scores would hand out roughly 10% each and waste the ranking.
@@ -1602,10 +1602,10 @@ export default function AlphaGapIndexPage() {
             )}
             {excludedByFloor.length > 0 && (
               <p className="text-sm text-gray-500 leading-relaxed mt-3">
-                Ranked high enough but held out by the ${INDEX_MIN_MARKET_CAP_USD / 1e6}M floor right now:{" "}
+                Ranked high enough but held out by the size rule right now:{" "}
                 {excludedByFloor.slice(0, 4).map((s, i) => (
                   <span key={s.netuid} className="text-gray-400">
-                    {i > 0 ? ", " : ""}{s.name} <span className="text-gray-600">(${((s.market_cap ?? 0) / 1e6).toFixed(0)}M)</span>
+                    {i > 0 ? ", " : ""}{s.name} <span className="text-gray-600">(${((s.market_cap ?? 0) / 1e6).toFixed(0)}M, {s.exclusionReason})</span>
                   </span>
                 ))}.
               </p>

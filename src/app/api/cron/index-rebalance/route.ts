@@ -145,8 +145,11 @@ export async function runRebalance(): Promise<NextResponse> {
   const selection = selectIndexConstituents(leaderboard);
   const top10 = selection.constituents;
   if (selection.excludedByFloor.length) {
-    console.log(`[index-rebalance] Excluded by $${INDEX_MIN_MARKET_CAP_USD / 1e6}M floor despite ranking:`,
-      selection.excludedByFloor.map(s => `SN${s.netuid}(${s.invest_agap}, $${((s.market_cap ?? 0) / 1e6).toFixed(0)}M)`).join(", "));
+    console.log(`[index-rebalance] Excluded by the size rule ($${INDEX_MIN_MARKET_CAP_USD / 1e6}M, or proven-business band) despite ranking:`,
+      selection.excludedByFloor.map(s => `SN${s.netuid}(${s.invest_agap}, $${((s.market_cap ?? 0) / 1e6).toFixed(0)}M, ${s.exclusionReason})`).join(", "));
+  }
+  if (selection.provenExceptions.length) {
+    console.log(`[index-rebalance] In via the proven-business band:`, selection.provenExceptions.map(s => `SN${s.netuid}`).join(", "));
   }
   if (selection.belowFloorFills.length) {
     console.warn(`[index-rebalance] Fewer than 10 subnets clear the floor; filled from below:`,
