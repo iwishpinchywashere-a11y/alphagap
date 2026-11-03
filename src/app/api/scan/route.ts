@@ -4021,10 +4021,17 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     // ── PILLAR 4: PRODUCT + ADOPTION (max 20) - was Product max 31 ───────────
     // Tightened ceiling. Adds user growth trajectory and partnership/adoption
     // signals that were previously buried in the social sub-score.
-    const iProductSourceMult = (productSource === "benchmark" || productSource === "valuation") ? 1.3 :
-                               productSource === "website"   ? 1.1 :
-                               productSource === "milestone" ? 1.0 :
-                                                               0.8;
+    // Source confidence now only DISCOUNTS, never inflates. The old 1.3x on a
+    // researched product, applied to productScore x 0.25, saturated this
+    // pillar at a product score of ~62: SOMA at 60 and Lium at 95 both scored
+    // 20/20, and the gates below (product >= 16) opened for anything over ~50.
+    const iProductSourceFactor = (productSource === "benchmark" || productSource === "valuation") ? 1.0 :
+                                 productSource === "website"   ? 0.95 :
+                                 productSource === "milestone" ? 0.9 :
+                                                                 0.75;
+    // Full 0-20 range: score 100 -> 20, score 50 -> 10. Kept separate from
+    // productAGapPts, which the TRADING formula still uses unchanged.
+    const investProductBase = productScore * 0.20 * iProductSourceFactor;
     // User growth proxy: socialVelocityBonus = accelerating organic attention;
     //                    starVelocityBonus    = developer/builder adoption (GitHub stars)
     const investUserGrowth = Math.min(5, Math.round((socialVelocityBonus * 0.4) + (starVelocityBonus * 0.3)));
@@ -4033,7 +4040,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     if      (socialScore >= 70 && socialVelocityBonus >= 5) investPartnership = 3;
     else if (socialScore >= 50 && starVelocityBonus  >= 4) investPartnership = 2;
     else if (socialScore >= 40 && (socialVelocityBonus >= 3 || starVelocityBonus >= 2)) investPartnership = 1;
-    const rawProductPillarV21 = (productAGapPts      * iProductSourceMult)
+    const rawProductPillarV21 = investProductBase
                                + (productAwarenessGap * 1.5)
                                + (investPreLaunch     * 0.7)
                                + investUserGrowth
@@ -4090,7 +4097,16 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
     // fire at full strength double-counted the discount thesis for cheap subnets.
     // Combined cap = 10 pts - same as either bonus alone at max.
     const combinedGrowthBonus = Math.min(10, pillarGrowthTiming + growthPotentialBonus);
-    // Use combinedGrowthBonus in rawInvestAGap instead of both individually.
+
+    // ── PRE-REVENUE POTENTIAL CAP (2026-11-03) ──────────────────────────────
+    // combinedGrowthBonus (10) and investSynergy (5) are both earned off the
+    // same dev+product pair, and only pre-revenue subnets collect both in
+    // full: a revenue subnet gets 0 growth potential by construction. That
+    // handed SOMA, ORO and Ingot ($6-9M caps, no revenue) 13-15 points that
+    // engy and Vanta ($41M, $1.5M+ ARR) could not earn, which is exactly how
+    // they outranked them. One shared budget, same shape as the revenue side.
+    const POTENTIAL_CAP = 12;
+    const potentialBonus = Math.min(POTENTIAL_CAP, combinedGrowthBonus + investSynergy);
 
     // ── PROVEN PRODUCT BONUS (0-8) - from the research QUALITY score, see lib/invest-business ──
     const provenProductBonus = bizCredit.provenProduct;
@@ -4180,9 +4196,8 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
 
     const rawInvestAGap = pillarConviction + pillarAuditDecen + pillarDev + pillarProduct
                         + pillarNetwork
-                        + combinedGrowthBonus          // replaces pillarGrowthTiming + growthPotentialBonus (capped at 10)
-                        + bizCredit.business          // = min(28, revTraction + buyback + growth + marketValidation)
-                        + investSynergy
+                        + potentialBonus               // = min(12, growth timing/potential + synergy)
+                        + bizCredit.business          // = min(40, revTraction + buyback + growth + marketValidation)
                         + provenProductBonus + emissionDominanceBonus + provenQualityBonus
                         + emissionPenalty + networkHealthPenalty + whalePenalty
                         + investViability + investDeregPenalty + investZeroEmissionPenalty;
@@ -4301,7 +4316,7 @@ Keep every section SHORT. Total response should be under 200 words. Complete all
       invest_agap: investAGap,
       invest_breakdown: {
         conviction: pillarConviction, audit_decen: pillarAuditDecen, dev: pillarDev, product: pillarProduct, network: pillarNetwork,
-        growth_timing: combinedGrowthBonus, synergy: investSynergy,
+        growth_timing: combinedGrowthBonus, synergy: investSynergy, potential_capped: potentialBonus,
         rev_traction: revTractionBonus, buyback: buybackInvestBonus, rev_growth: growthInvestBonus, market_validation: marketValidationBonus,
         business_capped: bizCredit.business, proven_product: provenProductBonus,
         emission_dominance: emissionDominanceBonus, proven_quality: provenQualityBonus,

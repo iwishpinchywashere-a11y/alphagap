@@ -2,6 +2,8 @@
 // Manages the AlphaGap Subnet Index strategy on TrustedStake.
 // Docs: https://trustedstake.gitbook.io/trustedstake/strategies/manager-api
 
+import { TAPER_OFFSET, MAX_WEIGHT } from "./index-eligibility";
+
 const TS_BASE = "https://api.app.trustedstake.ai/api/v1/manager-api";
 const TS_API_KEY = process.env.TRUSTEDSTAKE_API_KEY || "";
 const TS_STRATEGY_ID = process.env.TRUSTEDSTAKE_STRATEGY_ID || "";
@@ -67,12 +69,11 @@ export interface IndexHolding {
 // 8 this shipped with (which gave 19/5, 3.8x) - the aim is to reward rank
 // without shrinking the tenth name below a size worth holding.
 // The exact shape moves with the score spread each week, by design.
-const TAPER_OFFSET = 16;
+// TAPER_OFFSET and MAX_WEIGHT are imported from lib/index-eligibility.ts.
 // Hard ceiling on any single position. The taper is unbounded by design: if
 // one subnet ever scores far above the rest (100 against a field of 50) it
 // would take ~44% of every member's wallet. These are real funds in ten
 // names, so no single subnet gets more than this regardless of score.
-const MAX_WEIGHT = 25;
 
 export function buildWeights(
   subnets: Array<{ netuid: number; name: string; invest_agap: number }>

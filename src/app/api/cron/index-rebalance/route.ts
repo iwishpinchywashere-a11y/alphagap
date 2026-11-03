@@ -18,6 +18,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { get as blobGet, put } from "@vercel/blob";
+import { selectIndexConstituents, INDEX_MIN_MARKET_CAP_USD } from "@/lib/index-eligibility";
 import { buildWeights, updateStrategyWeights, triggerRebalance, getStrategy, type IndexHolding } from "@/lib/trustedstake";
 
 export const dynamic = "force-dynamic";
@@ -138,11 +139,19 @@ export async function runRebalance(): Promise<NextResponse> {
     return NextResponse.json({ success: false, error: msg }, { status: 500 });
   }
 
-  // ── 2. Select top 10 by invest_agap ─────────────────────────────
-  const top10 = [...leaderboard]
-    .filter(s => (s.invest_agap ?? 0) > 0)
-    .sort((a, b) => (b.invest_agap ?? 0) - (a.invest_agap ?? 0))
-    .slice(0, 10);
+  // ── 2. Select top 10 by invest_agap, above the liquidity floor ──
+  // The floor is in lib/index-eligibility.ts and the Index page uses the
+  // same function, so what members see previewed is what gets bought.
+  const selection = selectIndexConstituents(leaderboard);
+  const top10 = selection.constituents;
+  if (selection.excludedByFloor.length) {
+    console.log(`[index-rebalance] Excluded by $${INDEX_MIN_MARKET_CAP_USD / 1e6}M floor despite ranking:`,
+      selection.excludedByFloor.map(s => `SN${s.netuid}(${s.invest_agap}, $${((s.market_cap ?? 0) / 1e6).toFixed(0)}M)`).join(", "));
+  }
+  if (selection.belowFloorFills.length) {
+    console.warn(`[index-rebalance] Fewer than 10 subnets clear the floor; filled from below:`,
+      selection.belowFloorFills.map(s => `SN${s.netuid}`).join(", "));
+  }
 
   if (top10.length < 5) {
     const msg = `Too few investable subnets (${top10.length}) - aborting to avoid bad rebalance`;

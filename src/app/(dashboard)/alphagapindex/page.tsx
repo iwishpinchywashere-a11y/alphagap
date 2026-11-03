@@ -8,6 +8,7 @@ import { getTier, canAccessUltra } from "@/lib/subscription";
 import { useDashboard } from "@/components/dashboard/DashboardProvider";
 import SubnetLogo from "@/components/dashboard/SubnetLogo";
 import type { SubnetScore } from "@/lib/types";
+import { taperWeights, selectIndexConstituents, INDEX_MIN_MARKET_CAP_USD } from "@/lib/index-eligibility";
 
 /* ── Constants ───────────────────────────────────────────────────────────── */
 const TS_STRATEGY_ID = "97d1325b-9ee9-4bd1-bd58-893d707f85c4";
@@ -20,30 +21,8 @@ const TS_STRATEGY_TABLE = "custom_strategies";
 // each one had its own way of leaving a wallet half set up. The link itself
 // comes from /api/trustedstake/launch so a newly issued one is an env change.
 const TS_APP_URL = "https://app.trustedstake.ai";
-// Keep in step with buildWeights in lib/trustedstake.ts. These two numbers set
-// the shape of every allocation on this page, so the preview and the copy below
-// have to move whenever the rebalance formula does.
-const TAPER_OFFSET = 16;
-const MAX_WEIGHT = 25;
-
-/** Mirrors buildWeights in lib/trustedstake.ts: basis = distance above the
- *  weakest holding + TAPER_OFFSET, normalised to 100, no position over the cap. */
-function taperWeights(scores: number[]): number[] {
-  if (scores.length === 0) return [];
-  const min = Math.min(...scores);
-  const basis = scores.map(v => Math.max(0, v - min) + TAPER_OFFSET);
-  const total = basis.reduce((s, v) => s + v, 0);
-  const cap = Math.max(MAX_WEIGHT, 100 / scores.length);
-  const pct = basis.map(v => (total > 0 ? (v / total) * 100 : 0));
-  for (let pass = 0; pass < 10; pass++) {
-    const excess = pct.reduce((s, v) => s + Math.max(0, v - cap), 0);
-    if (excess <= 1e-9) break;
-    const under = pct.reduce((s, v) => s + (v < cap ? v : 0), 0);
-    if (under <= 0) break;
-    for (let i = 0; i < pct.length; i++) pct[i] = pct[i] > cap ? cap : pct[i] + excess * (pct[i] / under);
-  }
-  return pct.map(v => Math.round(v * 10) / 10);
-}
+// Taper, cap and the market-cap floor live in lib/index-eligibility.ts, shared
+// with the rebalance cron so the preview here is what actually gets bought.
 
 /* ── SVG Icons ───────────────────────────────────────────────────────────── */
 const IconChart = ({ className }: { className?: string }) => (
@@ -740,16 +719,11 @@ export default function AlphaGapIndexPage() {
   }, [lastRebalancedAt]);
 
   // Top 10 by invest_agap (the live aGap investing score)
-  const top10 = useMemo(() => {
-    return [...leaderboard]
-      .filter(s => (s.invest_agap ?? 0) > 0)
-      .sort((a, b) => (b.invest_agap ?? 0) - (a.invest_agap ?? 0))
-      .slice(0, 10)
-      .map((s, i) => {
-        const score = s.invest_agap ?? 0;
-        return { rank: i + 1, subnet: s, score };
-      });
-  }, [leaderboard]);
+  // Same selection the rebalance cron makes: top 10 by investing score, above
+  // the market-cap floor. Anything the floor excludes is kept for the explainer.
+  const selection = useMemo(() => selectIndexConstituents(leaderboard), [leaderboard]);
+  const top10 = useMemo(() => selection.constituents.map((s, i) => ({ rank: i + 1, subnet: s, score: s.invest_agap ?? 0 })), [selection]);
+  const excludedByFloor = selection.excludedByFloor;
 
   // Show the ACTUAL strategy holdings (weights set at the last rebalance) so the
   // table matches what members really hold. Falls back to a live top-10 preview
@@ -1581,7 +1555,7 @@ export default function AlphaGapIndexPage() {
               { icon: <IconDollar className="w-5 h-5" />, color: "text-green-400 bg-green-500/10 border-green-500/20", label: "Revenue Quality", detail: "Verified revenue, scaled by how much there is and who pays. Arm's-length outside customers count in full; ecosystem and circular revenue count less." },
               { icon: <IconTrend className="w-5 h-5" />, color: "text-blue-400 bg-blue-500/10 border-blue-500/20", label: "On-Chain Signals", detail: "Whale accumulation, stake velocity, and validator confidence - before narratives catch up." },
               { icon: <IconUsers className="w-5 h-5" />, color: "text-violet-400 bg-violet-500/10 border-violet-500/20", label: "Team & Execution", detail: "Shipping cadence, founder track record, and real community health." },
-              { icon: <IconLayers className="w-5 h-5" />, color: "text-amber-400 bg-amber-500/10 border-amber-500/20", label: "Size & Liquidity", detail: "Market cap and depth are scored, not ignored. A position the index can't exit without moving the price is penalised, however good the product is." },
+              { icon: <IconLayers className="w-5 h-5" />, color: "text-amber-400 bg-amber-500/10 border-amber-500/20", label: "Size & Liquidity", detail: `Market cap and depth are scored, not ignored, and there is a hard floor: nothing under $${INDEX_MIN_MARKET_CAP_USD / 1e6}M market cap can be an index constituent, however well it scores. A position the index can't exit without moving the price is a liquidity problem, not a bargain.` },
             ].map(f => (
               <div key={f.label} className="ag-glass ag-glass-hover flex gap-4 p-5">
                 <div className={`w-10 h-10 rounded-xl border flex items-center justify-center flex-shrink-0 ${f.color}`}>{f.icon}</div>
@@ -1600,7 +1574,7 @@ export default function AlphaGapIndexPage() {
               <h3 className="font-display font-semibold text-white text-xl">How the weights are set</h3>
             </div>
             <p className="text-gray-400 text-base leading-relaxed mb-5">
-              Every subnet gets an aGap Investing Score out of 100. The ten highest become the index.
+              Every subnet gets an aGap Investing Score out of 100. The ten highest <span className="text-gray-200">with a market cap above ${INDEX_MIN_MARKET_CAP_USD / 1e6}M</span> become the index.
               Position size is then driven by <span className="text-gray-200">how far each subnet scores above the weakest
               holding in the index</span>, not by its raw score. That matters: the top ten usually sit in a narrow band,
               so weighting on raw scores would hand out roughly 10% each and waste the ranking.
@@ -1624,6 +1598,16 @@ export default function AlphaGapIndexPage() {
                 <span className="text-gray-300">{nextWeights[nextWeights.length - 1]}% for the tenth</span>.
                 The table above shows the last rebalance, so it can differ until the index next re-weights.
                 Scores are rebuilt continuously, so these numbers move.
+              </p>
+            )}
+            {excludedByFloor.length > 0 && (
+              <p className="text-sm text-gray-500 leading-relaxed mt-3">
+                Ranked high enough but held out by the ${INDEX_MIN_MARKET_CAP_USD / 1e6}M floor right now:{" "}
+                {excludedByFloor.slice(0, 4).map((s, i) => (
+                  <span key={s.netuid} className="text-gray-400">
+                    {i > 0 ? ", " : ""}{s.name} <span className="text-gray-600">(${((s.market_cap ?? 0) / 1e6).toFixed(0)}M)</span>
+                  </span>
+                ))}.
               </p>
             )}
           </div>
