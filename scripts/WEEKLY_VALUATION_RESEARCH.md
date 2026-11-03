@@ -171,6 +171,28 @@ than a real change.
 - **Squatted identities.** An abandoned subnet's on-chain identity can be renamed
   to anything, including "Bittensor". `api/scan` has an `UNUSABLE_CHAIN_NAMES`
   guard; add to it rather than letting a squatted name reach the leaderboard.
+  Defacement happens too: on 2026-10-31 SN35's identity read as "Jacob Robert
+  Steeves" with an accusation in the description field.
+- **The chain has TWO name surfaces, and the fallback one resurrects dead
+  projects.** There is the owner-set `Option<SubnetIdentity>` and a per-netuid
+  `subnet_name` fallback. When the identity is `None` the chain still returns the
+  fallback, which is whatever first launched on that slot years ago: `gaia` on
+  SN57, `agent-arena` on SN59. Reading the fallback is exactly how "Gaia",
+  "Sparket.AI" and "Babelbit" keep reappearing on slots they vacated. Treat
+  `identity == None` as untenanted no matter what `subnet_name` says.
+- **Stale indexes lag slot turnover by months.** On 2026-10-31 taooutsider still
+  labelled SN82 "Compelle" (handed over 2026-09-26), taoswap still printed
+  "bitads" for SN16, and bittensor.co.in still served "Phylax" for SN76. Confirm
+  tenancy on chain, not from an index.
+- **Some first-party usage endpoints backfill their dollar figures for up to
+  nine days.** Proven on Chutes' `/invocations/usage`: settled days rose 3.8% to
+  8.9% and the newest day by 139% between two reads two days apart. A pass that
+  reads the last few days will undercount, and the next pass reads that
+  undercount as a decline. Use days at least a week old.
+- **A zero reading from a frozen index is not a zero.** subnetmetrics.com's burn
+  index sat at 2026-10-12 07:51 UTC for 19 days while serving
+  "receipts: unavailable". Check an index's own freshness stamp before treating
+  an absence as evidence.
 - **Emissions are not revenue.** Several subnets report emission income, validator
   yield or miner fees as revenue. Miner fees are `circular`. Emission income is
   not revenue at all.
