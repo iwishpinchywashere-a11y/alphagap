@@ -170,7 +170,7 @@
   "revenue": {
    "arr_usd": 8809275,
    "confidence": "confirmed",
-   "basis": "$724,050 of combined platform revenue over the trailing 30 days to 2026-10-27 on Targon's own dashboard x 365/30 = $8,809,275. Arithmetic: 724050 / 30 = 24,135/day; 24,135 x 365 = 8,809,275.",
+   "basis": "DISPUTED, PENDING A DECISION - DO NOT TREAT $8,809,275 AS VERIFIED. The figure is the trailing-30-day total on Targon's own dashboard read at $724,050 on 2026-10-27 x 365/30. On 2026-11-03 the SAME counter, pulled straight from the first-party API (stats.targon.com/api/trpc/revenue.getSpendingChart, range=month), reads $1,184,908 for 2026-10-04 to 2026-11-02, which would annualise to $14,416,386. A trailing-30-day counter cannot rise 64% in 6 days from new days alone, so the series was restated or backfilled beneath the earlier reading. The per-day buckets show why, and the composition is the real story: a 'contracts' line is pinned at EXACTLY $32,417.286048 for 28 of the 30 days, i.e. a straight-line amortised accrual rather than observed usage, with no counterparty named anywhere, and it is 79.8% of the window ($945,734). Metered usage is the other 19.7% ($233,420, ARR $2,839,947) and it is FALLING: by month, vm was $445,377 (May), $421,999 (Jun), $299,286 (Jul), $531,859 (Aug, the peak), $232,786 (Sep), $250,049 (Oct). The contracts line began 2026-08-12 and grew $73,280 (Aug) to $232,445 (Sep) to $949,046 (Oct). So the two defensible figures are $14.4M counting the accrual, or $2.84M on verifiable metered usage, and $8,809,275 reconciles to NEITHER. Left unchanged deliberately rather than moved 60% in either direction on an unattended run, because this slot is a live index position. Needs an owner decision before the 2026-11-08 12:00 UTC rebalance.",
    "as_of": "2026-10-27",
    "evidence": "CARRIED FORWARD from the 2026-10-27 in-browser read of Targon's own dashboard: stats.targon.com/revenue, 'Targon Platform Revenue / Last 30 days - USD - stacked by category' = $724,050, stacked across 'VM', 'Contracts', 'BM', 'Sandboxes'. NOT re-readable on 2026-11-02: stats.targon.com and stats.targon.com/revenue are client-rendered, so WebFetch returns the chart labels ('Combined platform revenue made over the last 30 days', 'Revenue', 'Total users', 'User growth', 'Workload growth') with every value as a dash, and no browser was available this run. TWO INDEPENDENT CORROBORATIONS found on 20",
    "sources": [
@@ -183,10 +183,10 @@
    "customer_quality_note": "15,833 total users. Named buyers now span outside Bittensor (TheoriqAI for agentic market research, DeSci Labs, and Dippy AI which moved its backend to Targon) as well as inside it (Ridges, Score). One caveat: Targon 'provided compute credits' to the Cascade SN91 launch, which is sponsorship rather than arm's-length revenue, so a slice of usage is ecosystem-subsidised. The split between external and ecosystem revenue is not published."
   },
   "growth": {
-   "trend": "growing",
-   "evidence": "PRIOR POINT REPLACED with a like-for-like one. The previous prior was $5.75M at 2026-09-16 from the SubConnect index, a different method. taooutsider.com read the SAME first-party 30-day counter on 2026-10-16 at $582,600, which annualises on the identical arithmetic to 582600 / 30 x 365 = $7,088,300. Against the $724,050 / $8,809,275 reading of 2026-10-27 that is +24.3% in 11 days on one unchanged metric. The older index figure of $5.75M at 2026-09-16 is retained in revenue.sources as the third, coarser point and tells the same story. Trend held at 'growing' and NOT raised to 'accelerating': t",
-   "prior_arr_usd": 7088300,
-   "prior_as_of": "2026-10-16"
+   "trend": "flat",
+   "evidence": "CORRECTED 2026-11-03. The prior evidence claimed +24.3% in 11 days on 'one unchanged metric' ($582,600 at 2026-10-16 vs $724,050 at 2026-10-27, both the first-party 30-day counter). That is now falsified: the same counter reads $1,184,908 on 2026-11-03, a 64% rise in 6 days, which is impossible from new days alone and shows the series is being restated underneath the readings being compared. Growth moved from 'growing' to 'flat' because the direction is genuinely ambiguous and the 'growing' credit was unearned: the first-party TOTAL is rising, but only because of a flat amortised 'contracts' accrual, while metered usage (vm) has fallen 53% from its August 2026 peak of $531,859/month to $250,049/month in October. Not set to 'declining' because the accrual may represent real contracted revenue; that is the open question. See revenue.basis.",
+   "prior_arr_usd": null,
+   "prior_as_of": null
   },
   "customers": {
    "named": [
@@ -217,7 +217,7 @@
     "https://x.com/TargonCompute/status/2115124390052409817"
    ]
   },
-  "notes": "STATUS: all figures CARRIED FORWARD from 2026-10-27, now with better corroboration. This is the batch's highest-stakes record because SN4 carries the third-largest weight in the live index. What the re-verification established: the $724,050 30-day counter could NOT be re-read directly, because stats.targon.com renders its numbers client-side and no browser was available on this run, so WebFetch sees only dashes. Do not read that as a failed verification. Two sources read on 2026-11-02 corroborate it from opposite directions: taooutsider.com read the same first-party counter 11 days earlier at $582,600, and Targon's own 2026-10-27 post claims ~$2.145M of cumulative alpha repurchases funded by 'organic revenues'. A number that is wrong by a large factor in either direction is hard to reconcile with both. NET CHANGE: revenue, buybacks and customers all unchanged; the growth prior is upgrade"
+  "notes": "TARGON REVENUE IS DISPUTED AS OF 2026-11-03: 79.8% of the first-party 30-day figure is an unattributed flat accrual and underlying metered usage is declining. See revenue.basis before citing any ARR for this subnet. STATUS: all figures CARRIED FORWARD from 2026-10-27, now with better corroboration. This is the batch's highest-stakes record because SN4 carries the third-largest weight in the live index. What the re-verification established: the $724,050 30-day counter could NOT be re-read directly, because stats.targon.com renders its numbers client-side and no browser was available on this run, so WebFetch sees only dashes. Do not read that as a failed verification. Two sources read on 2026-11-02 corroborate it from opposite directions: taooutsider.com read the same first-party counter 11 days earlier at $582,600, and Targon's own 2026-10-27 post claims ~$2.145M of cumulative alpha repur"
  },
  {
   "netuid": 5,
@@ -1504,7 +1504,7 @@
  },
  {
   "netuid": 29,
-  "name": "hoτfloaτ",
+  "name": "ho\u03c4floa\u03c4",
   "status": "dead",
   "product": {
    "what_it_is": "Formerly Coldint (collaborative model training); relabelled 'hotfloat / inference optimization'. The declared repo is an unmodified fork of the Cacheon (SN14) LLM inference-server arena. Nothing is usable by a customer, and the operator states it has no plan.",
