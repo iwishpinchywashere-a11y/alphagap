@@ -1389,15 +1389,15 @@ export async function GET() {
     // 9 targeted searches - mix of broad + subnet-specific
     // ~9 credits/scan × 6 scans/day = 54 credits/day → $10 lasts ~180 days
     const searches = [
-      { query: "bittensor subnet", count: 100, sort: "Top" as const },
-      { query: "bittensor subnet alpha", count: 100, sort: "Latest" as const },
-      { query: "$TAO subnet", count: 50, sort: "Latest" as const },
-      { query: "templar bittensor", count: 50, sort: "Top" as const },
-      { query: "chutes bittensor", count: 50, sort: "Top" as const },
-      { query: "ridges basilica grail bittensor", count: 50, sort: "Top" as const },
-      { query: "targon vanta ORO bittensor", count: 50, sort: "Top" as const },
-      { query: "bittensor alpha SN3 OR SN4 OR SN64 OR SN8", count: 50, sort: "Latest" as const },
-      { query: "404gen OR \"djinn bittensor\" OR \"alphacore bittensor\" OR \"its ai bittensor\" OR \"resilabs bittensor\" OR \"beam network bittensor\" OR \"sjinn bittensor\" OR @404gen_ OR @djinn_gg OR @b1m_ai", count: 50, sort: "Top" as const },
+      { query: "bittensor subnet", count: 50, sort: "Top" as const },
+      { query: "bittensor subnet alpha", count: 50, sort: "Latest" as const },
+      { query: "$TAO subnet", count: 30, sort: "Latest" as const },
+      { query: "templar bittensor", count: 30, sort: "Top" as const },
+      { query: "chutes bittensor", count: 30, sort: "Top" as const },
+      { query: "ridges basilica grail bittensor", count: 30, sort: "Top" as const },
+      { query: "targon vanta ORO bittensor", count: 30, sort: "Top" as const },
+      { query: "bittensor alpha SN3 OR SN4 OR SN64 OR SN8", count: 30, sort: "Latest" as const },
+      { query: "404gen OR \"djinn bittensor\" OR \"alphacore bittensor\" OR \"its ai bittensor\" OR \"resilabs bittensor\" OR \"beam network bittensor\" OR \"sjinn bittensor\" OR @404gen_ OR @djinn_gg OR @b1m_ai", count: 30, sort: "Top" as const },
     ];
 
     // Run searches in parallel for speed

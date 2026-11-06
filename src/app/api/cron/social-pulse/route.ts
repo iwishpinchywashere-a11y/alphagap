@@ -75,7 +75,9 @@ function computeHeatScore(kolWeight: number, engagement: number): number {
 
 async function fetchKolTimeline(handle: string): Promise<DesearchTweet[]> {
   try {
-    const url = `https://api.desearch.ai/twitter/user/posts?username=${encodeURIComponent(handle)}`;
+    // count=10 is Desearch's billing minimum; without it the default page was ~20
+    // posts, so every timeline cost double for tweets the heat score never used.
+    const url = `https://api.desearch.ai/twitter/user/posts?username=${encodeURIComponent(handle)}&count=10`;
     const res = await fetch(url, {
       headers: { Authorization: DESEARCH_KEY },
       signal: AbortSignal.timeout(10000),
@@ -327,7 +329,9 @@ export async function GET(req: Request) {
   // ── Fetch KOL timelines ──────────────────────────────────────────
   // Top 100 KOLs by weight - covers all tier 1+2 plus best of tier 3 (weight ≥ 32).
   // Running all 300 at every-10-min cadence costs ~$2,000/mo; top-100 once/hr = ~$4/day.
-  const kols = [...KOL_DATABASE].sort((a, b) => b.weight - a.weight).slice(0, 100);
+  // 60, was 100. Weight-sorted, so the accounts that move the heat score keep
+  // hourly coverage; the tail was ~$1.5/day of timelines that rarely scored.
+  const kols = [...KOL_DATABASE].sort((a, b) => b.weight - a.weight).slice(0, 60);
 
   const kolResults = await Promise.allSettled(
     kols.map(kol => fetchKolTimeline(kol.handle).then(tweets => ({ kol, tweets })))
@@ -346,7 +350,7 @@ export async function GET(req: Request) {
     const searchResults = await Promise.allSettled(
       searchQueries.map(q =>
         fetch(
-          `https://api.desearch.ai/twitter?query=${encodeURIComponent(q)}&sort=Latest&count=30&lang=en`,
+          `https://api.desearch.ai/twitter?query=${encodeURIComponent(q)}&sort=Latest&count=20&lang=en`,
           { headers: { Authorization: DESEARCH_KEY }, signal: AbortSignal.timeout(10000) }
         ).then(r => r.ok ? r.json() : null)
       )
