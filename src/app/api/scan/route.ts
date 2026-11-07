@@ -767,8 +767,23 @@ export async function GET() {
     // squatted - renamed to "Bittensor", links cleared, description replaced
     // with abuse. Without this the leaderboard would carry a row literally
     // called "Bittensor" and render the abuse as that subnet's description.
+    //
+    // 2026-11-07: the slot changed hands. A new owner re-registered it at block
+    // 9,420,559 and set a real identity, "Weir". The chain name is no longer a
+    // placeholder, so this override stops firing on its own and Weir reaches
+    // the leaderboard. Kept only as the record of why the squat was handled.
     36: { subnet_name: "Epago (abandoned)", github_repo: null, subnet_url: null, description: null, summary: null },
+    // 2026-10-31, still live 2026-11-07: SN35's own owner key defaced its
+    // identity. The name became "Jacob Robert Steeves" (Bittensor's founder,
+    // nothing to do with this project) and the description an accusation of
+    // price manipulation. This is NOT a tenant change - the owner coldkey and
+    // registration block are unchanged, 0xMarkets is simply dead.
+    35: { subnet_name: "0xMarkets (Cartha)", github_repo: null, subnet_url: null, description: null, summary: null },
   };
+  // Defacement differs from squatting: the planted name is not a placeholder,
+  // so the name-based check below never catches it. These netuids take their
+  // override whatever the chain currently says, until the owner cleans it up.
+  const DEFACED_IDENTITIES = new Set([35]);
   // A chain name that claims to be the network itself, or is otherwise a
   // placeholder, is never a usable subnet name. Treated exactly like an empty
   // one so the override (or the SNxx fallback) wins.
@@ -776,7 +791,7 @@ export async function GET() {
   identities = identities.map(id => {
     const o = STALE_IDENTITY_OVERRIDES[id.netuid];
     const chainName = (id.subnet_name || "").trim().toLowerCase();
-    if (o && UNUSABLE_CHAIN_NAMES.has(chainName)) return { ...id, ...o };
+    if (o && (UNUSABLE_CHAIN_NAMES.has(chainName) || DEFACED_IDENTITIES.has(id.netuid))) return { ...id, ...o };
     // No override on file: drop the unusable name so downstream falls back to
     // "SNxx" rather than printing a squatted one.
     if (!o && UNUSABLE_CHAIN_NAMES.has(chainName) && chainName !== "") {
