@@ -911,7 +911,7 @@ function idxShell(inner: string, email: string): string {
     <div style="padding:22px 32px 30px;border-top:1px solid #1a2235;">
       <p style="margin:0 0 10px;font-size:11px;line-height:1.7;color:#5b6472;">
         The AlphaGap Index is a non-custodial staking strategy executed by TrustedStake. Your TAO never leaves your
-        wallet &mdash; the proxy you grant permits staking only and cannot transfer or withdraw your funds. You can
+        wallet - the proxy you grant permits staking only and cannot transfer or withdraw your funds. You can
         leave at any time.
       </p>
       <p style="margin:0 0 12px;font-size:11px;line-height:1.7;color:#5b6472;">
@@ -949,7 +949,7 @@ export async function sendIndexAnnouncementEmail(name: string, email: string, is
   <div style="padding:22px 32px 30px;">
     <p style="margin:0 0 6px;font-size:11px;letter-spacing:1.6px;text-transform:uppercase;color:#34d399;">Now live &middot; Included with Ultra</p>
     <h1 style="margin:0 0 16px;font-size:26px;line-height:1.25;color:#ffffff;letter-spacing:-0.5px;">
-      The AlphaGap Index is open &mdash; and you already have access
+      The AlphaGap Index is open - and you already have access
     </h1>
     <p style="margin:0 0 16px;font-size:15px;line-height:1.65;color:#aab3c0;">
       You&rsquo;ve been using the aGap score to find subnets the market hasn&rsquo;t repriced yet. The Index simply
@@ -972,7 +972,7 @@ export async function sendIndexAnnouncementEmail(name: string, email: string, is
     <div style="margin:26px 0 22px;padding:18px 20px;background:#0f1520;border:1px solid #1e2839;border-radius:14px;">
       <p style="margin:0 0 10px;font-size:13px;font-weight:600;color:#e8edf4;">Joining takes about two minutes</p>
       <p style="margin:0 0 6px;font-size:13.5px;line-height:1.6;color:#aab3c0;"><strong style="color:#34d399;">1.</strong> Connect your wallet on the Index page</p>
-      <p style="margin:0 0 6px;font-size:13.5px;line-height:1.6;color:#aab3c0;"><strong style="color:#34d399;">2.</strong> Authorise the staking proxy &mdash; one on-chain transaction</p>
+      <p style="margin:0 0 6px;font-size:13.5px;line-height:1.6;color:#aab3c0;"><strong style="color:#34d399;">2.</strong> Authorise the staking proxy - one on-chain transaction</p>
       <p style="margin:0;font-size:13.5px;line-height:1.6;color:#aab3c0;"><strong style="color:#34d399;">3.</strong> Sign one message to join</p>
       <p style="margin:12px 0 0;font-size:12px;line-height:1.6;color:#6b7484;">All of it happens on alphagap.io. You don&rsquo;t need an account anywhere else.</p>
     </div>
@@ -989,7 +989,7 @@ export async function sendIndexAnnouncementEmail(name: string, email: string, is
       The Bittensor TAO Index<br/>has launched
     </h1>
     <p style="margin:0 0 16px;font-size:15.5px;line-height:1.65;color:#aab3c0;">
-      One position, holding the ten highest-scoring subnets on Bittensor &mdash; rebalanced every Sunday, automatically.
+      One position, holding the ten highest-scoring subnets on Bittensor - rebalanced every Sunday, automatically.
     </p>
     <p style="margin:0 0 24px;font-size:15px;line-height:1.65;color:#98a2b1;">
       It runs on the same aGap score you already read on the leaderboard: how hard a subnet is building, measured
@@ -998,15 +998,15 @@ export async function sendIndexAnnouncementEmail(name: string, email: string, is
     ${idxApyBlock(true)}
     <table style="width:100%;border-collapse:collapse;margin:0 0 24px;">
       ${idxBullet("Completely hands-off", "Ten subnets, staked and rebalanced every Sunday as the scores move. You never touch it.")}
-      ${idxBullet("Driven by the aGap score", "The same ranking you already read &mdash; building activity versus market recognition &mdash; applied automatically.")}
+      ${idxBullet("Driven by the aGap score", "The same ranking you already read - building activity versus market recognition - applied automatically.")}
       ${idxBullet("Your TAO never leaves your wallet", "Non-custodial. You grant a staking-only permission that cannot transfer or withdraw your funds.")}
       ${idxBullet("Leave whenever you want", "No lock-up. Unwind in a couple of clicks and your stake is yours again.")}
       ${idxBullet("Set up in about two minutes", "Connect a wallet, approve once on-chain, sign one message. All of it on alphagap.io.")}
     </table>
     <div style="margin:0 0 22px;padding:18px 20px;background:#0f1520;border:1px solid #1e2839;border-radius:14px;">
-      <p style="margin:0 0 8px;font-size:13px;font-weight:600;color:#e8edf4;">Included with Ultra &mdash; $99/mo</p>
+      <p style="margin:0 0 8px;font-size:13px;font-weight:600;color:#e8edf4;">Included with Ultra - $99/mo</p>
       <p style="margin:0;font-size:13px;line-height:1.65;color:#aab3c0;">
-        Ultra unlocks the Index, its live holdings and every position as it rebalances &mdash; on top of everything in
+        Ultra unlocks the Index, its live holdings and every position as it rebalances - on top of everything in
         Premium. Cancel any time.
       </p>
     </div>
@@ -1023,6 +1023,68 @@ export async function sendIndexAnnouncementEmail(name: string, email: string, is
     subject: isUltra
       ? "The AlphaGap Index is live - you already have access"
       : "The Bittensor TAO Index has launched",
+    html: idxShell(inner, email),
+  });
+}
+
+/* ══════════════ AlphaGap Index: fee-permission notice (2026-11-11) ══════════════
+ *
+ * Bittensor's October runtime upgrade reset the proxy fee consent for every
+ * wallet. TrustedStake's rebalancer skips a wallet without it, and three
+ * members sat skipped for three weeks with nothing telling them. We cannot
+ * map wallets to accounts, so every Ultra subscriber gets this: most will
+ * find no banner and need to do nothing, which the copy says up front.
+ */
+
+const INDEX_INVITE_URL = "https://app.trustedstake.ai/strat/invite/e6efd855f520660338db05c14baf5fd38a15c0e83e12b6c43b8307b2b9c9d237";
+
+export async function sendIndexPermissionNoticeEmail(name: string, email: string) {
+  const first = (name || "").trim().split(/\s+/)[0] || "there";
+  const step = (n: number, body: string) => `
+      <p style="margin:0 0 8px;font-size:14px;line-height:1.65;color:#aab3c0;"><strong style="color:#34d399;">${n}.</strong> ${body}</p>`;
+  const inner = `
+  <div style="padding:22px 32px 30px;">
+    <p style="margin:0 0 6px;font-size:11px;letter-spacing:1.6px;text-transform:uppercase;color:#34d399;">Index members &middot; two-minute check</p>
+    <h1 style="margin:0 0 16px;font-size:25px;line-height:1.25;color:#ffffff;letter-spacing:-0.5px;">
+      One permission to check on TrustedStake
+    </h1>
+    <p style="margin:0 0 14px;font-size:15px;line-height:1.65;color:#aab3c0;">Hi ${first},</p>
+    <p style="margin:0 0 14px;font-size:15px;line-height:1.65;color:#aab3c0;">
+      Bittensor pushed a chain upgrade in October that reset one permission on every wallet: the one that lets
+      TrustedStake pay the small transaction fee when it rebalances your Index position. Most members re-approved it
+      without noticing the last time they visited TrustedStake. A few did not, and those wallets have been skipped by
+      every weekly rebalance since 25 October.
+    </p>
+    <p style="margin:0 0 20px;font-size:15px;line-height:1.65;color:#aab3c0;">
+      Please take two minutes to make sure yours is in place:
+    </p>
+    <div style="margin:0 0 22px;padding:18px 20px;background:#0f1520;border:1px solid #1e2839;border-radius:14px;">
+      ${step(1, `Open the link below and connect the wallet you joined the Index with.`)}
+      ${step(2, `If you see a banner saying <strong style="color:#e8edf4;">Fee permission required</strong>, click <strong style="color:#e8edf4;">Review permissions</strong> and sign in your wallet. This grants nothing new. It only lets your wallet pay its own fee on rebalances, as it did before October.`)}
+      ${step(3, `If there is no banner, you are already set and there is nothing to do.`)}
+    </div>
+    <a href="${INDEX_INVITE_URL}" style="display:inline-block;background:#34d399;color:#04140d;font-size:14.5px;font-weight:700;text-decoration:none;padding:13px 26px;border-radius:12px;">Check my permissions on TrustedStake &rarr;</a>
+    <p style="margin:14px 0 0;font-size:12.5px;line-height:1.7;color:#6b7484;">
+      Link: <a href="${INDEX_INVITE_URL}" style="color:#8b95a5;text-decoration:underline;word-break:break-all;">${INDEX_INVITE_URL}</a><br/>
+      If it does not open your membership, sign in at <a href="https://app.trustedstake.ai" style="color:#8b95a5;text-decoration:underline;">app.trustedstake.ai</a> with the same wallet.
+    </p>
+    <p style="margin:22px 0 0;font-size:13.5px;line-height:1.7;color:#98a2b1;">
+      You can also check from our side: connect your wallet on
+      <a href="${BASE_URL}/alphagapindex" style="color:#34d399;text-decoration:none;">alphagap.io/alphagapindex</a>.
+      If your setup needs attention, an amber box at the top says so and links you straight to the step above.
+    </p>
+    <p style="margin:18px 0 0;font-size:13.5px;line-height:1.7;color:#98a2b1;">
+      The next rebalance runs Sunday at 12:00 UTC. Approve before then and your wallet is included in it.
+    </p>
+    <p style="margin:22px 0 0;font-size:13.5px;line-height:1.7;color:#6b7484;">
+      Thanks for being part of the Index,<br/>AlphaGap
+    </p>
+  </div>`;
+
+  return resend.emails.send({
+    from: FROM,
+    to: email,
+    subject: "AlphaGap Index: one permission to check on TrustedStake",
     html: idxShell(inner, email),
   });
 }

@@ -7,7 +7,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { getUserList } from "@/lib/users";
-import { sendTelegramAnnouncementEmail, sendWalletTrackerAnnouncementEmail, sendOracleAnnouncementEmail, sendConvictionAnnouncementEmail, sendIndexAnnouncementEmail } from "@/lib/email";
+import { sendTelegramAnnouncementEmail, sendWalletTrackerAnnouncementEmail, sendOracleAnnouncementEmail, sendConvictionAnnouncementEmail, sendIndexAnnouncementEmail, sendIndexPermissionNoticeEmail } from "@/lib/email";
 import { isOptedOut } from "@/lib/unsubscribe";
 
 // A blast of ~400 at a 500ms throttle needs ~3.5 minutes. Without this the
@@ -36,7 +36,8 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json().catch(() => ({}));
 
-  const emailType: string = body.type || "telegram"; // "telegram" | "wallet-tracker" | "oracle" | "conviction"
+  // "telegram" | "wallet-tracker" | "oracle" | "conviction" | "index" | "index-permission"
+  const emailType: string = body.type || "telegram";
 
   function getSendFn(tier: "free" | "pro" | "premium") {
     if (emailType === "wallet-tracker") return (n: string, e: string) => sendWalletTrackerAnnouncementEmail(n, e, tier);
@@ -54,6 +55,10 @@ export async function POST(req: NextRequest) {
         await sendIndexAnnouncementEmail("Shane", testEmail, body.ultra === true);
         return NextResponse.json({ ok: true, sent: 1, to: testEmail, type: emailType, ultra: body.ultra === true });
       }
+      if (emailType === "index-permission") {
+        await sendIndexPermissionNoticeEmail("Shane", testEmail);
+        return NextResponse.json({ ok: true, sent: 1, to: testEmail, type: emailType });
+      }
       await getSendFn(tier)("Shane", testEmail);
       return NextResponse.json({ ok: true, sent: 1, to: testEmail, type: emailType, tier });
     } catch (err) {
@@ -63,16 +68,37 @@ export async function POST(req: NextRequest) {
 
   // ── Full blast ─────────────────────────────────────────────────────────────
   if (body.test === false) {
-    const users = await getUserList();
+    const all = await getUserList();
+    // The Index permission notice goes to the Ultra tier only, whatever the
+    // Stripe status: TrustedStake membership outlives a subscription, and a
+    // lapsed subscriber can still have TAO delegated to the index. Nobody
+    // else can be a member, so nobody else gets it.
+    const users = emailType === "index-permission"
+      ? all.filter(u => u.subscriptionTier === "ultra")
+      : all;
     let sent = 0;
     let failed = 0;
     const errors: string[] = [];
+    const recipients: string[] = [];
 
     let skipped = 0;
 
     for (const u of users) {
       // Announcements are marketing: never send to someone who opted out.
       if (await isOptedOut(u.email)) { skipped++; continue; }
+
+      if (emailType === "index-permission") {
+        try {
+          await sendIndexPermissionNoticeEmail(u.name, u.email);
+          sent++;
+          recipients.push(u.email);
+          await new Promise(r => setTimeout(r, 500));
+        } catch (err) {
+          failed++;
+          errors.push(`${u.email}: ${String(err)}`);
+        }
+        continue;
+      }
 
       const tier: "free" | "pro" | "premium" =
         u.subscriptionTier === "premium" ? "premium"
@@ -96,7 +122,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    return NextResponse.json({ ok: true, total: users.length, sent, skipped, failed, errors });
+    return NextResponse.json({ ok: true, type: emailType, total: users.length, sent, skipped, failed, errors, recipients });
   }
 
   return NextResponse.json({ error: "Pass test: true or test: false" }, { status: 400 });
