@@ -267,10 +267,17 @@ export default function AlphaGapIndexPage() {
   const [isMember, setIsMember] = useState(false);
   // Read from chain, never inferred. null = not checked yet.
   //
-  // proxy.realPaysFee(delegator, strategyProxy).toJSON() returns null whether
-  // the entry exists or not, so an earlier symptom-based check asked a member
-  // to sign something he had ALREADY signed. The real signal is isEmpty: false
-  // means an entry exists and the flag is on.
+  // The fee consent lives in proxy.realPaysFeeConsentV1 (a (real, delegate)
+  // map). The chain's "authorization fix" runtime upgrade moved it there from
+  // proxy.realPaysFee and deliberately dropped every legacy entry, so members
+  // who joined before it have to sign again. This page kept reading the old
+  // item, which no longer exists, so the read threw, this stayed null, and
+  // setupComplete came out true for exactly the members whose consent was
+  // gone. Three of them were silently skipped by every rebalance from Oct 25
+  // to Nov 10 while this page told them their setup was complete.
+  //
+  // A direct query of the map returns an empty unit value whether or not the
+  // entry exists, so presence is decided from entries(real) instead.
   const [feesEnabled, setFeesEnabled] = useState<boolean | null>(null);
   // Whether the staking proxy actually exists on chain. Membership is decided
   // by TrustedStake's delegator list, which says nothing about the proxy: a
@@ -383,11 +390,23 @@ export default function AlphaGapIndexPage() {
           if (!cancelled) setHasProxy(found);
         } catch { if (!cancelled) setHasProxy(null); }
 
-        // real_pays_fee, off the same connection. Only after the wallet is
+        // Fee consent, off the same connection. Only after the wallet is
         // fully connected and we have an address - never guessed from symptoms.
+        // Presence of a (wallet, strategyProxy) entry means consent is on.
         try {
-          const rpf = await api.query.proxy.realPaysFee(selectedAddress, TS_PROXY_ADDRESS);
-          if (!cancelled) setFeesEnabled(!rpf.isEmpty);
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const consentMap: any = api.query.proxy.realPaysFeeConsentV1 ?? api.query.proxy.realPaysFee;
+          if (!consentMap?.entries) {
+            if (!cancelled) setFeesEnabled(null);
+          } else {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const entries: any[] = await consentMap.entries(selectedAddress);
+            const consented = entries.some(([key]) => {
+              const args = key?.args ?? [];
+              return args.length >= 2 && args[1].toString() === TS_PROXY_ADDRESS;
+            });
+            if (!cancelled) setFeesEnabled(consented);
+          }
         } catch { if (!cancelled) setFeesEnabled(null); }
 
         // Free balance off the same connection - one socket, not two.
@@ -878,9 +897,12 @@ export default function AlphaGapIndexPage() {
           {setupIncomplete && (
             <div className="mb-4 rounded-xl border border-amber-500/30 bg-amber-500/[0.08] px-4 py-3 max-w-xl">
               <p className="text-amber-300 text-sm">
-                <span className="font-semibold">Your setup isn&apos;t finished.</span> You joined the index, but the
-                on-chain staking permission is incomplete, so your TAO is sitting in your wallet instead of being invested.
-                TrustedStake walks you through the missing step.
+                <span className="font-semibold">Your setup isn&apos;t finished.</span>{" "}
+                {hasProxy === false
+                  ? "You joined the index, but the on-chain staking permission was never granted, so nothing can be invested for you."
+                  : "Your wallet's permission to pay the small transaction fee on rebalances is missing on chain (Bittensor reset these in October). Until you approve it again, every rebalance skips your wallet."}{" "}
+                On TrustedStake, connect this wallet and look for the <span className="font-semibold">Fee permission required</span> banner, then
+                click <span className="font-semibold">Review permissions</span> and sign. Your next rebalance picks you up automatically.
               </p>
               <a
                 href={launchUrl ?? TS_APP_URL}
